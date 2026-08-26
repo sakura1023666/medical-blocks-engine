@@ -1,0 +1,7 @@
+# Python 环境（TabICL → Excel，供 R tablcl_v2 / reticulate）
+# 安装: pip install -r python/requirements-tabicl.txt
+tabicl>=2.0.0
+pandas>=1.5.0
+numpy>=1.23.0
+scikit-learn>=1.2.0
+openpyxl>=3.1.0

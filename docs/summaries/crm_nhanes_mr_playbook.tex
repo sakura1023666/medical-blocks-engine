@@ -1,0 +1,192 @@
+% !TEX program = xelatex
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{setspace}
+\usepackage{seqsplit}
+\usepackage{amssymb}
+
+\setCJKmainfont{AR PL SungtiL GB}
+\setCJKsansfont{AR PL KaitiM GB}
+\setmainfont{DejaVu Sans}
+\setsansfont{DejaVu Sans}
+\setlength{\headheight}{14pt}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue!50!black}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 01Block · 方法套路手册}
+\fancyhead[R]{\small 共病CRM $\times$ 孟德尔随机化}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\setstretch{1.15}
+\setlength{\parskip}{0.35em}
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.15em}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=0.15em}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\title{\textbf{共病（CRM）$\times$ 孟德尔随机化套路手册}\\[0.4em]
+\large NHANES观察端 + 两样本MR · 换病换指标准备清单}
+\author{项目内部方法说明（对齐 Han 2025 \textit{JAHA} e038723；现行流水线）\\
+\small 修订：2026-07-27（协变量筛选接入发表链；移除SUA分位闸门）}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\noindent
+\textbf{一句话：}
+观察端用 NHANES 加权分析回答「\textbf{血尿酸/高尿酸/痛风} 与 \textbf{共病负担CRM} 及 \textbf{全因死亡} 的关联」；
+MR端用GWAS摘要统计回答「\textbf{SUA} $\rightarrow$ \textbf{CVD/CKD/糖尿病} 是否有因果证据」。
+两套数据\textbf{解耦}：换观察病种不必换GWAS；换MR结局不必重跑NHANES。
+
+\noindent\small\color{gray!40!black}
+术语：\texttt{CRM\_count}=CVD+CKD+Diabetes计数（0--3）；本手册「共病孟德尔」指本套路，\textbf{不是}马尔可夫链模型。
+
+\vspace{0.5em}
+\begin{center}
+\small
+\begin{tabular}{@{}L{0.20\textwidth}L{0.38\textwidth}L{0.38\textwidth}@{}}
+\toprule
+& \textbf{观察端（NHANES）} & \textbf{MR端（两样本）} \\
+\midrule
+研究问题 & 暴露 $\leftrightarrow$ CRM / 死亡 & 暴露GWAS $\rightarrow$ 结局GWAS \\
+暴露 & SUA / 高尿酸 / 痛风（代理） & 暴露GWAS IV（如SUA） \\
+结局 & CRM计数；全因死亡 & CVD / CKD / Diabetes等 \\
+核心方法 & 加权有序logistic；加权Cox；KM；RCS & IVW + Egger/中位数/PRESSO等 \\
+权重 & 调查权重+strata+PSU & 不需要个体权重 \\
+方法学文献 & Han 2025 JAHA & 同文Table~5 / 补充MR \\
+产出示例 & \texttt{NHANES\_pub\_deliverables/} & 同目录 \texttt{Figures/MR/} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{套路总览：在做什么}
+
+\begin{enumerate}
+  \item \textbf{共享派生}：NHANES宽表左连接死亡链接 $\rightarrow$ 入排（年龄等）$\rightarrow$ SUA/高尿酸/CRM组分/权重/随访时间。
+  \item \textbf{obs\_main}：先做协变量筛选（univariate $\rightarrow$ VIF screen $\rightarrow$ multivariate $\rightarrow$ VIF final），再跑基线、有序OR、Cox HR、KM、RCS（Model2优先使用筛选结果）。
+  \item \textbf{obs\_strata}：亚组OR/HR、死亡率补充表等。
+  \item \textbf{mr\_*}：暴露IV筛选 $\rightarrow$ 与结局协调 $\rightarrow$ MR估计 + scatter/forest/LOO/funnel。
+  \item \textbf{finalize}：白名单折叠为 \texttt{NHANES\_pub\_deliverables}（Table~1--3、S1--S11、Fig~1--2/S1、MR~S2--S13）。
+\end{enumerate}
+
+\section{换病 / 换指标：应准备什么数据}
+
+\subsection{A. 观察端（换暴露指标或共病定义时）}
+
+\textbf{必备文件}
+\begin{itemize}
+  \item 个体宽表（\texttt{.RData}/\texttt{.rds}）：一行一人，含唯一ID（如\texttt{SEQN}）。
+  \item 死亡/随访表：可与ID左连接；至少 \texttt{mortstat}（或等价死亡指示）+ \texttt{permth\_int}（或随访月数）。
+\end{itemize}
+
+\textbf{必备列（名可映射，语义要对）}
+\begin{itemize}
+  \item \textbf{暴露}: 连续指标列（现默认\texttt{UricAcid}$\rightarrow$SUA）；可选自报痛风列（无则用代理切点，结果须标注局限）。
+  \item \textbf{共病组分}（合成CRM）: 糖尿病指示；CVD相关指示（可多列OR）；肾功能（肌酐$\pm$年龄性别种族$\rightarrow$eGFR/CKD，或直接CKD列）。
+  \item \textbf{调查设计}: 权重、\texttt{SDMVSTRA}、\texttt{SDMVPSU}（或等价）。
+  \item \textbf{协变量}（亚组/调整）: 年龄、性别、BMI、吸烟、教育、收入等——按目标文献Model决定。
+  \item \textbf{入排}: 年龄下界等（现$\geq$45）。
+\end{itemize}
+
+\textbf{换病时改什么（config，不改Blocks~01--69）}
+\begin{itemize}
+  \item \texttt{crm\_nhanes\_pub\$sua\_col} / 高尿酸切点 / \texttt{diabetes\_col} / \texttt{cvd\_cols} / CKD规则。
+  \item 若CRM改为「其他三病组合」：改派生逻辑所读列，并同步flowchart/表题文案。
+  \item 死亡结局若非全因：需有对应状态列，并改Cox/KM标签。
+\end{itemize}
+
+\subsection{B. MR端（换暴露GWAS或结局病种时）}
+
+\textbf{必备文件}
+\begin{itemize}
+  \item \textbf{暴露GWAS}：全基因组或显著SNP摘要；推荐含 \texttt{rsid}/\texttt{hm\_rsid}、effect/other allele、beta、se、pval、eaf、N。
+  \item \textbf{结局GWAS}：每个结局一个文件（如FinnGen/IEU）；列语义同上，可另存\texttt{outcome\_map}。
+  \item \textbf{LD参考}：PLINK bfile（现用1000G EUR）+ \texttt{plink}可执行文件（用于clump）。
+\end{itemize}
+
+\textbf{换结局病时}
+\begin{itemize}
+  \item 在 \texttt{dual\_incidence\_mr\$mr\_outcomes} 与 \texttt{outcome\_map} 增删结局；准备对应gz/tsv。
+  \item 清旧IV缓存或改 \texttt{iv\_cache\_path}；\texttt{--no-skip} 重跑对应 \texttt{mr\_*} unit。
+\end{itemize}
+
+\textbf{换暴露指标时}
+\begin{itemize}
+  \item 换 \texttt{gwas\_exposure} 路径与 \texttt{exposure\_name}/\texttt{exposure\_n}；重做clump缓存。
+  \item 观察端暴露列与MR暴露\textbf{概念对齐}（同一生物学指标），但样本必须独立（两样本MR假设）。
+\end{itemize}
+
+\subsection{C. 明确不需要 / 常见误区}
+\begin{itemize}
+  \item MR\textbf{不需要}个体基因型或NHANES里的SNP。
+  \item 观察端\textbf{不需要}日序列实验室轨迹（那是竞争风险套路）。
+  \item 无真实痛风问卷时，\texttt{gout\_proxy\_sua\_cut} 会使「痛风$\times$正常尿酸」交叉为空——换病若依赖痛风分层，必须准备真实痛风列。
+\end{itemize}
+
+\section{典型流水线}
+
+\begin{center}
+\small
+\texttt{共享: load $\rightarrow$ derive/checkpoint}\\[0.3em]
+\texttt{obs\_main / obs\_strata $\parallel$ mr\_cvd / mr\_ckd / mr\_diabetes}\\[0.3em]
+\texttt{$\rightarrow$ crm\_nhanes\_pub\_deliverables（白名单）}
+\end{center}
+
+\noindent
+入口：\texttt{run/crm\_nhanes\_mr/run\_crm\_nhanes\_mr\_batch.R}\\
+配置：\texttt{configs/templates/config\_crm\_nhanes\_mr\_batch.template.R}\\
+产出根：\texttt{14\_CRM/comorbid\_Mendelia\_randomization\_*}
+
+\section{现行发表产出（白名单）}
+
+\begin{itemize}
+  \item \textbf{表}: Table~1 有序OR；Table~2 Cox；Table~3 MR；S1 IV；S2 GWAS清单；S3--S7 基线/死亡/亚组；S8--S11 协变量筛选链结果（单因素/VIF screen/多因素/VIF final）。
+  \item \textbf{图}: Fig~1 KM；Fig~2 RCS；S1 flowchart；MR S2--S13（scatter/forest/LOO/funnel）。
+  \item Forest/LOO：\textbf{TwoSampleMR默认单SNP样式}；高度随SNP数缩放（避免标签叠成一团）。
+\end{itemize}
+
+\section{换题最小清单（复制打勾）}
+
+\begin{tabularx}{\textwidth}{@{}L{0.08\textwidth}X@{}}
+\toprule
+\textbf{} & \textbf{检查项} \\
+\midrule
+$\square$ & 观察宽表 + ID + 暴露列 + 共病组分列 + 权重/strata/PSU \\
+$\square$ & 死亡链接表（状态 + 随访时间）可合并 \\
+$\square$ & 暴露GWAS（allele/beta/se/p/eaf）+ 样本量 \\
+$\square$ & 每个MR结局各一份GWAS + \texttt{outcome\_map} \\
+$\square$ & PLINK + EUR LD bfile 可用 \\
+$\square$ & 已改config路径/列名/切点/表图标题；\texttt{--no-skip} 计划明确 \\
+$\square$ & 痛风若关键：真实问卷列（勿仅依赖SUA代理） \\
+\bottomrule
+\end{tabularx}
+
+\section{与IPW / 竞争风险套路的边界}
+
+\begin{tabularx}{\textwidth}{@{}L{0.22\textwidth}X X@{}}
+\toprule
+\textbf{维度} & \textbf{本套路（CRM$\times$MR）} & \textbf{对照} \\
+\midrule
+混杂处理 & 调查加权 + 多模型调整 & IPW用PS加权 \\
+死亡 & 观察端主结局之一 & 竞争风险里常作竞争事件 \\
+因果层 & 人群外GWAS两样本MR & IPW/竞争风险一般不做MR \\
+必备特殊数据 & 暴露+结局GWAS摘要 & IPW要HbA1c暴露；竞争风险要日序列 \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1em}
+\noindent\small\color{gray!60!black}
+证据与表号对应以Han~2025及本仓库交付白名单为准；换病后表题/图注必须改写，勿沿用SUA/CRM字样。
+
+\end{document}

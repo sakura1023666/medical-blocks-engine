@@ -1,0 +1,310 @@
+# Review package: Task 7
+## Diff: R/pipeline_capability_layer.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/R/pipeline_capability_layer.R	2026-08-18 09:25:46.586016800 +0800
++++ /mnt/e/01block/01Block-new-Final/R/pipeline_capability_layer.R	2026-08-18 09:29:19.773427700 +0800
+@@ -758,25 +758,21 @@
+ # ── 敏感性默认场景 ──────────────────────────────────────────────────────────
+ 
+ pipeline_default_sensitivity_scenarios <- function(cfg = list()) {
+   alias <- (cfg$capability %||% list())$variable_aliases %||% list()
+   age_v <- as.character(alias$age %||% "Age")[1L]
+-  ht_v <- as.character(alias$hypertension %||% "Hypertension")[1L]
+-  dm_v <- as.character(alias$diabetes %||% "Diabetes")[1L]
++  cut <- as.integer(
++    (cfg$incidence_batch %||% list())$sensitivity_suite$age_cutoff %||%
++      (cfg$survival_batch %||% list())$sensitivity_suite$age_cutoff %||% 65
++  )[1L]
+   list(
+-    list(name = "age_lt_65", label = "Age_lt_65",
+-         expr = sprintf("as.numeric(%s) < 65", age_v),
++    list(name = "age_lt", label = sprintf("SA_age_lt_%s", cut),
++         expr = sprintf("as.numeric(%s) < %s", age_v, cut),
+          required_vars = age_v),
+-    list(name = "age_ge_65", label = "Age_ge_65",
+-         expr = sprintf("as.numeric(%s) >= 65", age_v),
+-         required_vars = age_v),
+-    list(name = "exclude_hypertension", label = "Exclude_hypertension",
+-         expr = sprintf("!(as.character(%s) %%in%% c('1','Yes','yes','TRUE','True')) & !(suppressWarnings(as.numeric(as.character(%s))) == 1)", ht_v, ht_v),
+-         required_vars = ht_v),
+-    list(name = "exclude_diabetes", label = "Exclude_diabetes",
+-         expr = sprintf("!(as.character(%s) %%in%% c('1','Yes','yes','TRUE','True')) & !(suppressWarnings(as.numeric(as.character(%s))) == 1)", dm_v, dm_v),
+-         required_vars = dm_v)
++    list(name = "age_ge", label = sprintf("SA_age_ge_%s", cut),
++         expr = sprintf("as.numeric(%s) >= %s", age_v, cut),
++         required_vars = age_v)
+   )
+ }
+ 
+ pipeline_sensitivity_scenarios_for_data <- function(cfg, data = NULL) {
+   sens <- (cfg$capability %||% list())$sensitivity_suite %||%
+
+## Diff: configs/templates/config_incidence_dual_batch.template.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/configs/templates/config_incidence_dual_batch.template.R	2026-08-18 09:25:46.602023500 +0800
++++ /mnt/e/01block/01Block-new-Final/configs/templates/config_incidence_dual_batch.template.R	2026-08-18 09:34:36.954780500 +0800
+@@ -261,21 +261,19 @@
+       OAScore_z = c("Age", "HbA1c", "Total_Cholesterol")
+     ),
+     base_subgroup_vars = c("Age", "Gender", "Race", "Smoking", "Hypertension", "Diabetes"),
+ 
+     # ── 敏感性分析（主分析 success 后自动执行；亦可 --sensitivity-only 单独补跑）──
+-    # 未声明 scenarios 时可由能力层默认：Age<65 / Age>=65 / 排除高血压 / 排除糖尿病
++    # Yes/No 从两库 Table 1 动态生成（两库 Yes n>50）；年龄分层用 age_cutoff。
++    # complete_case=TRUE（默认）：插补前 mapped/cleaned 对暴露+结局+锁定 Model1/2 listwise。
++    # 忽略旧课题残留的 scenarios；勿在此手写四场。
+     sensitivity_suite = list(
+-      enable       = TRUE,
+-      age_cutoff   = 65L,
+-      min_n_per_db = 50L,
+-      scenarios = list(
+-        list(label = "SA_no_hypertension", expr = 'is.na(Hypertension) | Hypertension != "Yes"'),
+-        list(label = "SA_no_diabetes",     expr = 'is.na(T2DM) | T2DM != "Yes"'),
+-        list(label = "SA_age_ge_{age_cutoff}", expr = "Age >= {age_cutoff}"),
+-        list(label = "SA_age_lt_{age_cutoff}", expr = "Age < {age_cutoff}")
+-      )
++      enable         = TRUE,
++      age_cutoff     = 65L,
++      min_n_per_db   = 50L,
++      min_yes_n      = 50L,
++      complete_case  = TRUE
+     ),
+ 
+     # ── 失败指标亚组补救重跑（详见 R/incidence_subgroup_fallback.R）──────────────
+     #  某指标在主批量流程失败后，按以下亚组把人群剔除一部分，重跑整个双库发病流程。
+     #  触发：主批量跑完后自动对本批 failed/error 指标执行（enable=TRUE）；
+
+## Diff: configs/study_interface/incidence_dual_batch_build.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/configs/study_interface/incidence_dual_batch_build.R	2026-08-18 09:25:46.617956400 +0800
++++ /mnt/e/01block/01Block-new-Final/configs/study_interface/incidence_dual_batch_build.R	2026-08-18 09:34:36.956088100 +0800
+@@ -179,21 +179,17 @@
+       "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR",
+       "SDMVPSU", "SDMVSTRA", "Source_File"),
+     extra_index_exclude_vars = c("Hemoglobin"),
+     base_subgroup_vars = c("Age", "Gender", "Race", "Hypertension", "T2DM",
+                            "COPD", "Heart_Failure", "CKD", "Pneumonia"),
++    # Yes/No 从两库 Table 1 动态生成；忽略旧课题残留的 scenarios
+     sensitivity_suite = if (sens_enable) list(
+-      enable = TRUE, age_cutoff = age_cutoff, min_n_per_db = 50L,
+-      scenarios = list(
+-        list(label = "SA_no_hypertension",
+-             expr = 'is.na(Hypertension) | trimws(as.character(Hypertension)) != "Yes"'),
+-        list(label = "SA_no_diabetes",
+-             expr = 'is.na(T2DM) | trimws(as.character(T2DM)) != "Yes"'),
+-        list(label = "SA_no_cancer",
+-             expr = 'is.na(Cancer) | trimws(as.character(Cancer)) != "Yes"'),
+-        list(label = "SA_age_lt_{age_cutoff}", expr = "Age < {age_cutoff}")
+-      )
++      enable         = TRUE,
++      age_cutoff     = age_cutoff,
++      min_n_per_db   = 50L,
++      min_yes_n      = 50L,
++      complete_case  = TRUE
+     ) else list(enable = FALSE)
+   )
+ )
+ 
+ # 合并 block 级默认参数 + pipeline（来自引擎内标准模板，程序员不可见）
+
+## Diff: configs/templates/config_survival_dual_batch.template.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/configs/templates/config_survival_dual_batch.template.R	2026-08-18 09:25:46.635533500 +0800
++++ /mnt/e/01block/01Block-new-Final/configs/templates/config_survival_dual_batch.template.R	2026-08-18 09:34:36.955781500 +0800
+@@ -112,12 +112,20 @@
+     gate_a_missing_threshold = 1.0,
+     min_valid_per_db = 50L,
+     nhanes_imputation_threshold = 0.40,
+     mimic_imputation_threshold = 0.40,
+     base_exclude_vars = c("ID", "subject_id", "Hemoglobin", "futime", "fustatus"),
+-    # 敏感性默认场景：未声明 scenarios 时由能力层回退 Age<65 / Age>=65 / 排除高血压/糖尿病
+-    sensitivity_suite = list(enable = FALSE, age_cutoff = 65)
++    # ── 敏感性（与发病同构）：Yes/No 从两库 Table 1 动态生成；忽略旧课题残留的 scenarios。
++    # complete_case=TRUE（默认）：插补前 mapped/cleaned 对暴露+时间/结局+锁定 Model1/2 listwise。
++    # enable 由 study_interface build 的 sens_enable 覆盖。
++    sensitivity_suite = list(
++      enable         = TRUE,
++      age_cutoff     = 65L,
++      min_n_per_db   = 50L,
++      min_yes_n      = 50L,
++      complete_case  = TRUE
++    )
+   ),
+   capability = list(
+     exposure_mode = "primary_only",
+     variable_aliases = list(age = "Age", hypertension = "Hypertension", diabetes = "Diabetes")
+   ),
+
+## Diff: configs/study_interface/survival_dual_batch_build.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/configs/study_interface/survival_dual_batch_build.R	2026-08-18 09:25:46.652536000 +0800
++++ /mnt/e/01block/01Block-new-Final/configs/study_interface/survival_dual_batch_build.R	2026-08-18 09:34:22.754170800 +0800
+@@ -190,22 +190,17 @@
+       "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"),
+     extra_index_exclude_vars = c("Hemoglobin"),
+     base_subgroup_vars = c("Age", "BMI", "Gender", "Hypertension", "T2DM",
+                            "COPD", "Heart_Failure", "CKD", "Pneumonia"),
+     protect_index_cols = c("BMI", "Weight", "Height"),
++    # Yes/No 从两库 Table 1 动态生成；忽略旧课题残留的 scenarios
+     sensitivity_suite = if (sens_enable) list(
+-      enable = TRUE, age_cutoff = age_cutoff, min_n_per_db = 50L,
+-      scenarios = list(
+-        # trimws：原始库常有 "Yes "/"No " 尾随空格，否则过滤恒真
+-        list(label = "SA_no_hypertension",
+-             expr = 'is.na(Hypertension) | trimws(as.character(Hypertension)) != "Yes"'),
+-        list(label = "SA_no_diabetes",
+-             expr = 'is.na(T2DM) | trimws(as.character(T2DM)) != "Yes"'),
+-        list(label = "SA_no_cancer",
+-             expr = 'is.na(Cancer) | trimws(as.character(Cancer)) != "Yes"'),
+-        list(label = "SA_age_lt_{age_cutoff}", expr = "Age < {age_cutoff}")
+-      )
++      enable         = TRUE,
++      age_cutoff     = age_cutoff,
++      min_n_per_db   = 50L,
++      min_yes_n      = 50L,
++      complete_case  = TRUE
+     ) else list(enable = FALSE),
+     subgroup_fallback = if (sgfb_enable) list(
+       enable = TRUE, try_all = TRUE, min_n_per_subgroup = 30L,
+       sep = "|", age_cutoff = age_cutoff, age_mid_lower = 45L,
+       obesity_standard = "chinese",
+
+## Diff: R/incidence_pipeline_brief.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/R/incidence_pipeline_brief.R	2026-08-18 09:25:46.667531800 +0800
++++ /mnt/e/01block/01Block-new-Final/R/incidence_pipeline_brief.R	2026-08-18 09:29:41.346789600 +0800
+@@ -427,19 +427,26 @@
+       "════════════════════════════════════════════════════════════",
+       "五、敏感性分析",
+       "════════════════════════════════════════════════════════════",
+       if (length(scen)) paste0("- 已跑场景: ", paste(scen, collapse = ", "))
+       else "- sensitivity 目录存在但尚无子场景。",
+-      "- 规则通常为剔除高血压/糖尿病，或按 Age≥65 / Age<65 分层重跑主链路。",
++      "- 轻量：主分析插补后删人，只重跑 Table 1/Table 2。",
++      "- 场景来自 Table 1 Yes/No（两库 Yes>50）+ 年龄分层。",
++      "- 目录 【success】/【failed】。",
++      "- 表 S12/S13。",
+       ""
+     )
+   } else {
+     sens_lines <- c(
+       "════════════════════════════════════════════════════════════",
+       "五、敏感性分析",
+       "════════════════════════════════════════════════════════════",
+       "- 主分析成功后由 sensitivity_suite 自动触发（若 config 开启）。",
++      "- 轻量：主分析插补后删人，只重跑 Table 1/Table 2。",
++      "- 场景来自 Table 1 Yes/No（两库 Yes>50）+ 年龄分层。",
++      "- 目录 【success】/【failed】。",
++      "- 表 S12/S13。",
+       "- 本目录尚未出现 sensitivity/ 子文件夹。",
+       ""
+     )
+   }
+ 
+
+## Diff: skills/deploy-programmer-interface/reference.md
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/skills/deploy-programmer-interface/reference.md	2026-08-18 09:25:46.684531900 +0800
++++ /mnt/e/01block/01Block-new-Final/skills/deploy-programmer-interface/reference.md	2026-08-18 09:33:38.138904100 +0800
+@@ -3,11 +3,11 @@
+ ## 三种「亚组」区别
+ 
+ | 名称 | Config | 何时跑 | 对象 | 目的 |
+ |------|--------|--------|------|------|
+ | **主流程亚组** `subgroup_incidence` 等 | pipeline block | 每次分析链末尾 | 当前队列 | 分层 OR + P for interaction（森林图） |
+-| **敏感性** `sensitivity_suite` | `incidence_batch$sensitivity_suite` | 主分析 **success** 后 | success 指标 | 换队列稳健性（排除 HTN/DM、年龄分层） |
++| **敏感性** `sensitivity_suite` | `incidence_batch$sensitivity_suite` | 主分析 **success** 后 | success 指标 | 轻量稳健性：Table 1 Yes/No（两库 Yes>50）+ 年龄分层；只重跑 Table 1/2 |
+ | **亚组补救** `subgroup_fallback` | `incidence_batch$subgroup_fallback` | 主分析 **failed** 后 | failed 指标 | 缩小人群试图救活整条流水线 |
+ 
+ ```mermaid
+ flowchart TD
+   A[主分析 全人群] --> B{status}
+@@ -21,31 +21,29 @@
+ ## 敏感性 vs data_clean$age_filter
+ 
+ | 方式 | 作用点 | 适用 |
+ |------|--------|------|
+ | `data_clean$age_filter` | 共享层 data_clean | 主分析就要限定人群 |
+-| `sensitivity_suite` / `.subgroup_fallback_expr` | worker 复制 shared ck 后 | 主分析全人群 + 事后敏感性 |
++| `sensitivity_suite` | 主分析插补后 checkpoint 上删人 | 主分析全人群 + 事后轻量敏感性（只 Table 1/2） |
++| `.subgroup_fallback_expr` | worker 复制 shared ck 后 | 失败指标缩小人群重跑整链 |
+ 
+ **敏感性不要用 `age_filter`**，否则共享层 cohort 被改，所有指标都受影响。
+ 
+ ## sensitivity_suite 配置示例
+ 
+ ```r
+ sensitivity_suite = list(
+-  enable = TRUE,
+-  age_cutoff = 65L,
++  enable       = TRUE,
++  age_cutoff   = 65L,
+   min_n_per_db = 50L,
+-  scenarios = list(
+-    list(label = "SA_no_hypertension", expr = 'is.na(Hypertension) | Hypertension != "Yes"'),
+-    list(label = "SA_no_diabetes",     expr = 'is.na(T2DM) | T2DM != "Yes"'),
+-    list(label = "SA_age_ge_{age_cutoff}", expr = "Age >= {age_cutoff}"),
+-    list(label = "SA_age_lt_{age_cutoff}", expr = "Age < {age_cutoff}")
+-  )
++  min_yes_n    = 50L
+ )
+ ```
+ 
+-薄 config：`.study$sensitivity_enable = TRUE` 即可（build 脚本注入上述默认场景）。
++Yes/No 场景从两库 Table 1 动态生成（两库 Yes n>50）；年龄分层用 `age_cutoff`。忽略旧课题残留的 `scenarios`，勿再手写四场。
++
++薄 config：`.study$sensitivity_enable = TRUE` 即可（build 注入上述键，不注入手写 scenarios）。
+ 
+ ## 引擎文件清单（incidence dual batch 已具备）
+ 
+ | 文件 | 职责 |
+ |------|------|
+@@ -58,11 +56,12 @@
+ ## 产出路径
+ 
+ ```
+ studies/<研究>/by_index/<指标>/
+ ├── eICU/  MIMIC/           # 主分析
+-├── sensitivity/SA_xxx/     # 敏感性
++├── sensitivity/【success】<label>/  # 敏感性成功（S12/S13）
++├── sensitivity/【failed】<label>/   # 敏感性失败仍出表
+ └── _batch_status.json
+ ```
+ 
+ ## 模板【必改】键（incidence_dual_batch）
+ 
+
+## Diff: R/sensitivity_scenario_runner.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/R/sensitivity_scenario_runner.R	2026-08-18 09:25:46.699534200 +0800
++++ /mnt/e/01block/01Block-new-Final/R/sensitivity_scenario_runner.R	2026-08-18 09:29:41.345786800 +0800
+@@ -1,10 +1,11 @@
+ ###############################################################################
+ #  sensitivity_scenario_runner.R — 发病/预后通用敏感性场景 runner
+ #
+-#  默认场景：Age <65 / Age >=65 / 排除高血压 / 排除糖尿病
+-#  - 双库批量：复用 incidence_sensitivity_suite 的 worker 过滤机制
++#  默认场景：仅年龄分层（SA_age_lt_{cutoff} / SA_age_ge_{cutoff}）。
++#  双库 Yes/No 发现不放进无数据的 default（没有 Table 1 会误生成）。
++#  - 双库批量：复用 incidence_sensitivity_suite（Table 1 Yes/No + 年龄）
+ #  - 单库研究：就地过滤 imputed 数据并可选重跑指定 blocks
+ ###############################################################################
+ 
+ sensitivity_resolve_scenarios <- function(config, data = NULL) {
+   if (exists("pipeline_sensitivity_scenarios_for_data", mode = "function")) {
+
+## Diff: tests/test_incidence_sensitivity_light.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task7/tests/test_incidence_sensitivity_light.R	2026-08-18 09:25:46.715040800 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-18 09:31:28.962545000 +0800
+@@ -362,5 +362,18 @@
+ # 非轻量路径仍保留 copy shared
+ stopifnot(grepl("incidence_batch_copy_shared_ck", inc_w, fixed = TRUE))
+ stopifnot(grepl("incidence_batch_copy_shared_ck", surv_w, fixed = TRUE))
+ 
+ cat("Task6 OK\n")
++
++# ── Task 7: Config / 能力层默认场景（仅年龄两场；无手写四场）──────────────
++source(file.path(root, "R/pipeline_capability_layer.R"), local = FALSE)
++src_tpl <- paste(readLines("configs/templates/config_incidence_dual_batch.template.R", warn = FALSE), collapse = "\n")
++stopifnot(!grepl("SA_no_hypertension", src_tpl))
++stopifnot(grepl("min_yes_n", src_tpl))
++src_b <- paste(readLines("configs/study_interface/incidence_dual_batch_build.R", warn = FALSE), collapse = "\n")
++stopifnot(!grepl("SA_no_hypertension", src_b))
++defs <- pipeline_default_sensitivity_scenarios(list())
++labs <- vapply(defs, function(s) s$label, character(1))
++stopifnot(any(grepl("age_lt", labs)))
++stopifnot(!any(grepl("hypertension", labs, ignore.case = TRUE)))
++cat("Task7 OK\n")
+

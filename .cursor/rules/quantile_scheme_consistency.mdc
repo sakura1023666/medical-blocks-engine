@@ -1,0 +1,45 @@
+---
+description: 分位一致性：主文 logistic 四分位则 change/敏感性/汇总全部同分位，禁止 phase 各自为政
+alwaysApply: true
+---
+
+# 分位一致性铁律（全项目复用）
+
+所有发病 / 预后 / 交叉滞后 / 敏感性分析项目必须遵守。同一个课题内，**分位数只能有一个来源：主文 logistic 闸门（gate）选定的 grouping**。下游所有表禁止自行写死分位。
+
+## 铁律
+
+1. **单一事实来源**：课题主文 logistic 的 grouping（`binary` / `tertile` / `quartile` / `quintile`）决定全套表格分位。主文 Table 2 是 quartile → change 分析（Table S5/S5.1）、敏感性（S10/S11/S14/S16/S17 系列）、亚组、汇总表全部必须是 quartile。
+2. **禁止 phase 硬编码**：任何 phase / block / 汇总脚本不得写死 `scheme = "tertile"`（或其它分位）覆盖课题配置。分位必须从链上取：
+   - 课题元数据：`cross_lagged_study_meta(study_root)$grouping`（`R/cross_lagged_study_meta.R`）
+   - 或验收文件：`phase3_relock_acceptance.txt` 的 `main_grouping=` 行
+   - 兜底顺序：study_meta → relock acceptance → tertile（仅髋部默认）
+3. **敏感性分析必须跟主文**：`phase_sensitivity.R` 的 change 配置 `scheme` 必须用 `.meta$grouping`，不得固定 tertile（痴呆课题的 C02.3 复刻例外，已在代码中显式标注）。
+4. **合并表按分位生成行结构**：`cross_lagged_change_build_table_s5` 以首个 rds 的 `n_quantile` 生成 Q 行；重跑后所有库 rds 必须同一分位，否则 Q 行错位。
+5. **表注必须写明 grouping**：每张 change/敏感性表注需含 `Grouping=<scheme> (n levels), aligned with main logistic gate`。
+6. **改分位 = 全链重跑**：主文改分位后，必须重跑 `long_figs --change-only`（S5/S5.1）+ `sensitivity`（S10–S17.1）+ `summary`，并清掉旧的 tertile 版本表，防止新旧混留。
+
+## 实现入口（挂载点）
+
+- change 块：`Blocks/54_cross_lagged_full/20block_cross_lagged_change_logistic.R`
+  - `.cross_lagged_change_resolve_scheme()`：`n_quantile` > `scheme` > `logistic_grouping_scheme` 链条，phase 必须传入课题 grouping
+- 主 phase：`Blocks/54_cross_lagged_full/phases/phase_long_figs.R`
+  - `.lock_scheme <- cross_lagged_study_meta(study_root)$grouping`（relock acceptance 可覆盖）
+- 敏感性 phase：`Blocks/54_cross_lagged_full/phases/phase_sensitivity.R`
+  - `scheme = .meta$grouping`（痴呆例外显式标注）
+- 课题 meta：`R/cross_lagged_study_meta.R`（新课题在此登记 kind/grouping/labels）
+
+## 新课题检查清单
+
+- [ ] `cross_lagged_study_meta` 已为本课题写对 `grouping`（与主文 Table 2 闸门一致）
+- [ ] 跑完 long_figs 后检查 `Table_Change_FI_meta.csv` 的 `scheme` / `n_quantile` 与主文一致
+- [ ] 敏感性 README 的 `logistic_grouping=` 与主文一致
+- [ ] 汇总表（summary_result/table）中 change 表行数 = Mean/Change 各 n 个 Q 组（含 Q1 Ref）
+- [ ] 主文换分位后旧分位表已删除，不留混合版本
+
+## 反例（禁止）
+
+- 主文 Table 2 quartile，Table S5 却是 tertile（Q1–Q3）
+- phase 里 `scheme = "tertile"` 写死，覆盖课题 quartile
+- 敏感性 S11 用 .meta$grouping 之外的固定分位
+- 只重跑主表不重跑敏感性，summary_result 里新旧分位并存

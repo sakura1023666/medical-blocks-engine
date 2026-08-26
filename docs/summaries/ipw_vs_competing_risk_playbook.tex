@@ -1,0 +1,161 @@
+% !TEX program = xelatex
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{setspace}
+\usepackage{seqsplit}
+
+\setCJKmainfont{AR PL SungtiL GB}
+\setCJKsansfont{AR PL KaitiM GB}
+\setmainfont{DejaVu Sans}
+\setsansfont{DejaVu Sans}
+\setlength{\headheight}{14pt}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue!50!black}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 01Block · 方法套路对照}
+\fancyhead[R]{\small IPW用药 vs 竞争风险}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\setstretch{1.15}
+\setlength{\parskip}{0.35em}
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.15em}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=0.15em}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\title{\textbf{用药IPW套路与竞争风险套路对照摘要}\\[0.4em]
+\large MIMIC重症缺血性卒中 · 28天窗口}
+\author{项目内部方法说明（基于现行设计规格）\\
+\small 修订：2026-07-23（用药取消实验室复合指标；STEPP用Jin预后风险分）}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\noindent
+\textbf{一句话对照：}
+用药IPW回答「\textbf{有没有糖尿病} 是否与 \textbf{28天全因死亡} 相关」；
+竞争风险回答「\textbf{实验室复合指标}（四分位/轨迹）是否与 \textbf{28天内糖尿病事件} 相关，并处理死亡/出院竞争」。
+
+\noindent\small\color{gray!40!black}
+术语区分：用药侧的 \texttt{composite\_risk} = Jin原文式\textbf{预后Cox线性预测值}，\textbf{不是}NLR等实验室复合指标。
+
+\vspace{0.5em}
+\begin{center}
+\small
+\begin{tabular}{@{}L{0.22\textwidth}L{0.36\textwidth}L{0.36\textwidth}@{}}
+\toprule
+& \textbf{用药IPW（Jin）} & \textbf{竞争风险（Lai）} \\
+\midrule
+研究问题 & 糖尿病 $\rightarrow$ 死亡 & 实验室指标 $\rightarrow$ 糖尿病（+竞争） \\
+暴露 & 糖尿病（HbA1c$\geq$6.5） & 实验室复合指标四分位/轨迹 \\
+主结局 & 28天全因死亡 & 28天内首次HbA1c$\geq$6.5 \\
+核心方法 & 倾向评分 + IPW & Fine-Gray / CIF \\
+实验室复合指标 & \textbf{不用} & \textbf{作为暴露}（并行batch） \\
+STEPP & 横轴=预后风险分\texttt{composite\_risk} & 无此图 \\
+方法学文献 & Jin 2026 & Lai 2025 \\
+产出示例 & \texttt{Medication\_.../【success】main} & \texttt{Competing\_risk\_model\_40119388} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{套路A：用药IPW（糖尿病 $\times$ 28天死亡）}
+
+\subsection{在做什么}
+\begin{enumerate}
+  \item \textbf{定义暴露}：MICE后由 HbA1c$\geq$6.5\% 派生 \texttt{Diabetes\_HbA1c}；原始HbA1c与糖尿病诊断列硬排除，不进PS。
+  \item \textbf{协变量}：单因素Cox（$P<0.10$）$\rightarrow$ VIF $\rightarrow$ 临床 \texttt{Model2Factors}（\textbf{不含}实验室复合指标、不含暴露）。
+  \item \textbf{预后风险分（仅供STEPP）}：用Model2Factors拟合28天死亡Cox，得 \texttt{composite\_risk}=LP（对齐Jin；\textbf{不是}NLR类指标）。
+  \item \textbf{IPW主分析}：PS加权后，比较糖尿病 vs 非糖尿病的28天全因死亡（加权KM + IPW-Cox）。
+  \item \textbf{扩展}：亚组森林、年龄分层KM、STEPP（两臂=Diabetes，$\mathrm{x}$=预后风险分）、敏感性Cox/重叠权重、校准+ROC。
+  \item \textbf{架构}：单次 \texttt{unit=main}；\textbf{无}实验室复合指标并行。
+\end{enumerate}
+
+\subsection{需要什么样的数据}
+\begin{itemize}
+  \item 队列：基线宽表 + 预后；暴露用HbA1c；结局用28天生存时间/死亡指示。
+  \item 协变量：人口学、合并症、严重程度、常规实验室等（供筛选进PS）。
+  \item \textbf{明确不需要}：NLR等实验室复合指标、指标日序列、出院竞争事件编码。
+\end{itemize}
+
+\subsection{典型流水线}
+\begin{center}
+\small
+\texttt{clean $\rightarrow$ mapping $\rightarrow$ impute $\rightarrow$ 暴露派生 $\rightarrow$ 硬排除}\\
+\texttt{$\rightarrow$ 单因素 $\rightarrow$ VIF $\rightarrow$ 预后风险分 $\rightarrow$ IPW}\\
+\texttt{$\rightarrow$ KM/亚组/STEPP/敏感性/校准 $\rightarrow$ pub}
+\end{center}
+
+\subsection{发表产出（表已精简为5张）}
+\begin{itemize}
+  \item 图：Fig.1--5（Fig.5 STEPP横轴=预后风险分）；Supp S1--S4（缺失、PS+Love、未加权KM、校准+ROC）
+  \item 表：Table~1 sIPTW基线；S1 Uno C-index；S2插补前后基线；S3单因素；S4 VIF
+\end{itemize}
+
+\section{套路B：竞争风险（实验室复合指标 $\times$ 28天糖尿病）}
+
+\subsection{在做什么}
+\begin{enumerate}
+  \item 28天内编码：status=1糖尿病（首次HbA1c$\geq$6.5），2死亡，3出院，0删失。
+  \item 暴露=当前\textbf{实验室复合指标}的四分位 + 28天轨迹分型。
+  \item 主分析：CIF + Fine-Gray（Model~1--3）；死亡侧、RCS、轨迹图等。
+  \item 特征：单因素$\rightarrow$LASSO$\rightarrow$RF；指标并行worker。
+\end{enumerate}
+
+\subsection{需要什么样的数据}
+\begin{itemize}
+  \item 基线 + HbA1c日序列 + 死亡/出院时间 + 复合指标日序列。
+  \item 公式含糖尿病/HbA1c的指标不入队；现行设计不排除基线已有糖尿病。
+\end{itemize}
+
+\subsection{典型流水线}
+\begin{center}
+\small
+\texttt{指标暴露 $\rightarrow$ 排除/trim $\rightarrow$ 轨迹}\\
+\texttt{$\rightarrow$ Fine-Gray / CIF / RCS / 敏感性 / pub}
+\end{center}
+
+\section{两套路对照}
+
+\begin{tabularx}{\textwidth}{@{}L{0.20\textwidth}X X@{}}
+\toprule
+\textbf{维度} & \textbf{用药IPW} & \textbf{竞争风险} \\
+\midrule
+叙事 & 糖尿病对死亡（IPW降混杂） & 实验室指标对糖尿病事件（竞争风险） \\
+糖尿病 & \textbf{暴露} & \textbf{结局} \\
+死亡 & \textbf{结局} & \textbf{竞争事件} \\
+出院 & 常规删失 & \textbf{竞争事件} \\
+STEPP & 预后风险分横轴 & 无 \\
+必备数据 & 28天生存 + HbA1c暴露 & HbA1c/指标日序列 + 死亡出院时间 \\
+偏倚处理 & IPW平衡混杂 & Fine-Gray/CIF \\
+\bottomrule
+\end{tabularx}
+
+\noindent\small\textit{（已删除「复合指标角色」行：用药侧不再使用实验室复合指标。）}
+
+\section{最小数据清单}
+
+\subsection*{共用}
+分析ID；人口学与临床协变量。
+
+\subsection*{仅用药IPW}
+HbA1c（派生暴露）；28天死亡结局；（可选）年龄/性别/合并症亚组。\textbf{不要}实验室复合指标。
+
+\subsection*{仅竞争风险}
+HbA1c与指标的1--28天日值；死亡/出院时间；可算 \texttt{time}/\texttt{status}$\in\{0,1,2,3\}$。
+
+\vspace{1em}
+\noindent\small\color{gray!60!black}
+用药IPW已取消NLR等实验室复合指标并行；文中\texttt{composite\_risk}仅指Jin式预后风险分。证据请回Jin/Lai原文。
+
+\end{document}

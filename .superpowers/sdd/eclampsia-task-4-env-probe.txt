@@ -1,0 +1,5 @@
+## Host probes for Task 4
+-rwxrwxrwx 1 root root 94720 Jun 13  2025 /mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe
+-rwxrwxrwx 2 root root 104264 Oct 22  2025 /mnt/c/ProgramData/anaconda3/python.exe
+<3>WSL (56330 - ) ERROR: UtilGetPpid:1293: Failed to parse: /proc/1/stat, content: 1 (systemd) S 0 1 1 0 -1 4194560 321418 5324420307 98 254619 28775 19065 142612732 3836868 20 0 1 0 60040 171261952 3072 18446744073709551615 1 1 0 0 0 0 671173123 4096 1260 0 0 0 17 13 0 0 0 0 0 0 0 0 0 0 0 0 0
+<3>WSL (56330 - ) ERROR: UtilConnectUnix:533: connect failed 2

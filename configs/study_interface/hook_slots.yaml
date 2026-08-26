@@ -1,0 +1,370 @@
+version: 1
+slots:
+  # ── environment ─────────────────────────────────────────────────────────────
+  - id: environment.shared_after_bkmr_analysis
+    routine: environment
+    pipeline_key: pipeline_shared
+    anchor_block: bkmr_analysis
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "共享层 BKMR 分析之后"
+
+  - id: environment.shared_end
+    routine: environment
+    pipeline_key: pipeline_shared
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "共享层末尾"
+
+  - id: environment.tail_after_qgcomp
+    routine: environment
+    pipeline_key: pipeline_tail
+    anchor_block: qgcomp_environment
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "尾段 qgcomp 之后"
+
+  - id: environment.tail_after_mediation
+    routine: environment
+    pipeline_key: pipeline_tail
+    anchor_block: mediation_ers_environment
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "尾段中介分析之后"
+
+  - id: environment.tail_end
+    routine: environment
+    pipeline_key: pipeline_tail
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "尾段末尾"
+
+  # ── incidence ───────────────────────────────────────────────────────────────
+  - id: incidence.nhanes_after_rcs
+    routine: incidence
+    pipeline_key: pipeline_nhanes_batch
+    anchor_block: rcs_nhanes
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "NHANES 指标流水线 RCS 之后"
+
+  - id: incidence.nhanes_after_mediation
+    routine: incidence
+    pipeline_key: pipeline_nhanes_batch
+    anchor_block: mediation_nhanes_weighted
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "NHANES 指标流水线中介分析之后"
+
+  - id: incidence.nhanes_end
+    routine: incidence
+    pipeline_key: pipeline_nhanes_batch
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "NHANES 指标流水线末尾"
+
+  - id: incidence.regular_after_rcs
+    routine: incidence
+    pipeline_key: pipeline_regular_batch
+    anchor_block: rcs_incidence
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "常规库指标流水线 RCS 之后"
+
+  - id: incidence.regular_after_mediation
+    routine: incidence
+    pipeline_key: pipeline_regular_batch
+    anchor_block: mediation_incidence
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "常规库指标流水线中介分析之后"
+
+  - id: incidence.regular_end
+    routine: incidence
+    pipeline_key: pipeline_regular_batch
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "常规库指标流水线末尾"
+
+  # ── survival ────────────────────────────────────────────────────────────────
+  - id: survival.after_imputation
+    routine: survival
+    pipeline_key: pipeline_regular_batch
+    anchor_block: imputation
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "预后指标流水线插补之后（可挂 trim_index_extreme）"
+
+  - id: survival.after_rcs_prognosis
+    routine: survival
+    pipeline_key: pipeline_regular_batch
+    anchor_block: rcs_prognosis
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "预后指标流水线 RCS 之后"
+
+  - id: survival.after_subgroup_prognosis
+    routine: survival
+    pipeline_key: pipeline_regular_batch
+    anchor_block: subgroup_prognosis
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "预后指标流水线亚组分析之后"
+
+  - id: survival.end
+    routine: survival
+    pipeline_key: pipeline_regular_batch
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "预后指标流水线末尾"
+
+  # ── ml ──────────────────────────────────────────────────────────────────────
+  - id: ml.primary_after_shap
+    routine: ml
+    pipeline_key: pipeline_regular_primary_ml_batch
+    anchor_block: shap
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "主库 ML 流水线 SHAP 之后（nhanes 主库时同等槽位作用于 pipeline_nhanes_batch）"
+
+  - id: ml.primary_end
+    routine: ml
+    pipeline_key: pipeline_regular_primary_ml_batch
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "主库 ML 流水线末尾（nhanes 主库时同等槽位作用于 pipeline_nhanes_batch）"
+
+  - id: ml.secondary_after_shap
+    routine: ml
+    pipeline_key: pipeline_mimic_ml_batch
+    anchor_block: shap
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "副库 ML 流水线 SHAP 之后"
+
+  - id: ml.secondary_end
+    routine: ml
+    pipeline_key: pipeline_mimic_ml_batch
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "副库 ML 流水线末尾"
+
+  # ── trajectory（轨迹预后 JLCM 双库批量）────────────────────────────────────
+  - id: trajectory.shared_end
+    routine: trajectory
+    pipeline_key: pipeline_shared
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "轨迹共享层末尾（calc_28d_index 之后）"
+
+  - id: trajectory.unit_after_covariate
+    routine: trajectory
+    pipeline_key: pipeline_unit_prefix
+    anchor_block: multicollinearity_final
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "指标层协变量终筛之后、JLCM 之前"
+
+  - id: trajectory.unit_after_jlcm
+    routine: trajectory
+    pipeline_key: pipeline_unit_suffix
+    anchor_block: trajectory_jlcm
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "指标层 JLCM 拟合之后"
+
+  - id: trajectory.unit_after_subgroup
+    routine: trajectory
+    pipeline_key: pipeline_unit_suffix
+    anchor_block: trajectory_subgroup_class
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "指标层轨迹亚组分析之后"
+
+  - id: trajectory.unit_end
+    routine: trajectory
+    pipeline_key: pipeline_unit_suffix
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "指标层末尾"
+
+  # ── competing（竞争风险 MIMIC · by_unit）───────────────────────────────────
+  - id: competing.shared_end
+    routine: competing
+    pipeline_key: pipeline_shared
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "竞争风险共享层末尾（calc_28d_index 之后）"
+
+  - id: competing.unit_after_cluster
+    routine: competing
+    pipeline_key: pipeline_unit
+    anchor_block: competing_trajectory_cluster
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "轨迹聚类之后"
+
+  - id: competing.unit_after_models
+    routine: competing
+    pipeline_key: pipeline_unit
+    anchor_block: competing_models_123_death
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "主事件+死亡 Model1–6 之后"
+
+  - id: competing.unit_end
+    routine: competing
+    pipeline_key: pipeline_unit
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "指标层末尾（pub_export 之后）"
+
+  # ── ipw（用药IPW · Jin · MIMIC · unit=main）────────────────────────────────
+  - id: ipw.shared_end
+    routine: ipw
+    pipeline_key: pipeline_shared
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "用药IPW共享层末尾（column_mapping 之后）"
+
+  - id: ipw.unit_after_vif
+    routine: ipw
+    pipeline_key: pipeline_unit
+    anchor_block: multicollinearity_screen
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "VIF 之后、composite_risk 之前"
+
+  - id: ipw.unit_after_iptw
+    routine: ipw
+    pipeline_key: pipeline_unit
+    anchor_block: iptw_association
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "IPTW 关联分析之后"
+
+  - id: ipw.unit_end
+    routine: ipw
+    pipeline_key: pipeline_unit
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "主链末尾（ipw_pub_export 之后）"
+
+  # ── crm（NHANES 共病 × 孟德尔 · study_batch units）─────────────────────────
+  - id: crm.shared_end
+    routine: crm
+    pipeline_key: pipeline_shared
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "共享层末尾（crm_nhanes_derive 之后）"
+
+  - id: crm.obs_main_after_vif
+    routine: crm
+    pipeline_key: pipeline_unit
+    anchor_block: multicollinearity_final
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "obs_main：VIF final 之后、发表链之前（branch_map 扩展需管理员确认）"
+
+  - id: crm.obs_main_after_ordinal
+    routine: crm
+    pipeline_key: pipeline_unit
+    anchor_block: crm_nhanes_ordinal_pub
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "obs_main：有序 logistic 之后"
+
+  - id: crm.obs_main_end
+    routine: crm
+    pipeline_key: pipeline_unit
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "obs_main 单元末尾（pub_align 之后）"
+
+  # ── tst（两阶段 Transformer · MIMIC · 任务并行）─────────────────────────────
+  - id: tst.shared_after_split
+    routine: tst
+    pipeline_key: pipeline_shared
+    anchor_block: tst_split
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "共享层 7:2:1 划分之后"
+
+  - id: tst.shared_end
+    routine: tst
+    pipeline_key: pipeline_shared
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "共享层末尾（landmark+split 之后）"
+
+  - id: tst.unit_after_train
+    routine: tst
+    pipeline_key: pipeline_unit
+    anchor_block: tst_train_eval
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "任务单元训练评估之后（branch_map 扩展需管理员确认）"
+
+  - id: tst.unit_end
+    routine: tst
+    pipeline_key: pipeline_unit
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "任务单元末尾"

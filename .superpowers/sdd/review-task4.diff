@@ -1,0 +1,208 @@
+# Review package: Task 4
+## Diff: R/incidence_sensitivity_suite.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task4/incidence_sensitivity_suite.R	2026-08-17 17:06:52.073834900 +0800
++++ /mnt/e/01block/01Block-new-Final/R/incidence_sensitivity_suite.R	2026-08-17 17:08:59.191334200 +0800
+@@ -206,21 +206,23 @@
+   if (!dir.exists(src_dir)) {
+     stop("敏感性轻量路径需要主分析插补后 checkpoint: ", src_dir, call. = FALSE)
+   }
+ 
+   rds_files <- list.files(src_dir, pattern = "\\.rds$", full.names = TRUE)
+   if (!length(rds_files)) {
+     stop("敏感性轻量路径需要主分析插补后 checkpoint: ", src_dir, call. = FALSE)
+   }
+ 
+   block_keys <- vapply(rds_files, function(p) {
+-    sub("^[0-9]+_", "", tools::file_path_sans_ext(basename(p)))
++    nm <- tools::file_path_sans_ext(basename(p))
++    nm <- sub("^step[0-9]+_", "", nm)
++    sub("^[0-9]+_", "", nm)
+   }, character(1))
+ 
+   imp_hits <- rds_files[block_keys == "imputation"]
+   imp_src <- if (length(imp_hits)) imp_hits[[1L]] else NULL
+   has_imputed <- FALSE
+   if (!is.null(imp_src)) {
+     imp_obj <- tryCatch(readRDS(imp_src), error = function(e) NULL)
+     has_imputed <- .incidence_sensitivity_ck_has_imputed(imp_obj)
+   }
+   if (!has_imputed) {
+@@ -250,20 +252,101 @@
+         "incidence_sensitivity_copy_imputed_ck: 无 imputation.rds，使用 src index.rds",
+         call. = FALSE
+       )
+       file.copy(idx_hits[[1L]], file.path(dest_dir, "index.rds"), overwrite = TRUE)
+     }
+   }
+ 
+   invisible(dest_dir)
+ }
+ 
++# ── 轻量敏感性 pipeline 块名单（Task 4）────────────────────────────────────
++incidence_sensitivity_light_blocks <- function(study_type, weighted, scheme) {
++  scheme <- as.character(scheme)[1L]
++  if (!scheme %in% c("quartile", "tertile", "binary")) scheme <- "quartile"
++  if (identical(as.character(study_type)[1L], "prognosis")) {
++    return(c("baseline_binary", paste0("cox_", scheme)))
++  }
++  if (isTRUE(weighted)) {
++    return(c(
++      "obj", "baseline_nhanes",
++      paste0("logistic_", scheme, "_nhanes_weighted"),
++      "dual_db_logistic_scheme_harmonize",
++      "dual_db_logistic_main_table_realign"
++    ))
++  }
++  c(
++    "baseline_binary",
++    paste0("logistic_", scheme, "_glm"),
++    "dual_db_logistic_scheme_harmonize",
++    "dual_db_logistic_main_table_realign"
++  )
++}
++
++incidence_sensitivity_trim_pipeline <- function(pipeline, keep_blocks) {
++  keep <- as.character(keep_blocks)
++  pipeline$blocks <- intersect(as.character(pipeline$blocks %||% character(0)), keep)
++  if (!is.null(pipeline$render_tables_after)) {
++    pipeline$render_tables_after <- intersect(pipeline$render_tables_after, pipeline$blocks)
++  }
++  if (!is.null(pipeline$render_figures_after)) {
++    pipeline$render_figures_after <- intersect(pipeline$render_figures_after, pipeline$blocks)
++  }
++  pipeline
++}
++
++incidence_sensitivity_constant_vars <- function(df, vars) {
++  vars <- as.character(vars %||% character(0))
++  drop <- character(0)
++  for (v in vars) {
++    if (!v %in% names(df)) next
++    u <- unique(df[[v]][!is.na(df[[v]])])
++    if (length(u) < 2L) drop <- c(drop, v)
++  }
++  unique(drop)
++}
++
++incidence_sensitivity_drop_constant_from_config <- function(config, df) {
++  harm <- config$dual_db$harmonization %||% list()
++  m_keys <- c(
++    "harmonized_model1_nhanes", "harmonized_model1_mimic",
++    "harmonized_model2_nhanes", "harmonized_model2_mimic"
++  )
++  all_vars <- character(0)
++  for (k in m_keys) {
++    all_vars <- c(all_vars, as.character(harm[[k]] %||% character(0)))
++  }
++  for (bl in c("baseline_nhanes", "baseline_binary", "baseline")) {
++    if (!is.null(config[[bl]])) {
++      all_vars <- c(all_vars, as.character(config[[bl]]$include_vars %||% character(0)))
++    }
++  }
++  drop <- incidence_sensitivity_constant_vars(df, unique(all_vars[nzchar(all_vars)]))
++  if (!length(drop)) return(config)
++
++  .minus <- function(x) setdiff(as.character(x %||% character(0)), drop)
++
++  if (!is.null(config$dual_db$harmonization)) {
++    for (k in m_keys) {
++      if (!is.null(config$dual_db$harmonization[[k]])) {
++        config$dual_db$harmonization[[k]] <- .minus(config$dual_db$harmonization[[k]])
++      }
++    }
++  }
++  for (bl in c("baseline_nhanes", "baseline_binary", "baseline")) {
++    if (!is.null(config[[bl]]$include_vars)) {
++      config[[bl]]$include_vars <- .minus(config[[bl]]$include_vars)
++    }
++  }
++  config
++}
++
+ # ── 定位指标 by_index 父目录（裸名 / 【success】<ix> / 【failed】<ix>）──────
+ .incidence_sensitivity_find_index_parent <- function(by_index_dir, ix) {
+   if (!dir.exists(by_index_dir)) return(NULL)
+   dirs <- list.dirs(by_index_dir, recursive = FALSE, full.names = TRUE)
+   bns  <- basename(dirs)
+   hit  <- dirs[endsWith(bns, paste0("\u3011", ix))]   # 】<ix>
+   if (!length(hit)) hit <- dirs[bns == ix]
+   if (length(hit)) hit[1L] else NULL
+ }
+ 
+## Diff: tests/test_incidence_sensitivity_light.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task4/test_incidence_sensitivity_light.R	2026-08-17 17:06:52.081834200 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-17 17:08:30.742122000 +0800
+@@ -111,10 +111,73 @@
+ stopifnot(file.exists(file.path(dst, "imputation.rds")))
+ stopifnot(file.exists(file.path(dst, "index.rds")))
+ stopifnot(!file.exists(file.path(dst, "baseline_binary.rds")))
+ stopifnot(!file.exists(file.path(dst, "logistic_quartile_glm.rds")))
+ idx <- readRDS(file.path(dst, "index.rds"))
+ stopifnot(!is.null(idx$ctx$data$imputed))
+ unlink(src, recursive = TRUE)
+ unlink(dst, recursive = TRUE)
+ 
+ cat("Task3 OK\n")
++
++# ── Task 3b: copy_imputed_ck — production step05_ prefix ─────────────────────
++src5 <- tempfile("ck_src5")
++dst5 <- tempfile("ck_dst5")
++dir.create(src5)
++saveRDS(list(ctx = list(data = list(imputed = data.frame(Age = 1:3)))),
++        file.path(src5, "step05_imputation.rds"))
++saveRDS(list(marker = "later"), file.path(src5, "baseline_binary.rds"))
++incidence_sensitivity_copy_imputed_ck(src5, dst5)
++stopifnot(file.exists(file.path(dst5, "index.rds")))
++stopifnot(!file.exists(file.path(dst5, "baseline_binary.rds")))
++idx5 <- readRDS(file.path(dst5, "index.rds"))
++stopifnot(!is.null(idx5$ctx$data$imputed))
++unlink(src5, recursive = TRUE)
++unlink(dst5, recursive = TRUE)
++
++cat("Task3b OK\n")
++
++# ── Task 4: light_blocks / trim_pipeline / constant_vars / drop_constant ───
++inc_w <- incidence_sensitivity_light_blocks("incidence", TRUE, "quartile")
++stopifnot(identical(inc_w[1:3], c("obj", "baseline_nhanes", "logistic_quartile_nhanes_weighted")))
++stopifnot("dual_db_logistic_main_table_realign" %in% inc_w)
++stopifnot(!"imputation" %in% inc_w)
++stopifnot(!"rcs_nhanes" %in% inc_w)
++
++inc_u <- incidence_sensitivity_light_blocks("incidence", FALSE, "tertile")
++stopifnot("baseline_binary" %in% inc_u)
++stopifnot("logistic_tertile_glm" %in% inc_u)
++
++surv <- incidence_sensitivity_light_blocks("prognosis", FALSE, "binary")
++stopifnot(identical(surv, c("baseline_binary", "cox_binary")))
++
++pipe <- list(blocks = c("imputation", "baseline_binary", "boxplot", "cox_quartile", "rcs_prognosis"),
++             render_tables_after = c("imputation", "baseline_binary", "cox_quartile"))
++tr <- incidence_sensitivity_trim_pipeline(pipe, c("baseline_binary", "cox_quartile"))
++stopifnot(identical(tr$blocks, c("baseline_binary", "cox_quartile")))
++stopifnot(!"imputation" %in% tr$render_tables_after)
++
++df <- data.frame(
++  Age = 1:10,
++  Hypertension = factor(rep("No", 10), levels = c("No", "Yes")),
++  WBC = rnorm(10)
++)
++stopifnot(identical(incidence_sensitivity_constant_vars(df, c("Age", "Hypertension", "WBC")),
++                    "Hypertension"))
++
++cfg <- list(
++  dual_db = list(harmonization = list(
++    harmonized_model1_nhanes = c("Age", "Hypertension"),
++    harmonized_model1_mimic = c("Age", "Hypertension"),
++    harmonized_model2_nhanes = c("Age", "Hypertension", "WBC"),
++    harmonized_model2_mimic = c("Age", "Hypertension", "WBC")
++  )),
++  baseline_binary = list(include_vars = c("Age", "Hypertension", "WBC")),
++  baseline_nhanes = list(include_vars = c("Age", "Hypertension"))
++)
++cfg2 <- incidence_sensitivity_drop_constant_from_config(cfg, df)
++stopifnot(!"Hypertension" %in% cfg2$dual_db$harmonization$harmonized_model2_nhanes)
++stopifnot(all(c("Age", "WBC") %in% cfg2$dual_db$harmonization$harmonized_model2_nhanes))
++stopifnot(!"Hypertension" %in% cfg2$baseline_binary$include_vars)
++stopifnot(!"Hypertension" %in% cfg2$baseline_nhanes$include_vars)
++
++cat("Task4 OK\n")

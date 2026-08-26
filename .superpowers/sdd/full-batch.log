@@ -1,0 +1,46 @@
+[composite_index_vars] 已加载：全量 96 个指标 / 双库安全子集 60 个 / 轨迹APRI子集 6 个
+ℹ 跳过疾病相关变量衍生指标 1 个: CAR
+
+── SLE→AKI two-stage batch — 候选 14 个指标 ────────────────────────────────────
+ℹ single-db MIMIC | workers=auto | skip_existing=TRUE
+ℹ 结果根: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330'
+ℹ 共享层已存在，跳过: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/checkpoints/_shared/mimic'
+
+── 从共享层筛查实际可用指标 ──
+
+✔ 共享层可用指标 (n_valid>=50): 6 个: PNI, GNRI, NLR, SII, BMI, PLR
+✔ 最终批量指标: 6 个
+
+── Worker 数自动推算 ──
+
+ℹ CPU 逻辑核心: 32 (保留 2 → 可用上限 30)
+ℹ 系统内存: 总 125.6 GB / 空闲 19.8 GB (每路估 2 GB，保留 4 GB)
+ℹ 内存可并行上限: 7 | 指标数上限: 6
+✔ ─── 最终并行路数: 6 ───
+ℹ Worker 启动模式: processx
+ℹ Rscript: 'C:/Program Files/R/R-4.5.1/bin/x64/Rscript.exe'
+✔ 启动 worker [PNI] → 'PNI.log'
+✔ 启动 worker [GNRI] → 'GNRI.log'
+ℹ 跳过 NLR（已完成）
+✔ 启动 worker [SII] → 'SII.log'
+✔ 启动 worker [BMI] → 'BMI.log'
+✔ 启动 worker [PLR] → 'PLR.log'
+ℹ 等待最后 5 个 worker…
+✔ [1/6] GNRI 完成 (status=error)
+ℹ   📁 GNRI → 【failed】GNRI
+✔ [2/6] SII 完成 (status=success)
+ℹ   📁 SII → 【success】SII
+✔ [3/6] BMI 完成 (status=error)
+ℹ   📁 BMI → 【failed】BMI
+✔ [4/6] PLR 完成 (status=success)
+ℹ   📁 PLR → 【success】PLR
+✔ [5/6] PNI 完成 (status=success)
+ℹ   📁 PNI → 【success】PNI
+
+── Batch 汇总（共 6 个指标） ──
+
+✔ 成功: 4
+ℹ 仅 NHANES: 0
+ℹ 未运行: 0
+✖ 失败: 2
+✔ 汇总表: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/Tables/Batch_summary_all_indices.csv'

@@ -1,0 +1,401 @@
+================================================================================
+            双 AI 对抗式文献阅读 & 决策树训练系统
+                     —— 从头到尾操作步骤（完整实操手册）
+================================================================================
+版本 v1.0  |  日期 2026-06-17
+配套目录：adversarial_lit_reading/（已搭建好：4 个角色 Prompt、医学问题模板、
+          10 分 Rubric、3 个脚本、3 篇已转换的医学论文 chunk）
+
+本手册定位
+--------------------------------------------------------------------------------
+你已经拥有一个搭建好的 adversarial_lit_reading/ 系统。本手册带你从零跑通第一篇
+论文的完整对抗流程，再扩展到批量。
+
+一句话总览：AI-A 建树  →  AI-B 攻击  →  AI-A 修正  →  Judge 评分+JSONL  →  校验  →  Block 抽取（可选）
+每篇论文 × 每个问题 = 一条训练样本。
+
+目录
+--------------------------------------------------------------------------------
+  1. 环境准备
+  2. 角色与文件写入权限（3 核心 + 1 扩展：Block 抽取）
+  3. 第一篇论文的完整流程（以 paper_001 / Q1 为例，每步含可复制 Prompt）
+  4. 如何选问题（医学八问）
+  5. A / B 互换实验
+  6. 从一篇扩展到批量（5-6 篇）
+  7. 质量检查清单
+  8. 自动化路线
+  9. 常见错误与修正
+
+
+================================================================================
+1. 环境准备
+================================================================================
+
+1.1 你需要的东西
+--------------------------------------------------------------------------------
+  - 两个不同的 AI 对话窗口：一个用 Cursor 自带模型（做 AI-A 建树），一个用
+    GLM 5.1（做 AI-B 攻击）。两个模型越不同，对抗越有效。
+  - 已搭建的项目目录 adversarial_lit_reading/（若缺失，按 README 重建）。
+  - Python 3（运行脚本用；若只手动跑流程，可跳过脚本部分）。
+
+1.2 目录结构（已就绪）
+--------------------------------------------------------------------------------
+adversarial_lit_reading/
+├── papers/        # 原始 PDF + index.md（paper_id 清单）
+├── chunks/        # PDF 转出的 Markdown（已生成 paper_001/002/003）
+├── prompts/       # 4 个角色 Prompt + 医学问题模板
+├── rounds/        # AI-A / AI-B 输出（跑流程时生成）
+├── labels/        # JSONL 训练数据（Judge 生成）
+├── rubrics/       # 10 分评分标准
+├── scripts/       # pdf_to_chunks.py / validate_jsonl.py / batch_adversarial_run.py
+├── templates/   # 流水线决策树模板（Block Extractor wizard 交互门用）
+│   └── pipeline_decision_tree_template.md
+├── decision_tree_schema.md   # 决策树标准格式（A/B/Judge 共用契约）
+└── README.md
+
+1.3 把论文转成 Markdown（若 chunks/ 为空，只需做一次）
+--------------------------------------------------------------------------------
+PDF 直接喂给模型识别常不稳定，所以先转成 Markdown。
+
+    # 安装依赖（用国内镜像更快）
+    pip install pymupdf -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+    cd adversarial_lit_reading
+    python3 scripts/pdf_to_chunks.py
+    # 扫描 papers/*.pdf，输出 chunks/*.md + papers/index.md
+
+检查：ls chunks/ 应看到 paper_001_*.md / paper_002_*.md / paper_003_*.md；
+每个文件含 "# Page N" 分页标题与可读正文。
+
+
+================================================================================
+2. 角色与文件写入权限（3 核心 + 1 扩展：Block 抽取）
+================================================================================
+
+角色        任务                                  推荐模型          只能写入
+--------------------------------------------------------------------------------
+AI-A 阅读者  读论文→抽证据→建决策树→修正          Cursor / GLM 5.1  rounds/A_*.md
+AI-B 攻击者  逐节点/边/证据/分支对抗攻击          另一个模型        rounds/B_*.md
+Judge 裁判   10 分评分 + 生成 JSONL               你本人或任一模型  labels/*.jsonl
+Block 抽取   Judge结果→Blocks/映射→config/run     Cursor / GLM 5.1  configs/templates/*.template.R + run_*.R + rounds/block_gap_*.md
+
+【铁律】各 Agent 绝不允许修改同一个文件、不越界写入。
+  - AI-A 只写 rounds/A_*.md
+  - AI-B 只写 rounds/B_*.md
+  - Judge 只写 labels/*.jsonl
+  - Block 抽取 只写 configs/templates/*.template.R + run_*.R + rounds/block_gap_*.md
+    （不碰 Blocks/、R/、已有 configs/*.R、A/B/Judge 产物；缺失 block 只登记不实现）
+违反这一条会让整条流程的可复现性崩塌。
+
+
+================================================================================
+3. 第一篇论文的完整流程（以 paper_001 / Q1 为例）
+================================================================================
+
+以 paper_001（Xu 2024，心脏代谢指数→死亡率，炎症作中介）回答 Q1
+（是否预设了分组/亚型/类别？数据驱动还是先验指定？）为完整范例。
+每一步都给出【可直接复制粘贴的 Prompt】，把方括号里的内容替换成实际值即可。
+
+--------------------------------------------------------------------------------
+第一步：AI-A 生成第一版决策树（在 Cursor 窗口，做 AI-A）
+--------------------------------------------------------------------------------
+请复制下面这段：
+
+    请使用 @adversarial_lit_reading/prompts/AI_A_reader_decision_tree.md
+
+    阅读 @adversarial_lit_reading/chunks/paper_001_2024_xu_2024_is_systemic_inflammation_missing_link_between_cardiometabolic_index_with_mortality_evidence_from.md
+
+    回答 Q1：本研究预设了几个分组/亚型/类别？该数量是数据驱动还是研究者
+    主观指定？是否假设了暴露-结局关系的方向？
+    （Q1 完整定义见 prompts/question_templates_medical.md 第 8.1 节）
+
+    只把结果写入：@adversarial_lit_reading/rounds/A_tree_round1_paper_001_Q1.md
+    不要修改其他文件。
+
+AI-A 必须输出六部分：
+  ① Evidence Map（证据表）→ ② Mermaid 决策树 → ③ Node Table →
+  ④ Provisional Answer → ⑤ Uncertainty List → ⑥ Follow-up Questions
+每个节点要有 node_id；每条边要标关系
+（because / if / supported_by / leads_to / limitation / contradicted_by / transfer_to）。
+
+【建树方法论（已并入 AI-A Prompt，借鉴自 pipeline_config_wizard_prompt.txt）】
+  - 两遍阅读法：第一遍读 摘要 + Methods（研究设计 + 统计方法清单：模型类型、
+    校正方式、是否加权、缺失处理）；第二遍按 Results 小节出现顺序逐步读，
+    记录每步做什么分析、用什么模型/检验、对应哪类分析模块、预期表/图。
+  - 分析顺序以 Results 实际展开顺序为准；Methods 与 Results 不一致时以 Results 为准
+    并注明差异；禁止用 Discussion/Introduction 倒推；Results 非线性时按方法清单
+    推断顺序并标注"顺序为推断"；Supplement 引用标注来源。
+  - 医学分析步骤分类（填 L2/L3 节点时对照）：数据准备(清洗/列映射/缺失插补) →
+    基线描述(Table 1) → 单因素 → VIF 共线性 → 多因素(Cox/logistic) →
+    非线性(RCS) → 亚组/交互 → 中介 → 敏感性(E-value) → 加权(NHANES/PSM/IPTW) →
+    ML 与验证(train/validation→ROC/SHAP)。
+  - 文献只作"统计方法与分析套路"参考，不得把文献的疾病名/结局标签/列名/表头
+    硬套进决策树；变量名描述本文结构。
+
+【最易犯的错】先写总结再凑证据（应先 Evidence Map 再建树）；用 Discussion 倒推；
+未读 Results 就定分支顺序；把猜测写成事实。若 AI-A 写出"作者证明了……"但原文
+只是展示案例，应改成"原文显示 / 原文暗示 / 原文未明确说明"。
+
+--------------------------------------------------------------------------------
+第二步：AI-B 攻击第一版决策树（在 GLM 5.1 窗口，做 AI-B）
+--------------------------------------------------------------------------------
+请复制下面这段：
+
+    请使用 @adversarial_lit_reading/prompts/AI_B_tree_critic.md
+
+    审查 @adversarial_lit_reading/rounds/A_tree_round1_paper_001_Q1.md
+    并对照原文 @adversarial_lit_reading/chunks/paper_001_2024_xu_2024_is_systemic_inflammation_missing_link_between_cardiometabolic_index_with_mortality_evidence_from.md
+
+    不要总结全文，只针对决策树的节点、边、证据、分支、因果、方法、迁移逐项攻击。
+    每条攻击给出 target_node/target_edge + critique + suggested revision + severity（高/中/低）。
+
+    只把结果写入：@adversarial_lit_reading/rounds/B_attack_tree_paper_001_Q1.md
+    不要修改 AI-A 的文件。
+
+AI-B 输出：Attack Summary（总体判断：部分可信/需重大修改/不可信）
+        + Node-level Attacks 表 + Edge-level Attacks 表
+        + Missing Branches + Required Fixes。
+
+--------------------------------------------------------------------------------
+第三步：AI-A 修正决策树（回到 Cursor 窗口，AI-A 作为修正者）
+--------------------------------------------------------------------------------
+请复制下面这段：
+
+    请使用 @adversarial_lit_reading/prompts/AI_A_revise_decision_tree.md
+
+    根据以下文件修正决策树：
+    - 原始树：@adversarial_lit_reading/rounds/A_tree_round1_paper_001_Q1.md
+    - 攻击意见：@adversarial_lit_reading/rounds/B_attack_tree_paper_001_Q1.md
+    - 原文：@adversarial_lit_reading/chunks/paper_001_2024_xu_2024_is_systemic_inflammation_missing_link_between_cardiometabolic_index_with_mortality_evidence_from.md
+
+    合理批评（尤其 severity=高）必须采纳；没有原文证据的节点删除或降级；
+    边关系不成立要改树结构，不能只改文字。
+    最后必须写 Revision Log（逐条说明采纳/拒绝哪些批评及原因）。
+
+    输出到：@adversarial_lit_reading/rounds/A_tree_round2_revised_paper_001_Q1.md
+     并在聊天框中给我画出决策树的图
+--------------------------------------------------------------------------------
+第四步：Judge 评分并生成 JSONL（Judge 由你本人或任一模型担任）
+--------------------------------------------------------------------------------
+请复制下面这段：
+
+    请使用 @adversarial_lit_reading/prompts/Judge_labeler.md
+
+    读取：
+    - 初始树：@adversarial_lit_reading/rounds/A_tree_round1_paper_001_Q1.md
+    - 攻击意见：@adversarial_lit_reading/rounds/B_attack_tree_paper_001_Q1.md
+    - 修正版树：@adversarial_lit_reading/rounds/A_tree_round2_revised_paper_001_Q1.md
+    - 原文：@adversarial_lit_reading/chunks/paper_001_2024_xu_2024_is_systemic_inflammation_missing_link_between_cardiometabolic_index_with_mortality_evidence_from.md
+
+    任务：
+    1) 按 10 分 Rubric 给 score_detail（六维度）；
+    2) 生成 chosen_answer；
+    3) 产出一条单行 JSON。
+
+    注意：score 必须等于 sum(score_detail 六维度)；nodes 每个有唯一 node_id；
+    edges 两端必须指向已存在节点；JSONL 必须是单行、不要 Markdown 代码块包裹。
+
+    输出到：@adversarial_lit_reading/labels/paper_001_Q1_training.jsonl
+
+【10 分 Rubric】
+  证据准确性(0-3) + 方法理解(0-2) + 决策树逻辑(0-2) + 批评吸收(0-1)
+  + 局限与迁移(0-1) + 表达严谨性(0-1) = 10
+【分数使用】8-10 入训练集；6-7 人工复核；0-5 仅作错误案例。
+
+--------------------------------------------------------------------------------
+第五步：校验 JSONL
+--------------------------------------------------------------------------------
+    python3 scripts/validate_jsonl.py --input labels/paper_001_Q1_training.jsonl
+
+看到 PASS 即合格。若 FAIL，按提示修正。
+最常见的错：score ≠ sum(score_detail)、悬空边、缺字段、JSONL 多行。
+
+--------------------------------------------------------------------------------
+第六步：抽取 Block → 生成可复现流水线（Judge 落盘 & 校验 PASS 之后，可选）
+--------------------------------------------------------------------------------
+Judge 定稿的 JSONL 含 chosen_decision_tree + evidence，是"已被认可的方法套路"。
+本步把它转成 Medical Blocks 流水线：统计方法 → Blocks/ 库映射 → config 模板 + run
++ 缺失 block 清单。方法对齐 prompt/pipeline_config_wizard_prompt.txt。
+
+角色：Block Extractor（第 4 个角色，写入边界独立）
+  - config 通用模板 → configs/templates/config_<type>.template.R
+  - run 薄入口      → run_<type>.R
+  - 缺失 block 报告 → adversarial_lit_reading/rounds/block_gap_<paper_id>_<Qid>.md
+  - 禁止改动 Blocks/、R/、已有 configs/*.R、A/B/Judge 产物；
+    缺失 block 只登记不实现；论文级实例须回 wizard 交互门才能试跑。
+
+请复制下面这段（以 paper_001 / Q1 为例）：
+
+    @Data/mimic/D04_dabiao.RData 这是我的数据，请使用 @adversarial_lit_reading/prompts/Block_Extractor.md
+
+    依据 Judge 结果 @adversarial_lit_reading/labels/paper_001_Q1_training.jsonl
+    （取 chosen_decision_tree + evidence + critique），对照原文
+    @adversarial_lit_reading/chunks/paper_001_2024_xu_2024_is_systemic_inflammation_missing_link_between_cardiometabolic_index_with_mortality_evidence_from.md
+    以及 Blocks/ 库、prompt/pipeline_config_wizard_prompt.txt：
+
+    1) 按 Results 顺序把统计方法逐项映射到 Blocks/（已有 / 需适配 / 缺失）；
+    2) 定 pipeline$blocks 顺序；
+    3) 列出"文献有、库中无"的缺失 block（建议 block 名、目录、严重度、是否影响主结论）；
+    4) 复用 configs/templates/*.template.R（最小 diff）或新建通用模板；
+    5) 核对 R/pipeline_runner.R 的 register_block 映射（缺失 block 是否已注册）。
+
+    输出到：@adversarial_lit_reading/rounds/block_gap_paper_001_Q1.md
+    （若新建 config/run，分别写 configs/templates/ 与项目根 run_<type>.R）
+    不要改动 Blocks/、R/、已有 configs；不要实现缺失 block；不要试跑。
+
+Block Extractor 输出：统计方法→Block 映射表 + pipeline$blocks 顺序
+        + 缺失 Block 清单 + 模板复用/最小 diff + config/run 骨架 + runner 映射核对。
+
+【样例 A】paper_003（CMI × 抑郁，NHANES 横断面）— 个体队列型：
+  - 复用 config_incidence_nhanes.template.R → 新建 config_association_nhanes.template.R
+    + run_association_nhanes.R；
+  - 缺失 block：GAP1 roc_multi_indicator、GAP2 logistic_external_cutoff_nhanes_weighted；
+  - 详见 adversarial_lit_reading/rounds/block_gap_paper_003_Q1.md。
+
+【样例 B】paper_005（EO-IBD，GBD 2021 全球负担）— 面板/负担型：
+  - 新建 config_burden_gbd.template.R + run_burden_gbd.R（无同型模板可复用）；
+  - 缺失 block：GAP1–GAP8（Joinpoint/BAPC/SII/分层率等；主链几乎全部缺失）；
+  - 详见 adversarial_lit_reading/rounds/block_gap_paper_005_Q1.md。
+
+【流水线决策树模板（Block Extractor 必出，wizard 交互门确认用）】
+  标准 Mermaid 已保存至：
+    adversarial_lit_reading/templates/pipeline_decision_tree_template.md
+  Block Extractor 完成 block_gap 报告后，须在对话框展示「终版流水线决策树」，
+  结构参照上述模板：Q（用户待确认）→ D*（已有 block）→ G*（缺失 GAP）→ LIM（迁移边界）。
+  paper_005 首版定稿图即该模板内容；以后生成新文献流水线决策树时，复制模板并按
+  Results 顺序替换 D*/G* 节点与 LIM 列表，勿与 AI-A 文献 Q1 决策树混用。
+
+【注意】本步产出的是"研究型通用模板 + 缺失清单"，不是论文级可运行实例。
+占位符（数据路径 / 结局列 / 指标名 / output_dir / mirror_pub_outputs_to_root）须经
+wizard 交互门（数据探查 → 流水线决策树确认 → 试跑确认）回填后才能试跑。
+
+3.6 每篇论文跑几轮
+--------------------------------------------------------------------------------
+  轮次      动作              输出文件
+  Round 1   AI-A 初读建树     A_tree_round1_*.md
+  Round 2   AI-B 攻击         B_attack_tree_*.md
+  Round 3   AI-A 修正         A_tree_round2_revised_*.md
+  Round 4   Judge 评分        score + standard answer
+  Round 5   保存 JSONL        labels/*.jsonl
+  Round 6   Block 抽取（可选）block_gap_*.md + config/run 模板
+
+
+================================================================================
+4. 如何选问题（医学八问）
+================================================================================
+
+完整三列表见 prompts/question_templates_medical.md。核心策略：
+默认先跑 Q1、Q2、Q4、Q5、Q8（覆盖任何临床/流行病学论文的方法骨架），再按论文类型加问：
+
+  - 方法对比鲜明 / 综述类            → 加 Q3
+  - 验证证据充分（内/外部验证、敏感性分析）→ 加 Q6
+  - 高度相关 / 局限影响主结论        → 加 Q7
+  - ML / 亚型发现类（如 paper_002）  → 必加 Q6（验证可重复性）+ Q3
+  - 加权设计类（如 paper_003 NHANES） → Q5 必含权重/PSU/分层，并加 Q7（横断面因果局限）
+
+【三篇论文的重点】
+  paper_001（中介分析）    ：跑 Q1, Q2, Q4, Q5, Q8
+  paper_002（ML 无监督分型）：跑 Q1, Q2, Q3, Q5, Q6, Q8
+  paper_003（NHANES 横断面）：跑 Q1, Q4, Q5, Q7, Q8
+
+【Q8 提示】Q8（可迁移性）需你先确认自己的研究方向，否则 AI-A 会输出泛化框架
+并标注"方向未确认"。
+
+
+================================================================================
+5. A / B 互换实验
+================================================================================
+
+一开始建议做一次角色互换，找出哪个模型更适合建树、哪个更适合攻击：
+
+  1. 配置 A：Cursor 当 AI-A（建树），GLM 5.1 当 AI-B（攻击）。
+  2. 配置 B：GLM 5.1 当 AI-A，Cursor 当 AI-B。
+  3. 同一篇论文、同一个问题各跑一遍，对比哪边的决策树更结构化、哪边的攻击更到位。
+  4. 之后固定"建树强"的模型做 AI-A、"攻击狠"的模型做 AI-B。
+
+
+================================================================================
+6. 从一篇扩展到批量（5-6 篇）
+================================================================================
+
+第一篇跑通后再扩展，不要一上来就批量（Prompt、Rubric、JSONL 格式此时还不稳定）。
+
+  1. 把新 PDF 放进 papers/，重跑 python3 scripts/pdf_to_chunks.py
+     （会自动追加 paper_004...）。
+  2. 对每篇按第 4 节选 4-5 个问题，每个问题重复第一步~第五步。
+  3. 每跑完一篇，用 validate_jsonl.py 校验，确保 schema 一致。
+  4. 累积 5-6 篇 × 4-5 问 ≈ 20-30 条样本后，再考虑自动化。
+
+
+================================================================================
+7. 质量检查清单（Judge 落盘前 / 人工复核时用）
+================================================================================
+
+  [ ] 每个节点都有 node_id？
+  [ ] 每个关键结论都有 evidence_location？
+  [ ] 该写"原文未明确说明"的地方都写了？
+  [ ] AI-B 攻击了节点【和】边【和】证据【和】遗漏分支？
+  [ ] AI-A 真的改了【树结构】（增删节点/重连边），而不只是改文字？
+  [ ] Judge 给了 10 分制 score_detail（六维度）？
+  [ ] JSONL 含 rejected_answer / critique / chosen_answer / evidence 四件套？
+  [ ] score < 8 的样本是否标记为人工复核/暂不入训练集？
+  [ ] validate_jsonl.py 输出 PASS？
+
+
+================================================================================
+8. 自动化路线
+================================================================================
+
+手动流程稳定后，可用 scripts/batch_adversarial_run.py 半自动/全自动编排：
+
+    # 骨架已就绪，但 call_model() 需先接入 LLM API（GLM/OpenAI/Anthropic）
+    python3 scripts/batch_adversarial_run.py --reader glm-5.1 --critic glm-5.1 \
+           --papers paper_001,paper_002 --questions Q1,Q2,Q4,Q5,Q8
+
+【注意】（操作手册第 11.3 章）：Cursor 聊天模型适合【半自动】工作流；
+真正全自动需要模型 API。在 call_model() 接好之前，优先手动跑稳 5 篇论文的流程。
+骨架会自动按 A1 → B1 → A2 → Judge → append jsonl 循环，最后提示你跑校验脚本。
+
+
+================================================================================
+9. 常见错误与修正
+================================================================================
+
+  问题                          原因                  解决
+--------------------------------------------------------------------------------
+AI-A 的树像目录、不像决策树    缺条件判断节点        要求加 whether/if 分支和 edge label
+AI-B 只是重新总结、没攻击      Prompt 没限定任务     强调"不总结全文，只攻击节点/边/证据"
+Judge 输出多行 JSON            忘了 JSONL 是单行     要求最后输出单行 JSON，不要代码块包裹
+证据都写"方法部分"            证据粒度太粗          要求写 Section/Figure/Table/Experiment
+模型乱改别的文件              没写入权限约束        在 Prompt 里重复强调只能写指定文件
+score ≠ sum(score_detail)     打分不自洽            调整使六维度之和 = score
+训练数据质量不稳              问题太泛/论文太长     一次只问一个问题，优先用 chunks 而非整篇 PDF
+AI-A 过度迁移到你的论文        想帮你拔高贡献        区分"可借鉴 / 需改造 / 不可直接迁移"
+
+
+================================================================================
+最终目标
+================================================================================
+让 AI 不只是帮你读论文，而是帮你生产【可审查、可训练、可复用】的文献推理数据：
+同一个问题、同一篇论文 → 第一版错误树 → 对抗批评 → 修正版决策树
+                       → Judge 评分 → JSONL 样本。
+
+--------------------------------------------------------------------------------
+配套文件（均在 adversarial_lit_reading/ 下）
+  README.md                       项目总览与 Quickstart
+  decision_tree_schema.md         决策树标准格式（L0-L5 / 节点字段 / 边关系 / 模板）
+  rubrics/scoring_rubric_10pt.md  10 分评分 Rubric
+  prompts/AI_A_reader_decision_tree.md      AI-A 建树 Prompt
+  prompts/AI_B_tree_critic.md               AI-B 攻击 Prompt
+  prompts/AI_A_revise_decision_tree.md      AI-A 修正 Prompt
+  prompts/Judge_labeler.md                  Judge 评分+JSONL Prompt
+  prompts/Block_Extractor.md                Block 抽取 Prompt（Judge 后扩展，第 4 角色）
+  templates/pipeline_decision_tree_template.md  Block Extractor 流水线决策树标准模板
+  prompts/question_templates_medical.md     医学改编八问
+  papers/index.md                 论文清单（自动生成）
+  scripts/pdf_to_chunks.py        PDF → Markdown
+  scripts/validate_jsonl.py       JSONL 校验
+  scripts/batch_adversarial_run.py 自动化编排骨架（需接 LLM API）
+
+本手册对应《双 AI 对抗式文献阅读决策树训练操作手册》(1111111.pdf) 第 0、9、11、12 章的实操落地。
+================================================================================

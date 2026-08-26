@@ -1,0 +1,49 @@
+---
+description: Cox/Logistic 协变量铁律：Age 强制 Model1；Model2=UV显著且未进 ML
+alwaysApply: true
+---
+
+# Cox / Logistic 协变量铁律（全 ML 课题复用）
+
+所有含机器学习 + Cox/Logistic 关联表的课题必须遵守。**禁止写死** `model1_factors` / `model2_factors`（如 Age+GCS）绕过本规则。
+
+## 铁律
+
+1. **Model 1**：`Age`（或课题配置的 `force_model1`）**强制纳入**，不论单因素是否显著。
+2. **Model 2**：Model 1 + **单因素显著（默认 `tb1`）且未进入最终 ML 特征**的变量（嵌套）。
+3. **排除**：暴露指标本身、已进 ML 的特征、结局/时间/ID、`exclude_extra` 黑名单。
+4. **顺序**：必须先特征选择，再解析协变量，再跑关联表：
+   `uni → VIF → ml_feature_selection_bundle → ml_assoc_covariate_resolve → ml_assoc_bundle → ML 训练…`
+5. **小样本**：可用 `max_model2_extra` 限制 Model2 额外变量个数；允许 `allow_m2_eq_m1 = TRUE`（无额外变量时 M2=M1）。
+
+## 实现入口（必须挂上）
+
+- 规则函数：`R/ml_assoc_covariate_rule.R`（`ml_resolve_assoc_covariates` / `ml_apply_assoc_covariate_rule_to_ctx`）
+- Block：`ml_assoc_covariate_resolve`（`Blocks/24_ml_dual/07block_ml_assoc_covariate_resolve.R`）
+- 默认开启：`configs/ml_dual_shared_overrides.R` 的 `config$assoc_covariate`
+- 流水线尾：`ml_dual_primary_ml_tail_blocks()` 已含 resolve → assoc
+
+```r
+config$assoc_covariate <- list(
+  enable = TRUE,
+  force_model1 = "Age",
+  uv_source = "tb1",
+  max_model2_extra = Inf,  # 小样本可 1～2
+  allow_m2_eq_m1 = TRUE
+)
+```
+
+## 新课题检查清单
+
+- [ ] 未在 `cox_*` / `logistic_*` 写死与铁律冲突的 `model1_factors`/`model2_factors`
+- [ ] pipeline 含 `ml_assoc_covariate_resolve`，且位于 FS 之后、assoc 之前
+- [ ] 日志出现 `assoc 协变量铁律: Model1=force(Age); Model2=...`
+- [ ] Table 2/3 脚注 Model1=Age；Model2 不含最终 ML 特征
+- [ ] 全变量 / 手工 rebuild 表也调用 `ml_resolve_assoc_covariates()`，勿硬编码
+
+## 反例（禁止）
+
+- 写死 `cox_tertile$model2_factors = c("Age", "GCS")`，不管 GCS 是否已进 ML、是否 UV 显著
+- assoc 跑在特征选择之前，导致「未进 ML」无法判定
+- Cox 把精简 Model2 写回全局 `Model2Factors`，污染后续 LASSO 候选池（FS bundle 会从 `vif_screen_pass` 恢复）
+- Age 因单因素不显著被踢出 Model1

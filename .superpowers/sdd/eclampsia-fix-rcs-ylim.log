@@ -1,0 +1,40 @@
+rcs_incidence cfg:
+$y_min
+[1] 0
+
+$y_max
+[1] 25
+
+$<NA>
+NULL
+
+── Block: rcs_incidence ────────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/by_index/UA_CR/MIMIC_IV/step30_rcs_incidence'
+! rcs_incidence: 未找到 cuttab；图例 Cutoff 将使用 OR=1 插值值（请 source 24point_02_config.R）。
+
+── rcs_incidence (lrm + ggrcs) ──
+
+ℹ Index=UA_CR, n=509
+ℹ Model1: Age
+ℹ Model2: Age, Language, RBC
+✔ Selected nk = 3
+ℹ RCS y-axis: data_max=20.42, plot_max=25
+ℹ RCS y-axis: data_max=20.51, plot_max=25
+ℹ RCS y-axis: data_max=19.71, plot_max=25
+✔ Saved: Figure 2-MIMIC IV-MIMIC IV. RCS plot between UA CR and Case.pdf
+ℹ Mirrored to root: 'Figures/Figure 2-MIMIC IV-MIMIC IV. RCS plot between UA CR and Case.pdf'
+✔ Saved: 'cutoff_UA_CR.csv'
+✔ Saved: 'rcs_cutoff_groups_UA_CR.csv'
+ℹ RCS cutoffs — OR=1: 7.8333; peak OR: none
+ℹ 分组 UA_CR_RCS_Group: 2 组（mode=primary）— <7.8333 | >=7.8333
+✔ rcs_incidence 完成（primary cutoff = 7.833285，共 1 个 cutoff 可标在图上；分组用 primary）
+ℹ Mirrored to root: 'Figures/Figure 2-MIMIC IV-MIMIC IV. RCS plot between UA CR and Case.pdf'
+✔ Block 'rcs_incidence' done in 3.8s
+────────────────────────────────────────────────────────────────────────────────
+Warning messages:
+1: package 'ggplot2' was built under R version 4.5.3 
+2: package 'scales' was built under R version 4.5.3 
+[1] "G:/02block_result/27_eclampsia/small sample prediction_39780007/by_index/UA_CR/MIMIC_IV/step30_rcs_incidence/Figures/Figure 2-MIMIC IV-MIMIC IV. RCS plot between UA CR and Case.pdf"
+[1] TRUE
+[1] TRUE
+DONE RCS fix copy

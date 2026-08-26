@@ -1,0 +1,128 @@
+# Review package: Task 3
+## Diff: R/incidence_sensitivity_suite.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task3/incidence_sensitivity_suite.R	2026-08-17 16:50:26.812464000 +0800
++++ /mnt/e/01block/01Block-new-Final/R/incidence_sensitivity_suite.R	2026-08-17 16:53:40.942443900 +0800
+@@ -182,20 +182,88 @@
+   sig_ok <- is.finite(p1) && is.finite(p2) &&
+     p1 < sig_cutoff && p2 < sig_cutoff
+   if (tables_ok && sig_ok) "success" else "failed"
+ }
+ 
+ # ── 展开 sensitivity_suite$scenarios（Task 2 前暂返回空 list）────────────────
+ incidence_sensitivity_resolve <- function(config) {
+   list()
+ }
+ 
++# ── 复制主分析 imputed checkpoint，剥掉 baseline 及之后块（Task 3）────────────
++.incidence_sensitivity_ck_has_imputed <- function(obj) {
++  is.list(obj) && is.list(obj$ctx) && is.list(obj$ctx$data) &&
++    !is.null(obj$ctx$data$imputed)
++}
++
++incidence_sensitivity_copy_imputed_ck <- function(src_dir, dest_dir) {
++  src_dir <- as.character(src_dir)[1L]
++  dest_dir <- as.character(dest_dir)[1L]
++  keep_blocks <- c(
++    "data_clean", "column_mapping", "dual_db_column_harmonize",
++    "index", "analysis_exclusion", "imputation"
++  )
++
++  if (!dir.exists(src_dir)) {
++    stop("敏感性轻量路径需要主分析插补后 checkpoint: ", src_dir, call. = FALSE)
++  }
++
++  rds_files <- list.files(src_dir, pattern = "\\.rds$", full.names = TRUE)
++  if (!length(rds_files)) {
++    stop("敏感性轻量路径需要主分析插补后 checkpoint: ", src_dir, call. = FALSE)
++  }
++
++  block_keys <- vapply(rds_files, function(p) {
++    sub("^[0-9]+_", "", tools::file_path_sans_ext(basename(p)))
++  }, character(1))
++
++  imp_hits <- rds_files[block_keys == "imputation"]
++  imp_src <- if (length(imp_hits)) imp_hits[[1L]] else NULL
++  has_imputed <- FALSE
++  if (!is.null(imp_src)) {
++    imp_obj <- tryCatch(readRDS(imp_src), error = function(e) NULL)
++    has_imputed <- .incidence_sensitivity_ck_has_imputed(imp_obj)
++  }
++  if (!has_imputed) {
++    idx_hits <- rds_files[block_keys == "index"]
++    if (length(idx_hits)) {
++      idx_obj <- tryCatch(readRDS(idx_hits[[1L]]), error = function(e) NULL)
++      has_imputed <- .incidence_sensitivity_ck_has_imputed(idx_obj)
++    }
++  }
++  if (!has_imputed) {
++    stop("敏感性轻量路径需要主分析插补后 checkpoint: ", src_dir, call. = FALSE)
++  }
++
++  if (dir.exists(dest_dir)) unlink(dest_dir, recursive = TRUE)
++  dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
++
++  for (p in rds_files[block_keys %in% keep_blocks]) {
++    file.copy(p, file.path(dest_dir, basename(p)), overwrite = TRUE)
++  }
++
++  if (!is.null(imp_src)) {
++    file.copy(imp_src, file.path(dest_dir, "index.rds"), overwrite = TRUE)
++  } else {
++    idx_hits <- rds_files[block_keys == "index"]
++    if (length(idx_hits)) {
++      warning(
++        "incidence_sensitivity_copy_imputed_ck: 无 imputation.rds，使用 src index.rds",
++        call. = FALSE
++      )
++      file.copy(idx_hits[[1L]], file.path(dest_dir, "index.rds"), overwrite = TRUE)
++    }
++  }
++
++  invisible(dest_dir)
++}
++
+ # ── 定位指标 by_index 父目录（裸名 / 【success】<ix> / 【failed】<ix>）──────
+ .incidence_sensitivity_find_index_parent <- function(by_index_dir, ix) {
+   if (!dir.exists(by_index_dir)) return(NULL)
+   dirs <- list.dirs(by_index_dir, recursive = FALSE, full.names = TRUE)
+   bns  <- basename(dirs)
+   hit  <- dirs[endsWith(bns, paste0("\u3011", ix))]   # 】<ix>
+   if (!length(hit)) hit <- dirs[bns == ix]
+   if (length(hit)) hit[1L] else NULL
+ }
+ 
+## Diff: tests/test_incidence_sensitivity_light.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task3/test_incidence_sensitivity_light.R	2026-08-17 16:50:26.820975100 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-17 16:53:05.035892000 +0800
+@@ -90,10 +90,31 @@
+ tmp_parent <- tempfile("t1vars_")
+ dir.create(tmp_parent)
+ db_dir <- file.path(tmp_parent, "nhanes")
+ dir.create(file.path(db_dir, "Tables"), recursive = TRUE)
+ writeLines(c("Hypertension", "Age", "Gender"), file.path(db_dir, "Tables", "categorical_vars.txt"))
+ vars <- incidence_sensitivity_read_table1_vars(tmp_parent, "nhanes")
+ stopifnot(all(c("Hypertension", "Age", "Gender") %in% vars))
+ unlink(tmp_parent, recursive = TRUE)
+ 
+ cat("Task2 OK\n")
++
++# ── Task 3: copy_imputed_ck — strip post-imputation blocks ─────────────────
++src <- tempfile("ck_src")
++dst <- tempfile("ck_dst")
++dir.create(src)
++saveRDS(list(ctx = list(data = list(imputed = data.frame(Age = 1:3)))),
++        file.path(src, "imputation.rds"))
++saveRDS(list(marker = "later"), file.path(src, "baseline_binary.rds"))
++saveRDS(list(marker = "later"), file.path(src, "logistic_quartile_glm.rds"))
++saveRDS(list(marker = "stale_index"), file.path(src, "index.rds"))
++incidence_sensitivity_copy_imputed_ck(src, dst)
++stopifnot(file.exists(file.path(dst, "imputation.rds")))
++stopifnot(file.exists(file.path(dst, "index.rds")))
++stopifnot(!file.exists(file.path(dst, "baseline_binary.rds")))
++stopifnot(!file.exists(file.path(dst, "logistic_quartile_glm.rds")))
++idx <- readRDS(file.path(dst, "index.rds"))
++stopifnot(!is.null(idx$ctx$data$imputed))
++unlink(src, recursive = TRUE)
++unlink(dst, recursive = TRUE)
++
++cat("Task3 OK\n")

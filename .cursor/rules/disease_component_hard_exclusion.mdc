@@ -1,0 +1,40 @@
+---
+description: 协变量硬排除：疾病相关变量 + 当前指标组成变量不得进入分析
+alwaysApply: true
+---
+
+# 疾病变量与指标组成硬排除（全项目复用）
+
+所有发病 / 预后 / IPW / 竞争风险 / ML 项目必须遵守。不得为了「表更全」或「模型多几个协变量」而绕过。
+
+## 铁律
+
+1. **疾病相关变量**不得进入协变量池、Table1/S1、单因素/多因素、VIF、logistic/Cox Model1–2、亚组分层、中介协变量。
+2. **当前复合指标的组成变量**（公式传递闭包）不得进入上述任何分析表或模型候选集。
+3. **其它复合指标**不得当作当前指标的协变量。
+4. **依赖疾病相关变量算出的复合指标**不得进入批量候选（整指标跳过，不是算完再当协变量删）。
+5. 疾病名单按课题配置，**禁止在引擎里写死糖尿病**；糖尿病视网膜病变等课题自行列入 `HbA1c` / `Glucose` / `T2DM` 等。
+
+## 实现入口（已有机制，必须挂上）
+
+- Block：`analysis_exclusion`（`Blocks/03_imputation/03block_analysis_exclusion.R`）
+- Config：`config$analysis_exclusion$disease_vars` + `exclude_exposure_if_uses_disease_var = TRUE`
+- 跳过疾病衍生指标：`pipeline_indices_using_vars(disease_vars, .composite_index_vars)`
+- 发病流水线位置：`index` → **`analysis_exclusion`** → `imputation` → …
+- 预后竞争风险：`competing_index_exposure` → **`analysis_exclusion`** → …
+
+## 新项目检查清单
+
+- [ ] **已按 `skills/review-raw-covariate-columns/SKILL.md` 逐列审阅原始表**，并落盘 `Data/_column_review.md`
+- [ ] `analysis_exclusion` 已写入本课题 config，且 `disease_vars` 覆盖结局/诊断泄漏与疾病标志物（糖尿病须含尿白蛋白等，不只 HbA1c）
+- [ ] `pipeline_*` blocks 含 `analysis_exclusion`，并与 `baseline_pipelines.json` 对齐（过 guard）
+- [ ] 批量指标名单已用 `pipeline_indices_using_vars` 剔除疾病衍生指标
+- [ ] `clinical_factor_names` / `base_subgroup_vars` / `required_subgroup_vars` 不含 `disease_vars`
+- [ ] 清掉旧 `by_index/`、`checkpoints/` 后再重跑（旧结果可能仍含 HbA1c 等泄漏）
+
+## 反例（禁止）
+
+- 做糖尿病视网膜病变，却把 `HbA1c` / `T2DM` / `Antidiabetic_agents` / `Albumin_Urine` 放进 Model2 或亚组
+- 分析 `NLR` 时把 `Neutrophil_Count` / `Lymphocytes` 留在协变量里
+- 只改某一份研究 config、不改模板 / baseline pipeline，导致下一课题再次泄漏
+- 写 config 时不审阅 dabiao 全列，直接复制上一病种的 `disease_vars`

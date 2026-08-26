@@ -1,0 +1,38 @@
+# 敏感性附表号顺延铁律（全项目复用）
+
+发病 / 预后双库敏感性分析表号必须接在该指标主分析 `by_index/【success】<INDEX>/Tables`（或裸名 `by_index/<INDEX>/Tables`）已有附表之后，禁止写死 S12/S13。
+
+## 铁律
+
+1. **单一来源**：先扫描主 `Tables/` 最大 `Table S#`（忽略主表 Table 1/2），记为 `max_s`。
+2. **顺延两号**：
+   - 敏感性基线表 = `max_s + 1`（Baseline characteristics）
+   - 敏感性关联表 = `max_s + 2`（Association / Cox / Logistic）
+3. **兜底**：主 Tables 尚无任何 `Table S#` 时，仍用历史默认 **S12 / S13**（`max_s` 视为 11）。
+4. **禁止硬编码**：`incidence_sensitivity_rename_pub_tables` / keep / 成功判定不得写死仅匹配 `S12|S13`。
+5. **改主附表号 = 敏感性须重命名或重跑**：主分析新增/删附表后，敏感性号段必须按新 `max_s` 重排，避免与主 S12 撞号。
+6. **短文件名（Windows MAX_PATH）**：磁盘文件名必须用短格式  
+   `Table S{n}-{DB}. SA-{scenario}. Baseline|Association.xlsx`  
+   （scenario = 去 `SA_` 前缀的 label，≤28）。**禁止**把「Sensitivity analysis-… + 疾病长名」写进路径。表内首行仍用可读长标题 `Sensitivity analysis-{zh}. …`。
+
+## 实现入口
+
+- `R/incidence_sensitivity_suite.R`
+  - `incidence_sensitivity_main_max_supp_num()`
+  - `incidence_sensitivity_resolve_pub_s_nums()`
+  - `incidence_sensitivity_pub_stem()` / `incidence_sensitivity_pub_title()`
+  - `incidence_sensitivity_rename_pub_tables(..., parent_dir = …, label = …)`
+- 挂点：`incidence_sensitivity_run_one()` 改名与 `ok_t1`/`ok_t2` 判定
+
+## 检查清单
+
+- [ ] 主 Tables 最大为 S12 时，敏感性为 S13（基线）+ S14（关联）
+- [ ] 文件名短格式；表内首行可读长标题；表号一致
+- [ ] UNC/深路径下完整路径 < 259 字符，Excel 可打开
+- [ ] 回归：`tests/test_incidence_sensitivity_light.R` 含顺延与短名用例
+
+## 反例（禁止）
+
+- 主文已有 Table S12 PH，敏感性基线仍叫 Table S12
+- 代码里 `s_num <- 12L` / `13L` 写死，无视主 Tables
+- 文件名写成 `Table S14-MIMIC. Sensitivity analysis-complete case unimputed. The Association Between …` 导致 Excel「路径超过 259 字符」

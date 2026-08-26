@@ -1,0 +1,59 @@
+---
+description: 年龄亚组默认二分类：写 config 前查疾病切点，禁止无依据多档切分
+alwaysApply: true
+---
+
+# 年龄亚组二分类铁律（全项目复用）
+
+所有发病 / 预后 / IPW / 关联 / NHANES 加权亚组森林图必须遵守。
+**默认两组**（如 `< 65` / `≥ 65`），禁止图省事抄四档 `<30|30-44|45-59|≥60`。
+
+## 铁律
+
+1. **写 config 前先查病种**：按本课题疾病与队列年龄分布，确定 **1 个** 临床常用切点（文献 / 指南 / 纳排常见界值）。写入 config 注释：`# 年龄切点依据：…`。
+2. **森林图 Age_Group 只做二分类**：用 `subgroup$age_cutoff`（及 NHANES 同源 `age_cutoff`），引擎生成 `< cut` / `≥ cut`。
+3. **禁止默认多档**：不得配置 `nhanes$age_group_cutoffs` / `subgroup$age_group_cutoffs`（及配套 `age_group_labels`），除非课题明确要求 ≥3 档且注释写清文献依据；否则删掉，走 `age_cutoff`。
+4. **`level_order$Age_Group` 必须与切点一致**：只有两级，例如 `c("< 65", "≥ 65")`（与引擎标签空格一致），禁止四档残留。
+5. **敏感性 / 失败补救同一切点**：`sensitivity_suite$age_cutoff`、`subgroup_fallback$age_cutoff` 与森林图 `subgroup$age_cutoff` **同一数值**。补救名单优先 `Age_{age_cutoff}`；`Age_{age_mid_lower}_{age_cutoff}` 仅作可选补救过滤，**不是**森林图多档年龄。
+
+## 切点选型（优先顺序）
+
+1. 该病种 RCT / 指南 / 大型队列亚组常用界（如老年病常 65，围绝经相关常 45/50）
+2. 本队列 Age 分布：两组均应有足够事件与 n（过稀则换切点，仍保持两组）
+3. 无依据时模板默认 **65**（须在注释标明「无病种特异文献，用默认 65」）
+
+## 实现入口
+
+- NHANES 亚组：`Blocks/18_subgroup/03block_subgroup_nhanes_weighted.R`  
+  —— 无 `age_group_cutoffs` → 二分类；有则多档（**新课题勿开**）
+- 发病/预后连续亚组：`05block_subgroup_incidence_continuous.R` / `01block_subgroup_prognosis.R` 等，读 `subgroup$age_cutoff`
+- 模板：`configs/templates/config_incidence_*.template.R`、`config_survival_*.template.R`
+
+```r
+# ✅ 推荐
+nhanes = list(..., age_cutoff = 65L)   # 勿写 age_group_cutoffs
+subgroup = list(
+  age_cutoff = 65L,   # 与敏感性 / fallback 同值；注释写明疾病依据
+  level_order = list(
+    Age_Group = c("< 65", "\u2265 65")
+  )
+)
+
+# ❌ 禁止（无文献依据的多档）
+nhanes = list(age_group_cutoffs = c(30, 45, 60), age_group_labels = c("<30", ...))
+subgroup$level_order$Age_Group <- c("<30", "30-44", "45-59", "\u226560")
+```
+
+## 新课题检查清单
+
+- [ ] 已检索本疾病常用年龄亚组切点，并写入 config 注释
+- [ ] 仅配置 `age_cutoff`（一组数值），无 `age_group_cutoffs`
+- [ ] `level_order$Age_Group` 恰为 2 级，且与 `age_cutoff` 标签一致
+- [ ] `sensitivity_suite` / `subgroup_fallback` 的 `age_cutoff` 与亚组森林同值
+- [ ] 重跑亚组前清掉旧 Figure 3 / 旧 Age_Group 检查点，避免多档图残留
+
+## 反例（禁止）
+
+- 糖尿病视网膜病变等课题原样复制 NHANES 四档 `<30|30-44|45-59|≥60`
+- 森林图四档、敏感性却用 65，口径分裂
+- 为「看起来细」强行 ≥3 档，导致单层事件过少、交互检验不稳

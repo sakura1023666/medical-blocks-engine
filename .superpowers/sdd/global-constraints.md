@@ -1,0 +1,11 @@
+- Spec: `docs/superpowers/specs/2026-07-31-ml-assoc-pipeline-rules-design.md`
+- Keep ctx slots: `ctx$data$train`, `ctx$data$test`, `ctx$data$imputed` (do not rename ecosystem to `data_train`)
+- Dual/cross_db association: run on **train and test separately**; single-DB association: **imputed**
+- Univariate: **train only**; logistic for both incidence and prognosis on dual-ML path
+- VIF: **train and test** (if test missing → imputed once)
+- No `survival$time_var` → skip Cox, KM, subgroup HR
+- AdaBoost only if `n_train < 350` (`max_train_n = 349`); skip must not fail the index
+- Pub filenames: Train/Validation or no prefix — **never** MIMIC/eICU injection
+- PDF: `plot_fn` must **return** grob/ggplot, never `print()` inside (renderer prints once)
+- Do **not** git commit unless user asks
+- Verify with RAR wipe + `--only-index RAR --no-skip` after implementation

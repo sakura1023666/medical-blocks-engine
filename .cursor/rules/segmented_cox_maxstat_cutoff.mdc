@@ -1,0 +1,37 @@
+# 分段 Cox 切点规则（全项目预后项目复用）
+
+所有预后（survival）项目的分段 Cox（Segmented Cox / Table S11 系列）必须遵守。**切点只能有一个来源：Figure S1 展示的 maxstat/RCS cutoff**。禁止用分位数做分段 Cox 的外层断点。
+
+## 铁律
+
+1. **单一切点来源**：分段 Cox 的 inflection point = `Figure S1. Cutoff Point for {index} Based on Maximally Selected Rank Statistics Using the maxstat Package.pdf` 展示的值，即上游 RCS 块的 `ctx$results$cutoff_value`（`cutoff_<index>.csv` 的 hr1 值）。双库各自用本库的切点（eICU/MIMIC 可不同，如 APRI：eICU 0.34、MIMIC 0.36）。
+2. **必须用 `segmented_cox_binary` 块**：单切点两段式（`< cutoff` / `≥ cutoff`），每段内 median split high vs low 出分层 HR + 全样本 segmented() LLR。禁止再用 `segmented_cox_quartile` / `segmented_cox_tertile` 出正式表。
+3. **cox_gate 跳过规则已改**：`R/cox_gate.R` 的 `skip_by_branch` 中 `segmented_cox_quartile` / `segmented_cox_tertile` 在 extend_quartile / extend_tertile 分支均被跳过，`segmented_cox_binary` 全分支放开。勿改回。
+4. **禁止扫切点凑显著**：`cutoff_scan_range = 0` 为默认。切点是 Figure S1 展示值，不得为让高阈段显著而偏移；需要时在表注披露。
+5. **禁止随机搜索凑协变量**：`random_covariate_search$enable = FALSE` 为默认。协变量默认回退 `ctx$results$Model2Factors`（Gate B/C 双库锁定的 Table 2 Model2 协变量），保证分段 Cox 与主表调整口径一致。
+6. **cutoff 解析链**（`segmented_cox_binary` 块内 `.scb01_resolve_cutoff`）：run_block 参数 > `config$segmented_cox_binary$cutoff` > `ctx$results$cutoff_value`（RCS）> `roc_summary$cutoff` > `nhanes_cutoff` > `cutoff_file` > RCS 块目录 `cutoff_<index>.txt` > maxstat `surv_cutpoint` 自算（与 Figure S1 同法，minprop 默认 0.2）。上游有 RCS 时自然命中第 3 级。
+7. **表注三条固定**：段内 median split 口径说明 + LLR 口径说明 + 切点来源（maxstat/Figure S1）。表 caption 固定 `Segmented Cox of {index} and {disease}`。
+
+## 实现入口（挂载点）
+
+- 块：`Blocks/16_weightcox/01block_segmented_cox_binary.R`
+  - `.scb01_resolve_cutoff()`：cutoff 链尾 maxstat fallback
+  - 协变量回退链：config > 搜索命中 > `Model2Factors` > 单因素筛选
+- 闸门跳过：`R/cox_gate.R` `skip_by_branch`
+- 流水线：`configs/config_survival_dual_batch.R`（`segmented_cox_binary` 在 render_tables_after；quartile/tertile 块名保留仅为旧检查点兼容）
+- 默认配置：`configs/templates/config_survival_dual_batch.template.R` `segmented_cox_binary` 段
+
+## 新课题检查清单
+
+- [ ] 跑完后检查 Table S11（或当次编号）行结构 = 2 段（`< c` / `≥ c`）+ 1 行 LLR，切点与 Figure S1 数字一致（保留 2 位小数）
+- [ ] 双库各自切点可不同；表注注明切点为 maxstat cutoff
+- [ ] 协变量 source 显示 `Model2Factors`（或 config 显式指定），不是 `search` / `screen`
+- [ ] 未出现旧的 quartile 4 段表（若出现，说明旧块未被跳过或残留旧文件，删除后重跑）
+- [ ] 定向重跑参考 `_archive/tmp_bar_figfix/rerun_bar_s8_s10_s11.R` 模式：读 checkpoint → `block_segmented_cox_binary(ctx)` → 推回 by_index 两级目录
+
+## 反例（禁止）
+
+- 分段 Cox 表的 inflection point 是 Q1/Q2/Q3 分位数（如 0.21/0.34/0.59）
+- Figure S1 显示 0.34，分段 Cox 却用 0.36（与图不一致）
+- 为让高阈段 P<0.05 扫描偏移切点、或随机抽协变量组合
+- 双库共用一个库的切点

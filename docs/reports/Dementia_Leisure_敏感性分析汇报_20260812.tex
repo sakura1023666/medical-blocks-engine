@@ -1,0 +1,159 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.0cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\setCJKmainfont{Microsoft YaHei}[BoldFont=Microsoft YaHei]
+\setmainfont{Microsoft YaHei}
+\setsansfont{Microsoft YaHei}
+\setmonofont{Microsoft YaHei}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\setlength{\parskip}{0.35em}
+\setlength{\parindent}{0pt}
+\title{\textbf{痴呆与休闲活动交叉滞后\\敏感性分析汇报}}
+\author{CLHLS · SHARE · HRS · ELSA\\休闲活动与痴呆}
+\date{}
+\begin{document}
+\maketitle
+
+\section{说明}
+
+在已完成的主分析基础上，对同一批分析人群再做三种样本敏感性分析，以检验结论是否稳健。
+
+三场景分别为：
+\begin{enumerate}[leftmargin=1.6em]
+  \item 剔除基线慢性共病 $\ge 2$ 者；
+  \item 完整病例分析；
+  \item 剔除基线后 $\le 2$ 年内发病者。
+\end{enumerate}
+
+下文汇报各场景逻辑回归结果，以及 Change 分析中 Mean 休闲活动三分位结果。
+
+\section{样本量}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+队列 & 主分析 $n$ & 共病 $\ge 2$ & 完整病例 & $\le 2$ 年发病 \\
+\midrule
+CLHLS & 1032 & 1025 & 993 & 1032 \\
+SHARE & 14682 & 12026 & 13893 & 14642 \\
+HRS & 5361 & 4112 & 5135 & 5361 \\
+ELSA & 5049 & 4664 & 4515 & 5049 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{逻辑回归结果}
+
+T1 为参照组。Cont 为连续休闲活动得分。表中给出 OR（95\%CI）及 $P$ 值。
+
+\subsection{场景一：剔除共病 $\ge 2$}
+
+\begin{center}\footnotesize
+\begin{tabular}{lp{4.6cm}p{4.6cm}p{4.6cm}}
+\toprule
+队列 & Cont & T2 vs T1 & T3 vs T1 \\
+\midrule
+CLHLS & 0.814 (0.762--0.867), $P{<}0.001$ & 0.754 (0.506--1.125), $P{=}0.167$ & 0.340 (0.231--0.500), $P{<}0.001$ \\
+SHARE & 0.636 (0.610--0.662), $P{<}0.001$ & 0.216 (0.171--0.270), $P{<}0.001$ & 0.061 (0.040--0.089), $P{<}0.001$ \\
+HRS & 0.860 (0.808--0.914), $P{<}0.001$ & 0.459 (0.265--0.768), $P{=}0.004$ & 0.295 (0.154--0.531), $P{<}0.001$ \\
+ELSA & 0.889 (0.851--0.927), $P{<}0.001$ & 0.424 (0.284--0.627), $P{<}0.001$ & 0.362 (0.223--0.576), $P{<}0.001$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{场景二：完整病例}
+
+\begin{center}\footnotesize
+\begin{tabular}{lp{4.6cm}p{4.6cm}p{4.6cm}}
+\toprule
+队列 & Cont & T2 vs T1 & T3 vs T1 \\
+\midrule
+CLHLS & 0.817 (0.764--0.872), $P{<}0.001$ & 0.755 (0.502--1.137), $P{=}0.179$ & 0.344 (0.231--0.509), $P{<}0.001$ \\
+SHARE & 0.717 (0.678--0.756), $P{<}0.001$ & 0.290 (0.206--0.399), $P{<}0.001$ & 0.099 (0.055--0.165), $P{<}0.001$ \\
+HRS & 0.875 (0.831--0.921), $P{<}0.001$ & 0.477 (0.303--0.730), $P{=}0.0009$ & 0.317 (0.183--0.524), $P{<}0.001$ \\
+ELSA & 0.911 (0.866--0.957), $P{=}0.0002$ & 0.378 (0.227--0.615), $P{=}0.0001$ & 0.466 (0.268--0.793), $P{=}0.0056$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{场景三：剔除 $\le 2$ 年发病}
+
+\begin{center}\footnotesize
+\begin{tabular}{lp{4.6cm}p{4.6cm}p{4.6cm}}
+\toprule
+队列 & Cont & T2 vs T1 & T3 vs T1 \\
+\midrule
+CLHLS & 0.815 (0.763--0.869), $P{<}0.001$ & 0.765 (0.513--1.140), $P{=}0.187$ & 0.347 (0.236--0.509), $P{<}0.001$ \\
+SHARE & 0.642 (0.620--0.663), $P{<}0.001$ & 0.181 (0.154--0.212), $P{<}0.001$ & 0.044 (0.032--0.061), $P{<}0.001$ \\
+HRS & 0.867 (0.825--0.911), $P{<}0.001$ & 0.464 (0.298--0.704), $P{=}0.0004$ & 0.295 (0.171--0.485), $P{<}0.001$ \\
+ELSA & 0.890 (0.855--0.925), $P{<}0.001$ & 0.456 (0.309--0.662), $P{=}0.0001$ & 0.340 (0.221--0.517), $P{<}0.001$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Change 分析：Mean 休闲活动}
+
+Q1 为参照组。表中给出 HR（95\%CI）及 $P$ 值。
+
+\subsection{场景一：剔除共病 $\ge 2$}
+
+{\footnotesize 分析样本量 / 事件数：CLHLS 362/65；SHARE 8762/239；HRS 417/48；ELSA 2858/53。}
+
+\begin{center}\footnotesize
+\begin{tabular}{lp{6.8cm}p{6.8cm}}
+\toprule
+队列 & Mean Q2 & Mean Q3 \\
+\midrule
+CLHLS & 0.54 (0.30--0.97), $P{=}0.040$ & 0.29 (0.13--0.63), $P{=}0.002$ \\
+SHARE & 0.65 (0.49--0.87), $P{=}0.004$ & 0.33 (0.22--0.49), $P{<}0.001$ \\
+HRS & 0.95 (0.50--1.81), $P{=}0.881$ & 0.54 (0.25--1.17), $P{=}0.118$ \\
+ELSA & 0.51 (0.27--0.97), $P{=}0.039$ & 0.32 (0.14--0.70), $P{=}0.004$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{场景二：完整病例}
+
+{\footnotesize 分析样本量 / 事件数：CLHLS 357/65；SHARE 10411/343；HRS 541/60；ELSA 2788/54。}
+
+\begin{center}\footnotesize
+\begin{tabular}{lp{6.8cm}p{6.8cm}}
+\toprule
+队列 & Mean Q2 & Mean Q3 \\
+\midrule
+CLHLS & 0.53 (0.29--0.95), $P{=}0.032$ & 0.25 (0.11--0.56), $P{<}0.001$ \\
+SHARE & 0.56 (0.44--0.72), $P{<}0.001$ & 0.30 (0.21--0.41), $P{<}0.001$ \\
+HRS & 0.82 (0.46--1.46), $P{=}0.501$ & 0.48 (0.24--0.95), $P{=}0.036$ \\
+ELSA & 0.59 (0.32--1.10), $P{=}0.098$ & 0.29 (0.13--0.67), $P{=}0.004$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{场景三：剔除 $\le 2$ 年发病}
+
+{\footnotesize 分析样本量 / 事件数：CLHLS 366/66；SHARE 10372/303；HRS 567/63；ELSA 3038/60。}
+
+\begin{center}\footnotesize
+\begin{tabular}{lp{6.8cm}p{6.8cm}}
+\toprule
+队列 & Mean Q2 & Mean Q3 \\
+\midrule
+CLHLS & 0.53 (0.30--0.95), $P{=}0.033$ & 0.29 (0.13--0.62), $P{=}0.002$ \\
+SHARE & 0.60 (0.47--0.78), $P{<}0.001$ & 0.31 (0.21--0.44), $P{<}0.001$ \\
+HRS & 0.86 (0.49--1.49), $P{=}0.582$ & 0.45 (0.23--0.88), $P{=}0.021$ \\
+ELSA & 0.57 (0.32--1.03), $P{=}0.064$ & 0.29 (0.13--0.64), $P{=}0.002$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{简要结论}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item 逻辑回归：三场景、四库中，连续指标与高三分位（T3）的 OR 均小于 1；除 CLHLS 的 T2 外，T3 均显著，提示主结论在收紧样本后仍稳健。
+  \item Change（Mean）：高三分位（Q3）在多数库、多数场景中 HR 小于 1 且显著。HRS 的 Mean Q3 在场景一不显著，在场景二、场景三显著。
+\end{itemize}
+
+\end{document}

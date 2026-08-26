@@ -1,0 +1,59 @@
+#!/usr/bin/env Rscript
+# 单环境毒物（血镉×骨质疏松 NHANES）流水线入口
+# 配置: configs/templates/config_environment_cd_osteo_nhanes.template.R
+
+.init_script_dir <- function() {
+  ca <- commandArgs(trailingOnly = FALSE)
+  f  <- grep("^--file=", ca, value = TRUE)
+  if (length(f)) dirname(normalizePath(sub("^--file=", "", f[1L]), winslash = "/"))
+  else normalizePath(getwd(), winslash = "/")
+}
+script_path <- .init_script_dir()
+if (basename(script_path) %in% c("environment", "dynamic_causal", "multimorbidity", "multimodal") &&
+    basename(dirname(script_path)) == "run") {
+  root <- normalizePath(file.path(script_path, "..", ".."), winslash = "/")
+} else root <- script_path
+setwd(root)
+
+args <- commandArgs(trailingOnly = TRUE)
+config_path <- file.path(root, "configs/templates/config_environment_cd_osteo_nhanes.template.R")
+i <- match("--config", args)
+if (!is.na(i) && i < length(args)) config_path <- normalizePath(args[i + 1L], winslash = "/")
+
+source(file.path(root, "R/feishu_env.R")); feishu_load_dotenv(root)
+source(file.path(root, "R/utils.R"))
+source(file.path(root, "R/nhanes_survey_weight.R"))
+source(file.path(root, "R/pipeline_runner.R"))
+source(file.path(root, "R/feishu_bitable.R"))
+source(config_path)
+
+if (isTRUE((config$feishu %||% list())$enable) && identical(Sys.getenv("SMOKE_NO_FEISHU", ""), "1")) {
+  config$feishu$enable <- FALSE
+}
+
+run_opts <- pipeline_parse_cli(args[args != "--config" & args != config_path])
+options(cli.hyperlink = FALSE, warn = 1)
+
+t0 <- Sys.time()
+status <- "success"
+err_msg <- ""
+tryCatch({
+  run_pipeline(root, config = config, pipeline = pipeline, run_opts = run_opts)
+}, error = function(e) {
+  status <<- "error"
+  err_msg <<- conditionMessage(e)
+  stop(e)
+})
+finally <- function() {
+  if (!isTRUE((config$feishu %||% list())$enable)) return(invisible(NULL))
+  fields <- list(
+    index = "log10_Blood_Cadmium", status = status, db_mode = "nhanes",
+    disease = config$feishu$disease_label, protocol = config$feishu$protocol_label,
+    elapsed_sec = as.numeric(difftime(Sys.time(), t0, units = "secs")),
+    error_message = err_msg
+  )
+  tryCatch(incidence_batch_feishu_push_result(config, fields), error = function(e) {
+    cli::cli_alert_warning("飞书推送失败: {conditionMessage(e)}")
+  })
+}
+on.exit(finally(), add = TRUE)

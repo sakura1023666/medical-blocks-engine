@@ -1,0 +1,254 @@
+﻿处理后指标名,中文含义,单位,MIMIC对应原始指标名,eICU对应原始指标名,NHANES对应原始指标名,CHARLS对应原始指标名,ELSA8对应原始指标名,KNHANES对应原始指标名,VitalDB对应原始指标名,备注
+ID,患者ID,—,subject_id [人口统计学],patientunitstayid [人口统计学],SEQN [DEMO],ID,idauniqc,ID [人口统计学],caseid [基线],六库统一主键列名
+Age,年龄,岁,age [人口统计学],age [人口统计学],RIDAGEYR [DEMO],age [人口统计学],agey [人口统计学],Age [人口统计学],age [基线],MIMIC/eICU: 极限值处理
+Gender,性别,Male/Female,gender [人口统计学],gender [人口统计学],RIAGENDR [DEMO],ragender [人口统计学],ragender [人口统计学],sex [人口统计学],sex [基线],MIMIC: F/M→Female/Male；eICU/NHANES: 保留Male/Female
+Race,种族,分类,race [人口统计学],race [人口统计学],RIDRETH1 [DEMO],nan,raracem [人口统计学],nan,nan,MIMIC/eICU重编码为 White/Black/Hispanic/Asian/Other；NHANES保留原始五分类
+Weight,体重,kg,weight [人口统计学],weight [人口统计学],BMXWT [体格检查],mweight [体格检查],mweight [体格检查],HE_wt [体格检查],weight [基线],MIMIC/eICU: 极限值处理
+Height,身高,cm,height [人口统计学],height [人口统计学],BMXHT [体格检查],mheight [体格检查],mheight [体格检查],HE_ht [体格检查],height [基线],MIMIC/eICU: 极限值处理
+BMI,体重指数,kg/m²,weight / (height/100)^2 [人口统计学],weight / (height/100)^2 [人口统计学],BMXBMI [体格检查],bmi [体格检查],mbmi [体格检查],HE_BMI [体格检查],bmi [基线],MIMIC/eICU 由 Weight(kg)、Height(cm) 计算；NHANES 用 BMXBMI；CHARLS 源 bmi
+Waist_circumference,腰围,cm,nan,nan,BMXWAIST [体格检查],Waist_circumstance_cm [体格检查],mwaist [体格检查],HE_wc [体格检查],nan,MIMIC/eICU 无；NHANES/CHARLS/ELSA8 有；NHANES 源 BMXWAIST；CHARLS 源 Waist_circumstance_cm（源列名误拼 circumstance）；ELSA8 源 mwaist；单位 cm
+Language,语言,English/Other,language [人口统计学],nan,nan,nan,nan,nan,nan,MIMIC独有；缺失填Other
+Marital_Status,婚姻状况,分类,marital_status [人口统计学],nan,DMDMARTL [DEMO],marry [人口统计学],mstath [人口统计学],nan,nan,MIMIC/NHANES/CHARLS/ELSA8；因子 Married/Unmarried；MIMIC 重编码
+PIR,家庭收入贫困比,分类,nan,nan,INDFMPIR [DEMO],nan,nan,nan,nan,NHANES独有；如 <1.3 / 1.3-3.5 / >3.5
+Smoke,吸烟史,分类,nan,nan,SMQ020 / SMQ040 [问卷],smoken [问卷],smoken [问卷],BS1_1 [问卷],nan,"NHANES/CHARLS/ELSA8/KNHANES；NHANES 保留 Never/Former/Current 三分类；KNHANES 二分类 Yes/No（BS1_1 ∈ {1,2}→Yes，3→No）；因子含尾部空格"
+Alcohol_drinking,饮酒,Yes / No,nan,nan,ALQ101 / ALQ130 [问卷],drinkl [问卷],drink [问卷],BD1 [问卷],nan,NHANES/CHARLS/ELSA8/KNHANES；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Education,教育程度,分类,nan,nan,DMDEDUC2 [DEMO],raeduc_c [人口统计学],raeduc_e [人口统计学],nan,nan,NHANES/CHARLS/ELSA8
+HR,心率,bpm,first_vitalhr [生命体征],heartrate [生命体征],nan,pulse [体格检查],pulse [体格检查],nan,nan,NHANES无对应
+NBPS,无创收缩压,mmHg,first_vitalnbps [生命体征],nibp_systolic [生命体征],BPXSY1 [血压],systo [体格检查],systo [体格检查],nan,nan,nan
+NBPD,无创舒张压,mmHg,first_vitalnbpd [生命体征],nibp_diastolic [生命体征],BPXDI1 [血压],diasto [体格检查],diasto [体格检查],nan,nan,nan
+NBPM,无创平均动脉压,mmHg,first_vitalnbpm [生命体征],nibp_mean [生命体征],nan,nan,nan,nan,nan,NHANES无对应
+ABPS,有创收缩压,mmHg,first_vitalabps [生命体征],ibp_systolic [生命体征],nan,nan,nan,nan,nan,NHANES无对应
+ABPD,有创舒张压,mmHg,first_vitalabpd [生命体征],ibp_diastolic [生命体征],nan,nan,nan,nan,nan,NHANES无对应
+ABPM,有创平均动脉压,mmHg,first_vitalabpm [生命体征],ibp_mean [生命体征],nan,nan,nan,nan,nan,NHANES无对应
+PP,脉压,mmHg,NBPS - NBPD [生命体征],NBPS - NBPD [生命体征],BPXSY1 - BPXDI1 [血压],systo - diasto [体格检查],systo - diasto [体格检查],nan,nan,五库均由收缩压减舒张压计算
+RR,呼吸频率,insp/min,first_vitalrr [生命体征],respiratoryrate [生命体征],nan,nan,nan,nan,nan,NHANES无对应
+SpO2,血氧饱和度,%,first_vitalsp02 [生命体征],spo2 [生命体征],nan,nan,nan,nan,preop_sao2 / labs: sao2 (dt<0) [血气],NHANES无对应
+Temperature,体温,°C,first_vitaltemperature [生命体征],temperature [生命体征],nan,nan,nan,nan,nan,NHANES无对应
+WBC,白细胞计数,K/uL,first_labwbc [实验室-入ICU首次],first_labwbc [实验室],LBXWBCSI [实验室],qc1_vb002 [血液],wbc [血液],HE_WBC [血液],labs: wbc (dt<0) [血液],eICU原单位 K/mcL，数值等同
+RBC,红细胞计数,m/uL,first_labrbc [实验室-入ICU首次],first_labrbc [实验室],LBXRBCSI [实验室],nan,nan,he_rbc [血液],nan,eICU原单位 M/mcL，数值等同
+NeutrophilCount,中性粒细胞计数,K/uL,first_labneutrophilcount [实验室-入ICU首次],first_labpolys + first_labwbc [实验室],LBXNEUTSI [实验室],nan,nan,nan,nan,eICU: polys(%)×WBC/100
+Lymphocytes,淋巴细胞计数,K/uL,first_lablymphocytes [实验室-入ICU首次],first_lablymphocytes + first_labwbc [实验室],LBXLYMSI [实验室],nan,nan,nan,nan,eICU: lymphocytes(%)×WBC/100
+PlateletCount,血小板计数,K/uL,first_labplateletcount [实验室-入ICU首次],first_labplateletcount [实验室],LBXPLTSI [实验室],qc1_vb009 [血液],nan,HE_Bplt [血液],preop_plt / labs: plt (dt<0) [血液],nan
+Hemoglobin,血红蛋白,g/dL,first_labhemoglobin [实验室-入ICU首次],first_labhgb [实验室],LBXHGB [实验室],qc1_vb004 [血液],hgb [血液],HE_HB [血液],preop_hb / labs: hb (dt<0) [血液],nan；ELSA8 源 hgb 单位 g/L，C02 ÷10 转 g/dL
+RDW,红细胞分布宽度,%,first_labrdw [实验室-入ICU首次],first_labrdw [实验室],nan,nan,nan,nan,nan,NHANES无对应
+Hematocrit,红细胞压积,%,first_labhematocrit [实验室-入ICU首次],first_labhct [实验室],LBXHCT [实验室],qc1_vb005 [血液],nan,he_hct [血液],labs: hct (dt<0) [血液],nan
+Albumin,白蛋白,g/dL,first_labalbumin [实验室-入ICU首次],first_labalbumin [实验室],LBXSASI [实验室],nan,nan,nan,preop_alb / labs: alb (dt<0) [血液],三库统一 g/dL（以 MIMIC 为准）；NHANES 原始 g/L，C01 ÷10
+Globulin,球蛋白,g/dL,first_labglobulin [实验室-入ICU首次],first_labtotalprotein - first_labalbumin [实验室],LBXSGB [实验室],nan,nan,nan,nan,三库统一 g/dL（以 MIMIC 为准）；eICU 为计算值；NHANES 原始 g/L，C01 ÷10
+TotalProtein,总蛋白,g/dL,first_labtotalprotein [实验室-入ICU首次],first_labtotalprotein [实验室],LBXTPC [实验室],nan,nan,nan,labs: tprot (dt<0) [血液],三库统一 g/dL（以 MIMIC 为准）；NHANES 源 LBXTPC 本身为 g/dL
+Sodium,钠,mEq/L,first_labsodium [实验室-入ICU首次],first_labsodium [实验室],LBXSNASI [实验室],nan,nan,nan,preop_na / labs: na (dt<0) [血液],eICU原单位 mmol/L，数值等同
+Potassium,钾,mEq/L,first_labpotassium [实验室-入ICU首次],first_labpotassium [实验室],LBXSKSI [实验室],nan,nan,nan,preop_k / labs: k (dt<0) [血液],nan
+CalciumTotal,总钙,mg/dL,first_labcalciumtotal [实验室-入ICU首次],first_labcalcium [实验室],LBXSCASI [实验室],nan,nan,nan,nan,nan
+Chloride,氯,mEq/L,first_labchloride [实验室-入ICU首次],first_labchloride [实验室],LBXSCLSI [实验室],nan,nan,nan,labs: cl (dt<0) [血液],nan
+Glucose,血糖,mg/dL,first_labglucose [实验室-入ICU首次],first_labbedglucose [实验室],LBXGLU / LBXSGL [实验室],newglu [血液],fglu [血液],HE_glu [血液],preop_gluc / labs: gluc (dt<0) [血液],NHANES为空腹血糖；ELSA8 源 fglu 单位 mmol/L，C02 ×18.02 转 mg/dL
+HbA1c,糖化血红蛋白,%,first_laba1c [实验室-入ICU首次],nan,LBXGH [实验室],newhba1c [血液],hba1c [血液],he_hba1c [血液],nan,MIMIC/eICU/NHANES统一列名 HbA1c；ELSA8 源 hba1c 为 IFCC mmol/mol，C02 中 (val/10.929)+2.15 转为 NGSP %
+AnionGap,阴离子间隙,mEq/L,first_labaniongap [实验室-入ICU首次],first_labaniongap [实验室],nan,nan,nan,nan,nan,NHANES无对应
+PH,酸碱度,—,first_labph [实验室-入ICU首次],first_labph [实验室],nan,nan,nan,nan,preop_ph / labs: ph (dt<0) [血气],NHANES无对应
+PCO2,二氧化碳分压,mmHg,first_labpco2 [实验室-入ICU首次],first_labpco2 [实验室],nan,nan,nan,nan,preop_paco2 / labs: pco2 (dt<0) [血气],NHANES无对应
+PO2,氧分压,mmHg,first_labpo2 [实验室-入ICU首次],first_labpo2 [实验室],nan,nan,nan,nan,preop_pao2 / labs: po2 (dt<0) [血气],NHANES无对应
+Lactate,乳酸,mmol/L,first_lablactate [实验室-入ICU首次],first_lablactate [实验室],nan,nan,nan,nan,labs: lac (dt<0) [血气],NHANES无对应
+TotalCo2,总二氧化碳,mEq/L,first_labtotalco2 [实验室-入ICU首次],first_labtotalco2 [实验室],nan,nan,nan,nan,preop_hco3 / labs: hco3 (dt<0) [血气],NHANES无对应
+FreeCalcium,游离钙,mmol/L,first_labfreecalcium [实验室-入ICU首次],first_labfreecalcium [实验室],nan,nan,nan,nan,labs: ica (dt<0) [血液],MIMIC 原生 mmol/L；eICU 原始 mg/dL，C01 ×0.25 换算；NHANES 无
+TT,凝血酶时间,sec,first_labtt [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+PT,凝血酶原时间,sec,first_labpt [实验室-入ICU首次],first_labpt [实验室],nan,nan,nan,nan,preop_pt / labs: ptsec (dt<0) [凝血],NHANES无对应
+Fibrinogen,纤维蛋白原,mg/dL,first_labfibrinogen [实验室-入ICU首次],first_labfibrinogen [实验室],LBXFIB [实验室],nan,cfib [血液],nan,labs: fib (dt<0) [凝血],NHANES仅部分周期有值；ELSA8 源 cfib 单位 g/L，C02 ×100 转 mg/dL
+PTT,部分凝血活酶时间,sec,first_labptt [实验室-入ICU首次],first_labptt [实验室],nan,nan,nan,nan,preop_aptt / labs: aptt (dt<0) [凝血],NHANES无对应
+INR,国际标准化比值,ratio,first_labinr [实验室-入ICU首次],first_labptinr [实验室],nan,nan,nan,nan,labs: ptinr (dt<0) [凝血],NHANES无对应
+Ddimer,D-二聚体,ng/mL FEU,first_labddimer [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+TG,甘油三酯,mg/dL,first_labtg [实验室-入ICU首次],first_labtriglycerides [实验室],LBXTR [实验室],newtg [血液],trig [血液],HE_TG [血液],nan,nan；ELSA8 源 trig 单位 mmol/L，C02 ×88.57 转 mg/dL
+TC,总胆固醇,mg/dL,first_labcholesteroltotal [实验室-入ICU首次],first_labtc [实验室],LBXTC [实验室],newcho [血液],chol [血液],HE_chol [血液],nan,nan；ELSA8 源 chol 单位 mmol/L，C02 ×38.67 转 mg/dL
+HDL,高密度脂蛋白胆固醇,mg/dL,first_labhdl [实验室-入ICU首次],first_labhdl [实验室],LBDHDD [实验室],newhdl [血液],hdl [血液],HE_HDL_st2 / HE_HDL [血液],nan,nan；ELSA8 源 hdl 单位 mmol/L，C02 ×38.67 转 mg/dL
+LDL,低密度脂蛋白胆固醇,mg/dL,first_labldl [实验室-入ICU首次],first_labldl [实验室],LBDLDL [实验室],newldl [血液],ldl [血液],HE_LDL_drct [血液],nan,nan；ELSA8 源 ldl 单位 mmol/L，C02 ×38.67 转 mg/dL
+BilirubinTotal,总胆红素,mg/dL,first_labbilirubintotal [实验室-入ICU首次],first_labtotalbilirubin [实验室],LBXSTB [实验室],nan,nan,nan,labs: tbil (dt<0) [血液],nan
+BilirubinDirect,直接胆红素,mg/dL,first_labbilirubindirect [实验室-入ICU首次],first_labdirectbilirubin [实验室],nan,nan,nan,nan,nan,MIMIC源字段名为bilirubindirect；NHANES无对应
+BilirubinIndirect,间接胆红素,mg/dL,first_labbilirubinindirect [实验室-入ICU首次],totalbilirubin - directbilirubin [实验室],nan,nan,nan,nan,nan,eICU为计算值；NHANES无对应
+ALT,丙氨酸氨基转移酶,IU/L,first_labalt [实验室-入ICU首次],first_labalt [实验室],LBXSATSI [实验室],nan,nan,he_alt [血液],preop_alt / labs: alt (dt<0) [血液],eICU标注Units/L，等同IU/L
+AST,天冬氨酸氨基转移酶,IU/L,first_labast [实验室-入ICU首次],first_labast [实验室],LBXSASSI [实验室],nan,nan,he_ast [血液],preop_ast / labs: ast (dt<0) [血液],nan
+UreaNitrogen,尿素氮,mg/dL,first_labureanitrogen [实验室-入ICU首次],first_labbun [实验室],LBXSBU [实验室],newbun [血液],nan,he_bun [血液],preop_bun / labs: bun (dt<0) [血液],nan
+Creatinine,肌酐,mg/dL,first_labcreatinine [实验室-入ICU首次],first_labcreatinine [实验室],LBXSCR [实验室],newcrea [血液],nan,HE_crea [血液],preop_cr / labs: cr (dt<0) [血液],nan
+UricAcid,尿酸,mg/dL,first_laburicacid [实验室-入ICU首次],first_laburicacid [实验室],LBXSUA [实验室],newua [血液],nan,he_uacid [血液],nan,nan
+LD,乳酸脱氢酶,IU/L,first_labld [实验室-入ICU首次],first_labldh [实验室],LBXSLDSI [实验室],nan,nan,nan,nan,nan
+CK,肌酸激酶,IU/L,first_labck [实验室-入ICU首次],first_labcpk [实验室],nan,nan,nan,nan,nan,NHANES无对应
+CKMb,肌酸激酶同工酶,ng/mL,first_labckmb [实验室-入ICU首次],first_labcpkmb [实验室],nan,nan,nan,nan,nan,NHANES无对应
+TroponinT,肌钙蛋白T,ng/mL,first_labtroponint [实验室-入ICU首次],first_labtroponini [实验室],nan,nan,nan,nan,nan,MIMIC 源 troponint；eICU 使用 troponin I；NHANES 无对应
+NTproBNP,N末端脑钠肽前体,pg/mL,first_labntprobnp [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+BNP,脑钠肽,pg/mL,nan,first_labbnp [实验室],nan,nan,nan,nan,nan,eICU独有
+UrineProtein,尿蛋白,mg/dL,first_laburineprotein [实验室-入ICU首次],nan,nan,nan,nan,HE_Upro [尿常规],nan,MIMIC/KNHANES
+UrineOsmolality,尿渗透压,mOsm/L,nan,first_laburineprotein [实验室],nan,nan,nan,nan,nan,eICU独有；源字段名误标为urineprotein
+UrineGlucose,尿糖,mg/dL,first_laburineglucose [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+AlbuminUrine,尿白蛋白,mg/L,first_labalbuminurine [实验室-入ICU首次],nan,URXUMA [实验室],nan,nan,he_ualb [尿常规],nan,MIMIC/NHANES/KNHANES
+AlbuminCreatinine,尿白蛋白/肌酐比值,—,first_labalbumincreatinine [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+CRP,C反应蛋白,mg/L,first_creactiveprotein [实验室-入ICU首次],first_labcrp [实验室],LBXCRP [实验室],newcrp [血液],nan,nan,labs: crp (dt<0) [血液],统一 mg/L（以 MIMIC 为准）；eICU/NHANES 原始 mg/dL，C01/C02 ×10；与 HSCRP 分列不合并；CHARLS 源列名误标 mg/dL，实为 mg/L，无需换算；ELSA8 的 hscrp 映射到 HSCRP 列而非 CRP
+HSCRP,高敏C反应蛋白,mg/L,nan,first_labcrphs [实验室],LBXHSCRP [实验室],nan,hscrp [血液],he_hscrp [血液],nan,eICU/NHANES/ELSA8/KNHANES；与 CRP 分列，不合并、不互相换算
+UrineCreatinine,尿肌酐,mg/dL,first_urinecreatinine [实验室-入ICU首次],first_laburinarycreatinine [实验室],URXUCR [实验室],nan,nan,he_ucrea [尿常规],nan,nan
+UrineVolume,尿量,mL,first_urinevolume [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+Serumiron,血清铁,ug/dL,first_serumiron [实验室-入ICU首次],nan,LBXSIR [实验室],nan,nan,nan,nan,MIMIC/NHANES；eICU 无；NHANES 源 LBXSIR（血清铁），仅部分周期有值；C01 由原 Serum_ferritin 列重命名
+Ferritin,铁蛋白,ng/mL,first_ferritin [实验室-入ICU首次],nan,LBXFER [实验室],nan,rtin [血液],HE_Frtn [血液],nan,MIMIC/NHANES/ELSA8/KNHANES；与 Serumiron（血清铁）为不同指标；eICU 无
+TotalIronBindingCapacity,总铁结合力,ug/dL,first_totalironbindingcapacity [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+Transferrin,转铁蛋白,mg/dL,first_transferrin [实验室-入ICU首次],nan,nan,nan,nan,nan,nan,MIMIC独有
+SOFA,序贯器官衰竭评分,分,sofa [评分],sofa [评分],nan,nan,nan,nan,nan,NHANES无对应
+APSIII,急性生理与慢性健康评分III,分,apsiii [评分],aps_score [评分],nan,nan,nan,nan,nan,NHANES无对应
+SIRS,全身炎症反应综合征评分,分,sirs [评分],nan,nan,nan,nan,nan,nan,MIMIC独有
+SAPSII,简化急性生理评分II,分,sapsii [评分],nan,nan,nan,nan,nan,nan,MIMIC独有
+OASIS,牛津急性严重程度评分,分,oasis [评分],oasis [评分],nan,nan,nan,nan,nan,NHANES无对应
+GCS,格拉斯哥昏迷评分,分,gcs [评分],gcs [评分],nan,nan,nan,nan,nan,NHANES无对应
+CHARLSON,查尔森合并症指数,分,charlson [评分],nan,nan,nan,nan,nan,nan,MIMIC独有
+Ventilation_Hour,机械通气时长,小时,ventilation_hour [机械通气],nan,nan,nan,nan,nan,nan,MIMIC独有
+Ventilation,机械通气,Yes / No,ventilation [机械通气],ventilation [机械通气],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+CRRT_Day,CRRT治疗天数,天,crrt_day [CRRT],nan,nan,nan,nan,nan,nan,MIMIC独有
+CRRT,连续性肾脏替代治疗,Yes / No,crrt [CRRT],nan,nan,nan,nan,nan,nan,MIMIC独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Insulin,胰岛素,uU/mL,nan,nan,LBXIN [实验室],nan,nan,nan,nan,NHANES独有
+Mean_cell_hemoglobin,平均红细胞血红蛋白,pg,nan,nan,LBXMCHSI [实验室],nan,nan,nan,nan,NHANES独有
+Mean_Cell_Hgb_Conc,平均红细胞血红蛋白浓度,g/dL,nan,nan,LBXMCHCSI [实验室],nan,nan,nan,nan,NHANES独有
+Mean_platelet_volume,平均血小板体积,fL,nan,nan,LBXMPSI [实验室],nan,nan,nan,nan,NHANES独有
+Mononuclear_cell_count,单核细胞计数,10^3/uL,nan,nan,LBDMONO [实验室],nan,nan,nan,nan,NHANES独有
+Percentage_of_neutrophils,中性粒细胞百分比,%,nan,nan,LBXNEPCT [实验室],nan,nan,nan,nan,NHANES独有
+Thyroid_stimulating_hormone,促甲状腺激素,mIU/L,nan,nan,LBXTSH / LBXTSI [实验室],nan,nan,he_tsh [血液],nan,NHANES/KNHANES；不同周期变量名可能不同
+Thyroxine_free,游离甲状腺素,ng/dL,nan,nan,LBXFT4 [实验室],nan,nan,nan,nan,NHANES独有
+Thyroxine_free_T4,游离T4,ng/dL,nan,nan,LBXFT4 [实验室],nan,nan,he_ft4 [血液],nan,NHANES/KNHANES
+Thyroxine_total_T3,总T3,ng/dL,nan,nan,LBXTT3 [实验室],nan,nan,nan,nan,NHANES独有
+Thyroxine_total_T4,总T4,ug/dL,nan,nan,LBXTT4 [实验室],nan,nan,nan,nan,NHANES独有
+Triiodothyronine_T3_free,游离T3,pg/mL,nan,nan,LBXFT3 [实验室],nan,nan,nan,nan,NHANES独有
+Urine_specific_gravity,尿比重,—,nan,nan,URXU_SG [实验室],nan,nan,he_usg [尿常规],nan,NHANES/KNHANES
+Hypertension,高血压,Yes / No,diaht [合并症],hypertension [合并症],BPQ020 / BPQ080 [问卷],hibpe [问卷],hibpe [问卷],DI1_dg [合并症],preop_htn [合并症],六库统一因子 No / Yes （尾部空格）；缺失或 NA→No 
+T2DM,2型糖尿病,Yes / No,diadm2 [合并症],type2diabetes [合并症],DIQ010 [问卷],diabe [问卷],diabe [问卷],DE1_dg [合并症],preop_dm [合并症],六库统一因子 No / Yes （尾部空格）；NHANES Borderline→No ；缺失或 NA→No 
+T1DM,1型糖尿病,Yes / No,diadm1 [合并症],type1diabetes [合并症],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Heart_Failure,心力衰竭,Yes / No,diahf [合并症],heartfailure [合并症],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Myocardial_Infarction,心肌梗死,Yes / No,diami [合并症],myocardialinfarction [合并症],nan,nan,nan,DI5_dg [合并症],nan,MIMIC/eICU/KNHANES；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Malignant_Tumor,恶性肿瘤,Yes / No,diamt [合并症],malignancy [合并症],nan,cancre [问卷],cancre [问卷],nan,nan,MIMIC/eICU/CHARLS/ELSA8；因子 No / Yes （尾部空格）；缺失或 NA→No 
+CKD,慢性肾脏病,Yes / No,diackd [合并症],chronickidneydisease [合并症],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Acute_Renal_Failure,急性肾衰竭,Yes / No,diaarf [合并症],nan,nan,nan,nan,nan,nan,MIMIC独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Liver_cirrhosis,肝硬化,Yes / No,diacirrhosis [合并症],cirrhosis [合并症],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Hepatitis,肝炎,Yes / No,diahepatitis [合并症],hepatitis [合并症],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Tuberculosis,结核病,Yes / No,diatb [合并症],nan,nan,nan,nan,nan,nan,MIMIC独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Pneumonia,肺炎,Yes / No,diapneumonia [合并症],pneumonia [合并症],nan,nan,nan,nan,nan,MIMIC/eICU；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Stroke,脑卒中,Yes / No,diastroke [合并症],stroke [合并症],nan,stroke [问卷],nan,DI3_dg [合并症],nan,MIMIC/eICU/CHARLS/KNHANES；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Hyperlipidemia,高脂血症,Yes / No,diahlp [合并症],hyperlipidemia [合并症],nan,dyslipidemia [问卷],nan,DI2_dg [合并症],nan,MIMIC/eICU/CHARLS/KNHANES；因子 No / Yes （尾部空格）；缺失或 NA→No 
+COPD,慢性阻塞性肺疾病,Yes / No,diacopd [合并症],copd [合并症],nan,nan,nan,DJ5_dg [合并症],nan,MIMIC/eICU/KNHANES；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Antihypertensive_agents,降压药物,Yes / No,nan,nan,BPQ050A [问卷-用药],nan,nan,nan,nan,NHANES独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Lipid_lowering_agents,降脂药物,Yes / No,nan,nan,BPQ100D [问卷-用药],nan,nan,nan,nan,NHANES独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Antidiabetic_agents,降糖药物,Yes / No,nan,nan,DIQ050 / RXQ [问卷-用药],nan,nan,nan,nan,NHANES独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+WTINT2YR,访谈权重,—,nan,nan,WTINT2YR [权重],nan,nan,nan,nan,NHANES独有；复杂抽样分析用
+WTMEC2YR,体检权重,—,nan,nan,WTMEC2YR [权重],nan,nan,nan,nan,NHANES独有；复杂抽样分析用
+SDMVSTRA,分层变量,—,nan,nan,SDMVSTRA [权重],nan,nan,nan,nan,NHANES独有；复杂抽样分析用
+SDMVPSU,初级抽样单元,—,nan,nan,SDMVPSU [权重],nan,nan,nan,nan,NHANES独有；复杂抽样分析用
+Source_File,调查周期,—,nan,nan,多周期合并 [元数据],nan,nan,nan,nan,NHANES独有；如 1999-2000
+MCV,平均红细胞体积,fL,nan,nan,nan,MCV [血液],nan,nan,nan,CHARLS独有
+MCH,平均红细胞血红蛋白,pg,nan,nan,nan,nan,mch [血液],nan,nan,ELSA8独有
+CystatinC,胱抑素C,mg/L,nan,nan,nan,nan,nan,nan,nan,CHARLS独有
+Nation,是否汉族,是/否,nan,nan,nan,nan,nan,nan,nan,CHARLS独有；0=否，1=是
+Residence,城乡居住,分类,nan,nan,nan,residence [人口统计学],nan,nan,nan,CHARLS独有；Rural/Urban
+Familysize,家庭规模,分类,nan,nan,nan,familysize [人口统计学],nan,nan,nan,CHARLS独有；<3 / 3-4 / ≥5
+Incometotal,总收入,元,nan,nan,nan,incometotal [经济],nan,nan,nan,CHARLS独有
+Family_per_capita_consumption,家庭人均消费,元,nan,nan,nan,family_per_capita_consumption [经济],nan,nan,nan,CHARLS独有
+Pulmonary_Disease,肺部疾病,Yes / No,nan,nan,nan,pulmonary_disease [问卷],nan,nan,preop_pft [术前评估],CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Liver_Disease,肝脏疾病,Yes / No,nan,nan,nan,liver_disease [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Cardiopathy,心脏病,Yes / No,nan,nan,nan,cardiopathy [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Kidney_Disease,肾脏疾病,Yes / No,nan,nan,nan,kidney_disease [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Stomach_Disease,胃部疾病,Yes / No,nan,nan,nan,stomach_disease [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Psychiatric,精神疾病,Yes / No,nan,nan,nan,psychiatric [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Amnesia,记忆障碍,Yes / No,nan,nan,nan,amnesia [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Rheumatic_Diseases,风湿病,Yes / No,nan,nan,nan,rheumatic_diseases [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+Asthma,哮喘,Yes / No,nan,nan,nan,asthma [问卷],nan,nan,nan,CHARLS独有；因子 No / Yes （尾部空格）；缺失或 NA→No 
+TyG,甘油三酯-葡萄糖指数,—,nan,nan,nan,ln(TG×Glucose/2) [衍生],nan,nan,nan,CHARLS独有；TyG指数
+TyGBMI,TyG×BMI,—,nan,nan,nan,TyG × BMI [衍生],nan,nan,nan,CHARLS独有
+Totalcognition,总认知评分,分,nan,nan,nan,totalcognition [认知],nan,nan,nan,CHARLS独有
+Executive,执行功能评分,分,nan,nan,nan,executive [认知],nan,nan,nan,CHARLS独有
+Memory,记忆功能评分,分,nan,nan,nan,memeory [认知],nan,nan,nan,CHARLS独有；源字段 memeory 拼写错误，C01 重命名为 Memory
+VitD,维生素D,nmol/L,nan,nan,nan,nan,vitd [血液],nan,nan,ELSA8独有
+IGF1,胰岛素样生长因子,nmol/L,nan,nan,nan,nan,igf1 [血液],nan,nan,ELSA8独有
+Hip,臀围,cm,nan,nan,nan,nan,mhip [体格检查],nan,nan,ELSA8独有
+WaistHipRatio,腰臀比,—,nan,nan,nan,nan,mwhratio [体格检查],nan,nan,ELSA8独有
+SittingHeight,坐高,m,nan,nan,nan,nan,msithght [体格检查],nan,nan,ELSA8独有
+Cotinine,尿可替宁,ng/mL,nan,nan,nan,nan,nan,HE_Ucot [尿常规],nan,KNHANES独有
+Vitamin_A_dietary,膳食维生素A,μgRE,nan,nan,nan,nan,nan,NF_VA [营养],nan,KNHANES独有；24h膳食回顾
+Vitamin_C,膳食维生素C,mg,nan,nan,nan,nan,nan,NF_VITC [营养],nan,KNHANES独有；24h膳食回顾
+Vitamin_D,血清维生素D,ng/mL,nan,nan,nan,nan,nan,HE_VitD [血液],nan,KNHANES独有；25(OH)D
+Vitamin_B1,膳食维生素B1,mg,nan,nan,nan,nan,nan,N_B1 [营养],nan,KNHANES独有；24h膳食回顾
+Vitamin_B2,膳食维生素B2,mg,nan,nan,nan,nan,nan,N_B2 [营养],nan,KNHANES独有；24h膳食回顾
+Vitamin_E,血清维生素E,mg/L,nan,nan,nan,nan,nan,he_vite [血液],nan,KNHANES独有
+Vitamin_D2,25(OH)D2,ng/mL,nan,nan,nan,nan,nan,he_d2 [血液],nan,KNHANES独有
+Vitamin_D3,25(OH)D3,ng/mL,nan,nan,nan,nan,nan,he_d3 [血液],nan,KNHANES独有
+Vitamin_D3_3epi,3-epi-25(OH)D3,ng/mL,nan,nan,nan,nan,nan,he_d3_3epi [血液],nan,KNHANES独有
+Vitamin_A_blood,血清维生素A,mg/L,nan,nan,nan,nan,nan,he_vita [血液],nan,KNHANES独有
+Folate,叶酸,ng/mL,nan,nan,nan,nan,nan,he_folate [血液],nan,KNHANES独有
+Lead_blood,血铅,μg/dL,nan,nan,nan,nan,nan,HE_Pb [金属],nan,KNHANES独有
+Cadmium_blood,血镉,μg/L,nan,nan,nan,nan,nan,HE_Cd [金属],nan,KNHANES独有
+Mercury_blood,血汞,μg/L,nan,nan,nan,nan,nan,HE_Hg [金属],nan,KNHANES独有
+Manganese_blood,血锰,μg/dL,nan,nan,nan,nan,nan,HE_Mn [金属],nan,KNHANES独有
+Nickel,血镍,μg/L,nan,nan,nan,nan,nan,he_ni [金属],nan,KNHANES独有
+Zinc_blood,血锌,μg/dL,nan,nan,nan,nan,nan,he_zn [微量元素],nan,KNHANES独有
+Iron_dietary,膳食铁,mg,nan,nan,nan,nan,nan,NF_FE [营养],nan,KNHANES独有；24h膳食回顾
+Calcium_dietary,膳食钙,mg,nan,nan,nan,nan,nan,NF_CA [营养],nan,KNHANES独有；24h膳食回顾
+Phosphorus_dietary,膳食磷,mg,nan,nan,nan,nan,nan,NF_PHOS [营养],nan,KNHANES独有；24h膳食回顾
+Potassium_dietary,膳食钾,mg,nan,nan,nan,nan,nan,NF_K [营养],nan,KNHANES独有；24h膳食回顾
+Sodium_dietary,膳食钠,mg,nan,nan,nan,nan,nan,NF_NA [营养],nan,KNHANES独有；24h膳食回顾
+Dietary_Fiber,膳食纤维,g,nan,nan,nan,nan,nan,NF_FIBER [营养],nan,KNHANES独有；24h膳食回顾
+Beta_Carotene,β胡萝卜素,μg,nan,nan,nan,nan,nan,NF_CAROT [营养],nan,KNHANES独有；24h膳食回顾
+Total_Fat_dietary,膳食总脂肪,g,nan,nan,nan,nan,nan,NF_FAT [营养],nan,KNHANES独有；24h膳食回顾
+ALP,碱性磷酸酶,IU/L,nan,nan,nan,nan,nan,he_alp [血液],nan,KNHANES独有
+PTH,甲状旁腺激素(50岁以上),pg/mL,nan,nan,nan,nan,nan,he_pth [血液],nan,KNHANES独有
+TIBC,总铁结合力,μg/dL,nan,nan,nan,nan,nan,he_tibc [血液],nan,KNHANES独有
+TPOAb,甲状腺过氧化物酶抗体,IU/mL,nan,nan,nan,nan,nan,he_tpoab [血液],nan,KNHANES独有
+Body_Fat_Pct,体脂率,%,nan,nan,nan,nan,nan,bia_pbf [体格检查],nan,KNHANES独有；BIA身体成分
+Urine_pH,尿酸碱度,—,nan,nan,nan,nan,nan,he_uph [尿常规],nan,KNHANES独有
+Urine_Glucose,尿糖,分类,nan,nan,nan,nan,nan,he_uglu [尿常规],nan,KNHANES独有；1(-)/2(±)/3(+1)/4(+2)/5(+3)/6(+4)
+Urine_Ketones,尿酮,分类,nan,nan,nan,nan,nan,he_uket [尿常规],nan,KNHANES独有；同尿糖分级
+Urine_Bilirubin,尿胆红素,分类,nan,nan,nan,nan,nan,he_ubil [尿常规],nan,KNHANES独有
+Urine_Occult_Blood,尿潜血,分类,nan,nan,nan,nan,nan,he_ubld [尿常规],nan,KNHANES独有
+Urine_Urobilinogen,尿胆原,分类,nan,nan,nan,nan,nan,he_uro [尿常规],nan,KNHANES独有
+Urine_Sodium,尿钠,mmol/L,nan,nan,nan,nan,nan,he_una [尿常规],nan,KNHANES独有
+Urine_Potassium,尿钾,mmol/L,nan,nan,nan,nan,nan,he_ukal [尿常规],nan,KNHANES独有
+Urine_Iodine,尿碘,μg/L,nan,nan,nan,nan,nan,he_uiod [尿常规],nan,KNHANES独有
+Arsenic_AAS,砷（肌酐校正，AAS）,μg/g_cr,nan,nan,nan,nan,nan,he_uascr_aas [重金属],nan,KNHANES独有
+Arsenic_ICPMS,砷（肌酐校正，ICPMS）,μg/g_cr,nan,nan,nan,nan,nan,he_uascr [重金属],nan,KNHANES独有
+Arsenic_3ac,三加砷酸（肌酐校正）,μg/g_cr,nan,nan,nan,nan,nan,he_uas3cr [重金属],nan,KNHANES独有
+Arsenic_5ac,五加砷酸（肌酐校正）,μg/g_cr,nan,nan,nan,nan,nan,he_uas5cr [重金属],nan,KNHANES独有
+Arsenic_AB,砷基β-甘露醇（肌酐校正）,μg/g_cr,nan,nan,nan,nan,nan,he_uabcr [重金属],nan,KNHANES独有
+Arsenic_MMA,单甲基砷酸（肌酐校正）,μg/g_cr,nan,nan,nan,nan,nan,he_ummacr [重金属],nan,KNHANES独有
+Arsenic_DMA,二甲基砷酸（肌酐校正）,μg/g_cr,nan,nan,nan,nan,nan,he_udmacr [重金属],nan,KNHANES独有
+Sleep_Duration,平均睡眠时间,小时,nan,nan,nan,nan,nan,BP8 [问卷],nan,KNHANES独有；1-24小时，99=不知道
+Depression,抑郁症（医生诊断）,Yes / No,nan,nan,nan,nan,nan,DF2_dg [合并症],nan,KNHANES独有；1=Yes，0/8/9=No
+Osteoarthritis,骨关节炎（医生诊断）,Yes / No,nan,nan,nan,nan,nan,DM2_dg [合并症],nan,KNHANES独有
+Rheumatoid_Arthritis,类风湿关节炎（医生诊断）,Yes / No,nan,nan,nan,nan,nan,DM3_dg [合并症],nan,KNHANES独有
+Osteoporosis,骨质疏松症（医生诊断）,Yes / No,nan,nan,nan,nan,nan,DM4_dg [合并症],nan,KNHANES独有
+Angina,心绞痛（医生诊断）,Yes / No,nan,nan,nan,nan,nan,DI6_dg [合并症],nan,KNHANES独有
+Dry_Eye,干眼症,分类,nan,nan,nan,nan,nan,E_DG1 [合并症],nan,KNHANES独有
+ASA,ASA分级,1-6,nan,nan,nan,nan,nan,nan,asa [术前评估],VitalDB独有；美国麻醉医师协会分级
+EmergencyOp,急诊手术,Yes / No,nan,nan,nan,nan,nan,nan,emop [术前评估],VitalDB独有；0=择期/1=急诊；因子 No / Yes （尾部空格）
+PreopECG,术前心电图,分类,nan,nan,nan,nan,nan,nan,preop_ecg [术前评估],VitalDB独有
+PreopPFT,术前肺功能,分类,nan,nan,nan,nan,nan,nan,preop_pft [术前评估],VitalDB独有；Normal/Mild/Moderate/Severe obstructive or restrictive
+Department,科室,分类,nan,nan,nan,nan,nan,nan,department [手术信息],VitalDB独有
+OpType,手术类型,分类,nan,nan,nan,nan,nan,nan,optype [手术信息],VitalDB独有
+Diagnosis,诊断,文本,nan,nan,nan,nan,nan,nan,dx [手术信息],VitalDB独有
+OpName,手术名称,文本,nan,nan,nan,nan,nan,nan,opname [手术信息],VitalDB独有
+Approach,手术入路,分类,nan,nan,nan,nan,nan,nan,approach [手术信息],VitalDB独有；Open/Videoscopic/Robotic
+Position,手术体位,分类,nan,nan,nan,nan,nan,nan,position [手术信息],VitalDB独有
+AneType,麻醉方式,分类,nan,nan,nan,nan,nan,nan,ane_type [手术信息],VitalDB独有；General/Spinal/Sedationalgesia
+Cormack,Cormack分级,分类,nan,nan,nan,nan,nan,nan,cormack [气道评估],VitalDB独有；I/II/IIIa/IIIb/IV
+Airway,气道类型,分类,nan,nan,nan,nan,nan,nan,airway [气道评估],VitalDB独有；Oral/Nasal/Tracheostomy
+TubeSize,气管导管大小,mm,nan,nan,nan,nan,nan,nan,tubesize [气道评估],VitalDB独有
+IntraopEBL,术中估计失血量,mL,nan,nan,nan,nan,nan,nan,intraop_ebl [术中],VitalDB独有
+IntraopUO,术中尿量,mL,nan,nan,nan,nan,nan,nan,intraop_uo [术中],VitalDB独有
+IntraopRBC,术中红细胞输注,units,nan,nan,nan,nan,nan,nan,intraop_rbc [术中输血],VitalDB独有
+IntraopFFP,术中新鲜冰冻血浆输注,units,nan,nan,nan,nan,nan,nan,intraop_ffp [术中输血],VitalDB独有
+IntraopCrystalloid,术中晶体液,mL,nan,nan,nan,nan,nan,nan,intraop_crystalloid [术中输液],VitalDB独有
+IntraopColloid,术中胶体液,mL,nan,nan,nan,nan,nan,nan,intraop_colloid [术中输液],VitalDB独有
+IntraopPPF,术中丙泊酚,mg,nan,nan,nan,nan,nan,nan,intraop_ppf [术中用药],VitalDB独有
+IntraopMDZ,术中咪达唑仑,mg,nan,nan,nan,nan,nan,nan,intraop_mdz [术中用药],VitalDB独有
+IntraopFTN,术中芬太尼,mcg,nan,nan,nan,nan,nan,nan,intraop_ftn [术中用药],VitalDB独有
+IntraopROCU,术中罗库溴铵,mg,nan,nan,nan,nan,nan,nan,intraop_rocu [术中用药],VitalDB独有
+IntraopVECU,术中维库溴铵,mg,nan,nan,nan,nan,nan,nan,intraop_vecu [术中用药],VitalDB独有
+IntraopEPH,术中麻黄碱,mg,nan,nan,nan,nan,nan,nan,intraop_eph [术中用药],VitalDB独有
+IntraopPHE,术中去氧肾上腺素,mcg,nan,nan,nan,nan,nan,nan,intraop_phe [术中用药],VitalDB独有
+IntraopEPI,术中肾上腺素,mcg,nan,nan,nan,nan,nan,nan,intraop_epi [术中用药],VitalDB独有
+IntraopCA,术中钙剂,mg,nan,nan,nan,nan,nan,nan,intraop_ca [术中用药],VitalDB独有
+ICU_Days,ICU住院天数,天,nan,nan,nan,nan,nan,nan,icu_days [结局],VitalDB独有
+Death_Inhosp,院内死亡,Yes / No,nan,nan,nan,nan,nan,nan,death_inhosp [结局],VitalDB独有；0/1；因子 No / Yes （尾部空格）
+GFR,肾小球滤过率,mL/min/1.73m²,nan,nan,nan,nan,nan,nan,labs: gfr (dt<0) [血液],VitalDB独有
+CreatinineClearance,肌酐清除率,mL/min,nan,nan,nan,nan,nan,nan,labs: ccr (dt<0) [血液],VitalDB独有
+ESR,红细胞沉降率,mm/hr,nan,nan,nan,nan,nan,nan,labs: esr (dt<0) [血液],VitalDB独有
+Ammonia,血氨,μg/dL,nan,nan,nan,nan,nan,nan,labs: ammo (dt<0) [血液],VitalDB独有
+BaseExcess,碱剩余,mmol/L,nan,nan,nan,nan,nan,nan,labs: be (dt<0) [血气],VitalDB独有
+Phosphorus,血磷,mg/dL,nan,nan,nan,nan,nan,nan,labs: p (dt<0) [血液],VitalDB独有
+PtPercent,PT百分比,%,nan,nan,nan,nan,nan,nan,labs: pt% (dt<0) [凝血],VitalDB独有
+FI,虚弱指数(Frailty Index),0-1,nan,nan,nan,frailty26_total/26或FI,FI,nan,nan,连续虚弱指数；表/图展示名 Frailty Index（pipeline_builtin_var_display_names）

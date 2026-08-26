@@ -1,0 +1,125 @@
+---
+title: "痴呆与休闲活动交叉滞后敏感性分析汇报"
+subtitle: "CLHLS · SHARE · HRS · ELSA 四库 | Leisure activities → Dementia"
+author: "数据分析汇报（供老师审阅）"
+date: "2026-08-12"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+header-includes:
+  - \usepackage{fontspec}
+  - \usepackage{xeCJK}
+  - \setCJKmainfont{Microsoft YaHei}
+  - \setmainfont{DejaVu Sans}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{float}
+  - \usepackage{hyperref}
+  - \hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+suppressPackageStartupMessages({
+  library(readr)
+  library(knitr)
+})
+tab <- read_csv("/tmp/sdd-dementia-sens/model2_summary.csv", show_col_types = FALSE)
+sc_lab <- c(
+  exclude_chronic_ge2 = "剔除基线共病≥2",
+  complete_case = "完整病例（未插补）",
+  exclude_event_le_2y = "剔除基线后≤2年发病"
+)
+tab$场景 <- sc_lab[tab$scenario]
+tab$队列 <- tab$db
+```
+
+# 汇报要点（一页纸）
+
+1. **分析定位**：在已完成主分析（姜小胖痴呆—休闲活动交叉滞后）同一套数据与方法上，仅做三场景样本敏感性；**不是**另起一套插补/切点/协变量。
+2. **四库**：CLHLS、SHARE、HRS、ELSA；暴露 **Leisure activities**；结局 Dementia。
+3. **三场景**：① 剔除基线慢性共病≥2；② 完整病例（插补前）；③ 剔除基线后 ≤2 年发病。
+4. **主结果方向一致**：Model 2 下，休闲活动连续变量与三分位高组（T3 vs T1）OR 均 < 1，多数 *P* < 0.001，提示关联稳健。
+5. **产出**：补充表 **S9–S17.1**（基线 Table1 + Logistic 三分位 + Change），路径见文末。
+
+# 方法与连续性
+
+## 与主分析对齐（硬约束）
+
+| 维度 | 设定 |
+|------|------|
+| 分析人群 | 同一批 `D01_AfterMI`（ELSA 5049 / HRS 5361 / SHARE 14682 / CLHLS 1032） |
+| 暴露 | `Leisure_activities`；库内三分位 `quantile(1/3, 2/3)`，`cut(right=FALSE)` → T1/T2/T3 |
+| 结局 | `Normal` / `Dementia` |
+| Model 1 | Age + Education + Alcohol_drinking |
+| Model 2 | Age + Education + Alcohol_drinking + Hypertension + Total_Cholesterol + HDL |
+| Change | 主分析 Step05 `*_wide`（T1_le/T2_le）∩ 场景保留 ID；强制 two_wave |
+| 基线表变量 | 对齐主文 Table 1（含 **Leisure activities**） |
+
+## 三场景样本量（AfterMI → 过滤后）
+
+| 队列 | 主分析 n | 共病≥2 剔除后 | 完整病例 | ≤2 年发病剔除后 |
+|------|----------|---------------|----------|-----------------|
+| CLHLS | 1032 | 1025 | 993 | 1032（剔除 0） |
+| SHARE | 14682 | 12026 | 13893 | 14642（剔除 40） |
+| HRS | 5361 | 4112 | 5135 | 5361（剔除 0） |
+| ELSA | 5049 | 4664 | 4515 | 5049（剔除 0） |
+
+说明：CLHLS/HRS/ELSA 随访波间距 ≥2 年，故“≤2 年发病”场景对横断面几乎无剔除；SHARE 剔除 40 人。
+
+# 敏感性 Logistic 结果（Model 2）
+
+下表汇总各场景、各库 **Model 2** 下：连续 OR，以及 **T3 vs T1** 的 OR（95%CI）与 *P*，以及 *p for trend*。
+
+```{r}
+out <- data.frame(
+  场景 = tab$场景,
+  队列 = tab$队列,
+  `连续OR` = tab$cont_OR,
+  `T3_OR` = tab$T3_OR,
+  `T3_95CI` = tab$T3_CI,
+  `T3_P` = tab$T3_P,
+  `p_trend` = tab$ptrend,
+  check.names = FALSE
+)
+kable(out, booktabs = TRUE, caption = "敏感性分析 Logistic（Model 2）：Leisure activities 与 Dementia")
+```
+
+## 结果解读（汇报用语）
+
+- **方向**：四库 × 三场景下，Model 2 连续 OR 均 < 1；T3（高休闲活动）相对 T1 的 OR 均 < 1，支持主分析“休闲活动水平越高，痴呆关联风险越低”的结论。
+- **显著性**：绝大多数队列/场景 T3 与趋势检验 *P* < 0.001；ELSA 完整病例场景 T3 *P* = 0.0056、趋势 *P* = 0.0018，仍显著。
+- **稳健性**：在剔除多重共病、改用未插补完整病例、以及排除极早期发病者后，关联方向与显著性总体保持，提示主结论对样本纳入规则不敏感。
+
+# 产出清单（S9–S17.1）
+
+与髋部骨折敏感性表壳同构，文案为 Dementia / Leisure_activities：
+
+| 场景 | 基线 | Logistic | Change |
+|------|------|----------|--------|
+| 共病≥2 剔除 | S9-{库} | S10-{库} | S11 / S11.1 |
+| 完整病例 | S12-{库} | S13-{库} | S14 / S14.1 |
+| ≤2 年发病剔除 | S15-{库} | S16-{库} | S17 / S17.1 |
+
+基线表已纳入主文 Table 1 同套变量（含 Leisure activities）。
+
+# 文件位置
+
+- 结果根目录：`\\192.168.68.133\02block_result\20_Dementia\cross-laged_40595747\`
+- 敏感性明细：`sensitivity\`（含 `README_sensitivity.txt`）
+- 汇总表：`summary_result\table\`（S9–S17.1 共 30 张正式表）
+
+# 请老师审阅的关注点
+
+1. 三场景定义与主分析连续性是否符合预期。  
+2. Model 1 / Model 2 协变量锁定是否采用本汇报设定。  
+3. SHARE 的 OR 数值偏小（T3 很低），是否需在文中单独讨论队列差异。  
+4. “≤2 年发病”场景在 ELSA/HRS/CLHLS 因波次间距导致剔除近 0，是否保留为敏感性或改为更合适的时间窗。  
+
+---
+
+*本 PDF 由 medical-blocks 交叉滞后敏感性管线自动汇总生成，日期 2026-08-12。*

@@ -1,0 +1,284 @@
+=== FILES ===
+CREATE scripts/prep_cross_lagged_circadian.R
+CREATE study data/frailty/* data/harmonized/*
+=== PREP SCRIPT ===
+#!/usr/bin/env Rscript
+# scripts/prep_cross_lagged_circadian.R
+# Circadian × ePWV cross-lagged: harmonize CHARLS/ELSA/NHANES dabiao
+suppressPackageStartupMessages({
+  library(dplyr)
+})
+
+study_root <- "/mnt/g/02block_result/23_circadian rhythm/cross-laged_40595747"
+if (!dir.exists(study_root)) {
+  study_root <- "G:/02block_result/23_circadian rhythm/cross-laged_40595747"
+}
+raw <- file.path(study_root, "data")
+out <- file.path(raw, "harmonized")
+dir.create(out, recursive = TRUE, showWarnings = FALSE)
+
+pad_charls_id <- function(x) {
+  x <- as.character(trimws(x))
+  ifelse(
+    nchar(x) == 11L, paste0(substr(x, 1, 9), "0", substr(x, 10, 11)),
+    ifelse(nchar(x) == 10L, paste0(substr(x, 1, 8), "0", substr(x, 9, 10)), x)
+  )
+}
+
+to_id <- function(x) as.character(as.vector(x))
+
+recode_dn <- function(x) {
+  ifelse(
+    is.na(x), NA_character_,
+    ifelse(
+      as.character(x) %in% c("1"), "Circadian_Disorder",
+      ifelse(as.character(x) %in% c("0"), "No_Disorder", NA_character_)
+    )
+  )
+}
+
+map_bp <- function(df) {
+  if (!"SBP" %in% names(df) && "NBPS" %in% names(df)) df$SBP <- df$NBPS
+  if (!"DBP" %in% names(df) && "NBPD" %in% names(df)) df$DBP <- df$NBPD
+  df
+}
+
+load_df <- function(path, obj = NULL) {
+  e <- new.env(parent = emptyenv())
+  load(path, envir = e)
+  if (is.null(obj)) {
+    nms <- ls(e)
+    if (length(nms) != 1L) {
+      stop("期望单对象: ", path, " 有 ", paste(nms, collapse = ","))
+    }
+    obj <- nms[[1L]]
+  }
+  as.data.frame(e[[obj]])
+}
+
+circ_keep_cols <- c(
+  "ID", paste0("condition", 1:7), "met_count", "DN"
+)
+
+prep_frailty_fi <- function(path, id_col = "ID") {
+  fr <- read.csv(path, check.names = FALSE)
+  if (!id_col %in% names(fr)) {
+    stop("虚弱文件缺少 ID 列: ", id_col, " in ", path)
+  }
+  fr$ID <- to_id(fr[[id_col]])
+  if (!"FI" %in% names(fr)) {
+    stop("虚弱文件缺少 FI 列: ", path)
+  }
+  fr[, c("ID", "FI"), drop = FALSE]
+}
+
+epwv_complete_rate <- function(df) {
+  need <- c("Age", "Gender", "SBP", "DBP")
+  miss <- setdiff(need, names(df))
+  if (length(miss)) {
+    warning("epwv 完整率缺列: ", paste(miss, collapse = ","))
+    return(NA_real_)
+  }
+  mean(stats::complete.cases(df[, need, drop = FALSE]))
+}
+
+qc_row <- function(cohort, dabiao, circ_n, circ_merge_rate, fi_merge_rate, note = "") {
+  data.frame(
+    cohort = cohort,
+    n = nrow(dabiao),
+    n_event = sum(dabiao$Disease_Group == "Circadian_Disorder", na.rm = TRUE),
+    circ_merge_rate = circ_merge_rate,
+    fi_merge_rate = fi_merge_rate,
+    epwv_comp_complete_rate = epwv_complete_rate(dabiao),
+    note = note,
+    stringsAsFactors = FALSE
+  )
+}
+
+assert_merge <- function(cohort, n, circ_n, circ_merge_rate, min_rate = 0.70) {
+  if (isTRUE(n == 0L) || isTRUE(circ_n == 0L) || isTRUE(circ_merge_rate == 0)) {
+    stop(cohort, ": silent 0 合并 (n=", n, ", circ_n=", circ_n,
+         ", circ_merge_rate=", circ_merge_rate, ")")
+  }
+  if (isTRUE(circ_merge_rate < min_rate)) {
+    stop(cohort, ": circ_merge_rate=", round(circ_merge_rate, 4),
+         " < ", min_rate, " (硬停)")
+  }
+}
+
+overlap_row <- function(cohort, strategy, left_ids, right_ids) {
+  left_ids <- unique(to_id(left_ids))
+  right_ids <- unique(to_id(right_ids))
+  n_ov <- length(intersect(left_ids, right_ids))
+  data.frame(
+    cohort = cohort,
+    strategy = strategy,
+    n_left = length(left_ids),
+    n_right = length(right_ids),
+    n_overlap = n_ov,
+    overlap_rate_vs_left = if (length(left_ids)) n_ov / length(left_ids) else NA_real_,
+    stringsAsFactors = FALSE
+  )
+}
+
+id_align_rows <- list()
+
+# --- CHARLS 2011 ---
+bl_charls_path <- file.path(raw, "charls", "D01_baseline_CHARLS_2011_0813.RData")
+circ_charls_path <- file.path(raw, "charls", "昼夜节律CHARLS_2011.csv")
+fr_charls_path <- file.path(raw, "frailty", "虚弱_charls_2011.csv")
+
+bl <- load_df(bl_charls_path, "baseline")
+bl$ID <- to_id(bl$ID)
+
+circ <- read.csv(circ_charls_path, check.names = FALSE)
+circ$ID_raw <- to_id(circ$ID)
+circ$ID <- pad_charls_id(circ$ID_raw)
+circ_n_charls <- nrow(circ)
+
+fr <- prep_frailty_fi(fr_charls_path, id_col = "ID")
+
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "CHARLS", "circ_raw_vs_bl_raw", circ$ID_raw, bl$ID
+)
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "CHARLS", "circ_pad_vs_bl_raw", circ$ID, bl$ID
+)
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "CHARLS", "circ_pad_vs_bl_pad", circ$ID, pad_charls_id(bl$ID)
+)
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "CHARLS", "fr12_vs_bl_raw", fr$ID, bl$ID
+)
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "CHARLS", "fr12_vs_circ_pad", fr$ID, circ$ID
+)
+
+circ_cols <- circ[, intersect(circ_keep_cols, names(circ)), drop = FALSE]
+dabiao_charls <- bl %>%
+  inner_join(circ_cols, by = "ID") %>%
+  left_join(fr, by = "ID")
+dabiao_charls$Disease_Group <- recode_dn(dabiao_charls$DN)
+dabiao_charls$Frailty <- ifelse(
+  !is.na(dabiao_charls$FI), as.integer(dabiao_charls$FI >= 0.25), NA_integer_
+)
+dabiao_charls <- map_bp(dabiao_charls)
+
+circ_merge_charls <- nrow(dabiao_charls) / circ_n_charls
+fi_merge_charls <- mean(!is.na(dabiao_charls$FI))
+assert_merge("CHARLS", nrow(dabiao_charls), circ_n_charls, circ_merge_charls)
+note_charls <- character(0)
+if (fi_merge_charls < 0.70) {
+  note_charls <- c(note_charls, paste0("FI_MERGE_WARN=", round(fi_merge_charls, 4)))
+}
+note_charls <- paste(note_charls, collapse = ";")
+
+dabiao <- dabiao_charls
+save(dabiao, file = file.path(out, "D04_CHARLS_circadian_baseline.RData"))
+
+# --- ELSA wave4 ---
+bl_elsa_path <- file.path(raw, "elsa", "D01_baseline_ELSA4_2008_0813.RData")
+circ_elsa_path <- file.path(raw, "elsa", "昼夜节律ELSA_wave4.csv")
+fr_elsa_path <- file.path(raw, "frailty", "虚弱_elsa_wave4.csv")
+
+bl <- load_df(bl_elsa_path, "baseline")
+bl$ID <- to_id(bl$ID)
+
+circ <- read.csv(circ_elsa_path, check.names = FALSE)
+if (!"idauniq" %in% names(circ)) stop("ELSA circ 缺少 idauniq")
+circ$ID <- to_id(circ$idauniq)
+circ_n_elsa <- nrow(circ)
+
+fr <- prep_frailty_fi(fr_elsa_path, id_col = "idauniq")
+
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "ELSA", "circ_idauniq_vs_bl", circ$ID, bl$ID
+)
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "ELSA", "fr_idauniq_vs_bl", fr$ID, bl$ID
+)
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "ELSA", "fr_vs_circ", fr$ID, circ$ID
+)
+
+circ_cols <- circ[, intersect(circ_keep_cols, names(circ)), drop = FALSE]
+dabiao_elsa <- bl %>%
+  inner_join(circ_cols, by = "ID") %>%
+  left_join(fr, by = "ID")
+dabiao_elsa$Disease_Group <- recode_dn(dabiao_elsa$DN)
+dabiao_elsa$Frailty <- ifelse(
+  !is.na(dabiao_elsa$FI), as.integer(dabiao_elsa$FI >= 0.25), NA_integer_
+)
+dabiao_elsa <- map_bp(dabiao_elsa)
+
+circ_merge_elsa <- nrow(dabiao_elsa) / circ_n_elsa
+fi_merge_elsa <- mean(!is.na(dabiao_elsa$FI))
+assert_merge("ELSA", nrow(dabiao_elsa), circ_n_elsa, circ_merge_elsa)
+note_elsa <- character(0)
+if (fi_merge_elsa < 0.70) {
+  note_elsa <- c(note_elsa, paste0("FI_MERGE_WARN=", round(fi_merge_elsa, 4)))
+}
+if (!file.exists(file.path(raw, "frailty", "虚弱_elsa_wave5.csv"))) {
+  note_elsa <- c(note_elsa, "NO_ELSA_WAVE5_FRAILTY")
+}
+note_elsa <- paste(note_elsa, collapse = ";")
+
+dabiao <- dabiao_elsa
+save(dabiao, file = file.path(out, "D04_ELSA_circadian_baseline.RData"))
+
+# --- NHANES ---
+bl_nhanes_path <- file.path(raw, "nhanes", "D01_baseline_NHANES_0813 (1).RData")
+if (!file.exists(bl_nhanes_path)) {
+  alt <- list.files(file.path(raw, "nhanes"), pattern = "^D01_baseline_NHANES.*\\.RData$",
+                    full.names = TRUE)
+  if (!length(alt)) stop("找不到 NHANES baseline RData")
+  bl_nhanes_path <- alt[[1L]]
+}
+circ_nhanes_path <- file.path(raw, "nhanes", "昼夜节律(NHANES).csv")
+
+bl <- load_df(bl_nhanes_path, "baseline")
+bl$ID <- to_id(bl$ID)
+
+circ <- read.csv(circ_nhanes_path, check.names = FALSE)
+if (!"SEQN" %in% names(circ)) stop("NHANES circ 缺少 SEQN")
+circ$ID <- to_id(circ$SEQN)
+circ_n_nhanes <- nrow(circ)
+
+id_align_rows[[length(id_align_rows) + 1L]] <- overlap_row(
+  "NHANES", "circ_SEQN_vs_bl", circ$ID, bl$ID
+)
+
+circ_cols <- circ[, intersect(circ_keep_cols, names(circ)), drop = FALSE]
+dabiao_nhanes <- bl %>%
+  inner_join(circ_cols, by = "ID")
+dabiao_nhanes$FI <- NA_real_
+dabiao_nhanes$Frailty <- NA_integer_
+dabiao_nhanes$Disease_Group <- recode_dn(dabiao_nhanes$DN)
+dabiao_nhanes <- map_bp(dabiao_nhanes)
+
+circ_merge_nhanes <- nrow(dabiao_nhanes) / circ_n_nhanes
+fi_merge_nhanes <- mean(!is.na(dabiao_nhanes$FI))
+assert_merge("NHANES", nrow(dabiao_nhanes), circ_n_nhanes, circ_merge_nhanes)
+note_nhanes <- "NO_FI_CROSS_SECTION_ONLY"
+
+dabiao <- dabiao_nhanes
+save(dabiao, file = file.path(out, "D04_NHANES_circadian_baseline.RData"))
+
+# --- QC + ID align report ---
+qc <- rbind(
+  qc_row("CHARLS", dabiao_charls, circ_n_charls, circ_merge_charls, fi_merge_charls, note_charls),
+  qc_row("ELSA", dabiao_elsa, circ_n_elsa, circ_merge_elsa, fi_merge_elsa, note_elsa),
+  qc_row("NHANES", dabiao_nhanes, circ_n_nhanes, circ_merge_nhanes, fi_merge_nhanes, note_nhanes)
+)
+write.csv(qc, file.path(out, "prep_qc.csv"), row.names = FALSE)
+
+id_align_report <- dplyr::bind_rows(id_align_rows)
+write.csv(id_align_report, file.path(out, "id_align_report.csv"), row.names = FALSE)
+
+message("Wrote harmonized circadian dabiao + prep_qc.csv + id_align_report.csv to ", out)
+print(qc)
+print(id_align_report)
+message(
+  "CHARLS FI non-NA n=", sum(!is.na(dabiao_charls$FI)),
+  " (expected ~6268); circ merge n=", nrow(dabiao_charls), " (expected ~9141)"
+)

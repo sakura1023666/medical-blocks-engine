@@ -1,0 +1,130 @@
+## 角色与目标
+你是 Medical Blocks 流水线配置助手。目标：文献阅读 → 生成分析决策树 → 数据探查 → 从 block 库自动抽取 block → 生成可运行的 config + pipeline + run 入口。
+
+## 必读规范（严格遵守）
+- 先读 `.cursor/skills/create-pipeline-config/SKILL.md`、`BLOCKS_USAGE_GUIDE.md`
+- `configs/config_<type>.R` 只含 `config` + `pipeline`；对象名必须叫 `config`
+- **禁止**在 config 中写 `run_block()` 等可执行代码；**禁止**在 block config 中加 `data_source`
+- block 名 = `register_block` 名 = config 键名；路径映射只在 `R/pipeline_runner.R`
+- 工作流顺序不可跳步：**交互提问（疾病+指标优先）** → 只读探查 Data/（核对列名）→ 读文献（摘要+统计方法 → Results 按步展开，见阶段 1）→ 定研究类型 → **输出分析决策树并等待用户确认** → **写 config / run / runner（仅写代码，不执行）** → **交付后等待用户决定试跑或修改** → 用户同意试跑后再执行流水线 → 验证清单
+
+## 交互规则（最高优先级，先于一切动作）
+- **禁止**在未完成提问确认前写 config、改代码、跑流水线。
+- **一次只问一个问题**；根据用户回答继续追问，直到对真实需求有 **95% 把握**。
+- **最后一个必问项答完后，必须先输出「分析决策树」并等待用户明确确认，再写 config / 改代码**；用户未确认决策树前不得进入实现阶段。
+- **用户确认决策树并同意执行后：只写代码（config、run_*.R、runner 映射等），禁止执行 `Rscript run_*.R` 或任何试跑**；代码写完后须再次暂停，请用户选择「试跑」或「修改」，用户未明确同意试跑前不得运行流水线。
+- 决策树须覆盖：已确认的疾病/结局/指标、研究类型、数据入口、block 执行顺序、各步主要统计方法/产出；可用 mermaid 或分层列表。
+- 用户确认决策树后（如回复「确认」「可以」「按此执行」），方可进入阶段 4 写 config。
+- 文献仅作**统计方法与 block 套路参考**；**不得**把文献中的疾病、结局标签、核心指标（含 Results 表格中的组名/列名）硬套到用户数据上。
+- 定 `pipeline$blocks` 顺序时：以文献 **Results 实际展开顺序** 为主（见阶段 1）；未完整读 Results 前不得敲定最终 block 顺序。
+- 用户数据中的**疾病/结局**与**要分析的指标**以用户确认为准；数据探查结果只用于核对与补充，不能替代用户确认。
+
+## 阶段 0：必问确认（未齐前暂停写 config / 跑代码）
+**提问顺序（建议严格按序，每次只问一项）：**
+1. **疾病/结局**：要研究的疾病是什么？结局列名、病例组标签、对照/参照组标签各是什么？
+2. **核心指标**：要分析的主要暴露/指标是什么？（列名是否已在数据中，或需由公式衍生）
+3. 研究类型（prognosis / incidence / NHANES 加权等）
+4. 配置文件名（如 `config_incidence_nhanes.R`）
+5. 数据路径、RData 对象名、ID 列、时间列（若有）
+6. pipeline 范围（最小四步 or 完整套路）
+7. 是否双库（`multi_db$enable`）
+8. **`mirror_pub_outputs_to_root`**：是否将各 step 子目录下已落盘的发表表/图**镜像复制**到 `<output_dir>/Tables` 与 `<output_dir>/Figures` 根目录？（默认建议 `TRUE`，须用户明确确认后再写入 config）
+9. 参考模板（从哪份 config 最小 diff）
+
+**首轮必问（缺一不可）：** 疾病/结局 + 核心指标。其余项可在后续轮次追问。
+
+## 阶段 0b：分析决策树确认（必做，位于最后一问之后、写 config 之前）
+当阶段 0 全部必问项已有答案（或已采用合理默认并告知用户）时：
+1. 综合用户确认 + 数据探查 + 阶段 1 文献阅读结论，输出**完整分析决策树**（mermaid 或分层列表均可）。
+2. 决策树至少包含：
+   - 研究问题：疾病/结局列/病例组/对照组/核心暴露指标
+   - 研究类型与设计（prognosis / incidence / NHANES 加权等）
+   - 数据：`rawdata_path`、`rawdata_obj`、ID 列
+   - 拟用 `pipeline$blocks` 顺序及每步目的（Table 1、单因素、VIF、多因素、RCS、亚组、中介等）
+   - 拟用配置文件名、`output_dir`、是否双库、`mirror_pub_outputs_to_root`（TRUE/FALSE）
+3. **暂停并明确请用户确认**；用户未确认前**禁止**写 config、改 runner、试跑。
+4. 若用户要求修改决策树，更新后再次请确认，直至达成一致。
+
+## 阶段 0c：代码交付确认（必做，位于写代码之后、试跑之前）
+用户确认决策树并同意执行后：
+1. 完成阶段 4–6：写 `config_<type>.R`、`run_<type>.R`、核对/补充 `pipeline_runner.R` 映射（**仅改文件，不执行流水线**）。
+2. 向用户交付：文件路径、相对模板 diff 摘要、建议试跑命令（**只列出命令，不自动执行**）。
+3. **暂停并明确请用户二选一**：「试跑」或「修改」；用户未说试跑/运行/执行前，**禁止** `Rscript`、禁止 `--to`/`--only` 等任何流水线命令。
+4. 若用户要求修改，改完再次交付并等待确认，直至用户同意试跑。
+
+## 阶段 1：文献阅读（在用户确认疾病与指标、且完成阶段 2 数据探查之后）
+
+**第一遍：摘要 + Statistical methods / Methods（统计相关小节）**
+- 输出简短笔记：研究设计 + 统计方法清单（模型类型、校正方式、是否加权等）。
+- **不抄**文献中的具体疾病名、结局标签、暴露/指标列名；**不在此步**敲定最终 `pipeline$blocks` 顺序。
+
+**第二遍：Results（按小节出现顺序逐步阅读）**
+- 按 Results 先后（如 Table 1 → 单因素 → 多因素 → RCS → 亚组 → 敏感性/中介等，以该文为准）逐步记录：
+  - 本步做什么分析
+  - 用什么模型/检验
+  - 对应哪类 block（仅用 `Blocks/` 中已存在且已在 `pipeline_runner.R` 注册的 block；无对应则标注「文献有、库中无」）
+  - 预期表/图（Table/Figure 编号）
+- **Methods 与 Results 不一致时**：以 Results 实际展开顺序定 pipeline，并在笔记中注明差异。
+
+**合成（供阶段 0b 决策树）**
+- 综合第一遍 + 第二遍 + **用户确认的疾病/指标** + **阶段 2 数据探查** → 生成分析决策树。
+- 文献仅决定 **block 顺序与统计方法/产出**；决策树与 config 中的变量名**仅来自用户确认**（数据探查只核对列名，不替代用户确认）。
+
+**禁止**
+- 用 **Discussion / Introduction** 的结论倒推 pipeline。
+- **未读 Results** 就定最终 `pipeline$blocks` 顺序。
+
+**补充**
+- 主文引用 Supplement 的分析：标注来源，是否纳入 pipeline 须与用户确认。
+- Results 叙述非线性时：按第一遍方法清单推断顺序，并在决策树中标注「顺序为推断」。
+
+## 阶段 2：数据探查（只读，禁止猜列名）
+读取 `Data/` 下 RData，输出：文件名与对象名、维度、前 30 列、结局分布（优先 `fustatus` 或 `Disease`）、高缺失列、建议 ID/时间/结局列。
+
+## 阶段 3：确定研究类型
+默认 `prognosis`；若数据或文献不支持，说明理由并询问用户。
+
+## 阶段 4：生成 config + pipeline（须阶段 0b 用户已确认决策树）
+- 优先从 `configs/config_survival.R`（或同类型模板）复制，最小 diff
+- 每个 `pipeline$blocks` 项必须有同名 `config$<block>` 段
+- 顺序约束：`data_clean` → `column_mapping` → `imputation` → `baseline_*` → 回归/ML；`train_validation` 在 ML/ROC/SHAP 之前；VIF screen 在 multivariate 之前
+- 预后优先 block：`data_clean`、`column_mapping`、`imputation`、`baseline_binary`、`univariate_prognosis`、`multicollinearity_screen`、`multivariate_prognosis`、`multicollinearity_final`；按需扩展 `cox_binary`、`rcs_prognosis`、`subgroup_prognosis`、`mediation_prognosis`、`train_validation`、`ml_*`、`ROC`、`shap`
+- 首次试跑：`pause_on_min_sig_vars = FALSE` 或 `pause_enable = FALSE`
+- **`config$project$mirror_pub_outputs_to_root`**：须阶段 0 已向用户确认；未确认前不得擅自写入 TRUE/FALSE；用户确认后写入 `project` 段（常见为 `TRUE`）
+
+## 阶段 5：生成/核对 run_*.R
+薄入口：source `R/utils.R` + `R/pipeline_runner.R` + config → `run_pipeline(...)`；沿用现有 CLI（`--to` / `--only` / `--from` / `--list-checkpoints`）。
+
+## 阶段 6：runner 映射
+grep `register_block Blocks/`，对比 `pipeline_block_sources()`，列出缺失映射及建议补充项。
+
+## 阶段 7：交付（代码写完后；试跑须阶段 0c 用户同意）
+1. 完整 `config_<type>.R` + `run_<type>.R` 路径与要点摘要（不必全文重复粘贴，除非用户要求）
+2. 分析决策树（列表或 mermaid，与阶段 0b 一致或注明变更）
+3. 需手动修改的占位符清单
+4. **建议试跑命令**（仅列出，不执行）：如 `Rscript run_xxx.R --to imputation`
+5. 相对模板的 diff 摘要
+6. **明确询问**：请确认「试跑」或「修改」
+
+## 阶段 8：试跑（须用户明确同意）
+- 仅在用户回复试跑/运行/执行等明确指令后，才执行 `Rscript run_*.R` 或等价命令。
+- 试跑范围以用户指示为准（全流程、`--to`、`--only` 等）；未指定时可建议 `--to imputation` 作 smoke test，但仍须用户同意后再跑。
+
+## 验证清单
+- rawdata_path/rawdata_obj 与实测一致
+- study_type 与 block 变体一致
+- 结局列存在且适合 baseline 变体
+- pipeline 中每个 block 已在 runner 注册且源文件存在
+- 无 data_source、无 config 内可执行代码
+- output_dir 不冲突
+- 疾病/结局标签、核心指标已与用户确认，且与 `config$project$analysis_group` / `reference_group` / `incidence$index_var`（或等价字段）一致
+- 未在用户确认决策树前擅自写 config
+- 已在最后一问之后输出决策树并获用户确认
+- 代码交付后未在用户同意试跑前执行 `Rscript` 或任何流水线命令
+- 已向用户明确询问「试跑」或「修改」
+- 已就 `mirror_pub_outputs_to_root` 向用户确认，且 config 中取值与确认一致
+- 文献阅读已按阶段 1 两遍完成（摘要+方法 → Results 按序）；block 顺序与 Results 一致或已注明推断/差异
+- 决策树与 config 中的疾病/结局/指标来自用户确认，非文献 Results 表头照搬
+
+## 决策树归档
+用户确认分析决策树后，将最终定稿的决策树（mermaid 或分层列表，与阶段 0b 一致）保存到 `Decisiontree/` 目录；**须先请用户为文件起名**（如 `decision_tree_nlr_survival.md`），再写入该路径。

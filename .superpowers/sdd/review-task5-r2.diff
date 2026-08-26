@@ -1,0 +1,1008 @@
+# Review package: Task 5 re-review (includes fixes)
+## Diff: R/incidence_sensitivity_suite.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task5/incidence_sensitivity_suite.R	2026-08-17 17:13:08.409429600 +0800
++++ /mnt/e/01block/01Block-new-Final/R/incidence_sensitivity_suite.R	2026-08-17 17:38:21.187610400 +0800
+@@ -1,20 +1,22 @@
+ ###############################################################################
+ #  incidence_sensitivity_suite.R — 主分析成功后的敏感性分析重跑
+ #
+-#  触发：批量主流程跑完后，对每个 success 指标，按 config$incidence_batch$
+-#        sensitivity_suite$scenarios 声明的队列过滤，重跑双库发病流程。
++#  触发：批量主流程跑完后，对每个 success 指标，从两库 Table 1 动态发现
++#        Yes/No 场景 + 年龄分层，在主分析插补后 checkpoint 上删人，
++#        只重跑 Table 1 / Table 2，产物打 【success】/【failed】。
+ #
+-#  机制（复用 subgroup_fallback 的 worker 过滤与派发）：
+-#    1. 生成临时 config，注入 .subgroup_fallback_expr（cohort 行过滤）
+-#    2. 调 run_incidence_dual_batch_worker.R
+-#    3. 产物平移到 by_index/<ix>/sensitivity/<label>/
++#  机制：
++#    1. scenarios_for_index：categorical_vars + imputed（不用 shared）
++#    2. 拷主分析 index_ck_base/ix/<db> → 敏感性 ck，滤人，删单水平协变量
++#    3. 临时 config 注入 .sensitivity_light（Task 6 worker 挂钩）
++#    4. 派发 worker；S12/S13 打标；Model2 p 判定 NS
+ #
+ #  依赖：utils.R, incidence_dual_batch_runner.R, incidence_subgroup_fallback.R
+ ###############################################################################
+ 
+ incidence_sensitivity_yes_tokens <- function() {
+   c("Yes", "yes", "YES", "1", "TRUE", "True", "true", "Y", "y")
+ }
+ 
+ incidence_sensitivity_no_tokens <- function() {
+   c("No", "no", "NO", "0", "FALSE", "False", "false", "N", "n")
+@@ -314,37 +316,254 @@
+   all_vars <- character(0)
+   for (k in m_keys) {
+     all_vars <- c(all_vars, as.character(harm[[k]] %||% character(0)))
+   }
+   for (bl in c("baseline_nhanes", "baseline_binary", "baseline")) {
+     if (!is.null(config[[bl]])) {
+       all_vars <- c(all_vars, as.character(config[[bl]]$include_vars %||% character(0)))
+     }
+   }
+   drop <- incidence_sensitivity_constant_vars(df, unique(all_vars[nzchar(all_vars)]))
+-  if (!length(drop)) return(config)
++
++  .sync_common_model_factors <- function(config) {
++    if (is.null(config$dual_db$harmonization)) return(config)
++    m1 <- as.character(
++      config$dual_db$harmonization$harmonized_model1_nhanes %||%
++        config$dual_db$harmonization$harmonized_model1_mimic %||% character(0)
++    )
++    m2 <- as.character(
++      config$dual_db$harmonization$harmonized_model2_nhanes %||%
++        config$dual_db$harmonization$harmonized_model2_mimic %||% character(0)
++    )
++    config$dual_db$harmonization$common_model_factors <- setdiff(m2, m1)
++    config
++  }
++
++  if (!length(drop)) return(.sync_common_model_factors(config))
+ 
+   .minus <- function(x) setdiff(as.character(x %||% character(0)), drop)
+ 
+   if (!is.null(config$dual_db$harmonization)) {
+     for (k in m_keys) {
+       if (!is.null(config$dual_db$harmonization[[k]])) {
+         config$dual_db$harmonization[[k]] <- .minus(config$dual_db$harmonization[[k]])
+       }
+     }
+   }
+   for (bl in c("baseline_nhanes", "baseline_binary", "baseline")) {
+     if (!is.null(config[[bl]]$include_vars)) {
+       config[[bl]]$include_vars <- .minus(config[[bl]]$include_vars)
+     }
+   }
+-  config
++  .sync_common_model_factors(config)
++}
++
++# ── 主分析插补后数据（场景发现用，禁止 shared 未插补表）──────────────────
++incidence_sensitivity_load_imputed <- function(main_ck_base, ix, db_path_name) {
++  p <- file.path(main_ck_base, ix, db_path_name, "imputation.rds")
++  if (!file.exists(p)) p <- file.path(main_ck_base, ix, db_path_name, "index.rds")
++  if (!file.exists(p)) {
++    hits <- list.files(
++      file.path(main_ck_base, ix, db_path_name),
++      pattern = "imputation\\.rds$", full.names = TRUE
++    )
++    if (length(hits)) p <- hits[[1L]]
++  }
++  obj <- readRDS(p)
++  df <- obj$ctx$data$imputed %||% incidence_batch_ctx_data(obj$ctx)
++  if (exists("pipeline_normalize_yes_no_factors", mode = "function"))
++    df <- pipeline_normalize_yes_no_factors(df)
++  df
++}
++
++incidence_sensitivity_scenarios_for_index <- function(config, parent_dir, main_ck_base,
++                                                      ix, db_names) {
++  db_names <- as.character(db_names %||% character(0))
++  db_names <- db_names[nzchar(db_names)]
++  sens <- utils::modifyList(
++    (config$incidence_batch %||% list())$sensitivity_suite %||% list(),
++    (config$survival_batch %||% list())$sensitivity_suite %||% list()
++  )
++  min_yes_n <- as.integer(sens$min_yes_n %||% 50L)[1L]
++  min_n <- as.integer(sens$min_n_per_db %||% 50L)[1L]
++  age_cutoff <- as.integer(sens$age_cutoff %||% 65L)[1L]
++  t1_vars_by_db <- list()
++  data_by_db <- list()
++  for (db in db_names) {
++    t1_vars_by_db[[db]] <- incidence_sensitivity_read_table1_vars(parent_dir, db)
++    data_by_db[[db]] <- tryCatch(
++      incidence_sensitivity_load_imputed(main_ck_base, ix, db),
++      error = function(e) NULL
++    )
++  }
++  yesno <- incidence_sensitivity_discover_yesno(t1_vars_by_db, data_by_db, min_yes_n)
++  age <- incidence_sensitivity_age_scenarios(age_cutoff, data_by_db, min_n)
++  c(yesno, age)
++}
++
++.incidence_sensitivity_parse_p <- function(x) {
++  s <- trimws(as.character(x %||% "")[1L])
++  if (!nzchar(s) || grepl("^(Ref|ref|NA|P|P value|P-value)$", s, ignore.case = TRUE)) {
++    return(NA_real_)
++  }
++  if (grepl("<\\s*0\\.001", s)) return(0.0005)
++  suppressWarnings(as.numeric(s))
++}
++
++# Skip p-for-trend / Ref / header rows; primary contrast is last remaining group row.
++.incidence_sensitivity_is_skip_contrast_row <- function(row) {
++  cells <- trimws(as.character(unlist(row, use.names = FALSE)))
++  cells[is.na(cells)] <- ""
++  if (!length(cells) || !any(nzchar(cells))) return(TRUE)
++  skip_re <- paste(
++    "p\\s*for\\s*trend",
++    "\\bRef\\b",
++    "Characteristic",
++    "P[- ]?value",
++    "Crude\\s*Model",
++    "^Model\\s*[123]$",
++    "^OR$",
++    "^HR$",
++    "95%\\s*CI",
++    "Exposure\\s*cutoff",
++    sep = "|"
++  )
++  any(grepl(skip_re, cells, ignore.case = TRUE, perl = TRUE))
++}
++
++incidence_sensitivity_model2_primary_p <- function(ctx) {
++  if (is.null(ctx) || !is.list(ctx)) return(NA_real_)
++  r <- ctx$results %||% list()
++  tbl <- r$logistic_table2 %||% r$nhanes_logistic_table2 %||%
++    r$logistic_table2_weighted %||% r$logistic_table2_nhanes %||%
++    r$cox_hr %||% r$cox_table2 %||% NULL
++  if (is.null(tbl)) return(NA_real_)
++  tbl <- as.data.frame(tbl, stringsAsFactors = FALSE)
++  if (!nrow(tbl) || !ncol(tbl)) return(NA_real_)
++  p_col <- if (ncol(tbl) >= 12L) 12L else ncol(tbl)
++  keep <- vapply(seq_len(nrow(tbl)), function(i) {
++    !isTRUE(.incidence_sensitivity_is_skip_contrast_row(tbl[i, , drop = TRUE]))
++  }, logical(1L))
++  if (!any(keep)) return(NA_real_)
++  i <- max(which(keep))
++  .incidence_sensitivity_parse_p(tbl[[p_col]][i])
++}
++
++incidence_sensitivity_rename_pub_tables <- function(tables_dir, db_tag, zh_desc,
++                                                    study_type = "incidence") {
++  tables_dir <- as.character(tables_dir %||% "")[1L]
++  if (!nzchar(tables_dir) || !dir.exists(tables_dir)) return(invisible(character(0)))
++  db_tag <- as.character(db_tag %||% "")[1L]
++  zh_desc <- as.character(zh_desc %||% "")[1L]
++  files <- list.files(tables_dir, full.names = TRUE)
++  out <- character(0)
++  for (f in files) {
++    if (!file.exists(f) || dir.exists(f)) next
++    bn <- basename(f)
++    if (grepl("^Table S1[23]", bn) && grepl("Sensitivity analysis", bn, fixed = TRUE)) next
++    s_num <- NA_integer_
++    if (grepl("Baseline characteristics", bn, ignore.case = TRUE)) {
++      s_num <- 12L
++    } else if (grepl("Logistic regression|\\bCox\\b", bn, ignore.case = TRUE, perl = TRUE)) {
++      s_num <- 13L
++    } else {
++      next
++    }
++    cap <- sub("^Table\\s+S?[0-9]+(?:-[^.]+)?\\.\\s*", "", tools::file_path_sans_ext(bn))
++    cap <- sub("^Sensitivity analysis-[^.]+\\.\\s*", "", cap)
++    if (!nzchar(trimws(cap))) {
++      cap <- if (identical(s_num, 12L)) "Baseline characteristics" else {
++        if (identical(as.character(study_type)[1L], "prognosis"))
++          "Cox regression" else "Logistic regression"
++      }
++    }
++    ext <- tools::file_ext(bn)
++    stem <- incidence_sensitivity_pub_stem(s_num, db_tag, zh_desc, cap)
++    new_bn <- if (nzchar(ext)) paste0(stem, ".", ext) else stem
++    new_path <- file.path(tables_dir, new_bn)
++    if (!identical(
++      normalizePath(f, winslash = "/", mustWork = FALSE),
++      normalizePath(new_path, winslash = "/", mustWork = FALSE)
++    )) {
++      if (file.exists(new_path)) unlink(new_path)
++      ok <- tryCatch(file.rename(f, new_path), error = function(e) FALSE)
++      if (!isTRUE(ok)) {
++        file.copy(f, new_path, overwrite = TRUE)
++        unlink(f)
++      }
++    }
++    if (requireNamespace("openxlsx", quietly = TRUE) &&
++        grepl("xlsx$", new_path, ignore.case = TRUE) &&
++        isTRUE((file.info(new_path)$size %||% 0) > 22)) {
++      tryCatch({
++        wb <- openxlsx::loadWorkbook(new_path)
++        sh <- openxlsx::sheets(wb)[1L]
++        v <- tryCatch(
++          openxlsx::read.xlsx(new_path, sheet = 1L, colNames = FALSE, rows = 1, cols = 1),
++          error = function(e) NULL
++        )
++        first <- if (!is.null(v) && nrow(v) && ncol(v)) as.character(v[1, 1])[1L] else ""
++        if (nzchar(first) && grepl("^Table ", first)) {
++          openxlsx::writeData(wb, sh, stem, startCol = 1, startRow = 1, colNames = FALSE)
++          openxlsx::saveWorkbook(wb, new_path, overwrite = TRUE)
++        }
++      }, error = function(e) NULL)
++    }
++    out <- c(out, new_bn)
++  }
++  invisible(out)
++}
++
++.incidence_sensitivity_scheme_from_status <- function(parent_dir) {
++  p <- file.path(parent_dir, "_batch_status.json")
++  if (!file.exists(p)) return("quartile")
++  st <- tryCatch(jsonlite::fromJSON(p), error = function(e) NULL)
++  if (is.null(st)) return("quartile")
++  br <- as.character(
++    st$nhanes_branch %||% st$mimic_branch %||% st$cox_branch %||% ""
++  )[1L]
++  if (!nzchar(br) || br %in% c("NA", "NULL")) return("quartile")
++  for (sch in c("quartile", "tertile", "binary")) {
++    if (grepl(sch, br, ignore.case = TRUE)) return(sch)
++  }
++  "quartile"
++}
++
++.incidence_sensitivity_latest_ctx <- function(ck_dir) {
++  if (is.null(ck_dir) || !dir.exists(ck_dir)) return(NULL)
++  rds <- list.files(ck_dir, pattern = "\\.rds$", full.names = TRUE)
++  if (!length(rds)) return(NULL)
++  info <- file.info(rds)
++  rds <- rds[order(info$mtime, decreasing = TRUE)]
++  pick <- NULL
++  for (p in rds) {
++    obj <- tryCatch(readRDS(p), error = function(e) NULL)
++    if (is.null(obj) || is.null(obj$ctx)) next
++    if (is.null(pick)) pick <- obj$ctx
++    r <- obj$ctx$results %||% list()
++    if (!is.null(r$logistic_table2) || !is.null(r$nhanes_logistic_table2) ||
++        !is.null(r$cox_hr) || !is.null(r$cox_table2)) {
++      return(obj$ctx)
++    }
++  }
++  pick
++}
++
++.incidence_sensitivity_abs_ck <- function(ck_base, config_path) {
++  ck_base <- as.character(ck_base %||% "")[1L]
++  if (!nzchar(ck_base)) return(ck_base)
++  if (exists("is_absolute_path", mode = "function") && is_absolute_path(ck_base)) {
++    return(ck_base)
++  }
++  if (grepl("^(?:[A-Za-z]:)?[/\\\\]", ck_base)) return(ck_base)
++  study_root <- dirname(normalizePath(config_path, winslash = "/", mustWork = FALSE))
++  file.path(study_root, ck_base)
+ }
+ 
+ # ── 定位指标 by_index 父目录（裸名 / 【success】<ix> / 【failed】<ix>）──────
+ .incidence_sensitivity_find_index_parent <- function(by_index_dir, ix) {
+   if (!dir.exists(by_index_dir)) return(NULL)
+   dirs <- list.dirs(by_index_dir, recursive = FALSE, full.names = TRUE)
+   bns  <- basename(dirs)
+   hit  <- dirs[endsWith(bns, paste0("\u3011", ix))]   # 】<ix>
+   if (!length(hit)) hit <- dirs[bns == ix]
+   if (length(hit)) hit[1L] else NULL
+@@ -390,27 +609,56 @@
+   }
+   m1_hits <- list.files(parent_dir, pattern = "^Model1Factors\\.txt$",
+                         recursive = TRUE, full.names = TRUE)
+   m1_hits <- m1_hits[!grepl("sensitivity|\\.sensitivity_staging", m1_hits)]
+   if (length(m1_hits)) m1 <- .read_cov(m1_hits[[1L]])
+   if (!length(m1) && length(m2)) m1 <- intersect(m2, c("Age", "Gender", "Sex", "Race"))
+   if (!length(m1)) m1 <- "Age"
+   list(m1 = unique(m1[nzchar(m1)]), m2 = unique(m2[nzchar(m2)]))
+ }
+ 
++incidence_sensitivity_load_main_covariates <- .incidence_sensitivity_load_main_covariates
++
++.incidence_sensitivity_db_names <- function(config) {
++  if (exists("dual_db_slot_path_name", mode = "function")) {
++    unique(c(
++      dual_db_slot_path_name(config, "nhanes"),
++      dual_db_slot_path_name(config, "mimic")
++    ))
++  } else {
++    c("NHANES", "MIMIC")
++  }
++}
++
++.incidence_sensitivity_move_dir <- function(src, dst) {
++  if (!dir.exists(src)) return(FALSE)
++  dir.create(dirname(dst), recursive = TRUE, showWarnings = FALSE)
++  if (dir.exists(dst)) unlink(dst, recursive = TRUE)
++  ok <- tryCatch(file.rename(src, dst), error = function(e) FALSE)
++  if (isTRUE(ok)) return(TRUE)
++  tryCatch({
++    dir.create(dst, recursive = TRUE, showWarnings = FALSE)
++    file.copy(list.files(src, full.names = TRUE), dst, recursive = TRUE)
++    unlink(src, recursive = TRUE)
++    TRUE
++  }, error = function(e) FALSE)
++}
++
+ # ── 生成敏感性临时 config ────────────────────────────────────────────────────
+ # 注意：worker 的 --config 指向本临时文件时，study config.R 会用
+ # dirname(--config) 当 .batch_project_root，误指向 staging，导致 shared_ck /
+ # Data 全部找不到。source 后必须强制写回真实研究根路径。
+ incidence_sensitivity_write_config <- function(base_config_path, staging_run,
+                                                sensitivity_ck_base, sg, out_path,
+-                                               main_covariates = NULL) {
++                                               main_covariates = NULL,
++                                               scheme = "quartile",
++                                               zh_desc = NULL) {
+   .q <- function(x) deparse(as.character(x)[1L], width.cutoff = 500L)[1L]
+   .qv <- function(x) {
+     x <- as.character(x %||% character(0))
+     x <- x[nzchar(x)]
+     if (!length(x)) return("character(0)")
+     paste0("c(", paste(vapply(x, .q, character(1)), collapse = ", "), ")")
+   }
+   base_abs <- normalizePath(base_config_path, winslash = "/", mustWork = FALSE)
+   study_root <- dirname(base_abs)
+   study_ck <- file.path(study_root, "checkpoints")
+@@ -425,62 +673,75 @@
+   ck_q   <- .q(normalizePath(ck_abs, winslash = "/", mustWork = FALSE))
+   sr_q   <- .q(study_root)
+   shared_q <- .q(shared_ck)
+   ckroot_q <- .q(study_ck)
+   harm_q <- .q(file.path(study_ck, "_global_harmonization"))
+   ex_q   <- .q(sg$expr)
+   lb_q   <- .q(sg$label)
+   m1 <- as.character((main_covariates %||% list())$m1 %||% character(0))
+   m2 <- as.character((main_covariates %||% list())$m2 %||% character(0))
+   if (!length(m1)) m1 <- "Age"
++  table1_vars <- as.character((main_covariates %||% list())$table1_vars %||% character(0))
++  scheme <- as.character(scheme %||% "quartile")[1L]
++  if (!scheme %in% c("quartile", "tertile", "binary")) scheme <- "quartile"
++  zh_desc <- as.character(
++    zh_desc %||% incidence_sensitivity_zh_desc(sg$label %||% "")
++  )[1L]
+   lines <- c(
+     "# AUTO-GENERATED by incidence_sensitivity_suite.R",
+     paste0(".local_base <- ", base_q),
+     "source(.local_base)",
+     paste0(".study_root <- ", sr_q),
+     "config$project$output_dir <- .study_root",
+     paste0("config$dual_db$checkpoint_base <- ", ckroot_q),
+     paste0("config$dual_db$harmonization_dir <- ", harm_q),
+     paste0("config$incidence_batch$shared_ck_base <- ", shared_q),
+     paste0("config$incidence_batch$output_base   <- ", stg_q),
+     paste0("config$incidence_batch$index_ck_base <- ", ck_q),
+     paste0("config$incidence_batch$.subgroup_fallback_expr  <- ", ex_q),
+     paste0("config$incidence_batch$.subgroup_fallback_label <- ", lb_q),
++    "config$incidence_batch$.sensitivity_light <- TRUE",
++    paste0("config$incidence_batch$.sensitivity_scheme <- ", .q(scheme)),
++    paste0("config$incidence_batch$.sensitivity_zh_desc <- ", .q(zh_desc)),
+     "if (!is.null(config$dual_db$primary$rawdata_path)) {",
+     "  .p <- config$dual_db$primary$rawdata_path",
+     "  config$dual_db$primary$rawdata_path <- file.path(.study_root, 'Data', basename(dirname(.p)), basename(.p))",
+     "}",
+     "if (!is.null(config$dual_db$secondary$rawdata_path)) {",
+     "  .p <- config$dual_db$secondary$rawdata_path",
+     "  config$dual_db$secondary$rawdata_path <- file.path(.study_root, 'Data', basename(dirname(.p)), basename(.p))",
+     "}",
+     "if (!is.null(config$survival_batch)) {",
+     "  config$survival_batch <- utils::modifyList(config$survival_batch, config$incidence_batch)",
+     paste0("  config$survival_batch$shared_ck_base <- ", shared_q),
+     paste0("  config$survival_batch$output_base   <- ", stg_q),
+     paste0("  config$survival_batch$index_ck_base <- ", ck_q),
++    "  config$survival_batch$.sensitivity_light <- TRUE",
++    paste0("  config$survival_batch$.sensitivity_scheme <- ", .q(scheme)),
++    paste0("  config$survival_batch$.sensitivity_zh_desc <- ", .q(zh_desc)),
+     "}",
+     "config$feishu$enable <- FALSE",
+     "# ── 敏感性：锁主分析 Gate B 协变量（禁止再扩成 VIF screen 长名单导致方向翻转）──",
+     paste0(".m1 <- ", .qv(m1)),
+     paste0(".m2 <- ", .qv(m2)),
+     "config$dual_db$harmonization$lock_covariates_preset <- TRUE",
+     "config$dual_db$harmonization$covariate_source <- 'vif_final'",
+     "config$dual_db$harmonization$sync_after_vif_final <- FALSE",
+     "config$dual_db$harmonization$sync_logistic_branch <- TRUE",
+     "config$dual_db$harmonization$harmonized_model1_nhanes <- as.character(.m1)",
+     "config$dual_db$harmonization$harmonized_model1_mimic  <- as.character(.m1)",
+     "if (length(.m2)) {",
+     "  config$dual_db$harmonization$harmonized_model2_nhanes <- as.character(.m2)",
+     "  config$dual_db$harmonization$harmonized_model2_mimic  <- as.character(.m2)",
+     "  config$dual_db$harmonization$common_model_factors <- setdiff(as.character(.m2), as.character(.m1))",
+     "}",
++    paste0(".table1_vars <- ", .qv(table1_vars)),
+     "if (exists('.table1_vars') && length(.table1_vars)) {",
+     "  .tv <- as.character(.table1_vars)",
+     "  if (!is.null(config$baseline_nhanes)) config$baseline_nhanes$include_vars <- .tv",
+     "  if (!is.null(config$baseline_binary)) config$baseline_binary$include_vars <- .tv",
+     "  if (!is.null(config$baseline)) config$baseline$include_vars <- .tv",
+     "}",
+     "if (!is.null(config$column_mapping)) config$column_mapping$enable <- TRUE",
+     "# 敏感性子样本：关闭早停与过严 Cox gate（避免 COX_SEARCH_STOP / crude_ns 整场景失败）",
+     "if (!is.null(config$baseline_nhanes)) config$baseline_nhanes$early_stop_if_index_ns <- FALSE",
+     "if (!is.null(config$baseline_binary)) config$baseline_binary$early_stop_if_index_ns <- FALSE",
+@@ -491,201 +752,293 @@
+     "    config[[.lg]]$gate_enable <- FALSE",
+     "    config[[.lg]]$stop_if_crude_all_ns <- FALSE",
+     "    config[[.lg]]$stop_if_crude_highest_ns <- FALSE",
+     "  }",
+     "}",
+     "for (.cx in c('cox_quartile','cox_tertile','cox_binary')) {",
+     "  if (!is.null(config[[.cx]])) {",
+     "    config[[.cx]]$stop_if_crude_highest_ns <- FALSE",
+     "    config[[.cx]]$stop_if_crude_all_ns <- FALSE",
+     "    config[[.cx]]$require_both_models_sig <- FALSE",
+-    "    if (is.null(config[[.cx]]$covariate_search)) config[[.cx]]$covariate_search <- list()",
+-    "    config[[.cx]]$covariate_search$enable <- FALSE",
+-    "    config[[.cx]]$covariate_search$on_search_fail <- 'degrade'",
+-    "    if (!nzchar(as.character(config[[.cx]]$degrade_branch %||% '')[1L])) {",
+-    "      if (identical(.cx, 'cox_quartile')) config[[.cx]]$degrade_branch <- 'degrade_tertile'",
+-    "      if (identical(.cx, 'cox_tertile')) config[[.cx]]$degrade_branch <- 'degrade_binary'",
+-    "      if (identical(.cx, 'cox_binary')) config[[.cx]]$degrade_branch <- 'degrade_binary'",
+-    "    }",
+     "  }",
+-    "}",
+-    "# 排除高血压人群：Hypertension 单水平 → 亚组不去该变量；Model2 去掉 Hypertension",
+-    paste0(".sg_label <- ", lb_q),
+-    "if (grepl('no_hypertension', .sg_label, ignore.case = TRUE)) {",
+-    "  .drop_sg <- function(x) setdiff(as.character(x %||% character(0)), 'Hypertension')",
+-    "  if (!is.null(config$subgroup_nhanes_weighted)) {",
+-    "    config$subgroup_nhanes_weighted$required_subgroup_vars <- .drop_sg(config$subgroup_nhanes_weighted$required_subgroup_vars)",
+-    "    config$subgroup_nhanes_weighted$locked_subgroup_vars   <- .drop_sg(config$subgroup_nhanes_weighted$locked_subgroup_vars)",
+-    "  }",
+-    "  if (!is.null(config$subgroup)) {",
+-    "    config$subgroup$required_subgroup_vars <- .drop_sg(config$subgroup$required_subgroup_vars)",
+-    "    config$subgroup$locked_subgroup_vars   <- .drop_sg(config$subgroup$locked_subgroup_vars)",
+-    "  }",
+-    "  if (!is.null(config$incidence_batch$base_subgroup_vars))",
+-    "    config$incidence_batch$base_subgroup_vars <- .drop_sg(config$incidence_batch$base_subgroup_vars)",
+-    "  .m2_sa <- setdiff(as.character(config$dual_db$harmonization$harmonized_model2_nhanes %||% character(0)), 'Hypertension')",
+-    "  if (!length(.m2_sa)) .m2_sa <- c('Age', 'WBC')",
+-    "  config$dual_db$harmonization$harmonized_model2_nhanes <- .m2_sa",
+-    "  config$dual_db$harmonization$harmonized_model2_mimic  <- .m2_sa",
+-    "  config$dual_db$harmonization$common_model_factors <- setdiff(.m2_sa, as.character(config$dual_db$harmonization$harmonized_model1_nhanes %||% 'Age'))",
+-    "}",
+-    "# 年龄分层敏感性：Age_Group 仅剩单水平 → 从亚组必选中移除",
+-    "if (grepl('age_(ge|lt)_', .sg_label, ignore.case = TRUE)) {",
+-    "  .drop_age <- function(x) setdiff(as.character(x %||% character(0)), c('Age_Group', 'Age'))",
+-    "  if (!is.null(config$subgroup_nhanes_weighted)) {",
+-    "    config$subgroup_nhanes_weighted$required_subgroup_vars <- .drop_age(config$subgroup_nhanes_weighted$required_subgroup_vars)",
+-    "    config$subgroup_nhanes_weighted$locked_subgroup_vars   <- .drop_age(config$subgroup_nhanes_weighted$locked_subgroup_vars)",
+-    "  }",
+-    "  if (!is.null(config$subgroup)) {",
+-    "    config$subgroup$required_subgroup_vars <- .drop_age(config$subgroup$required_subgroup_vars)",
+-    "    config$subgroup$locked_subgroup_vars   <- .drop_age(config$subgroup$locked_subgroup_vars)",
+-    "  }",
+-    "  if (!is.null(config$incidence_batch$base_subgroup_vars))",
+-    "    config$incidence_batch$base_subgroup_vars <- .drop_age(config$incidence_batch$base_subgroup_vars)",
+     "}"
+   )
+   dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
+   writeLines(lines, out_path)
+   invisible(out_path)
+ }
+ 
+ # ── 单场景 × 单指标 ─────────────────────────────────────────────────────────
+ incidence_sensitivity_run_one <- function(root, config, config_path, ix, sg,
+                                           db_mode, parent_dir,
+-                                          worker_script = "run/incidence/run_incidence_dual_batch_worker.R") {
+-  bc <- config$incidence_batch %||% list()
++                                          worker_script = "run/incidence/run_incidence_dual_batch_worker.R",
++                                          scheme = "quartile") {
++  bc <- utils::modifyList(
++    config$incidence_batch %||% list(),
++    config$survival_batch %||% list()
++  )
+   output_base  <- bc$output_base %||% config$project$output_dir
+   staging_root <- file.path(output_base, ".sensitivity_staging")
+   staging_run  <- file.path(staging_root, paste0(ix, "__", sg$label))
+   if (dir.exists(staging_run)) unlink(staging_run, recursive = TRUE)
+   dir.create(staging_run, recursive = TRUE, showWarnings = FALSE)
+ 
+-  ix_ck_base <- bc$index_ck_base %||% "checkpoints/_by_index"
++  ix_ck_base <- .incidence_sensitivity_abs_ck(
++    bc$index_ck_base %||% "checkpoints/_by_index", config_path
++  )
+   sens_ck_base <- file.path(dirname(ix_ck_base), "by_index_sensitivity", ix, sg$label)
++  db_names <- .incidence_sensitivity_db_names(config)
++  if (identical(db_mode, "nhanes_only") && length(db_names)) {
++    db_names <- db_names[1L]
++  } else if (identical(db_mode, "mimic_only") && length(db_names)) {
++    db_names <- db_names[length(db_names)]
++  }
++  study_type <- if (grepl("survival", worker_script, ignore.case = TRUE)) {
++    "prognosis"
++  } else {
++    "incidence"
++  }
++  zh_desc <- incidence_sensitivity_zh_desc(sg$label)
++  scheme <- as.character(scheme %||% "quartile")[1L]
++
++  copy_ok <- TRUE
++  for (db in db_names) {
++    src_ck <- file.path(ix_ck_base, ix, db)
++    dest_ck <- file.path(sens_ck_base, ix, db)
++    ok <- tryCatch({
++      incidence_sensitivity_copy_imputed_ck(src_ck, dest_ck)
++      TRUE
++    }, error = function(e) {
++      cli::cli_alert_danger("[{ix}/{sg$label}] 拷贝主分析 ck 失败 [{db}]: {e$message}")
++      FALSE
++    })
++    if (!isTRUE(ok)) {
++      copy_ok <- FALSE
++      next
++    }
++    idx_p <- file.path(dest_ck, "index.rds")
++    if (file.exists(idx_p) && nzchar(as.character(sg$expr %||% "")[1L]) &&
++        exists("incidence_batch_apply_subgroup_filter", mode = "function")) {
++      incidence_batch_apply_subgroup_filter(idx_p, sg$expr, ix)
++    }
++  }
++
++  main_cov <- incidence_sensitivity_load_main_covariates(parent_dir, ix)
++  t1_union <- character(0)
++  for (db in db_names) {
++    t1_union <- union(t1_union, incidence_sensitivity_read_table1_vars(parent_dir, db))
++  }
++  mini <- list(
++    dual_db = list(harmonization = list(
++      harmonized_model1_nhanes = main_cov$m1,
++      harmonized_model1_mimic  = main_cov$m1,
++      harmonized_model2_nhanes = main_cov$m2,
++      harmonized_model2_mimic  = main_cov$m2
++    )),
++    baseline_binary = list(include_vars = t1_union),
++    baseline_nhanes = list(include_vars = t1_union)
++  )
++  for (db in db_names) {
++    idx_p <- file.path(sens_ck_base, ix, db, "index.rds")
++    df <- tryCatch({
++      obj <- readRDS(idx_p)
++      obj$ctx$data$imputed %||% {
++        if (exists("incidence_batch_ctx_data", mode = "function")) {
++          incidence_batch_ctx_data(obj$ctx)
++        } else {
++          NULL
++        }
++      }
++    }, error = function(e) NULL)
++    if (is.data.frame(df)) {
++      mini <- incidence_sensitivity_drop_constant_from_config(mini, df)
++    }
++  }
++  main_cov$m1 <- as.character(
++    mini$dual_db$harmonization$harmonized_model1_nhanes %||% main_cov$m1
++  )
++  main_cov$m2 <- as.character(
++    mini$dual_db$harmonization$harmonized_model2_nhanes %||% main_cov$m2
++  )
++  main_cov$table1_vars <- as.character(
++    mini$baseline_binary$include_vars %||% t1_union
++  )
+ 
+   temp_config <- file.path(staging_run, "sensitivity_config.R")
+-  main_cov <- .incidence_sensitivity_load_main_covariates(parent_dir, ix)
+   incidence_sensitivity_write_config(
+     config_path, staging_run, sens_ck_base, sg, temp_config,
+-    main_covariates = main_cov
++    main_covariates = main_cov, scheme = scheme, zh_desc = zh_desc
+   )
+ 
+   log_path <- file.path(staging_run, "worker.log")
+-  # 与主分析一致：未显式开极端值时 p_trim=0（不硬开）
+   p_trim <- as.numeric(
+     (config$incidence_batch %||% list())$trim_quantile %||%
+       (config$survival_batch %||% list())$trim_quantile %||% 0
+   )
+   if (!is.finite(p_trim) || p_trim < 0) p_trim <- 0
+   cli::cli_h2("敏感性 [{ix}/{sg$label}] db_mode={db_mode}")
+   cli::cli_alert_info("  过滤表达式: {sg$expr}")
+-  rc <- incidence_subgroup_spawn_worker(root, temp_config, ix, db_mode, log_path,
+-                                        worker_script = worker_script,
+-                                        p_trim = p_trim)
+ 
+-  st     <- incidence_subgroup_read_status(staging_run, ix)
+-  status <- if (identical(st$status, "success")) "success" else "failed"
++  rc <- NA_integer_
++  if (isTRUE(copy_ok)) {
++    rc <- incidence_subgroup_spawn_worker(root, temp_config, ix, db_mode, log_path,
++                                          worker_script = worker_script,
++                                          p_trim = p_trim)
++  } else {
++    writeLines("敏感性轻量路径：主分析插补后 checkpoint 缺失，未派发 worker", log_path)
++  }
++
++  st <- if (exists("incidence_subgroup_read_status", mode = "function")) {
++    incidence_subgroup_read_status(staging_run, ix)
++  } else {
++    list(status = "unknown")
++  }
++
++  src <- file.path(staging_run, "by_index", ix)
++  for (db in db_names) {
++    incidence_sensitivity_rename_pub_tables(
++      file.path(src, db, "Tables"), db, zh_desc, study_type
++    )
++  }
++  incidence_sensitivity_rename_pub_tables(
++    file.path(src, "Tables"), "", zh_desc, study_type
++  )
++
++  .p_for_db <- function(db) {
++    ctx <- .incidence_sensitivity_latest_ctx(file.path(sens_ck_base, ix, db))
++    if (is.null(ctx)) ctx <- .incidence_sensitivity_latest_ctx(file.path(src, db))
++    incidence_sensitivity_model2_primary_p(ctx %||% list())
++  }
++  p_primary <- if (length(db_names)) .p_for_db(db_names[[1L]]) else NA_real_
++  p_secondary <- if (length(db_names) >= 2L) .p_for_db(db_names[[2L]]) else p_primary
++
++  .has_s <- function(root_dir, s_num) {
++    pat <- sprintf("Table S%d", as.integer(s_num)[1L])
++    if (!length(db_names)) {
++      return(length(list.files(file.path(root_dir, "Tables"), pattern = pat)) > 0L)
++    }
++    all(vapply(db_names, function(db) {
++      td <- file.path(root_dir, db, "Tables")
++      n <- if (dir.exists(td)) length(list.files(td, pattern = pat)) else 0L
++      if (!n) {
++        n <- length(list.files(file.path(root_dir, "Tables"),
++                               pattern = paste0(pat, "-", db), ignore.case = TRUE))
++      }
++      n > 0L
++    }, logical(1)))
++  }
++  ok_t1 <- isTRUE(dir.exists(src)) && .has_s(src, 12L)
++  ok_t2 <- isTRUE(dir.exists(src)) && .has_s(src, 13L)
++  status <- incidence_sensitivity_judge_status(ok_t1, ok_t2, p_primary, p_secondary)
+   if (status == "success") {
+     cli::cli_alert_success("[{ix}/{sg$label}] 敏感性分析成功")
+   } else {
+-    cli::cli_alert_danger("[{ix}/{sg$label}] 敏感性分析失败 (status={st$status}, rc={rc})")
++    cli::cli_alert_danger(
++      "[{ix}/{sg$label}] 敏感性分析失败 (t1={ok_t1}, t2={ok_t2}, p1={p_primary}, p2={p_secondary}, rc={rc})"
++    )
+     cli::cli_alert_info("  详见日志: {.file {log_path}}")
+   }
+ 
+   sens_parent <- file.path(parent_dir, "sensitivity")
+   dir.create(sens_parent, recursive = TRUE, showWarnings = FALSE)
+-  src <- file.path(staging_run, "by_index", ix)
+-  dst <- file.path(sens_parent, sg$label)
++  for (old_st in c("success", "failed")) {
++    old <- file.path(sens_parent, incidence_batch_output_dir_name(sg$label, old_st))
++    if (dir.exists(old)) unlink(old, recursive = TRUE)
++  }
++  bare <- file.path(sens_parent, sg$label)
++  if (dir.exists(bare)) unlink(bare, recursive = TRUE)
++  dst <- file.path(sens_parent, incidence_batch_output_dir_name(sg$label, status))
+   if (dir.exists(src)) {
+-    if (dir.exists(dst)) unlink(dst, recursive = TRUE)
+-    ok <- tryCatch(file.rename(src, dst), error = function(e) FALSE)
+-    if (!ok) {
+-      tryCatch({
+-        dir.create(dst, recursive = TRUE, showWarnings = FALSE)
+-        file.copy(list.files(src, full.names = TRUE), dst, recursive = TRUE)
+-        unlink(src, recursive = TRUE)
+-      }, error = function(e) NULL)
+-    }
++    .incidence_sensitivity_move_dir(src, dst)
++  } else {
++    dir.create(dst, recursive = TRUE, showWarnings = FALSE)
+   }
+-  # 失败时保留 worker.log 到 sensitivity/<label>/，便于排查
+   if (!identical(status, "success") && file.exists(log_path)) {
+-    fail_dir <- file.path(sens_parent, sg$label)
+-    dir.create(fail_dir, recursive = TRUE, showWarnings = FALSE)
+-    tryCatch(file.copy(log_path, file.path(fail_dir, "worker.log"), overwrite = TRUE),
++    dir.create(dst, recursive = TRUE, showWarnings = FALSE)
++    tryCatch(file.copy(log_path, file.path(dst, "worker.log"), overwrite = TRUE),
+              error = function(e) NULL)
+   }
+   unlink(staging_run, recursive = TRUE)
+ 
+   list(
+     index = ix, label = sg$label, status = status, db_mode = db_mode,
+     rc = rc, raw_status = st$status, ns = sg$ns,
++    p_primary = p_primary, p_secondary = p_secondary,
+     nhanes_or = st$nhanes_or %||% NA, mimic_or = st$mimic_or %||% NA,
+     n_nhanes_after = st$n_nhanes_after %||% NA, n_mimic_after = st$n_mimic_after %||% NA,
+     log_path = log_path
+   )
+ }
+ 
+ # ── 单指标：遍历所有敏感性场景 ───────────────────────────────────────────────
+ incidence_sensitivity_for_index <- function(root, config, config_path, ix,
+                                             worker_script = "run/incidence/run_incidence_dual_batch_worker.R",
+                                             force = FALSE) {
+   sens <- (config$incidence_batch %||% list())$sensitivity_suite %||% list()
+-  if (!isTRUE(sens$enable)) return(invisible(NULL))
++  if (!isTRUE(sens$enable)) {
++    sens <- (config$survival_batch %||% list())$sensitivity_suite %||% list()
++    if (!isTRUE(sens$enable)) return(invisible(NULL))
++  }
+ 
+-  min_n <- sens$min_n_per_db %||% (config$incidence_batch$min_valid_per_db %||% 50L)
+-  output_base  <- (config$incidence_batch %||% list())$output_base %||% config$project$output_dir
++  bc <- utils::modifyList(
++    config$incidence_batch %||% list(),
++    config$survival_batch %||% list()
++  )
++  output_base  <- bc$output_base %||% config$project$output_dir
+   by_index_dir <- file.path(output_base, "by_index")
+   parent <- .incidence_sensitivity_find_index_parent(by_index_dir, ix)
+   if (is.null(parent)) {
+     cli::cli_alert_warning("[{ix}] 找不到 by_index 父目录，跳过敏感性分析")
+     return(invisible(NULL))
+   }
+ 
+-  scenarios <- incidence_sensitivity_resolve(config)
++  main_ck_base <- .incidence_sensitivity_abs_ck(
++    bc$index_ck_base %||% "checkpoints/_by_index", config_path
++  )
++  db_names <- .incidence_sensitivity_db_names(config)
++  scenarios <- incidence_sensitivity_scenarios_for_index(
++    config, parent, main_ck_base, ix, db_names
++  )
+   if (!length(scenarios)) {
+-    cli::cli_alert_info("[{ix}] 未配置 sensitivity_suite$scenarios，跳过")
++    cli::cli_alert_info("[{ix}] 未发现可跑的敏感性场景，跳过")
+     return(invisible(NULL))
+   }
+ 
+-  shared <- list()
+-  for (db in c("nhanes", "mimic"))
+-    shared[[db]] <- incidence_subgroup_load_shared(config, db)
+-
++  scheme <- .incidence_sensitivity_scheme_from_status(parent)
+   results <- list()
+   for (sg in scenarios) {
+-    dst <- file.path(parent, "sensitivity", sg$label)
+-    if (dir.exists(dst) && file.exists(file.path(dst, "_batch_status.json"))) {
+-      existing <- tryCatch(
+-        jsonlite::fromJSON(file.path(dst, "_batch_status.json")),
+-        error = function(e) NULL
+-      )
+-      if (!isTRUE(force) && !is.null(existing) && identical(existing$status, "success")) {
+-        cli::cli_alert_info("[{ix}/{sg$label}] 已成功，跳过")
+-        next
+-      }
+-      if (isTRUE(force) && !is.null(existing) && identical(existing$status, "success")) {
+-        cli::cli_alert_info("[{ix}/{sg$label}] --no-skip，重跑已成功敏感性")
+-      }
++    succ_dir <- file.path(
++      parent, "sensitivity",
++      incidence_batch_output_dir_name(sg$label, "success")
++    )
++    if (dir.exists(succ_dir) && !isTRUE(force)) {
++      cli::cli_alert_info("[{ix}/{sg$label}] 已成功，跳过")
++      next
++    }
++    if (isTRUE(force) && dir.exists(succ_dir)) {
++      cli::cli_alert_info("[{ix}/{sg$label}] --no-skip，重跑已成功敏感性")
+     }
+-    dec <- incidence_subgroup_decide_dbs(shared, sg$expr, ix, min_n)
+-    if (is.na(dec$db_mode) || !length(dec$dbs)) {
+-      ns_txt <- paste(
+-        names(dec$ns), "=",
+-        vapply(dec$ns, function(x) if (is.na(x)) "NA" else as.character(x), character(1)),
+-        collapse = ", "
++    ns <- list()
++    for (db in db_names) {
++      df <- tryCatch(
++        incidence_sensitivity_load_imputed(main_ck_base, ix, db),
++        error = function(e) NULL
+       )
+-      cli::cli_alert_info("[{ix}/{sg$label}] 无可用库（缺列或样本<{min_n}：{ns_txt}），跳过")
+-      next
++      ns[[db]] <- if (is.data.frame(df)) nrow(df) else NA_integer_
+     }
+-    sg$ns <- dec$ns
+-    res <- incidence_sensitivity_run_one(root, config, config_path, ix, sg, dec$db_mode, parent,
+-                                         worker_script = worker_script)
++    if (length(ns) >= 1L) ns$nhanes <- ns[[1L]]
++    if (length(ns) >= 2L) ns$mimic <- ns[[2L]]
++    sg$ns <- ns
++    res <- incidence_sensitivity_run_one(
++      root, config, config_path, ix, sg, "both", parent,
++      worker_script = worker_script, scheme = scheme
++    )
+     results[[length(results) + 1L]] <- res
+   }
+   invisible(results)
+ }
+ 
+ # ── 扫描 by_index，返回主分析 success 的指标名 ───────────────────────────────
+ incidence_sensitivity_find_success_indices <- function(output_base, only_index = NULL) {
+   by_index_dir <- file.path(output_base, "by_index")
+   if (!dir.exists(by_index_dir)) return(character(0))
+ 
+@@ -715,20 +1068,28 @@
+     for (r in rs) {
+       .ns1 <- function(ns, key) {
+         v <- if (is.null(ns)) NA else ns[[key]]
+         if (is.null(v) || length(v) < 1L) NA else v[[1L]]
+       }
+       rows[[length(rows) + 1L]] <- data.frame(
+         index = ix, scenario = r$label, status = r$status,
+         db_mode = as.character(r$db_mode %||% "")[1L],
+         n_eicu = .ns1(r$ns, "nhanes"),
+         n_mimic = .ns1(r$ns, "mimic"),
++        p_primary = {
++          v <- r$p_primary %||% NA
++          if (length(v) < 1L) NA else v[[1L]]
++        },
++        p_secondary = {
++          v <- r$p_secondary %||% NA
++          if (length(v) < 1L) NA else v[[1L]]
++        },
+         nhanes_or = {
+           v <- r$nhanes_or %||% NA
+           if (length(v) < 1L) NA else v[[1L]]
+         },
+         mimic_or = {
+           v <- r$mimic_or %||% NA
+           if (length(v) < 1L) NA else v[[1L]]
+         },
+         stringsAsFactors = FALSE
+       )
+@@ -755,22 +1116,25 @@
+   invisible(df)
+ }
+ 
+ # ── 顶层：对一批 success 指标跑敏感性 ────────────────────────────────────────
+ incidence_sensitivity_pass <- function(root, config, indices = NULL,
+                                        config_path = NULL, only_index = NULL,
+                                        worker_script = "run/incidence/run_incidence_dual_batch_worker.R",
+                                        force = FALSE) {
+   sens <- (config$incidence_batch %||% list())$sensitivity_suite %||% list()
+   if (!isTRUE(sens$enable)) {
+-    cli::cli_alert_info("sensitivity_suite$enable 未开启，跳过敏感性分析")
+-    return(invisible(NULL))
++    sens <- (config$survival_batch %||% list())$sensitivity_suite %||% list()
++    if (!isTRUE(sens$enable)) {
++      cli::cli_alert_info("sensitivity_suite$enable 未开启，跳过敏感性分析")
++      return(invisible(NULL))
++    }
+   }
+   if (is.null(config_path) || !nzchar(config_path)) {
+     config_path <- file.path(root, "configs/config_incidence_dual_batch.R")
+   }
+ 
+   output_base <- (config$incidence_batch %||% list())$output_base %||% config$project$output_dir
+   if (is.null(indices) || !length(indices)) {
+     indices <- incidence_sensitivity_find_success_indices(output_base, only_index)
+   } else {
+     indices <- unique(as.character(indices)[nzchar(as.character(indices))])
+## Diff: tests/test_incidence_sensitivity_light.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task5/test_incidence_sensitivity_light.R	2026-08-17 17:13:08.418431200 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-17 17:38:22.458484500 +0800
+@@ -174,10 +174,127 @@
+   baseline_binary = list(include_vars = c("Age", "Hypertension", "WBC")),
+   baseline_nhanes = list(include_vars = c("Age", "Hypertension"))
+ )
+ cfg2 <- incidence_sensitivity_drop_constant_from_config(cfg, df)
+ stopifnot(!"Hypertension" %in% cfg2$dual_db$harmonization$harmonized_model2_nhanes)
+ stopifnot(all(c("Age", "WBC") %in% cfg2$dual_db$harmonization$harmonized_model2_nhanes))
+ stopifnot(!"Hypertension" %in% cfg2$baseline_binary$include_vars)
+ stopifnot(!"Hypertension" %in% cfg2$baseline_nhanes$include_vars)
+ 
+ cat("Task4 OK\n")
++
++# ── Task 5: rename S12/S13, Model2 p, dir name ─────────────────────────────
++td <- tempfile("sa_tab")
++dir.create(td)
++file.create(file.path(td, "Table 1-eICU. Baseline characteristics.xlsx"))
++file.create(file.path(td, "Table 2-eICU. Logistic regression of NLR quartile.xlsx"))
++incidence_sensitivity_rename_pub_tables(td, "eICU", "非高血压", "incidence")
++fns <- list.files(td)
++stopifnot(any(grepl("^Table S12-eICU\\. Sensitivity analysis-非高血压", fns)))
++stopifnot(any(grepl("^Table S13-eICU\\. Sensitivity analysis-非高血压", fns)))
++
++# 预后 Cox 表文件名不含 "Cox regression"，仍应打成 S13；Baseline 仍为 S12
++td_cox <- tempfile("sa_cox")
++dir.create(td_cox)
++file.create(file.path(td_cox, "Table 1-MIMIC. Baseline characteristics.xlsx"))
++file.create(file.path(
++  td_cox,
++  "Table 2-MIMIC. The Association Between NLR and death (Cox quartile).xlsx"
++))
++incidence_sensitivity_rename_pub_tables(td_cox, "MIMIC", "非高血压", "prognosis")
++fns_cox <- list.files(td_cox)
++stopifnot(any(grepl("^Table S12-MIMIC\\. Sensitivity analysis-", fns_cox)))
++stopifnot(any(grepl(
++  "^Table S13-MIMIC\\. Sensitivity analysis-非高血压\\. The Association Between NLR and death \\(Cox quartile\\)",
++  fns_cox
++)))
++unlink(td_cox, recursive = TRUE)
++
++# 12 列 logistic 表：第 12 列是 Model2 P，最后一行是最高组
++rt <- as.data.frame(matrix("0.40", 3, 12), stringsAsFactors = FALSE)
++rt[3, 12] <- "0.012"
++ctx <- list(results = list(logistic_table2 = rt))
++p <- incidence_sensitivity_model2_primary_p(ctx)
++stopifnot(abs(p - 0.012) < 1e-8)
++
++rt_lt <- as.data.frame(matrix("0.40", 3, 12), stringsAsFactors = FALSE)
++rt_lt[3, 12] <- "<0.001"
++p_lt <- incidence_sensitivity_model2_primary_p(list(results = list(logistic_table2 = rt_lt)))
++stopifnot(abs(p_lt - 0.0005) < 1e-8)
++
++# 末行若是 p for trend，取最后一个非趋势/非 Ref/非表头行（最高组）
++rt_tr <- as.data.frame(matrix("0.40", 4, 12), stringsAsFactors = FALSE)
++rt_tr[3, 12] <- "0.20"
++rt_tr[4, 1] <- "p for trend"
++rt_tr[4, 12] <- "0.01"
++p_tr <- incidence_sensitivity_model2_primary_p(list(results = list(logistic_table2 = rt_tr)))
++stopifnot(abs(p_tr - 0.20) < 1e-8)
++
++stopifnot(grepl(
++  "【success】SA_no_Hypertension",
++  incidence_batch_output_dir_name("SA_no_Hypertension", "success"),
++  fixed = TRUE
++))
++
++# drop_constant 后同步 common_model_factors = setdiff(m2, m1)
++cfg_cm <- incidence_sensitivity_drop_constant_from_config(cfg, df)
++stopifnot(identical(
++  cfg_cm$dual_db$harmonization$common_model_factors,
++  setdiff(
++    cfg_cm$dual_db$harmonization$harmonized_model2_nhanes,
++    cfg_cm$dual_db$harmonization$harmonized_model1_nhanes
++  )
++))
++
++# scenarios_for_index：主分析 categorical_vars + imputed（非 shared）
++sa_parent <- tempfile("sa_parent")
++sa_ck <- tempfile("sa_ck")
++dir.create(sa_parent)
++sa_ix <- "NLR"
++for (db in c("nhanes", "mimic")) {
++  dir.create(file.path(sa_parent, db, "Tables"), recursive = TRUE)
++  writeLines(c("Hypertension", "Age"),
++             file.path(sa_parent, db, "Tables", "categorical_vars.txt"))
++  d <- file.path(sa_ck, sa_ix, db)
++  dir.create(d, recursive = TRUE)
++  df_imp <- data.frame(
++    Hypertension = c(rep("Yes", 51), rep("No", 60)),
++    Age = c(rep(70, 60), rep(50, 51)),
++    stringsAsFactors = FALSE
++  )
++  saveRDS(list(ctx = list(data = list(imputed = df_imp))),
++          file.path(d, "imputation.rds"))
++}
++cfg_sc <- list(incidence_batch = list(sensitivity_suite = list(
++  enable = TRUE, age_cutoff = 65L, min_n_per_db = 50L, min_yes_n = 50L
++)))
++sc5 <- incidence_sensitivity_scenarios_for_index(
++  cfg_sc, sa_parent, sa_ck, sa_ix, c("nhanes", "mimic")
++)
++labs5 <- vapply(sc5, `[[`, character(1), "label")
++stopifnot("SA_no_Hypertension" %in% labs5)
++stopifnot("SA_age_ge_65" %in% labs5)
++unlink(sa_parent, recursive = TRUE)
++unlink(sa_ck, recursive = TRUE)
++
++# write_config 注入轻量标记
++base_cfg <- tempfile(fileext = ".R")
++writeLines(
++  "config <- list(project = list(output_dir = '.'), incidence_batch = list(), dual_db = list(harmonization = list()), feishu = list(enable = TRUE))",
++  base_cfg
++)
++out_cfg <- tempfile(fileext = ".R")
++sg_w <- list(
++  label = "SA_no_Hypertension",
++  expr = 'is.na(Hypertension) | trimws(as.character(Hypertension)) != "Yes"'
++)
++incidence_sensitivity_write_config(
++  base_cfg, tempfile("stg"), tempfile("ck"), sg_w, out_cfg,
++  scheme = "quartile", zh_desc = "非高血压"
++)
++txt_w <- paste(readLines(out_cfg, warn = FALSE), collapse = "\n")
++stopifnot(grepl("config$incidence_batch$.sensitivity_light <- TRUE", txt_w, fixed = TRUE))
++stopifnot(grepl(".sensitivity_scheme", txt_w, fixed = TRUE))
++stopifnot(grepl(".sensitivity_zh_desc", txt_w, fixed = TRUE))
++unlink(c(base_cfg, out_cfg))
++
++cat("Task5 OK\n")

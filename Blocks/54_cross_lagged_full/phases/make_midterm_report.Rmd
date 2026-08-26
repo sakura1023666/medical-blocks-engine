@@ -1,0 +1,358 @@
+---
+title: "虚弱指数与髋部骨折的关联及交叉滞后面板分析"
+subtitle: "CHARLS、ELSA、HRS 三队列纵向研究（中期汇报）"
+author: "课题盘 summary_result 自动汇总"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    fig_caption: true
+geometry: margin=2.2cm
+fontsize: 11pt
+header-includes:
+  - \usepackage{fontspec}
+  - \usepackage{xeCJK}
+  - \setCJKmainfont{AR PL UMing CN}
+  - \setCJKsansfont{Droid Sans Fallback}
+  - \setmainfont{DejaVu Sans}
+  - \setsansfont{DejaVu Sans}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{float}
+  - \usepackage{graphicx}
+  - \usepackage{caption}
+  - \captionsetup{font=small,labelfont=bf}
+  - \setlength{\parskip}{0.4em}
+  - \linespread{1.15}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, message = FALSE, warning = FALSE,
+  fig.align = "center", out.width = "92%", fig.pos = "H"
+)
+library(readxl)
+library(openxlsx)
+library(knitr)
+library(kableExtra)
+
+SR <- Sys.getenv(
+  "CROSS_LAGGED_SUMMARY_ROOT",
+  unset = "/mnt/g/02block_result/16_Hip fracture/cross-laged_40595747/summary_result"
+)
+if (!dir.exists(SR)) {
+  SR <- "/mnt/e/01block/01Block-new-Final/Output/16_Hip_fracture_cross-laged_40595747_allages/summary_result"
+}
+FIG <- file.path(SR, "figure")
+TAB <- file.path(SR, "table")
+
+.f <- function(...) file.path(FIG, paste0(...))
+.t <- function(...) {
+  hits <- list.files(TAB, pattern = paste0(...), full.names = TRUE)
+  if (!length(hits)) return(NA_character_)
+  hits[[1L]]
+}
+
+# 读表：优先 openxlsx，回退 readxl；限制行列
+.read_first <- function(path, n = 18L, max_col = 10L) {
+  if (is.na(path) || !file.exists(path)) return(NULL)
+  ext <- tolower(tools::file_ext(path))
+  df <- tryCatch({
+    if (ext %in% c("xlsx", "xls")) {
+      sh <- readxl::excel_sheets(path)[1]
+      as.data.frame(readxl::read_excel(path, sheet = sh, .name_repair = "unique"))
+    } else if (ext == "csv") {
+      utils::read.csv(path, check.names = FALSE, nrows = n + 5L)
+    } else NULL
+  }, error = function(e) NULL)
+  if (is.null(df) || !nrow(df)) return(NULL)
+  if (ncol(df) > max_col) df <- df[, seq_len(max_col), drop = FALSE]
+  if (nrow(df) > n) df <- df[seq_len(n), , drop = FALSE]
+  # 缩短过长字符
+  for (j in seq_len(ncol(df))) {
+    if (is.character(df[[j]]) || is.factor(df[[j]])) {
+      z <- as.character(df[[j]])
+      z[nchar(z) > 40] <- paste0(substr(z[nchar(z) > 40], 1, 37), "...")
+      df[[j]] <- z
+    }
+  }
+  names(df) <- make.unique(substr(as.character(names(df)), 1, 28))
+  df
+}
+
+.show_tab <- function(path, caption, note = NULL, n = 14L) {
+  cat("\n**", caption, "**\n\n", sep = "")
+  if (!is.null(note) && nzchar(note)) cat("*", note, "*\n\n", sep = "")
+  df <- .read_first(path, n = n)
+  if (is.null(df)) {
+    cat("*（表文件未找到或无法预览，请见 summary_result/table 原件）*\n\n")
+    return(invisible(NULL))
+  }
+  print(knitr::kable(df, booktabs = TRUE, longtable = FALSE, align = "l") %>%
+          kableExtra::kable_styling(latex_options = c("scale_down", "HOLD_position"),
+                                    font_size = 8))
+  cat("\n")
+}
+
+.show_fig <- function(path, caption, note = NULL, w = "88%") {
+  cat("\n**", caption, "**\n\n", sep = "")
+  if (!is.null(note) && nzchar(note)) cat("*", note, "*\n\n", sep = "")
+  if (is.na(path) || !file.exists(path)) {
+    cat("*（图文件未找到）*\n\n")
+    return(invisible(NULL))
+  }
+  # absolute path; escape spaces for pandoc
+  path <- normalizePath(path, winslash = "/", mustWork = TRUE)
+  url <- gsub(" ", "%20", path, fixed = TRUE)
+  cat(sprintf("![](%s){width=%s}\n\n", url, w))
+}
+
+.dbs <- c("CHARLS", "ELSA", "HRS")
+```
+
+# 研究背景与分析目的
+
+本研究基于 **中国健康与养老追踪调查（CHARLS）**、**英国老龄化纵向研究（ELSA）** 与 **美国健康与退休研究（HRS）** 三大老龄化队列，探讨 **基线虚弱指数（Frailty Index, FI）与髋部骨折（Hip fracture）** 的关联，并在纵向设计下开展交叉滞后面板（CLPN）、FI 变化分析与以抑郁为中介的路径分析。
+
+**本中期版本队列策略：** 全年龄纳入（不限制 ≥65 岁）；HRS 保留完整分析样本（N≈3906，不因 HDL 缺失剔除对照）；中介主分析为 **抑郁（Depression）**；HRS FI 条目映射已按数据字典校正后全量重跑。
+
+**结果路径：** `summary_result/table` 与 `summary_result/figure`（课题盘已同步）。下文按主文/补充表图顺序给出**一行解读**，并附关键页预览（完整数值以 Excel/PDF 原件为准）。
+
+---
+
+# 主文表图
+
+## 表 1 基线特征（按是否髋部骨折分层）
+
+按结局分层比较三队列基线人口学、行为与临床特征，用于描述研究人群并提示混杂结构。
+
+```{r t1}
+for (db in .dbs) {
+  p <- .t(paste0("^Table 1-", db, "\\."))
+  .show_tab(p, paste0("Table 1 (", db, "). Baseline characteristics of Hip fracture"),
+            note = paste0(db, "：按有/无髋部骨折比较基线特征（连续变量多为中位数 IQR；分类变量为例数 %）。"))
+}
+```
+
+## 表 2 虚弱指数三分位与髋部骨折的 Logistic 回归
+
+将 FI 按三分位建模，估计相对最低分位的髋部骨折 OR，并在 Model1/Model2 中逐步调整协变量；三队列 + Pooled 验证关联方向与稳定性。
+
+```{r t2}
+for (db in c(.dbs, "Pooled")) {
+  p <- .t(paste0("^Table 2-", db, "\\."))
+  .show_tab(p, paste0("Table 2 (", db, "). Logistic regression of FI tertile and Hip fracture"),
+            note = paste0(db, "：FI 三分位 Logistic，报告 OR 与 95%CI（以最低分为参照）。"))
+}
+```
+
+## 图 1 纵向纳排流程
+
+展示各队列从基线→随访的排除步骤与最终用于交叉滞后分析的样本量，说明 incidence 要求下基线需无病。
+
+```{r f1, results='asis', fig.cap=''}
+for (db in c(.dbs, "Pooled")) {
+  .show_fig(.f(sprintf("Figure 1-%s. Longitudinal inclusion exclusion flowchart.pdf", db)),
+            paste0("Figure 1 (", db, "). Longitudinal inclusion–exclusion flowchart"),
+            note = paste0(db, "：纵向分析纳排流程图（含基线无病、随访与 FI 完整等步骤）。"))
+}
+```
+
+## 图 3 亚组森林图（FI 与结局关联）
+
+在预设亚组（含年龄按 70 岁切分等）中检验 FI–髋部骨折关联是否一致；**不合并 Pooled 亚组图**，便于比较三库各自稳健性。
+
+```{r f3, results='asis'}
+for (db in .dbs) {
+  .show_fig(.f(sprintf("Figure 3-%s. Subgroup Forest analyses of FI.pdf", db)),
+            paste0("Figure 3 (", db, "). Subgroup forest analyses of FI"),
+            note = paste0(db, "：预指定亚组森林图，展示各层 OR/效应及交互趋势。"))
+}
+```
+
+## 图 4 虚弱条目交叉滞后网络（CLPN）
+
+以 glmnet 估计 T1 条目 → T2 条目的网络邻接，节点含 **髋部骨折（D1）** 与 FI 条目（及库特异血脂项）；用于描述条目间纵向预测结构（HRS 映射已校正）。
+
+```{r f4, results='asis'}
+for (db in .dbs) {
+  .show_fig(.f(sprintf("Figure 4-%s. CLPN network of frailty index items.pdf", db)),
+            paste0("Figure 4 (", db, "). CLPN network of frailty index items"),
+            note = paste0(db, "：交叉滞后网络；粉节点 D1=髋部骨折，FI# 为虚弱条目（见 Table S8 邻接矩阵）。"))
+}
+```
+
+---
+
+# 补充表
+
+## 表 S1 多重插补前后基线比较
+
+比较插补前后主要变量分布，证明 MICE 未系统性扭曲人群特征。
+
+```{r ts1}
+for (db in .dbs) {
+  .show_tab(.t(paste0("^Table S1-", db, "\\.")),
+            paste0("Table S1 (", db, "). Baseline before vs after multiple imputation"),
+            note = paste0(db, "：插补前后基线对照，用于评估缺失处理稳健性。"))
+}
+```
+
+## 表 S2 连续变量正态性检验
+
+报告连续协变量的正态性检验结果，为描述统计选用中位数/均数提供依据。
+
+```{r ts2}
+for (db in .dbs) {
+  .show_tab(.t(paste0("^Table S2-", db, "\\.")),
+            paste0("Table S2 (", db, "). Normality tests for continuous variables"),
+            note = paste0(db, "：连续变量正态性检验摘要。"))
+}
+```
+
+## 表 S3 单因素回归分析
+
+筛选与结局相关的候选协变量（后续 VIF/模型调整的入口）。
+
+```{r ts3}
+for (db in .dbs) {
+  .show_tab(.t(paste0("^Table S3-", db, "\\.")),
+            paste0("Table S3 (", db, "). Univariate regression analysis"),
+            note = paste0(db, "：单因素回归筛变量（通常 p 阈值用于进入多因素/VIF）。"))
+}
+```
+
+## 表 S4 多重共线性（VIF）
+
+在 univariate p 筛选后评估协变量 VIF，锁定 Model1/Model2，避免高度共线。
+
+```{r ts4}
+for (db in .dbs) {
+  .show_tab(.t(paste0("^Table S4-", db, "\\.")),
+            paste0("Table S4 (", db, "). Multicollinearity analysis (VIF)"),
+            note = paste0(db, "：VIF 与协变量筛选记录。"))
+}
+```
+
+## 表 S5 / S5.1 FI 水平与变化的 Logistic 分析
+
+S5 按各库波次数自动选择 two_wave / three_plus 设计；S5.1 强制两波设计，报告平均 FI 与 FI 变化与结局的关联。
+
+```{r ts5}
+.show_tab(.t("^Table S5\\. Change"),
+          "Table S5. Change analysis: Mean FI and FI change",
+          note = "主变化分析（设计随波次数自动切换；含 Pooled 列时表示联合）。")
+.show_tab(.t("^Table S5\\.1"),
+          "Table S5.1. Change analysis (forced two-wave)",
+          note = "敏感性：三库统一按两波设计重估 mean FI / ΔFI。")
+```
+
+## 表 S6 相关回归路径（FI–抑郁–髋部骨折）
+
+在 Model1/Model2 下估计暴露–中介–结局两两路径回归系数，为中介分析的前提检验。
+
+```{r ts6}
+.show_tab(.t("^Table S6"),
+          "Table S6. Correlation/regression: FI, Depression, Hip fracture",
+          note = "路径相关回归（按库锁定协变量；Model1≠Model2）。")
+```
+
+## 表 S7 纵向中介（FI → 抑郁 → 髋部骨折）
+
+Bootstrap 估计间接效应、直接效应与比例中介，检验抑郁是否部分解释 FI 对髋部骨折的关联。
+
+```{r ts7}
+.show_tab(.t("^Table S7"),
+          "Table S7. Longitudinal mediation FI → Depression → Hip fracture",
+          note = "正式中介结果（主中介 = 抑郁；按库调整锁定协变量）。")
+```
+
+## 表 S8 CLPN 邻接矩阵
+
+给出 Figure 4 的数值邻接（行=T1 预测因子，列=T2 结局条目），标签为出版英文名。
+
+```{r ts8}
+for (db in .dbs) {
+  .show_tab(.t(paste0("^Table S8-", db)),
+            paste0("Table S8 (", db, "). CLPN adjacency (first rows/cols preview)"),
+            note = paste0(db, "：交叉滞后网络权重矩阵预览（完整矩阵见 CSV）。"),
+            n = 10L)
+}
+```
+
+---
+
+# 补充图
+
+## 图 S2 按疾病组的 FI 箱线图
+
+直观比较有/无髋部骨折者的 FI 分布差异（横断面描述）。
+
+```{r fs2, results='asis'}
+for (db in .dbs) {
+  .show_fig(.f(sprintf("Figure S2-%s. Boxplot FI by Disease Group.pdf", db)),
+            paste0("Figure S2 (", db, "). Boxplot of FI by disease group"),
+            note = paste0(db, "：FI 在髋部骨折组与非骨折组的分布对比。"))
+}
+```
+
+## 图 S3 纵向中介路径图
+
+示意 FI → 抑郁 → 髋部骨折的直接与间接路径及标准化/效应标注。
+
+```{r fs3, results='asis'}
+for (db in c(.dbs, "Pooled")) {
+  .show_fig(.f(sprintf("Figure S3-%s. Longitudinal mediation path diagram of FI and hip fracture.pdf", db)),
+            paste0("Figure S3 (", db, "). Longitudinal mediation path diagram"),
+            note = paste0(db, "：抑郁中介路径图（对应 Table S7）。"))
+}
+```
+
+## 图 S4 按调查年份 × 疾病组的平均 FI
+
+各调查年份上，按**随访期间 ever 发生髋部骨折**分组，比较当次波 FI 均值±SE（incidence 设计下基线亦呈现双组）。
+
+```{r fs4, results='asis'}
+for (db in .dbs) {
+  .show_fig(.f(sprintf("Figure S4-%s. Mean FI by Year and Disease.pdf", db)),
+            paste0("Figure S4 (", db, "). Mean FI by year and disease"),
+            note = paste0(db, "：年份×有病/无病双柱（图注：No fracture vs Hip fracture）。"))
+}
+```
+
+## 图 S5 按国家 × 疾病组的基线平均 FI
+
+在各国（美/中/英）基线波比较 ever 骨折与非骨折者的基线 FI。
+
+```{r fs5, results='asis'}
+.show_fig(.f("Figure S5. Mean FI by Country and Disease.pdf"),
+          "Figure S5. Mean FI by country and disease (baseline)",
+          note = "三国家基线 FI 双柱对比（色块对应国×结局，见图例）。")
+```
+
+---
+
+# 方法与数据说明（中期要点）
+
+1. **设计：** 基线疾病自由（require baseline free）的 incidence 式纵向设计；分析 FI 与随访髋部骨折。
+2. **暴露：** 队列特异 FI 文件汇总分（CHARLS：26 项总分/26；ELSA/HRS：文件预计算 FI）；跨库 CLPN 使用共性 26 条目标签 + 疾病节点（血脂按库可用纳入）。
+3. **HRS 映射：** 旧版按列序硬套导致 ADL/IADL 错位，已按 HRS 数据字典重映射后全量重跑。
+4. **中介：** 主分析 Depression；非血检试点。
+5. **缺失：** 未在本目录检出 Figure 2 RCS 时，以 Table 2 / 亚组 / 变化分析为主效应展示（若后续 collect 补入 Fig2 可再版中期稿）。
+
+---
+
+# 结果文件索引
+
+| 类型 | 路径 |
+|------|------|
+| 表 | `summary_result/table/` |
+| 图 | `summary_result/figure/` |
+| 课题盘 | `\\192.168.68.133\02block_result\16_Hip fracture\cross-laged_40595747\summary_result` |
+
+*本 PDF 为中期自动汇编：表内数字为预览截取；以 summary_result 中 Excel/PDF 原件为最终依据。*
+```

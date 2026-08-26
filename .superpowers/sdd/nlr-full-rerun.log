@@ -1,0 +1,201 @@
+[composite_index_vars] 已加载：全量 96 个指标 / 双库安全子集 60 个 / 轨迹APRI子集 6 个
+ℹ 跳过疾病相关变量衍生指标 1 个: CAR
+
+── SLE→AKI two-stage batch — 候选 14 个指标 ────────────────────────────────────
+ℹ single-db MIMIC | workers=1 | skip_existing=FALSE
+ℹ 结果根: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330'
+ℹ 跳过疾病相关变量衍生指标 1 个: CAR
+
+── 共享层 Stage0 — ip_cohort_sle_aki → attrition_flowchart → data_clean → column_mapping → index → analysis_exclusion → imputation ──
+
+ℹ checkpoint: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/checkpoints/_shared/mimic'
+ℹ output: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared'
+
+── Pipeline: sle_aki_inc_prog_shared_stage0 ────────────────────────────────────
+ℹ 检查点: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/checkpoints/_shared/mimic'（关闭: pipeline$checkpoint$enable = FALSE）
+ℹ Blocks (7): ip_cohort_sle_aki → attrition_flowchart → data_clean → column_mapping → index → analysis_exclusion → imputation
+ℹ Output: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared'
+── Block: ip_cohort_sle_aki ────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step01_ip_cohort_sle_aki'
+! ip_cohort_sle_aki: dabiao n=271 vs live SLE∩baseline n=270 (main analysis uses live filter)
+✔ ip_cohort_sle_aki: baseline=65366 → SLE=271 → analytic=270 (AKI=110)
+✔ Block 'ip_cohort_sle_aki' done in 1.7s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step01_ip_cohort_sle_aki.rds'
+── Block: attrition_flowchart ──────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step02_attrition_flowchart'
+ℹ Mirrored to root: 'Figures/Figure 1. Flowchart.pdf'
+✔ attrition_flowchart: 3 step(s) -> 'Flowchart_attrition_mimic.csv + Figure 1. Inclusion exclusion flowchart_mimic.pdf'
+ℹ Mirrored to root: 'Figures/Figure 1. Flowchart.pdf'
+✔ Block 'attrition_flowchart' done in 3.4s
+────────────────────────────────────────────────────────────────────────────────
+ℹ No queued tables to render.
+ℹ No queued figures to render.
+ℹ Checkpoint saved: 'step02_attrition_flowchart.rds'
+── Block: data_clean ───────────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step03_data_clean'
+
+── Loading raw data ──
+
+ℹ Using SLE∩baseline cohort from ip_cohort_sle_aki (270 rows x 105 cols)
+ℹ Loaded: 270 rows x 105 cols
+ℹ Derived indices computation disabled (enable = FALSE)
+ℹ Outcome 'Disease' values: 1, 0
+! 数值列非有限值 → NA: 5 个单元格
+
+── Missing value check (threshold = 100% for all columns) ──
+
+✔ No columns exceed missing threshold
+ℹ 72 column(s) kept with partial missing (will be handled by imputation)
+✔ Cleaned data: 270 rows x 105 cols
+ℹ Outcome distribution:
+
+No AKI    AKI 
+   160    110 
+✔ Saved: 'data_quality_report.csv'
+✔ Block 'data_clean' done in 2.1s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step03_data_clean.rds'
+── Block: column_mapping ───────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step04_column_mapping'
+
+── Column Name Mapping Block ───────────────────────────────────────────────────
+ℹ Database type: MIMIC
+ℹ Original columns: 105
+ℹ Auto-mapping columns for MIMIC database
+✔ Renamed: 'PlateletCount' -> 'Platelet_Count'
+✔ Renamed: 'NeutrophilCount' -> 'Neutrophil_Count'
+✔ Renamed: 'BilirubinDirect' -> 'Bilirubin_Direct'
+✔ Renamed: 'BilirubinIndirect' -> 'Bilirubin_Indirect'
+✔ Renamed: 'BilirubinTotal' -> 'Bilirubin_Total'
+✔ Renamed: 'UrineCreatinine' -> 'Urine_Creatinine'
+✔ Renamed: 'UreaNitrogen' -> 'BUN'
+✔ Renamed: 'TC' -> 'Total_Cholesterol'
+✔ Renamed: 'TG' -> 'Triglycerides'
+✔ Renamed: 'PO2' -> 'PaO2'
+✔ Renamed: 'FreeCalcium' -> 'Free_Calcium'
+✔ Renamed: 'UricAcid' -> 'Uric_Acid'
+✔ Renamed: 'TroponinT' -> 'Troponint'
+✔ Renamed: 'UrineProtein' -> 'Urine_Protein'
+✔ Renamed: 'UrineGlucose' -> 'Urine_Glucose'
+✔ Renamed: 'AlbuminUrine' -> 'Albumin_Urine'
+✔ Renamed: 'AlbuminCreatinine' -> 'Albumin_Creatinine'
+✔ Renamed: 'UrineVolume' -> 'Urine_Volume'
+✔ Renamed: 'Malignant_Tumor' -> 'Cancer'
+✔ Renamed: 'NBPS' -> 'SBP'
+✔ Renamed: 'NBPM' -> 'MAP'
+✔ Renamed: 'NBPD' -> 'DBP'
+✔ Renamed: 'CHARLSON' -> 'Charlson'
+✔ Saved: 'column_mapping_log.csv'
+✔ Column mapping completed: 23 columns mapped
+ℹ Final columns: 105
+✔ Block 'column_mapping' done in 1.7s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step04_column_mapping.rds'
+── Block: index ────────────────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step05_index'
+
+── Computing derived indices (15 definitions) ──
+
+✔   BMI: n=143, range=[14.08, 67.09]
+✔   NLR: n=90, range=[1.6984, 122.5455]
+✔   PLR: n=90, range=[25.5172, 3987.5]
+✔   SII: n=90, range=[174.3077, 24252]
+✔   AGR: n=8, range=[0.4118, 1.8235]
+✔   CAR: n=161, range=[0.1026, 8.2632]
+✔   PNI: n=69, range=[13.5, 55.7]
+!   SIRI: skipped (object 'Monocyte' not found)
+!   LMR: skipped (object 'Monocyte' not found)
+!   MLR: skipped (object 'Monocyte' not found)
+!   PIV: skipped (object 'Monocyte' not found)
+!   SIIR: skipped (object 'Monocyte' not found)
+!   SIS: skipped (Failed to evaluate the left-hand side of formula 1. Caused by error: ! object 'Monocyte' not found)
+!   CONUT_score: skipped (object 'alb_score' not found)
+✔   GNRI: n=93, range=[55.0611, 154.5312]
+✔ Saved: Table Index Summary.csv
+
+── Index summary ──
+
+✔ Computed: 8 indices, 
+! Skipped: 7 (SIRI, LMR, MLR, PIV, SIIR, SIS, CONUT_score)
+✔ Block 'index' done in 4.1s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step05_index.rds'
+── Block: analysis_exclusion ───────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step06_analysis_exclusion'
+ℹ analysis_exclusion resolve: index_var=; ae=NA; active_unit=NA; incidence=NA; survival=NA
+ℹ analysis_exclusion [cleaned]: 已删除 13 列
+ℹ analysis_exclusion [raw]: 已删除 14 列
+ℹ analysis_exclusion [mapped]: 已删除 13 列
+✔ analysis_exclusion: 当前指标 (none)；拟删 21 列
+✔ Block 'analysis_exclusion' done in 0.4s
+────────────────────────────────────────────────────────────────────────────────
+ℹ No queued tables to render.
+ℹ Checkpoint saved: 'step06_analysis_exclusion.rds'
+── Block: imputation ───────────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step07_imputation'
+Warning: package 'dplyr' was built under R version 4.5.3
+Warning: package 'naniar' was built under R version 4.5.3
+Warning: package 'ggplot2' was built under R version 4.5.3
+ℹ 检测到 ID 列: ID — 不参与 MICE；保存 D01 时主键 ID 转为行名
+ℹ Total missing values before imputation: 8402
+ℹ 保留指定列（缺失率超阈值但不可删）: PNI, GNRI, NLR, SII, BMI, PLR, CAR, AGR
+ℹ 按 missing_col_threshold=0.4 剔除 29 列: Height, ABPS, ABPD, ABPM, Neutrophil_Count, Lymphocytes, Globulin, TotalProtein...
+ℹ MICE 不插补结局列: Disease
+ℹ 血压列 SBP, DBP, PP 缺失合计 16 个单元格（将参与 MICE）
+
+── Generating missing value overview plot ──
+
+✔ Missing value overview plot saved: G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/_shared/step07_imputation/Figures/Figure Missing Value Overview.pdf
+ℹ Mirrored to root: 'Figures/Figure Missing Value Overview.pdf'
+
+── Running MICE (method=cart, m=5, maxit=5, seed=1234) ──
+
+Warning: Number of logged events: 289
+✔ Imputation complete. Remaining NA: 0
+! sparse_categorical: 删除任一层级 n<20 的分类列 (9): Race, Language, SIRS, T1DM, Myocardial_Infarction, Liver_cirrhosis, Hepatitis, Tuberculosis, COPD
+ℹ mice_row_ids locked for Rubin pool (n=270)
+
+── Generating Table S1 (before vs after imputation) ──
+
+ℹ Table S1 排除变量: ID, Disease
+! Table S1 skip ID-like numeric cols: Weight, WBC, RBC, Platelet_Count, Hematocrit, PTT, LD, Ventilation_Hour
+ℹ Queued table task: 'Table S1-MIMIC. Baseline characteristics before and after imputation.xlsx'
+✔ Table S1 queued (export_sci_table)
+ℹ MI quality gate: 无 P < 0.05 变量需剔除。
+✔ Saved: 'D01_AfterMI_Data.RData'
+✔ D01_AfterMI_Data.RData saved (rownames = primary ID, ID columns removed)
+✔ Excel table saved (SCI 三线表): 'Table S1-MIMIC. Baseline characteristics before and after imputation.xlsx'
+ℹ Mirrored to root: 'Tables/Table S1-MIMIC. Baseline characteristics before and after imputation.xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S1-MIMIC. Baseline characteristics before and after imputation.tex'
+ℹ Mirrored to root: 'Tables/Table S1-MIMIC. Baseline characteristics before and after imputation.xlsx'
+ℹ Mirrored to root: 'Figures/Figure Missing Value Overview.pdf'
+✔ Block 'imputation' done in 159.4s
+────────────────────────────────────────────────────────────────────────────────
+ℹ No queued tables to render.
+ℹ Checkpoint saved: 'step07_imputation.rds'
+✔ Pipeline finished: sle_aki_inc_prog_shared_stage0
+ℹ Mirrored to root: 'Figures/Figure 1. Flowchart.pdf'
+ℹ Mirrored to root: 'Tables/Table S1-MIMIC. Baseline characteristics before and after imputation.xlsx'
+ℹ Mirrored to root: 'Figures/Figure Missing Value Overview.pdf'
+ℹ 已汇总镜像 3 个发表表/图到根目录 Tables/Figures
+
+── 从共享层筛查实际可用指标 ──
+
+✔ 共享层可用指标 (n_valid>=50): 6 个: PNI, GNRI, NLR, SII, BMI, PLR
+✔ 最终批量指标: 6 个
+ℹ Worker 数: 1（手动指定）| 指标数: 1
+ℹ Worker 启动模式: processx
+ℹ Rscript: 'C:/Program Files/R/R-4.5.1/bin/x64/Rscript.exe'
+✔ 启动 worker [NLR] → 'NLR.log'
+ℹ 等待最后 1 个 worker…
+✔ [1/1] NLR 完成 (status=success)
+ℹ   📁 NLR → 【success】NLR
+
+── Batch 汇总（共 6 个指标） ──
+
+✔ 成功: 1
+ℹ 仅 NHANES: 0
+ℹ 未运行: 5
+✖ 失败: 0
+✔ 汇总表: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/Tables/Batch_summary_all_indices.csv'

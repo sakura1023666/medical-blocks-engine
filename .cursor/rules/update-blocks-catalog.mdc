@@ -1,0 +1,15 @@
+---
+description: After adding/changing Blocks register_block, sync docs/Blocks_catalog.md
+globs: Blocks/**/*.R
+alwaysApply: false
+---
+
+# Blocks catalog sync
+
+When you **create or materially change** a file under `Blocks/` that calls `register_block(...)`:
+
+1. Ensure the file has a standard header (purpose, config example, pipeline position).
+2. Run from repo root: `python3 scripts/update_blocks_catalog.py`
+3. Follow `.cursor/skills/update-blocks-catalog/SKILL.md` (update MANUAL §1–§3 only if a new routine/global key/pitfall appears).
+
+Do not hand-edit `<!-- BEGIN AUTO:` sections in `docs/Blocks_catalog.md`.

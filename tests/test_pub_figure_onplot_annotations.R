@@ -1,0 +1,232 @@
+# tests/test_pub_figure_onplot_annotations.R
+root <- normalizePath(getwd())
+if (!file.exists(file.path(root, "R/utils.R"))) {
+  cand <- normalizePath(file.path(".."), winslash = "/")
+  if (file.exists(file.path(cand, "R/utils.R"))) root <- cand
+}
+source(file.path(root, "R/utils.R"), local = FALSE)
+source(file.path(root, "R/pub_figure_export.R"), local = FALSE)
+
+stopifnot(exists(".pub_figure_fmt_p_label", mode = "function"))
+stopifnot(exists(".pub_figure_extract_cox_rcs_p", mode = "function"))
+stopifnot(exists(".pub_figure_extract_lrm_anova_p", mode = "function"))
+
+fake_an <- matrix(c(
+  NA, NA, 0.05,
+  NA, NA, 0.116,
+  NA, NA, 0.001
+), nrow = 3, byrow = TRUE)
+pe_lrm <- .pub_figure_extract_lrm_anova_p(fake_an)
+stopifnot(isTRUE(abs(pe_lrm$p_overall - 0.001) < 1e-9))
+stopifnot(isTRUE(abs(pe_lrm$p_nonlinear - 0.116) < 1e-9))
+pe_lrm_na <- .pub_figure_extract_lrm_anova_p(NULL)
+stopifnot(isTRUE(is.na(pe_lrm_na$p_overall)), isTRUE(is.na(pe_lrm_na$p_nonlinear)))
+
+fake_p <- list(
+  logtest = c(NA, NA, 0.001),
+  coefficients = matrix(c(rep(NA, 5), c(NA, NA, NA, NA, 0.116)), nrow = 2, byrow = TRUE)
+)
+pe <- .pub_figure_extract_cox_rcs_p(fake_p)
+stopifnot(isTRUE(abs(pe$p_overall - 0.001) < 1e-9))
+stopifnot(isTRUE(abs(pe$p_nonlinear - 0.116) < 1e-9))
+
+stopifnot(identical(.pub_figure_fmt_p_label("P-overall", 0.001), "P-overall = 0.001"))
+stopifnot(identical(.pub_figure_fmt_p_label("P-overall", 0.0004), "P-overall < 0.001"))
+stopifnot(identical(.pub_figure_fmt_p_label("P-non-linear", NA_real_), "P-non-linear = NA"))
+
+rcs_f <- list(list(
+  db = "MIMIC",
+  panels = list(
+    list(name = "Model2", p_overall = 0.001, p_nonlinear = 0.116, cutoffs = c(0.52))
+  )
+))
+lines <- .pub_figure_rcs_annotation_lines(rcs_f)
+stopifnot(any(grepl("P-overall = 0.001", lines)))
+stopifnot(any(grepl("P-non-linear = 0.116", lines)))
+stopifnot(any(grepl("0\\.52|cutoff", lines, ignore.case = TRUE)))
+
+km_f <- list(list(db = "eICU", logrank_p = 0.023, cutoff = 1.25))
+km_lines <- .pub_figure_km_annotation_lines(km_f)
+stopifnot(any(grepl("Log-rank", km_lines)), any(grepl("0\\.023", km_lines)))
+stopifnot(any(grepl("1\\.25|cutoff", km_lines, ignore.case = TRUE)))
+
+km_strata_f <- list(list(db = "MIMIC", strata = "RAR_quartile", logrank_p = 0.015))
+km_strata_lines <- .pub_figure_km_annotation_lines(km_strata_f)
+stopifnot(any(grepl("RAR_quartile", km_strata_lines)), any(grepl("0\\.015", km_strata_lines)))
+
+forest_f <- list(list(
+  db = "eICU",
+  rows = data.frame(
+    Variable = c("Overall", "Age < 65", "Age ≥ 65"),
+    `Point Estimate` = c(1.20, 1.10, 1.35),
+    Lower = c(1.01, 0.90, 1.05),
+    Upper = c(1.42, 1.35, 1.74),
+    `P for interaction` = c(NA, 0.04, NA),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+))
+fo_lines <- .pub_figure_forest_annotation_lines(forest_f)
+stopifnot(any(grepl("Overall", fo_lines)), any(grepl("1\\.20", fo_lines)))
+stopifnot(any(grepl("interaction|交互", fo_lines, ignore.case = TRUE)))
+
+# Task 3: harvest rcs / km / forest from index_root/<DB>/*.rds
+ix_root <- tempfile("ix_")
+dir.create(file.path(ix_root, "Figures"), recursive = TRUE)
+dir.create(file.path(ix_root, "MIMIC"), recursive = TRUE)
+dir.create(file.path(ix_root, "eICU"), recursive = TRUE)
+saveRDS(
+  list(results = list(
+    rcs_prognosis_panel_stats = list(
+      Model2 = list(p_overall = 0.001, p_nonlinear = 0.116, cutoffs = 0.52)
+    )
+  )),
+  file.path(ix_root, "MIMIC", "rcs_prognosis.rds")
+)
+saveRDS(
+  list(results = list(
+    rcs_incidence_panel_stats = list(
+      Model2 = list(p_overall = 0.002, p_nonlinear = 0.220, cutoffs = c(0.61, 1.05))
+    )
+  )),
+  file.path(ix_root, "eICU", "rcs_incidence.rds")
+)
+saveRDS(
+  list(results = list(
+    km_binary = list(logrank_p = 0.023, cutoff = 1.25),
+    subgroup = data.frame(
+      Variable = c("Overall", "Age"), `Point Estimate` = c(1.2, 1.1),
+      Lower = c(1.0, 0.8), Upper = c(1.4, 1.5),
+      `P for interaction` = c(NA, 0.04), check.names = FALSE
+    )
+  )),
+  file.path(ix_root, "MIMIC", "km_binary.rds")
+)
+saveRDS(
+  list(results = list(
+    km_strata = list(
+      logrank_by_strata = c(RAR_quartile = 0.015, Age_Group = 0.042)
+    )
+  )),
+  file.path(ix_root, "eICU", "km_strata.rds")
+)
+
+hf <- pub_figure_harvest_findings(
+  file.path(ix_root, "Figures"),
+  meta = list(databases = c("MIMIC", "eICU"))
+)
+stopifnot(length(hf$rcs) >= 2L)
+stopifnot(any(vapply(hf$rcs, function(item) {
+  isTRUE(item$db == "MIMIC") && any(vapply(item$panels, function(p) {
+    isTRUE(abs((p$p_overall %||% NA_real_) - 0.001) < 1e-9)
+  }, logical(1)))
+}, logical(1))))
+stopifnot(any(vapply(hf$rcs, function(item) {
+  isTRUE(item$db == "eICU") && any(vapply(item$panels, function(p) {
+    isTRUE(abs((p$p_overall %||% NA_real_) - 0.002) < 1e-9)
+  }, logical(1)))
+}, logical(1))))
+stopifnot(length(hf$km) >= 2L)
+stopifnot(any(vapply(hf$km, function(item) {
+  isTRUE(item$db == "eICU") && identical(as.character(item$strata %||% ""), "RAR_quartile") &&
+    isTRUE(abs((item$logrank_p %||% NA_real_) - 0.015) < 1e-9)
+}, logical(1))))
+stopifnot(length(hf$forest) >= 1L)
+unlink(ix_root, recursive = TRUE)
+
+# 无 panel_stats 时不得合成假 P
+ix_miss <- tempfile("ixmiss_")
+dir.create(file.path(ix_miss, "Figures"), recursive = TRUE)
+dir.create(file.path(ix_miss, "MIMIC"), recursive = TRUE)
+saveRDS(
+  list(results = list(rcs_prognosis = list(note = "plot only"))),
+  file.path(ix_miss, "MIMIC", "rcs_prognosis.rds")
+)
+hf_miss <- pub_figure_harvest_findings(
+  file.path(ix_miss, "Figures"), meta = list(databases = "MIMIC")
+)
+stopifnot(length(hf_miss$rcs %||% list()) == 0L)
+unlink(ix_miss, recursive = TRUE)
+
+# Task 6: NHANES rcs_nhanes_panel_stats harvest (checkpoints/nhanes path)
+parent_nh <- tempfile("study_nh_")
+ix_name_nh <- "IdxNH"
+ix_root_nh <- file.path(parent_nh, "by_index", ix_name_nh)
+dir.create(file.path(ix_root_nh, "Figures"), recursive = TRUE)
+ck_nhanes <- file.path(parent_nh, "checkpoints", "by_index", ix_name_nh, "nhanes")
+dir.create(ck_nhanes, recursive = TRUE)
+saveRDS(
+  list(results = list(
+    rcs_nhanes_panel_stats = list(
+      Model2 = list(p_overall = 0.003, p_nonlinear = 0.045, cutoffs = 2.1)
+    )
+  )),
+  file.path(ck_nhanes, "rcs_nhanes.rds")
+)
+hf_nh <- pub_figure_harvest_findings(
+  file.path(ix_root_nh, "Figures"),
+  meta = list(databases = "NHANES")
+)
+stopifnot(length(hf_nh$rcs) >= 1L)
+stopifnot(any(vapply(hf_nh$rcs, function(item) {
+  any(vapply(item$panels, function(p) {
+    isTRUE(abs((p$p_overall %||% NA_real_) - 0.003) < 1e-9)
+  }, logical(1)))
+}, logical(1))))
+unlink(parent_nh, recursive = TRUE)
+
+# Important #1: panel_stats cutoffs == on-plot vlines (primary vs all)
+stopifnot(exists(".pub_figure_rcs_vline_cutoffs", mode = "function"))
+cuts_multi <- list(or1 = 0.5, peak = numeric(0), all = c(0.5, 1.2))
+prim <- .pub_figure_rcs_vline_cutoffs(cuts_multi, "primary")
+stopifnot(length(prim) == 1L, isTRUE(abs(prim - 0.5) < 1e-9))
+stopifnot(identical(.pub_figure_rcs_vline_cutoffs(cuts_multi, "all"), c(0.5, 1.2)))
+# 无 or1 单点时 primary 回退 peak[1]
+cuts_peak <- list(or1 = c(0.4, 1.1), peak = 0.8, all = c(0.4, 0.8, 1.1))
+stopifnot(isTRUE(abs(.pub_figure_rcs_vline_cutoffs(cuts_peak, "primary") - 0.8) < 1e-9))
+# 该面板无竖线 → 空向量（Model2 vs Model3 门控）
+stopifnot(exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function"))
+stopifnot(!length(.pub_figure_rcs_panel_vline_cutoffs(cuts_multi, FALSE, "all")))
+stopifnot(identical(
+  .pub_figure_rcs_panel_vline_cutoffs(cuts_multi, TRUE, "primary"),
+  0.5
+))
+
+# Important #2: harvest 只打开 rcs|km|subgroup 文件名，不读 imputation 等无关 checkpoint
+stopifnot(exists(".pub_figure_harvest_onplot_rds", mode = "function"))
+cand <- .pub_figure_harvest_onplot_rds(c(
+  "/tmp/imputation.rds", "/tmp/rcs_incidence.rds", "/tmp/km_binary.rds",
+  "/tmp/vif_screen.rds", "/tmp/subgroup_prognosis.rds"
+))
+stopifnot(!any(grepl("imputation|vif_screen", basename(cand), ignore.case = TRUE)))
+stopifnot(any(grepl("rcs_incidence", basename(cand), ignore.case = TRUE)))
+stopifnot(any(grepl("km_binary", basename(cand), ignore.case = TRUE)))
+stopifnot(any(grepl("subgroup", basename(cand), ignore.case = TRUE)))
+stopifnot(exists(".pub_figure_harvest_skip_rest", mode = "function"))
+stopifnot(isTRUE(.pub_figure_harvest_skip_rest(
+  remaining_files = "logistic.rds", db_lab = "MIMIC",
+  seen_rcs = "MIMIC", seen_forest = "MIMIC", seen_km_bin = "MIMIC"
+)))
+stopifnot(!isTRUE(.pub_figure_harvest_skip_rest(
+  remaining_files = "km_strata.rds", db_lab = "MIMIC",
+  seen_rcs = "MIMIC", seen_forest = "MIMIC", seen_km_bin = "MIMIC"
+)))
+
+ix_skip <- tempfile("ixskip_")
+dir.create(file.path(ix_skip, "Figures"), recursive = TRUE)
+dir.create(file.path(ix_skip, "MIMIC"), recursive = TRUE)
+saveRDS(
+  list(results = list(
+    rcs_prognosis_panel_stats = list(
+      Model2 = list(p_overall = 0.999, p_nonlinear = 0.999, cutoffs = 9.9)
+    )
+  )),
+  file.path(ix_skip, "MIMIC", "imputation.rds")
+)
+hf_skip <- pub_figure_harvest_findings(
+  file.path(ix_skip, "Figures"), meta = list(databases = "MIMIC")
+)
+stopifnot(length(hf_skip$rcs %||% list()) == 0L)
+unlink(ix_skip, recursive = TRUE)
+
+cat("test_pub_figure_onplot_annotations: OK\n")

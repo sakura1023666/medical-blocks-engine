@@ -1,0 +1,13 @@
+Figure 1. Flowchart
+Figure 2. RCS plot between UA CR and Case
+Figure 3. Correlation Heatmap (ML continuous features)
+Figure 4. LASSO feature selection (A path | B CV)
+Figure 5. ML performance combined 2x4
+Figure 6. SHAP (A|B|C top row, D below)
+Figure 7. Subgroup Forest analyses of UA CR
+
+Table 1. Baseline
+Table 2. Logistic quartile only
+Table 3. ML performance training
+Table 4. ML performance validation
+Table S01–S08: imputation / train-val baseline / UV / VIF / hyper / logloss / DeLong / NRI-IDI

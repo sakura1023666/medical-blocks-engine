@@ -1,0 +1,27 @@
+[composite_index_vars] 已加载：全量 96 个指标 / 双库安全子集 60 个 / 轨迹APRI子集 6 个
+ℹ 续跑范围: from=cox_binary → to=(end)
+ℹ 跳过疾病相关变量衍生指标 1 个: CAR
+
+── SLE→AKI two-stage batch — 候选 14 个指标 ────────────────────────────────────
+ℹ single-db MIMIC | workers=1 | skip_existing=FALSE
+ℹ 结果根: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330'
+
+── 从共享层筛查实际可用指标 ──
+
+✔ 共享层可用指标 (n_valid>=50): 6 个: PNI, GNRI, NLR, SII, BMI, PLR
+✔ 最终批量指标: 6 个
+ℹ Worker 数: 1（手动指定）| 指标数: 1
+ℹ Worker 启动模式: processx
+ℹ Rscript: 'C:/Program Files/R/R-4.5.1/bin/x64/Rscript.exe'
+✔ 启动 worker [BMI] → 'BMI.log'
+ℹ 等待最后 1 个 worker…
+✔ [1/1] BMI 完成 (status=success)
+ℹ   📁 BMI → 【success】BMI
+
+── Batch 汇总（共 6 个指标） ──
+
+✔ 成功: 6
+ℹ 仅 NHANES: 0
+ℹ 未运行: 0
+✖ 失败: 0
+✔ 汇总表: 'G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/Tables/Batch_summary_all_indices.csv'

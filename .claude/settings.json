@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ps aux *)",
+      "Bash(Rscript -e 'load\\(\"Data/D04_dabiao_NHANES.RData\"\\); cat\\(names\\(dabiao\\), sep=\"\\\\n\"\\)')",
+      "Bash(Rscript -e 'load\\(\"Output/D04_BMI_OA_NHANES/step03_imputation/D01_AfterMI_Data.RData\"\\); cat\\(ls\\(\\), sep=\"\\\\n\"\\); cat\\(\"\\\\n---\\\\n\"\\); if \\(exists\\(\"imputed\"\\)\\) cat\\(class\\(imputed\\), \"\\\\n\"\\); if \\(exists\\(\"imputed\"\\)\\) cat\\(names\\(imputed\\)[1:5], sep=\"\\\\n\"\\)')",
+      "Bash(Rscript -e ' *)",
+      "Bash(grep -rn 'design$variables' /mnt/g/01block/Block-new-nhanes加权/Blocks/04_baseline/03block_baseline_nhanes.R)"
+    ]
+  }
+}

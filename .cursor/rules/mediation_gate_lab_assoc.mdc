@@ -1,0 +1,36 @@
+---
+description: 中介未达标时不导出实验室关联表（与中介主表/路径图同生共死）
+alwaysApply: true
+---
+
+# 中介门控与实验室关联表（全项目复用）
+
+发病 / 预后 / NHANES 加权中介均须遵守。中介未达导出门槛时，**不得**单独留下「暴露–实验室关联」表。
+
+## 铁律
+
+1. **同生共死**：中介主表 / 路径图 / 实验室关联表（含 Weighted associations）受同一闸门 `skip_export_if_ns`（`.mi02_mediation_should_export`）控制。
+2. **禁止 LM 筛选时提前落盘**：`Associations of <index> with laboratory indicators` 不得在 LM 筛中介时 `export_sci_table`；仅写入 `ctx$results$mediation_*_correlation_lm_rt`，门控通过后再 `.mi02_export_lab_association_table`。
+3. **门控失败必须清残留**：调用 `.mi02_unlink_mediation_exports(ctx)`（含表/图队列 dequeue + 磁盘删除），覆盖 step 目录、库级 Tables/Figures、指标根目录。
+4. **旧命名一并匹配**：`The associations between … laboratory indicators` 与 `Associations of …` 同属删除范围。
+
+## 实现入口
+
+- 公共：`Blocks/20_mediation/00mediation_common.R`
+  - `.mi02_mediation_should_export` / `.mi02_unlink_mediation_exports` / `.mi02_export_lab_association_table`
+- 预后：`01block_mediation_prognosis.R`
+- 发病：`02block_mediation_incidence.R`
+- NHANES：`03block_mediation_nhanes_weighted.R`
+- 回归：`tests/test_mediation_unlink_assoc.R`
+
+## 新项目 / 重跑检查清单
+
+- [ ] 中介 skip 日志含「不导出中介表、路径图与实验室关联表」
+- [ ] 指标根 / 库级 / step*_mediation_* 下无 Associations / Path diagram / Mediation analysis 残留
+- [ ] 仅当门控通过时才出现实验室关联表，且编号在中介表之前（或与课题编号规则一致）
+
+## 反例（禁止）
+
+- Direct Effect / Proportion mediated 不显著，却仍有 Table S8「Associations of … with laboratory indicators」
+- LM 筛完立刻 export 关联表，再靠 unlink「碰运气」清掉（队列 flush 后会复活）
+- NHANES 写「关联表始终导出」与门控脱钩

@@ -1,0 +1,54 @@
+---
+description: 发表图 image_information 必须用详细图面说明（含纳排逐步人数），禁止标识/技术两段
+alwaysApply: true
+---
+
+# 发表图 image_information 铁律（全项目复用）
+
+所有发病 / 预后 / ML / 交叉滞后 / 竞争风险等汇总 `Figures/`（或 `summary_result/figure`）的 `image_information/*.md` 必须遵守。**禁止**一句话空话；**禁止**写「标识」「技术」两段。
+
+## 铁律
+
+1. **单一写出入口**：只通过 `R/pub_figure_export.R` 的 `pub_figure_write_image_md` / `export_pub_figures` / `pub_figure_refresh_image_information` 生成。禁止各课题手写另一套 md 模板。
+2. **必备结构**（仅此两段正文 + 标题）：
+   - `# Figure …` 标题
+   - `## 图面说明`：多段详细说明（图类型、面板 A/B 对应库、视觉编码、可读结果要点）
+   - `## 分析上下文`：暴露 / 结局 / 样本量（分库 N） / Grouping / 数据库 / 是否拼图
+3. **禁止写入**：`## 标识`、`## 技术`、DPI、TIFF 压缩、色彩、相对路径文件列表、尺寸(inch)。
+4. **纳排图（Figure 1 Flowchart）必须逐步人数**：从 `Tables/Flowchart_attrition*.csv` 按库列出每步保留 n，并写「本步排除 X 人」（相邻步差额）。缺 CSV 须明示，不得空话带过。
+5. **数字来源**：只写可收获证据（attrition CSV、Table 2、cutoff CSV、`simple_ROC.rds` / `plot_cutoff.rds`、`_batch_status.json`）。禁止编造 HR/AUC/N。
+6. **Grouping** 与主文闸门一致（logistic/Cox gate）；预后结局字段如 `fustatus` 在上下文中写可读名（如「住院死亡」）并可附原字段名。
+7. **图面标注必录**：图上可见的关键数字/标注必须写入 `## 图面说明`（建议小标题「图上标注」），包括但不限于：
+   - RCS：`P-overall` / `P for overall`、`P-non-linear` / `P for nonlinear`、竖线 cutoff
+   - KM：Log-rank P、二分 cutoff
+   - Forest：Overall 与各亚组效应量(95%CI)、P for interaction
+   - ROC：AUC、CI、Youden、灵敏度/特异度（图上有则写）
+   - maxstat：图上切点
+   - Flowchart：逐步 n 与排除人数
+   数字只来自可收获产物；缺则写「未收获」；**禁止编造**。其它图种若图上有数字，同理。
+
+## 实现入口
+
+- 写出：`R/pub_figure_export.R`
+- Dual-batch finalize：`incidence_batch_finalize_index_outputs` → `export_pub_figures`
+- 交叉滞后：`Blocks/54_cross_lagged_full/phases/export_summary_figures.R`
+- 竞争风险：`Blocks/55_competing_risk_full/18block_competing_pub_export.R`
+- 单流水线：`R/pipeline_runner.R` 收口
+- 批量补刷旧结果：`run/pub/refresh_image_information.R`
+
+## 新课题 / 重跑检查清单
+
+- [ ] 汇总 `Figures/image_information/` 存在且每张定稿图有一份 md
+- [ ] md 含 `## 图面说明`，**不含** `## 标识` / `## 技术`
+- [ ] Figure 1 若存在，逐步纳排人数与排除人数已写出
+- [ ] 样本量不是无故「未记录」（有 `_batch_status.json` 时应写入分库 N）
+- [ ] RCS 图 md 含 P-overall / P-non-linear 与 cutoff（图上有则写，缺则「未收获」）
+- [ ] KM 图 md 含 Log-rank P 与 cutoff（图上有则写）
+- [ ] Forest 图 md 含 Overall 与各亚组效应量(95%CI)、P for interaction（图上有则写）
+
+## 反例（禁止）
+
+- 只有一句「Flowchart展示…逐步筛选过程」且无逐步 n
+- RCS 图上有 P-overall / P-non-linear / cutoff，md 却只有「展示非线性关系」等空话
+- 仍保留「图号 / 文件路径 / DPI / TIFF 压缩」两段
+- 课题私自再写一套 image_information 模板绕过公共函数

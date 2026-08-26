@@ -1,0 +1,187 @@
+# Review package: Task 2 (snapshot vs working tree)
+
+## Files changed
+
+## Diff: R/incidence_sensitivity_suite.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task2/incidence_sensitivity_suite.R	2026-08-17 16:43:59.385268900 +0800
++++ /mnt/e/01block/01Block-new-Final/R/incidence_sensitivity_suite.R	2026-08-17 16:46:23.044154400 +0800
+@@ -41,20 +41,108 @@
+ }
+ 
+ incidence_sensitivity_exclude_yes_expr <- function(var) {
+   var <- as.character(var)[1L]
+   sprintf(
+     'is.na(%1$s) | trimws(as.character(%1$s)) != "Yes"',
+     var
+   )
+ }
+ 
++.incidence_sensitivity_col_for_yesno <- function(df, v) {
++  x <- df[[v]]
++  if (exists("pipeline_normalize_yes_no_factors", mode = "function")) {
++    sub <- df[, v, drop = FALSE]
++    sub <- pipeline_normalize_yes_no_factors(sub)
++    x <- sub[[v]]
++  }
++  incidence_sensitivity_as_yes_no_chr(x)
++}
++
++incidence_sensitivity_discover_yesno <- function(t1_vars_by_db, data_by_db, min_yes_n = 50L) {
++  dbs <- intersect(names(t1_vars_by_db), names(data_by_db))
++  if (length(dbs) < 2L) return(list())
++  common <- Reduce(intersect, lapply(t1_vars_by_db[dbs], as.character))
++  min_yes_n <- as.integer(min_yes_n)[1L]
++  out <- list()
++  for (v in common) {
++    ok <- TRUE
++    for (db in dbs) {
++      df <- data_by_db[[db]]
++      if (!is.data.frame(df) || !v %in% names(df)) {
++        ok <- FALSE
++        break
++      }
++      col <- .incidence_sensitivity_col_for_yesno(df, v)
++      if (!incidence_sensitivity_is_yes_no(col)) {
++        ok <- FALSE
++        break
++      }
++      if (incidence_sensitivity_yes_n(col) <= min_yes_n) {
++        ok <- FALSE
++        break
++      }
++    }
++    if (!ok) next
++    out[[length(out) + 1L]] <- list(
++      label = paste0("SA_no_", v),
++      expr = incidence_sensitivity_exclude_yes_expr(v),
++      var = v,
++      required_vars = v
++    )
++  }
++  out
++}
++
++incidence_sensitivity_age_scenarios <- function(age_cutoff, data_by_db, min_n = 50L,
++                                                age_var = "Age") {
++  age_cutoff <- as.integer(age_cutoff)[1L]
++  min_n <- as.integer(min_n)[1L]
++  dbs <- names(data_by_db)
++  if (length(dbs) < 2L) return(list())
++  n_ge <- n_lt <- integer(0)
++  for (db in dbs) {
++    df <- data_by_db[[db]]
++    if (!is.data.frame(df) || !age_var %in% names(df)) return(list())
++    age <- suppressWarnings(as.numeric(df[[age_var]]))
++    n_ge <- c(n_ge, sum(is.finite(age) & age >= age_cutoff))
++    n_lt <- c(n_lt, sum(is.finite(age) & age < age_cutoff))
++  }
++  out <- list()
++  if (all(n_ge >= min_n)) {
++    out[[length(out) + 1L]] <- list(
++      label = sprintf("SA_age_ge_%s", age_cutoff),
++      expr = sprintf("as.numeric(%s) >= %s", age_var, age_cutoff),
++      required_vars = age_var
++    )
++  }
++  if (all(n_lt >= min_n)) {
++    out[[length(out) + 1L]] <- list(
++      label = sprintf("SA_age_lt_%s", age_cutoff),
++      expr = sprintf("as.numeric(%s) < %s", age_var, age_cutoff),
++      required_vars = age_var
++    )
++  }
++  out
++}
++
++incidence_sensitivity_read_table1_vars <- function(parent_dir, db_dir_name) {
++  hits <- list.files(
++    file.path(parent_dir, db_dir_name),
++    pattern = "^categorical_vars\\.txt$",
++    recursive = TRUE, full.names = TRUE
++  )
++  hits <- hits[!grepl("sensitivity", hits)]
++  if (!length(hits)) return(character(0))
++  unique(trimws(readLines(hits[[1L]], warn = FALSE)))
++}
++
+ incidence_sensitivity_zh_var_map <- function() {
+   c(
+     Hypertension = "高血压", T2DM = "糖尿病", Diabetes = "糖尿病",
+     CKD = "CKD", Heart_Failure = "心衰", COPD = "COPD",
+     Cancer = "癌症", Pneumonia = "肺炎", Stroke = "卒中"
+   )
+ }
+ 
+ incidence_sensitivity_zh_desc <- function(label, age_cutoff = 65, display_names = NULL) {
+   label <- as.character(label)[1L]
+
+## Diff: tests/test_incidence_sensitivity_light.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task2/test_incidence_sensitivity_light.R	2026-08-17 16:43:59.395515500 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-17 16:45:56.569107300 +0800
+@@ -34,10 +34,66 @@
+ ))
+ stopifnot(identical(
+   incidence_sensitivity_judge_status(TRUE, TRUE, 0.01, 0.20, 0.05),
+   "failed"
+ ))
+ stopifnot(identical(
+   incidence_sensitivity_judge_status(TRUE, FALSE, 0.01, 0.02, 0.05),
+   "failed"
+ ))
+ cat("Task1 OK\n")
++
++# ── Task 2: discover_yesno / age_scenarios / read_table1_vars ───────────────
++nh <- data.frame(
++  Hypertension = c(rep("Yes", 51), rep("No", 60)),
++  T2DM = c(rep("Yes", 40), rep("No", 71)),
++  Race = c(rep("White", 80), rep("Black", 31)),
++  Age = c(rep(70, 40), rep(50, 71)),
++  stringsAsFactors = FALSE
++)
++mi <- data.frame(
++  Hypertension = c(rep("Yes", 55), rep("No", 50)),
++  T2DM = c(rep("Yes", 60), rep("No", 45)),
++  Race = c(rep("White", 70), rep("Black", 35)),
++  Age = c(rep(70, 80), rep(50, 25)),
++  stringsAsFactors = FALSE
++)
++t1 <- list(nhanes = c("Hypertension", "T2DM", "Race", "Age"),
++           mimic  = c("Hypertension", "T2DM", "Race", "Age"))
++sc <- incidence_sensitivity_discover_yesno(
++  t1, list(nhanes = nh, mimic = mi), min_yes_n = 50L
++)
++labs <- vapply(sc, `[[`, character(1), "label")
++stopifnot("SA_no_Hypertension" %in% labs)
++stopifnot(!"SA_no_T2DM" %in% labs)
++stopifnot(!"SA_no_Race" %in% labs)
++
++age_sc <- incidence_sensitivity_age_scenarios(
++  65L, list(nhanes = nh, mimic = mi), min_n = 50L
++)
++age_labs <- vapply(age_sc, `[[`, character(1), "label")
++stopifnot(!"SA_age_ge_65" %in% age_labs)
++stopifnot(!"SA_age_lt_65" %in% age_labs)
++
++d_ok <- list(
++  nhanes = data.frame(Age = c(rep(70, 60), rep(50, 60))),
++  mimic  = data.frame(Age = c(rep(70, 60), rep(50, 60)))
++)
++age_ok <- incidence_sensitivity_age_scenarios(65L, d_ok, min_n = 50L)
++stopifnot(length(age_ok) == 2L)
++d_bad <- list(
++  nhanes = data.frame(Age = c(rep(70, 40), rep(50, 80))),
++  mimic  = data.frame(Age = c(rep(70, 80), rep(50, 40)))
++)
++age_bad <- incidence_sensitivity_age_scenarios(65L, d_bad, min_n = 50L)
++stopifnot(length(age_bad) == 0L)
++
++tmp_parent <- tempfile("t1vars_")
++dir.create(tmp_parent)
++db_dir <- file.path(tmp_parent, "nhanes")
++dir.create(file.path(db_dir, "Tables"), recursive = TRUE)
++writeLines(c("Hypertension", "Age", "Gender"), file.path(db_dir, "Tables", "categorical_vars.txt"))
++vars <- incidence_sensitivity_read_table1_vars(tmp_parent, "nhanes")
++stopifnot(all(c("Hypertension", "Age", "Gender") %in% vars))
++unlink(tmp_parent, recursive = TRUE)
++
++cat("Task2 OK\n")

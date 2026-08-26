@@ -1,0 +1,45 @@
+---
+description: 成功指标目录必须生成可改协变量、可单步重跑的 code 包，并镜像实际用过的 Block 源码
+alwaysApply: true
+---
+
+# 成功指标 code 包（全项目复用）
+
+**所有** dual-batch **发病 / 预后 / ML** 主分析在指标成功收尾时，必须在 `by_index/【success】<INDEX>/code/` 生成完整 code 包，并把**本指标实际跑过的 Block 源码**拷进 `code/blocks/`。这是全项目铁律，不得跳过或手工例外（敏感性 / staging 除外）。
+
+## 铁律
+
+1. **适用范围**：凡走 `run_incidence_dual_batch_worker.R` / `run_survival_dual_batch_worker.R` / `run_ml_dual_batch_worker.R` 的主分析指标，成功 finalize 后必须有 `code/`。
+2. **落盘位置**：`by_index/【success】<INDEX>/code/`（裸名 `by_index/<INDEX>/` 在 rename 前也写，随目录一起改名）。
+3. **必含文件**：`README.md`、`00_config_overrides.R`、`run.R`、`paths.R`、`blocks_menu.txt`、`blocks_used.txt`、`blocks/`（源码镜像 + `MANIFEST.md` / `MANIFEST.tsv`）。
+4. **用过的 Block 必须提出来**：按 checkpoint / 指标 `stepNN_<block>/` 推断实际执行过的 block（如 `cox_quartile` 而非未跑的 `cox_tertile`；发病则为对应 `logistic_*`），用 `pipeline_block_sources` 从引擎 `Blocks/` 拷贝到 `code/blocks/Blocks/...`；同目录 `00*common*` / logistic / mediation 公共文件一并拷贝。
+5. **finalize 强制挂点**：`incidence_batch_finalize_index_outputs()` 末尾（及 `mirror_aggregate=FALSE` 提前 return 前）必须调用 `index_code_bundle_finalize()`；校验失败须打日志，不得静默跳过。
+6. **协变量**：`00_config_overrides.R` 预填本指标锁定 Model1/2（及中介协变量 / best_mediator），用户只改此文件。
+7. **森林图**：同一 overrides 预填 `force_subgroup_vars`、`force_forest_xlim`、`force_age_cutoff` 等；改完用 `--blocks subgroup_prognosis`（或发病对应 subgroup_*）重跑。
+8. **独立输出**：`run.R --out <目录>` 把新表/图写到指定目录，不覆盖 `【success】` 主结果（环境变量 `MEDICAL_BLOCKS_RERUN_OUT`）。
+9. **单步重跑**：`run.R` 支持 `--from` / `--to` / `--blocks` / `--db` / `--out`，包装现有 dual-batch worker；定向重跑后自动 finalize 拼图。重跑仍走引擎源码，`code/blocks/` 仅供对照。
+10. **人数**：默认从 checkpoint 续跑；README 禁止轻易 `--from imputation` / `trim_index_extreme`。
+11. **敏感性**：`sensitivity` / `.sensitivity_staging` 目录不生成。
+
+## 实现入口
+
+- `R/index_code_bundle.R` → `index_code_bundle_write()` / `index_code_bundle_validate()` / `index_code_bundle_finalize()`
+- 挂点：`incidence_batch_finalize_index_outputs()`（发病 / 预后 / ML worker 收尾共用）
+- 源映射：`R/pipeline_runner.R` → `pipeline_block_sources()`
+
+## 检查清单
+
+- [ ] 成功指标下存在 `code/README.md` 与 `code/run.R`
+- [ ] `code/blocks_used.txt` 与 checkpoint 实际块一致（含分位：quartile/tertile/binary；回归：cox/logistic）
+- [ ] `code/blocks/MANIFEST.md` 中各 used block 状态为 OK，且对应 `.R` 文件存在
+- [ ] `00_config_overrides.R` 中 force_* 非空（若该指标确有锁定协变量）
+- [ ] `Rscript code/run.R --dry-run --blocks mediation_prognosis` 能打印命令
+
+## 反例（禁止）
+
+- 只跑通主分析却无 `code/` 目录
+- 只有 `blocks_menu.txt` 名单、却不拷贝实际用过的 Block `.R` 源码
+- 把未跑过的 tertile/binary 等也当成「用过」塞进 `blocks_used.txt`（应以 checkpoint / step 目录为准）
+- finalize 里 tryCatch 吞掉错误、导致 code 包缺失仍算成功
+- 把可改协变量写死进引擎而不落盘到指标目录
+- 在敏感性子目录批量生成 code 包干扰主分析

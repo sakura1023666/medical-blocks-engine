@@ -1,0 +1,109 @@
+[composite_index_vars] 已加载：全量 96 个指标 / 双库安全子集 60 个 / 轨迹APRI子集 6 个
+[config_ua_cr_boost] 只删病例缺测 n=509（Case:Control≈1:5.5）；force_final=UA_CR+ALT+Age；seed=62
+
+── ML Dual Batch — 候选 1 个指标 ───────────────────────────────────────────────
+ℹ db_mode=nhanes, workers=1
+ℹ Gate A：--no-skip，已删除旧缓存并重算
+
+── Gate A（列名交集，threshold=1） ──
+
+ℹ NHANES 临床列: 77 | MIMIC 临床列: 77
+✔ 共同临床列 77 个: Acute_Renal_Failure, Age, ALBI, Albumin, Albumin_Creatinine, Albumin_Urine, ALT, AnionGap, AST, Bilirubin_Direct, Bilirubin_Indirect, Bilirubin_Total, BUN, CalciumTotal, Cancer, Chloride, CK, CKD, CKMb, COPD, Creatinine, Ddimer, Diabetes, Fibrinogen, Free_Calcium, Gender, Globulin, Glucose, HbA1c, HDL, Heart_Failure, Hematocrit, Hemoglobin, Hepatitis, Hyperlipidemia, Hypertension, INR, Insurance, Lactate, Language, LD, LDL, Liver_cirrhosis, Lymphocytes, Marital_Status, Myocardial_Infarction, Neutrophil_Count, NTproBNP, PaO2, PCO2, PH, Platelet_Count, Pneumonia, Potassium, PT, PTT, Race, RBC, RDW, Sodium, Stroke, T1DM, T2DM, Total_Cholesterol, TotalCo2, TotalProtein, Triglycerides, Troponint, TT, Tuberculosis, UA_Cr, UA_CR, UreaNitrogen, Uric_Acid, Urine_Glucose, Urine_Protein, WBC
+✔ Gate A 已缓存（共享非人口学 77 列）
+
+── 运行共享层 [MIMIC_IV] ──
+
+ℹ   [NHANES] 共享层 data_clean: 不删列（threshold=1.0），列限制由 harmonize 完成
+ℹ 共享层 [NHANES] Gate A keep=79 列
+
+── 共享层 [MIMIC_IV] — data_clean → column_mapping → dual_db_column_harmonize → index ──
+
+── Pipeline: ml_dual_batch_shared_unused ───────────────────────────────────────
+ℹ 检查点: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/checkpoints/_shared/MIMIC_IV'（关闭: pipeline$checkpoint$enable = FALSE）
+ℹ Blocks (4): data_clean → column_mapping → dual_db_column_harmonize → index
+ℹ Output: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/_shared/MIMIC_IV'
+── Block: data_clean ───────────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/_shared/MIMIC_IV/step01_data_clean'
+
+── Loading raw data ──
+
+ℹ Raw data file (absolute): 'G:/02block_result/27_eclampsia/small sample prediction_39780007/data/mimic/dabiao_boost.RData'
+ℹ File size: 25364 bytes
+ℹ Loaded object 'dabiao' from RData (as configured)
+ℹ Loaded: 509 rows x 80 cols
+ℹ Derived indices computation disabled (enable = FALSE)
+ℹ Outcome 'DN' values: Control, Case
+ℹ Dropped columns: Hypertension, T1DM, T2DM, Diabetes, Glucose, HbA1c, UrineProtein, UrineGlucose, AlbuminUrine, AlbuminCreatinine, CKD, Acute_Renal_Failure, Gender, UA_Cr
+
+── Missing value check (threshold = 100% for all columns) ──
+
+✔ No columns exceed missing threshold
+ℹ 37 column(s) kept with partial missing (will be handled by imputation)
+✔ Cleaned data: 509 rows x 66 cols
+ℹ Outcome distribution:
+
+Control    Case 
+    431      78 
+✔ Saved: 'data_quality_report.csv'
+✔ Block 'data_clean' done in 0.3s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step01_data_clean.rds'
+── Block: column_mapping ───────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/_shared/MIMIC_IV/step02_column_mapping'
+
+── Column Name Mapping Block ───────────────────────────────────────────────────
+ℹ Database type: MIMIC
+ℹ Original columns: 66
+ℹ Auto-mapping columns for MIMIC database
+! Dropped alias 'PlateletCount' (standard 'Platelet_Count' already exists)
+✔ Renamed: 'NeutrophilCount' -> 'Neutrophil_Count'
+✔ Renamed: 'BilirubinDirect' -> 'Bilirubin_Direct'
+✔ Renamed: 'BilirubinIndirect' -> 'Bilirubin_Indirect'
+✔ Renamed: 'BilirubinTotal' -> 'Bilirubin_Total'
+✔ Renamed: 'TC' -> 'Total_Cholesterol'
+✔ Renamed: 'TG' -> 'Triglycerides'
+✔ Renamed: 'PO2' -> 'PaO2'
+✔ Renamed: 'FreeCalcium' -> 'Free_Calcium'
+✔ Renamed: 'UricAcid' -> 'Uric_Acid'
+✔ Renamed: 'TroponinT' -> 'Troponint'
+✔ Renamed: 'Malignant_Tumor' -> 'Cancer'
+✔ Saved: 'column_mapping_log.csv'
+✔ Column mapping completed: 11 columns mapped
+ℹ Final columns: 65
+✔ Block 'column_mapping' done in 0.1s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step02_column_mapping.rds'
+── Block: dual_db_column_harmonize ─────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/_shared/MIMIC_IV/step03_dual_db_column_harmonize'
+! 闸门 A: 14 个保留列在数据中不存在（已忽略）
+! BMI 衍生跳过：缺少 Height 或 Weight（当前列数 65）
+✔ 闸门 A [NHANES]: 65 → 65 列（共享非人口学 77）
+✔ Block 'dual_db_column_harmonize' done in 0s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step03_dual_db_column_harmonize.rds'
+── Block: index ────────────────────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/_shared/MIMIC_IV/step04_index'
+
+── Computing derived indices (1 definitions) ──
+
+✔   UA_CR: n=509, range=[3.75, 17]
+✔ Saved: Table Index Summary.csv
+
+── Index summary ──
+
+✔ Computed: 1 indices, 
+✔ Block 'index' done in 0.2s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step04_index.rds'
+✔ Pipeline finished: ml_dual_batch_shared_unused
+ℹ 共享层 checkpoint 已补全 Disease_Group（由 Disease 复制）
+✔ 选指标表已写: 'G:/02block_result/27_eclampsia/small sample prediction_39780007/Tables/Index_screening_OR_HR.csv'（1 行，不改循环名单）
+✔   [NHANES] 可用指标 (n_valid>=50): 1 个: UA_CR
+
+── 指标筛查（nhanes 单库，min_valid=50）：候选 1 → 可用 1 ──
+
+ℹ 指标模式: single_loop | 任务数: 1 | 标签: UA_CR
+ℹ Worker 启动模式: processx
+ℹ Rscript: 'C:/Program Files/R/R-4.5.1/bin/x64/Rscript.exe'
+✔ 启动 worker [UA_CR] → 'UA_CR.log'
+ℹ 等待最后 1 个 worker…

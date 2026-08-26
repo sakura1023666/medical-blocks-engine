@@ -1,0 +1,47 @@
+# tests/test_pub_figure_onplot_annotations.R
+root <- normalizePath(getwd())
+if (!file.exists(file.path(root, "R/utils.R"))) {
+  cand <- normalizePath(file.path(".."), winslash = "/")
+  if (file.exists(file.path(cand, "R/utils.R"))) root <- cand
+}
+source(file.path(root, "R/utils.R"), local = FALSE)
+source(file.path(root, "R/pub_figure_export.R"), local = FALSE)
+
+stopifnot(exists(".pub_figure_fmt_p_label", mode = "function"))
+stopifnot(identical(.pub_figure_fmt_p_label("P-overall", 0.001), "P-overall = 0.001"))
+stopifnot(identical(.pub_figure_fmt_p_label("P-overall", 0.0004), "P-overall < 0.001"))
+stopifnot(identical(.pub_figure_fmt_p_label("P-non-linear", NA_real_), "P-non-linear = NA"))
+
+rcs_f <- list(list(
+  db = "MIMIC",
+  panels = list(
+    list(name = "Model2", p_overall = 0.001, p_nonlinear = 0.116, cutoffs = c(0.52))
+  )
+))
+lines <- .pub_figure_rcs_annotation_lines(rcs_f)
+stopifnot(any(grepl("P-overall = 0.001", lines)))
+stopifnot(any(grepl("P-non-linear = 0.116", lines)))
+stopifnot(any(grepl("0\\.52|cutoff", lines, ignore.case = TRUE)))
+
+km_f <- list(list(db = "eICU", logrank_p = 0.023, cutoff = 1.25))
+km_lines <- .pub_figure_km_annotation_lines(km_f)
+stopifnot(any(grepl("Log-rank", km_lines)), any(grepl("0\\.023", km_lines)))
+stopifnot(any(grepl("1\\.25|cutoff", km_lines, ignore.case = TRUE)))
+
+forest_f <- list(list(
+  db = "eICU",
+  rows = data.frame(
+    Variable = c("Overall", "Age < 65", "Age ≥ 65"),
+    `Point Estimate` = c(1.20, 1.10, 1.35),
+    Lower = c(1.01, 0.90, 1.05),
+    Upper = c(1.42, 1.35, 1.74),
+    `P for interaction` = c(NA, 0.04, NA),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+))
+fo_lines <- .pub_figure_forest_annotation_lines(forest_f)
+stopifnot(any(grepl("Overall", fo_lines)), any(grepl("1\\.20", fo_lines)))
+stopifnot(any(grepl("interaction|交互", fo_lines, ignore.case = TRUE)))
+
+cat("test_pub_figure_onplot_annotations: OK\n")

@@ -1,0 +1,436 @@
+# Review package: Task 6
+## Diff: run/incidence/run_incidence_dual_batch_worker.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task6/run_incidence_dual_batch_worker.R	2026-08-17 17:46:28.575080500 +0800
++++ /mnt/e/01block/01Block-new-Final/run/incidence/run_incidence_dual_batch_worker.R	2026-08-17 17:57:05.245122300 +0800
+@@ -119,20 +119,21 @@
+ 
+ # ── 加载依赖 ─────────────────────────────────────────────────────────────────
+ source(file.path(root, "R/utils.R"))
+ source(file.path(root, "R/model3_required.R"))
+ source(file.path(root, "R/baseline_dictionary_labels.R"))
+ source(file.path(root, "R/dual_db_harmonize.R"))
+ source(file.path(root, "R/logistic_gate.R"))
+ source(file.path(root, "R/pipeline_runner.R"))
+ source(file.path(root, "configs/indices/composite_index_vars.R"))
+ source(file.path(root, "R/incidence_dual_batch_runner.R"))
++source(file.path(root, "R/incidence_sensitivity_suite.R"))
+ source(file.path(root, "R/incidence_pipeline_brief.R"))
+ source(file.path(root, "R/feishu_bitable.R"))
+ source(config_path)   # 与主进程使用同一份 config
+ 
+ gate_a_bundle <- tryCatch(
+   incidence_batch_ensure_gate_a(config, root),
+   error = function(e) {
+     cli::cli_alert_warning("Worker Gate A 加载失败: {e$message}")
+     list(config = config, gate_a = NULL)
+   }
+@@ -161,20 +162,21 @@
+     stop("无法解析 Phase1 终点 block（流水线缺少 VIF_final / covariate_harmonize / screen）",
+          call. = FALSE)
+   }
+   hit[[1L]]
+ }
+ 
+ .logistic_screen_end_block <- function(db)
+   if (dual_db_is_weighted(config, db)) "logistic_binary_nhanes_weighted" else "logistic_binary_glm"
+ 
+ bc          <- config$incidence_batch %||% list()
++light       <- isTRUE(bc$.sensitivity_light)
+ output_base <- bc$output_base %||% config$project$output_dir
+ output_ix   <- if (resume_mode) {
+   incidence_batch_find_index_output_dir(output_base, ix)
+ } else {
+   file.path(output_base, "by_index", ix)
+ }
+ 
+ # 状态写入（任何时机可调用）
+ filter_stats <- list()  # 用于记录过滤统计
+ 
+@@ -279,21 +281,43 @@
+ }
+ other_ix <- setdiff(all_computed_ix, ix)   # 其他指标列，分析时排除
+ protect_ix <- unique(c(
+   "BMI", "Weight", "Height",
+   as.character((bc$protect_index_cols %||% character(0)))
+ ))
+ other_ix <- setdiff(other_ix, protect_ix)
+ 
+ # ── 复制 shared checkpoint + 过滤当前指标 NA 行 + 删除其他指标列 ─────────────
+ # 续跑模式：保留已有 per-index 检查点，禁止覆盖 index.rds
+-if (!resume_mode) {
++# 轻量敏感性：suite 已拷主分析插补 ck 并滤人，禁止再 copy shared
++if (isTRUE(bc$.sensitivity_light)) {
++  cli::cli_alert_info("[{ix}] 敏感性轻量路径：使用主分析插补后 ck，不复制 shared、不插补")
++  scheme <- as.character(bc$.sensitivity_scheme %||% "quartile")[1L]
++  for (db in actual_db_seq) {
++    per_index_ck <- file.path(
++      bc$index_ck_base %||% "checkpoints/_by_index", ix,
++      dual_db_slot_path_name(config, db)
++    )
++    idx_p <- file.path(per_index_ck, "index.rds")
++    if (!file.exists(idx_p)) {
++      .write_status(
++        "failed",
++        error_message = sprintf("轻量路径缺少 %s/index.rds（suite 应已拷+过滤）", per_index_ck)
++      )
++      quit(save = "no", status = 1)
++    }
++    obj <- tryCatch(readRDS(idx_p), error = function(e) NULL)
++    df_f <- incidence_batch_ctx_data(obj$ctx)
++    if (!is.null(df_f) && is.data.frame(df_f))
++      filter_stats[[db]] <- list(imputed = list(n_after = nrow(df_f)))
++  }
++} else if (!resume_mode) {
+   # 注意：此处只过滤 NA 行（p_trim=0 跳过极值裁剪）
+   # 发病套路不再挂 trim_index_extreme，不做百分位极端值裁剪
+   for (db in actual_db_seq) {
+     shared_dir   <- incidence_batch_shared_ck_dir(config, db)
+     per_index_ck <- file.path(
+       bc$index_ck_base %||% "checkpoints/_by_index", ix,
+       dual_db_slot_path_name(config, db)
+     )
+     ok <- incidence_batch_copy_shared_ck(shared_dir, per_index_ck, ix, 0)  # p_trim=0: 只过滤NA
+     if (!ok) {
+@@ -356,45 +380,77 @@
+ }
+ 
+ # ── 运行单库某阶段 ────────────────────────────────────────────────────────────
+ .run_db_phase <- function(db, from_token, to_token) {
+   cfg_db <- incidence_batch_apply_db_overrides(config_ix, db, root, ix)
+   if (resume_mode) {
+     cfg_db$project$output_dir <- file.path(output_ix, dual_db_slot_path_name(config_ix, db))
+     cfg_db$incidence_batch$output_base <- output_base
+   }
+   pipe   <- if (dual_db_is_weighted(config, db)) pipeline_nhanes_batch else pipeline_regular_batch
++  if (isTRUE((config_ix$incidence_batch %||% list())$.sensitivity_light)) {
++    scheme <- as.character(config_ix$incidence_batch$.sensitivity_scheme %||% "quartile")[1L]
++    keep <- incidence_sensitivity_light_blocks(
++      "incidence", dual_db_is_weighted(config, db), scheme
++    )
++    pipe <- incidence_sensitivity_trim_pipeline(pipe, keep)
++    pipe$logistic_gate$enable <- FALSE
++  }
+   per_ck <- file.path(
+     bc$index_ck_base %||% "checkpoints/_by_index", ix,
+     dual_db_slot_path_name(config_ix, db)
+   )
+   if (resume_mode && !dir.exists(per_ck)) {
+     stop("续跑缺少检查点目录: ", per_ck, call. = FALSE)
+   }
+   pipe   <- incidence_batch_set_pipeline_ck(pipe, per_ck)
+-  run_pipeline(root, config = cfg_db, pipeline = pipe,
+-               run_opts = list(from = from_token, to = to_token))
++  run_opts <- list(from = from_token, to = to_token)
++  if (isTRUE((config_ix$incidence_batch %||% list())$.sensitivity_light)) {
++    # 从过滤后 index.rds 注入 ctx，含首块跑起；禁止续跑 leftover imputation.rds
++    idx_p <- file.path(per_ck, "index.rds")
++    idx_obj <- readRDS(idx_p)
++    if (is.null(idx_obj$ctx))
++      stop("轻量路径 index.rds 无效（缺 ctx）: ", idx_p, call. = FALSE)
++    run_opts$initial_ctx <- idx_obj$ctx
++    run_opts$from <- NULL
++    run_opts$to <- to_token
++  }
++  run_pipeline(root, config = cfg_db, pipeline = pipe, run_opts = run_opts)
+ }
+ 
+-# ── 分析主路径：续跑单段 / 完整三阶段 ─────────────────────────────────────────
++# ── 分析主路径：续跑单段 / 轻量敏感性 / 完整三阶段 ────────────────────────────
+ result_ctx <- list()
+ 
+ tryCatch({
+   if (resume_mode) {
+     cli::cli_h2("[{ix}] 续跑 --from/--to")
+     for (db in actual_db_seq) {
+       ft <- incidence_batch_resolve_from_to(config, db, from_cli, to_cli)
+       cli::cli_alert_info(
+         "[{dual_db_slot_path_name(config, db)}] pipeline from={ft$from %||% '(start)'} to={ft$to %||% '(end)'}"
+       )
+       result_ctx[[db]] <- .run_db_phase(db, ft$from, ft$to)
+     }
++  } else if (light) {
++    cli::cli_h2("[{ix}] 敏感性轻量路径 — Table 1 + 选中档 Table 2")
++    for (db in actual_db_seq) {
++      pipe <- if (dual_db_is_weighted(config, db)) pipeline_nhanes_batch else pipeline_regular_batch
++      scheme <- as.character(bc$.sensitivity_scheme %||% "quartile")[1L]
++      keep <- incidence_sensitivity_light_blocks(
++        "incidence", dual_db_is_weighted(config, db), scheme
++      )
++      pipe <- incidence_sensitivity_trim_pipeline(pipe, keep)
++      if (!length(pipe$blocks)) {
++        stop("轻量路径截断后 pipeline$blocks 为空: ", db, call. = FALSE)
++      }
++      result_ctx[[db]] <- .run_db_phase(db, pipe$blocks[1], tail(pipe$blocks, 1))
++    }
+   } else {
+     cli::cli_h2("[{ix}] Phase 1 — 各库跑到 VIF_final")
+     for (db in actual_db_seq) {
+       result_ctx[[db]] <- .run_db_phase(db, "index", .vif_final_block_for_db(db))
+     }
+ 
+     if (identical(actual_db_mode, "both")) {
+       if (exists("survival_batch_dual_lock_analysis_columns", mode = "function")) {
+         tryCatch(
+           survival_batch_dual_lock_analysis_columns(
+## Diff: run/survival/run_survival_dual_batch_worker.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task6/run_survival_dual_batch_worker.R	2026-08-17 17:46:28.584338100 +0800
++++ /mnt/e/01block/01Block-new-Final/run/survival/run_survival_dual_batch_worker.R	2026-08-17 17:59:48.183175700 +0800
+@@ -89,20 +89,21 @@
+   file.path(root, "configs/templates/config_survival_dual_batch.template.R")
+ }
+ 
+ source(file.path(root, "R/utils.R"))
+ source(file.path(root, "R/model3_required.R"))
+ source(file.path(root, "R/dual_db_harmonize.R"))
+ source(file.path(root, "R/cox_gate.R"))
+ source(file.path(root, "R/pipeline_runner.R"))
+ source(file.path(root, "configs/indices/composite_index_vars.R"))
+ source(file.path(root, "R/survival_dual_batch_runner.R"))
++source(file.path(root, "R/incidence_sensitivity_suite.R"))
+ source(file.path(root, "R/feishu_bitable.R"))
+ source(config_path)
+ config <- .survival_batch_bind_config(config)
+ 
+ gate_a_bundle <- tryCatch(
+   incidence_batch_ensure_gate_a(config, root),
+   error = function(e) {
+     cli::cli_alert_warning("Worker Gate A 加载失败: {e$message}")
+     list(config = config, gate_a = NULL)
+   }
+@@ -114,20 +115,22 @@
+ 
+ options(cli.hyperlink = FALSE, warn = 1)
+ 
+ .vif_final_block <- function() "multicollinearity_final"
+ .cox_screen_end  <- function() "cox_binary"
+ 
+ bc          <- utils::modifyList(
+   config$survival_batch %||% list(),
+   config$incidence_batch %||% list()
+ )
++sb          <- config$survival_batch %||% config$incidence_batch %||% list()
++light       <- isTRUE(sb$.sensitivity_light)
+ output_base <- bc$output_base %||% config$project$output_dir
+ output_ix   <- file.path(output_base, "by_index", ix)
+ filter_stats <- list()
+ 
+ .write_status <- function(status, db_mode_used = db_mode,
+                            nhanes_branch = NULL, mimic_branch = NULL,
+                            nhanes_or = NULL, mimic_or = NULL,
+                            error_message = NULL) {
+   elapsed <- round(as.numeric((proc.time() - t_start)["elapsed"]), 1)
+   fields  <- list(
+@@ -224,20 +227,43 @@
+     all_computed_ix <- union(all_computed_ix, s_obj$ctx$results$computed_index_names %||% character(0))
+ }
+ other_ix <- setdiff(all_computed_ix, ix)
+ # BMI/体重/身高作临床协变量保留，不因「其他复合指标」被剔除
+ protect_ix <- unique(c(
+   "BMI", "Weight", "Height",
+   as.character((bc$protect_index_cols %||% character(0)))
+ ))
+ other_ix <- setdiff(other_ix, protect_ix)
+ 
++if (isTRUE(sb$.sensitivity_light)) {
++  cli::cli_alert_info("[{ix}] 敏感性轻量路径：使用主分析插补后 ck，不复制 shared、不插补")
++  scheme <- as.character(sb$.sensitivity_scheme %||% "quartile")[1L]
++  for (db in actual_db_seq) {
++    per_index_ck <- file.path(
++      bc$index_ck_base %||% "checkpoints/_by_index", ix,
++      dual_db_slot_path_name(config, db)
++    )
++    idx_p <- file.path(per_index_ck, "index.rds")
++    if (!file.exists(idx_p)) {
++      .write_status(
++        "failed",
++        error_message = sprintf("轻量路径缺少 %s/index.rds（suite 应已拷+过滤）", per_index_ck)
++      )
++      quit(save = "no", status = 1)
++    }
++    obj <- tryCatch(readRDS(idx_p), error = function(e) NULL)
++    df_f <- incidence_batch_ctx_data(obj$ctx)
++    if (!is.null(df_f) && is.data.frame(df_f)) {
++      filter_stats[[db]] <- list(imputed = list(n_after = nrow(df_f)))
++    }
++  }
++} else {
+ for (db in actual_db_seq) {
+   shared_dir   <- incidence_batch_shared_ck_dir(config, db)
+   per_index_ck <- file.path(
+     bc$index_ck_base %||% "checkpoints/_by_index", ix,
+     dual_db_slot_path_name(config, db)
+   )
+   # p_trim 来自 CLI（默认 0.01）；若 batch 显式设 0 则不裁极端值（本项目沿用 runner 传入值，不强开）
+   ok <- incidence_batch_copy_shared_ck(shared_dir, per_index_ck, ix, p_trim)
+   if (!isTRUE(ok)) {
+     .write_status("failed", error_message = sprintf("复制 %s checkpoint 失败", toupper(db)))
+@@ -312,36 +338,65 @@
+     tr0 <- filter_stats[[db]]$imputed$n_trim %||% 0L
+     aft <- filter_stats[[db]]$imputed$n_after
+     if ((is.null(na0) || !is.finite(na0)) && is.finite(n_b) && is.finite(aft)) {
+       # n_na + n_trim = before - after
+       lost <- as.integer(n_b - aft)
+       tr0 <- as.integer(tr0 %||% 0L)
+       filter_stats[[db]]$imputed$n_na <- max(0L, lost - tr0)
+     }
+   }
+ }
++}
+ 
+ .run_db_phase <- function(db, from_token, to_token) {
+   cfg_db <- incidence_batch_apply_db_overrides(config_ix, db, root, ix)
+   pipe   <- pipeline_regular_batch
++  if (isTRUE(sb$.sensitivity_light)) {
++    scheme <- as.character(sb$.sensitivity_scheme %||% "quartile")[1L]
++    keep <- incidence_sensitivity_light_blocks("prognosis", FALSE, scheme)
++    pipe <- incidence_sensitivity_trim_pipeline(pipe, keep)
++    pipe$cox_gate$enable <- FALSE
++  }
+   per_ck <- file.path(
+     bc$index_ck_base %||% "checkpoints/_by_index", ix,
+     dual_db_slot_path_name(config_ix, db)
+   )
+   pipe <- incidence_batch_set_pipeline_ck(pipe, per_ck)
+-  run_pipeline(root, config = cfg_db, pipeline = pipe,
+-               run_opts = list(from = from_token, to = to_token))
++  run_opts <- list(from = from_token, to = to_token)
++  if (isTRUE(sb$.sensitivity_light)) {
++    idx_p <- file.path(per_ck, "index.rds")
++    idx_obj <- readRDS(idx_p)
++    if (is.null(idx_obj$ctx))
++      stop("轻量路径 index.rds 无效（缺 ctx）: ", idx_p, call. = FALSE)
++    run_opts$initial_ctx <- idx_obj$ctx
++    run_opts$from <- NULL
++    run_opts$to <- to_token
++  }
++  run_pipeline(root, config = cfg_db, pipeline = pipe, run_opts = run_opts)
+ }
+ 
+ result_ctx <- list()
+ 
+ tryCatch({
++  if (light) {
++    cli::cli_h2("[{ix}] 敏感性轻量路径 — Table 1 + 选中档 Cox Table 2")
++    for (db in actual_db_seq) {
++      pipe <- pipeline_regular_batch
++      scheme <- as.character(sb$.sensitivity_scheme %||% "quartile")[1L]
++      keep <- incidence_sensitivity_light_blocks("prognosis", FALSE, scheme)
++      pipe <- incidence_sensitivity_trim_pipeline(pipe, keep)
++      if (!length(pipe$blocks)) {
++        stop("轻量路径截断后 pipeline$blocks 为空: ", db, call. = FALSE)
++      }
++      result_ctx[[db]] <- .run_db_phase(db, pipe$blocks[1], tail(pipe$blocks, 1))
++    }
++  } else {
+   cli::cli_h2("[{ix}] Phase 1 — 各库跑到 VIF_final")
+   for (db in actual_db_seq) {
+     result_ctx[[db]] <- .run_db_phase(db, "index", .vif_final_block())
+   }
+ 
+   if (identical(actual_db_mode, "both")) {
+     # 插补后列集合取交集并重跑 baseline→VIF，保证后续全部表/图列名一致
+     if (exists("survival_batch_dual_lock_analysis_columns", mode = "function")) {
+       tryCatch(
+         survival_batch_dual_lock_analysis_columns(
+@@ -440,20 +495,21 @@
+   if (identical(actual_db_mode, "both") &&
+       exists("survival_batch_apply_gate_e_mediation", mode = "function")) {
+     locked_med <- survival_batch_apply_gate_e_mediation(
+       root, config_ix, ix, actual_db_seq, pipeline_regular_batch,
+       result_ctx = result_ctx
+     )
+     if (!is.null(locked_med) && !is.null(attr(locked_med, "result_ctx"))) {
+       result_ctx <- attr(locked_med, "result_ctx")
+     }
+   }
++  }
+ 
+   incidence_batch_finalize_index_outputs(root, config_ix, ix, actual_db_seq)
+ 
+   # 覆盖 Figure1 占位：纳排 + 指标缺失；极端值仅 n_trim>0 时出现（不因 p_trim 默认硬开）
+   tryCatch({
+     project_root <- normalizePath(
+       bc$output_base %||% dirname(config_path),
+       winslash = "/", mustWork = FALSE
+     )
+     font_family <- (config_ix$plot %||% list())$font_family %||% "Times New Roman"
+## Diff: tests/test_incidence_sensitivity_light.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task6/test_incidence_sensitivity_light.R	2026-08-17 17:46:28.591340000 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-17 17:55:55.109307600 +0800
+@@ -291,10 +291,76 @@
+   base_cfg, tempfile("stg"), tempfile("ck"), sg_w, out_cfg,
+   scheme = "quartile", zh_desc = "非高血压"
+ )
+ txt_w <- paste(readLines(out_cfg, warn = FALSE), collapse = "\n")
+ stopifnot(grepl("config$incidence_batch$.sensitivity_light <- TRUE", txt_w, fixed = TRUE))
+ stopifnot(grepl(".sensitivity_scheme", txt_w, fixed = TRUE))
+ stopifnot(grepl(".sensitivity_zh_desc", txt_w, fixed = TRUE))
+ unlink(c(base_cfg, out_cfg))
+ 
+ cat("Task5 OK\n")
++
++# ── Task 6: Worker 轻量路径源码守卫（避免再走 shared + imputation）──────────
++inc_w <- paste(readLines("run/incidence/run_incidence_dual_batch_worker.R", warn = FALSE), collapse = "\n")
++stopifnot(grepl("\\.sensitivity_light", inc_w))
++stopifnot(grepl("incidence_sensitivity_copy_imputed_ck|sensitivity_light", inc_w))
++# 轻量分支不得在 light 为 TRUE 时无条件 copy shared
++surv_w <- paste(readLines("run/survival/run_survival_dual_batch_worker.R", warn = FALSE), collapse = "\n")
++stopifnot(grepl("\\.sensitivity_light", surv_w))
++
++.light_before_copy_in_else <- function(src) {
++  light_m <- gregexpr(
++    "if\\s*\\(\\s*isTRUE\\s*\\([^)]*\\.sensitivity_light",
++    src, perl = TRUE
++  )[[1L]]
++  copy_m <- gregexpr("incidence_batch_copy_shared_ck", src, perl = TRUE)[[1L]]
++  if (length(light_m) < 1L || light_m[[1L]] < 0L) return(FALSE)
++  if (length(copy_m) < 1L || copy_m[[1L]] < 0L) return(FALSE)
++  if (light_m[[1L]] >= copy_m[[1L]]) return(FALSE)
++  between <- substr(src, light_m[[1L]], copy_m[[1L]])
++  grepl("\\}\\s*else", between, perl = TRUE)
++}
++stopifnot(.light_before_copy_in_else(inc_w))
++stopifnot(.light_before_copy_in_else(surv_w))
++
++stopifnot(grepl("incidence_sensitivity_light_blocks", inc_w, fixed = TRUE))
++stopifnot(grepl("incidence_sensitivity_trim_pipeline", inc_w, fixed = TRUE))
++stopifnot(grepl("incidence_sensitivity_light_blocks", surv_w, fixed = TRUE))
++stopifnot(grepl("incidence_sensitivity_trim_pipeline", surv_w, fixed = TRUE))
++stopifnot(grepl(
++  "incidence_sensitivity_light_blocks\\(\\s*[\"']incidence[\"']",
++  inc_w, perl = TRUE
++))
++stopifnot(grepl(
++  "incidence_sensitivity_light_blocks\\(\\s*[\"']prognosis[\"']",
++  surv_w, perl = TRUE
++))
++
++# 轻量必须要求已有 per_index_ck/index.rds；从过滤后 index 起步，不续跑 leftover imputation
++stopifnot(grepl("index\\.rds", inc_w))
++stopifnot(grepl("index\\.rds", surv_w))
++stopifnot(grepl("initial_ctx", inc_w, fixed = TRUE))
++stopifnot(grepl("initial_ctx", surv_w, fixed = TRUE))
++stopifnot(grepl("pipe$blocks[1]", inc_w, fixed = TRUE) ||
++            grepl("pipe$blocks[[1", inc_w, fixed = TRUE))
++stopifnot(grepl("tail(pipe$blocks", inc_w, fixed = TRUE))
++stopifnot(grepl("pipe$blocks[1]", surv_w, fixed = TRUE) ||
++            grepl("pipe$blocks[[1", surv_w, fixed = TRUE))
++stopifnot(grepl("tail(pipe$blocks", surv_w, fixed = TRUE))
++
++# 截断管线上关 logistic / cox 闸门
++stopifnot(grepl("logistic_gate$enable <- FALSE", inc_w, fixed = TRUE))
++stopifnot(grepl("cox_gate$enable <- FALSE", surv_w, fixed = TRUE))
++
++# 预后：.sensitivity_light 来自 survival_batch %||% incidence_batch；scheme 缺省 quartile
++stopifnot(grepl(
++  "survival_batch %||% config$incidence_batch",
++  surv_w, fixed = TRUE
++))
++stopifnot(grepl("\\.sensitivity_scheme", surv_w))
++stopifnot(grepl("quartile", surv_w, fixed = TRUE))
++
++# 非轻量路径仍保留 copy shared
++stopifnot(grepl("incidence_batch_copy_shared_ck", inc_w, fixed = TRUE))
++stopifnot(grepl("incidence_batch_copy_shared_ck", surv_w, fixed = TRUE))
++
++cat("Task6 OK\n")

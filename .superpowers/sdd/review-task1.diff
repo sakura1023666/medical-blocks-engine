@@ -1,0 +1,181 @@
+# Review package: Task 1 (no git; snapshot vs working tree)
+
+## Files changed
+tests/test_incidence_sensitivity_light.R (created)
+R/incidence_sensitivity_suite.R (modified)
+
+## Diff: R/incidence_sensitivity_suite.R
+--- /mnt/e/01block/01Block-new-Final/.superpowers/sdd/snap-task1/incidence_sensitivity_suite.R	2026-08-17 16:36:19.587553700 +0800
++++ /mnt/e/01block/01Block-new-Final/R/incidence_sensitivity_suite.R	2026-08-17 16:39:15.687952500 +0800
+@@ -5,39 +5,107 @@
+ #        sensitivity_suite$scenarios 声明的队列过滤，重跑双库发病流程。
+ #
+ #  机制（复用 subgroup_fallback 的 worker 过滤与派发）：
+ #    1. 生成临时 config，注入 .subgroup_fallback_expr（cohort 行过滤）
+ #    2. 调 run_incidence_dual_batch_worker.R
+ #    3. 产物平移到 by_index/<ix>/sensitivity/<label>/
+ #
+ #  依赖：utils.R, incidence_dual_batch_runner.R, incidence_subgroup_fallback.R
+ ###############################################################################
+ 
+-# ── 展开 sensitivity_suite$scenarios（支持 {age_cutoff} 占位符）──────────────
+-# 未声明 scenarios 时回退到通用能力层默认场景（年龄分层 / 排除高血压 / 排除糖尿病）
+-incidence_sensitivity_resolve <- function(config) {
+-  sens <- (config$incidence_batch %||% config$survival_batch %||% list())$sensitivity_suite %||% list()
+-  scenarios <- sens$scenarios %||% list()
+-  if (!length(scenarios) && exists("pipeline_default_sensitivity_scenarios", mode = "function")) {
+-    scenarios <- pipeline_default_sensitivity_scenarios(config)
++incidence_sensitivity_yes_tokens <- function() {
++  c("Yes", "yes", "YES", "1", "TRUE", "True", "true", "Y", "y")
++}
++
++incidence_sensitivity_no_tokens <- function() {
++  c("No", "no", "NO", "0", "FALSE", "False", "false", "N", "n")
++}
++
++incidence_sensitivity_as_yes_no_chr <- function(x) {
++  xs <- trimws(as.character(x))
++  yes <- incidence_sensitivity_yes_tokens()
++  no  <- incidence_sensitivity_no_tokens()
++  xs[xs %in% yes] <- "Yes"
++  xs[xs %in% no]  <- "No"
++  xs
++}
++
++incidence_sensitivity_is_yes_no <- function(x) {
++  xs <- incidence_sensitivity_as_yes_no_chr(x)
++  lv <- unique(xs[!is.na(xs) & nzchar(xs)])
++  length(lv) >= 1L && length(lv) <= 2L && all(lv %in% c("Yes", "No"))
++}
++
++incidence_sensitivity_yes_n <- function(x) {
++  xs <- incidence_sensitivity_as_yes_no_chr(x)
++  as.integer(sum(xs == "Yes", na.rm = TRUE))
++}
++
++incidence_sensitivity_exclude_yes_expr <- function(var) {
++  var <- as.character(var)[1L]
++  sprintf(
++    'is.na(%1$s) | trimws(as.character(%1$s)) != "Yes"',
++    var
++  )
++}
++
++incidence_sensitivity_zh_var_map <- function() {
++  c(
++    Hypertension = "高血压", T2DM = "糖尿病", Diabetes = "糖尿病",
++    CKD = "CKD", Heart_Failure = "心衰", COPD = "COPD",
++    Cancer = "癌症", Pneumonia = "肺炎", Stroke = "卒中"
++  )
++}
++
++incidence_sensitivity_zh_desc <- function(label, age_cutoff = 65, display_names = NULL) {
++  label <- as.character(label)[1L]
++  m <- regexec("^SA_age_ge_([0-9]+)$", label, perl = TRUE)
++  mm <- regmatches(label, m)[[1L]]
++  if (length(mm)) return(paste0("年龄≥", mm[2L]))
++  m <- regexec("^SA_age_lt_([0-9]+)$", label, perl = TRUE)
++  mm <- regmatches(label, m)[[1L]]
++  if (length(mm)) return(paste0("年龄<", mm[2L]))
++  if (startsWith(label, "SA_no_")) {
++    var <- sub("^SA_no_", "", label)
++    dn <- as.character((display_names %||% list())[[var]] %||% "")[1L]
++    mp <- incidence_sensitivity_zh_var_map()
++    zh <- if (nzchar(dn)) dn else (unname(mp[var]) %||% var)
++    return(paste0("非", zh))
+   }
+-  if (!length(scenarios)) return(list())
++  label
++}
+ 
+-  age_cut <- as.character(sens$age_cutoff %||% 65)
+-  .sub <- function(t) gsub("\\{age_cutoff\\}", age_cut, t)
++incidence_sensitivity_pub_stem <- function(s_num, db_tag, zh_desc, caption) {
++  s_num <- as.integer(s_num)[1L]
++  db_tag <- as.character(db_tag %||% "")[1L]
++  zh_desc <- as.character(zh_desc)[1L]
++  caption <- as.character(caption)[1L]
++  db_part <- if (nzchar(db_tag)) paste0("-", db_tag) else ""
++  sprintf(
++    "Table S%d%s. Sensitivity analysis-%s. %s",
++    s_num, db_part, zh_desc, caption
++  )
++}
+ 
+-  out <- lapply(scenarios, function(s) {
+-    label <- .sub(as.character(s$label %||% s$name %||% "")[1L])
+-    expr  <- .sub(as.character(s$expr %||% "")[1L])
+-    list(label = label, expr = expr, required_vars = s$required_vars %||% character(0))
+-  })
+-  out[nzchar(vapply(out, function(x) x$label, character(1)))]
++incidence_sensitivity_judge_status <- function(ok_t1, ok_t2, p_primary, p_secondary,
++                                               sig_cutoff = 0.05) {
++  tables_ok <- isTRUE(ok_t1) && isTRUE(ok_t2)
++  p1 <- suppressWarnings(as.numeric(p_primary)[1L])
++  p2 <- suppressWarnings(as.numeric(p_secondary)[1L])
++  sig_ok <- is.finite(p1) && is.finite(p2) &&
++    p1 < sig_cutoff && p2 < sig_cutoff
++  if (tables_ok && sig_ok) "success" else "failed"
++}
++
++# ── 展开 sensitivity_suite$scenarios（Task 2 前暂返回空 list）────────────────
++incidence_sensitivity_resolve <- function(config) {
++  list()
+ }
+ 
+ # ── 定位指标 by_index 父目录（裸名 / 【success】<ix> / 【failed】<ix>）──────
+ .incidence_sensitivity_find_index_parent <- function(by_index_dir, ix) {
+   if (!dir.exists(by_index_dir)) return(NULL)
+   dirs <- list.dirs(by_index_dir, recursive = FALSE, full.names = TRUE)
+   bns  <- basename(dirs)
+   hit  <- dirs[endsWith(bns, paste0("\u3011", ix))]   # 】<ix>
+   if (!length(hit)) hit <- dirs[bns == ix]
+   if (length(hit)) hit[1L] else NULL
+
+## Diff: tests/test_incidence_sensitivity_light.R (new file)
+--- /dev/null	2026-06-22 15:21:48.468803426 +0800
++++ /mnt/e/01block/01Block-new-Final/tests/test_incidence_sensitivity_light.R	2026-08-17 16:38:54.834150700 +0800
+@@ -0,0 +1,43 @@
++# tests/test_incidence_sensitivity_light.R
++root <- normalizePath(".")
++source(file.path(root, "R/utils.R"), local = FALSE)
++source(file.path(root, "R/incidence_sensitivity_suite.R"), local = FALSE)
++
++stopifnot(isTRUE(incidence_sensitivity_is_yes_no(c("Yes", "No", "Yes", NA))))
++stopifnot(isTRUE(incidence_sensitivity_is_yes_no(c(1, 0, 1))))
++stopifnot(!isTRUE(incidence_sensitivity_is_yes_no(c("White", "Black", "Other"))))
++stopifnot(!isTRUE(incidence_sensitivity_is_yes_no(c("Male", "Female"))))
++stopifnot(identical(incidence_sensitivity_yes_n(c("Yes", "No", "Yes", "Yes ")), 3L))
++
++ex <- incidence_sensitivity_exclude_yes_expr("Hypertension")
++stopifnot(grepl("Hypertension", ex, fixed = TRUE))
++stopifnot(grepl("Yes", ex, fixed = TRUE))
++
++stopifnot(identical(incidence_sensitivity_zh_desc("SA_no_Hypertension"), "非高血压"))
++stopifnot(identical(incidence_sensitivity_zh_desc("SA_no_T2DM"), "非糖尿病"))
++stopifnot(identical(incidence_sensitivity_zh_desc("SA_age_ge_65", 65), "年龄≥65"))
++stopifnot(identical(incidence_sensitivity_zh_desc("SA_age_lt_60", 60), "年龄<60"))
++
++st <- incidence_sensitivity_pub_stem(
++  12L, "eICU", "非高血压", "Baseline characteristics"
++)
++stopifnot(grepl("^Table S12-eICU\\. Sensitivity analysis-非高血压\\. Baseline characteristics$", st))
++st13 <- incidence_sensitivity_pub_stem(
++  13L, "MIMIC", "年龄≥65", "Cox regression of NLR quartile"
++)
++stopifnot(grepl("Table S13-MIMIC", st13, fixed = TRUE))
++stopifnot(grepl("Sensitivity analysis-年龄≥65", st13, fixed = TRUE))
++
++stopifnot(identical(
++  incidence_sensitivity_judge_status(TRUE, TRUE, 0.01, 0.02, 0.05),
++  "success"
++))
++stopifnot(identical(
++  incidence_sensitivity_judge_status(TRUE, TRUE, 0.01, 0.20, 0.05),
++  "failed"
++))
++stopifnot(identical(
++  incidence_sensitivity_judge_status(TRUE, FALSE, 0.01, 0.02, 0.05),
++  "failed"
++))
++cat("Task1 OK\n")

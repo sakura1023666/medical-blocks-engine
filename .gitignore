@@ -1,0 +1,40 @@
+# Secrets / local env
+.env
+.env.*
+!.env*.example
+.env.feishu
+.env.glm
+engine.env
+
+# R / IDE
+.Rhistory
+.RData
+.Rproj.user
+Rplots.pdf
+*.Rcheck/
+
+# Python / caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.cache/
+.tmp/
+.tabpfn_models/
+
+# Logs & ephemeral run output
+logs/
+checkpoints*/
+tmp_*/
+tmp_bar_figfix/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Large local study dumps (keep code/docs only by default)
+# Uncomment if these dirs grow huge on disk:
+# PDF/
+# _archive/
