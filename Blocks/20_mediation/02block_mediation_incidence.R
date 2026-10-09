@@ -22,7 +22,19 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
                                  outcome = NULL,
                                  covariates = NULL, bootstrap_iter = 100,
                                  standardize_mediator = FALSE, seed = 1234, ...) {
-  common_path <- file.path(getwd(), "Blocks/20_mediation/00mediation_common.R")
+  .engine_root <- function() {
+    candidates <- unique(c(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+      as.character(ctx$config$project$root %||% ""),
+      getwd()
+    ))
+    for (r in candidates) {
+      if (nzchar(r) && file.exists(file.path(r, "Blocks/20_mediation/00mediation_common.R")))
+        return(r)
+    }
+    getwd()
+  }
+  common_path <- file.path(.engine_root(), "Blocks/20_mediation/00mediation_common.R")
   if (file.exists(common_path)) source(common_path, local = FALSE)
 
   suppressPackageStartupMessages({
@@ -52,38 +64,44 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   if (is.null(mediators) || length(mediators) == 0) {
     a <- colnames(data)
     Index <- exposure
+    # 与 NHANES 同一实验室池：禁止把饮酒/婚姻/身高/血压等扫进 S8「实验室指标」
+    var_input <- .mi02_resolve_lab_indicator_pool(cfg, bl_cfg, a, exposure)
     b <- bl_cfg$lm_screen_exclude_vars
     if (is.null(b) || length(b) == 0L) {
-      b <- c(
-        "Disease", "Age", "Gender", "Race", "Language", "Marital_Status","Weight","Height","BMI","Smoke","Alcohol","Hyperlipidemia",
-        "Micu_Code", "Insurance", "Hypertension", "Heart_Failure", "Myocardial_Infarction",
-        "Malignant_Tumor", "T1DM", "T2DM", "CKD", "Acute_Renal_Failure", "Cirrhosis",
-        "Hepatitis", "Tuberculosis", "Pneumonia", "Hyperlipidemia", "COPD", "SOFA",
-        "APSIII", "SIRS", "SAPSII", "OASIS", "GCS", "CHARLSON", "Ventilation",
-        Index, paste0(Index, "_index_cut")
-      )
+      b <- character(0)
     }
     if (exists("pipeline_mediation_lab_exclude_vars", mode = "function")) {
       b <- unique(c(as.character(b), pipeline_mediation_lab_exclude_vars(cfg, data_cols = a)))
     }
+    dis_excl <- as.character((cfg$analysis_exclusion %||% list())$disease_vars %||% character(0))
 
-    # 变量名按不区分大小写做差集；剔除时间/结局/ID
+    # 变量名按不区分大小写做差集；剔除时间/结局/ID / 疾病泄漏
     surv_cfg_early <- cfg$survival %||% list()
     b <- unique(c(
       as.character(b),
+      dis_excl,
       as.character(surv_cfg_early$time_var %||% character(0)),
       as.character(surv_cfg_early$event_var %||% character(0)),
       as.character(cfg$data$outcome_column %||% character(0)),
       "RFS_Months", "futime", "fustatus", "Is_Recurrence_factor",
-      "Pt_ID", "ID", "SEQN", "Patient_ID"
+      "Pt_ID", "ID", "SEQN", "Patient_ID",
+      Index, paste0(Index, "_index_cut")
     ))
     b_lc <- unique(tolower(trimws(as.character(b))))
-    var_input <- a[!(tolower(a) %in% b_lc)]
+    var_input <- var_input[!(tolower(var_input) %in% b_lc)]
     if (exists("pipeline_mediation_filter_mediators", mode = "function")) {
       var_input <- pipeline_mediation_filter_mediators(
         var_input, cfg, data_cols = a, label = "LM关联筛"
       )
     }
+    pin_lm <- .mi02_resolve_best_mediator_name(cfg, bl_cfg)
+    if (nzchar(pin_lm) && pin_lm %in% names(data) && !pin_lm %in% var_input) {
+      var_input <- unique(c(pin_lm, var_input))
+      cli::cli_alert_info("LM 关联表强制纳入 best_mediator={pin_lm}")
+    }
+    cli::cli_alert_info(
+      "mediation_incidence: LM 关联筛候选 {length(var_input)} 个（实验室指标+锁定中介）— {paste(head(var_input, 8), collapse = ', ')}{if (length(var_input) > 8) '...' else ''}"
+    )
 
     Model2 <- ctx$results$Model2Factors %||% character(0)
     Model2 <- as.character(Model2)
@@ -224,8 +242,8 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
         if (ok1) sig_m1 <- c(sig_m1, vn)
         if (ok2) sig_m2 <- c(sig_m2, vn)
         if (dual_lm) {
-          if (ok1 && ok2) sig_from_lm <- c(sig_from_lm, vn)
-        } else if (ok2) {
+          if (isTRUE(ok1) && isTRUE(ok2)) sig_from_lm <- c(sig_from_lm, vn)
+        } else if (isTRUE(ok2)) {
           sig_from_lm <- c(sig_from_lm, vn)
         }
       }
@@ -607,7 +625,14 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   max_comb <- as.integer(bl_cfg$covariate_search_max_combinations %||% 300L)
 
   if (auto_cov_search && length(mediators) > 0L) {
-    pool_search <- bl_cfg$covariate_search_pool %||% ctx$results$Model2Factors %||% character(0)
+    pool_search <- if (exists("pipeline_mediation_covariate_search_pool", mode = "function")) {
+      pipeline_mediation_covariate_search_pool(
+        ctx, cfg, bl_cfg,
+        default_pool = ctx$results$Model2Factors %||% character(0)
+      )
+    } else {
+      bl_cfg$covariate_search_pool %||% ctx$results$Model2Factors %||% character(0)
+    }
     pool_search <- unique(as.character(pool_search))
     pool_search <- intersect(pool_search, names(data))
     excl <- unique(c(exposure, outcome, mediators))
@@ -616,17 +641,26 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       xv <- data[[v]]
       is.numeric(xv) || is.logical(xv) || is.factor(xv)
     }, logical(1L))]
+    cli::cli_alert_info(
+      "自动协变量搜索：候选池 {length(pool_search)} 个 — {paste(head(pool_search, 12L), collapse = ', ')}{if (length(pool_search) > 12L) '…' else ''}"
+    )
 
     .try_adj <- function(adj_vec) {
       adj_vec <- unique(as.character(adj_vec))
       adj_vec <- adj_vec[nzchar(adj_vec)]
       adj_vec <- intersect(adj_vec, names(data))
+      match_export <- isTRUE(bl_cfg$covariate_search_match_export %||% TRUE)
       for (m in mediators) {
         adj_m <- setdiff(adj_vec, m)
         row1 <- run_single_mediation_incidence(m, data, B = search_b, adj = adj_m, use_z = standardize_mediator)
-        if (.mi02_mediation_paths_significant(row1, path_alpha)) {
-          return(list(ok = TRUE, adj = adj_m, hit = m))
+        ok_path <- .mi02_mediation_paths_significant(row1, path_alpha)
+        if (!ok_path) next
+        if (match_export) {
+          ok_exp <- isTRUE(.mi02_mediation_proportion_significant(row1, path_alpha)) &&
+            isTRUE(.mi02_mediation_direct_significant(row1, path_alpha))
+          if (!ok_exp) next
         }
+        return(list(ok = TRUE, adj = adj_m, hit = m))
       }
       list(ok = FALSE, adj = NULL, hit = NA_character_)
     }
@@ -688,12 +722,27 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       } else {
         covariates <- setdiff(covariates, mediators)
       }
+      hit_lab <- if (isTRUE(bl_cfg$covariate_search_match_export %||% TRUE)) {
+        "Proportion+Direct+path"
+      } else {
+        "Path a/b/Indirect"
+      }
+      cli::cli_alert_success(
+        "自动协变量搜索：已选 {length(found$adj)} 个协变量，中介 [{found$hit}] {hit_lab} 均 p < {path_alpha}（累计尝试 {tries}）"
+      )
+      cli::cli_alert_info("选用调整项: {paste(found$adj, collapse = ', ')}")
       ctx$results$mediation_incidence_auto_covariates <- found$adj
       ctx$results$mediation_incidence_auto_covariate_hit_mediator <- found$hit
       ctx$results$mediation_incidence_auto_covariate_search_tries <- tries
+      # 终表优先只跑命中中介，避免其它失败行污染导出门控
+      if (is.null(cfg$mediation_incidence)) cfg$mediation_incidence <- list()
+      cfg$mediation_incidence$best_mediator <- found$hit
+      bl_cfg$best_mediator <- found$hit
+      mediators <- found$hit
+      ctx$config <- cfg
     } else {
       cli::cli_alert_warning(
-        "自动协变量搜索：在至多 {max_k} 个协变量、{max_comb} 次尝试内未找到使交集中任一中介 path a/b/indirect 均 p<{path_alpha} 的调整集；沿用原 covariates"
+        "自动协变量搜索：在至多 {max_k} 个协变量、{max_comb} 次尝试内未找到满足导出门控的调整集；沿用原 covariates"
       )
       ctx$results$mediation_incidence_auto_covariates <- NULL
     }
@@ -705,7 +754,24 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
     med_var <- mediators[i]
     cli::cli_alert_info("Processing {i}/{length(mediators)}: {med_var}")
     adj_i <- setdiff(covariates, med_var)
-    run_single_mediation_incidence(med_var, data, B = bootstrap_iter, adj = adj_i, use_z = standardize_mediator)
+    tryCatch(
+      run_single_mediation_incidence(med_var, data, B = bootstrap_iter, adj = adj_i, use_z = standardize_mediator),
+      error = function(e) {
+        cli::cli_alert_warning("mediation_incidence: {med_var} 失败 — {conditionMessage(e)}")
+        data.frame(
+          Mediator = med_var,
+          TotalEffect_OR = NA_character_,
+          Mediator_outcome_OR = NA_character_,
+          DirectEffect_OR = NA_character_,
+          IndirectEffect_OR = NA_character_,
+          Path_a_Beta = NA_character_,
+          Path_b_Beta = NA_character_,
+          Prop_Med_Pct = NA_character_,
+          Prop_Med_num = NA_real_,
+          stringsAsFactors = FALSE
+        )
+      }
+    )
   })
 
   final_table <- dplyr::bind_rows(results_list)
@@ -792,13 +858,24 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
     fig_caption <- paste0(
       "Mediation path diagram of ", exposure, " and ", outcome_diag_label
     )
-    # 发病双库发表规范：中介路径图 = Figure S3（两库统一）
     fig_kind <- as.character((cfg$mediation_incidence %||% list())$figure_kind %||% "supp_figure")[1L]
     if (!nzchar(fig_kind)) fig_kind <- "supp_figure"
-    fig_name <- pub_figure_file(ctx, fig_kind, fig_caption)
+    fig_no <- suppressWarnings(as.integer((cfg$mediation_incidence %||% list())$figure_number %||% NA_integer_)[1L])
     fig_dir <- ctx$output_dir_figures %||% file.path(ctx$output_dir, "Figures")
     if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
-    diag_path <- file.path(fig_dir, fig_name)
+    diag_path <- if (is.finite(fig_no) && fig_no >= 1L &&
+                      exists("pub_figure_filepath_at", mode = "function")) {
+      pub_figure_filepath_at(
+        fig_dir, fig_no, fig_caption, ext = "pdf",
+        bump_counter = isTRUE((cfg$mediation_incidence %||% list())$bump_counter %||% TRUE),
+        kind = fig_kind
+      )
+    } else {
+      file.path(fig_dir, pub_figure_file(ctx, fig_kind, fig_caption))
+    }
+    if (exists(".pub_figure_filename", mode = "function")) {
+      diag_path <- file.path(fig_dir, .pub_figure_filename(basename(diag_path)))
+    }
 
     p_diag <- tryCatch(
       .mi02_draw_mediation_path_diagram(

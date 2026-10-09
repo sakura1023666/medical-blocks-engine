@@ -10,7 +10,8 @@
 #  # ── 配置 config$column_mapping ───────────────────────────────────────────
 #  column_mapping = list(
 #    enable        = TRUE,     # FALSE：不重命名，ctx$data$mapped 与输入列名一致
-#    database_type = NULL      # 仅日志标注，如 "MIMIC"/"NHANES"；映射规则在块内写死+可扩展
+#    database_type = NULL,     # 仅日志标注，如 "MIMIC"/"NHANES"；映射规则在块内写死+可扩展
+#    skip_rename   = character(0)  # 保留原名（如结局 AKI、暴露 AF），Gate A 同源
 #  ),
 #
 #  # ── 读写 ctx / 产出 ───────────────────────────────────────────────────────
@@ -18,8 +19,10 @@
 #  源: Blocks/block_column_mappings.R（父块保留；Blocks/01_column_mappings 为目录化副本）
 ###############################################################################
 
-auto_map_column_names <- function(data, db_type) {
+auto_map_column_names <- function(data, db_type, skip_rename = character(0)) {
   data_mapped <- data
+  skip_rename <- unique(as.character(skip_rename %||% character(0)))
+  skip_rename <- skip_rename[nzchar(skip_rename)]
 
   # 每项: list(c("别名1", "别名2", ...), "标准列名")
   column_mappings <- list(
@@ -38,7 +41,8 @@ auto_map_column_names <- function(data, db_type) {
     list(c("marital", "Marital", "marriage", "marital_status", "DMDMARTL","Marital_Status"), "Marital_Status"),
     list(c("income", "Income", "pir", "poverty_ratio", "INDFMPIR"), "PIR"),
     list(c("smoking", "Smoking", "smoke", "Smoke", "SMQ020", "tobacco"), "Smoking"),
-    list(c("alcohol", "Alcohol", "drink", "ALQ", "ethanol","Alcohol_drinking"), "Alcohol_drinking"),
+    list(c("alcohol", "Alcohol", "drink", "ALQ", "ethanol", "Alcohol_drinking",
+           "Drinking", "drinking", "drinkl"), "Alcohol_drinking"),
     # 腰围（修正拼写 circumstance → circumference）
     list(c("waist_circumference", "Waist_circumference", "Waist_circumstance", "waist_circumstance",
            "BMXWAIST", "waist", "waist"), "Waist_circumference"),
@@ -48,7 +52,9 @@ auto_map_column_names <- function(data, db_type) {
     list(c("hemoglobin", "Hemoglobin", "HGB", "hb", "LBXHGB"), "Hemoglobin"),
     list(c("hematocrit", "Hematocrit", "HCT", "hct", "LBXHCT"), "Hematocrit"),
     # Platelet → K/uL（10^9/L）；缩放规则见 R/hematology_units.R（禁止 med>50 误÷1000）
-    list(c("plateletcount", "PlateletCount", "Platelet", "PLT", "platelet", "platelet_count", "LBXPLTSI"), "Platelet_Count"),
+    # 须含带空格 "Platelet Count"，否则会与 PlateletCount 并存进 Table1 双行
+    list(c("plateletcount", "PlateletCount", "Platelet Count", "Platelet", "PLT", "platelet",
+           "platelet_count", "Platelet_Count", "LBXPLTSI"), "Platelet_Count"),
     list(c("rdw", "RDW", "rdw_cv", "RDW_CV", "LBXRDW"), "RDW"),
     list(c("mcv", "MCV", "LBXMCVSI"), "MCV"),
     # MCH/MCHC 统一映射到 MCH/MCHC，与 index block 公式名称一致
@@ -86,8 +92,11 @@ auto_map_column_names <- function(data, db_type) {
     list(c("creatinine", "Creatinine", "CR", "cr", "Cr", "Serum_Creatinine", "Scr", "SCR", "LBXSCR"), "Creatinine"),
     list(c("UrineCreatinine", "urine_creatinine", "UCr", "u_creatinine", "ur_creat", "LBXUCR",
            "Urine_Creatinine", "Urinary_Creatinine", "urinary_creatinine", "URXUCR"), "Urine_Creatinine"),
-    list(c("bun", "BUN", "blood_urea_nitrogen", "Blood_Urea_Nitrogen", "LBXSBU", "urea","UreaNitrogen"), "BUN"),
-    list(c("glucose", "Glucose", "GLU", "glu", "blood_glucose", "Fasting_Glucose", "LBXGLU", "BG", "glucose_bg"), "Glucose"),
+    # UreaNitrogen / Urea Nitrogen 与 BUN 同义；标准名已存在时丢弃别名，避免 Table1 双行
+    list(c("bun", "BUN", "blood_urea_nitrogen", "Blood_Urea_Nitrogen", "LBXSBU", "urea",
+           "UreaNitrogen", "Urea Nitrogen", "urea_nitrogen"), "BUN"),
+    list(c("glucose", "Glucose", "GLU", "glu", "blood_glucose", "Fasting_Glucose", "LBXGLU", "BG", "glucose_bg",
+           "Fasting Glucose mg dL", "Fasting_Glucose_mg_dL", "newglu"), "Glucose"),
     list(c("sodium", "Sodium", "NA", "na", "Na", "LBXSNASI"), "Sodium"),
     list(c("potassium", "Potassium", "K", "k", "LBXSKSI"), "Potassium"),
     list(c("chloride", "Chloride", "CL", "cl", "LBXSCLSI"), "Chloride"),
@@ -126,7 +135,9 @@ auto_map_column_names <- function(data, db_type) {
     list(c("acr", "AlbuminCreatinine", "alb_creat_ratio"), "Albumin_Creatinine"),
     list(c("urine_vol", "UrineVolume", "urine_output"), "Urine_Volume"),
     list(c("urine_sg", "Urine_specific_gravity", "u_sg"), "Urine_specific_gravity"),
-    list(c("crp", "CRP", "C_Reactive_Protein", "c_reactive_protein", "LBXCRP"), "CRP"),
+    list(c("crp", "CRP", "C_Reactive_Protein", "c_reactive_protein", "LBXCRP",
+           "C reactive protein mg dL", "C_reactive_protein_mg_dL",
+           "C-reactive protein", "newcrp"), "CRP"),
     list(c("hscrp", "HSCRP", "High_sensitivity_CRP"), "HSCRP"),
     list(c("procalcitonin", "PCT", "pct", "Procalcitonin"), "Procalcitonin"),
     list(c("serum_iron", "Serumiron", "iron"), "Serumiron"),
@@ -165,8 +176,11 @@ auto_map_column_names <- function(data, db_type) {
     list(c("anti_diabetic", "Antidiabetic_agents", "glucose_med"), "Antidiabetic_agents"),
 
     # CHARLS 人口学 / 社会经济（Baseline数据字典）
-    list(c("residence", "Residence"), "Residence"),
-    list(c("familysize", "Familysize", "family_size", "Family_Size"), "Familysize"),
+    list(c("residence", "Residence", "Hukou", "hukou", "hukou_type"), "Residence"),
+    list(c(
+      "familysize", "Familysize", "family_size", "Family_Size",
+      "Household_size", "household_size", "Household size", "household size"
+    ), "Familysize"),
     list(c("incometotal", "Incometotal", "income_total", "Income_total"), "Incometotal"),
     list(c("family_per_capita_consumption", "Family_per_capita_consumption",
            "Family_per_capita_Consumption"), "Family_per_capita_consumption"),
@@ -201,16 +215,18 @@ auto_map_column_names <- function(data, db_type) {
     # 胰岛素
     list(c("insulin", "Insulin", "insulin_use", "INS", "LBXIN"), "Insulin"),
 
-    list(c("hr", "HR", "heart_rate", "heartrate", "BPXHR"), "HR"),
+    list(c("hr", "HR", "heart_rate", "heartrate", "BPXHR", "Pulse", "pulse", "Pulse_rate"), "HR"),
     list(c("pp", "PP", "pulse_pressure"), "PP"),
     list(c("rr", "RR", "resp_rate", "respiratory_rate"), "RR"),
     list(c("spo2", "SpO2", "o2sat", "oxygen_saturation"), "SpO2"),
     list(c("gcs", "GCS", "glasgow"), "GCS"),
     list(c("temp", "Temperature", "temperature", "body_temp"), "Temperature"),
     # 血压：优先无创袖带 (NBPS/NBPM)，与 MIMIC 列名 Nbps/Nbpm 对齐；动脉压 (ABPS/ABPM) 作备选
-    list(c("NBPS", "Nbps", "nbps", "ABPS", "Abps", "abps", "sbp", "SBP", "systolic_bp"), "SBP"),
+    list(c("NBPS", "Nbps", "nbps", "ABPS", "Abps", "abps", "sbp", "SBP", "systolic_bp",
+           "Systolic pressure", "Systolic_pressure", "systo"), "SBP"),
     list(c("NBPM", "Nbpm", "nbpm", "ABPM", "Abpm", "abpm", "map", "MAP", "mean_arterial_pressure"), "MAP"),
-    list(c("NBPD", "Nbpd", "nbpd", "ABPD", "Abpd", "abpd", "dbp", "DBP"), "DBP"),
+    list(c("NBPD", "Nbpd", "nbpd", "ABPD", "Abpd", "abpd", "dbp", "DBP",
+           "Diastolic pressure", "Diastolic_pressure", "diasto"), "DBP"),
     # 无创收缩压
     list(c("NBPS", "Nbps", "nbps", "sbp", "SBP", "systolic_bp"), "NBPS"),
     # 有创动脉收缩压
@@ -273,6 +289,17 @@ auto_map_column_names <- function(data, db_type) {
     }
 
     if (!is.null(matched_name)) {
+      if (length(skip_rename) && (
+        matched_name %in% skip_rename ||
+        standard_name %in% skip_rename ||
+        tolower(matched_name) %in% tolower(skip_rename) ||
+        tolower(standard_name) %in% tolower(skip_rename)
+      )) {
+        cli::cli_alert_info(
+          "Skip rename (config$column_mapping$skip_rename): '{matched_name}' stays"
+        )
+        next
+      }
       # 需求：列名不一致时改名，而不是复制新增一列
       if (matched_name == standard_name) {
         next
@@ -312,6 +339,21 @@ auto_map_column_names <- function(data, db_type) {
     }
   }
 
+  # 有身高/体重但无 BMI 时衍生（单库如 Liling/Single；双库 Gate A 亦同源逻辑）
+  if (exists("dual_db_derive_bmi", mode = "function")) {
+    data_mapped <- dual_db_derive_bmi(data_mapped, list(enable = TRUE))
+  } else if (!("BMI" %in% names(data_mapped)) &&
+             all(c("Height", "Weight") %in% names(data_mapped))) {
+    hx <- suppressWarnings(as.numeric(as.character(data_mapped$Height)))
+    wx <- suppressWarnings(as.numeric(as.character(data_mapped$Weight)))
+    bmi <- wx / (hx / 100)^2
+    bmi[!is.finite(bmi) | bmi <= 0 | bmi > 100] <- NA_real_
+    data_mapped$BMI <- round(bmi, 2)
+    cli::cli_alert_success(
+      "已衍生 BMI = Weight/(Height/100)^2（有效 {sum(is.finite(data_mapped$BMI))}/{nrow(data_mapped)}）"
+    )
+  }
+
   attr(data_mapped, "mapping_log") <- mapping_log
   data_mapped
 }
@@ -342,7 +384,10 @@ block_column_mapping <- function(ctx) {
   cli::cli_alert_info("Database type: {db_type}")
   cli::cli_alert_info("Original columns: {ncol(data_src)}")
 
-  data_mapped <- auto_map_column_names(data_src, db_type)
+  data_mapped <- auto_map_column_names(
+    data_src, db_type,
+    skip_rename = as.character(cm$skip_rename %||% character(0))
+  )
   if (exists("pipeline_split_ventilation_mapping", mode = "function")) {
     data_mapped <- pipeline_split_ventilation_mapping(data_mapped)
   }

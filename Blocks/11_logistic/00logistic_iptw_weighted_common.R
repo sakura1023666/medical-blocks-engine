@@ -235,10 +235,10 @@
   grp_chr[!is.na(xv) & xv >= qs[2L] & xv < qs[3L]] <- "Q3"
   levs <- c("Q1", "Q2", "Q3", "Q4")
   cutoffs <- c(
-    Q1 = paste0("< ", fmt_num(qs[1L])),
-    Q2 = paste0(fmt_num(qs[1L]), " -< ", fmt_num(qs[2L])),
-    Q3 = paste0(fmt_num(qs[2L]), " -< ", fmt_num(qs[3L])),
-    Q4 = paste0("\u2265 ", fmt_num(qs[3L]))
+    Q1 = paste0("< ", fmt_num_cutoff(qs[1L])),
+    Q2 = paste0(fmt_num_cutoff(qs[1L]), " -< ", fmt_num_cutoff(qs[2L])),
+    Q3 = paste0(fmt_num_cutoff(qs[2L]), " -< ", fmt_num_cutoff(qs[3L])),
+    Q4 = paste0("\u2265 ", fmt_num_cutoff(qs[3L]))
   )
   design <- stats::update(
     design,
@@ -469,6 +469,17 @@
   if (!nzchar(index_var)) stop(block_name, ": index_var 未设置。", call. = FALSE)
   if (!index_var %in% names(design$variables)) {
     stop(block_name, ": index_var '", index_var, "' 不在 iptw_design 中。", call. = FALSE)
+  }
+  if (exists("pipeline_apply_categorical_exposure", mode = "function")) {
+    bl_cfg <- pipeline_apply_categorical_exposure(bl_cfg, design$variables, index_var)
+  }
+  if (isTRUE(bl_cfg$categorical_exposure)) {
+    bl_cfg$group_mode <- "predefined"
+    bl_cfg$group_var <- bl_cfg$group_var %||% index_var
+    if (grepl("quartile|tertile|quintile|sextile", block_name)) {
+      cli::cli_alert_info("分类暴露：跳过 {block_name}，仅回归变量本身")
+      return(ctx)
+    }
   }
   if (!outcome_col %in% names(design$variables)) {
     stop(block_name, ": outcome '", outcome_col, "' 不在 iptw_design 中。", call. = FALSE)

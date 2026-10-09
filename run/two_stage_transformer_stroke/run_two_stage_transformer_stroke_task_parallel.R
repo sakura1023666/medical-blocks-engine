@@ -21,7 +21,8 @@
 }
 
 .parse_tp_args <- function(args) {
-  opts <- list(config = NULL, workers = NULL, shared_only = FALSE, only_unit = NULL, list_units = FALSE)
+  opts <- list(config = NULL, workers = NULL, shared_only = FALSE, only_unit = NULL,
+               list_units = FALSE, skip_existing = TRUE)
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
@@ -36,6 +37,8 @@
       opts$only_unit <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
     } else if (a == "--list-units") {
       opts$list_units <- TRUE; i <- i + 1L
+    } else if (a == "--no-skip") {
+      opts$skip_existing <- FALSE; i <- i + 1L
     } else {
       i <- i + 1L
     }
@@ -100,5 +103,6 @@ tst_stroke_run_task_parallel(
   root, config, pipeline_shared,
   units = units, workers = workers,
   config_path = config_path,
+  skip_existing = isTRUE(run_opts$skip_existing),
   pipeline_unit = pipeline_unit
 )

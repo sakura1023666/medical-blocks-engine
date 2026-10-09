@@ -74,7 +74,22 @@ block_subgroup_incidence_continuous <- function(ctx, ...) {
   if (!exists("subgroup_render_forest_figure", mode = "function") ||
       !exists("subgroup_prepare_forest_plot_df", mode = "function") ||
       !exists("subgroup_apply_fdr_p", mode = "function")) {
-    root_sf <- (ctx$config$project$root %||% getwd())
+    candidates <- unique(c(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+      as.character(ctx$config$project$root %||% ""),
+      getwd()
+    ))
+    root_sf <- NA_character_
+    for (r in candidates) {
+      if (nzchar(r) && file.exists(file.path(r, "R", "subgroup_forest_plot.R"))) {
+        root_sf <- r
+        break
+      }
+    }
+    if (!nzchar(root_sf %||% "")) {
+      stop("subgroup_incidence_continuous: 找不到 R/subgroup_forest_plot.R（请设置 MEDICAL_BLOCKS_ROOT）",
+           call. = FALSE)
+    }
     suppressWarnings(source(file.path(root_sf, "R", "subgroup_forest_plot.R"), local = FALSE))
   }
 
@@ -94,7 +109,15 @@ block_subgroup_incidence_continuous <- function(ctx, ...) {
   time_col <- surv$time_var %||% surv$time_column %||% "futime"
   status_col <- surv$event_var %||% surv$status_column %||% surv$event_column %||% "fustatus"
 
-  index_var <- inc_cfg$index_var %||% log_idx
+  index_var <- as.character(
+    cfg$prediction$index_vars %||%
+      cfg$ml_batch$index_vars %||%
+      inc_cfg$index_var %||%
+      log_idx
+  )
+  index_var <- index_var[nzchar(trimws(index_var))]
+  if (!length(index_var)) stop("index_var is required", call. = FALSE)
+  index_var <- index_var[[1L]]
   disease_col <- inc_cfg$outcome_var %||% sub_cfg$incidence_outcome_column %||%
     cfg$data$outcome_column %||% "Disease"
 
@@ -470,7 +493,7 @@ block_subgroup_incidence_continuous <- function(ctx, ...) {
     }
   }
   fdr_note <- attr(res, "subgroup_p_adjust")
-  fig_cap <- paste0("Subgroup Forest analyses of ", index_var, " (continuous index)")
+  fig_cap <- paste0("Subgroup analyses of ", index_var)
   if (!is.null(fdr_note) && nzchar(fdr_note)) {
     fig_cap <- paste0(fig_cap, "; P-values FDR-adjusted (", fdr_note, ")")
   }

@@ -1,0 +1,44 @@
+---
+description: TST 两阶段 Transformer — 病种特征白名单必须先检索本病文献再写 config，禁止无检索抄他病/他文 Supp
+alwaysApply: true
+---
+
+# TST 病种特征白名单铁律（先检索再写 config）
+
+凡 **两阶段 Transformer / TST / `two_stage_transformer`** 新课题、换病种或写/改 config，必须遵守。规格：`docs/superpowers/specs/2026-08-31-tst-disease-feature-whitelist-gate-design.md`。
+
+## 方法学口径（与「抄哪张表」分开）
+
+- **可复用的是逻辑**：按临床经验 + **本病文献** + 目标库可得性 **事先点名**固定动态特征；是否「>30% 缺失剔人、不砍特征维」跟 **本稿/索引文献 Methods**，写进 config 注释。
+- **不可复用的是具体名单**：禁止把 Yang pbaf003 Supp Table 1、AKI/卒中旧白名单等 **无检索直接挂到下一病**。下一病必须先查本病 ICU/院内死亡常用时序特征再落盘。
+
+## 铁律
+
+1. **写 config 前先检索**（未检索禁止写 `feature_priority_file` / 开 `--shared-only`）：
+   - 病种 × ICU 预后/死亡 × 动态生命体征/实验室/通气（近 10–15 年）；
+   - 若课题有明确索引论文且含特征附录（如 Supp Table），**仅当该文即本课题对标文献**时才可作主名单来源，并在头注释写 PMID/题名；
+   - 落盘检索摘要：`reports/tst_feature_lit_<disease>_<db>.md`（或课题 `docs/` 等价路径），列选用依据与排除噪声项。
+2. **禁止** config 直接指向他病白名单（如骨质疏松用 `aki_mimic.R` / `*_pbaf003.R`）且无本病依据注释。
+3. **必须落盘** `configs/tst_feature_priority/<disease>_<db>.R`  
+   （函数名 `tst_feature_priority_<disease>_<db>`；头注释写文献/临床依据 + 是否对标某 Supp 表）。
+4. config：`feature_select_mode = "whitelist"` + `feature_priority_file` 指向上述文件；  
+   `whitelist_apply_coverage_drop` **按本稿 Methods**（原文不砍维则 `FALSE` + 患者缺失剔人；默认模板若原文未说明可 `TRUE`），注释写清。
+5. 向用户展示名单摘要（来源文献 + 条数 + 与库 item 对齐情况），**确认后再**跑 `--shared-only` / full workers。
+6. ICU 通用核心可作底稿**复制改名**，不得继续挂他病/他文文件名。
+7. 排除报警 / 敷料 / 护理文书等高频噪声；疾病诊断泄漏变量不得进动态特征池。
+
+## Agent 检查清单
+
+- [ ] 已识别 disease + database + 索引/对标文献（若有）
+- [ ] 已完成本病特征文献检索并落盘摘要（非口头）
+- [ ] 已存在或新建本病 `tst_feature_priority` 文件（非照抄他病 Supp）
+- [ ] config 指向本病文件；覆盖率砍维/剔人口径与本稿 Methods 一致
+- [ ] 用户已确认名单或明确授权按设计重跑
+- [ ] 换名单后清掉旧 `tst_timeseries` checkpoint 与 `by_unit` 再跑
+
+## 反例（禁止）
+
+- 换病后仍 `feature_priority_file = .../aki_mimic.R` 或 `.../aki_sepsis_eicu_pbaf003.R`
+- 「上个脓毒症课题用了 pbaf003 Supp，这个创伤/卒中也挂同一份」
+- 未检索、未落盘名单就写 config / 开 full workers
+- 用裸 coverage 收下 Alarms / Braden / Dressing 等噪声项代替本病点名

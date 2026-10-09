@@ -173,7 +173,7 @@ block_trajectory_plot_gbmt <- function(ctx, ...) {
         p <- .tpg03_make_plot(ld, idx, d, cy, yq, ic, ff)
         fn <- paste0("Figure_Trajectory_", idx, "_D", d, ".pdf")
         ctx <<- save_figure(ctx, filename = fn,
-                            plot_fn = (function(pp) function() print(pp))(p),
+                            plot_fn = local({ pp <- p; function() pp }),
                             width = pw, height = ph)
       })
       n_queued <- n_queued + 1L

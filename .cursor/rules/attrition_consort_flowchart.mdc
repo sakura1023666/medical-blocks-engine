@@ -1,0 +1,18 @@
+# 纳排图 CONSORT 铁律（全项目复用）
+
+所有发病 / 预后 / ML / TST 等流水线 **Figure 1** 必须走 CONSORT，禁止旧式居中方框 + 右侧只写 `-n`。
+
+## 铁律
+
+1. **单一绘图入口**：`R/attrition_log.R` → `attrition_draw_pdf()`（双库 `attrition_draw_dual_panel_pdf`）。预后 `survival_batch_draw_flowchart_pdf` 必须转调它。
+2. **版式对齐 TST**：Times 圆角主列纳入框、右侧 Exclude（原因 + n）、底部分叉两框。
+3. **发病分叉**：`analysis_group` vs `reference_group`（如 AKI / No AKI），浅红病例 / 浅绿对照。
+4. **预后分叉**：`fustatus` 1/0 → Expired / Alive。
+5. **人数不塞进末步标题**：`outcome_breakdown` 只写 `fork_*` 列；`attrition_finalize_rows` 必须保留 `exclude_label` 与 fork 列。
+6. **新课题必须写 `config$attrition$steps`**（底库 → 病种筛入 → Included），并设 `outcome_breakdown = TRUE`。
+
+## 反例（禁止）
+
+- `pdf_combine` / `mfrow` 画两列旧方框当 Figure 1
+- 末步写成 `Included (AKI: 106; No AKI: 158)` 而无底部分叉
+- 换病种后仍只有 “After data cleaning / After imputation” 两框

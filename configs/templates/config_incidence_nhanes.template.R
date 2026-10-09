@@ -283,6 +283,19 @@ config <- list(
     )
   ),
 
+  # 单库也默认开敏感性（缺省 enable→TRUE；显式 FALSE 才关）
+  incidence_batch = list(
+    output_base   = NULL,  # 运行时由课题根覆盖
+    db_mode       = "nhanes_only",
+    sensitivity_suite = list(
+      enable        = TRUE,
+      age_cutoff    = 65L,
+      min_n_per_db  = 50L,
+      min_yes_n     = 50L,
+      complete_case = TRUE
+    )
+  ),
+
   feature_selection = list(
     enable = FALSE
   ),

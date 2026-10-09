@@ -3,12 +3,22 @@
 #
 #  index_mode:
 #    single_loop    — 两库共同可用的单指标逐个并行 worker
-#    multi_combined   — 候选池按单因素 P 值取 top N，合并为一次 ML 运行
+#    multi_combined — 候选池按单因素 P 值取 top N，合并为一次 ML 运行
+#    combo_loop     — 预先锁定的双复合指标组合逐对并行 worker（A+B）
 ###############################################################################
 
-source(file.path(getwd(), "R", "incidence_dual_batch_runner.R"), local = FALSE)
-source(file.path(getwd(), "R", "ml_dual_pub_table_curate.R"), local = FALSE)
-source(file.path(getwd(), "R", "rscript_ml.R"), local = FALSE)
+# 引擎根：优先 MEDICAL_BLOCKS_ROOT（worker cwd 常为课题目录，勿用 getwd()）
+.ml_engine_root <- local({
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  normalizePath(er, winslash = "/", mustWork = FALSE)
+})
+source(file.path(.ml_engine_root, "R", "incidence_dual_batch_runner.R"), local = FALSE)
+source(file.path(.ml_engine_root, "R", "ml_dual_pub_table_curate.R"), local = FALSE)
+source(file.path(.ml_engine_root, "R", "rscript_ml.R"), local = FALSE)
 
 .ml_batch_bind_config <- function(config) {
   mb <- config$ml_batch %||% list()
@@ -21,8 +31,15 @@ source(file.path(getwd(), "R", "rscript_ml.R"), local = FALSE)
   config
 }
 
+#' 多指标 job 标签（multi_combined / phase2 历史口径，保持 '_' 连接，勿改）。
 ml_batch_index_label <- function(indices) {
   paste(as.character(indices), collapse = "_")
+}
+
+#' combo_loop 专用标签：复合指标名本身含 '_'（如 De_Ritis / BUN_Cr），
+#' 用 '_' 连接组合会与单指标名歧义，故组合标签用 '+' 连接。
+ml_batch_combo_label <- function(indices) {
+  paste(as.character(indices), collapse = "+")
 }
 
 ml_batch_parse_index_arg <- function(ix_arg) {
@@ -42,6 +59,21 @@ ml_batch_patch_config_for_indices <- function(config, indices) {
     config$logistic$index_var <- indices[[1L]]
     config$nhanes$cutoff_index_var <- indices
   }
+  # 预后 combo_loop 必须把当前组合写回所有暴露解析入口。否则 study config
+  # 中的首个指标会残留为 survival/analysis_exclusion 当前暴露，后者继而把
+  # 本 job 的两个指标当作“其他复合指标”硬删。
+  config$survival$index_var <- indices[[1L]]
+  config$analysis_exclusion <- modifyList(
+    config$analysis_exclusion %||% list(),
+    list(
+      index_var = indices[[1L]],
+      current_index_vars = indices,
+      protect_vars = unique(c(
+        as.character((config$analysis_exclusion %||% list())$protect_vars %||% character(0)),
+        indices
+      ))
+    )
+  )
   config$prediction$index_vars <- indices
   config$feature_selection$composite_features <- indices
   config$index <- modifyList(
@@ -111,12 +143,15 @@ ml_batch_resolve_indices_from_label <- function(label, config) {
 
   known <- c(
     get0(".composite_index_vars", inherits = TRUE) %||% character(0),
-    get0(".composite_index_vars_dual_safe", inherits = TRUE) %||% character(0)
+    get0(".composite_index_vars_dual_safe", inherits = TRUE) %||% character(0),
+    pool
   )
   if (length(known) && label %in% known) return(label)
 
-  if (grepl("_", label, fixed = TRUE)) {
-    parts <- strsplit(label, "_", fixed = TRUE)[[1L]]
+  ## combo_loop 标签：'+' 连接（复合指标名含 '_'，故用 '+' 消歧）。
+  if (grepl("+", label, fixed = TRUE)) {
+    parts <- trimws(strsplit(label, "+", fixed = TRUE)[[1L]])
+    parts <- parts[nzchar(parts)]
     if (length(parts) > 1L && all(parts %in% known)) return(parts)
   }
 
@@ -124,6 +159,11 @@ ml_batch_resolve_indices_from_label <- function(label, config) {
   if (identical(mode, "multi_combined") && grepl("_", label, fixed = TRUE)) {
     parts <- strsplit(label, "_", fixed = TRUE)[[1L]]
     if (length(parts) > 1L && all(parts %in% pool)) return(parts)
+  }
+
+  if (grepl("_", label, fixed = TRUE)) {
+    parts <- strsplit(label, "_", fixed = TRUE)[[1L]]
+    if (length(parts) > 1L && all(parts %in% known)) return(parts)
   }
 
   label
@@ -139,7 +179,7 @@ ml_batch_apply_filter_for_indices <- function(ck_path, indices, p_trim = 0.01) {
   invisible(stats)
 }
 
-#' 解析批量指标计划：single_loop / multi_combined / single_then_multi
+#' 解析批量指标计划：single_loop / multi_combined / single_then_multi / combo_loop
 ml_batch_resolve_index_plan <- function(config, candidate_vars, root = getwd()) {
   bc <- config$ml_batch %||% config$incidence_batch %||% list()
   mode <- tolower(trimws(as.character(bc$index_mode %||% "single_loop")))
@@ -151,6 +191,42 @@ ml_batch_resolve_index_plan <- function(config, candidate_vars, root = getwd()) 
       jobs = as.list(candidate_vars),
       labels = candidate_vars
     )
+  } else if (identical(mode, "combo_loop")) {
+    ## 双复合组合：每 job 一对 (A,B)；仅保留两端点都在共享层已算池中的组合。
+    combos <- bc$index_combos %||% list()
+    if (!is.list(combos) || !length(combos)) {
+      stop("index_mode=combo_loop 需 config$ml_batch$index_combos = list(c('A','B'), ...)",
+           call. = FALSE)
+    }
+    cand <- unique(as.character(candidate_vars))
+    jobs <- list(); labels <- character(0); dropped <- character(0)
+    for (cp in combos) {
+      pair <- unique(as.character(cp)[nzchar(as.character(cp))])
+      if (length(pair) != 2L) {
+        dropped <- c(dropped, paste0(paste(cp, collapse = "+"), "(非二元组)"))
+        next
+      }
+      if (!all(pair %in% cand)) {
+        dropped <- c(dropped, ml_batch_combo_label(pair))
+        next
+      }
+      jobs[[length(jobs) + 1L]] <- pair
+      labels <- c(labels, ml_batch_combo_label(pair))
+    }
+    if (length(dropped)) {
+      cli::cli_alert_warning(
+        "combo_loop 剔除 {length(dropped)} 个组合（端点未在共享层可算池 / 非二元组）: {paste(dropped, collapse=', ')}"
+      )
+    }
+    if (!length(jobs)) stop("combo_loop：无可运行的双复合组合（全部端点不在共享层可算池）",
+                             call. = FALSE)
+    dup <- labels[duplicated(labels)]
+    if (length(dup)) {
+      keep <- !duplicated(labels)
+      jobs <- jobs[keep]; labels <- labels[keep]
+      cli::cli_alert_warning("combo_loop 去重组合: {paste(unique(dup), collapse=', ')}")
+    }
+    list(mode = "combo_loop", jobs = jobs, labels = labels)
   } else if (identical(mode, "multi_combined")) {
     pool <- if (!is.null(bc$index_vars) && length(bc$index_vars)) {
       as.character(bc$index_vars)
@@ -437,7 +513,9 @@ run_ml_dual_batch <- function(root,
     incidence_batch_resolve_from_shared_ck(config, candidate_vars, db_mode),
     error = function(e) candidate_vars
   )
-  if (!is.null(only_index) && length(only_index)) {
+  .batch_mode0 <- tolower(trimws(as.character(bc$index_mode %||% "single_loop")))
+  ## combo_loop：候选池须保持「单指标名」供组合端点校验；--only-index 留到计划后再筛标签
+  if (!is.null(only_index) && length(only_index) && !identical(.batch_mode0, "combo_loop")) {
     only_index <- as.character(only_index)
     hit <- intersect(only_index, index_vars)
     index_vars <- if (length(hit)) hit else only_index
@@ -487,11 +565,20 @@ run_ml_dual_batch <- function(root,
     )
     dispatch_labels <- plan$labels
     if (!is.null(only_index) && length(only_index)) {
-      if (plan$mode == "multi_combined") {
-        want <- ml_batch_index_label(only_index)
-        if (!want %in% dispatch_labels) {
-          stop("--only-index 与 multi_combined 计划不匹配", call. = FALSE)
+      if (plan$mode %in% c("multi_combined", "combo_loop")) {
+        want <- if (plan$mode == "combo_loop") {
+          ## 允许 'NLR+RAR' 或 'NLR,RAR' 两种写法定位到单个组合
+          vapply(as.character(only_index), function(z) {
+            if (grepl(",", z, fixed = TRUE)) ml_batch_combo_label(ml_batch_parse_index_arg(z))
+            else z
+          }, character(1))
+        } else {
+          ml_batch_index_label(only_index)
         }
+        if (!any(want %in% dispatch_labels)) {
+          stop("--only-index 与 {plan$mode} 计划不匹配", call. = FALSE)
+        }
+        dispatch_labels <- dispatch_labels[dispatch_labels %in% want]
       } else {
         dispatch_labels <- dispatch_labels[dispatch_labels %in% only_index]
       }

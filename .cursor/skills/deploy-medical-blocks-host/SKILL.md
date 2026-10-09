@@ -159,6 +159,18 @@ MEDICAL_BLOCKS_ROOT=/home/user02/medical-blocks/engine
 - R ≥ 4.3（建议 4.5.x）+ `Rscript` 在 PATH
 - 常用包：`data.table` `survival` `cmprsk` `lcmm` `mice` `gtsummary` `cli` `dplyr` …
 - （可选）与 5006 相同的 `renv.lock` / 站点库
+- **容器/overlayfs 主机坑（2202 实测）**：`R CMD INSTALL` 在 `/tmp` 解包后找不到源文件
+ （`cc1: fatal error: *.c: No such file or directory`，纯 make 亦然）→
+ 把 `TMPDIR` 指到家目录：`echo "TMPDIR=$HOME/tmp" >> ~/.Renviron; mkdir -p ~/tmp`，
+ 否则**所有**源码包（含 magrittr 级别）全军覆没。
+- **升级 R 后的坏 site-library（2202 实测）**：R 升到 4.6.1 后，旧 site-library 里的
+ `fansi` 等 C 包报 `undefined symbol: R_nchar`，连锁拖垮 tidyverse 栈全部安装 →
+ 用 `R CMD INSTALL -l ~/R/library` 把核心 C 包**重装到用户库**（user-lib 排在 site 前自动影子覆盖）。
+- **批量装包策略（2202 已验证）**：不要信任该容器上的 `install.packages()` 并行解包；
+ 用「闭包 download → `~/pkgs/*.tar.gz` → 多轮按依赖序 `R CMD INSTALL`」脚本
+ （`34:~/install_pkgs_2202.sh`）。
+- trajectory 套路核心包：`lcmm mclust mice flexsurv survminer timeROC gbmt pROC emmeans rms openxlsx patchwork gtsummary data.table`
+- competing 套路核心包：`cmprsk coxme lme4 riskRegression prodlim mice mclust openxlsx tableone dcurves Hmisc survey`
 
 ### B6. 冒烟
 
@@ -191,6 +203,19 @@ cp -a studies/_template_competing studies/stroke_aki_smoke
 - [ ] `--shared-only` 冒烟通过
 - [ ] 34：SSH 端口、用户、R、engine.env 已验证
 - [ ] **未**把密码提交进 git / skill 明文长期保存（本 skill 表格仅部署备忘，部署后改密）
+
+## 已完成部署记录
+
+### 2202 / user02（2026-09-14，双库轨迹预后 + 竞争风险）
+
+- 研究区实际路径：`~/medical-blocks/P_BLOCK`（原 `studies-iface`，当天被改名，内容完好；engine.env 指向 `~/medical-blocks/engine`）
+- 引擎：最新源码已 rsync（排除 `.git logs tmp _archive adversarial_lit_reading checkpoints Output Data studies_run`）
+- 套路模板：`templates/` + `studies/_template_trajectory|_template_competing` 均为 9/14 刷新版
+- R 包：版本感知闭包（`34:~/closure_dl_2202.R` + `install_v2_2202.sh`，tarball 留 `~/pkgs`）70 包全绿；
+  `~/.Renviron` 已固化 `TMPDIR=~/tmp`、`R_LIBS_USER=~/R/library`
+- 冒烟：两套 config `SOURCE_OK`、全部 pipeline block 注册匹配、`run_study` 路由正确（trajectory/competing/tst/environment）
+- 正式跑：把数据放入 `P_BLOCK/studies/<研究>/Data/{eicu,mimic}`，然后
+  `./run_study.sh <研究> --shared-only` → `--workers N --only-index …`
 
 ## 参考路径
 

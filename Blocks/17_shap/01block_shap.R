@@ -16,6 +16,8 @@
 #    n_dependence         = 4,        # 依赖图数量上限
 #    kernel_bg_n          = 50,       # kernel SHAP 背景行数
 #    dependence_features  = NULL,     # 显式指定依赖图变量；NULL 按重要性选
+#    pin_index_importance_top = FALSE, # TRUE：暴露/指标在 A/B 重要性图置顶（不改 SHAP 值）
+#    importance_pin_top   = NULL,       # 额外置顶变量，如 c("Preop_Cr")
 #    bee_color_low/high   = NULL,     # 蜂群渐变；NULL 用 shapviz 默认或随机预设
 #    font_family          = NULL
 #  ),
@@ -28,9 +30,19 @@
 .shap_ml_tag_from_display <- function(display_name) {
   dm <- c(
     "DT" = "dt", "RF" = "rf", "XGBoost" = "xgboost", "ENet" = "enet",
-    "RSVM" = "rsvm", "MLP" = "mlp", "Logistic" = "logistic",
+    "RSVM" = "rsvm", "MLP" = "mlp", "RealMLP" = "realmlp", "Logistic" = "logistic",
     "LightGBM" = "lightgbm", "KNN" = "knn", "TabPFN" = "tabpfn",
-    "AdaBoost" = "adaboost", "CatBoost" = "catboost", "TablCL_v2" = "tablcl_v2"
+    "AdaBoost" = "adaboost", "CatBoost" = "catboost", "TablCL_v2" = "tablcl_v2",
+    "RSF" = "rsf", "Random Survival Forest (RSF)" = "rsf",
+    "Random survival forest" = "rsf",
+    "XGBSurv" = "xgbsurv", "XGBoost Survival (XGBSurv)" = "xgbsurv",
+    "XGBoost-Cox" = "xgbsurv",
+    "CoxBoost" = "coxboost",
+    "GBM-Cox" = "gbmsurv",
+    "Ridge-Cox" = "ridge_cox",
+    "ElasticNet-Cox" = "enet_cox",
+    "SurvivalSVM" = "survivalsvm",
+    "mboost-Cox" = "mboost_cox"
   )
   disp <- tolower(trimws(as.character(display_name)))
   hit <- match(disp, tolower(names(dm)), nomatch = NA_integer_)
@@ -38,15 +50,120 @@
   disp
 }
 
+.shap_model_display_name <- function(ctx, tag) {
+  tag <- tolower(trimws(as.character(tag %||% "")[1L]))
+  best_tag <- tolower(trimws(as.character(ctx$results$ml_best_model_tag %||% tag)[1L]))
+  disp <- as.character(ctx$results$ml_best_model_display %||% "")[1L]
+  if (identical(tag, best_tag) && nzchar(disp)) return(disp)
+  dm <- c(
+    dt = "DT", rf = "RF", xgboost = "XGBoost", enet = "ENet", rsvm = "RSVM",
+    mlp = "MLP", realmlp = "RealMLP", logistic = "Logistic", lightgbm = "LightGBM",
+    knn = "KNN", tabpfn = "TabPFN", adaboost = "AdaBoost", catboost = "CatBoost",
+    tablcl_v2 = "TablCL_v2"
+  )
+  unname(dm[tag]) %||% tag
+}
+
+#' importance / bee 图 Y 轴顺序：暴露可置顶，柱长/色点仍为真实 SHAP
+.shap_resolve_importance_display_order <- function(shp, sh_cfg = list(), index_feats = character(0)) {
+  if (is.null(shp)) return(NULL)
+  sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+  if (is.null(sv)) return(NULL)
+  if (is.data.frame(sv)) sv <- as.matrix(sv)
+  if (!ncol(sv)) return(NULL)
+  imp <- sort(colMeans(abs(sv)), decreasing = TRUE)
+  ranked <- names(imp)
+  pin <- as.character(sh_cfg$importance_pin_top %||% character(0))
+  pin <- pin[nzchar(trimws(pin))]
+  if (isTRUE(sh_cfg$pin_index_importance_top %||% FALSE)) {
+    pin <- unique(c(as.character(index_feats)[nzchar(as.character(index_feats))], pin))
+  }
+  pin <- pin[pin %in% ranked]
+  if (!length(pin)) return(ranked)
+  unique(c(pin, setdiff(ranked, pin)))
+}
+
+.shap_apply_importance_display_order <- function(p, feature_order) {
+  if (is.null(p) || !length(feature_order)) return(p)
+  feature_order <- as.character(feature_order)
+  tryCatch(
+    p + ggplot2::scale_y_discrete(limits = rev(feature_order)),
+    error = function(e) p
+  )
+}
+
+.shap_clear_shapviz_banner <- function(p) {
+  if (is.null(p) || !inherits(p, "ggplot")) return(p)
+  .drop_banner <- function(s) {
+    if (length(s) == 0L) return(TRUE)
+    s <- trimws(as.character(s))
+    if (!length(s) || all(!nzchar(s)) || all(is.na(s))) return(TRUE)
+    s <- s[!is.na(s) & nzchar(s)]
+    if (!length(s)) return(TRUE)
+    any(vapply(s, function(one) {
+      grepl("incidence.*train|prognosis.*train|train.*incidence|train.*prognosis", one, ignore.case = TRUE) ||
+        grepl("^[—–-].*\\(.*\\)$|^[—–-].*,\\s*(incidence|prognosis|train)", one, ignore.case = TRUE) ||
+        grepl("^\\(.*(incidence|prognosis|train).*(incidence|prognosis|train).*\\)$", one, ignore.case = TRUE)
+    }, logical(1L)))
+  }
+  sub <- tryCatch(as.character(p$labels$subtitle), error = function(e) character(0))
+  tit <- tryCatch(as.character(p$labels$title), error = function(e) character(0))
+  if (.drop_banner(sub)) p <- p + ggplot2::labs(subtitle = NULL)
+  if (.drop_banner(tit)) p <- p + ggplot2::labs(title = NULL)
+  p
+}
+
+.shap_panel_finish <- function(p, font_family, sh_cfg = list(), keep_title = FALSE) {
+  if (is.null(p)) return(p)
+  p <- .shap_clear_shapviz_banner(p)
+  p <- .shap_apply_font(p, font_family)
+  axis_sz <- as.numeric(sh_cfg$panel_axis_text_size %||% 8.5)[1L]
+  if (!is.finite(axis_sz) || axis_sz <= 0) axis_sz <- 8.5
+  right_m <- as.numeric(sh_cfg$panel_margin_right %||% 28)[1L]
+  if (!is.finite(right_m) || right_m < 8) right_m <- 28
+  left_m <- as.numeric(sh_cfg$panel_margin_left %||% 14)[1L]
+  if (!is.finite(left_m) || left_m < 4) left_m <- 14
+  title_el <- if (isTRUE(keep_title)) {
+    ggplot2::element_text(size = ggplot2::rel(0.95), face = "bold", hjust = 0)
+  } else {
+    ggplot2::element_blank()
+  }
+  p + ggplot2::theme(
+    plot.title = title_el,
+    plot.subtitle = ggplot2::element_text(size = ggplot2::rel(0.72), lineheight = 1.05),
+    plot.caption = ggplot2::element_text(size = ggplot2::rel(0.68)),
+    axis.text.y = ggplot2::element_text(size = axis_sz),
+    axis.text.x = ggplot2::element_text(size = axis_sz),
+    legend.box.margin = ggplot2::margin(0, 8, 0, 4, "pt"),
+    plot.margin = ggplot2::margin(4, right_m, 4, left_m, "pt")
+  )
+}
+
 # 仅用于图面展示：下划线改空格；计算用列名保持不变
 .shap_pretty_label <- function(x) {
   gsub("_", " ", as.character(x), fixed = TRUE)
+}
+
+.shap_feature_matrix_aligned <- function(shp, X_df) {
+  X_df <- as.data.frame(X_df)
+  sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+  if (is.null(sv)) return(X_df)
+  if (is.data.frame(sv)) sv <- as.matrix(sv)
+  n_sv <- nrow(sv)
+  if (nrow(X_df) == n_sv) return(X_df)
+  X_from_shp <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+  if (!is.null(X_from_shp) && nrow(X_from_shp) == n_sv) {
+    return(as.data.frame(X_from_shp))
+  }
+  if (nrow(X_df) >= n_sv) return(X_df[seq_len(n_sv), , drop = FALSE])
+  X_df
 }
 
 .shap_apply_pretty_display <- function(shp, X_df, X_mat = NULL) {
   if (is.null(shp) || is.null(X_df) || !ncol(X_df)) {
     return(list(shp = shp, X_df = X_df, X_mat = X_mat))
   }
+  X_df <- .shap_feature_matrix_aligned(shp, X_df)
   old_cn <- colnames(X_df)
   disp <- .shap_pretty_label(old_cn)
   if (anyDuplicated(disp)) disp <- make.unique(disp, sep = " ")
@@ -83,6 +200,37 @@
   list(shp = out, X_df = X_sub, X_mat = X_mat)
 }
 
+.shap_apply_clinical_value_labels <- function(shp, X_df, ctx) {
+  raw <- tryCatch(.shap_ml_train_frame(ctx, shap_plot_only = TRUE), error = function(e) NULL)
+  if (is.null(raw) || !is.data.frame(raw) || is.null(X_df) || !is.data.frame(X_df)) return(shp)
+  sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+  xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) X_df)
+  if (is.null(sv) || is.null(xv)) return(shp)
+  xv <- as.data.frame(xv)
+  changed <- FALSE
+  for (cn in names(xv)) {
+    raw_cn <- if (cn %in% names(raw)) cn else gsub(" ", "_", cn, fixed = TRUE)
+    if (!raw_cn %in% names(raw) || !.shap_is_categorical_col(raw[[raw_cn]])) next
+    lev <- if (is.factor(raw[[raw_cn]])) levels(raw[[raw_cn]]) else {
+      unique(as.character(raw[[raw_cn]][!is.na(raw[[raw_cn]])]))
+    }
+    code <- suppressWarnings(as.integer(as.character(xv[[cn]])))
+    ok <- !is.na(code)
+    if (!length(lev) || !any(ok) || any(code[ok] < 1L | code[ok] > length(lev))) next
+    lab <- rep(NA_character_, length(code))
+    lab[ok] <- lev[code[ok]]
+    xv[[cn]] <- factor(lab, levels = lev)
+    changed <- TRUE
+  }
+  if (!changed) return(shp)
+  out <- tryCatch(shapviz::shapviz(as.matrix(sv), X = xv), error = function(e) NULL)
+  if (is.null(out)) return(shp)
+  out$baseline <- shp$baseline
+  attr(out, "shap_method") <- attr(shp, "shap_method")
+  attr(out, "shap_tag") <- attr(shp, "shap_tag")
+  out
+}
+
 .shap_dataset_incidence <- function(ctx) {
   cfg <- ctx$config
   data <- ctx$data$imputed %||% ctx$data$cleaned
@@ -107,7 +255,8 @@
   mean(y[!is.na(y)] == 1L)
 }
 
-.shap_resolve_waterfall_row_id <- function(ctx, sh_cfg, tag, nrow_x, tr_frame = NULL) {
+.shap_resolve_waterfall_row_id <- function(ctx, sh_cfg, tag, nrow_x, tr_frame = NULL,
+                                           source_row_ids = NULL) {
   nrow_x <- as.integer(nrow_x)[1L]
   empty_pick <- list(
     row_id = 1L, incidence = NA_real_, pred_prob = NA_real_,
@@ -146,9 +295,21 @@
       }
     }
   }
+  source_row_ids <- suppressWarnings(as.integer(source_row_ids))
+  if (length(source_row_ids) == nrow_x &&
+      all(is.finite(source_row_ids)) &&
+      all(source_row_ids >= 1L & source_row_ids <= length(outcome01))) {
+    outcome01 <- outcome01[source_row_ids]
+    pred_prob <- pred_prob[source_row_ids]
+  } else {
+    source_row_ids <- seq_len(min(nrow_x, length(outcome01)))
+    outcome01 <- outcome01[source_row_ids]
+    pred_prob <- pred_prob[source_row_ids]
+  }
   thr <- as.numeric(sh_cfg$waterfall_prob_threshold %||% 0.75)[1L]
   pick <- pipeline_pick_shap_waterfall_row(ctx, pred_prob, outcome01, prob_threshold = thr)
   row_id <- min(max(1L, pick$row_id), nrow_x)
+  pick$source_row_id <- as.integer(source_row_ids[row_id])
   if (length(outcome01) >= row_id && (is.na(outcome01[row_id]) || outcome01[row_id] != 1L)) {
     hit_case <- which(!is.na(outcome01) & outcome01 == 1L)
     if (length(hit_case)) {
@@ -166,7 +327,9 @@
 .shap_waterfall_link_values <- function(shp, row_id, link = "logit") {
   row_id <- as.integer(row_id)[1L]
   sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
-  if (is.null(sv) || !is.matrix(sv) || nrow(sv) < row_id) {
+  if (inherits(sv, "Matrix")) sv <- as.matrix(sv)
+  if (is.data.frame(sv)) sv <- as.matrix(sv)
+  if (is.null(sv) || !is.matrix(sv) || !nrow(sv) || !ncol(sv) || nrow(sv) < row_id) {
     return(list(fx = NA_real_, efx = NA_real_, on_prob_scale = FALSE))
   }
   base <- shp$baseline
@@ -188,7 +351,14 @@
   if (!is.finite(thr)) thr <- 0.75
   link <- sh_cfg$waterfall_link %||% "logit"
   vals <- .shap_waterfall_link_values(shp, row_id, link = link)
-  p <- shapviz::sv_waterfall(shp, row_id = row_id)
+  p <- tryCatch(
+    shapviz::sv_waterfall(shp, row_id = row_id),
+    error = function(e) {
+      cli::cli_alert_warning("block_shap: waterfall 跳过（{conditionMessage(e)}）")
+      NULL
+    }
+  )
+  if (is.null(p)) return(NULL)
 
   outcome_lab <- if (identical(as.integer(pick$outcome01 %||% NA_integer_), 1L)) {
     "Actual outcome: case (positive)"
@@ -197,43 +367,19 @@
   } else {
     "Actual outcome: unknown"
   }
-  pred_p <- pick$pred_prob %||% vals$fx
-  thr_txt <- if (isTRUE(pick$met_threshold %||% FALSE)) {
-    sprintf("predicted probability = %.3f (> %.2f threshold)", as.numeric(pred_p), thr)
-  } else if (is.finite(as.numeric(pred_p))) {
-    sprintf(
-      "predicted probability = %.3f (below %.2f; selected highest-probability case)",
-      as.numeric(pred_p), thr
-    )
+  pred_p <- pick$pred_prob %||% NA_real_
+  thr_txt <- if (is.finite(as.numeric(pred_p))) {
+    sprintf("pred=%.3f (prob)", as.numeric(pred_p))
   } else {
-    sprintf("predicted probability unavailable; threshold = %.2f", thr)
+    "pred=NA"
   }
   sample_title <- paste0(outcome_lab, "; ", thr_txt)
 
-  if (isTRUE(vals$on_prob_scale) && is.finite(vals$fx) && is.finite(vals$efx)) {
-    fx_lab <- as.character(sh_cfg$waterfall_fx_label %||% "f(x) = predicted disease probability")[1L]
-    efx_lab <- as.character(sh_cfg$waterfall_efx_label %||% "E[f(x)] = dataset incidence")[1L]
-    fx_txt <- paste0(fx_lab, " (", formatC(vals$fx, format = "f", digits = 3), ")")
-    efx_txt <- paste0(efx_lab, " (", formatC(vals$efx, format = "f", digits = 3), ")")
-    p <- p + ggplot2::labs(
-      title = NULL,
-      subtitle = paste(sample_title, fx_txt, sep = "\n"),
-      caption = efx_txt
-    )
-  } else {
-    fx_lab <- as.character(sh_cfg$waterfall_fx_label %||% "f(x) = predicted disease probability")[1L]
-    efx_lab <- as.character(sh_cfg$waterfall_efx_label %||% "E[f(x)] = dataset incidence")[1L]
-    if (!is.na(incidence)) {
-      efx_txt <- paste0(efx_lab, " (", formatC(incidence, format = "f", digits = 3), ")")
-      p <- p + ggplot2::labs(
-        title = NULL,
-        subtitle = paste(sample_title, fx_lab, sep = "\n"),
-        caption = efx_txt
-      )
-    } else {
-      p <- p + ggplot2::labs(title = NULL, subtitle = paste(sample_title, fx_lab, sep = "\n"))
-    }
-  }
+  ## 关键：shapviz::sv_waterfall 本身已按 logit 空间标注柱末 f(x) 与基线 E[f(x)]。
+  ## 旧代码另加 header f(x)=概率、caption E[f(x)]=概率基线，与图内 logit 标注互相矛盾
+  ## （如 header f(x)=0.610 vs 柱末 f(x)=0.448；caption E[f(x)]=0.500 vs 基线 0）。
+  ## 统一口径：只保留 pred（概率，明确标 (prob)），f(x)/E[f(x)] 交给 shapviz 原生 logit 标注。
+  p <- p + ggplot2::labs(title = NULL, subtitle = sample_title, caption = NULL)
   p
 }
 
@@ -254,20 +400,19 @@
       if (length(fitted_names)) return(.prefer_tag(fitted_names))
       stop("block_shap: ml_model=auto 需要 ml_eval_all 或 ml_best_model_tag，请先运行 ml_models。", call. = FALSE)
     }
-    sub <- ev[tolower(as.character(ev$dataset)) == "test" &
-                tolower(as.character(ev$.metric)) == "roc_auc", , drop = FALSE]
-    if (!nrow(sub)) stop("block_shap: ml_eval_all 中无 validation/test 的 roc_auc。", call. = FALSE)
-    dm <- c(
-      "DT" = "dt", "RF" = "rf", "XGBoost" = "xgboost", "ENet" = "enet",
-      "RSVM" = "rsvm", "MLP" = "mlp", "Logistic" = "logistic",
-      "LightGBM" = "lightgbm", "KNN" = "knn", "TabPFN" = "tabpfn",
-      "AdaBoost" = "adaboost", "CatBoost" = "catboost", "TablCL_v2" = "tablcl_v2"
-    )
-    .row_tag <- function(disp) {
-      hit <- match(tolower(trimws(disp)), tolower(names(dm)), nomatch = NA_integer_)
-      if (is.na(hit)) tolower(trimws(disp)) else unname(dm[hit])
+    st <- tolower(trimws(as.character(ctx$config$project$study_type %||% "")[1L]))
+    ## 预后优先 C-index；发病用 roc_auc
+    metrics <- if (identical(st, "prognosis")) {
+      c("c_index", "roc_auc")
+    } else {
+      c("roc_auc", "c_index")
     }
-    sub[["tmp_ml_tag"]] <- vapply(as.character(sub$model), .row_tag, character(1L))
+    sub <- ev[tolower(as.character(ev$dataset)) == "test" &
+                tolower(as.character(ev$.metric)) %in% metrics, , drop = FALSE]
+    if (!nrow(sub)) stop("block_shap: ml_eval_all 中无 validation/test 的 roc_auc/c_index。", call. = FALSE)
+    sub <- sub[order(match(tolower(as.character(sub$.metric)), metrics)), , drop = FALSE]
+    sub <- sub[!duplicated(as.character(sub$model)), , drop = FALSE]
+    sub[["tmp_ml_tag"]] <- vapply(as.character(sub$model), .shap_ml_tag_from_display, character(1L))
     ok <- sub[["tmp_ml_tag"]] %in% fitted_names
     sub <- if (any(ok)) sub[ok, , drop = FALSE] else sub
     best <- sub[which.max(as.numeric(sub$.estimate)), , drop = FALSE]
@@ -348,6 +493,13 @@
 
 .shap_resolve_shap_model_tag <- function(ctx, sh_cfg, fitted_names) {
   tag <- .shap_resolve_model_tag(ctx, sh_cfg, fitted_names)
+  ## 铁律：force_kernel_best_model / ml_model=auto 时，必须解释最优模型，禁止回退树模型
+  if (isTRUE(sh_cfg$force_kernel_best_model %||% FALSE)) return(tag)
+  choice <- tolower(trimws(as.character(sh_cfg$ml_model %||% sh_cfg$model %||% "auto")[1L]))
+  if (identical(choice, "auto") &&
+      identical(tolower(trimws(ctx$config$project$study_type %||% "")), "prognosis")) {
+    return(tag)
+  }
   if (.shap_is_shapviz_capable(tag)) return(tag)
   fb <- .shap_pick_best_shapviz_tag(ctx, fitted_names)
   if (!is.null(fb) && nzchar(fb)) {
@@ -374,12 +526,24 @@
 }
 
 .shap_resolve_ml_feature_names <- function(ctx) {
+  ## 优先 feature_selection_final（定稿 ML 特征）。venn_center 在部分单方法
+  ## （如仅 Boruta，draw_venn=FALSE）路径下可能残留候选并集（>final），导致
+  ## 烘焙列与模型训练特征不一致 → kernel/fastshap 报「暴露列缺失」。
   feats <- as.character(
-    ctx$results$feature_selection_venn_center %||%
+    ctx$results$feature_selection_final %||%
       ctx$results$ml_feature_names %||%
-      ctx$results$feature_selection_final %||%
+      ctx$results$feature_selection_venn_center %||%
       character(0)
   )
+  n_final <- length(unique(feats[nzchar(feats)]))
+  n_venn <- length(unique(as.character(
+    ctx$results$feature_selection_venn_center %||% character(0)
+  )))
+  if (n_final > 0L && n_venn > n_final) {
+    cli::cli_alert_info(
+      "block_shap: venn_center({n_venn}) > final({n_final})，按 final 定稿特征解释。"
+    )
+  }
   feats <- unique(feats[nzchar(feats)])
   if (!length(feats)) {
     feats <- as.character(ctx$results$Model2Factors %||% character(0))
@@ -406,9 +570,11 @@
 }
 
 .shap_resolve_venn_feature_names <- function(ctx) {
+  ## 与 .shap_resolve_ml_feature_names 同序：final 定稿优先（venn_center 在单方法
+  ## Boruta 路径可能残留候选并集）
   feats <- as.character(
-    ctx$results$feature_selection_venn_center %||%
-      ctx$results$feature_selection_final %||%
+    ctx$results$feature_selection_final %||%
+      ctx$results$feature_selection_venn_center %||%
       ctx$results$ml_feature_names %||%
       character(0)
   )
@@ -475,12 +641,55 @@
 
 .shap_train_data_frame <- function(ctx) {
   base <- ctx$results$ml_train_data %||% ctx$data$train
+  base <- .shap_ensure_group_column(base, ctx, split = "train")
   .shap_attach_index_columns(base, ctx, split = "train")
 }
 
 .shap_test_data_frame <- function(ctx) {
   base <- ctx$results$ml_test_data %||% ctx$data$test
+  base <- .shap_ensure_group_column(base, ctx, split = "test")
   .shap_attach_index_columns(base, ctx, split = "test")
+}
+
+## 预后 ML 的 ml_train_data 只有 .time/.event，无 Group；从事件列或 data$train 回填
+.shap_ensure_group_column <- function(base, ctx, split = c("train", "test")) {
+  if (is.null(base) || !is.data.frame(base)) return(base)
+  if ("Group" %in% names(base)) return(base)
+  split <- match.arg(split)
+  cfg <- ctx$config
+  ana <- as.character(cfg$project$analysis_group %||% cfg$project$disease %||% "Case")[1L]
+  ref <- as.character(cfg$project$reference_group %||% "Control")[1L]
+  src <- if (identical(split, "test")) ctx$data$test else ctx$data$train
+  if (!is.null(src) && "Group" %in% names(src) && nrow(src) == nrow(base)) {
+    base$Group <- src$Group
+    return(base)
+  }
+  ev <- NULL
+  if (".event" %in% names(base)) {
+    ev <- base[[".event"]]
+  } else {
+    ev_var <- cfg$survival$event_var %||% cfg$data$outcome_column %||% NULL
+    if (!is.null(ev_var) && ev_var %in% names(base)) ev <- base[[ev_var]]
+    if (is.null(ev) && !is.null(src) && !is.null(ev_var) && ev_var %in% names(src) &&
+        nrow(src) == nrow(base)) {
+      ev <- src[[ev_var]]
+    }
+  }
+  if (is.null(ev)) {
+    stop("block_shap: 无法构建 Group 列（缺 Group/.event/结局列）。", call. = FALSE)
+  }
+  if (exists(".mlsurv_coerce_event01", mode = "function")) {
+    ev01 <- .mlsurv_coerce_event01(ev, analysis_group = ana, reference_group = ref)
+  } else if (is.factor(ev) && nlevels(ev) == 2L) {
+    ev01 <- as.integer(as.integer(ev) == 2L)
+  } else {
+    ev01 <- suppressWarnings(as.integer(ev))
+  }
+  base$Group <- factor(
+    ifelse(ev01 == 1L, ana, ref),
+    levels = unique(c(ref, ana))
+  )
+  base
 }
 
 #' SHAP 图用原始特征：ML 数值协变量 + 当前分析指标（排除 factor/character/logical）
@@ -516,6 +725,109 @@
   }, logical(1L))]
 }
 
+#' 韦恩/最终 ML 特征名 → 烘焙后列名（连续变量同名；分类变量含 dummy 前缀列）
+.shap_baked_columns_for_venn_features <- function(ctx, pred_cols, venn_raw = NULL) {
+  pred_cols <- as.character(pred_cols)
+  venn_raw <- unique(as.character(venn_raw %||% .shap_resolve_venn_feature_names(ctx)))
+  venn_raw <- venn_raw[nzchar(venn_raw)]
+  if (!length(venn_raw)) return(pred_cols)
+  keep <- character(0)
+  for (v in venn_raw) {
+    if (v %in% pred_cols) {
+      keep <- c(keep, v)
+    } else {
+      hits <- pred_cols[vapply(pred_cols, function(col) {
+        .shap_is_baked_categorical_column(col, v)
+      }, logical(1L))]
+      if (length(hits)) keep <- c(keep, hits)
+    }
+  }
+  unique(keep[nzchar(keep)])
+}
+
+.shap_venn_plot_baked <- function(ctx, tag, explain_on, sh_cfg = NULL) {
+  tr_plot <- .shap_ml_train_frame(ctx, shap_plot_only = TRUE)
+  pred_cols_plot <- setdiff(names(tr_plot), "Group")
+  if (!length(pred_cols_plot)) return(NULL)
+  X_df_plot <- tr_plot[, pred_cols_plot, drop = FALSE]
+  list(
+    d = tr_plot,
+    X_df = X_df_plot,
+    X_mat = {
+      Xm <- as.matrix(X_df_plot)
+      storage.mode(Xm) <- "double"
+      colnames(Xm) <- pred_cols_plot
+      Xm
+    },
+    n = nrow(tr_plot)
+  )
+}
+
+#' workflow 全列 SHAP → 韦恩/ML 最终特征（10 个原始变量）；分类 dummy 的 SHAP 按列求和
+.shap_collapse_shapviz_to_venn_features <- function(shp, X_df, ctx, venn_raw = NULL) {
+  if (!requireNamespace("shapviz", quietly = TRUE)) {
+    return(list(shp = shp, X_df = X_df, X_mat = NULL))
+  }
+  venn_raw <- unique(as.character(venn_raw %||% .shap_resolve_venn_feature_names(ctx)))
+  venn_raw <- venn_raw[nzchar(venn_raw)]
+  if (!length(venn_raw)) return(list(shp = shp, X_df = X_df, X_mat = NULL))
+
+  sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+  if (is.null(sv)) return(list(shp = shp, X_df = X_df, X_mat = NULL))
+  if (is.data.frame(sv)) sv <- as.matrix(sv)
+  pred_cols <- colnames(sv)
+  n <- nrow(sv)
+  X_df <- .shap_feature_matrix_aligned(shp, X_df)
+
+  tr_raw <- tryCatch(.shap_ml_train_frame(ctx, shap_plot_only = TRUE), error = function(e) NULL)
+  use_raw_x <- !is.null(tr_raw) && nrow(tr_raw) >= n
+  if (use_raw_x) tr_raw <- tr_raw[seq_len(n), , drop = FALSE]
+
+  S_new <- matrix(0, nrow = n, ncol = length(venn_raw))
+  colnames(S_new) <- venn_raw
+  X_new <- as.data.frame(matrix(NA_real_, nrow = n, ncol = length(venn_raw)))
+  colnames(X_new) <- venn_raw
+
+  for (v in venn_raw) {
+    cols <- if (v %in% pred_cols) {
+      v
+    } else {
+      pred_cols[vapply(pred_cols, function(col) {
+        .shap_is_baked_categorical_column(col, v)
+      }, logical(1L))]
+    }
+    if (!length(cols)) next
+    if (length(cols) == 1L) {
+      S_new[, v] <- sv[, cols]
+      X_new[[v]] <- if (use_raw_x && v %in% names(tr_raw)) {
+        col <- tr_raw[[v]]
+        if (.shap_is_categorical_col(col)) as.numeric(factor(col)) else suppressWarnings(as.numeric(col))
+      } else {
+        X_df[[cols]]
+      }
+    } else {
+      S_new[, v] <- rowSums(sv[, cols, drop = FALSE])
+      X_new[[v]] <- if (use_raw_x && v %in% names(tr_raw)) {
+        col <- tr_raw[[v]]
+        if (.shap_is_categorical_col(col)) as.numeric(factor(col)) else suppressWarnings(as.numeric(col))
+      } else {
+        rowMeans(X_df[, cols, drop = FALSE])
+      }
+    }
+  }
+
+  out_shp <- tryCatch(
+    shapviz::shapviz(S_new, X = X_new),
+    error = function(e) shapviz::shapviz(as.matrix(S_new), X = X_new)
+  )
+  attr(out_shp, "shap_method") <- attr(shp, "shap_method")
+  attr(out_shp, "shap_tag") <- attr(shp, "shap_tag")
+  X_mat <- as.matrix(X_new)
+  storage.mode(X_mat) <- "double"
+  colnames(X_mat) <- venn_raw
+  list(shp = out_shp, X_df = X_new, X_mat = X_mat)
+}
+
 .shap_is_baked_categorical_column <- function(col, cat_raw) {
   if (col %in% cat_raw) return(TRUE)
   if (!length(cat_raw)) return(FALSE)
@@ -529,11 +841,11 @@
   sh_cfg <- sh_cfg %||% ctx$config$shap %||% list()
   if (isTRUE(.shap_match_venn_features(ctx))) {
     venn <- .shap_resolve_venn_feature_names(ctx)
-    keep <- intersect(as.character(pred_cols), venn)
+    keep <- .shap_baked_columns_for_venn_features(ctx, pred_cols, venn)
     if (!length(keep)) keep <- as.character(pred_cols)
     keep <- unique(keep[nzchar(keep)])
     cli::cli_alert_info(
-      "block_shap: 韦恩对齐 SHAP 图列 n={length(keep)}: {paste(keep, collapse = ', ')}"
+      "block_shap: 韦恩对齐 SHAP 图列 n={length(keep)}（ML 特征 {length(venn)} 个）: {paste(head(keep, 12), collapse = ', ')}{if (length(keep) > 12) ', ...' else ''}"
     )
     return(keep)
   }
@@ -584,6 +896,7 @@
   if (is.data.frame(sv)) sv <- as.matrix(sv)
   cn <- intersect(colnames(sv), keep_cols)
   if (!length(cn)) return(shp)
+  X_df <- .shap_feature_matrix_aligned(shp, X_df)
   X_sub <- X_df[, cn, drop = FALSE]
   out <- tryCatch(
     shapviz::shapviz(sv[, cn, drop = FALSE], X = X_sub),
@@ -622,7 +935,11 @@
   if (length(hit) < 1L) {
     stop("block_shap: 训练集中无可用 ML 特征列。", call. = FALSE)
   }
-  out <- base[, c("Group", hit), drop = FALSE]
+  keep <- unique(c(intersect("Group", names(base)), hit))
+  if (!"Group" %in% keep) {
+    stop("block_shap: 训练集仍无 Group 列。", call. = FALSE)
+  }
+  out <- base[, keep, drop = FALSE]
   if (isTRUE(attach_id)) {
     id_col <- ctx$config$data$id_column %||% NULL
     tr_full <- ctx$data$train
@@ -648,7 +965,11 @@
   if (!length(hit)) {
     stop("block_shap: 验证集中无可用 ML 特征列。", call. = FALSE)
   }
-  base[, c("Group", hit), drop = FALSE]
+  keep <- unique(c(intersect("Group", names(base)), hit))
+  if (!"Group" %in% keep) {
+    stop("block_shap: 验证集仍无 Group 列。", call. = FALSE)
+  }
+  base[, keep, drop = FALSE]
 }
 
 .shap_harmonization_dir <- function(ctx) {
@@ -752,7 +1073,11 @@
   tr <- .shap_ml_train_frame(ctx, shap_plot_only = shap_plot_only)
   te <- .shap_ml_test_frame(ctx, shap_plot_only = shap_plot_only)
   explain_on <- tolower(trimws(as.character(explain_on %||% "train")[1L]))
-  raw_mode <- isTRUE((sh_cfg %||% list())$use_train_without_recipe %||% FALSE)
+  ## 生存模型非 tidymodels：必须用原始特征帧（含 factor），禁止 recipe dummy
+  surv_raw <- exists(".shap_surv_tags", mode = "function") &&
+    tag %in% .shap_surv_tags()
+  raw_mode <- isTRUE((sh_cfg %||% list())$use_train_without_recipe %||% FALSE) ||
+    isTRUE(surv_raw)
   rec <- NULL
   if (!raw_mode && !is.null(wf) && inherits(wf, "workflow")) {
     rec <- tryCatch(workflows::extract_recipe(wf), error = function(e) NULL)
@@ -783,17 +1108,31 @@
     "block_shap: ML 特征 {length(ml_feats)} 个 → 烘焙列 {length(pred_cols)} 个（{paste(head(pred_cols, 8), collapse = ', ')}{if (length(pred_cols) > 8) ', ...' else ''}）"
   )
   X_df <- d[, pred_cols, drop = FALSE]
-  for (cn in names(X_df)) {
-    col <- X_df[[cn]]
-    if (is.factor(col) || is.character(col)) {
-      X_df[[cn]] <- as.numeric(factor(col))
-    } else if (is.logical(col)) {
-      X_df[[cn]] <- as.integer(col)
-    } else {
-      X_df[[cn]] <- suppressWarnings(as.numeric(col))
+  ## 生存 raw：保留 factor 供 mboost/gbm/rsf；矩阵侧再数值化
+  if (!isTRUE(surv_raw)) {
+    for (cn in names(X_df)) {
+      col <- X_df[[cn]]
+      if (is.factor(col) || is.character(col)) {
+        X_df[[cn]] <- as.numeric(factor(col))
+      } else if (is.logical(col)) {
+        X_df[[cn]] <- as.integer(col)
+      } else {
+        X_df[[cn]] <- suppressWarnings(as.numeric(col))
+      }
     }
   }
-  X_mat <- as.matrix(X_df)
+  X_mat <- X_df
+  for (cn in names(X_mat)) {
+    col <- X_mat[[cn]]
+    if (is.factor(col) || is.character(col)) {
+      X_mat[[cn]] <- as.numeric(factor(as.character(col)))
+    } else if (is.logical(col)) {
+      X_mat[[cn]] <- as.integer(col)
+    } else {
+      X_mat[[cn]] <- suppressWarnings(as.numeric(col))
+    }
+  }
+  X_mat <- as.matrix(X_mat)
   storage.mode(X_mat) <- "double"
   colnames(X_mat) <- pred_cols
   list(d = d, X_df = X_df, X_mat = X_mat, n = nrow(d))
@@ -948,10 +1287,14 @@
   if (identical(tolower(trimws(study_type %||% "")), "prognosis")) "prognosis" else "incidence"
 }
 
-.shap_router_file <- file.path(
-  normalizePath(getwd(), winslash = "/", mustWork = FALSE),
-  "Blocks/17_shap/00shap_router.R"
-)
+.shap_router_file <- {
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  file.path(normalizePath(er, winslash = "/", mustWork = FALSE), "Blocks/17_shap/00shap_router.R")
+}
 if (file.exists(.shap_router_file)) {
   source(.shap_router_file, local = FALSE)
 }
@@ -1072,6 +1415,7 @@ block_shap <- function(ctx, ...) {
   shp <- shap_res$shp
   baked <- shap_res$baked
   shap_method <- shap_res$method
+  shap_source_row_ids <- attr(shp, "shap_source_row_ids", exact = TRUE)
 
   if (is.null(shp) || is.null(tag)) {
     err_msg <- shap_res$error %||% "无可用方法"
@@ -1084,10 +1428,24 @@ block_shap <- function(ctx, ...) {
   explain_on <- sh$explain_on %||% "train"
   X_mat <- baked$X_mat
   X_df  <- baked$X_df
+  X_df <- .shap_feature_matrix_aligned(shp, X_df)
+  if (!is.null(X_mat) && nrow(X_mat) != nrow(X_df)) {
+    X_mat <- X_mat[seq_len(nrow(X_df)), , drop = FALSE]
+  }
   pred_cols <- colnames(X_mat)
   index_feats <- .shap_active_index_vars(cfg, ctx)
 
-  if (.shap_match_venn_features(ctx)) {
+  sh_model_choice <- tolower(trimws(as.character(sh$ml_model %||% sh$model %||% "auto")[1L]))
+  # 韦恩对齐：默认可用 TreeSHAP(xgboost) 画发表图；
+  # 但 force_kernel_best_model=TRUE / 预后：必须解释最优模型，禁止换成 xgboost
+  use_tree_viz <- !isTRUE(sh$force_kernel_best_model %||% FALSE) &&
+    (isTRUE(sh$prefer_tree_shapviz %||% TRUE) ||
+      identical(sh_model_choice, "xgboost") ||
+      !(tag %in% c("xgboost", "lightgbm", "rf", "catboost", "dt", "adaboost", .shap_surv_tags())))
+  if (identical(tolower(trimws(study_type)), "prognosis")) {
+    use_tree_viz <- FALSE
+  }
+  if (.shap_match_venn_features(ctx) && use_tree_viz) {
     plot_baked <- tryCatch(
       .shap_baked_matrix(ctx, "xgboost", explain_on, sh_cfg = sh, shap_plot_only = TRUE),
       error = function(e) NULL
@@ -1100,15 +1458,34 @@ block_shap <- function(ctx, ...) {
       shp_v <- .shap_quick_xgb_shapviz(plot_baked, y_num)
       if (!is.null(shp_v)) {
         cli::cli_alert_info(
-          "block_shap: 韦恩对齐 SHAP 使用 xgboost（{ncol(plot_baked$X_mat)} 列，与 ML 特征一致）"
+          "block_shap: 韦恩对齐发表图使用 TreeSHAP/xgboost（{ncol(plot_baked$X_mat)} 列；最优预测模型={tag}）"
         )
         shp <- shp_v
         baked <- plot_baked
         X_mat <- baked$X_mat
         X_df <- baked$X_df
         pred_cols <- colnames(X_mat)
+        # 标题/文件名用 XGBoost（实际解释的模型）；最优预测模型仍记在 results
+        ctx$results$shap_best_predictive_tag <- tag
+        tag <- "xgboost"
         shap_method <- "venn_xgb_shapviz"
       }
+    }
+  }
+
+  # 若仍是 kernel 最优模型路径：workflow 全列后聚合回韦恩特征
+  if (.shap_match_venn_features(ctx) && !identical(shap_method, "venn_xgb_shapviz")) {
+    collapsed <- .shap_collapse_shapviz_to_venn_features(shp, X_df, ctx)
+    if (!is.null(collapsed$shp)) {
+      n_venn <- ncol(collapsed$X_df)
+      cli::cli_alert_info(
+        "block_shap: 韦恩 SHAP 已聚合为 ML 最终特征 n={n_venn}（分类 dummy 列 SHAP 求和）"
+      )
+      shp <- collapsed$shp
+      X_df <- collapsed$X_df
+      if (!is.null(collapsed$X_mat)) X_mat <- collapsed$X_mat
+      pred_cols <- colnames(X_df)
+      shap_method <- paste0(shap_method, "_venn_collapse")
     }
   }
 
@@ -1143,6 +1520,8 @@ block_shap <- function(ctx, ...) {
   plot_cols <- .shap_filter_plot_columns(ctx, pred_cols, sh)
   if (length(plot_cols) && !identical(plot_cols, pred_cols)) {
     shp <- .shap_subset_shapviz(shp, plot_cols, X_df)
+    X_df <- .shap_feature_matrix_aligned(shp, X_df)
+    plot_cols <- intersect(plot_cols, colnames(X_df))
     X_df <- X_df[, plot_cols, drop = FALSE]
     X_mat <- X_mat[, plot_cols, drop = FALSE]
     pred_cols <- plot_cols
@@ -1152,6 +1531,10 @@ block_shap <- function(ctx, ...) {
   X_df <- pretty$X_df
   if (!is.null(pretty$X_mat)) X_mat <- pretty$X_mat
   pred_cols <- colnames(X_df)
+  # C/D 面板直接显示临床类别标签（如 Female/Male、No/Yes），
+  # A/B 仍保留数值型特征值以维持连续色阶。
+  shp_clinical <- .shap_apply_clinical_value_labels(shp, X_df, ctx)
+  clinical_labels_applied <- !identical(shp_clinical, shp)
 
   top_n <- as.integer(sh$top_n %||% 10L)[1L]
   if (!is.finite(top_n) || top_n < 1L) top_n <- 10L
@@ -1160,7 +1543,10 @@ block_shap <- function(ctx, ...) {
     if (vn > 0L) top_n <- max(top_n, vn)
   }
 
-  wf_res <- .shap_resolve_waterfall_row_id(ctx, sh, tag, nrow(X_df), tr_frame = NULL)
+  wf_res <- .shap_resolve_waterfall_row_id(
+    ctx, sh, tag, nrow(X_df), tr_frame = NULL,
+    source_row_ids = shap_source_row_ids
+  )
   wf_row <- if (is.list(wf_res)) wf_res$row_id else wf_res
   if (is.list(wf_res) && !is.null(wf_res$pick)) {
     ctx$results$shap_waterfall_pick <- wf_res$pick
@@ -1174,19 +1560,24 @@ block_shap <- function(ctx, ...) {
 
   show_numbers <- isTRUE(sh$importance_show_numbers %||% TRUE)
   save_each <- !isFALSE(sh$save_individual %||% TRUE)
+  model_disp <- .shap_model_display_name(ctx, tag)
+  # 拼图也保留短标题；模型名接在标题后，不写 (mlp, incidence, train)
+  show_panel_titles <- !isFALSE(sh$show_panel_titles %||% TRUE)
+  .panel_title <- function(base) paste0(base, " — ", model_disp)
 
   # 颜色统一：从 config$shap$bee_color_low/high 读取，NULL 时保持 shapviz 默认
   sh_bee_low  <- sh$bee_color_low  %||% NULL
   sh_bee_high <- sh$bee_color_high %||% NULL
+  imp_order <- .shap_resolve_importance_display_order(shp, sh, index_feats)
 
   built <- list()
   if ("importance" %in% plots_wanted) {
-    p_imp <- .shap_apply_font(
-      shapviz::sv_importance(shp, show_numbers = show_numbers, max_display = top_n),
-      font_family
-    ) + ggplot2::labs(
-      title = paste0("SHAP importance (", tag, ", ", st_lab, ", ", explain_on, ")")
-    )
+    p_imp <- shapviz::sv_importance(shp, show_numbers = show_numbers, max_display = top_n)
+    p_imp <- .shap_apply_importance_display_order(p_imp, imp_order)
+    if (show_panel_titles) {
+      p_imp <- p_imp + ggplot2::labs(title = .panel_title("SHAP importance"))
+    }
+    p_imp <- .shap_panel_finish(p_imp, font_family, sh, keep_title = show_panel_titles)
     # A 图 bar 色 = bee_color_high（与 B 图高值颜色统一）
     if (!is.null(sh_bee_high)) {
       p_imp <- tryCatch({
@@ -1197,44 +1588,63 @@ block_shap <- function(ctx, ...) {
     built$importance <- p_imp
   }
   if ("bee" %in% plots_wanted) {
-    p_bee_plot <- .shap_apply_font(
-      shapviz::sv_importance(shp, kind = "bee", max_display = top_n),
-      font_family
-    ) + ggplot2::labs(
-      title = paste0("SHAP bee swarm (", tag, ", ", st_lab, ", ", explain_on, ")")
-    )
+    p_bee_plot <- shapviz::sv_importance(shp, kind = "bee", max_display = top_n)
+    p_bee_plot <- .shap_apply_importance_display_order(p_bee_plot, imp_order)
+    if (show_panel_titles) {
+      p_bee_plot <- p_bee_plot + ggplot2::labs(title = .panel_title("SHAP bee swarm"))
+    }
+    p_bee_plot <- .shap_panel_finish(p_bee_plot, font_family, sh, keep_title = show_panel_titles)
     if (!is.null(sh_bee_low) && !is.null(sh_bee_high)) {
-      p_bee_plot <- p_bee_plot +
-        ggplot2::scale_color_gradient(low = sh_bee_low, high = sh_bee_high,
-                                      na.value = sh_bee_high)
+      p_bee_plot <- tryCatch(
+        p_bee_plot +
+          ggplot2::scale_color_gradient(low = sh_bee_low, high = sh_bee_high,
+                                        na.value = sh_bee_high),
+        error = function(e) p_bee_plot
+      )
     }
     built$bee <- p_bee_plot
   }
   if ("waterfall" %in% plots_wanted) {
-    built$waterfall <- .shap_apply_font(
-      .shap_waterfall_with_labels(shp, wf_row, sh, ctx),
-      font_family
-    ) + ggplot2::labs(
-      title = paste0("SHAP waterfall, row ", wf_row, " (", tag, ", ", st_lab, ", ", explain_on, ")")
-    )
+    p_wf <- .shap_waterfall_with_labels(shp_clinical, wf_row, sh, ctx)
+    if (!is.null(p_wf)) {
+      if (show_panel_titles) {
+        p_wf <- p_wf + ggplot2::labs(title = .panel_title(paste0("SHAP waterfall, row ", wf_row)))
+      }
+      built$waterfall <- .shap_panel_finish(p_wf, font_family, sh, keep_title = show_panel_titles)
+    }
   }
 
   dep_feats <- character(0)
   if ("dependence" %in% plots_wanted) {
-    dep_feats <- .shap_dependence_features(shp, sh, pred_cols, index_feats = index_feats)
+    dep_feats <- tryCatch(
+      .shap_dependence_features(shp, sh, pred_cols, index_feats = index_feats),
+      error = function(e) {
+        cli::cli_alert_warning("block_shap: dependence 特征解析失败: {conditionMessage(e)}")
+        character(0)
+      }
+    )
     dep_list <- list()
     for (j in seq_along(dep_feats)) {
       fj <- dep_feats[[j]]
-      p_dep_j <- .shap_apply_font(
-        shapviz::sv_dependence(shp, v = fj),
-        font_family
-      ) + ggplot2::labs(
-        title = paste0("SHAP dependence: ", fj, " (", tag, ", ", st_lab, ")")
+      p_dep_j <- tryCatch(
+        shapviz::sv_dependence(shp_clinical, v = fj),
+        error = function(e) {
+          cli::cli_alert_warning("block_shap: dependence[{fj}] 跳过（{conditionMessage(e)}）")
+          NULL
+        }
       )
-      if (!is.null(sh_bee_low) && !is.null(sh_bee_high)) {
-        p_dep_j <- p_dep_j +
-          ggplot2::scale_color_gradient(low = sh_bee_low, high = sh_bee_high,
-                                        na.value = sh_bee_high)
+      if (is.null(p_dep_j)) next
+      if (show_panel_titles) {
+        p_dep_j <- p_dep_j + ggplot2::labs(title = paste0("SHAP dependence: ", fj))
+      }
+      p_dep_j <- .shap_panel_finish(p_dep_j, font_family, sh, keep_title = show_panel_titles)
+      if (!clinical_labels_applied && !is.null(sh_bee_low) && !is.null(sh_bee_high)) {
+        p_dep_j <- tryCatch(
+          p_dep_j +
+            ggplot2::scale_color_gradient(low = sh_bee_low, high = sh_bee_high,
+                                          na.value = sh_bee_high),
+          error = function(e) p_dep_j
+        )
       }
       dep_list[[fj]] <- p_dep_j
     }
@@ -1293,7 +1703,7 @@ block_shap <- function(ctx, ...) {
   combine_order <- intersect(combine_order, plots_wanted)
   cfn <- sh$combine_filename %||% pub_figure_file(
     ctx, "main_figure",
-    paste0("SHAP (", tag, ", ", st_lab, ", combined)")
+    paste0("SHAP — ", model_disp)
   )
 
   if (combine && length(intersect(combine_order, names(built))) >= 2L) {
@@ -1322,8 +1732,8 @@ block_shap <- function(ctx, ...) {
     )
     if (!is.null(comb)) {
       cli::cli_alert_info(study_note)
-      def_w <- if (identical(layout, "waterfall_top")) 12 else if (identical(layout, "abc_top")) 16 else 15
-      def_h <- if (identical(layout, "waterfall_top")) 16 else if (identical(layout, "abc_top")) 10.5 else 12
+      def_w <- if (identical(layout, "waterfall_top")) 14 else if (identical(layout, "abc_top")) 17 else 16
+      def_h <- if (identical(layout, "waterfall_top")) 17 else if (identical(layout, "abc_top")) 11 else 11
       ctx <- save_figure(
         ctx, cfn,
         local({
@@ -1582,20 +1992,27 @@ block_shap <- function(ctx, ...) {
 
   p_bar <- tryCatch({
     p <- shapviz::sv_importance(shp, show_numbers = FALSE, max_display = top_n) + .tnr()
+    p <- .shap_apply_importance_display_order(
+      p, .shap_resolve_importance_display_order(shp, sh_cfg, index_feats)
+    )
     p$layers[[1]]$aes_params$fill <- bar_col
     p + ggplot2::labs(tag = "A", title = NULL) +
       ggplot2::theme(plot.tag.position = c(0, 1))
   }, error = function(e) NULL)
 
-  p_bee <- tryCatch(
-    shapviz::sv_importance(shp, kind = "bee", max_display = top_n,
-                           color_bar_title = "Feature value") +
+  p_bee <- tryCatch({
+    pb <- shapviz::sv_importance(shp, kind = "bee", max_display = top_n,
+                           color_bar_title = "Feature value")
+    pb <- .shap_apply_importance_display_order(
+      pb, .shap_resolve_importance_display_order(shp, sh_cfg, index_feats)
+    )
+    pb +
       ggplot2::scale_color_gradient(low = bee_pal$low, high = bee_pal$high,
                                     breaks = c(0, 1), labels = c("Low", "High")) +
       .tnr() +
       ggplot2::labs(tag = "B", title = NULL) +
-      ggplot2::theme(plot.tag.position = c(0.05, 1)),
-    error = function(e) NULL)
+      ggplot2::theme(plot.tag.position = c(0.05, 1))
+  }, error = function(e) NULL)
 
   p_waterfall <- tryCatch({
     pw <- .shap_waterfall_with_labels(shp, wf_row, sh_cfg, ctx) + .tnr()

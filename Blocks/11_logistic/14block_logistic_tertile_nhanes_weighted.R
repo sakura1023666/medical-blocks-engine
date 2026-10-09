@@ -59,7 +59,7 @@
   grp_chr[!is.na(xv) & xv < qs[1L]] <- "Q1"
   grp_chr[!is.na(xv) & xv >= qs[1L] & xv < qs[2L]] <- "Q2"
   raw_levels <- c("Q1", "Q2", "Q3")
-  cutoffs <- c(Q1 = paste0("< ", fmt_num(qs[1L])), Q2 = paste0(fmt_num(qs[1L]), " \u2013 ", fmt_num(qs[2L])), Q3 = paste0("\u2265 ", fmt_num(qs[2L])))
+  cutoffs <- c(Q1 = paste0("< ", fmt_num_cutoff(qs[1L])), Q2 = paste0(fmt_num_cutoff(qs[1L]), " \u2013 ", fmt_num_cutoff(qs[2L])), Q3 = paste0("\u2265 ", fmt_num_cutoff(qs[2L])))
   list(
     design = stats::update(design, Group = factor(grp_chr, levels = raw_levels), Num = as.numeric(factor(grp_chr, levels = raw_levels))),
     raw_levels = raw_levels, cutoffs = cutoffs
@@ -115,28 +115,42 @@
   })
   t1 <- .lqt09_coef_row(mt, "Num"); t2 <- .lqt09_coef_row(mt2, "Num"); t3 <- .lqt09_coef_row(mt3, "Num")
   t4 <- if (include_m3) .lqt09_coef_row(mt4, "Num") else NULL
-  Line_trend <- c("p for trend", rep("", 4L), t1[3L], "", "", t2[3L], "", "", t3[3L], if (include_m3) c("", "", t4[3L]) else character(0))
+  # RCS cutoff 分组表不放 p for trend
+  Line_trend <- if (isTRUE(attr(cutoffs, "is_rcs_group") %||% FALSE)) NULL else {
+    c("p for trend", rep("", 4L), t1[3L], "", "", t2[3L], "", "", t3[3L], if (include_m3) c("", "", t4[3L]) else character(0))
+  }
   if (include_cont) {
     mc <- .lqt09_svyglm_fit(des, fj(index_var)); mc2 <- .lqt09_svyglm_fit(des, fj(c(index_var, M1))); mc3 <- .lqt09_svyglm_fit(des, fj(c(index_var, M2)))
     mc4 <- if (include_m3) .lqt09_svyglm_fit(des, fj(c(index_var, M3))) else NULL
     cc1 <- .lqt09_coef_row(mc, index_var); cc2 <- .lqt09_coef_row(mc2, index_var); cc3 <- .lqt09_coef_row(mc3, index_var)
     cc4 <- if (include_m3) .lqt09_coef_row(mc4, index_var) else character(0)
-    rt <- do.call(rbind, c(list(Line1, Line2, c(index_var, rep("", n_pad)),
+    parts <- c(list(Line1, Line2, c(index_var, rep("", n_pad)),
       c(paste0(index_var, " continuous"), "", "", cc1[1L], cc1[2L], cc1[3L], cc2[1L], cc2[2L], cc2[3L], cc3[1L], cc3[2L], cc3[3L], cc4),
-      Line5, Line_ref), lines_nr, list(Line_trend)))
-  } else rt <- do.call(rbind, c(list(Line1, Line2, Line5, Line_ref), lines_nr, list(Line_trend)))
+      Line5, Line_ref), lines_nr)
+  } else {
+    parts <- c(list(Line1, Line2, Line5, Line_ref), lines_nr)
+  }
+  if (!is.null(Line_trend)) parts <- c(parts, list(Line_trend))
+  rt <- do.call(rbind, parts)
   rownames(rt) <- NULL
   colnames(rt) <- NULL
   rt
 }
 
 .lqt09_export_table <- function(ctx, cfg, bl_cfg, rt, caption_suffix, as_main = FALSE, M1 = NULL, M2 = NULL, M3 = NULL, m3_significant = NULL) {
-  is_rcs <- grepl("RCS", as.character(caption_suffix %||% ""), ignore.case = TRUE)
-  grouping <- if (is_rcs) "NHANES RCS cutoff" else "NHANES tertile"
-  cap <- paste0(
-    "Weighted logistic regression of ", bl_cfg$index_var %||% "exposure", " and ",
-    cfg$project$disease, " (", grouping, ", svyglm", if (is_rcs) "" else caption_suffix, ")"
-  )
+  is_rcs <- grepl("RCS", as.character(caption_suffix %||% ""), ignore.case = TRUE) ||
+    identical(as.character(bl_cfg$phase %||% "")[1L], "rcs")
+  ix <- as.character(bl_cfg$index_var %||% "exposure")[1L]
+  # 「RCS cutoff」必须在括号外：shorten 会剥括号，否则双库 S-XX 对不齐
+  if (is_rcs) {
+    cap <- paste0("Weighted logistic regression of ", ix, " RCS cutoff")
+  } else {
+    grouping <- "NHANES tertile"
+    cap <- paste0(
+      "Weighted logistic regression of ", ix, " and ",
+      cfg$project$disease, " (", grouping, ", svyglm", caption_suffix, ")"
+    )
+  }
   footnotes <- .lnw00_table_footnotes(M1 %||% character(0), M2 %||% character(0), M3, m3_significant)
   .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = as_main, table_footnotes = footnotes,
                        family = if (is_rcs) "rcs" else "tertile")
@@ -148,6 +162,11 @@ block_logistic_tertile_nhanes_weighted <- function(ctx, ...) {
   bl_cfg <- cfg$logistic_tertile_nhanes_weighted %||% list()
   block_name <- ctx$current_block %||% "logistic_tertile_nhanes_weighted"
   is_rcs <- grepl("_rcs$", block_name) || identical(bl_cfg$phase, "rcs")
+  if (!is_rcs && exists("pipeline_categorical_exposure_should_skip_block", mode = "function") &&
+      isTRUE(pipeline_categorical_exposure_should_skip_block(block_name, ctx))) {
+    cli::cli_alert_info("分类暴露：跳过 {block_name}，仅回归变量本身")
+    return(ctx)
+  }
   if (is_rcs) {
     bl_cfg$phase <- "rcs"
     bl_cfg$include_continuous_row <- isTRUE(bl_cfg$include_continuous_row %||% FALSE)
@@ -203,7 +222,9 @@ block_logistic_tertile_nhanes_weighted <- function(ctx, ...) {
   if (is_rcs) {
     cli::cli_h2("logistic_tertile_nhanes_weighted_rcs: RCS 分组加权 Table 2（{index_var}）")
     rcs_grp <- .lnw00_design_from_rcs_groups(ctx, design, bl_cfg)
-    grp <- list(design = rcs_grp$design, raw_levels = rcs_grp$raw_levels, cutoffs = rcs_grp$cutoffs)
+    cutoffs_rcs <- rcs_grp$cutoffs
+    attr(cutoffs_rcs, "is_rcs_group") <- TRUE
+    grp <- list(design = rcs_grp$design, raw_levels = rcs_grp$raw_levels, cutoffs = cutoffs_rcs)
     crude <- list(significant = TRUE, p_trend = NA_real_, p_regterm = NA_real_)
   } else {
     cli::cli_h2("logistic_tertile_nhanes_weighted: 加权三分位 Table 2（{index_var}）")
@@ -253,6 +274,14 @@ block_logistic_tertile_nhanes_weighted <- function(ctx, ...) {
   if (!is.null(m3a$tb)) tb <- m3a$tb
 
   ctx$results$logistic_table2_tertile_nhanes <- tb
+  if (exists(".lnw00_table_pvals", mode = "function")) {
+    pv <- .lnw00_table_pvals(tb)
+    ctx$results$logistic_table2_trend_p <- list(
+      crude = pv$trend_crude,
+      model1 = pv$trend_m1,
+      model2 = pv$trend_m2
+    )
+  }
   ctx$results$nhanes_logistic_tertile_crude_sig <- crude$significant
   ctx$results$nhanes_logistic_tertile_p_trend <- crude$p_trend
 

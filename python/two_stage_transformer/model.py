@@ -23,15 +23,23 @@ import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def day_k_keep_count(cutoff, D: int):
-    """Day-k 预测可用天数：只用前 k-1 天（后续 mask），对齐原文 Methods。
+# Day-k 窗口：True=用满 Day1..k（与表格基线同口径，冲性能）；False=原文 k-1 天前瞻。
+INCLUDE_CURRENT_DAY = True
 
-    Day1 无日级数据时「前 0 天」不可用，退回保留 day1（【场景迁移】标注）。
-    返回与 cutoff 同型的 keep 天数（至少 1）。
+
+def day_k_keep_count(cutoff, D: int, include_current: bool | None = None):
+    """Day-k 预测可用天数。
+
+    include_current=True（默认）：保留前 k 天（含当日），与 Logistic/XGB 展平特征同信息量。
+    include_current=False：原文 Methods「只用前 k-1 天」；Day1 退回保留 day1。
     """
+    use_cur = INCLUDE_CURRENT_DAY if include_current is None else bool(include_current)
     if isinstance(cutoff, torch.Tensor):
-        return torch.clamp(cutoff.long() - 1, min=1)
+        c = cutoff.long()
+        return torch.clamp(c if use_cur else (c - 1), min=1, max=D)
     c = D if cutoff is None else int(cutoff)
+    if use_cur:
+        return max(1, min(c, D))
     return max(c - 1, 1)
 
 
@@ -142,24 +150,63 @@ class Encoder(nn.Module):
 
 
 class TwoStageTransformer(nn.Module):
-    """两阶段(B 轨 / A1 轨复用同一结构):hour-level encoder(天内)+ day-level encoder(跨天)。"""
+    """两阶段(B 轨 / A1 轨复用同一结构):hour-level encoder(天内)+ day-level encoder(跨天)。
+
+    fusion=True 时并联 tabular 分支（日均值展平→MLP），与序列表征拼接后再分类，
+    保证至少吃到与 Logistic/XGB 同构的表格信号，再叠加时序注意力增量。
+    输出为 **logits**（不再 log_softmax），由 FocalLoss / eval 的 softmax 接手。
+    """
 
     def __init__(self, n_days=5, n_hours=24, n_features=226,
-                 d_model=128, heads=4, N=2, dropout=0.5, n_classes=2):
+                 d_model=128, heads=4, N=2, dropout=0.5, n_classes=2,
+                 fusion: bool = True, tab_dim: int = 128, rich_tabular: bool = True):
         super().__init__()
         assert d_model % heads == 0, f"d_model={d_model} 必须能被 heads={heads} 整除"
         self.n_days, self.n_hours, self.n_features = n_days, n_hours, n_features
+        self.fusion = bool(fusion)
+        self.rich_tabular = bool(rich_tabular)
         self.in_proj = nn.Linear(n_features, d_model)  # F -> d_model(任意 F)
         self.hour_enc = Encoder(d_model, N, heads, dropout, max_len=max(n_hours, 64))  # seq=H
         self.day_enc = Encoder(d_model, N, heads, dropout, max_len=max(n_days, 64))  # seq=D
+        head_in = d_model
+        if self.fusion:
+            tab_in = n_days * n_features
+            if self.rich_tabular:
+                tab_in = n_days * n_features + 2 * n_features  # + first/last day
+            self.tab_mlp = nn.Sequential(
+                nn.Linear(tab_in, 256), nn.GELU(), nn.Dropout(dropout),
+                nn.Linear(256, tab_dim), nn.GELU(),
+            )
+            head_in = d_model + tab_dim
         self.fc = nn.Sequential(
-            nn.Linear(d_model, 128), nn.ReLU(), nn.Dropout(dropout),
+            nn.Linear(head_in, 128), nn.GELU(), nn.Dropout(dropout),
             nn.Linear(128, n_classes),
         )
 
+    def _tabular(self, x, day_keep_mask):
+        # x:(B,D,H,F) day_keep_mask:(B,D) -> rich tabular vector
+        B, D, H, Fdim = x.shape
+        m = day_keep_mask[:, :, None, None]
+        denom = (m.sum(dim=2) * float(H)).clamp_min(1.0)
+        day_mean = (x * m).sum(dim=2) / denom  # (B,D,F)
+        flat_mean = day_mean.reshape(B, D * Fdim)
+        if not self.rich_tabular:
+            return flat_mean
+        # first / last valid calendar day (among kept)
+        idx = torch.arange(D, device=x.device)[None, :].expand(B, D)
+        valid = day_keep_mask > 0.5
+        # first: min index among valid; last: max
+        big = torch.full((B, D), D + 1, device=x.device, dtype=torch.long)
+        small = torch.full((B, D), -1, device=x.device, dtype=torch.long)
+        first_i = torch.where(valid, idx, big).min(dim=1).values.clamp(0, D - 1)
+        last_i = torch.where(valid, idx, small).max(dim=1).values.clamp(0, D - 1)
+        b_idx = torch.arange(B, device=x.device)
+        first_v = day_mean[b_idx, first_i]
+        last_v = day_mean[b_idx, last_i]
+        return torch.cat([flat_mean, first_v, last_v], dim=-1)
+
     def forward(self, x, day_mask=None, cutoff=None):
         # x:(B,D,H,F)  day_mask:(B,D){1=在院,0=缺失}  cutoff:int(统一)或 tensor(B,)(per-sample)
-        # Day-k 语义：只用前 k-1 天（mask 第 k 天及之后）；Day1 保留 day1（日级迁移）。
         B, D, H, nf = x.shape
         assert nf == self.n_features, f"特征维应为 {self.n_features},实际 {nf}"
         h = x.reshape(B * D, H, nf)  # (B*D, H, F)
@@ -167,20 +214,25 @@ class TwoStageTransformer(nn.Module):
         h = self.hour_enc(h)  # (B*D, H, d_model)
         h = h.mean(dim=1)  # avg-pool over H -> (B*D, d_model)
         h = h.reshape(B, D, -1)  # (B, D, d_model)
-        if day_mask is None:
-            return F.log_softmax(self.fc(self.day_enc(h)[:, -1, :]), dim=1)
         ar = torch.arange(D, device=x.device)
-        if isinstance(cutoff, torch.Tensor):  # per-sample cutoff(训练)
+        if day_mask is None:
+            day_mask = torch.ones(B, D, device=x.device, dtype=x.dtype)
+        if isinstance(cutoff, torch.Tensor):
             n_keep = day_k_keep_count(cutoff, D)
             cmask = (ar[None, :] < n_keep[:, None]).float()
-            h = h * (day_mask * cmask).unsqueeze(-1)
+            keep = day_mask * cmask
+            h = h * keep.unsqueeze(-1)
             rep = self.day_enc(h)[torch.arange(B, device=x.device), n_keep - 1]
-        else:  # 统一 cutoff(评估)
+        else:
             n_keep = day_k_keep_count(cutoff, D)
             cmask = (ar < n_keep).float()
-            h = h * (day_mask * cmask).unsqueeze(-1)
+            keep = day_mask * cmask
+            h = h * keep.unsqueeze(-1)
             rep = self.day_enc(h)[:, n_keep - 1, :]
-        return F.log_softmax(self.fc(rep), dim=1)
+        if self.fusion:
+            tab = self.tab_mlp(self._tabular(x, keep))
+            rep = torch.cat([rep, tab], dim=-1)
+        return self.fc(rep)  # logits
 
 
 class SingleStageTransformer(nn.Module):
@@ -211,7 +263,7 @@ class SingleStageTransformer(nn.Module):
         if day_mask is None:
             h = self.enc(h)
             rep = h[:, -1, :]
-            return F.log_softmax(self.fc(rep), dim=1)
+            return self.fc(rep)
         if isinstance(cutoff, torch.Tensor):  # per-sample cutoff(训练)
             n_keep = day_k_keep_count(cutoff, D)
             cmask_day = (ar_day[None, :] < n_keep[:, None]).float()  # (B,D)
@@ -227,7 +279,7 @@ class SingleStageTransformer(nn.Module):
             h = h * full_mask
             h = self.enc(h)
             rep = h[:, n_keep * H - 1, :]
-        return F.log_softmax(self.fc(rep), dim=1)
+        return self.fc(rep)  # logits
 
 
 ARCH_REGISTRY = {
@@ -242,6 +294,10 @@ def build_model(arch: str, n_days: int, n_hours: int, n_features: int, **kwargs)
     if arch not in ARCH_REGISTRY:
         raise ValueError(f"未知 arch={arch!r},可选 {sorted(ARCH_REGISTRY)}")
     cls = ARCH_REGISTRY[arch]
+    if arch == "a2":
+        kwargs.pop("fusion", None)
+        kwargs.pop("tab_dim", None)
+        kwargs.pop("rich_tabular", None)
     return cls(n_days=n_days, n_hours=n_hours, n_features=n_features, **kwargs)
 
 

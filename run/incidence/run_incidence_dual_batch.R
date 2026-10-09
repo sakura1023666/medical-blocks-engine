@@ -126,25 +126,34 @@ setwd(script_path)
 args     <- commandArgs(trailingOnly = TRUE)
 run_opts <- .parse_batch_args(args)
 
-root_guess <- normalizePath(getwd(), winslash = "/")
+# 引擎 root：用于 source R/Blocks；课题 root：INCIDENCE_BATCH_ROOT / 位置参数
+engine_root <- normalizePath(getwd(), winslash = "/")
+.study_env <- Sys.getenv("INCIDENCE_BATCH_ROOT", unset = "")
 if (!is.null(run_opts$root) && nzchar(run_opts$root)) {
-  root_guess <- normalizePath(run_opts$root, winslash = "/", mustWork = TRUE)
+  study_root <- normalizePath(run_opts$root, winslash = "/", mustWork = TRUE)
+} else if (nzchar(.study_env) && dir.exists(.study_env)) {
+  study_root <- normalizePath(.study_env, winslash = "/", mustWork = TRUE)
+} else {
+  study_root <- engine_root
 }
+# 保持向后兼容：root 仍表示引擎（source 路径）；课题路径靠 env + config output_base
+Sys.setenv(INCIDENCE_BATCH_ROOT = study_root)
+Sys.setenv(MEDICAL_BLOCKS_ROOT = engine_root)
+root <- engine_root
 
 owd <- getwd()
-setwd(root_guess)
+setwd(engine_root)
 on.exit(setwd(owd), add = TRUE)
-root <- root_guess
 
 # ── 确定 config 路径（--config 优先，缺省用引擎内默认路径）──────────────────
 config_path <- if (!is.null(run_opts$config) && nzchar(run_opts$config)) {
   normalizePath(run_opts$config, winslash = "/", mustWork = TRUE)
 } else {
-  file.path(root, "configs/templates/config_incidence_dual_batch.template.R")
+  file.path(engine_root, "configs/templates/config_incidence_dual_batch.template.R")
 }
 
-source(file.path(root, "R/feishu_env.R"))
-feishu_load_dotenv(root)
+source(file.path(engine_root, "R/feishu_env.R"))
+feishu_load_dotenv(engine_root)
 
 # ── 加载依赖 ─────────────────────────────────────────────────────────────────
 source(file.path(root, "R/utils.R"))

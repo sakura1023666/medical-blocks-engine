@@ -26,6 +26,18 @@
 #  config$tst_landmark（可选）：pause_enable = TRUE
 ###############################################################################
 
+local({
+  common <- file.path("Blocks/71_two_stage_transformer_stroke/00tst_common.R")
+  root_guess <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  cands <- c(
+    common,
+    file.path(root_guess, common),
+    "/mnt/e/01block/01Block-new-Final/Blocks/71_two_stage_transformer_stroke/00tst_common.R"
+  )
+  hit <- cands[file.exists(cands)][1L]
+  if (length(hit) && !is.na(hit)) source(hit, local = FALSE)
+})
+
 .tst03_pause <- function(ctx, reason, suggestion, data_snapshot = NULL) {
   snap <- data_snapshot
   if (is.null(snap)) {
@@ -62,6 +74,11 @@ block_tst_landmark <- function(ctx, ...) {
     )
   }
   los_days <- suppressWarnings(as.numeric(cohort[[los_col]]))
+  y01 <- if (exists(".tst71_coerce_binary01", mode = "function")) {
+    .tst71_coerce_binary01(cohort[[outcome_col]], cfg)
+  } else {
+    suppressWarnings(as.integer(as.character(cohort[[outcome_col]])))
+  }
 
   landmarks <- as.integer(cfg$tst_stroke$landmarks %||% c(24L, 48L, 72L, 96L, 120L))
   landmark_ids <- setNames(vector("list", length(landmarks)), as.character(landmarks))
@@ -74,7 +91,7 @@ block_tst_landmark <- function(ctx, ...) {
     ids_L <- cohort$tst_patient_id[eligible]
     landmark_ids[[as.character(L)]] <- ids_L
     n_elig <- length(ids_L)
-    n_death_elig <- sum(cohort[[outcome_col]][eligible] == 1L)
+    n_death_elig <- sum(y01[eligible] == 1L, na.rm = TRUE)
     summary_rows[[i]] <- data.frame(
       landmark_hours = L, landmark_days = lm_days,
       n_eligible = n_elig, n_death_eligible = n_death_elig,

@@ -1,0 +1,51 @@
+# 轨迹预后发表产物铁律（全项目复用）
+
+凡 **轨迹预后 / JLCM / `trajectory_prognosis`** 双库课题，发表图收口必须走引擎，禁止再堆 `repair_*.R` hotfix。
+
+## 铁律
+
+1. **唯一收口**：`R/trajectory_pub_finalize.R` → `trajectory_batch_finalize_index_outputs()`（worker 成功尾自动挂；也可 `run/trajectory_prognosis/finalize_trajectory_pub.R`）。
+2. **Fig1**：必须 `attrition_draw_dual_panel_pdf`（发病/预后同款 CONSORT），禁止 PLACEHOLDER / 纯 magick 粘贴旧框。
+3. **竖拼默认**：Trajectory / Dynpred / 轨迹 KM（by trajectory class）双库拼图默认 **stack**（`R/dual_db_combine_figures.R`）；可用 `dual_db$combine_figures$layout_by_role` 覆盖。
+4. **共享分段切点**：`trajectory_pub$shared_piecewise_cut = list(enable=TRUE, mode="min_best")` → 取各库最优 cut 的**较小者**；**Table 3 双库同切点**；**Fig S3 只留选型库单图**（不拼双库）。
+5. **13 图白名单**：Fig1–4 + S1–S9（见 `trajectory_paper_figure_stems()`）；`enforce_13_figures=TRUE` 清掉非名单残留。
+6. **四目录**：`export_pub_figures(Figures/)` → pdf/png/tiff/image_information。
+7. **亚组**：`trajectory_subgroup_class$auto_scan_categorical = FALSE` + 显式 `subgroup_vars`（双库同一名单）；年龄二分类见 `age_subgroup_binary` 铁律。
+8. **类别对齐后**：`trajectory$skip_class_swap = TRUE`（或 align map），禁止多数类再翻一次；**Table 2 最优 ng 行 Class 占比**须按 `Tables/Summary/class_align_*.csv` 与 Fig2 一致（eICU 常为 1↔2 对调）。
+9. **表去重与附表编号**：`fix_tables=TRUE` → 删基线表 `PlateletCount`/`UreaNitrogen` 双行（保留 `Platelet Count`/`BUN`）；根 `Tables/` 仅 Table1–3 + **S1–S8**（无重复号、不跳 S5）；乱号进 `_archive_messy/`。
+10. **拼图标签空格**：`pub_figure_combine_ab_pdfs` 已 `shQuote`；KM 空白首页用 `best_content_page=TRUE` / `pub_figure_pdf_best_content_page()`。
+11. **禁止**：在 `run/trajectory_prognosis/` 为单指标新建长期 `repair_gpr_*.R`；一过性脚本用完进 `_archive_oneoff/`。
+
+## 实现入口
+
+| 能力 | 入口 |
+|------|------|
+| finalize | `R/trajectory_pub_finalize.R` |
+| CLI | `run/trajectory_prognosis/finalize_trajectory_pub.R` |
+| Fig1 CONSORT | `R/attrition_log.R` → `attrition_draw_dual_panel_pdf` |
+| 竖拼布局 | `R/dual_db_combine_figures.R` → `.dual_db_layout_for_key` |
+| force_cut | `Blocks/.../01block_trajectory_piecewise_cox.R` → `force_cut` |
+| 分库 curate | `R/trajectory_pub_curate.R` |
+| 表去重/对齐/根镜像 | `trajectory_fix_and_sync_pub_tables()` |
+| 列别名防双行 | `Blocks/01_column_mappings` + `trajectory_index_column_aliases` |
+| 模板 | `configs/templates/config_trajectory_prognosis_batch.template.R` → `trajectory_pub` |
+
+## 新课题检查清单
+
+- [ ] config 含 `trajectory_pub`（或接受引擎默认 enable）
+- [ ] `trajectory_subgroup_class` 已锁 `subgroup_vars` 且 `auto_scan_categorical=FALSE`
+- [ ] worker / finalize 后根 `Figures/pdf` 为 13 张正式名
+- [ ] Fig1 非 PLACEHOLDER；S3 为单库；Table3 两库切点区间一致
+- [ ] `Figures/{pdf,png,tiff,image_information}` 四目录齐全
+- [ ] Table1 无 PlateletCount/Platelet Count、BUN/UreaNitrogen 双行
+- [ ] Table2 最优 ng 的 Class1 占比与 Fig2 多数类一致
+- [ ] 根 Tables 为 S1–S8 连续编号，无 S9+ 乱号
+
+## 反例（禁止）
+
+- 双库 Table3 一个 (0,12] 一个 (0,25]
+- Fig S3 左右拼两库、却不统一 Table3 切点
+- `auto_scan_categorical=TRUE` 导致 MIMIC 多出 Language/Marital/CRRT
+- 在课题 `scripts/` 或 `run/.../repair_*.R` 长期绕过 finalize
+- eICU Table2 Class1=5.7% 而正文/Fig2 Class1=94.3%
+- 根 Tables 同时有多份 Table S1（插补+多因素）且缺 S5

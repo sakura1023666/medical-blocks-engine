@@ -100,12 +100,12 @@
 }
 
 .lrc16_export_table <- function(ctx, cfg, bl_cfg, rt, cutoffs_txt, M1, M2, M3 = NULL, m3_significant = NULL) {
-  cap <- paste0(
-    "Weighted logistic regression of ", bl_cfg$index_var %||% "exposure", " and ",
-    cfg$project$disease, " (NHANES RCS cutoffs: ", cutoffs_txt, ", svyglm)"
-  )
+  ix <- as.character(bl_cfg$index_var %||% "exposure")[1L]
+  # 「RCS cutoff」须在括号外，否则 shorten 剥括号后无法归入 Table S-XX
+  cap <- paste0("Weighted logistic regression of ", ix, " RCS cutoff")
   footnotes <- .lnw00_table_footnotes(M1, M2, M3, m3_significant)
-  .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = FALSE, table_footnotes = footnotes)
+  .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = FALSE, table_footnotes = footnotes,
+                       family = "rcs")
 }
 
 block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
@@ -138,10 +138,17 @@ block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
   bl_cfg$index_var <- index_var
   design <- .lnw00_design_index_as_numeric(design, index_var)
 
-  cutoffs <- as.numeric(ctx$results[["nhanes_rcs_cutoffs_all"]] %||% numeric(0))
-  cutoffs <- sort(unique(cutoffs[is.finite(cutoffs)]))
+  cut_use <- list(
+    all = as.numeric(ctx$results[["nhanes_rcs_cutoffs_all"]] %||% numeric(0)),
+    or1 = as.numeric(ctx$results$nhanes_rcs_cutoff_or1 %||% numeric(0)),
+    peak = as.numeric(ctx$results$nhanes_rcs_cutoff_peak %||% numeric(0))
+  )
+  primary <- suppressWarnings(as.numeric(ctx$results$nhanes_rcs_primary_cutoff %||% NA_real_)[1L])
+  rn_cfg <- cfg$rcs_nhanes %||% list()
+  group_mode <- tolower(as.character(rn_cfg$group_cutoffs %||% "primary")[1L])
+  cutoffs <- rcs_table_group_cutoffs(cut_use, primary = primary, mode = group_mode)
   if (!length(cutoffs)) {
-    msg <- "未找到 RCS 切点（nhanes_rcs_cutoffs_all 为空）。"
+    msg <- "未找到 RCS 切点（nhanes_rcs_primary_cutoff / nhanes_rcs_cutoffs_all 为空）。"
     if (.lrc16_should_pause(bl_cfg, "pause_on_missing_cutoffs", TRUE)) {
       .lrc16_pause(ctx, msg, "先 run_block(rcs_nhanes)", NULL)
     }
@@ -149,18 +156,38 @@ block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
     return(ctx)
   }
 
-  # 规则（发病专属）：RCS 非线性 P 阳性才做 S8（cutoff 分组 Logistic）；
-  # 不阳性 → 不导出本表（下游编号自动顺延）。config$…$require_nonlinear_sig=FALSE 可关闭
-  if (isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)) {
+  # 规则：单库默认要求非线性显著才导出 RCS cutoff 表。
+  # 双库发病：为与对侧 S-XX 对齐，只要有切点就导出（脚注可反映非线性 P）。
+  require_nl <- isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)
+  if (isTRUE((cfg$dual_db %||% list())$enable) &&
+      !isFALSE(bl_cfg$dual_db_export_even_if_linear %||% TRUE)) {
+    require_nl <- FALSE
+  }
+  if (isTRUE(require_nl)) {
     p_nl <- suppressWarnings(
       as.numeric(((ctx$results$nhanes_rcs %||% list())$model2 %||% list())$p_nonlin)
     )
+    if (!is.finite(p_nl)) {
+      p_nl <- suppressWarnings(as.numeric(
+        ((ctx$results$rcs_nhanes_panel_stats %||% list())$Model2 %||% list())$p_nonlinear
+      ))
+    }
     if (is.finite(p_nl) && p_nl >= 0.05) {
       ctx$results$logistic_rcs_cutoff_nhanes_ns_skipped <- TRUE
       cli::cli_alert_warning(
         "logistic_rcs_cutoff_nhanes_weighted: RCS 非线性 P={round(p_nl,3)} >= 0.05，按规则不导出 Table S8（cutoff 分组 Logistic）。"
       )
       return(ctx)
+    }
+  } else if (isTRUE((cfg$dual_db %||% list())$enable)) {
+    p_nl <- suppressWarnings(as.numeric(
+      ((ctx$results$rcs_nhanes_panel_stats %||% list())$Model2 %||% list())$p_nonlinear %||%
+        ((ctx$results$nhanes_rcs %||% list())$model2 %||% list())$p_nonlin
+    ))
+    if (is.finite(p_nl) && p_nl >= 0.05) {
+      cli::cli_alert_info(
+        "logistic_rcs_cutoff_nhanes_weighted: 双库对齐仍导出 RCS cutoff 表（非线性 P={round(p_nl, 3)}）"
+      )
     }
   }
 
@@ -174,7 +201,9 @@ block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
 
   cli::cli_h2("logistic_rcs_cutoff_nhanes_weighted: RCS 切点分组 Logistic（{index_var}）")
   cutoffs_txt <- paste(rcs_format_cutoff(cutoffs), collapse = ", ")
-  cli::cli_alert_info("使用 Model2 RCS 切点 ({length(cutoffs)} 个): {cutoffs_txt}")
+  cli::cli_alert_info(
+    "Table S-XX 使用 primary cutoff（mode={group_mode}，{length(cutoffs)} 个）: {cutoffs_txt}"
+  )
 
   grp <- .lrc16_apply_rcs_cutoffs(design, index_var, cutoffs)
   tb <- .lrc16_build_table(

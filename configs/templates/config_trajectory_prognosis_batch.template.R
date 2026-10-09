@@ -165,12 +165,27 @@ config <- list(
     require_survivor_dyn_better = TRUE,
     survivor_dyn_better_min_margin = 0.02
   ),
-  trajectory_piecewise_cox = list(index_vars = c("APRI")),
+  trajectory_piecewise_cox = list(
+    index_vars = c("APRI"),
+    # force_cut = NULL,  # 非空则本库强制该切点；双库共享切点见 trajectory_pub
+    max_followup = 28L
+  ),
   trajectory_weibull_compare = list(
     index_vars = c("APRI"), landmarks = 4:14, jlcm_ng = NULL,
     class_metric = "youden", include_youden_metrics = TRUE, top_prop = 0.2
   ),
-  trajectory_subgroup_class = list(index_vars = c("APRI")),
+  # 双库亚组铁律：显式锁同一变量集，禁止 auto_scan 扩库特异列
+  # 年龄切点依据：【必改】按病种文献填写（ICU 老年常用 65）
+  trajectory_subgroup_class = list(
+    index_vars = c("APRI"),
+    age_var = "Age",
+    age_cutoff = 65L,
+    auto_scan_categorical = FALSE,
+    subgroup_vars = c(
+      "Gender", "Race", "Ventilation"
+      # 共病等按课题补齐，双库同一名单
+    )
+  ),
   trajectory_baseline_by_class = list(
     index_vars = c("APRI"),
     vars_from = "table1",
@@ -181,6 +196,30 @@ config <- list(
     class_for_test = NULL,
     use_optimal_class_ng = TRUE,
     outcome_vars = c("survival_28d"), p_threshold = 1.0
+  ),
+
+  # 双库发表收口（worker 成功后自动调用 trajectory_batch_finalize_index_outputs）
+  # 详见 .cursor/rules/trajectory_pub_reuse.mdc ；勿再堆 run/.../fix_* 课题脚本
+  trajectory_pub = list(
+    enable = TRUE,
+    fig1_consort = TRUE,           # attrition_draw_dual_panel_pdf
+    combine_figures = TRUE,        # Trajectory/Dynpred/轨迹KM 默认竖拼
+    skip_class_swap = TRUE,        # 图/表同一原始 JLCM 标签
+    drop_missing_overview = FALSE, # TRUE → KM 起编 S1（无 Missing overview）
+    shared_piecewise_cut = list(   # Table3 双库同切点；可选根目录只留主库
+      enable = TRUE,
+      mode = "min_best",
+      root_keep_db = NULL          # 如 "mimic"
+    ),
+    align_dual_tables = list(      # 双库 Table1/S1/S2/S3/S5 行交集对齐
+      enable = FALSE,
+      kinds = c("table1", "s1", "s2", "s3", "s5"),
+      keep_vars = NULL
+    ),
+    figure_extra = character(0),
+    enforce_13_figures = TRUE,
+    export_formats = TRUE,
+    fix_tables = TRUE
   ),
 
   feishu = list(
@@ -223,6 +262,15 @@ config$dual_db <- list(
     output_subdir = file.path(.batch_project_root, "data/mimic"),
     lab_sources = list(
       path = file.path(.batch_data_root, "mimic/mimic-实验室指标-all-1~30天.csv")
+    )
+  ),
+  # 拼图布局可覆盖（默认 Trajectory/Dynpred/轨迹KM=stack，见 dual_db_combine_figures）
+  combine_figures = list(
+    layout_by_role = list(
+      Trajectory = "stack",
+      Dynpred = "stack",
+      "Dynamic prediction" = "stack",
+      "Kaplan Meier" = "stack"
     )
   )
 )

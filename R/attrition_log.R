@@ -66,6 +66,51 @@ attrition_auto_append_nrow <- function(ctx, block_id, n_before, n_after) {
   )
 }
 
+#' Record the cohort eligible for a complex-survey design.
+#' Keep ctx$data unchanged; the survey design remains the analysis-set authority.
+#' Always records when design_n <= n_before (incl. 0 dropped), and names the weight.
+attrition_record_survey_weight_step <- function(ctx, design_n) {
+  n_before <- attrition_n_current(ctx)
+  design_n <- as.integer(design_n)[1L]
+  if (!is.finite(n_before) || !is.finite(design_n) ||
+      design_n < 0L || design_n > n_before) {
+    return(ctx)
+  }
+  wi <- ((ctx$results %||% list())$nhanes_weight_info) %||% NULL
+  wt <- as.character(wi$weight_col %||% "")[1L]
+  src <- as.character(wi$source %||% "")[1L]
+  if (!nzchar(wt)) {
+    wt <- as.character(
+      ((ctx$config %||% list())$nhanes %||% list())$survey_weight %||% "new_Weight"
+    )[1L]
+  }
+  exclude_label <- if (nzchar(src)) {
+    sprintf("Missing or non-positive survey weights (%s from %s)", wt, src)
+  } else {
+    sprintf("Missing or non-positive survey weights (%s)", wt)
+  }
+  n_drop_meta <- if (is.finite(wi$n_dropped %||% NA_integer_)) {
+    as.integer(wi$n_dropped)[1L]
+  } else {
+    as.integer(n_before - design_n)
+  }
+  attrition_record(
+    ctx,
+    "after_survey_weight",
+    "Eligible survey-weighted cohort",
+    design_n,
+    meta = list(
+      block = "obj",
+      source = "survey_design",
+      exclude_label = exclude_label,
+      weight_col = wt,
+      weight_source = src,
+      n_dropped_weight = n_drop_meta,
+      always_show_exclude = TRUE
+    )
+  )
+}
+
 attrition_warn <- function(msg) {
   if (requireNamespace("cli", quietly = TRUE)) {
     cli::cli_alert_warning(msg)
@@ -281,29 +326,92 @@ attrition_resolved_to_row <- function(res) {
   )
 }
 
-attrition_apply_outcome_breakdown <- function(rows_df, ctx, config) {
+#' 解析纳排图底部分叉：发病=病例/对照；预后=死亡/存活。
+#' 人数不写进末步标题，供 CONSORT 左右两框使用。
+attrition_resolve_outcome_fork <- function(ctx, config) {
   attr_cfg <- config$attrition %||% list()
-  if (!isTRUE(attr_cfg$outcome_breakdown %||% FALSE)) return(rows_df)
-  if (is.null(rows_df) || !nrow(rows_df)) return(rows_df)
+  if (identical(attr_cfg$outcome_breakdown, FALSE)) return(NULL)
 
-  data_cfg <- config$data %||% list()
-  oc <- data_cfg$outcome_column
+  design_vars <- tryCatch(
+    (ctx$results$nhanes_design %||% list())$variables,
+    error = function(e) NULL
+  )
+  d <- if (is.data.frame(design_vars) && nrow(design_vars)) {
+    design_vars
+  } else {
+    ctx$data$imputed %||% ctx$data$cleaned %||% ctx$data$raw
+  }
+  if (!is.data.frame(d) || !nrow(d)) return(NULL)
+
   proj <- config$project %||% list()
+  data_cfg <- config$data %||% list()
+  surv <- config$survival %||% list()
+  study_type <- tolower(as.character(proj$study_type %||% "")[1L])
+  oc <- as.character(
+    data_cfg$outcome_column %||%
+      (config$incidence %||% list())$outcome_var %||% ""
+  )[1L]
   ag <- proj$analysis_group
   rg <- proj$reference_group
-  d <- ctx$data$imputed %||% ctx$data$cleaned %||% ctx$data$raw
-  if (!is.data.frame(d) || is.null(oc) || !oc %in% names(d)) return(rows_df)
-  if (is.null(ag) || is.null(rg)) return(rows_df)
+  is_prognosis <- identical(study_type, "prognosis") ||
+    identical(study_type, "survival") ||
+    isTRUE(attr_cfg$fork_mode %||% "" == "prognosis")
 
-  vals <- as.character(d[[oc]])
-  n_case <- sum(vals == as.character(ag), na.rm = TRUE)
-  n_ctrl <- sum(vals == as.character(rg), na.rm = TRUE)
+  if (!is_prognosis && nzchar(oc) && oc %in% names(d) &&
+      !is.null(ag) && !is.null(rg)) {
+    vals <- as.character(d[[oc]])
+    n_case <- sum(vals == as.character(ag)[1L], na.rm = TRUE)
+    n_ctrl <- sum(vals == as.character(rg)[1L], na.rm = TRUE)
+    if (is.finite(n_case) && is.finite(n_ctrl) && (n_case + n_ctrl) > 0L) {
+      left_lab <- as.character(attr_cfg$fork_case_label %||%
+                                 sprintf("%s group", as.character(ag)[1L]))[1L]
+      right_lab <- as.character(attr_cfg$fork_ctrl_label %||%
+                                  sprintf("%s group", as.character(rg)[1L]))[1L]
+      return(list(
+        left_label = left_lab, left_n = as.integer(n_case),
+        right_label = right_lab, right_n = as.integer(n_ctrl),
+        mode = "incidence"
+      ))
+    }
+  }
+
+  ev <- as.character(surv$event_var %||% data_cfg$event_var %||% "fustatus")[1L]
+  if (nzchar(ev) && ev %in% names(d)) {
+    raw <- d[[ev]]
+    evv <- suppressWarnings(as.integer(as.character(raw)))
+    if (!length(evv) || all(is.na(evv))) {
+      ch <- tolower(trimws(as.character(raw)))
+      evv <- ifelse(ch %in% c("1", "true", "dead", "expired", "death", "yes"), 1L,
+                    ifelse(ch %in% c("0", "false", "alive", "censor", "censored", "no"), 0L, NA_integer_))
+    }
+    n_dead <- sum(evv == 1L, na.rm = TRUE)
+    n_alive <- sum(evv == 0L, na.rm = TRUE)
+    if (is.finite(n_dead) && is.finite(n_alive) && (n_dead + n_alive) > 0L) {
+      left_lab <- as.character(attr_cfg$fork_event_label %||% "Expired group")[1L]
+      right_lab <- as.character(attr_cfg$fork_censor_label %||% "Alive group")[1L]
+      return(list(
+        left_label = left_lab, left_n = as.integer(n_dead),
+        right_label = right_lab, right_n = as.integer(n_alive),
+        mode = "prognosis"
+      ))
+    }
+  }
+  NULL
+}
+
+attrition_apply_outcome_breakdown <- function(rows_df, ctx, config) {
+  if (is.null(rows_df) || !nrow(rows_df)) return(rows_df)
+  fork <- attrition_resolve_outcome_fork(ctx, config)
+  rows_df$fork_left_label <- NA_character_
+  rows_df$fork_left_n <- NA_integer_
+  rows_df$fork_right_label <- NA_character_
+  rows_df$fork_right_n <- NA_integer_
+  if (is.null(fork)) return(rows_df)
   last <- nrow(rows_df)
-  rows_df$step[last] <- paste0(
-    rows_df$step[last],
-    sprintf(" (%s: %s; %s: %s)", ag, format(n_case, big.mark = ","),
-            rg, format(n_ctrl, big.mark = ","))
-  )
+  rows_df$fork_left_label[last] <- as.character(fork$left_label)[1L]
+  rows_df$fork_left_n[last] <- as.integer(fork$left_n)[1L]
+  rows_df$fork_right_label[last] <- as.character(fork$right_label)[1L]
+  rows_df$fork_right_n[last] <- as.integer(fork$right_n)[1L]
   rows_df
 }
 
@@ -363,9 +471,85 @@ attrition_finalize_rows <- function(ctx, config) {
     }
   }
 
+  # 发表口径：无任何起点行时，自动前置 "Starting cohort"（原始队列 n）
+  if (!any(grepl("^starting", tolower(rows_df$step_id)))) {
+    n_raw <- tryCatch(attrition_load_rawdata_n(ctx), error = function(e) NA_integer_)
+    n_first <- if (nrow(rows_df)) suppressWarnings(as.integer(rows_df$n)[1L]) else NA_integer_
+    if (is.finite(n_raw) && is.finite(n_first) && n_raw >= n_first && n_raw > 0L) {
+      rows_df <- rbind(
+        data.frame(
+          step = "Starting cohort", n = n_raw, source = "rawdata",
+          kind = "include", step_id = "starting_cohort",
+          exclude_label = NA_character_, stringsAsFactors = FALSE
+        ),
+        rows_df
+      )
+    }
+  }
+
   rows_df <- attrition_apply_outcome_breakdown(rows_df, ctx, config)
-  keep <- intersect(c("step", "n", "source", "kind"), names(rows_df))
+  keep <- intersect(
+    c("step", "n", "source", "kind", "step_id", "exclude_label",
+      "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"),
+    names(rows_df)
+  )
   rows_df[, keep, drop = FALSE]
+}
+
+#' 双库 CONSORT 纳排：各库先画单页，再横排 A|B（禁止旧式 mfrow 方框）。
+attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
+                                          font_family = "Times New Roman",
+                                          footnotes_by_db = NULL) {
+  if (is.null(rows_by_db) || !length(rows_by_db)) return(invisible(FALSE))
+  nms <- names(rows_by_db)
+  if (is.null(nms) || !any(nzchar(nms))) nms <- as.character(seq_along(rows_by_db))
+  tmp <- character(0)
+  on.exit({
+    if (length(tmp)) unlink(tmp)
+  }, add = TRUE)
+  for (i in seq_along(rows_by_db)) {
+    p <- tempfile(fileext = ".pdf")
+    title <- if (!is.null(titles) && length(titles) >= i && nzchar(as.character(titles[[i]])[1L])) {
+      as.character(titles[[i]])[1L]
+    } else {
+      nms[[i]]
+    }
+    fn <- character(0)
+    if (!is.null(footnotes_by_db)) {
+      key <- nms[[i]]
+      if (!is.null(footnotes_by_db[[key]])) {
+        fn <- as.character(footnotes_by_db[[key]])
+      } else if (length(footnotes_by_db) >= i) {
+        fn <- as.character(footnotes_by_db[[i]])
+      }
+      fn <- fn[nzchar(fn)]
+    }
+    ok <- isTRUE(attrition_draw_pdf(
+      rows_by_db[[i]], title, p, font_family = font_family, footnote = fn
+    ))
+    if (!isTRUE(ok) || !file.exists(p)) return(invisible(FALSE))
+    tmp <- c(tmp, p)
+  }
+  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+  if (length(tmp) == 1L) {
+    ok <- file.copy(tmp[[1L]], dest, overwrite = TRUE)
+    return(invisible(isTRUE(ok) && file.exists(dest)))
+  }
+  if (length(tmp) >= 2L && exists("pub_figure_combine_ab_pdfs", mode = "function")) {
+    ok <- isTRUE(tryCatch(
+      pub_figure_combine_ab_pdfs(tmp[[1L]], tmp[[2L]], dest, stack = FALSE),
+      error = function(e) FALSE
+    ))
+    if (isTRUE(ok) && file.exists(dest)) return(invisible(TRUE))
+  }
+  if (requireNamespace("pdftools", quietly = TRUE)) {
+    ok <- tryCatch({
+      pdftools::pdf_combine(tmp, output = dest)
+      file.exists(dest)
+    }, error = function(e) FALSE)
+    return(invisible(isTRUE(ok)))
+  }
+  invisible(FALSE)
 }
 
 .attrition_pdf_device <- function(pdf_path, width, height, family) {
@@ -445,8 +629,81 @@ attrition_weight_footnote <- function(ctx) {
   c(line1, line2)
 }
 
+.attrition_wrap_label <- function(txt, width = 32L) {
+  txt <- as.character(txt %||% "")[1L]
+  if (!nzchar(txt)) return("")
+  paste(strwrap(txt, width = as.integer(width)[1L]), collapse = "\n")
+}
+
+.attrition_fork_from_rows <- function(rows) {
+  if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(NULL)
+  need <- c("fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n")
+  if (!all(need %in% names(rows))) return(NULL)
+  last <- nrow(rows)
+  ln <- suppressWarnings(as.integer(rows$fork_left_n[last])[1L])
+  rn <- suppressWarnings(as.integer(rows$fork_right_n[last])[1L])
+  ll <- as.character(rows$fork_left_label[last])[1L]
+  rl <- as.character(rows$fork_right_label[last])[1L]
+  if (!is.finite(ln) || !is.finite(rn) || !nzchar(ll) || !nzchar(rl)) return(NULL)
+  list(left_label = ll, left_n = ln, right_label = rl, right_n = rn)
+}
+
+.attrition_grid_roundbox <- function(x0, y0, x1, y1, fill, family, text,
+                                     fontsize = 10, fontface = "bold") {
+  grid::grid.roundrect(
+    x = grid::unit((x0 + x1) / 2, "npc"),
+    y = grid::unit((y0 + y1) / 2, "npc"),
+    width = grid::unit(abs(x1 - x0), "npc"),
+    height = grid::unit(abs(y1 - y0), "npc"),
+    r = grid::unit(0.012, "npc"),
+    gp = grid::gpar(fill = fill, col = "#222222", lwd = 1.2)
+  )
+  grid::grid.text(
+    text,
+    x = grid::unit((x0 + x1) / 2, "npc"),
+    y = grid::unit((y0 + y1) / 2, "npc"),
+    gp = grid::gpar(
+      fontsize = fontsize, fontface = fontface, fontfamily = family,
+      lineheight = 1.15, col = "#111111"
+    )
+  )
+}
+
+#' 从 step_id / 步骤标签推断「本步排除了什么」的可读原因
+.attrition_exclude_reason <- function(step_id, step_label) {
+  sid <- tolower(trimws(as.character(step_id %||% "")[1L]))
+  lab <- as.character(step_label %||% "")[1L]
+  hit <- switch(sid,
+    after_age_filter = , age_filter = "Age not in eligible range",
+    after_data_clean = , data_clean = "Incomplete covariates",
+  starting_cohort = "Missing exposure or key covariates",
+    after_imputation = , imputation = "Missing key variables",
+    after_index = , index = "Index not computable",
+    analysis_exclusion = , after_analysis_exclusion = "Disease-related variables",
+    ""
+  )
+  if (nzchar(hit)) return(hit)
+  # 从标签兜底（"After data cleaning" → data cleaning 相关）
+  if (grepl("clean", lab, ignore.case = TRUE)) return("Incomplete covariates after data cleaning")
+  if (grepl("imput", lab, ignore.case = TRUE)) return("Missing exposure or key covariates")
+  if (grepl("age", lab, ignore.case = TRUE)) return("Age outside inclusion criteria")
+  ""
+}
+
+.attrition_grid_arrow <- function(x0, y0, x1, y1, family = "Times", lty = 1) {
+  grid::grid.lines(
+    x = grid::unit(c(x0, x1), "npc"),
+    y = grid::unit(c(y0, y1), "npc"),
+    arrow = grid::arrow(type = "closed", length = grid::unit(7, "pt"), angle = 20),
+    gp = grid::gpar(col = "#222222", fill = "#222222", lwd = 1.15, lty = lty)
+  )
+}
+
+#' CONSORT 纳排图（对齐 TST Figure 1）：主列圆角纳入框、右侧 Exclude、
+#' 底部分叉为发病病例/对照或预后 Expired/Alive。
 attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New Roman",
-                               footnote = character(0), box_fill = "#F7F7F7") {
+                               footnote = character(0), box_fill = "#FFFFFF",
+                               fork = NULL) {
   if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(invisible(FALSE))
   dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
   ff <- if (exists("resolve_plot_font_family", mode = "function")) {
@@ -454,11 +711,14 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
   } else {
     font_family
   }
-  n_box <- nrow(rows)
-  w <- 8.5
-  h <- max(6.5, 1.15 * n_box + 1.8 + if (length(footnote)) 0.9 else 0)
   footnote <- as.character(footnote %||% character(0))
   footnote <- footnote[nzchar(footnote)]
+  if (is.null(fork)) fork <- .attrition_fork_from_rows(rows)
+  n_box <- nrow(rows)
+  has_fork <- is.list(fork) &&
+    is.finite(fork$left_n %||% NA_real_) && is.finite(fork$right_n %||% NA_real_)
+  w <- 7.6
+  h <- max(8.2, 1.55 * n_box + if (has_fork) 3.1 else 1.6 + if (length(footnote)) 0.7 else 0)
   opened <- tryCatch({
     .attrition_pdf_device(pdf_path, w, h, ff)
     TRUE
@@ -470,48 +730,149 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
   })
   if (!isTRUE(opened)) return(invisible(FALSE))
   on.exit(grDevices::dev.off(), add = TRUE)
-  op <- graphics::par(mar = c(0.4, 0.4, 2.2, 0.4))
-  on.exit(graphics::par(op), add = TRUE)
-  graphics::plot.new()
-  graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1))
-  graphics::title(main = title, cex.main = 1.05)
-  y_top <- 0.94
-  # 预留脚注空间（权重说明）
-  if (length(footnote)) y_top <- y_top - 0.02 * length(footnote)
-  box_h <- min(0.11, 0.82 / (n_box * 1.35))
-  gap <- box_h * 0.32
+  if (identical(ff, "Times New Roman") && !isTRUE(capabilities("cairo"))) ff <- "Times"
+
+  grid::grid.newpage()
+  if (nzchar(as.character(title %||% "")[1L])) {
+    grid::grid.text(
+      as.character(title)[1L],
+      x = grid::unit(0.5, "npc"),
+      y = grid::unit(0.975, "npc"),
+      gp = grid::gpar(fontsize = 12, fontface = "bold", fontfamily = ff)
+    )
+  }
+
+  y_top <- 0.93
+  y_foot <- if (length(footnote)) 0.04 + 0.028 * length(footnote) else 0.03
+  y_fork_top <- if (has_fork) 0.22 else y_foot + 0.02
+  span <- max(0.35, y_top - y_fork_top - 0.02)
+  # 主框略收矮、间隙加大：Exclude 框须完整放进间隙内（旧版 eh=0.12 > gap=0.048 会压住主框）
+  box_h <- min(0.095, span / (n_box + max(n_box - 1L, 1L) * 0.85))
+  gap <- min(0.085, max(0.06, box_h * 0.85))
+  box_h <- min(box_h, (span - (n_box - 1L) * gap) / n_box)
+  cx <- 0.30
+  mw <- 0.44
+  x0 <- cx - mw / 2
+  x1 <- cx + mw / 2
+  # Exclude 框加宽：文字尽量横排一行（对齐 12_AKI/AF），勿挤成竖排
+  ex0 <- 0.565
+  ex1 <- 0.985
+  fill_main <- if (identical(box_fill, "#F7F7F7")) "#FFFFFF" else box_fill
+  if (!nzchar(as.character(fill_main %||% "")[1L])) fill_main <- "#FFFFFF"
+
+  ys0 <- numeric(n_box)
+  ys1 <- numeric(n_box)
   for (i in seq_len(n_box)) {
-    y1 <- y_top - (i - 1) * (box_h + gap)
-    y0 <- y1 - box_h
-    graphics::rect(0.16, y0, 0.84, y1, border = "black", col = box_fill, lwd = 1.4)
+    y1i <- y_top - (i - 1) * (box_h + gap)
+    y0i <- y1i - box_h
+    ys0[i] <- y0i
+    ys1[i] <- y1i
+    fill_i <- if (i == n_box) "#eef6ff" else fill_main
+    # 主框标签去掉「; excluded N」冗余（排除数已由右侧 Exclude 框说明），避免折行
+    step_lab <- sub(";\\s*excluded[^)]*", "", as.character(rows$step[i]), ignore.case = TRUE)
+    step_lab <- sub("\\s*\\(excluded[^)]*\\)\\s*", "", step_lab, ignore.case = TRUE)
+    step_lab <- trimws(step_lab)
+    if (!nzchar(step_lab)) step_lab <- as.character(rows$step[i])
     lab <- sprintf(
-      "%s\nN = %s",
-      rows$step[i],
+      "%s\nn = %s",
+      .attrition_wrap_label(step_lab, 36L),
       format(as.integer(rows$n[i]), big.mark = ",")
     )
-    graphics::text(0.5, (y0 + y1) / 2, lab, cex = 0.85)
+    .attrition_grid_roundbox(x0, y0i, x1, y1i, fill_i, ff, lab, fontsize = 10.5)
     if (i < n_box) {
-      graphics::arrows(0.5, y0 - 0.004, 0.5, y0 - gap + 0.008, length = 0.07, lwd = 1.1)
+      ymid <- (y0i + (y0i - gap)) / 2
+      .attrition_grid_arrow(cx, y0i - 0.004, cx, y0i - gap + 0.006, ff)
       drop_n <- as.integer(rows$n[i]) - as.integer(rows$n[i + 1L])
-      if (is.finite(drop_n) && drop_n > 0L) {
-        graphics::text(
-          0.87, y0 - gap / 2,
-          sprintf("-%s", format(drop_n, big.mark = ",")),
-          cex = 0.72, col = "#555555", adj = 0
+      el <- NA_character_
+      if ("exclude_label" %in% names(rows)) {
+        el <- as.character(rows$exclude_label[i + 1L])[1L]
+      }
+      sid <- if ("step_id" %in% names(rows)) as.character(rows$step_id[i + 1L])[1L] else NA_character_
+      is_weight_step <- identical(sid, "after_survey_weight") ||
+        grepl("survey weight", el %||% "", ignore.case = TRUE) ||
+        grepl("Eligible survey-weighted", as.character(rows$step[i + 1L])[1L], ignore.case = TRUE)
+      # 调查权重步即使剔除 0 人也要画 Exclude 框（标明权重名与 n=0）
+      show_exclude <- is.finite(drop_n) && (drop_n > 0L || isTRUE(is_weight_step))
+      if (isTRUE(show_exclude)) {
+        # 每步写清「排除了什么」：优先 exclude_label → step_id 语义 → 步骤标签抽取
+        if (is.na(el) || !nzchar(el)) el <- .attrition_exclude_reason(sid, rows$step[i + 1L])
+        if (is.na(el) || !nzchar(el)) {
+          nxt <- as.character(rows$step[i + 1L])[1L]
+          el <- sub("\\s*\\((?:[^()]*excluded[^()]*|[0-9,]+)\\)\\s*$", "", nxt, ignore.case = TRUE)
+          el <- sub("\\s*[;,]\\s*excluded.*$", "", el, ignore.case = TRUE)
+          el <- trimws(el)
+          if (!nzchar(el) || grepl("^(after|starting)", el, ignore.case = TRUE)) el <- "Excluded"
+        }
+        el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
+        if (!nzchar(el)) el <- "Excluded"
+        # 两行横排：原因一行、人数一行；框宽约 0.42npc，单行 45+ 字会溢出
+        ex_lab <- sprintf(
+          "Exclude: %s\n(n = %s)",
+          .attrition_wrap_label(el, 30L),
+          format(max(0L, as.integer(drop_n)), big.mark = ",")
         )
+        eh <- min(gap * 0.92, 0.075)
+        .attrition_grid_roundbox(
+          ex0, ymid - eh / 2, ex1, ymid + eh / 2,
+          "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain"
+        )
+        # 横向虚线箭头（对齐参考图）：从主列分叉水平指向 Exclude 框
+        .attrition_grid_arrow(cx, ymid, ex0 - 0.006, ymid, ff, lty = 2)
       }
     }
   }
 
-  # 权重脚注（底部左对齐；说明用了哪个权重、是否因权重删人）
+  if (has_fork) {
+    last_y0 <- ys0[n_box]
+    oh <- 0.11
+    gapf <- 0.06
+    # 分叉双框必须完整落在画布内：旧版 ow=0.28 时 left_x0=cx-0.03-0.28<0，
+    # 粉色病例框左缘被裁切（用户反馈「最下面左面的粉色框没画全」）。
+    ow <- min(0.28, cx - gapf / 2 - 0.02)
+    left_x0 <- cx - gapf / 2 - ow
+    right_x0 <- cx + gapf / 2
+    y_out <- max(y_foot + 0.02, last_y0 - 0.08 - oh)
+    t_y <- y_out + oh + 0.025
+    grid::grid.lines(
+      x = grid::unit(c(cx, cx), "npc"),
+      y = grid::unit(c(last_y0, t_y), "npc"),
+      gp = grid::gpar(col = "#222222", lwd = 1.15)
+    )
+    grid::grid.lines(
+      x = grid::unit(c(left_x0 + ow / 2, right_x0 + ow / 2), "npc"),
+      y = grid::unit(c(t_y, t_y), "npc"),
+      gp = grid::gpar(col = "#222222", lwd = 1.15)
+    )
+    .attrition_grid_arrow(left_x0 + ow / 2, t_y, left_x0 + ow / 2, y_out + oh, ff)
+    .attrition_grid_arrow(right_x0 + ow / 2, t_y, right_x0 + ow / 2, y_out + oh, ff)
+    left_txt <- sprintf(
+      "%s\n(n = %s)",
+      .attrition_wrap_label(fork$left_label, 22L),
+      format(as.integer(fork$left_n), big.mark = ",")
+    )
+    right_txt <- sprintf(
+      "%s\n(n = %s)",
+      .attrition_wrap_label(fork$right_label, 22L),
+      format(as.integer(fork$right_n), big.mark = ",")
+    )
+    .attrition_grid_roundbox(
+      left_x0, y_out, left_x0 + ow, y_out + oh,
+      "#fff5f5", ff, left_txt, fontsize = 10
+    )
+    .attrition_grid_roundbox(
+      right_x0, y_out, right_x0 + ow, y_out + oh,
+      "#f3fff5", ff, right_txt, fontsize = 10
+    )
+  }
+
   if (length(footnote)) {
-    fn_y <- max(0.03, 0.30 - 0.05 * length(footnote))
-    for (k in seq_along(footnote)) {
-      graphics::text(
-        0.03, fn_y + (length(footnote) - k) * 0.045,
-        footnote[[k]], cex = 0.68, col = "#333333", adj = 0
-      )
-    }
+    fn_txt <- paste(footnote, collapse = "\n")
+    grid::grid.text(
+      fn_txt,
+      x = grid::unit(0.5, "npc"),
+      y = grid::unit(0.035, "npc"),
+      gp = grid::gpar(fontsize = 8, fontfamily = ff, col = "#333333", lineheight = 1.15)
+    )
   }
   invisible(TRUE)
 }

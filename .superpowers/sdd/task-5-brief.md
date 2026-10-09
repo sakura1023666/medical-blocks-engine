@@ -1,24 +1,32 @@
-### Task 5: `threshold_logistic` 块
+### Task 5: 新建 Block `diagnostic_vs_fracture`
 
 **Files:**
-- Create: `Blocks/72_incidence_prognosis_two_stage/03block_threshold_logistic.R`
-- Modify: `R/pipeline_runner.R`
+- Create: `Blocks/75_osteo_dxa_qct/02block_diagnostic_vs_fracture.R`
+- Modify: `tests/test_osteo_dxa_qct_blocks.R`
 
 **Interfaces:**
-- Consumes: 锁定协变量 + 连续暴露；`rcs` 或分段搜索
-- Produces: `Tables/Table_Threshold_logistic_*.csv`；`Figures/Figure_Threshold_*.pdf`（profile 文献版）
+- Consumes: `Vertebral_fracture`；`QCT_OP`/`DXA_OP` 或由 cat==`op_level` 派生；连续 `QCT_vBMD`, `DXA_T_min`
+- Config: `config$diagnostic_vs_fracture = list(enable=TRUE, strata=c("Nathan_bin","AAC","BMI_bin"), strata_supplemental=c("Age_bin"), export_roc=TRUE, export_sens_bar=TRUE)`
+- Produces: Table3 overall；Table4 stratified；Figure4 ROC（双曲线）；Figure5 分层 Sens；可选 Figure S3 Age；`ctx$results$diagnostic_vs_fracture`
+- register_block: `"diagnostic_vs_fracture"`
 
-- [ ] **Step 1: 实现最小可用版本**
-
-对连续 index：在分位数网格上拟合两段 logistic（或 `segmented`/`chngpt` 若已装），输出阈值点、阈值下/上 OR、P；图为平滑曲线+竖线阈值（对标论文 1 Figure 3 / Table 4）。
+- [ ] **Step 1: 单测 — 已知真值向量的 sens/AUC 有限**
 
 ```r
-register_block("threshold_logistic", block_threshold_logistic,
-               "发病侧 threshold/piecewise logistic 表图")
+truth <- c(rep(1L, 10), rep(0L, 10))
+score_good <- c(rnorm(10, 2), rnorm(10, 0))
+auc <- .osteo75_auc_continuous(truth, score_good)
+stopifnot(auc$auc > 0.5)
 ```
 
-缺包则 `install.packages` 到 R-4.5.1 library。
+- [ ] **Step 2: 实现 block**
 
-- [ ] **Step 2: 单指标冒烟**（在 Task 8 通跑时验收）
+- 分类阳性：`cat == op_level`（默认 2）  
+- ROC：`pROC::roc(fracture ~ score, direction = "<")` 对 vBMD（越低越病）与 T-score（越低越病）均 `direction="<"`  
+- 分层行：每层 n、n_frac、DXA sens、QCT sens、Δsens  
+- 脚注写清分母
+
+- [ ] **Step 3: Run 单测 Expected PASS**
 
 ---
+

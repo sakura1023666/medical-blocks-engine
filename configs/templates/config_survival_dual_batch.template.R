@@ -38,11 +38,14 @@ config <- list(
     # 发表图只保留 PDF；需要 Illustrator 源文件时再设 TRUE
     export_figure_svg = FALSE
   ),
+  # 发表小数位（全项目统一；一般勿改）est=HR；p=P；desc=描述；cutoff=切点
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
   attrition = list(
     enable = TRUE,
     title = NULL,
     db_label = NULL,
     steps = list(),
+    # CONSORT Figure 1：主列纳入、右侧 Exclude、底部分叉（预后=Expired/Alive）
     outcome_breakdown = TRUE,
     auto_append = TRUE,
     draw_pdf = TRUE,
@@ -52,7 +55,13 @@ config <- list(
   ),
   survival = list(
     time_var = "futime", event_var = "fustatus",
-    index_var = NULL, time_unit = "days", time_divisor = 1
+    index_var = NULL, time_unit = "days", time_divisor = 1,
+    outcome_label = "28-day all-cause mortality"
+  ),
+  # 预后统一 28 天行政截尾：futime=min(t,28); fustatus=1 iff dead & t<=28
+  prognosis_outcome = list(
+    enable = TRUE,
+    landmark_days = 28L
   ),
   index = list(enable = TRUE, only = NULL, skip = NULL, digits = 4L),
   analysis_models = list(
@@ -136,7 +145,7 @@ config <- list(
     variable_aliases = list(age = "Age", hypertension = "Hypertension", diabetes = "Diabetes")
   ),
   imputation = list(
-    missing_col_threshold = 0.4, method = "cart", m = 1L, seed = 1234L,
+    missing_col_threshold = 0.4, method = "cart", m = 5L, seed = 1234L,
     mi_quality_exclude_enable = TRUE, mi_quality_p_threshold = 0.05,
     export_missing_fig = FALSE
   ),
@@ -201,7 +210,9 @@ config <- list(
   # KM / RCS / 亚组：time_var/event_var 必须与 survival 一致；strata_vars 由 runner 按指标注入
   rcs_prognosis = list(
     index_var = NULL, nk_range = 3:5, pause_enable = FALSE,
-    figure_kind = "main_figure", figure_number = 2L, bump_counter = TRUE
+    figure_kind = "main_figure", figure_number = 2L, bump_counter = TRUE,
+    # 横轴默认 1%–99% 分位显示；禁止强行 x_min=0（比值指标左侧无数据会误导）
+    plot_x_quantiles = c(0.01, 0.99)
     # x_max / x_min: 可选，裁切 RCS 横轴显示范围（仅显示，不删样本）
     # 按指标配置：config$index_overrides$BAR$rcs_prognosis$x_max <- 40
   ),
@@ -210,10 +221,19 @@ config <- list(
   # S1 boxplot → S2 mediation → S3 ROC（已停产 maxstat Cutoff 图）
   km_strata = list(
     time_var = "futime", event_var = "fustatus", event_value = 1,
-    time_divisor = 1, auto_xlim = TRUE, auto_break_time = TRUE,
+    time_divisor = 1, auto_xlim = FALSE, auto_break_time = FALSE,
+    xlim = c(0, 28), break_time_by = 7,
     id_column = "subject_id",
     figure_number = 3L,
-    figure_caption_template = "Kaplan-Meier curves of {index} {method} and mortality in {disease}",
+    figure_caption_template = "Kaplan-Meier curves of {index} {method} and 28-day mortality in {disease}",
+    plot_subtitle_template = "Survival Analysis by {index} {method}",
+    legend_position = "top",
+    risk_table = TRUE,
+    risk_table_height = 0.28,
+    risk_table_y_text = TRUE,
+    risk_table_y_text_col = TRUE,
+    xlab = "Follow-up time (days)",
+    ylab = "Survival probability (%)",
     single_filename_template = NULL, single_use_main_figure = FALSE,
     strata_vars = NULL,
     strata_vars_by_branch = list(extend_quartile = NULL, extend_tertile = NULL),
@@ -222,9 +242,13 @@ config <- list(
     pause_enable = FALSE, pause_on_no_figures = FALSE
   ),
   km_binary = list(
-    time_divisor = 1, auto_xlim = TRUE, auto_break_time = TRUE,
+    time_divisor = 1, auto_xlim = FALSE, auto_break_time = FALSE,
+    xlim = c(0, 28), break_time_by = 7,
+    xlab = "Follow-up time (days)",
+    ylab = "Survival probability (%)",
+    legend_position = "top",
     figure_number = 3L,
-    figure_caption_template = "Kaplan-Meier curves of {index} {method} and mortality in {disease}",
+    figure_caption_template = "Kaplan-Meier curves of {index} {method} and 28-day mortality in {disease}",
     pause_enable = FALSE, pause_on_no_output = FALSE
   ),
   # 分段 Cox 统一走单切点两段：切点 = RCS primary cutoff（勿用分位数外层分段 / maxstat 图）
@@ -283,6 +307,9 @@ config <- list(
     fallback_single_library_model2 = TRUE,
     mediation_path_alpha = 0.05,
     diagram_enable = TRUE,
+    # S8 关联表候选池：.mi02_resolve_lab_indicator_pool（血检+extra+best_mediator）
+    lab_indicator_vars = NULL,
+    mediator_extra_vars = NULL,
     # 双库 Figure S3 必须同一中介（闸门 E：交集内双库 Prop_Med 均值最大）
     dual_db_lock_best_mediator = TRUE,
     dual_db_force_rerun_mediation = TRUE,
@@ -291,13 +318,19 @@ config <- list(
     diagram_palette_random = FALSE,
     figure_kind = "supp_figure", figure_number = 2L, bump_counter = TRUE,
     # 预后路径图 Y 默认院内死亡/存活状态（勿用 disease 名）
-    outcome_label = "In-hospital mortality",
+    outcome_label = "28-day all-cause mortality",
     pause_enable = FALSE
   ),
   subgroup = list(
     min_n = 20,
     # 年龄切点依据：写 config 前查本疾病常用界值；默认二分类（age_subgroup_binary 铁律）
     age_cutoff = 65, export_table = FALSE,
+    # 双库亚组必须一致（dual_db_subgroup_consistency 铁律）
+    var_source = "required",
+    # 发表铁律（引擎默认）：亚组森林图 = 全部人群估计，各层报告「最高 vs 最低」分位，
+    # 分位跟随主文锁定方案（与 Cox Table 同分母）。model_sample 才回退旧「仅两端子集」。
+    continuous_index_mode = "highest_vs_lowest",
+    forest_n_source = "full_stratum",
     pause_enable = FALSE,
     level_order = list(
       Age_Group = c("< 65", "\u2265 65")

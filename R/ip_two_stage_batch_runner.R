@@ -185,6 +185,7 @@ ip_two_stage_plan_worker_phases <- function(stage1_blocks, stage2_blocks,
     rcs = "rcs_incidence",
     threshold = "threshold_logistic",
     subgroup = "subgroup_incidence",
+    mediation = "mediation_incidence",
     bridge = bridge, stage2_cohort = bridge,
     stage2 = tail(s2, 1L),
     cox = "cox_binary",
@@ -255,12 +256,29 @@ ip_two_stage_plan_worker_phases <- function(stage1_blocks, stage2_blocks,
 }
 
 ip_two_stage_snapshot_stage1_covariates <- function(ctx) {
-  ctx$results$model1_incidence <- unique(as.character(
+  m1 <- unique(as.character(
     ctx$results$Model1Factors %||% ctx$results$model1_incidence %||% character(0)
   ))
-  ctx$results$model2_incidence <- unique(as.character(
+  m2 <- unique(as.character(
     ctx$results$Model2Factors %||% ctx$results$model2_incidence %||% character(0)
   ))
+  # 少数流程会把 Model1 写成与 Model2 同长名单；回退人口学作 Model1，保留长名单作 Model2
+  if (length(m1) && length(m2) && setequal(m1, m2) && length(m1) > 3L) {
+    demo <- intersect(c("Age", "Gender", "Sex", "Race"), m2)
+    if (!length(demo)) demo <- intersect(c("Age", "Gender"), names(ctx$data$imputed %||% list()))
+    if (length(demo)) {
+      cli::cli_alert_warning(
+        "Stage1 Model1 与 Model2 相同，Model1 回退为: {paste(demo, collapse = ', ')}"
+      )
+      m1 <- demo
+    }
+  }
+  if (!length(m2)) m2 <- m1
+  ctx$results$model1_incidence <- m1
+  ctx$results$model2_incidence <- unique(c(m1, m2))
+  ctx$results$model2_incidence_full <- ctx$results$model2_incidence
+  ctx$results$Model1Factors <- m1
+  ctx$results$Model2Factors <- ctx$results$model2_incidence
   d0 <- NULL
   for (nm in c("imputed", "locked", "cleaned", "analysis")) {
     if (is.data.frame(ctx$data[[nm]])) { d0 <- ctx$data[[nm]]; break }
@@ -269,63 +287,122 @@ ip_two_stage_snapshot_stage1_covariates <- function(ctx) {
   ctx
 }
 
+#' Stage1 亚组变量锁定 → Stage2 prognosis 森林图同名单
+ip_two_stage_snapshot_stage1_subgroup <- function(ctx, config = NULL) {
+  sg <- unique(as.character(ctx$results$subgroup_vars_used %||% character(0)))
+  sg <- sg[nzchar(sg)]
+  if (!length(sg)) return(ctx)
+  ctx$results$locked_subgroup_vars <- sg
+  if (!is.null(config) && is.list(config)) {
+    if (is.null(config$subgroup) || !is.list(config$subgroup)) config$subgroup <- list()
+    config$subgroup$locked_subgroup_vars <- sg
+    if (is.null(config$subgroup_prognosis) || !is.list(config$subgroup_prognosis)) {
+      config$subgroup_prognosis <- list()
+    }
+    config$subgroup_prognosis$locked_subgroup_vars <- sg
+    ctx$config <- config
+  }
+  cli::cli_alert_info(
+    "Stage1 亚组锁定 → Stage2: {paste(sg, collapse = ', ')}"
+  )
+  ctx
+}
+
+#' 发病/预后共用同一套 Model1/Model2（Stage1 锁定）；禁止 Stage2 再并集膨胀
 ip_two_stage_apply_covariate_union <- function(ctx, config, when = c("before_stage2", "after_stage2")) {
   when <- match.arg(when)
-  force <- unique(as.character(
-    (config$ip_two_stage %||% list())$force_covariates %||% character(0)
-  ))
   m1_inc <- unique(as.character(ctx$results$model1_incidence %||% character(0)))
   m2_inc <- unique(as.character(ctx$results$model2_incidence %||% character(0)))
   df <- NULL
   for (nm in c("imputed", "stage2", "locked", "cleaned")) {
     if (is.data.frame(ctx$data[[nm]])) { df <- ctx$data[[nm]]; break }
   }
-  if (is.data.frame(df) && length(force)) {
-    keep_f <- force[force %in% names(df)]
-    keep_f <- keep_f[vapply(keep_f, function(v) {
-      sum(!is.na(df[[v]])) >= 10L
-    }, logical(1L))]
-    dropped <- setdiff(force, keep_f)
-    if (length(dropped)) {
-      cli::cli_alert_warning(
-        "Stage2 force 协变量因缺失/不在列中剔除: {paste(dropped, collapse = ', ')}"
-      )
-    }
-    force <- keep_f
-  }
+  m2_full <- m2_inc
   if (is.data.frame(df)) {
     m1_inc <- intersect(m1_inc, names(df))
     m2_inc <- intersect(m2_inc, names(df))
   }
-  seeded <- unique(c(m1_inc, force))
+  if (length(m1_inc) && length(m2_inc) && setequal(m1_inc, m2_inc) && length(m1_inc) > 3L) {
+    demo <- intersect(c("Age", "Gender", "Sex", "Race"), m2_inc)
+    if (length(demo)) m1_inc <- demo
+  }
+  if (!length(m1_inc) && is.data.frame(df) && "Age" %in% names(df)) {
+    m1_inc <- "Age"
+  }
+  if (!length(m2_inc)) m2_inc <- m1_inc
+  m2_fit <- unique(c(m1_inc, m2_inc))
+
+  ctx$results$Model1Factors <- m1_inc
+  ctx$results$Model2Factors <- m2_fit
+  ctx$results$model1_incidence <- m1_inc
+  ctx$results$model2_incidence <- m2_full
+  ctx$results$model2_incidence_full <- m2_full
+  ctx$results$model1_union <- m1_inc
+  ctx$results$model2_union <- m2_fit
+
   if (identical(when, "before_stage2")) {
-    ctx$results$Model1Factors <- seeded
-    ctx$results$Model2Factors <- unique(c(m2_inc, force, seeded))
     for (nm in c("univariate_prognosis", "multivariate_prognosis")) {
       if (is.null(ctx$config[[nm]]) || !is.list(ctx$config[[nm]])) next
       ctx$config[[nm]]$required_predictors <- unique(c(
         as.character(ctx$config[[nm]]$required_predictors %||% character(0)),
-        seeded
+        m1_inc
       ))
     }
     cli::cli_alert_info(
-      "Stage2 协变量种子: Model1={paste(ctx$results$Model1Factors, collapse = ', ')}"
+      "Stage2 协变量与发病对齐: Model1={paste(m1_inc, collapse = ', ')} | Model2={paste(m2_inc, collapse = ', ')}"
     )
   } else {
-    ctx$results$Model1Factors <- unique(c(
-      m1_inc, as.character(ctx$results$Model1Factors %||% character(0)), force
-    ))
-    ctx$results$Model2Factors <- unique(c(
-      m2_inc, as.character(ctx$results$Model2Factors %||% character(0)),
-      force, ctx$results$Model1Factors
-    ))
-    ctx$results$model1_union <- ctx$results$Model1Factors
-    ctx$results$model2_union <- ctx$results$Model2Factors
     cli::cli_alert_success(
-      "Stage2 协变量综合: Model1={paste(ctx$results$Model1Factors, collapse = ', ')}"
+      "Stage2 协变量已强制回写为发病锁定集: Model1={paste(m1_inc, collapse = ', ')} | Model2={paste(m2_inc, collapse = ', ')}"
     )
   }
   ctx
+}
+
+#' 把发病锁定 Model1/Model2 写入 Cox / RCS config，并关闭协变量搜索
+ip_two_stage_lock_cox_rcs_covariates <- function(config, ctx) {
+  m1 <- unique(as.character(
+    ctx$results$model1_incidence %||% ctx$results$Model1Factors %||% character(0)
+  ))
+  m2 <- unique(as.character(
+    ctx$results$model2_incidence %||% ctx$results$Model2Factors %||% character(0)
+  ))
+  if (length(m1) && length(m2) && setequal(m1, m2) && length(m1) > 3L) {
+    demo <- intersect(c("Age", "Gender", "Sex", "Race"), m2)
+    if (length(demo)) m1 <- demo
+  }
+  if (!length(m2)) m2 <- m1
+  m2 <- unique(c(m1, m2))
+  m2_ref <- unique(as.character(
+    ctx$results$model2_incidence_full %||% ctx$results$model2_incidence %||% m2
+  ))
+  ctx$results$Model1Factors <- m1
+  ctx$results$Model2Factors <- m2
+  df <- NULL
+  for (dn in c("imputed", "stage2", "locked", "cleaned")) {
+    if (is.data.frame(ctx$data[[dn]])) { df <- ctx$data[[dn]]; break }
+  }
+  m1_fit <- m1
+  m2_fit <- m2
+  if (is.data.frame(df)) {
+    m1_fit <- intersect(m1, names(df))
+    m2_fit <- intersect(m2_ref, names(df))
+    m2_fit <- unique(c(m1_fit, m2_fit))
+  }
+  ctx$results$Model1Factors <- m1_fit
+  ctx$results$Model2Factors <- m2_fit
+  for (nm in c("cox_quartile", "cox_tertile", "cox_binary",
+               "rcs_incidence", "rcs_prognosis", "segmented_cox_quartile",
+               "segmented_cox_tertile", "segmented_cox_binary")) {
+    if (is.null(config[[nm]]) || !is.list(config[[nm]])) next
+    config[[nm]]$model1_factors <- m1_fit
+    config[[nm]]$model2_factors <- m2_fit
+    config[[nm]]$allow_m2_eq_m1 <- TRUE
+    if (!is.null(config[[nm]]$covariate_search) && is.list(config[[nm]]$covariate_search)) {
+      config[[nm]]$covariate_search$enable <- FALSE
+    }
+  }
+  config
 }
 
 #' 按指标注入 km_strata 分层列（与 survival_dual_batch_runner 对齐；含 Cox 降级分支）
@@ -394,16 +471,70 @@ ip_two_stage_patch_stage2_blocks_for_index <- function(config, ix) {
   config
 }
 
+#' Stage2 中属于「预后协变量再筛选」的 block（reuse_stage1_covariates=TRUE 时整段跳过）
+ip_two_stage_stage2_covariate_selection_blocks <- function() {
+  c(
+    "univariate_prognosis",
+    "multicollinearity_screen",
+    "multivariate_prognosis",
+    "multicollinearity_final",
+    "multivariate_prognosis_harmonized",
+    "simple_ROC"
+  )
+}
+
+#' 是否 Stage2 直接沿用 Stage1 锁定 Model1/Model2（默认 TRUE）
+ip_two_stage_reuse_stage1_covariates <- function(config) {
+  flag <- (config$ip_two_stage %||% list())$reuse_stage1_covariates
+  if (!is.null(flag)) return(isTRUE(flag))
+  flag <- (ip_two_stage_batch_cfg(config)$reuse_stage1_covariates %||% TRUE)
+  isTRUE(flag)
+}
+
+#' 从 pipeline_stage2 去掉预后 UV/MV/ROC（保留 baseline + Cox/RCS/KM/亚组）
+ip_two_stage_trim_stage2_pipeline <- function(config, pipeline) {
+  if (!ip_two_stage_reuse_stage1_covariates(config)) return(pipeline)
+  drop <- ip_two_stage_stage2_covariate_selection_blocks()
+  pipeline$blocks <- setdiff(as.character(pipeline$blocks %||% character(0)), drop)
+  pipeline$render_tables_after <- setdiff(
+    as.character(pipeline$render_tables_after %||% character(0)), drop
+  )
+  pipeline$render_figures_after <- setdiff(
+    as.character(pipeline$render_figures_after %||% character(0)), drop
+  )
+  pipeline
+}
+
+#' Stage2 入口：快照发病 Model1/2 并写入 Cox/RCS/KM config（不再跑预后协变量筛选）
+ip_two_stage_prepare_stage2_locked_covariates <- function(config, ctx) {
+  if (is.null(ctx)) {
+    stop("ip_two_stage: Stage2 缺少 ctx，无法沿用发病协变量。", call. = FALSE)
+  }
+  ctx <- ip_two_stage_snapshot_stage1_covariates(ctx)
+  ctx <- ip_two_stage_apply_covariate_union(ctx, config, "before_stage2")
+  config <- ip_two_stage_lock_cox_rcs_covariates(config, ctx)
+  ctx$config <- config
+  ctx$results$ip_stage2_covariates_reused <- TRUE
+  m1 <- unique(as.character(ctx$results$Model1Factors %||% character(0)))
+  m2 <- unique(as.character(ctx$results$Model2Factors %||% character(0)))
+  cli::cli_alert_info(
+    "Stage2 沿用发病锁定协变量（已跳过预后 UV/MV）: Model1={paste(m1, collapse = ', ')} | Model2={paste(m2, collapse = ', ')}"
+  )
+  list(config = config, ctx = ctx)
+}
+
 ip_two_stage_switch_to_prognosis <- function(config, ctx = NULL) {
   config$project$study_type <- "prognosis"
   config$data$outcome_column <- "fustatus"
   config$survival$time_var <- config$survival$time_var %||% "futime"
   config$survival$event_var <- config$survival$event_var %||% "fustatus"
-  # Stage2 Table3：标题消歧；不再对暴露做 Table1 早停（Stage1 已过闸）
+  # Stage2 Table1：按 28 天死亡分层；暴露组间不显著同样早停记失败（与 Stage1 一致）
   if (is.null(config$baseline_binary) || !is.list(config$baseline_binary)) {
     config$baseline_binary <- list()
   }
-  config$baseline_binary$early_stop_if_index_ns <- FALSE
+  if (is.null(config$baseline_binary$early_stop_if_index_ns)) {
+    config$baseline_binary$early_stop_if_index_ns <- TRUE
+  }
   if (is.null(config$baseline_binary$table_title) ||
       !nzchar(as.character(config$baseline_binary$table_title)[1L])) {
     config$baseline_binary$table_title <- paste(

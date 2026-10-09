@@ -1,8 +1,12 @@
 #!/usr/bin/env Rscript
-# 修复听力 UHR 描述 Table1：
-# 1) CHARLS：把误编号为 Table 2 的全变量基线表提升为 Table 1
-# 2) NHANES：从 trim/obj 检查点重跑加权 baseline（CONUT 类型已修）
-# 3) 同步 summary_result / 副本
+# 【已废弃 / 禁止再跑】曾把全复合指标 Table 误提升为 Table1。
+# 正确做法：run/hearing_loss_uhr/restore_table1_exposure_only.R
+# （主分析 step 产物：临床列 + 暴露 UHR，不含其它复合指标）
+stop(
+  "DEPRECATED: fix_table1_fullvars_promote.R dumps all composite indices into Table1. ",
+  "Use restore_table1_exposure_only.R instead.",
+  call. = FALSE
+)
 suppressPackageStartupMessages(options(stringsAsFactors = FALSE, cli.hyperlink = FALSE, warn = 1))
 
 root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "/mnt/e/01block/01Block-new-Final")

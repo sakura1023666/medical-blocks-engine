@@ -402,9 +402,13 @@
     as.character(id_col %||% character(0)),
     as.character(nhanes_cfg$exclude_cols %||% character(0))
   ))
-  if (exists("pipeline_survey_weight_metadata_cols", mode = "function")) {
+  # 权重/抽样设计列一律不得进 VIF→特征选择（含 WTSOG2YR / WTMEC* / new_Weight）
+  if (exists("pipeline_meta_exclude_cols", mode = "function")) {
+    mc_excl <- unique(c(mc_excl, pipeline_meta_exclude_cols()))
+  } else if (exists("pipeline_survey_weight_metadata_cols", mode = "function")) {
     mc_excl <- unique(c(mc_excl, pipeline_survey_weight_metadata_cols()))
   }
+  mc_excl <- unique(c(mc_excl, "Group"))
   if (exists("pipeline_index_exposure_var", mode = "function")) {
     mc_excl <- setdiff(mc_excl, pipeline_index_exposure_var(cfg))
   }
@@ -487,13 +491,18 @@
   }
 
   cli::cli_alert_info("NHANES 加权 VIF 阈值: {vif_threshold}（硬剔除 > {hard_drop}；lm(weights={wt_col})）")
-  vif_comp_exclude <- if (exists("pipeline_index_vif_exclude_vars", mode = "function")) {
-    intersect(pipeline_index_vif_exclude_vars(cfg), input_vars)
+  exposure <- if (exists("pipeline_index_exposure_var", mode = "function")) {
+    pipeline_index_exposure_var(cfg)
   } else {
     character(0)
   }
-  exposure <- if (exists("pipeline_index_exposure_var", mode = "function")) {
-    pipeline_index_exposure_var(cfg)
+  # 与 MIMIC VIF 对齐：暴露必须进 VIF 表，即使不在 tb2/Model2 协变量池
+  # （final 阶段 tb2 常已 strip 暴露 → 旧逻辑导致 Table S6 缺暴露行）
+  if (length(exposure) && nzchar(exposure[[1L]]) && exposure[[1L]] %in% names(data)) {
+    input_vars <- unique(c(input_vars, exposure[[1L]]))
+  }
+  vif_comp_exclude <- if (exists("pipeline_index_vif_exclude_vars", mode = "function")) {
+    intersect(pipeline_index_vif_exclude_vars(cfg), input_vars)
   } else {
     character(0)
   }
@@ -557,8 +566,9 @@
     ctx <- save_result(ctx, "vif_screen_pass", selected, "VIF_screen_pass_weighted.RData")
     writeLines(selected, file.path(ctx$output_dir, "VIF_screen_pass_weighted.txt"))
     csv_name <- phase_cfg$csv_name %||% "VIF_check_screen_weighted.csv"
+    # 标题须含「VIF screen」且勿只放括号内：shorten 会剥括号，否则双库 S 号对不齐
     table_caption <- phase_cfg$table_title %||%
-      paste0("Weighted Multicollinearity Analysis (VIF, univariate screen, NHANES) for ",
+      paste0("Weighted Multicollinearity Analysis VIF screen for ",
              cfg$project$disease %||% "outcome")
     .mcnw_export_vif_tables(ctx, cfg, "screen", vif_tbl, selected, csv_name, table_caption)
     ctx$results$vif_screen_table_weighted <- vif_tbl
@@ -612,8 +622,9 @@
   writeLines(Model2Factors, file.path(ctx$output_dir, "Model2Factors.txt"))
 
   csv_name <- phase_cfg$csv_name %||% "VIF_check_final_weighted.csv"
+  # 标题须含「VIF final」且勿只放括号内：shorten 会剥括号，否则双库 S 号对不齐
   table_caption <- phase_cfg$table_title %||%
-    paste0("Weighted Multicollinearity Analysis (VIF, multivariate final, NHANES) for ",
+    paste0("Weighted Multicollinearity Analysis VIF final for ",
            cfg$project$disease %||% "outcome")
   append_fn <- if (exists(".mcol_append_exposure_vif_row", mode = "function")) {
     .mcol_append_exposure_vif_row

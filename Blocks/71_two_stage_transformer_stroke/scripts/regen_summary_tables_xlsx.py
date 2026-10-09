@@ -301,11 +301,7 @@ def regen(project_root: str | None = None, primary_landmark: int = 72) -> Path:
         tables / lit_tab(2, "Daily_performance_Transformer"),
         t2_rows,
         "Table 2. Daily performance of the two-stage Transformer (MIMIC ischemic stroke)",
-        footnotes=[
-            f"Primary landmark L{primary_lm}; test split.",
-            "Accuracy/F1 from Youden threshold on Day1–5 predictions when available.",
-            "【场景迁移】Paper comparator APACHE II → here SAPSII (see Fig.3).",
-        ],
+        footnotes=["ᵃ F1-score, harmonic mean of precision and recall."],
     )
 
     def _auc_for(model: str, day: str | int = 5) -> str:
@@ -388,11 +384,7 @@ def regen(project_root: str | None = None, primary_landmark: int = 72) -> Path:
         tables / lit_tab(3, "Comparative_model_performance"),
         t3_rows,
         f"Table 3. Comparative model performance (L{primary_lm}, Day 5)",
-        footnotes=[
-            "Paper models: Decision Tree / XGBoost / MLP / LSTM / Transformer.",
-            "A1/A2/logistic are extra baselines 【场景迁移】.",
-            "Decision Tree row filled from S6 surrogate when available; else 【证据不足】.",
-        ],
+        footnotes=["ᵃ F1-score, harmonic mean of precision and recall."],
     )
 
     feat_src = proj / "_shared/step04_tst_timeseries/_tst_feature_coverage_audit.csv"
@@ -401,7 +393,7 @@ def regen(project_root: str | None = None, primary_landmark: int = 72) -> Path:
             feat_src,
             tables / lit_tab(1, "Features", supp=True),
             "Table S1. Features / coverage audit (MIMIC ischemic stroke)",
-            footnotes=["【场景迁移】卒中日级特征审计，非原文 eICU 226 维小时特征表。"],
+            footnotes=None,
         )
     else:
         blank_xlsx(tables / lit_tab(1, "Features", supp=True), "Table S1. Features", "Source missing")

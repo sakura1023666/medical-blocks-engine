@@ -38,12 +38,15 @@ setwd(root)
 args <- commandArgs(trailingOnly = TRUE)
 study_root <- NULL
 only_dbs <- NULL
+.sg_scheme <- NULL
 i <- 1L
 while (i <= length(args)) {
   if (args[[i]] == "--study-root" && i < length(args)) {
     study_root <- args[[i + 1L]]; i <- i + 2L
   } else if (args[[i]] == "--only" && i < length(args)) {
     only_dbs <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
+  } else if (args[[i]] == "--scheme" && i < length(args)) {
+    .sg_scheme <- tolower(trimws(args[[i + 1L]])); i <- i + 2L
   } else i <- i + 1L
 }
 if (is.null(study_root) || !nzchar(study_root))
@@ -151,10 +154,21 @@ for (db in only_dbs) {
     config$subgroup$level_order %||% list(),
     .sg$level_order %||% list()
   )
+  config$subgroup$continuous_index_mode <- "highest_vs_lowest"
+  config$subgroup$forest_n_source <- "full_stratum"
+  if (!is.null(.sg_scheme) && .sg_scheme %in% c("tertile", "quartile", "binary")) {
+    if (is.null(config$logistic_quartile_glm)) config$logistic_quartile_glm <- list()
+    config$logistic_quartile_glm$scheme <- .sg_scheme
+    cli::cli_alert_info("{db} 亚组暴露分位: {(.sg_scheme)}（本轮指定，不改主文闸门）")
+  }
 
   dat <- ck$data$imputed %||% ck$data$cleaned
   dat <- cross_lagged_attach_harmonize_fig3(dat, study_root, db, .sg)
   miss <- setdiff(.SG_LOCK, names(dat))
+  # Age_Group 由亚组 block 按 age_cutoff 从 Age 现算
+  if ("Age_Group" %in% miss && any(c("Age", "Age_Years") %in% names(dat))) {
+    miss <- setdiff(miss, "Age_Group")
+  }
   if (length(miss)) {
     stop(db, " 亚组锁定列仍缺失: ", paste(miss, collapse = ", "))
   }

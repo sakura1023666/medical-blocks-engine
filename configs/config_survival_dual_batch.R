@@ -8,7 +8,7 @@
 
 pipeline_shared_regular <- list(
   name   = "survival_dual_batch_shared",
-  blocks = c("data_clean", "column_mapping", "dual_db_column_harmonize", "index"),
+  blocks = c("data_clean", "column_mapping", "dual_db_column_harmonize", "index", "attrition_flowchart"),
   logistic_gate = list(enable = FALSE),
   render_tables_after  = character(0),
   render_figures_after = character(0),
@@ -20,8 +20,11 @@ pipeline_regular_batch <- list(
   name = "survival_dual_batch_regular",
   blocks = c(
     "data_clean", "column_mapping", "dual_db_column_harmonize", "index",
+    # 疾病相关变量 + 当前指标组成硬排除（与 baseline_pipelines.json survival 一致）
+    "analysis_exclusion",
     # 本套路不修剪指标极端值（不挂 trim_index_extreme）
     "imputation",
+    "prognosis_outcome_landmark",
     "baseline_binary",
     "univariate_prognosis", "multicollinearity_screen",
     "multivariate_prognosis", "multivariate_covariate_resolve", "multicollinearity_final",
@@ -39,7 +42,7 @@ pipeline_regular_batch <- list(
   # 已停产 plot_cutoff（maxstat Figure S1）。
   cox_gate = list(enable = TRUE),
   render_tables_after = c(
-    "imputation", "baseline_binary",
+    "imputation", "prognosis_outcome_landmark", "baseline_binary",
     "univariate_prognosis", "multicollinearity_screen",
     "multivariate_prognosis", "multivariate_covariate_resolve", "multicollinearity_final",
     "dual_db_covariate_harmonize", "multivariate_prognosis_harmonized",

@@ -158,6 +158,47 @@ block_tst_split <- function(ctx, ...) {
     train = train_ids, val = val_ids, test = test_ids,
     temporal_train = temporal_train_ids, temporal_test = temporal_test_ids
   )
+
+  # 为 imputation(fit_on=train) 物化宽表：train vs (val∪test)
+  # 正确做法：只在训练集拟合 MICE；val/test 不各自重拟合，由同一 mice 模型套用
+  base <- ctx$data$tst_cohort
+  if (!is.null(base) && is.data.frame(base) && nrow(base) > 0L &&
+      "tst_patient_id" %in% names(base)) {
+    pid <- as.character(base$tst_patient_id)
+    hold_ids <- unique(c(as.character(val_ids), as.character(test_ids)))
+    ctx$data$train <- base[pid %in% as.character(train_ids), , drop = FALSE]
+    ctx$data$test <- base[pid %in% hold_ids, , drop = FALSE]
+    ctx$data$val <- base[pid %in% as.character(val_ids), , drop = FALSE]
+    cli::cli_alert_info(
+      "tst_split: materialized train/test frames for MICE fit_on=train ",
+      "(train={nrow(ctx$data$train)}, holdout val∪test={nrow(ctx$data$test)})"
+    )
+  }
+
+  note_path <- file.path(ctx$output_dir_tables, "Methods_split_denominator_note.txt")
+  writeLines(
+    c(
+      "TST patient-level split and modeling denominators",
+      paste0("Split ratios: train=", p_train, " val=", p_val, " test=", p_test, " seed=", seed),
+      paste0("Split cohort n (at tst_split): ", n),
+      paste0("n_train=", length(train_ids), " n_val=", length(val_ids), " n_test=", length(test_ids)),
+      "",
+      "A1 Methods wording:",
+      "- Patient-level 7:2:1 is performed once on the cohort present at tst_split.",
+      "- Landmark L{hours} modeling uses eligible IDs (e.g. LOS>=landmark_days) INTERSECTED with this split;",
+      "  therefore test n at L120 (e.g. 515) is ~10% of the L120-eligible subset (~5105), NOT 10% of a later",
+      "  larger descriptive cohort if filters differ.",
+      "- Do not equate analysis-cohort N (e.g. Table1 after timeseries filters) with the DL train/val/test sum",
+      "  without writing the landmark eligibility bridge sentence.",
+      "",
+      "A2 MICE:",
+      "- Downstream imputation MUST use fit_on=train: fit MICE on train IDs only;",
+      "  apply to val∪test via mice(ignore=TRUE). Do NOT fit separate MICE on val or test.",
+      paste0("Generated: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+    ),
+    note_path
+  )
+
   ctx$results$tst_split <- list(
     n_train = length(train_ids), n_val = length(val_ids), n_test = length(test_ids),
     seed = seed, ratios = c(train = p_train, val = p_val, test = p_test),
@@ -166,10 +207,12 @@ block_tst_split <- function(ctx, ...) {
     temporal_skip_reason = if (temporal_available) NA_character_ else temporal_skip_reason,
     temporal_train_ids_path = temporal_train_path,
     temporal_test_ids_path = temporal_test_path,
+    methods_note_path = note_path,
+    mi_holdout = "val_union_test",
     no_fit_on_test_constraint = paste0(
-      "本块只产出患者级 ID 划分，不拟合任何插补/标准化/特征选择参数；",
-      "下游 tst_train_eval / python two_stage_transformer.prepare 必须只用 train_ids 拟合参数，",
-      "val/test 仅应用（transform），不得重新拟合或纳入拟合样本。"
+      "本块只产出患者级 ID 划分，并物化 ctx$data$train / test(val∪test) 供 MICE；",
+      "插补必须 fit_on=train；下游 prepare/标准化只能用 train_ids 拟合参数，",
+      "val/test 仅 transform，不得重新拟合。"
     )
   )
   ctx

@@ -1,0 +1,56 @@
+---
+description: 累积暴露×k-means（CKM/ELSA）发表复用铁律；新课题走引擎，勿堆 tmp hotfix
+alwaysApply: true
+---
+
+# 累积暴露 × k-means 发表复用铁律（全项目）
+
+本对话（ELSA 骨质疏松 Age≥50 / Fig3·S1–S3 / Nature P0）沉淀的引擎改动，**新课题直接走引擎即可复用**。禁止再在 `tmp/`、课题 `scripts/`、结果目录堆 hotfix。
+
+## 已进引擎（勿课题私改绕过）
+
+| 能力 | 入口 |
+|------|------|
+| `age_filter`（如 `Age >= 50`）在 ingest 落实 | `Blocks/76_cum_egdr_kmeans_ckm_full/01block_ckm_stroke_data_ingest.R` + `config$data_clean$age_filter` |
+| Hypertension_w4 → Hypertension | `R/literature_ckm_cum_egdr.R` → `ckm_stroke_harmonize_columns` |
+| logistic 前列对齐（防 undefined columns） | `Blocks/76/.../05block_logistic_cum_index_bundle.R` |
+| Table2/S1 用 `index_lab`（禁止写死 eGDR） | `R/cum_egdr_kmeans_pub.R` → `ckm_stroke_build_table2_assoc(..., index_lab=)` |
+| Methods 软件版本 txt + 表脚注 | `ckm_stroke_write_software_versions` / `ckm_stroke_software_footnote` |
+| Table1 章节加粗 | `ckm_stroke_style_table1_xlsx` |
+| RCS：P/Ref 在 subtitle+caption（防 collision FAIL） | `ckm_stroke_rcs_one_panel` |
+| 森林 Never/Ever、CI en-dash | `ckm_stroke_forest_free_stats` |
+| 中间 CSV 不进发表 Tables | rebuild → `_internal/`；`ckm_stroke_clean_summary_junk` |
+| Age≥50 纳排日志标签 | `Blocks/02_data_clean/01block_data_clean.R` |
+
+## 正式入口
+
+- 批跑：`run/cum_egdr_kmeans_ckm/run_cum_egdr_kmeans_ckm_batch.R`
+- CHARLS 发表：`rebuild_publication.R`
+- ELSA 多指标发表：`rebuild_publication_elsa_osteoporosis.R`
+- 只重画 Fig3/S1–S3：`redraw_elsa_fig3_s123_all_success.R`
+- 说明：`run/cum_egdr_kmeans_ckm/README.md`
+- 模板：`configs/templates/config_cum_egdr_kmeans_ckm_batch.template.R`
+
+## 铁律
+
+1. **暴露名跟指标走**：`index_lab` 传入 Table2/S1 构建；禁止表内残留他指标的 `eGDR` 字样（eGDR 课题除外）。
+2. **年龄门控写 config**：`data_clean$age_filter = "Age >= 50"`（或课题界值）；本流水线无 `data_clean` block，靠 ingest 落实。
+3. **发表定稿走 rebuild**：workers 产出是草稿；定稿 Tables/Figures/软件版本以 rebuild / redraw 为准。
+4. **Fig3 默认口径**：RCS 3 knots；面板 Overall \| BMI&lt;30 \| Age≥60；S1 可用访视月 futime。
+5. **tmp / 课题 scripts 热修用完归档**；可复用逻辑必须回写 `R/` / `Blocks/76/` / `run/cum_egdr_kmeans_ckm/`。
+
+## 新课题检查
+
+- [ ] config 写明 `age_filter`（需要时）与注释依据
+- [ ] rebuild 后 Table2 Variable 列为本指标名，非误标 eGDR
+- [ ] `Tables/Methods_software_versions.txt` 存在；Table2 脚注含 Software 行
+- [ ] Fig3/S1 collision 无 `FIX BEFORE DELIVERY`（P/Ref 在区外）
+- [ ] 发表 Tables 无 `Flowchart_attrition.csv` / `*_forest_rows.csv`（应在 `_internal`）
+- [ ] 未复活 `_archive/` 或 `tmp/` 一次性脚本
+
+## 反例（禁止）
+
+- 在 `tmp/fix_*_elsa*.R` 里改标签/脚注当长期方案
+- Table2 写死 `Cumulative eGDR` 却分析 WWI/AIP
+- 只改课题结果目录 xlsx，不改 `ckm_stroke_build_table2_assoc`
+- 把 `redraw_wwi_figures.R`（已归档）当当前入口

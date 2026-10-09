@@ -175,6 +175,8 @@ ctx <- list(
       model2_clinical = lock$model2,
       lock_source = lock$source,
       index_var = .idx_var,
+      harmonize = as.character((.meta %||% list())$pooled_harmonize %||% "")[1L],
+      harmonized_index = as.character((.meta %||% list())$pooled_index %||% "")[1L],
       outcome_column = "Disease_Group",
       id_column = "ID"
     ),

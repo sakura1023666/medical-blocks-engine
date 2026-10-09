@@ -31,6 +31,9 @@
 #    hazardtype            = "Specific",
 #    gridsearch_rep        = 50L,
 #    gridsearch_maxiter    = 10L,
+#    gridsearch_refit_on_health_fail = TRUE,         # LL 非单调/空类 → 自动加大 gridsearch 重拟合（.tfj02_jlcm_health_guard）
+#    gridsearch_refit_rep_cap        = 200L,          # 重拟合 rep 上限
+#    gridsearch_refit_maxiter        = 40L,           # 重拟合 maxiter
 #    adaptive_class_cap    = TRUE,                   # TRUE → 按 n_subj 自动封顶 class_range
 #    adaptive_class_cap_n_threshold = 1000L,         # n_subj < 阈值 → max_ng_low；否则 max_ng_high
 #    adaptive_class_cap_ng_low  = 4L,
@@ -304,6 +307,70 @@
     stop("gridsearch 未返回有效 Jointlcmm 对象", call. = FALSE)
   }
   out
+}
+
+# ── JLCM 健康守卫：高阶模型 Log-likelihood 非单调 / 空类 → 自动加大 gridsearch 重拟（审稿必查）──
+.tfj02_model_props_min <- function(m) {
+  pp <- tryCatch(as.data.frame(m$pprob), error = function(e) NULL)
+  if (is.null(pp) || !"class" %in% names(pp)) return(NA_real_)
+  tab <- prop.table(table(factor(as.integer(pp$class), levels = seq_len(m$ng))))
+  suppressWarnings(min(as.numeric(tab), na.rm = TRUE))
+}
+
+.tfj02_jlcm_health_guard <- function(models_list, data, spline_df, cov_vars_avail,
+                                     hazard, hazardtype, gs_rep, gs_maxiter,
+                                     refit_enable = TRUE, refit_rep_cap = 200L,
+                                     refit_maxiter = 40L) {
+  ngs <- suppressWarnings(as.integer(gsub("^m", "", names(models_list)[
+    grepl("^m[0-9]+$", names(models_list))])))
+  ngs <- sort(ngs[is.finite(ngs)])
+  ll <- stats::setNames(numeric(length(ngs)), as.character(ngs))
+  for (g in ngs) {
+    m <- .tfj02_unwrap_jointlcmm(models_list[[paste0("m", g)]])
+    ll[as.character(g)] <- if (is.null(m)) NA_real_ else as.numeric(m$loglik)[1]
+  }
+  notes <- character(0)
+  bad <- integer(0)
+  for (i in seq_along(ngs)) {
+    if (i == 1L || is.na(ll[i]) || is.na(ll[i - 1L])) next
+    if (ll[i] < ll[i - 1L] - 1e-6) bad <- c(bad, ngs[i])
+    m <- .tfj02_unwrap_jointlcmm(models_list[[paste0("m", ngs[i])]])
+    mp <- .tfj02_model_props_min(m)
+    if (is.finite(mp) && mp < 0.005) bad <- c(bad, ngs[i])  # 空/退化类
+  }
+  bad <- sort(unique(bad))
+  if (!length(bad)) {
+    return(list(models = models_list, notes = "LL monotone, no empty class", bad = integer(0)))
+  }
+  notes <- c(notes, paste0("health guard flagged ng=", paste(bad, collapse = ",")))
+  if (!isTRUE(refit_enable)) {
+    return(list(models = models_list, notes = notes, bad = bad))
+  }
+  m1 <- .tfj02_unwrap_jointlcmm(models_list[["m1"]])
+  for (g in bad) {
+    rep2 <- min(as.integer(refit_rep_cap), max(100L, 2L * as.integer(gs_rep)))
+    cli::cli_alert_warning("JLCM 守卫：ng={g} LL非单调/空类 → gridsearch 重跑 rep={rep2}, maxiter={refit_maxiter}")
+    m2b <- tryCatch(
+      .tfj02_gridsearch_jointlcmm(data, spline_df, cov_vars_avail, hazard, hazardtype,
+                                  g, m1 %||% models_list[["m1"]], rep2, refit_maxiter),
+      error = function(e) {
+        cli::cli_alert_danger("JLCM 守卫：ng={g} 重跑失败: {conditionMessage(e)}")
+        NULL
+      })
+    m_old <- .tfj02_unwrap_jointlcmm(models_list[[paste0("m", g)]])
+    ll_old <- if (is.null(m_old)) -Inf else as.numeric(m_old$loglik)[1]
+    if (!is.null(m2b)) {
+      m_new <- .tfj02_unwrap_jointlcmm(m2b)
+      ll_new <- as.numeric(m_new$loglik)[1]
+      if (is.finite(ll_new) && ll_new >= ll_old) {
+        models_list[[paste0("m", g)]] <- m2b
+        notes <- c(notes, sprintf("ng=%d refit kept: ll %.1f (was %.1f)", g, ll_new, ll_old))
+      } else {
+        notes <- c(notes, sprintf("ng=%d refit worse (%.1f < %.1f), kept original", g, ll_new, ll_old))
+      }
+    }
+  }
+  list(models = models_list, notes = notes, bad = bad)
 }
 
 .tfj02_apply_value_transform <- function(x, method) {
@@ -785,6 +852,32 @@ block_trajectory_jlcm <- function(ctx, ...) {
       }
     } else {
       cli::cli_alert_warning("ng=1 未收敛，跳过 ng=2..max")
+    }
+
+    # ── LL 单调性/空类守卫：自动重跑 + 记录到 results/Summary ──
+    if (length(models_list) > 1L) {
+      health <- tryCatch(
+        .tfj02_jlcm_health_guard(
+          models_list, model_data_final, spline_df, cov_vars_avail,
+          hazard, hazardtype, gs_rep, gs_maxiter,
+          refit_enable = if (is.null(bl_cfg$gridsearch_refit_on_health_fail)) TRUE else
+            isTRUE(bl_cfg$gridsearch_refit_on_health_fail),
+          refit_rep_cap = as.integer(bl_cfg$gridsearch_refit_rep_cap %||% 200L),
+          refit_maxiter = as.integer(bl_cfg$gridsearch_refit_maxiter %||% 40L)
+        ),
+        error = function(e) {
+          cli::cli_alert_danger("JLCM 健康守卫异常（不阻断）: {conditionMessage(e)}")
+          NULL
+        }
+      )
+      if (!is.null(health)) {
+        models_list <- health$models
+        ctx$results[[paste0("trajectory_jlcm_health_", Index)]] <- health$notes
+        hp <- file.path(ctx$output_dir_tables, "Summary",
+                        paste0("JLCM_health_", Index, ".txt"))
+        dir.create(dirname(hp), recursive = TRUE, showWarnings = FALSE)
+        writeLines(as.character(health$notes %||% "ok"), hp)
+      }
     }
 
     models_list_with_cov <- models_list

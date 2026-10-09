@@ -1,12 +1,16 @@
 ---
 name: run-batch-pipeline
-description: 为本项目任意流水线（生存/发病单库/发病双库）创建批量多指标版本（config_*_batch.R、batch_runner.R、worker 脚本）。当用户说"做批量"、"跑多指标"、"batch"、"并行"、"100指标"等时使用。详细规范见 SURVIVAL_BATCH_GUIDE.md 附录 A。
+description: >-
+  为本项目任意流水线创建批量多指标版本（config_*_batch.R、batch_runner.R、worker）。
+  当用户说做批量、跑多指标、batch、并行、100指标、地基上的 worker 后缀并行时使用。
+  新建套路前先读 pipeline-foundation（发病/预后地基）。详见 SURVIVAL_BATCH_GUIDE.md 附录 A。
 ---
 
 # 批量多指标流水线构建规范
 
 > 完整文档：`SURVIVAL_BATCH_GUIDE.md`（附录 A 为发病双库规范）  
-> 现有实现参考：`run_incidence_dual_batch.R` / `R/incidence_dual_batch_runner.R`
+> 现有实现参考：`run_incidence_dual_batch.R` / `R/incidence_dual_batch_runner.R`  
+> **地基**：共享层 + Worker = 地基前缀 + 方法后缀；见 `.cursor/skills/pipeline-foundation/SKILL.md`
 
 ## 三层架构（v5 架构，发病双库）
 

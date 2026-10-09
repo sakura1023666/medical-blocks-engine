@@ -1,67 +1,48 @@
-### Task 3: `ip_cohort_sle_aki` 胶水块 + 注册
+### Task 3: 暴露 Block + 注册 + 决策树
 
 **Files:**
-- Create: `Blocks/72_incidence_prognosis_two_stage/01block_ip_cohort_sle_aki.R`
-- Modify: `R/pipeline_runner.R`（`pipeline_block_sources` 增加一行）
+- Create: `Blocks/69_ipw_diabetes_stroke_full/10block_ipw_alteplase_exposure.R`
+- Modify: `R/pipeline_runner.R`（注册 `ipw_alteplase_exposure`）
+- Create: `Decisiontree/decision_tree_ipw_pe_alteplase.md`
+- Run: `python3 scripts/update_blocks_catalog.py`（若新增 register_block）
 
 **Interfaces:**
-- Consumes: `config$ip_two_stage` 路径；baseline / SLE / ARF
-- Produces: `ctx$data$raw` 或 `ctx$data$cleaned` 分析集；`ctx$results$ip_attrition_steps`（data.frame: step, n_in, n_out, n_excluded, reason）；结局列 `Disease`/`Acute_Renal_Failure`
+- Consumes: `ctx$data$imputed`；`config$ipw_alteplase` list  
+- Produces: columns `Alteplase`, `surv_time_28d`, `surv_event_28d`；替换流水线中原 `ipw_diabetes_exposure` 位
 
-- [ ] **Step 1: 写失败测试（队列人数）**
-
-Create `tests/test_ip_cohort_sle_aki.R`：
+- [ ] **Step 1: 实现暴露块（逻辑）**
 
 ```r
-source("R/utils.R") # 若测试框架已有 helper 则沿用
-# 最小：source 新 block 后，用假数据 10 人 baseline ∩ 5 SLE → nrow==5
-stopifnot(exists("block_ip_cohort_sle_aki"))
+# config$ipw_alteplase 示例
+# list(
+#   exposure_var = "Alteplase",
+#   rx_flag_var = "ymtmd",      # 或预合并列 Alteplase_rx
+#   iv_flag_var = "...",        # MIMIC/eICU 不同则在 data 层先统一成 Alteplase
+#   prefer_precomputed = TRUE,  # 若宽表已有 Alteplase=0/1 则直接用
+#   followup_days = 28L,
+#   time_source = "hosp_survival_day",
+#   event_source = "death_within_hosp_28days",
+#   time_var = "surv_time_28d",
+#   event_var = "surv_event_28d"
+# )
+# 28d 结局派生复制 01block_ipw_diabetes_exposure.R 中 pipeline_outcome_as_01 逻辑
 ```
 
-先跑应 FAIL（函数未定义）。
+优先在 Task 2 就把 `Alteplase` 写进宽表，本块 `prefer_precomputed=TRUE` 只校验+派生结局，避免双库列名分叉。
 
-- [ ] **Step 2: 实现 block**
+- [ ] **Step 2: `register_block("ipw_alteplase_exposure", ...)` + `pipeline_runner.R` 映射**
 
-核心逻辑：
+- [ ] **Step 3: 写 `Decisiontree/decision_tree_ipw_pe_alteplase.md`**
 
-```r
-block_ip_cohort_sle_aki <- function(ctx) {
-  cfg <- ctx$config$ip_two_stage
-  e <- new.env(); load(cfg$baseline_path, envir = e)
-  bl <- e[[cfg$baseline_obj %||% "baseline"]]
-  sle <- utils::read.csv(cfg$sle_path, stringsAsFactors = FALSE)
-  arf <- utils::read.csv(cfg$arf_path, stringsAsFactors = FALSE)
-  id_bl <- cfg$baseline_id_col %||% "ID"
-  steps <- list()
-  steps[[1]] <- list(step = "baseline_icu", n = nrow(bl))
-  d <- bl[bl[[id_bl]] %in% sle$subject_id, , drop = FALSE]
-  steps[[2]] <- list(step = "intersect_SLE", n = nrow(d))
-  # age>=18 if Age present
-  if ("Age" %in% names(d)) {
-    d <- d[!is.na(d$Age) & d$Age >= 18, , drop = FALSE]
-    steps[[3]] <- list(step = "age_ge_18", n = nrow(d))
-  }
-  # AKI flag: prefer Acute_Renal_Failure; else membership in ARF.csv
-  if (!"Acute_Renal_Failure" %in% names(d)) {
-    d$Acute_Renal_Failure <- ifelse(d[[id_bl]] %in% arf$subject_id, "Yes", "No")
-  }
-  d$Disease <- as.integer(d$Acute_Renal_Failure %in% c("Yes", "YES", 1L, "1"))
-  # write attrition table for attrition_flowchart
-  ctx$results$ip_attrition_steps <- do.call(rbind, lapply(steps, as.data.frame))
-  ctx$data$raw <- d
-  ctx
-}
-register_block("ip_cohort_sle_aki", block_ip_cohort_sle_aki, "SLE背景∩baseline 纳排分析集")
+内容须引用对抗阅读 chosen 结论；流水线块列表与卒中定稿同构，仅暴露块名与库参数不同；注明双栏拼图收口。
+
+- [ ] **Step 4: 更新 catalog**
+
+```bash
+python3 scripts/update_blocks_catalog.py
 ```
 
-疾病窗写入 `config$ip_two_stage$aki_window_note`（字符串，脚注用）。
-
-- [ ] **Step 3: `pipeline_block_sources` 注册**
-
-```r
-ip_cohort_sle_aki = b("72_incidence_prognosis_two_stage/01block_ip_cohort_sle_aki.R"),
-```
-
-- [ ] **Step 4: 重跑测试 PASS**
+- [ ] **Step 5: 用户确认决策树**（聊天展示 mermaid）后方可 Task 4 写项目 config。
 
 ---
+

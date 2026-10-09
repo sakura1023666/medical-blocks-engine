@@ -98,7 +98,7 @@
   }
   if (!all(is.finite(c(hr, lo, hi)))) return(NULL)
   list(hr = round(hr, 3), ci_lo = round(lo, 3), ci_hi = round(hi, 3),
-       p = round(co[ig, pcol], 4))
+       p = pub_format_p_cell(co[ig, pcol]))
 }
 .scq03_dichot <- function(v, mode) {
   fn <- if (tolower(mode)[1] == "median") stats::median else mean

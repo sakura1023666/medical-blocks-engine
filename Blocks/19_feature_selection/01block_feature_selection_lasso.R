@@ -1,5 +1,6 @@
 ###############################################################################
-#  feature_selection_lasso — 重复 cv.glmnet LASSO + 频次筛选；Figure S2A / S2B。
+#  feature_selection_lasso — 重复 cv.glmnet LASSO + 频次筛选；Figure S2A / S2B，
+#  汇总时上下拼成 Figure S1 A/B 矢量单页（禁止多页 pdf_combine，禁止栅格嵌 PDF）。
 #
 #  # ── 前置条件 ─────────────────────────────────────────────────────────────
 #  require_data = ctx$data$imputed %||% ctx$data$cleaned   # 由 pipeline 决定，块内不选源
@@ -120,6 +121,16 @@ feature_selection_resolve_lasso_candidates <- function(ctx, bl_cfg = list()) {
       as.character(ctx$results$categorical_vars %||% character(0))
     ))
     t1 <- t1[nzchar(t1)]
+    ## 结局/ID/Group（train_validation 写入的结局因子列）不得进特征池——
+    ## table1 全变量模式同样适用（防「结局自预测」泄漏，压垮其余变量入选频率）
+    cfg <- ctx$config %||% list()
+    drop_t1 <- unique(c(
+      as.character((cfg$data %||% list())$outcome_column %||% character(0)),
+      as.character((cfg$data %||% list())$id_column %||% character(0)),
+      as.character((cfg$incidence %||% list())$outcome_var %||% character(0)),
+      "Group", "SEQN", "ID"
+    ))
+    t1 <- setdiff(t1, drop_t1)
     if (length(t1)) return(t1)
     ## baseline 尚未落盘时回退数值列（仍排除结局/ID）
     data <- ctx$data$imputed %||% ctx$data$cleaned %||% ctx$data$train
@@ -248,22 +259,25 @@ feature_selection_resolve_lasso_candidates <- function(ctx, bl_cfg = list()) {
     graphics::axis(2, at = seq_len(nr), labels = rownames(y.df)[nr:1], las = 2, cex.axis = 0.72)
     graphics::box()
     graphics::par(mar = c(bmar, 1.2, 3, 5.5))
+    # 左侧热图顶行 = 频次最高；base barplot(horiz=TRUE) 从底往上画，
+    # 故须传「升序」才能让 Pattern count 顶格=最多，与热图方向一致。
     cnt <- as.numeric(gModel_Count[, 1L])
+    cnt_plot <- rev(cnt)
     bp <- graphics::barplot(
-      cnt,
+      cnt_plot,
       horiz = TRUE,
       las = 1,
       col = "#e56b6f",
       main = "Pattern count",
-      names.arg = rep("", length(cnt)),
-      xlim = c(0, max(cnt, 1) * 1.35),
+      names.arg = rep("", length(cnt_plot)),
+      xlim = c(0, max(cnt_plot, 1) * 1.35),
       cex.names = 0.72
     )
     # times 标签放在柱右侧，避免与左侧热图重叠
     graphics::text(
-      x = cnt + max(cnt, 1) * 0.03,
+      x = cnt_plot + max(cnt_plot, 1) * 0.03,
       y = bp,
-      labels = paste0(cnt, " times"),
+      labels = paste0(cnt_plot, " times"),
       adj = 0,
       cex = 0.72,
       xpd = TRUE
@@ -1082,12 +1096,39 @@ block_feature_selection_lasso <- function(ctx, ...) {
         op <- graphics::par(mar = c(9.5, 4, 2, 1))
         on.exit(graphics::par(op), add = TRUE)
         nm <- gsub("_", " ", names(gene_sum), fixed = TRUE)
-        graphics::barplot(
+        y_top <- max(1, lasso_times)
+        bp <- graphics::barplot(
           gene_sum, names.arg = nm, col = "#b04735", las = 2,
-          ylim = c(0, max(1, lasso_times))
+          ylim = c(0, y_top * 1.08)
         )
         graphics::abline(h = lasso_cutoff_n, lty = 2)
+        graphics::text(
+          x = bp, y = pmin(gene_sum + y_top * 0.03, y_top * 1.05),
+          labels = as.integer(gene_sum), cex = 0.85, xpd = NA
+        )
       }, width = 11, height = 6)
+
+      tbl_dir <- ctx$output_dir_tables %||% file.path(ctx$output_dir, "Tables")
+      if (!dir.exists(tbl_dir)) dir.create(tbl_dir, recursive = TRUE)
+      freq_csv <- file.path(tbl_dir, "Lasso_feature_frequency.csv")
+      tryCatch({
+        utils::write.csv(
+          data.frame(
+            feature = names(gene_sum),
+            frequency = as.integer(gene_sum),
+            lasso_times = lasso_times,
+            freq_cutoff_n = lasso_cutoff_n,
+            stringsAsFactors = FALSE
+          ),
+          freq_csv, row.names = FALSE
+        )
+      }, error = function(e) NULL)
+      if (!is.null(meta_row) && is.data.frame(meta_row) && nrow(meta_row)) {
+        lam_csv <- file.path(tbl_dir, "Lasso_lambda_summary.csv")
+        mr <- meta_row
+        mr$lambda_used <- mr$lambda_min * mr$lambda_multiplier
+        tryCatch(utils::write.csv(mr, lam_csv, row.names = FALSE), error = function(e) NULL)
+      }
 
       ctx <- save_figure(ctx, "Figure S2B.LassoModel.pdf", function() {
         .fsl01_fig3a_lasso_model_plot(

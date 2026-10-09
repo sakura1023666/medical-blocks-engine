@@ -135,13 +135,21 @@ cli::cli_alert_success(paste0(
   config$covariate_policy$force_age <- "Age" %in% m2 || "Age" %in% m1
   config$covariate_policy$force_sex <- any(c("Gender", "Sex") %in% m2)
   config$covariate_policy$force_sex_to_model1 <- FALSE
-  # 展示名
+  # 展示名：FI 课题才回退 Frailty Index；休闲活动用 Leisure activity score
   if (is.null(config$incidence)) config$incidence <- list()
+  .idx_disp <- as.character(config$incidence$index_var %||% "")[1L]
+  .disp_fallback <- if (.idx_disp %in% c("FI", "Frailty", "Frailty_Index", "frailty_index", "")) {
+    "Frailty Index"
+  } else if (identical(.idx_disp, "Leisure_score")) {
+    "Leisure activity score"
+  } else {
+    gsub("_", " ", .idx_disp, fixed = TRUE)
+  }
   config$incidence$index_var_display_name <-
-    config$incidence$index_var_display_name %||% "Frailty Index"
+    config$incidence$index_var_display_name %||% .disp_fallback
   if (is.null(config$logistic)) config$logistic <- list()
   config$logistic$index_var_display_name <-
-    config$logistic$index_var_display_name %||% "Frailty Index"
+    config$logistic$index_var_display_name %||% config$incidence$index_var_display_name
   config
 }
 
@@ -197,6 +205,55 @@ cli::cli_alert_success(paste0(
   ck
 }
 
+#' Pooled 无 VIF 检查点：从 D04_Pooled_postvif.RData（或最近 logistic ck）建 ctx
+.load_pooled_ctx_for_rcs <- function(study_root, config, m1, m2, ck_dir) {
+  # 优先：已有 logistic relock 检查点（含 imputed）
+  log_cands <- list.files(
+    ck_dir,
+    pattern = "(logistic_quartile_glm|logistic_tertile_glm|logistic_binary_glm)\\.rds$",
+    full.names = TRUE
+  )
+  if (length(log_cands)) {
+    hit <- log_cands[grepl("step\\d+_", basename(log_cands))]
+    if (!length(hit)) hit <- log_cands
+    # 取最新修改的
+    hit <- hit[order(file.info(hit)$mtime, decreasing = TRUE)]
+    ck <- tryCatch({
+      x <- readRDS(hit[[1L]])
+      if (!is.null(x$ctx)) x <- x$ctx
+      x
+    }, error = function(e) NULL)
+    if (!is.null(ck) && is.data.frame(ck$data$imputed %||% ck$data$cleaned)) {
+      cli::cli_alert_info("Pooled RCS: 复用 logistic 检查点 {basename(hit[[1L]])}")
+      return(ck)
+    }
+  }
+  pooled_path <- file.path(study_root, "data/harmonized/D04_Pooled_postvif.RData")
+  if (!file.exists(pooled_path))
+    pooled_path <- file.path(study_root, "data/harmonized/D04_Pooled_hip_postvif.RData")
+  if (!file.exists(pooled_path))
+    stop("Pooled RCS: 无 multicollinearity_final，且缺少 D04_Pooled_postvif.RData", call. = FALSE)
+  ee <- new.env(parent = emptyenv())
+  load(pooled_path, envir = ee)
+  dabiao <- ee$dabiao
+  if (!is.data.frame(dabiao)) stop("Pooled RData 无 dabiao", call. = FALSE)
+  if ("Country" %in% names(dabiao)) {
+    dabiao$Country <- factor(dabiao$Country, levels = sort(unique(as.character(dabiao$Country))))
+  }
+  cli::cli_alert_info("Pooled RCS: 从 {basename(pooled_path)} 构建上下文")
+  list(
+    config = config,
+    data = list(raw = dabiao, cleaned = dabiao, mapped = dabiao, imputed = dabiao),
+    results = list(
+      Model1Factors = m1,
+      Model2Factors = m2,
+      vif_final_pass = m2
+    ),
+    log = list(),
+    root_output_dir = dirname(ck_dir)
+  )
+}
+
 run_unit <- function(db) {
   cli::cli_h1("Relock logistic: {db}")
   cfg_path <- file.path(study_root, paste0("config_phase1_", db, ".R"))
@@ -237,6 +294,80 @@ run_unit <- function(db) {
 }
 
 #' Table S-XX：RCS cutoff 组 logistic，协变量与主文锁定一致（四库均需：CHARLS/ELSA/HRS/Pooled）
+#' Pooled RCS：rcs(暴露) * Country，检验样条形状在库间是否不同
+.pooled_rcs_interaction <- function(data, index, covars, case_label, out_dir, nk = NULL) {
+  if (!requireNamespace("rms", quietly = TRUE)) {
+    stop("需要 rms 包做 Pooled RCS 交互检验", call. = FALSE)
+  }
+  suppressPackageStartupMessages(library(rms))
+  covars <- setdiff(as.character(covars), c("Country", "Cohort", index))
+  covars <- covars[covars %in% names(data)]
+  y <- as.integer(as.character(data$Disease_Group) == case_label)
+  dat <- data.frame(Disease = y, Country = factor(data$Country), stringsAsFactors = FALSE)
+  dat[[index]] <- as.numeric(data[[index]])
+  for (v in covars) dat[[v]] <- data[[v]]
+  dat <- dat[stats::complete.cases(dat), , drop = FALSE]
+  assign("dd_pool", rms::datadist(dat), envir = .GlobalEnv)
+  options(datadist = "dd_pool")
+  if (is.null(nk) || !is.finite(as.numeric(nk))) {
+    nk <- 4L
+    best <- Inf
+    for (i in 3:5) {
+      f0 <- stats::as.formula(paste0("Disease ~ rms::rcs(", index, ", ", i, ")"))
+      fit0 <- tryCatch(rms::lrm(f0, data = dat), error = function(e) NULL)
+      if (is.null(fit0)) next
+      aic <- tryCatch(stats::AIC(fit0), error = function(e) Inf)
+      if (is.finite(aic) && aic < best) {
+        best <- aic
+        nk <- i
+      }
+    }
+  }
+  nk <- as.integer(nk)
+  rhs_cov <- if (length(covars)) paste(covars, collapse = " + ") else "1"
+  form <- stats::as.formula(paste0(
+    "Disease ~ rms::rcs(", index, ", ", nk, ") * Country + ", rhs_cov
+  ))
+  fit <- rms::lrm(form, data = dat, x = TRUE, y = TRUE)
+  a <- stats::anova(fit)
+  tab <- as.data.frame(a, stringsAsFactors = FALSE)
+  tab$term <- rownames(a)
+  # as.data.frame 会把 * 换成点，匹配用原始行名
+  hit <- grep(paste0("^", index, " \\* Country"), tab$term)
+  if (!length(hit)) {
+    hit <- grep(paste0("^", index, ".*Country.*Factor"), tab$term)
+  }
+  if (!length(hit)) stop("anova 中未找到暴露×Country 交互行", call. = FALSE)
+  row <- tab[hit[[1L]], , drop = FALSE]
+  pcol <- names(row)[grepl("^P$", names(row))][1L]
+  pval <- suppressWarnings(as.numeric(row[[pcol]]))
+  nl <- grep("Nonlinear Interaction", tab$term)
+  p_nl <- if (length(nl)) suppressWarnings(as.numeric(tab[[pcol]][nl[[1L]]])) else NA_real_
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  out <- file.path(out_dir, "Pooled_RCS_interaction.txt")
+  lines <- c(
+    paste0("index=", index),
+    paste0("nk=", nk),
+    paste0("n=", nrow(dat)),
+    paste0("covariates=", paste(covars, collapse = "+")),
+    paste0("interaction_term=", row$term[1L]),
+    paste0("df=", row[["d.f."]][1L]),
+    paste0("P_interaction=", signif(pval, 4)),
+    paste0("P_nonlinear_interaction=", signif(p_nl, 4)),
+    if (is.finite(pval) && pval > 0.05) {
+      "interpretation=P>0.05：库内百分位与结局的样条形状在两库无统计学显著差异，Pooled 曲线可共同解释。"
+    } else if (is.finite(pval)) {
+      "interpretation=P<=0.05：两库样条形状存在统计学差异，Pooled 曲线不能视为形状完全一致。"
+    } else {
+      "interpretation=交互 P 未能估计"
+    }
+  )
+  writeLines(lines, out)
+  utils::write.csv(tab, file.path(out_dir, "Pooled_RCS_interaction_anova.csv"), row.names = FALSE)
+  cli::cli_alert_success("Pooled RCS 交互 P={signif(pval, 4)} → {out}")
+  invisible(pval)
+}
+
 run_rcs_sxx <- function(db) {
   cli::cli_h1("Relock Table S-XX (RCS cutoff): {db}")
   is_pooled <- identical(db, "Pooled")
@@ -255,17 +386,36 @@ run_rcs_sxx <- function(db) {
     e <- new.env(parent = globalenv())
     sys.source(file.path(study_root, paste0("config_phase1_", db, ".R")), envir = e)
   }
-  ck <- .load_rcs_checkpoint(ck_dir)
+  .hidx_early <- as.character((.meta_lock %||% list())$pooled_index %||% "")[1L]
+  ck <- NULL
+  # 换了 Pooled 暴露尺度后，旧 RCS 检查点仍是原始分，不能续跑
+  if (!(is_pooled && nzchar(.hidx_early)))
+    ck <- .load_rcs_checkpoint(ck_dir)
   if (is.null(ck)) {
-    # 无 RCS 检查点时：尝试从 multicollinearity_final + 再跑 rcs_incidence → glm_rcs
-    cli::cli_alert_warning("{db}: 无 rcs_incidence 检查点，尝试从 VIF final 续跑 rcs → S-XX")
-    ck <- .load_vif_checkpoint(ck_dir)
+    # 无 RCS 检查点：单库用 VIF final；Pooled 无 VIF，改从 D04 / logistic ck 建 ctx
+    if (is_pooled) {
+      cli::cli_alert_warning(
+        "Pooled: 无 rcs_incidence；Pooled 不做 VIF，改从 postvif RData / logistic 检查点续跑 rcs → S-XX"
+      )
+      # config 稍后 .lock_cfg；此处先用 e$config 占位，后面再覆盖
+      ck <- .load_pooled_ctx_for_rcs(
+        study_root, e$config, m1, m2, ck_dir
+      )
+    } else {
+      cli::cli_alert_warning("{db}: 无 rcs_incidence 检查点，尝试从 VIF final 续跑 rcs → S-XX")
+      ck <- .load_vif_checkpoint(ck_dir)
+    }
   }
   d <- ck$data$imputed %||% ck$data$cleaned
   .idx_nm <- as.character(
     (e$config$incidence %||% list())$index_var %||%
       (.meta_lock$index_var %||% "FI")
   )[1L]
+  .hidx <- as.character((.meta_lock %||% list())$pooled_index %||% "")[1L]
+  if (is_pooled && nzchar(.hidx) && !is.null(d) && .hidx %in% names(d)) {
+    .idx_nm <- .hidx
+    cli::cli_alert_info("Pooled RCS 暴露: {(.idx_nm)}")
+  }
   .rcs_grp <- paste0(.idx_nm, "_RCS_Group")
   if (!is.null(d) && !.rcs_grp %in% names(d) && "FI_RCS_Group" %in% names(d))
     .rcs_grp <- "FI_RCS_Group"
@@ -276,7 +426,15 @@ run_rcs_sxx <- function(db) {
   # 强制 primary 二分（图可标全部交点；表/分组只用主 cutoff）
   if (is.null(config$rcs_incidence)) config$rcs_incidence <- list()
   config$rcs_incidence$group_cutoffs <- "primary"
-  config$rcs_incidence$index_var <- config$rcs_incidence$index_var %||% .idx_nm
+  config$rcs_incidence$index_var <- .idx_nm
+  if (is.null(config$logistic)) config$logistic <- list()
+  config$logistic$index_var <- .idx_nm
+  if (is.null(config$incidence)) config$incidence <- list()
+  config$incidence$index_var <- .idx_nm
+  if (is_pooled && grepl("harmonized", .idx_nm, fixed = TRUE)) {
+    config$incidence$index_var_display_name <- "Leisure activity percentile"
+    config$logistic$index_var_display_name <- "Leisure activity percentile"
+  }
   config$project$name <- paste0("CrossLagged_", db, "_relock_rcs_sxx")
   config$project$database <- db
   config$project$output_dir <- out_dir
@@ -347,6 +505,22 @@ run_rcs_sxx <- function(db) {
         )
       }
     }
+    if (is_pooled && grepl("harmonized", .idx_nm, fixed = TRUE)) {
+      .ppx <- file.path(study_root, "data/harmonized/D04_Pooled_postvif.RData")
+      .ex <- new.env()
+      load(.ppx, envir = .ex)
+      .nk_use <- NULL
+      .ckr <- .load_rcs_checkpoint(ck_dir)
+      if (!is.null(.ckr)) .nk_use <- .ckr$results$rcs_incidence_nk
+      .pooled_rcs_interaction(
+        .ex$dabiao,
+        .idx_nm,
+        m2,
+        e$config$project$analysis_group %||% "Circadian_Disorder",
+        file.path(out_dir, "Tables"),
+        nk = .nk_use
+      )
+    }
     cli::cli_alert_success(
       "{db} Table S-XX (RCS primary 二分) relock done; M2={paste(m2, collapse='+')}"
     )
@@ -389,6 +563,21 @@ run_pooled <- function() {
   config$data$rawdata_path <- pooled_path
   config$data$rawdata_obj <- "dabiao"
   config$column_mapping$database_type <- "regular"
+  .hidx <- as.character((.meta_lock %||% list())$pooled_index %||% "")[1L]
+  if (nzchar(.hidx) && .hidx %in% names(dabiao)) {
+    config$incidence$index_var <- .hidx
+    if (is.null(config$logistic)) config$logistic <- list()
+    config$logistic$index_var <- .hidx
+    config$prediction$index_vars <- .hidx
+    if (is.null(config$rcs_incidence)) config$rcs_incidence <- list()
+    config$rcs_incidence$index_var <- .hidx
+    if (is.null(config$logistic_quartile_glm)) config$logistic_quartile_glm <- list()
+    config$logistic_quartile_glm$force_export <- TRUE
+    config$logistic_quartile_glm$index_var <- .hidx
+    config$incidence$index_var_display_name <- "Leisure activity percentile"
+    config$logistic$index_var_display_name <- "Leisure activity percentile"
+    cli::cli_alert_info("Pooled 暴露改用库内标准化列: {(.hidx)}")
+  }
 
   initial_ctx <- list(
     config = config,

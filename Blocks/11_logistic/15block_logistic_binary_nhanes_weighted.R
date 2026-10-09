@@ -47,6 +47,17 @@
   as.numeric(unlist(qq, use.names = FALSE))
 }
 
+.lqb09_apply_native <- function(design, index_var) {
+  raw <- design$variables[[index_var]]
+  raw_levels <- sort(unique(as.character(raw[!is.na(raw)])))
+  grp <- factor(as.character(raw), levels = raw_levels)
+  list(
+    design = stats::update(design, Group = grp, Num = as.numeric(grp)),
+    raw_levels = raw_levels,
+    cutoffs = setNames(rep("", length(raw_levels)), raw_levels)
+  )
+}
+
 .lqb09_apply_binary <- function(design, index_var) {
   design <- .lnw00_design_index_as_numeric(design, index_var)
   xv <- design$variables[[index_var]]
@@ -54,7 +65,7 @@
   if (!is.finite(q_med)) stop("binary 加权中位数计算失败", call. = FALSE)
   grp_chr <- ifelse(is.na(xv), NA_character_, ifelse(xv < q_med, "Q1", "Q2"))
   raw_levels <- c("Q1", "Q2")
-  cutoffs <- c(Q1 = paste0("< ", fmt_num(q_med)), Q2 = paste0("\u2265 ", fmt_num(q_med)))
+  cutoffs <- c(Q1 = paste0("< ", fmt_num_cutoff(q_med)), Q2 = paste0("\u2265 ", fmt_num_cutoff(q_med)))
   list(
     design = stats::update(design, Group = factor(grp_chr, levels = raw_levels), Num = as.numeric(factor(grp_chr, levels = raw_levels))),
     raw_levels = raw_levels, cutoffs = cutoffs
@@ -110,28 +121,41 @@
   })
   t1 <- .lqb09_coef_row(mt, "Num"); t2 <- .lqb09_coef_row(mt2, "Num"); t3 <- .lqb09_coef_row(mt3, "Num")
   t4 <- if (include_m3) .lqb09_coef_row(mt4, "Num") else NULL
-  Line_trend <- c("p for trend", rep("", 4L), t1[3L], "", "", t2[3L], "", "", t3[3L], if (include_m3) c("", "", t4[3L]) else character(0))
+  # RCS cutoff 分组表不放 p for trend
+  Line_trend <- if (isTRUE(attr(cutoffs, "is_rcs_group") %||% FALSE)) NULL else {
+    c("p for trend", rep("", 4L), t1[3L], "", "", t2[3L], "", "", t3[3L], if (include_m3) c("", "", t4[3L]) else character(0))
+  }
   if (include_cont) {
     mc <- .lqb09_svyglm_fit(des, fj(index_var)); mc2 <- .lqb09_svyglm_fit(des, fj(c(index_var, M1))); mc3 <- .lqb09_svyglm_fit(des, fj(c(index_var, M2)))
     mc4 <- if (include_m3) .lqb09_svyglm_fit(des, fj(c(index_var, M3))) else NULL
     cc1 <- .lqb09_coef_row(mc, index_var); cc2 <- .lqb09_coef_row(mc2, index_var); cc3 <- .lqb09_coef_row(mc3, index_var)
     cc4 <- if (include_m3) .lqb09_coef_row(mc4, index_var) else character(0)
-    rt <- do.call(rbind, c(list(Line1, Line2, c(index_var, rep("", n_pad)),
+    parts <- c(list(Line1, Line2, c(index_var, rep("", n_pad)),
       c(paste0(index_var, " continuous"), "", "", cc1[1L], cc1[2L], cc1[3L], cc2[1L], cc2[2L], cc2[3L], cc3[1L], cc3[2L], cc3[3L], cc4),
-      Line5, Line_ref), lines_nr, list(Line_trend)))
-  } else rt <- do.call(rbind, c(list(Line1, Line2, Line5, Line_ref), lines_nr, list(Line_trend)))
+      Line5, Line_ref), lines_nr)
+  } else {
+    parts <- c(list(Line1, Line2, Line5, Line_ref), lines_nr)
+  }
+  if (!is.null(Line_trend)) parts <- c(parts, list(Line_trend))
+  rt <- do.call(rbind, parts)
   rownames(rt) <- NULL
   colnames(rt) <- NULL
   rt
 }
 
 .lqb09_export_table <- function(ctx, cfg, bl_cfg, rt, caption_suffix = "", as_main = FALSE, M1 = NULL, M2 = NULL, M3 = NULL, m3_significant = NULL) {
-  is_rcs <- grepl("RCS", as.character(caption_suffix %||% ""), ignore.case = TRUE)
-  grouping <- if (is_rcs) "NHANES RCS cutoff" else "NHANES binary"
-  cap <- paste0(
-    "Weighted logistic regression of ", bl_cfg$index_var %||% "exposure", " and ",
-    cfg$project$disease, " (", grouping, ", svyglm", if (is_rcs) "" else caption_suffix, ")"
-  )
+  is_rcs <- grepl("RCS", as.character(caption_suffix %||% ""), ignore.case = TRUE) ||
+    identical(as.character(bl_cfg$phase %||% "")[1L], "rcs")
+  ix <- as.character(bl_cfg$index_var %||% "exposure")[1L]
+  # 「RCS cutoff」须在括号外，否则 shorten 剥括号后无法归入 Table S-XX
+  if (is_rcs) {
+    cap <- paste0("Weighted logistic regression of ", ix, " RCS cutoff")
+  } else {
+    cap <- paste0(
+      "Weighted logistic regression of ", ix, " and ",
+      cfg$project$disease, " (NHANES binary, svyglm", caption_suffix, ")"
+    )
+  }
   footnotes <- .lnw00_table_footnotes(M1 %||% character(0), M2 %||% character(0), M3, m3_significant)
   .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = as_main, table_footnotes = footnotes,
                        family = if (is_rcs) "rcs" else "binary")
@@ -186,7 +210,12 @@ block_logistic_binary_nhanes_weighted <- function(ctx, ...) {
   disease_lbl <- (cfg$project %||% list())$analysis_group %||% (cfg$project %||% list())$disease %||% "Case"
   index_var <- as.character(bl_cfg$index_var %||% (cfg$logistic %||% list())$index_var %||% (cfg$incidence %||% list())$index_var %||% "BMI")[1L]
   bl_cfg$index_var <- index_var
-  design <- .lnw00_design_index_as_numeric(design, index_var)
+  if (exists("pipeline_apply_categorical_exposure", mode = "function")) {
+    bl_cfg <- pipeline_apply_categorical_exposure(bl_cfg, design$variables, index_var)
+  }
+  if (!isTRUE(bl_cfg$categorical_exposure)) {
+    design <- .lnw00_design_index_as_numeric(design, index_var)
+  }
   cascade <- .lqb09_cascade_cfg(cfg)
 
   models <- .lnw00_resolve_models(ctx, cfg, bl_cfg, design, index_var)
@@ -198,20 +227,28 @@ block_logistic_binary_nhanes_weighted <- function(ctx, ...) {
   if (is_rcs) {
     cli::cli_h2("logistic_binary_nhanes_weighted_rcs: RCS 分组加权 Table 2（{index_var}）")
     rcs_grp <- .lnw00_design_from_rcs_groups(ctx, design, bl_cfg)
-    grp <- list(design = rcs_grp$design, raw_levels = rcs_grp$raw_levels, cutoffs = rcs_grp$cutoffs)
+    cutoffs_rcs <- rcs_grp$cutoffs
+    attr(cutoffs_rcs, "is_rcs_group") <- TRUE
+    grp <- list(design = rcs_grp$design, raw_levels = rcs_grp$raw_levels, cutoffs = cutoffs_rcs)
     crude <- list(significant = TRUE, p_trend = NA_real_, p_regterm = NA_real_)
   } else {
     cli::cli_h2("logistic_binary_nhanes_weighted: 加权二分位 Table 2（{index_var}）")
-    grp <- .lqb09_apply_binary(design, index_var)
+    grp <- if (isTRUE(bl_cfg$categorical_exposure)) {
+      .lqb09_apply_native(design, index_var)
+    } else {
+      .lqb09_apply_binary(design, index_var)
+    }
     crude <- .lqb09_crude_significance(grp$design, outcome_col, disease_lbl, cascade$method, cascade$threshold)
     cli::cli_alert_info("二分位 crude: p_trend={fmt_pval(crude$p_trend)}, regTerm={fmt_pval(crude$p_regterm)}, sig={crude$significant}")
   }
 
   tb <- .lqb09_build_table(grp$design, outcome_col, disease_lbl, index_var, M1, M2, grp$cutoffs, grp$raw_levels,
-                           isTRUE(bl_cfg$include_continuous_row %||% TRUE))
+                           isTRUE(bl_cfg$include_continuous_row %||% FALSE) &&
+                             !isTRUE(bl_cfg$categorical_exposure))
 
   if (isTRUE(crude$significant)) {
-    inc_cont <- isTRUE(bl_cfg$include_continuous_row %||% TRUE)
+    inc_cont <- isTRUE(bl_cfg$include_continuous_row %||% FALSE) &&
+      !isTRUE(bl_cfg$categorical_exposure)
     sr <- .lnw00_maybe_search_covariates(
       ctx, cfg, grp$design, index_var, M1, M2, tb, crude$significant,
       build_table_fn = function(m1, m2) {
@@ -242,7 +279,8 @@ block_logistic_binary_nhanes_weighted <- function(ctx, ...) {
     build_table_fn = function(m1, m2, m3) {
       .lqb09_build_table(
         grp$design, outcome_col, disease_lbl, index_var, m1, m2,
-        grp$cutoffs, grp$raw_levels, isTRUE(bl_cfg$include_continuous_row %||% TRUE),
+        grp$cutoffs, grp$raw_levels,
+        isTRUE(bl_cfg$include_continuous_row %||% FALSE) && !isTRUE(bl_cfg$categorical_exposure),
         M3 = m3
       )
     },

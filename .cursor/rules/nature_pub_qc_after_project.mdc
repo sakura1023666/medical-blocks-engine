@@ -1,0 +1,82 @@
+---
+description: 项目跑完强制 nature-statistics + nature-figure 检查，并修复全部 P0
+alwaysApply: true
+---
+
+# Nature 发表检查铁律（跑完任意项目强制）
+
+凡 **发病 / 预后 / ML / TST / 竞争风险 / 轨迹 / IPW** 等课题在 batch / workers / finalize / 发表收口完成（或用户明确说「跑完了」）后，**必须**对本项目产出执行本规则。禁止只做结构巡检就宣称交付完成。
+
+**双轨勿混：** 本规则 = **轨道 A（表图 Nature P0）**。Methods 作者待确认项 = **轨道 B（H1）**，模板  
+`configs/templates/H1_Methods_P0_author_adjudication.template.md`（通常只写描述、不重跑）。  
+复用地图：`docs/reuse/2026-10-08-nature-pub-qc-tst-reuse-map.md`。
+
+## 强制技能（只审发表产物）
+
+1. **`nature-statistics`**（`.cursor/skills/nature-statistics/SKILL.md`，个人副本 `~/.cursor/skills/nature-statistics/`）  
+   - 审：主文/补充表数字口径、图注统计、`n` 定义、效应量与不确定性、多重比较、单位/分母、失败模式。  
+   - 输出格式与严重度按该 skill；落盘写入项目 `reports/nature_statistics_qc_YYYY-MM-DD.md`。
+
+2. **`nature-figure`**（`.cursor/skills/nature-figure/SKILL.md`，个人副本 `~/.cursor/skills/nature-figure/`）  
+   - 审：定稿 `Figures/`（优先 `pdf/`；缺则 png）面板对齐、碰撞、图注统计对齐、四目录与可读性。  
+   - 能跑脚本则跑 `scripts/validate_figure.py` / `audit_panel_alignment.py` / `audit_figure_collisions.py` / `audit_pdf_text.py`；`FIX BEFORE DELIVERY` 或 `severity=FAIL` **等同 P0**。  
+   - 落盘 `reports/nature_figure_qc_YYYY-MM-DD.md`（可附 collision/alignment JSON 路径）。
+
+3. **依赖**：两 skill 共用 `nature-shared`（同目录已安装）；统计一致性扫 `nature-shared/core/consistency-sweep.md`。
+
+4. **与现有质控关系**：在 `pub-qc-after-project`（结构 + 交叉数字 + Agent 逻辑）**之后**执行本两 skill；总报告可汇总进 `reports/pub_qc_*.md` 的「Nature P0」一节，但 **P0 清单不得省略**。
+
+## P0 必须改完
+
+| 来源 | 视为 P0 |
+|------|---------|
+| nature-statistics | 标签为 **P0** 的条目（能推翻中心结论的统计报告/分析逻辑问题） |
+| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读 |
+
+**铁律：**
+
+1. 发现 P0 → **当场修改**（改脚本重导图/表、外科改 xlsx、重跑单步 block、改图注/Methods 口径说明），不得只列问题交差。  
+2. 改完后 **复检同一批 P0**，直至清零或用户书面接受残留（须写进报告「用户接受残留 P0」+ 理由）。  
+3. **P1/P2** 记入报告；默认不阻塞交付，但须在聊天里点名条数。  
+4. 未跑完 nature-statistics + nature-figure、或仍有未处理 P0 时，**禁止**宣称「项目跑完 / 可交稿 / PASS」。
+
+## 范围
+
+- 默认只审用户点名或刚跑完的 `project_root` 下 **【success】** / `summary_results` 等发表根。  
+- 跳过 `【failed】`、裸名未 success 目录、checkpoints。  
+- 用户说「不要审 / 先别质控」时可跳过，并在回复里显式声明跳过了 Nature P0 门控。
+
+## 自动挂点（跑完即触发）
+
+总表：`run/pub/README.md`（唯一发表收口入口说明）。
+
+1. **CLI 骨架（必须先跑）**：  
+   `Rscript run/pub/run_pub_qc_after_project.R --project <project_root>`  
+   写出 `reports/pub_qc_YYYY-MM-DD.md` + nature stub（已存在则不覆盖）。
+2. **引擎自动调用**（结构层，不替代 Agent Layer D）：  
+   - `R/pub_qc_after_finalize.R` → `pub_qc_run_after_project()`  
+   - `run_pipeline` 收尾（`R/pipeline_runner.R`）  
+   - dual-batch `incidence_batch_finalize_index_outputs` 收尾  
+   - TST `tst_summary_results` 收尾  
+   - 课题 rebuild 末尾应调同一 CLI（勿另写 QC）  
+   - 关闭：`config$pub$auto_qc = FALSE` 或环境变量 `MEDICAL_BLOCKS_AUTO_PUB_QC=0`
+3. **Agent 立刻接 Layer D**：按 `pub-qc-after-project` + 本规则填实 nature 两份报告并 **修清全部 P0**。
+4. 用户说「跑完了」而未给路径时：用本会话刚写的 `project_root`；仍无则追问一次路径。
+5. **禁下划线**：见 `pub_no_underscore_display`；QC 结构层会 WARN。
+
+## Agent 检查清单
+
+- [ ] 已跑 `run/pub/run_pub_qc_after_project.R --project …`
+- [ ] 已 Read `nature-statistics/SKILL.md` 与 `nature-figure/SKILL.md`（或本会话已加载）
+- [ ] 已写出两份 QC md（或合并报告中含两节）
+- [ ] P0 已修复并复检清零（或用户接受残留已记录）
+- [ ] 图改动后重跑四目录导出（`pub_figure_ensure_formats`）
+
+## 反例（禁止）
+
+- 只跑 `pub-qc-after-project` Layer A/B，不跑 nature-statistics / nature-figure
+- 只落盘 AUTO_STUB 报告却宣称 PASS
+- 报告里列了 P0 却不改文件/不重导图
+- 把 collision FAIL 当成「建议以后再改」
+- 改完 PDF 不刷新 png/tiff/image_information
+- 发表收口结束不调用 `run_pub_qc_after_project.R`

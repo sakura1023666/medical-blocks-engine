@@ -65,6 +65,7 @@
     paste0("p=", formatC(round(p, 3), format = "f", digits = 3))
   }
   .fmt_ci_p <- function(est, lo, hi, p) {
+    if (exists("pub_fmt_est_ci_p", mode = "function")) return(pub_fmt_est_ci_p(est, lo, hi, p))
     if (length(est) != 1L || is.na(est)) return("")
     pt <- .fmt_p_inline(p)
     if (is.na(lo) || is.na(hi)) {
@@ -125,9 +126,7 @@
           lev <- lv[k]
           nk <- sum(xf == lev, na.rm = TRUE)
           pctk <- if (n_tot > 0) nk / n_tot * 100 else 0
-          mr <- sub_u[sub_u$Variable == paste0(bv, lev), , drop = FALSE]
-          if (nrow(mr) == 0L) mr <- sub_u[grepl(lev, sub_u$Variable, fixed = TRUE), , drop = FALSE]
-          if (nrow(mr) > 1L) mr <- mr[1L, , drop = FALSE]
+          mr <- univar_match_coef_row(sub_u, bv, lev)
           u1 <- if (nrow(mr) == 1L) .fmt_ci_p(mr[[if ("HR" %in% names(mr)) "HR" else "OR"]][1],
             mr$CI_lo[1], mr$CI_hi[1], mr$P[1]) else ""
           pub_rows[[length(pub_rows) + 1L]] <- data.frame(
@@ -630,10 +629,18 @@ block_univariate_incidence_multiclass <- function(ctx, ...) {
 
 
   } else if (classification_mode == "binary") {
-    disease_label <- cfg$project$analysis_group %||% cfg$project$disease
+    disease_label <- if (exists("pipeline_outcome_case_label", mode = "function")) {
+    pipeline_outcome_case_label(cfg)
+  } else {
+    cfg$project$analysis_group %||% cfg$project$disease %||% outcome_col
+  }
     cli::cli_alert_info("阳性标签: {disease_label}")
     
-    data[[outcome_col]] <- as.integer(data[[outcome_col]] == disease_label)
+    data[[outcome_col]] <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    as.integer(pipeline_outcome_as_01(data[[outcome_col]], cfg))
+  } else {
+    as.integer(data[[outcome_col]] == disease_label)
+  }
     
     cli::cli_h2("单因素回归分析 (二分类 Logistic, OR)")
     univar_results <- list()

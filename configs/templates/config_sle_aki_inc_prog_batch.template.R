@@ -157,6 +157,8 @@ config <- list(
     dead_col          = "is_dead",
     last_followup_cols = c("disch_time", "icu_outtime"),
     force_covariates  = .force_covariates,
+    # Stage2 Cox/RCS/KM 直接沿用 Stage1 锁定 Model1/Model2，不再跑预后 UV/MV
+    reuse_stage1_covariates = TRUE,
     # 主分析窗：ICU 住院期间 ARF/AKI 二分类（无精确发病时刻）
     aki_window_note   = paste(
       "Primary AKI window: ICU-stay ARF/AKI (Acute_Renal_Failure or ARF.csv membership).",
@@ -196,7 +198,8 @@ config <- list(
     font_family = "Times New Roman"
   ),
 
-  # Figure 1：attrition_flowchart 不读 ip_attrition_steps；用 steps 对齐该表
+  # Figure 1：CONSORT（主列纳入、右侧 Exclude、底部分叉 AKI / No AKI）
+  # attrition_flowchart 不读 ip_attrition_steps；用 steps 对齐该表
   # ip_cohort 写出 ctx$results$ip_attrition_steps（baseline_icu / intersect_SLE / age_ge_18）
   attrition = list(
     enable = TRUE,
@@ -270,7 +273,8 @@ config <- list(
     drop_sparse_categorical = TRUE,
     min_categorical_n = 20L,
     discrete_unique_max = 5L,
-    dual_db_lock = FALSE
+    dual_db_lock = FALSE,
+    protect_categorical_vars = c("Hypertension", "T2DM")
   ),
 
   analysis_models = list(
@@ -289,7 +293,7 @@ config <- list(
     pause_enable = FALSE,
     pause_on_table1_fail = FALSE,
     pause_on_min_sig_vars = FALSE,
-    # Stage1：指标在 Table1 组间不显著 → 早停记失败；切 Stage2 时 runner 会关掉
+    # Stage1（按 AKI）与 Stage2（按 28d 死亡）Table1：暴露组间 P≥0.05 → 早停记失败
     early_stop_if_index_ns = TRUE
   ),
 
@@ -439,19 +443,20 @@ config <- list(
     pause_enable = FALSE
   ),
 
-  # 主文图序：Fig1 纳排 → Fig2 发病 RCS → Fig3 发病森林 → Fig4 预后 RCS → Fig5 闸门 KM → Fig6 预后森林
+  # 主文图序：Fig1 纳排 → Fig2 发病 RCS → Fig3 发病森林 → Fig4 预后 RCS → Fig5 KM → Fig6 预后森林 → Fig7 中介
   rcs_incidence = list(
     index_var = NULL, nk_range = 3:5, histbin = 1, color_seed = 123,
     group_cutoffs = "primary",
     figure_kind = "main_figure", figure_number = 2L, bump_counter = TRUE,
-    plot_x_quantiles = c(0.10, 0.90),
-    ylim = c(0, 5), y_min = 0, y_max = 5, ylim_force = TRUE
+    plot_x_quantiles = c(0.05, 0.95),
+    ylim = c(0, 30), y_min = 0, y_max = 30, ylim_force = FALSE,
+    ylim_auto_quantile = 0.95
   ),
   rcs_prognosis = list(
     index_var = NULL, nk_range = 3:5, pause_enable = FALSE,
     figure_kind = "main_figure", figure_number = 4L, bump_counter = TRUE,
-    plot_x_quantiles = c(0.10, 0.90),
-    ylim = c(0, 5), y_min = 0, y_max = 5, ylim_force = TRUE
+    plot_x_quantiles = c(0.05, 0.95),
+    ylim = c(0, 30), y_min = 0, y_max = 30, ylim_force = FALSE
   ),
 
   threshold_logistic = list(
@@ -521,9 +526,20 @@ config <- list(
     figure_kind = "main_figure",
     figure_number = 5L,
     figure_caption_template = "Kaplan-Meier curves of {index} {method} and 28-day mortality in {disease}",
+    plot_subtitle_template = "Survival Analysis by {index} {method}",
     title = "",
+    fun = "pct",
+    ylim = c(0, 100),
     risk_table = TRUE,
-    risk_table_height = 0.28,
+    risk_table_height = 0.26,
+    risk_table_y_text = TRUE,
+    risk_table_y_text_col = TRUE,
+    risk_table_legend_in_table = FALSE,
+    legend_position = "top",
+    legend_ncol = 4L,
+    plot_width = 10,
+    plot_height = 9,
+    palette = c("#2E86AB", "#A23B72", "#4EBABA", "#8B4513"),
     export_combined = FALSE,
     combined_figure_kind = "supp_figure",
     # strata_vars / strata_defs 由 ip_two_stage_patch_km_strata_for_index() 按指标注入
@@ -574,7 +590,8 @@ config <- list(
     # 年龄切点依据：老年 SLE / 重症风湿病亚组与 ICU 预后文献常用 65 岁（ACR/EULAR 老年 SLE 口径；
     # 无本课题 RCT 特异界值时与引擎默认 65 一致）。森林图仅二分类，禁止四档。
     age_cutoff = 65L,
-    var_source = "table1_categorical",
+    var_source = "required",
+    restrict_to_required = TRUE,
     required_subgroup_vars = c("Age_Group", "Gender", "Hypertension", "T2DM"),
     forbid_subgroup_vars = unique(c(
       "Index_Group", "Index_Group_Tertile", "Index_Group_Quartile",
@@ -595,7 +612,29 @@ config <- list(
   ),
   subgroup_prognosis = list(
     figure_kind = "main_figure", figure_number = 6L, bump_counter = TRUE,
+    restrict_to_required = TRUE,
+    min_n = 10L,   # Stage2 AKI 子队列 n≈107；与 Stage1 四亚组对齐，避免 Gender 被 min_n=20 剔除
     pause_enable = FALSE
+  ),
+
+  mediation_policy = list(
+    path_use_covariates = TRUE,
+    covariate_source = "config"
+  ),
+  mediation_incidence = list(
+    exposure = NULL, mediators = NULL, outcome = NULL,
+    bootstrap_iter = 300L,
+    standardize_mediator = TRUE,
+    covariates = c("Age", "Gender"),
+    best_mediator = NULL,
+    auto_covariate_search = FALSE,
+    dual_library_lm_screen = TRUE,
+    lm_screen_exclude_vars = unique(c(
+      "ID", "subject_id", "Disease", "Acute_Renal_Failure",
+      .disease_exclusion_vars, .prognosis_exclude_vars, .force_covariates
+    )),
+    diagram_enable = TRUE, pause_enable = FALSE,
+    figure_kind = "main_figure", figure_number = 7L, bump_counter = TRUE
   ),
 
   feishu = list(
@@ -622,7 +661,7 @@ config <- list(
       "Disease", "Acute_Renal_Failure",
       .disease_exclusion_vars, .prognosis_exclude_vars
     )),
-    base_subgroup_vars = c("Age", "Gender", "Race", "Hypertension", "T2DM"),
+    base_subgroup_vars = c("Age_Group", "Gender", "Hypertension", "T2DM"),
     sensitivity_suite = list(
       enable        = TRUE,  # 主分析 success 后由 ip_two_stage_batch_run 自动跑
       age_cutoff    = 65L,     # 与 subgroup$age_cutoff 同值
@@ -647,6 +686,7 @@ config <- list(
   ip_two_stage_batch = list(
     index_vars = NULL,
     skip_existing = TRUE,
+    reuse_stage1_covariates = TRUE,
     output_base = .batch_project_root,
     shared_ck_base = file.path(.batch_ck_root, "_shared"),
     index_ck_base = file.path(.batch_ck_root, "by_index")
@@ -684,19 +724,15 @@ config <- list(
   "logistic_tertile_glm_rcs",
   "logistic_binary_glm_rcs",
   "threshold_logistic",
-  "subgroup_incidence"
+  "subgroup_incidence",
+  "mediation_incidence"
 )
 
 .blocks_bridge <- c("ip_stage2_cohort_28d")
 
 .blocks_stage2 <- c(
   "baseline_binary",
-  "univariate_prognosis",
-  "multicollinearity_screen",
-  "multivariate_prognosis",
-  "multicollinearity_final",
-  "multivariate_prognosis_harmonized",
-  "simple_ROC",
+  # 预后 UV/MV/ROC 已取消：Cox/RCS/KM 沿用 Stage1 锁定 Model1/Model2（ip_two_stage$reuse_stage1_covariates）
   "cox_quartile",
   "cox_tertile",
   "cox_binary",
@@ -739,7 +775,7 @@ pipeline_stage1 <- list(
     "logistic_binary_glm", "logistic_quintile_glm",
     "rcs_incidence",
     "logistic_quartile_glm_rcs", "logistic_tertile_glm_rcs", "logistic_binary_glm_rcs",
-    "threshold_logistic", "subgroup_incidence"
+    "threshold_logistic", "subgroup_incidence", "mediation_incidence"
   ),
   render_figures_after = c(
     "boxplot", "simple_ROC", "rcs_incidence", "threshold_logistic", "subgroup_incidence"
@@ -755,16 +791,12 @@ pipeline_stage2 <- list(
   cox_gate = list(enable = TRUE),
   render_tables_after = c(
     "baseline_binary",
-    "univariate_prognosis", "multicollinearity_screen",
-    "multivariate_prognosis", "multicollinearity_final",
-    "multivariate_prognosis_harmonized",
-    "simple_ROC",
     "cox_quartile", "cox_tertile", "cox_binary",
     "segmented_cox_quartile", "segmented_cox_tertile", "segmented_cox_binary",
     "subgroup_prognosis"
   ),
   render_figures_after = c(
-    "simple_ROC", "rcs_prognosis",
+    "rcs_prognosis",
     "km_strata", "subgroup_prognosis"
   ),
   dual_db    = list(enable = FALSE),

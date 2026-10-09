@@ -1,0 +1,110 @@
+---
+description: TST 方法学防泄漏与分母（A1–A4 + 发表口径）铁律
+alwaysApply: true
+---
+
+# TST 方法学防泄漏与分母铁律（全项目复用）
+
+凡 **两阶段 Transformer / TST** 新课题或 shared 重跑，必须遵守。覆盖审稿必抓的 A1–A4，以及本对话已踩过的发表口径坑。
+
+## A2 插补（默认且强制）
+
+**正确做法（已定为引擎默认）：**
+
+1. **先**患者级 `tst_split`（7:2:1）
+2. **再** `imputation`，且 `config$imputation$fit_on = "train"`
+3. MICE **只在训练集拟合**；val∪test 经 `mice(ignore=TRUE)` **套用同一模型**
+4. `complete_action = 1L`：操作层取第 1 套 complete（m=5 时折叠成单列）；Table S1 与此一致
+
+**禁止：**
+
+- 划分前对全队列拟合 MICE（旧 AKI 流水线）
+- 对 val、test **各自**再跑一套 `mice()`（那不是防泄漏，是三套模型）
+- `fit_on = "all"` 出现在 TST config
+
+入口会硬拒绝：`R/tst_stroke_task_runner.R` → `.tst71_assert_shared_mi_split_order`。
+
+## A1 分母衔接
+
+- 共享 `tst_split` 的 n_train/val/test 是 **split 当时队列** 的 7:2:1
+- L120 等建模人数 = **landmark 合格（如 LOS≥5 天）∩ 共享 split**
+- Methods 必须写桥接句；`tst_split` 落盘 `Methods_split_denominator_note.txt`
+- 禁止把「分析队列 14450 的 10%=1445」与「L120 test=515」混成同一分母而不解释
+
+## A3 早停
+
+- `early_stop_patience` 盯 **验证集 AUC（末日本 cutoff）**
+- config 写 `early_stop_monitor = "val_auc"`；以 `python/two_stage_transformer/train.py` 代码为准（存 max val_auc）
+
+## A4 两阶段含义
+
+- **Two-stage = 架构**：小时级 Transformer → 日级 Transformer
+- **不是**两阶段训练流程
+- **不是**用「表格 + 时序」定义 two-stage（arch B 的 tabular fusion 是附加支路，另写一句）
+
+## 其它已踩坑（下个项目禁止再犯）
+
+| 坑 | 要求 |
+|----|------|
+| Fig S7 把 Acc 写成 AUC | 图注必须 `AUC=…; Acc=…`，AUC 仅来自 `roc_auc_score` |
+| eICU 外验 | MIMIC 权重 **不重训**；默认纯 TF；`min_age` 与主库一致（`--min-age`） |
+| Table S1 | 题名勿把全队列标成 training set；结局列不得进 S1；`fit_on=train` 时 MI 拟合集=train |
+| Table2 Day5 ≠ Table3 | 见下方 **Table2/3/S6 硬锁**；同 `n_boot=400, seed=42`（禁止 `seed+day`） |
+| Fig2 test vs 对照配对 | 脚注双口径：全 test n + 对照分数可得 n（如 515 vs 507） |
+| Fig S6 ≠ Table3 | 重导 S6 必须同步重写 Table3（脚本已挂 `_build_table3_from_s6`） |
+| 病种白名单 | 见 `tst_disease_feature_whitelist`；禁止挂他病 `aki_mimic.R` |
+| 年龄/对照评分 | 见 `tst_age_and_comparator_gate` |
+| 发表图四目录 | 见 `pub_figure_three_formats` |
+
+## Table2 / Table3 / Fig S6 硬锁（AKI 已踩：Acc/F1 分叉而 AUC 相同）
+
+**根因**：Table2 曾用自写 `roc_curve` 算 Youden，S6/Table3 用 sklearn → 同 n、同 seed 下 Acc/F1 仍可不同，AUC 显示却一致，审稿一眼抓死。
+
+**铁律（引擎已落地，新课题勿绕过）：**
+
+1. **同一度量实现**：Table2 / S6 / Table3 一律 `sklearn` `roc_auc_score` + `roc_curve` Youden（`scores > thr`）+ `f1_score`；禁止 Table2 另写一套 ROC。
+2. **同一 bootstrap**：`n_boot=400`，`seed=42`；Day1–5 **禁止** `seed+day` / `seed+c`。
+3. **同一分母（Transformer）**：Day1–5 / Table3 Day5 = 全 L{lm} test（如 n=515）；对照列（APSIII/SAPSII）才用分数可得子集（如 n=507）。
+4. **Day5 硬锁**：`rebuild_table2_yang_layout.py` 须与 `Table_S6_model_comparison_summary.csv` 对齐；不一致则覆盖为 S6/Table3 同源 mean(SD)。
+5. **脚注必写分母**：Table2 写清 Transformer n=test + 对照列 n=score-available；Table3 / Fig2 / S6 写清 Day5 test n 与（若有）配对 n；禁止空喊「aligned with Table 3」却数字不同。
+6. **出表后必核**：Table2 Day5 Acc/F1/AUC 字符串 == Table3 Transformer 列 == S6 summary 格式化结果。
+
+入口：
+
+- Table2：`Blocks/71_two_stage_transformer_stroke/scripts/rebuild_table2_yang_layout.py`（`lock_day5_transformer_to_s6` / `table2_denom_footnotes`）
+- S6→Table3：`redraw_fig_s6_comparison.py` → `_build_table3_from_s6`
+- Fig2 双口径：`redraw_fig3_sapsii.py` 脚注 `test n` + `score-available n`
+
+## 标准 shared blocks 顺序
+
+```r
+c(
+  "data_clean", "column_mapping",
+  "tst_cohort", "tst_split", "imputation",
+  "tst_timeseries", "baseline_binary", "tst_landmark"
+)
+```
+
+模板：`configs/templates/config_two_stage_transformer_stroke*_task_parallel.template.R` 等。
+
+## 新课题检查清单
+
+- [ ] `fit_on = "train"` 且 `tst_split` 在 `imputation` 之前
+- [ ] Methods 有 L{landmark} 合格子集 ∩ split 的衔接句
+- [ ] 早停写 val_auc；两阶段写小时→日架构
+- [ ] Fig S7：AUC≠Acc；不重训；min_age 同步
+- [ ] Table2/3/S6：sklearn Youden；`n_boot=400, seed=42`；无 `seed+day`
+- [ ] Table2 Day5 Acc/F1/AUC **字符串级**等于 Table3 Transformer；S6 summary 同源
+- [ ] Table2/3（及 Fig2）脚注含 test n 与对照分数可得 n（若不同）
+- [ ] S1 无结局列
+
+## 反例（禁止）
+
+- `tst_cohort → imputation → … → tst_split`
+- val/test 各自 `mice()`
+- 正文写「AUC=0.717」实为 Acc
+- 外验未筛年龄却主库 Exclude &lt;18
+- Table2 自写 ROC/Youden，S6 用 sklearn → Day5 Acc 73.51 vs Table3 73.85（AUC 却都显示 0.82）
+- Table2 用 `seed+day` 导致 Day5 Acc 与 Table3 错位
+- 脚注写 aligned with Table 3 / Figure S6，单元格却对不上
+- 只改 Table2 不重导、或重导 S6 却不重写 Table3

@@ -1,11 +1,45 @@
-# Task 7 Report: Config + 决策树 + Template（SLE→AKI 两阶段）
+# Task 7 Report: Catalog sync + AUC direction fix
 
-**Status**: DONE  
-**Date**: 2026-08-26  
-**Commits**: none（禁止 commit）
+## Status
+**Complete**
 
-**Deliverables**: `configs/templates/config_sle_aki_inc_prog_batch.template.R`；研究 config `G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/config_sle_aki_inc_prog_batch.R`；`Decisiontree/decision_tree_sle_aki_inc_prog.md`（15 步、DAG、规则 C、28d、院内截尾/无 aki_time 脚注、飞书 **Bxx**）。
+## Commits
+None (per task instructions).
 
-**Config**: `output_dir`=结果根；`dual_db$enable=FALSE`；`pub_figure$profile=mimic_inc_prog_sle_aki`；`mirror_pub_outputs_to_root=TRUE`；`ip_two_stage` 指向 `data/mimic/`；`disease_vars`=Task1 15 项；`age_cutoff=65` 且 Age_Group 两级；Stage0/1/2 按 spec §6（含三胶水块）。Figure 1 用 `attrition$steps`（rdata/id_file/current）对齐 `ip_attrition_steps`（flowchart 不读该对象）。
+## Step 1: `register_block` confirmation
+| File | Block ID |
+|------|----------|
+| `Blocks/75_osteo_dxa_qct/01block_dxa_qct_agreement.R` | `dxa_qct_agreement` |
+| `Blocks/75_osteo_dxa_qct/02block_diagnostic_vs_fracture.R` | `diagnostic_vs_fracture` |
+| `Blocks/75_osteo_dxa_qct/03block_modality_discordance_profile.R` | `modality_discordance_profile` |
 
-**Parse**: Windows Rscript source 研究 config + 引擎 template 均 `PARSE_OK`（full=44 blocks）。未改旧课题 config。
+All three files contain matching header comments and `register_block(...)` calls.
+
+## Step 2: Catalog regeneration
+```bash
+cd /mnt/e/01block/01Block-new-Final
+python3 scripts/update_blocks_catalog.py
+```
+Exit code: **0**  
+Output: `Wrote docs/Blocks_catalog.md (455 blocks, 199733 bytes)`
+
+## Step 3: Catalog verification
+`rg "dxa_qct_agreement|diagnostic_vs_fracture|modality_discordance_profile" docs/Blocks_catalog.md` — **hits** in § directory table (folder `75_osteo_dxa_qct`, 3 blocks) and per-block AUTO cards (`#### \`dxa_qct_agreement\``, etc.).
+
+## Extra fix: AUC `direction` default
+**File:** `Blocks/75_osteo_dxa_qct/00osteo_dxa_qct_common.R`
+
+- Changed `.osteo75_auc_continuous` default `direction` from `"<"` to `">"`.
+- Updated roxygen comment: controls have higher BMD than fracture cases; pROC semantics `controls > cases`.
+
+**Test:** `tests/test_osteo_dxa_qct_blocks.R` — helper AUC smoke test adjusted to BMD-like scores (cases lower, controls higher) so default `">"` yields AUC > 0.5. Explicit `direction = ">"` test in diagnostic section unchanged.
+
+```bash
+Rscript tests/test_osteo_dxa_qct_blocks.R
+```
+Exit code: **0** — `helper OK`, `agreement OK`, `diagnostic OK`, `discordance OK`.
+
+## Files touched
+- `docs/Blocks_catalog.md` (AUTO sections regenerated)
+- `Blocks/75_osteo_dxa_qct/00osteo_dxa_qct_common.R` (AUC default + comment)
+- `tests/test_osteo_dxa_qct_blocks.R` (helper AUC test data)

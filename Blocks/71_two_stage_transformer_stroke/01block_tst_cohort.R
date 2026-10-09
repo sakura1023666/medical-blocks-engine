@@ -115,16 +115,16 @@ block_tst_cohort <- function(ctx, ...) {
   dabiao <- .tst01_read_dabiao(dabiao_path)
   n_dabiao <- nrow(dabiao)
   dabiao_key_cfg <- as.character(bl_cfg$dabiao_join_key %||% "stay_id")[1L]
-  dabiao_key_cands <- unique(c(dabiao_key_cfg, "stay_id", "subject_id", "hadm_id"))
+  dabiao_key_cands <- unique(c(dabiao_key_cfg, "patientunitstayid", "stay_id", "subject_id", "hadm_id"))
   dabiao_key <- dabiao_key_cands[dabiao_key_cands %in% names(dabiao)][1L]
   if (is.na(dabiao_key) || !nzchar(dabiao_key %||% "")) {
     .tst01_pause(
-      ctx, "dabiao.csv 缺少 stay_id / subject_id / hadm_id",
+      ctx, "dabiao.csv 缺少 patientunitstayid / stay_id / subject_id / hadm_id",
       "核对 dabiao_path 表头。", utils::head(dabiao, 5L)
     )
   }
-  dabiao_ids <- unique(suppressWarnings(as.numeric(dabiao[[dabiao_key]])))
-  dabiao_ids <- dabiao_ids[!is.na(dabiao_ids)]
+  dabiao_ids <- unique(as.character(dabiao[[dabiao_key]]))
+  dabiao_ids <- dabiao_ids[!is.na(dabiao_ids) & nzchar(dabiao_ids)]
   cli::cli_alert_info(
     "tst_cohort: dabiao n={n_dabiao}，join_key={dabiao_key}，unique_ids={length(dabiao_ids)}"
   )
@@ -133,6 +133,17 @@ block_tst_cohort <- function(ctx, ...) {
   prognosis <- .tst01_read_prognosis(prog_path)
 
   outcome_col <- as.character(dc$outcome_column %||% "is_hosp_dead")[1L]
+  outcome_derived_from <- NULL
+  if (!outcome_col %in% names(prognosis) && "hospdischargestatus" %in% names(prognosis)) {
+    prognosis[[outcome_col]] <- ifelse(
+      prognosis$hospdischargestatus == "Expired", 1L,
+      ifelse(prognosis$hospdischargestatus == "Alive", 0L, NA_integer_)
+    )
+    outcome_derived_from <- "hospdischargestatus"
+    cli::cli_alert_info(
+      "tst_cohort: 由 hospdischargestatus 派生 {outcome_col}（Expired=1, Alive=0）"
+    )
+  }
   if (!outcome_col %in% names(prognosis)) {
     .tst01_pause(
       ctx, paste0("预后表缺少 outcome_column: ", outcome_col),
@@ -141,8 +152,13 @@ block_tst_cohort <- function(ctx, ...) {
     )
   }
 
+  if (!"icu_day" %in% names(prognosis) && "unitlosday" %in% names(prognosis)) {
+    prognosis$icu_day <- suppressWarnings(as.numeric(prognosis$unitlosday))
+    cli::cli_alert_info("tst_cohort: unitlosday → icu_day")
+  }
+
   id_col_cfg <- as.character(dc$id_column %||% "stay_id")[1L]
-  candidates <- unique(c(id_col_cfg, "subject_id", "stay_id", "hadm_id"))
+  candidates <- unique(c(id_col_cfg, "patientunitstayid", "subject_id", "stay_id", "hadm_id"))
   best <- .tst01_best_id_key(baseline_ids, prognosis, candidates)
   if (is.null(best)) {
     .tst01_pause(
@@ -171,12 +187,32 @@ block_tst_cohort <- function(ctx, ...) {
   data$.tst_join_key <- baseline_ids
 
   keep_prog_cols <- unique(c(
-    ".tst_join_key", "subject_id", "stay_id", "hadm_id", outcome_col,
+    ".tst_join_key", "patientunitstayid", "subject_id", "stay_id", "hadm_id", outcome_col,
     intersect(c("admit_time", "icu_intime", "disch_time", "icu_outtime",
-                "hosp_day", "icu_day"), names(prognosis))
+                "hosp_day", "icu_day", "unitlosday", "hosplosday"), names(prognosis))
   ))
   keep_prog_cols <- intersect(keep_prog_cols, names(prognosis))
   prog_small <- prognosis[, keep_prog_cols, drop = FALSE]
+
+  # baseline 已带 stay_id/subject_id 时，勿再从预后带同名列，否则 merge 成 stay_id.x/.y，
+  # 下游 dabiao 按 stay_id 内连接会找不到列（MIMIC 主库 dabiao≈全队列时必踩）。
+  id_like <- c("patientunitstayid", "subject_id", "stay_id", "hadm_id")
+  drop_dup_id <- intersect(intersect(id_like, names(prog_small)), names(data))
+  if (length(drop_dup_id)) {
+    prog_small <- prog_small[, setdiff(names(prog_small), drop_dup_id), drop = FALSE]
+    cli::cli_alert_info(
+      "tst_cohort: 预后侧去掉与 baseline 重复的 ID 列，避免 merge 后缀: {paste(drop_dup_id, collapse = ', ')}"
+    )
+  }
+  # 结局/时间/LOS：以预后表为准。baseline 常已带 is_hosp_dead（因子标签）与 icu_intime，
+  # 若不删则 merge 成 is_hosp_dead.x/.y，后续 matched=!is.na(outcome) 全灭 → dabiao 重叠 0。
+  prog_wins <- setdiff(intersect(names(data), names(prog_small)), c(".tst_join_key", id_like))
+  if (length(prog_wins)) {
+    data <- data[, setdiff(names(data), prog_wins), drop = FALSE]
+    cli::cli_alert_info(
+      "tst_cohort: baseline 侧去掉与预后重复列（预后优先）: {paste(prog_wins, collapse = ', ')}"
+    )
+  }
 
   # 若同一 join key 存在多条预后记录（多次住院/多次 ICU），取入院时间最早的一条作为
   # “时间零点”（spec §2：时间零点 = 首次 hospital/ICU 到达）。本数据审计显示两侧唯一值
@@ -189,6 +225,32 @@ block_tst_cohort <- function(ctx, ...) {
   }
 
   merged <- merge(data, prog_small, by = ".tst_join_key", all.x = TRUE)
+  # 兜底：若仍出现 *.x/*.y（时间列等同名冲突），把 dabiao 所需 ID 列拼回无后缀名
+  for (nm in id_like) {
+    x <- paste0(nm, ".x")
+    y <- paste0(nm, ".y")
+    if (!nm %in% names(merged) && (x %in% names(merged) || y %in% names(merged))) {
+      vx <- if (x %in% names(merged)) merged[[x]] else NULL
+      vy <- if (y %in% names(merged)) merged[[y]] else NULL
+      merged[[nm]] <- if (!is.null(vx) && !is.null(vy)) {
+        ifelse(!is.na(vx) & nzchar(as.character(vx)), vx, vy)
+      } else if (!is.null(vx)) {
+        vx
+      } else {
+        vy
+      }
+    }
+  }
+  # 结局列若仍被拆成 .x/.y，优先取预后侧（.y）
+  if (!outcome_col %in% names(merged)) {
+    oy <- paste0(outcome_col, ".y")
+    ox <- paste0(outcome_col, ".x")
+    if (oy %in% names(merged)) {
+      merged[[outcome_col]] <- merged[[oy]]
+    } else if (ox %in% names(merged)) {
+      merged[[outcome_col]] <- merged[[ox]]
+    }
+  }
   matched <- !is.na(merged[[outcome_col]])
   n_id_matched <- sum(matched)
 
@@ -206,12 +268,12 @@ block_tst_cohort <- function(ctx, ...) {
       )
     }
     dabiao_col_in_merged <- alt
-    dabiao_ids <- unique(suppressWarnings(as.numeric(dabiao[[dabiao_col_in_merged]])))
-    dabiao_ids <- dabiao_ids[!is.na(dabiao_ids)]
+    dabiao_ids <- unique(as.character(dabiao[[dabiao_col_in_merged]]))
+    dabiao_ids <- dabiao_ids[!is.na(dabiao_ids) & nzchar(dabiao_ids)]
     dabiao_key <- dabiao_col_in_merged
   }
-  merged_ids <- suppressWarnings(as.numeric(merged[[dabiao_col_in_merged]]))
-  in_dabiao <- matched & !is.na(merged_ids) & (merged_ids %in% dabiao_ids)
+  merged_ids <- as.character(merged[[dabiao_col_in_merged]])
+  in_dabiao <- matched & !is.na(merged_ids) & nzchar(merged_ids) & (merged_ids %in% dabiao_ids)
   n_dabiao_matched <- sum(in_dabiao)
   if (n_dabiao_matched == 0L) {
     .tst01_pause(
@@ -244,10 +306,24 @@ block_tst_cohort <- function(ctx, ...) {
   }
   n_age_ok <- sum(age_ok)
 
+  min_los_days <- as.numeric(bl_cfg$min_los_days %||% 1)[1L]
+  los_filter_col <- intersect(c("icu_day", "unitlosday", "hosplosday"), names(merged))[1L]
+  if (!is.na(los_filter_col) && nzchar(los_filter_col %||% "")) {
+    los_vals <- suppressWarnings(as.numeric(merged[[los_filter_col]]))
+    los_ok <- !is.na(los_vals) & los_vals >= min_los_days
+    cli::cli_alert_info(
+      "tst_cohort: ICU/hospital LOS≥{min_los_days}d（{los_filter_col}）保留 {sum(los_ok)}/{length(los_ok)}"
+    )
+  } else {
+    los_ok <- rep(TRUE, nrow(merged))
+    cli::cli_alert_warning("tst_cohort: 无 icu_day/unitlosday，跳过 LOS<{min_los_days}d 纳排")
+  }
+  n_los_ok <- sum(los_ok)
+
   outcome_vals <- suppressWarnings(as.numeric(merged[[outcome_col]]))
   outcome_valid <- outcome_vals %in% c(0, 1)
 
-  keep <- age_ok & outcome_valid
+  keep <- age_ok & los_ok & outcome_valid
   n_outcome_valid <- sum(keep)
 
   cohort <- merged[keep, , drop = FALSE]
@@ -269,10 +345,15 @@ block_tst_cohort <- function(ctx, ...) {
     )
   }
 
-  # 供下游 lab-long 关联使用的稳定患者 key：优先预后表 stay_id（长表主键），
-  # 否则退回 baseline_id_column（【证据不足】需人工确认时可切换）。
-  patient_key <- if ("stay_id" %in% names(cohort)) "stay_id" else baseline_id_col
-  cohort$tst_patient_id <- cohort[[patient_key]]
+  # 供下游 lab-long 关联：eICU 用 patientunitstayid；MIMIC 优先 stay_id
+  patient_key <- intersect(
+    c("patientunitstayid", "stay_id", baseline_id_col),
+    names(cohort)
+  )[1L]
+  if (is.na(patient_key) || !nzchar(patient_key %||% "")) {
+    patient_key <- baseline_id_col
+  }
+  cohort$tst_patient_id <- as.character(cohort[[patient_key]])
 
   ctx$data$tst_cohort <- cohort
   # 写回 cleaned，供后续 tst_timeseries / imputation / baseline 使用（此时尚未插补）
@@ -282,9 +363,9 @@ block_tst_cohort <- function(ctx, ...) {
   flow <- data.frame(
     stage = c(
       "baseline_n_in", "id_matched_to_prognosis", "dabiao_stroke_inner_join",
-      "age_ge_min_age", "outcome_valid_0_1", "final_cohort_n_out"
+      "age_ge_min_age", "los_ge_min_los_days", "outcome_valid_0_1", "final_cohort_n_out"
     ),
-    n = c(n_in, n_id_matched, n_dabiao_matched, n_age_ok, n_outcome_valid, n_out),
+    n = c(n_in, n_id_matched, n_dabiao_matched, n_age_ok, n_los_ok, n_outcome_valid, n_out),
     stringsAsFactors = FALSE
   )
   ctx <- save_result(ctx, "tst_cohort_flowchart", flow, "_tst_cohort_flowchart.csv")
@@ -293,8 +374,10 @@ block_tst_cohort <- function(ctx, ...) {
     n_in = n_in, n_id_matched = n_id_matched, n_dabiao = n_dabiao,
     n_dabiao_matched = n_dabiao_matched, dabiao_path = dabiao_path,
     dabiao_join_key = dabiao_key,
-    n_age_ok = n_age_ok, n_outcome_valid = n_outcome_valid,
+    n_age_ok = n_age_ok, n_los_ok = n_los_ok, min_los_days = min_los_days,
+    n_outcome_valid = n_outcome_valid,
     n_out = n_out, n_death = n_death,
+    outcome_derived_from = outcome_derived_from,
     id_map_rule = sprintf(
       "baseline.%s == prognosis.%s (overlap=%.3f, n=%d/%d); dabiao.%s inner-join",
       baseline_id_col, matched_key, best$overlap_pct, best$overlap_n,
@@ -309,7 +392,7 @@ block_tst_cohort <- function(ctx, ...) {
     flowchart = flow
   )
   cli::cli_alert_success(
-    "tst_cohort: n_in={n_in} -> prog={n_id_matched} -> dabiao={n_dabiao_matched} -> age_ok={n_age_ok} -> outcome_valid={n_outcome_valid} -> n_out={n_out} (n_death={n_death})"
+    "tst_cohort: n_in={n_in} -> prog={n_id_matched} -> dabiao={n_dabiao_matched} -> age_ok={n_age_ok} -> los_ok={n_los_ok} -> outcome_valid={n_outcome_valid} -> n_out={n_out} (n_death={n_death})"
   )
   ctx
 }

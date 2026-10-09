@@ -1,5 +1,6 @@
 ###############################################################################
-#  feature_selection_venn — Figure S1 特征选择方法重叠图（韦恩 / Euler / UpSet）；单方法时复制 S2 单模型图。
+#  feature_selection_venn — Figure S1 特征选择方法重叠图（韦恩 / Euler / UpSet）；
+#  单方法 LASSO 时上下拼 S2A+S2B 为 A/B 矢量单页（禁止多页 pdf_combine）。
 #
 #  # ── 前置条件 ─────────────────────────────────────────────────────────────
 #  require_ctx_results = feature_selection_final
@@ -11,12 +12,13 @@
 #    venn_width             = 10,
 #    venn_height            = 7,
 #    pause_enable           = TRUE,
-#    pause_on_venn_mismatch = TRUE,    # 韦恩中心与 final 不一致时 pause
+#    pause_on_venn_mismatch = TRUE,    # 仅当画图方法=定稿方法全集且图心≠final 时 pause
 #    skip_univar_fallback   = TRUE     # selection_source=univar_fallback 时不画图
+#    sync_venn_center_to_ml = TRUE     # 用定稿方法全集交集同步；图截前 4 时不得用图心覆盖
 #  ),
 #
 #  块内 fsv_cfg <- cfg$feature_selection_venn %||% cfg$feature_selection（legacy 绘图键）；
-#  不修改 feature_selection_final / Model2Factors。
+#  图方法为定稿子集时不修改 feature_selection_final。
 #  register_block: "feature_selection_venn"
 ###############################################################################
 
@@ -62,6 +64,7 @@
   m <- gsub("[^a-z0-9_]+", "_", m)
   switch(m,
     lasso = "Figure S2B.LassoModel.pdf",
+    lasso_cox = "Figure S2.LASSO-Cox.pdf",
     boruta = "Figure S2C.Boruta.pdf",
     bayesian = "Figure S2D.Bayesian.pdf",
     random_forest = "Figure S2E.Random forest.pdf",
@@ -71,27 +74,144 @@
   )
 }
 
+## 在 fig_dir 中按 stem 模糊匹配（允许 -Hosp. / 空格差异）
+.fsv08_find_fig <- function(fig_dir, stem_regex) {
+  files <- list.files(fig_dir, pattern = "(?i)\\.pdf$", full.names = TRUE)
+  hit <- files[grepl(stem_regex, basename(files), ignore.case = TRUE, perl = TRUE)]
+  if (length(hit)) hit[[1L]] else NA_character_
+}
+
+## 仅 LASSO：S2A + S2B 上下 A/B 矢量单页；其它方法不拼
+.fsv08_stack_pdfs_ab <- function(pdf_paths, dest) {
+  pdf_paths <- as.character(pdf_paths)
+  pdf_paths <- pdf_paths[file.exists(pdf_paths)]
+  if (length(pdf_paths) < 2L) return(FALSE)
+  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+  if (exists("pub_figure_combine_ab_pdfs", mode = "function")) {
+    ok <- isTRUE(tryCatch(
+      pub_figure_combine_ab_pdfs(pdf_paths[[1L]], pdf_paths[[2L]], dest),
+      error = function(e) FALSE
+    ))
+    if (isTRUE(ok) && file.exists(dest) && isTRUE(file.info(dest)$size > 5000L)) {
+      return(TRUE)
+    }
+  }
+  ## 回退：pdftools 多页合并
+  if (requireNamespace("pdftools", quietly = TRUE)) {
+    ok <- tryCatch({
+      pdftools::pdf_combine(pdf_paths, output = dest)
+      file.exists(dest) && file.info(dest)$size > 5000L
+    }, error = function(e) FALSE)
+    if (isTRUE(ok)) return(TRUE)
+  }
+  src <- if (length(pdf_paths) >= 2L) pdf_paths[[2L]] else pdf_paths[[1L]]
+  file.copy(src, dest, overwrite = TRUE)
+}
+
 .fsv08_promote_single_method_s1 <- function(ctx, method, fsv_cfg) {
   if (!isTRUE(fsv_cfg$single_method_use_s2_plot %||% TRUE)) return(ctx)
-  src_bn <- .fsv08_method_s2_figure(method)
-  if (is.null(src_bn) || !nzchar(src_bn)) {
-    src_bn <- "Figure S2A.LassoGenes.pdf"
-  }
+  method <- tolower(trimws(as.character(method)[1L]))
   fig_dir <- ctx$output_dir_figures %||% file.path(ctx$output_dir, "Figures")
-  src <- file.path(fig_dir, src_bn)
-  if (!file.exists(src)) {
+  if (!dir.exists(fig_dir)) return(ctx)
+
+  dest_bn <- .fsv08_supp_figure_name(fsv_cfg, "venn")
+  ## 单方法 S1 文件名：Figure S1.Lasso.pdf / Figure S1.Boruta.pdf（不是 Venn）
+  dest_bn <- sub(
+    "\\.Venn\\.pdf$",
+    paste0(".", gsub("[^A-Za-z0-9._-]+", "_", method), ".pdf"),
+    dest_bn
+  )
+  if (!grepl("Figure S1", dest_bn, ignore.case = TRUE)) {
+    dest_bn <- paste0("Figure S1.", gsub("[^A-Za-z0-9._-]+", "_", method), ".pdf")
+  }
+  dest <- file.path(fig_dir, dest_bn)
+
+  if (identical(method, "lasso")) {
+    ## 仅 LASSO：上下拼 S2A + S2B
+    a <- .fsv08_find_fig(fig_dir, "Figure\\s*S2A.*LassoGenes")
+    b <- .fsv08_find_fig(fig_dir, "Figure\\s*S2B.*LassoModel")
+    if (is.na(a) || is.na(b)) {
+      ## 也可能落在 step 子目录 Figures
+      step_figs <- list.files(
+        ctx$output_dir %||% ".",
+        pattern = "(?i)Figure\\s*S2[AB].*Lasso.*\\.pdf$",
+        recursive = TRUE, full.names = TRUE
+      )
+      if (is.na(a)) {
+        hit <- step_figs[grepl("S2A", basename(step_figs), ignore.case = TRUE)]
+        if (length(hit)) a <- hit[[1L]]
+      }
+      if (is.na(b)) {
+        hit <- step_figs[grepl("S2B", basename(step_figs), ignore.case = TRUE)]
+        if (length(hit)) b <- hit[[1L]]
+      }
+    }
+    if (!is.na(a) && !is.na(b) && file.exists(a) && file.exists(b)) {
+      ok <- .fsv08_stack_pdfs_ab(c(a, b), dest)
+      if (isTRUE(ok) || file.exists(dest)) {
+        cli::cli_alert_success(
+          "feature_selection_venn: 单方法 lasso，已上下 A/B 拼接 S2A+S2B → {basename(dest)}"
+        )
+        return(ctx)
+      }
+    }
+    ## 拼失败则退回单张 S2B / S2A
+    src <- if (!is.na(b) && file.exists(b)) b else if (!is.na(a) && file.exists(a)) a else NA_character_
+    if (is.na(src)) return(ctx)
+    file.copy(src, dest, overwrite = TRUE)
+    cli::cli_alert_warning(
+      "feature_selection_venn: lasso 拼图失败，已用单张 {basename(src)} → {basename(dest)}"
+    )
+    return(ctx)
+  }
+
+  if (identical(method, "lasso_cox")) {
+    ## 预后 LASSO-Cox：已是 A/B/C 拼图，直接升为 S1
+    src <- .fsv08_find_fig(fig_dir, "Figure\\s*S2.*LASSO-Cox")
+    if (is.na(src)) {
+      src <- .fsv08_find_fig(fig_dir, "Figure\\s*S1.*LASSO-Cox")
+    }
+    if (is.na(src)) {
+      step_figs <- list.files(
+        ctx$output_dir %||% ".",
+        pattern = "(?i)Figure\\s*S[12].*LASSO-Cox.*\\.pdf$",
+        recursive = TRUE, full.names = TRUE
+      )
+      if (length(step_figs)) src <- step_figs[[1L]]
+    }
+    if (is.na(src) || !file.exists(src)) return(ctx)
+    file.copy(src, dest, overwrite = TRUE)
+    cli::cli_alert_success(
+      "feature_selection_venn: 单方法 lasso_cox，已提升 {basename(src)} → {basename(dest)}"
+    )
+    return(ctx)
+  }
+
+  ## 其它单方法（boruta/rf/…）：直接升为 S1，不拼图
+  src_bn <- .fsv08_method_s2_figure(method)
+  src <- if (!is.null(src_bn)) file.path(fig_dir, src_bn) else NA_character_
+  if (is.na(src) || !file.exists(src)) {
+    src <- .fsv08_find_fig(
+      fig_dir,
+      paste0("Figure\\s*S2[A-G].*", gsub("_", ".*", method))
+    )
+  }
+  if (is.na(src) || !file.exists(src)) {
     alts <- list.files(fig_dir, pattern = "\\.pdf$", full.names = TRUE)
     alts <- alts[grepl("Figure S2", basename(alts), fixed = TRUE)]
-    if (length(alts)) src <- alts[[1L]] else return(ctx)
+    if (!length(alts)) return(ctx)
+    src <- alts[[1L]]
   }
-  dest_bn <- .fsv08_supp_figure_name(fsv_cfg, "venn")
-  dest_bn <- sub("\\.Venn\\.pdf$", paste0(".", gsub("[^A-Za-z0-9._-]+", "_", method), ".pdf"), dest_bn)
-  dest <- file.path(fig_dir, dest_bn)
-  if (identical(normalizePath(src, winslash = "/"), normalizePath(dest, winslash = "/"))) return(ctx)
+  if (identical(
+    normalizePath(src, winslash = "/", mustWork = FALSE),
+    normalizePath(dest, winslash = "/", mustWork = FALSE)
+  )) {
+    return(ctx)
+  }
   ok <- file.copy(src, dest, overwrite = TRUE)
   if (isTRUE(ok)) {
     cli::cli_alert_success(
-      "feature_selection_venn: 单方法 {method}，已复制 {basename(src)} → {basename(dest)}"
+      "feature_selection_venn: 单方法 {method}，已复制 {basename(src)} → {basename(dest)}（不拼图）"
     )
   }
   ctx
@@ -105,6 +225,12 @@
   dat <- resolved$data
   if (is.null(dat)) return(character(0))
   exp[exp %in% names(dat)]
+}
+
+.fsv08_is_plot_method_subset <- function(overlap_methods, selected_methods) {
+  om <- unique(as.character(overlap_methods[nzchar(as.character(overlap_methods))]))
+  sm <- unique(as.character(selected_methods[nzchar(as.character(selected_methods))]))
+  length(sm) >= 2L && length(om) >= 1L && !setequal(om, sm)
 }
 
 .fsv08_venn_list_for_final <- function(
@@ -129,8 +255,8 @@
   if (length(overlap_methods) == 1L) {
     m1 <- overlap_methods[1L]
     return(stats::setNames(
-      list(final, final),
-      c(m1, paste0(m1, " (final)"))
+      list(unique(final)),
+      m1
     ))
   }
   list()
@@ -210,6 +336,17 @@ block_feature_selection_venn <- function(ctx, ...) {
   selected_methods <- unique(intersect(selected_methods, names(by_model)))
   if (!length(selected_methods)) selected_methods <- names(by_model)
 
+  ## 仅 LASSO / 单方法：不出韦恩，直接升 S1（LASSO 两图上下拼）
+  if (isTRUE(ctx$results$feature_selection_lasso_only) ||
+      identical(selection_source, "single_method") ||
+      length(selected_methods) == 1L) {
+    method_one <- selected_methods[1L] %||% names(by_model)[1L]
+    if (!is.null(method_one) && nzchar(method_one)) {
+      ctx <- .fsv08_promote_single_method_s1(ctx, method_one, fsv_cfg)
+      return(ctx)
+    }
+  }
+
   method_names <- as.character(vi$method_names %||% names(by_model))
   U <- as.character(vi$U %||% unique(unlist(by_model, use.names = FALSE)))
   comp_in_final <- as.character(vi$comp_in_final %||% character(0))
@@ -261,7 +398,8 @@ block_feature_selection_venn <- function(ctx, ...) {
   list_in_full <- list_in
   n_sets <- length(list_in)
 
-  if (draw_venn && n_sets < 2L && length(method_names) >= 2L) {
+  if (draw_venn && n_sets < 2L && length(method_names) >= 2L &&
+      !identical(selection_source, "single_method")) {
     overlap_methods <- method_names[seq_len(min(2L, length(method_names)))]
     list_in <- .fsv08_venn_list_for_final(
       by_model, overlap_methods, final, U, comp_in_final, exposure_vars
@@ -282,9 +420,14 @@ block_feature_selection_venn <- function(ctx, ...) {
 
   sync_venn <- isTRUE(fsv_cfg$sync_venn_center_to_ml %||%
     (cfg$ml %||% list())$use_venn_center_features %||% TRUE)
+  plot_subset <- .fsv08_is_plot_method_subset(overlap_methods, selected_methods)
 
   if (draw_venn && venn_center_n != length(final)) {
-    if (isTRUE(sync_venn)) {
+    if (isTRUE(plot_subset)) {
+      cli::cli_alert_info(
+        "韦恩图仅展示 {length(overlap_methods)}/{length(selected_methods)} 个定稿方法，图心 n={venn_center_n} 与定稿 n={length(final)} 不同是预期现象。不以图心覆盖 ML 特征。"
+      )
+    } else if (isTRUE(sync_venn)) {
       cli::cli_alert_info(
         "韦恩中心 ({venn_center_n}) 与 consensus final ({length(final)}) 不一致；将以韦恩中心覆盖 ML/SHAP 特征。"
       )
@@ -449,10 +592,37 @@ block_feature_selection_venn <- function(ctx, ...) {
   }
 
   if (isTRUE(sync_venn) && n_sets >= 2L && length(list_in)) {
-    venn_center <- Reduce(intersect, list_in)
+    ## 图截前 4 时用定稿方法全集交集；与 consensus final 对齐，不用更大的图心覆盖
+    if (isTRUE(plot_subset) && length(selected_methods) >= 2L) {
+      list_canon <- .fsv08_venn_list_for_final(
+        by_model, selected_methods, final, U, comp_in_final, exposure_vars
+      )
+      venn_center <- if (length(list_canon) >= 2L) {
+        Reduce(intersect, list_canon)
+      } else {
+        final
+      }
+    } else {
+      venn_center <- Reduce(intersect, list_in)
+    }
     venn_center <- unique(as.character(venn_center[nzchar(as.character(venn_center))]))
     venn_center <- .fsv08_require_exposure_in_features(ctx, venn_center, cfg, fsv_cfg)
-    if (length(venn_center)) {
+    if (isTRUE(plot_subset)) {
+      keep <- unique(as.character(final[nzchar(as.character(final))]))
+      keep <- .fsv08_require_exposure_in_features(ctx, keep, cfg, fsv_cfg)
+      ctx$results$feature_selection_venn_center <- keep
+      ctx$results$ml_feature_names <- keep
+      ctx$results$shap_plot_feature_names <- keep
+      if (length(venn_center) && !setequal(venn_center, keep)) {
+        cli::cli_alert_warning(
+          "定稿方法全集交集 n={length(venn_center)} 与 consensus final n={length(keep)} 不一致，保留 consensus final，不覆盖。"
+        )
+      } else {
+        cli::cli_alert_info(
+          "韦恩图为定稿方法子集，已保留 consensus final {length(keep)} 个 ML/SHAP 特征: {paste(keep, collapse = ', ')}"
+        )
+      }
+    } else if (length(venn_center)) {
       ctx$results$feature_selection_final <- venn_center
       ctx$results$Model2Factors <- venn_center
       ctx$results$ml_feature_names <- venn_center

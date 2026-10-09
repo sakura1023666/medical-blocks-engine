@@ -50,6 +50,8 @@ map_plan <- list(
   list(match = "(?i)Multicollinearity.*VIF", dest = "Table S04. Multicollinearity Analysis VIF screen.xlsx"),
   list(match = "(?i)Hyperparameters", dest = "Table S05. ML hyperparameters.xlsx"),
   list(match = "(?i)Log-Loss", dest = "Table S06. Log-Loss.xlsx"),
+  list(match = "(?i)NRI and IDI.*validation", dest = "Table S08. NRI and IDI.xlsx", once = TRUE),
+  list(match = "(?i)Table S0?12.*NRI and IDI", dest = "Table S08. NRI and IDI.xlsx", once = TRUE),
   list(match = "(?i)DeLong", dest = "Table S07. DeLong tests.xlsx", once = TRUE),
   list(match = "(?i)NRI and IDI", dest = "Table S08. NRI and IDI.xlsx", once = TRUE)
 )

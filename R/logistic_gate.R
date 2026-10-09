@@ -53,13 +53,20 @@ logistic_glm_resolve_bl_cfg <- function(ctx, base_block) {
   # *_rcs 块优先读自身 config（如 logistic_binary_glm_rcs），再回退 base_block
   bl_cfg <- cfg[[block_name]] %||% cfg[[base_block]] %||% list()
   is_rcs <- grepl("_rcs$", block_name) || identical(bl_cfg$phase, "rcs")
-  if (!is_rcs) return(bl_cfg)
-  bl_cfg$phase <- "rcs"
-  bl_cfg$include_continuous_row <- isTRUE(bl_cfg$include_continuous_row %||% FALSE)
-  bl_cfg$group_var <- bl_cfg$group_var %||% ctx$results$rcs_cutoff_group_col
-  labels <- ctx$results$rcs_cutoff_group_labels
-  if (is.null(bl_cfg$group_levels) && length(labels)) {
-    bl_cfg$group_levels <- as.character(labels)
+  if (is_rcs) {
+    bl_cfg$phase <- "rcs"
+    bl_cfg$include_continuous_row <- isTRUE(bl_cfg$include_continuous_row %||% FALSE)
+    bl_cfg$group_var <- bl_cfg$group_var %||% ctx$results$rcs_cutoff_group_col
+    labels <- ctx$results$rcs_cutoff_group_labels
+    if (is.null(bl_cfg$group_levels) && length(labels)) {
+      bl_cfg$group_levels <- as.character(labels)
+    }
+  }
+  data <- ctx$data$imputed %||% ctx$data$train %||% ctx$data$cleaned %||% ctx$data$mapped
+  ix <- bl_cfg$index_var %||% (cfg$logistic %||% list())$index_var %||%
+    (cfg$survival %||% list())$index_var
+  if (exists("pipeline_apply_categorical_exposure", mode = "function")) {
+    bl_cfg <- pipeline_apply_categorical_exposure(bl_cfg, data, ix)
   }
   bl_cfg
 }
@@ -172,12 +179,14 @@ logistic_gate_scheme_depth <- function(scheme) {
   switch(scheme, quartile = 1L, tertile = 2L, binary = 3L, quintile = 4L, 0L)
 }
 
-#' 双库统一分位：优先取更细的主分析方案（深度更小）
-#' quartile=1 < tertile=2 < binary=3 < quintile=4
+#' 双库统一分位：取更深级联层（两库都能过闸的共有方案）
+#' 例：NHANES=tertile、MIMIC=quartile → 统一 tertile（与
+#' Blocks/00_dual_db/04block_dual_db_logistic_scheme_harmonize.R 一致）。
+#' 深度：quartile=1 < tertile=2 < binary=3 < quintile=4
 logistic_gate_unify_schemes <- function(scheme_a, scheme_b) {
   da <- logistic_gate_scheme_depth(scheme_a)
   db <- logistic_gate_scheme_depth(scheme_b)
-  depth <- min(da, db, na.rm = TRUE)
+  depth <- max(da, db, na.rm = TRUE)
   if (!is.finite(depth) || depth < 1L) return(NA_character_)
   switch(as.character(depth),
          "1" = "quartile", "2" = "tertile", "3" = "binary", "4" = "quintile",
@@ -294,18 +303,36 @@ logistic_glm_should_export <- function(ctx, family, is_rcs = FALSE, bl_cfg = lis
       isTRUE(logistic_glm_export_as_main(ctx, family, is_rcs = is_rcs))) {
     return(TRUE)
   }
+  # 已锁定最终分位时：非选中档（如选了 tertile 的 binary）不得进发表 Tables
+  selected <- tolower(as.character(
+    ctx$results$nhanes_logistic_selected_scheme %||%
+      ctx$results$logistic_grouping_scheme %||%
+      ((ctx$config %||% list())$logistic_gate %||% list())$grouping %||%
+      ((ctx$config %||% list())$cox_gate %||% list())$grouping %||%
+      ""
+  )[1L])
+  fam <- tolower(as.character(family %||% "")[1L])
+  if (nzchar(selected) && nzchar(fam) &&
+      selected %in% c("quartile", "tertile", "binary", "quintile", "median") &&
+      !identical(selected, fam)) {
+    return(FALSE)
+  }
   cfg <- ctx$config %||% list()
   if (!isTRUE((cfg$dual_db %||% list())$enable)) return(TRUE)
   if (!is.null(ctx$results$logistic_table2_weighted) ||
       !is.null(ctx$results$nhanes_logistic_table2)) {
-    return(TRUE)
+    # 有加权主表时：仅导出与主文分位一致的未加权敏感性表（附表）；
+    # export_as_main 对此恒为 FALSE，故不可依赖「主表放行」分支。
+    if (nzchar(selected) && identical(selected, fam)) return(TRUE)
+    return(FALSE)
   }
-  # dual_db 开启但无闸门分支时仍应出表；binary 末档兜底必出
+  # dual_db 开启但无闸门分支时仍应出表；仅当尚未锁定分位时 binary 末档兜底
   branch <- as.character(ctx$results$logistic_branch %||% "")[1L]
   if (!nzchar(branch) && !isTRUE(ctx$results$dual_db_logistic_unified_locked)) {
     return(TRUE)
   }
-  identical(as.character(family)[1L], "binary")
+  if (nzchar(selected)) return(FALSE)
+  identical(fam, "binary")
 }
 
 logistic_gate_maybe_save_dual_db_branch <- function(ctx) {
@@ -466,6 +493,10 @@ logistic_gate_apply_after_table <- function(ctx, bl_cfg, tb, raw_levels, block_n
 
 #' pipeline 是否跳过该 block（须 pipeline$logistic_gate$enable = TRUE）
 pipeline_logistic_gate_should_skip <- function(block_name, ctx, pipeline) {
+  if (exists("pipeline_categorical_exposure_should_skip_block", mode = "function") &&
+      isTRUE(pipeline_categorical_exposure_should_skip_block(block_name, ctx))) {
+    return(TRUE)
+  }
   gate_cfg <- pipeline$logistic_gate %||% list()
   if (!isTRUE(gate_cfg$enable)) return(FALSE)
 
@@ -483,10 +514,20 @@ pipeline_logistic_gate_should_skip <- function(block_name, ctx, pipeline) {
     return(FALSE)
   }
 
-  # 双库初筛未锁定统一方案前：三档都跑完落表，供闸门 C 降级重导
+  # 双库初筛未锁定统一方案前：真双库须三档都跑；单库 ML 仍按闸门跳过更粗分位
   dual <- ctx$config$dual_db %||% list()
   if (isTRUE(dual$enable) && !isTRUE(ctx$results$dual_db_logistic_unified_locked)) {
-    return(FALSE)
+    single_primary <- FALSE
+    if (exists("ml_dual_is_single_primary_db", mode = "function")) {
+      single_primary <- isTRUE(ml_dual_is_single_primary_db(ctx))
+    } else {
+      batch <- ctx$config$ml_batch %||% ctx$config$incidence_batch %||% list()
+      db_mode <- tolower(as.character(batch$db_mode %||% "")[1L])
+      sec <- trimws(as.character((dual$secondary %||% list())$name %||% ""))[1L]
+      single_primary <- identical(db_mode, "nhanes") ||
+        identical(toupper(sec), "UNUSED") || !nzchar(sec)
+    }
+    if (!single_primary) return(FALSE)
   }
 
   screen_skip <- list(

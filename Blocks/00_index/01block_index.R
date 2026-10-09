@@ -48,7 +48,8 @@
 #
 #  AFR = Fibrinogen(mg/dL)*10/Albumin(g/dL)，文献常用 ×1000 尺度 FAR
 #  BUN_Cr = BUN(mg/dL)/Creatinine(mg/dL)，肾前性氮质血症常用比值
-#  UA_CR  = Uric_Acid(mg/dL)/Creatinine(mg/dL)，即 UA/CR（无量纲比值；同 UA_CrR）
+#  UA_CR  = Uric_Acid(mg/dL)/Creatinine(mg/dL)，即 UA/CR（无量纲比值）
+#  旧名 UA_CrR / 原始列 UA_Cr 见 R/index_canonical.R，批量只跑 UA_CR
 ###############################################################################
 
 # ── 指标定义（按依赖顺序）─────────────────────────────────────────────────────
@@ -92,6 +93,19 @@
     list(name = "WPR",
          expr = "WBC / Platelet_Count",
          digits = 4),
+
+    # --- 血脂单指标（原生列 / 估算，作暴露时可单独批跑）---
+    # HDL / LDL：表中原生列，按原生指标注册（组成=自身），非比值复合
+    list(name = "HDL",
+         expr = "HDL",
+         digits = 2),
+    list(name = "LDL",
+         expr = "LDL",
+         digits = 2),
+    # VLDL：Friedewald 估算 VLDL-C = TG/5（mg/dL）；非直接测定
+    list(name = "VLDL",
+         expr = "Triglycerides / 5",
+         digits = 2),
 
     # --- 血脂 / 脂代谢 ---
     list(name = "AIP",
@@ -202,9 +216,6 @@
     list(name = "CAR",
          expr = "Creatinine / Albumin",
          digits = 4),
-    list(name = "UA_CrR",
-         expr = "Uric_Acid / Creatinine",
-         digits = 4),
     list(name = "UA_CR",
          expr = "Uric_Acid / Creatinine",
          digits = 4),
@@ -236,7 +247,7 @@
          expr = "RDW * RBC / Hematocrit",
          digits = 4),
     list(name = "HHR",
-         expr = "Hemoglobin / Hematocrit",
+         expr = "Hematocrit / Hemoglobin",
          digits = 4),
     list(name = "HRR",
          expr = "Hemoglobin / RDW",
@@ -620,6 +631,10 @@ block_index <- function(ctx, ...) {
 
   # 筛选
   if (!is.null(only) && length(only)) {
+    only <- as.character(only)
+    if (exists("index_canonicalize_names", mode = "function")) {
+      only <- index_canonicalize_names(only)
+    }
     all_defs <- Filter(function(d) d$name %in% only, all_defs)
   }
   if (!is.null(skip) && length(skip)) {

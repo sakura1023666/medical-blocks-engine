@@ -1,29 +1,68 @@
-### Task 10: 全量并行 + 验收清单
+### Task 10: 授权后开跑 + 四目录发表图
 
-**Files:** 无新代码；产出在结果根
+**Files:**
+- Runtime under `{STUDY}/by_index/...`
+- Modify: `Decisiontree/decision_tree_osteoporosis_dxa_qct_personalized.md` 状态表
 
-- [ ] **Step 1: 全指标 batch**
+**Gate:** 仅当用户明确「可以跑/开跑」后执行本 Task。
+
+- [ ] **Step 1: 跑 QCT 主 config 全 pipeline**
 
 ```bash
-"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" \
-  run/sle_aki_inc_prog/run_sle_aki_inc_prog_batch.R \
-  --config "G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/config_sle_aki_inc_prog_batch.R" \
-  --workers auto
+Rscript run/incidence/run_incidence_single.R \
+  --config /mnt/g/02block_result/10_osteoporosis/personalized/config_osteo_fracture_qct.R
 ```
 
-- [ ] **Step 2: 勾选验收**
+- [ ] **Step 2: 跑 DXA config（核 A Panel B）**
+- [ ] **Step 3: `merge_table2_dual_bmd_panels.R`**
+- [ ] **Step 4: `pub_figure_ensure_formats` 对汇总 Figures**
 
-| 检查项 | 通过标准 |
-|--------|----------|
-| 15 步 | 决策树与产出一一对应 |
-| Fig1 | 逐步 n + 排除人数 |
-| Table1 ×2 | 发病/预后各一 |
-| ROC ×2 | 有 AUC 表 |
-| RCS + threshold + segmented | 文件存在 |
-| KM + Cox | 28 天截尾脚注 |
-| 旧课题 | 抽一旧 incidence config，`profile` 空，图逻辑无回归 |
-| 落盘 | 引擎根无本课题 Tables/Figures |
+```r
+# 在引擎 R 中
+source("R/pub_figure_export.R")
+pub_figure_ensure_formats(file.path(Sys.getenv("OSTEO_PERSONALIZED_ROOT"), "summary_results", "Figures"))
+```
 
-- [ ] **Step 3: `update-blocks-catalog` skill** 更新 `docs/Blocks_catalog.md`（新 72 块）
+- [ ] **Step 5: 验收对照 spec §8**
+
+- Table1–4、Fig1–6 存在  
+- Table3/4 与 Fig4/5 数字同源  
+- κ 有限；QCT_only n=40  
+- CART 叶标签中文  
+- Figures 四目录；无根目录平铺 PDF  
+- 更新 Decisiontree 落地状态为「已跑」
 
 ---
+
+## Spec coverage（自审）
+
+| Spec 要求 | Task |
+| ---- | ---- |
+| Prep / 无 Sex / need_QCT | T1 |
+| 列审阅 / disease_vars | T2 |
+| dxa_qct_agreement | T3–T4 |
+| diagnostic_vs_fracture | T5 |
+| modality_discordance_profile | T6 |
+| catalog | T7 |
+| 发病 pipeline + cart | T8 |
+| Table2 双 Panel | T9 |
+| 开跑 + 四目录 + 验收 | T10 |
+| 方案1 主文精简 / Age 补充 | T5 strata_supplemental + T8 config |
+| 不新建以外的 ML 竞品 | 未列入（YAGNI） |
+
+## Placeholder scan
+
+无 TBD/TODO；CART 结局与锁变量已写死；开跑门控在 T10。
+
+---
+
+## Execution handoff
+
+Plan complete and saved to `docs/superpowers/plans/2026-09-22-osteoporosis-dxa-qct-personalized.md`.
+
+两种执行方式：
+
+1. **Subagent-Driven（推荐）** — 每 Task 新开子代理，Task 间复审  
+2. **Inline Execution** — 本会话按 `executing-plans` 连续做，关键点暂停
+
+选哪个？选 1 或 2 即可。（未说「开跑」前我只做到 T1–T9 的代码/单测，不动全量拟合。）

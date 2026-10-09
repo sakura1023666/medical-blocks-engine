@@ -94,7 +94,8 @@
     }, character(1L), USE.NAMES = FALSE), collapse = "\n")
   }
   # 两行：第 1 行 效应 + (p…)；第 2 行 (lo, hi)
-  .path_lbl_p_below_ci <- function(est, p, lo, hi, d_est = 3L) {
+  .path_lbl_p_below_ci <- function(est, p, lo, hi,
+                                     d_est = as.integer(.pipeline_pub_digits()$est)[1L]) {
     L1 <- paste0(.fc(est, d_est), " (", .fp(p), ")")
     lines <- if (is.finite(lo) && is.finite(hi)) {
       c(L1, paste0("(", .fc(lo, d_est), ", ", .fc(hi, d_est), ")"))
@@ -104,10 +105,13 @@
     if (length(lines) == 1L) lines else .lines_equal_width(lines)
   }
 
-  lbl_a  <- .path_lbl_p_below_ci(coef_a, p_a, ci_a_lo, ci_a_hi, 3L)
-  lbl_b  <- .path_lbl_p_below_ci(coef_b, p_b, ci_b_lo, ci_b_hi, 3L)
-  lbl_d  <- .path_lbl_p_below_ci(effect_total, p_total, ci_tot_lo, ci_tot_hi, 3L)
-  pm_c   <- if (!is.na(prop_pct)    && is.finite(prop_pct))    .fc(prop_pct,    2) else "?"
+  .d_est <- as.integer(.pipeline_pub_digits()$est)[1L]
+  if (!is.finite(.d_est) || .d_est < 0L) .d_est <- 3L
+  lbl_a  <- .path_lbl_p_below_ci(coef_a, p_a, ci_a_lo, ci_a_hi, .d_est)
+  lbl_b  <- .path_lbl_p_below_ci(coef_b, p_b, ci_b_lo, ci_b_hi, .d_est)
+  lbl_d  <- .path_lbl_p_below_ci(effect_total, p_total, ci_tot_lo, ci_tot_hi, .d_est)
+  # 与 Table S9 Prop_Med 同一位数（勿再硬编码 2 位导致图/表错位）
+  pm_c   <- if (!is.na(prop_pct) && is.finite(prop_pct)) .fc(prop_pct, .d_est) else "?"
   lbl_pm <- paste0("Proportion mediated\n", pm_c, "%")
 
   # 三框等宽：变量名按最长字符数两侧补空格，ggplot label 外框一致（参考示意缩略图）
@@ -346,8 +350,25 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
                                  time_var = NULL, event_var = NULL,
                                  covariates = NULL, bootstrap_iter = 100,
                                  standardize_mediator = FALSE, seed = 1234, ...) {
-  common_path <- file.path(getwd(), "Blocks/20_mediation/00mediation_common.R")
+  # dual-batch worker 的 getwd()/project$root 是课题目录，不含 Blocks/；优先 MEDICAL_BLOCKS_ROOT
+  .engine_root <- function() {
+    candidates <- unique(c(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+      as.character(ctx$config$project$root %||% ""),
+      getwd()
+    ))
+    for (r in candidates) {
+      if (nzchar(r) && file.exists(file.path(r, "Blocks/20_mediation/00mediation_common.R")))
+        return(r)
+    }
+    getwd()
+  }
+  common_path <- file.path(.engine_root(), "Blocks/20_mediation/00mediation_common.R")
   if (file.exists(common_path)) source(common_path, local = FALSE)
+  if (!exists(".mi02_mediation_should_export", mode = "function")) {
+    stop("mediation_prognosis: 未加载 00mediation_common.R（.mi02_*）；检查 MEDICAL_BLOCKS_ROOT=",
+         Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "<unset>"), " path=", common_path)
+  }
 
   suppressPackageStartupMessages({
     library(survival)
@@ -375,39 +396,45 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
   if (is.null(mediators) || length(mediators) == 0) {
     a <- colnames(data)
     Index <- exposure
+    # 与发病 / NHANES 同一实验室池：禁止把饮酒/婚姻/身高/血压等扫进关联表
+    var_input <- .mi02_resolve_lab_indicator_pool(cfg, bl_cfg, a, exposure)
     b <- bl_cfg$lm_screen_exclude_vars
     if (is.null(b) || length(b) == 0L) {
-      b <- c(
-        "futime", "fustatus", "Age", "Gender", "Race", "Language", "Marital_Status","Weight","Height","BMI","Smoke","Alcohol","Hyperlipidemia",
-        "Micu_Code", "Insurance", "Hypertension", "Heart_Failure", "Myocardial_Infarction",
-        "Malignant_Tumor", "T1DM", "T2DM", "CKD", "Acute_Renal_Failure", "Cirrhosis",
-        "Hepatitis", "Tuberculosis", "Pneumonia", "Hyperlipidemia", "COPD", "SOFA",
-        "APSIII", "SIRS", "SAPSII", "OASIS", "GCS", "CHARLSON", "Ventilation",
-        Index, paste0(Index, "_index_cut")
-      )
+      b <- character(0)
     }
 
-    # 变量名按不区分大小写做差集；额外剔除时间/结局/ID，避免误入关联表或中介
+    # 变量名按不区分大小写做差集；额外剔除时间/结局/ID / 疾病泄漏
     surv_cfg_early <- cfg$survival %||% list()
+    dis_excl <- as.character((cfg$analysis_exclusion %||% list())$disease_vars %||% character(0))
     b <- unique(c(
       as.character(b),
+      dis_excl,
       as.character(surv_cfg_early$time_var %||% character(0)),
       as.character(surv_cfg_early$event_var %||% character(0)),
       as.character(cfg$data$outcome_column %||% character(0)),
       "RFS_Months", "futime", "fustatus", "Is_Recurrence_factor",
-      "Pt_ID", "ID", "SEQN", "Patient_ID"
+      "Pt_ID", "ID", "SEQN", "Patient_ID",
+      Index, paste0(Index, "_index_cut")
     ))
     # 全局规则：暴露组分/其它复合指标绝不可作中介候选（BAR→BUN/Albumin 等）
     if (exists("pipeline_mediation_lab_exclude_vars", mode = "function")) {
       b <- unique(c(b, pipeline_mediation_lab_exclude_vars(cfg, data_cols = a)))
     }
     b_lc <- unique(tolower(trimws(as.character(b))))
-    var_input <- a[!(tolower(a) %in% b_lc)]
+    var_input <- var_input[!(tolower(var_input) %in% b_lc)]
     if (exists("pipeline_mediation_filter_mediators", mode = "function")) {
       var_input <- pipeline_mediation_filter_mediators(
         var_input, cfg, data_cols = a, label = "LM关联筛"
       )
     }
+    pin_lm <- .mi02_resolve_best_mediator_name(cfg, bl_cfg)
+    if (nzchar(pin_lm) && pin_lm %in% names(data) && !pin_lm %in% var_input) {
+      var_input <- unique(c(pin_lm, var_input))
+      cli::cli_alert_info("LM 关联表强制纳入 best_mediator={pin_lm}")
+    }
+    cli::cli_alert_info(
+      "mediation_prognosis: LM 关联筛候选 {length(var_input)} 个（实验室指标+锁定中介）— {paste(head(var_input, 8), collapse = ', ')}{if (length(var_input) > 8) '...' else ''}"
+    )
     Model2 <- ctx$results$Model2Factors %||% character(0)
     Model2 <- as.character(Model2)
     if (length(Model2) > 0L) Model2 <- Model2[nzchar(Model2)]
@@ -831,55 +858,57 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
     se_ab <- sqrt(coef_a^2 * se_b^2 + coef_b^2 * se_a^2)
     p_ab <- 2 * (1 - pnorm(abs((coef_a * coef_b) / se_ab)))
     
+    .d_est <- as.integer(.pipeline_pub_digits()$est)[1L]
+    if (!is.finite(.d_est) || .d_est < 0L) .d_est <- 3L
+    .fc_est <- function(x) formatC(round(as.numeric(x), .d_est), format = "f", digits = .d_est)
+
     prop_med_num <- if (!is.na(coef_c) && abs(coef_c) > 1e-10) {
-      round(((coef_a * coef_b) / coef_c) * 100, 2)
+      round(((coef_a * coef_b) / coef_c) * 100, .d_est)
     } else {
       NA_real_
     }
     
+    .med_p <- function(p) {
+      if (exists("pub_format_p_cell", mode = "function")) pub_format_p_cell(p) else fmt_pval(p)
+    }
     total_hr <- paste0(
-      round(exp(coef_c), 3),
-      " [", round(exp(coef_c - 1.96 * se_c), 3),
-      "-", round(exp(coef_c + 1.96 * se_c), 3), "] ",
-      round(p_c, 4)
+      .fc_est(exp(coef_c)),
+      " [", .fc_est(exp(coef_c - 1.96 * se_c)),
+      "-", .fc_est(exp(coef_c + 1.96 * se_c)), "] ",
+      .med_p(p_c)
     )
     
     direct_hr <- paste0(
-      round(exp(coef_c_prime), 3),
-      " [", round(exp(coef_c_prime - 1.96 * se_c_prime), 3),
-      "-", round(exp(coef_c_prime + 1.96 * se_c_prime), 3), "] ",
-      round(p_c_prime, 4)
+      .fc_est(exp(coef_c_prime)),
+      " [", .fc_est(exp(coef_c_prime - 1.96 * se_c_prime)),
+      "-", .fc_est(exp(coef_c_prime + 1.96 * se_c_prime)), "] ",
+      .med_p(p_c_prime)
     )
     
     indirect_hr <- paste0(
-      round(exp(coef_a * coef_b), 3),
-      " [", round(exp((coef_a * coef_b) - 1.96 * se_ab), 3),
-      "-", round(exp((coef_a * coef_b) + 1.96 * se_ab), 3), "] ",
-      round(p_ab, 4)
+      .fc_est(exp(coef_a * coef_b)),
+      " [", .fc_est(exp((coef_a * coef_b) - 1.96 * se_ab)),
+      "-", .fc_est(exp((coef_a * coef_b) + 1.96 * se_ab)), "] ",
+      .med_p(p_ab)
     )
     
     path_a_str <- paste0(
-      round(coef_a, 3),
-      " [", round(coef_a - 1.96 * se_a, 3),
-      ", ", round(coef_a + 1.96 * se_a, 3), "] ",
-      round(p_a, 4)
+      .fc_est(coef_a),
+      " [", .fc_est(coef_a - 1.96 * se_a),
+      ", ", .fc_est(coef_a + 1.96 * se_a), "] ",
+      .med_p(p_a)
     )
     
     path_b_str <- paste0(
-      round(coef_b, 3),
-      " [", round(coef_b - 1.96 * se_b, 3),
-      ", ", round(coef_b + 1.96 * se_b, 3), "] ",
-      round(p_b, 4),
+      .fc_est(coef_b),
+      " [", .fc_est(coef_b - 1.96 * se_b),
+      ", ", .fc_est(coef_b + 1.96 * se_b), "] ",
+      .med_p(p_b),
       if (use_z) " (per 1-SD M)" else ""
     )
     
-    prop_med_num_fmt <- if (!is.na(coef_c) && abs(coef_c) > 1e-10) {
-      round(((coef_a * coef_b) / coef_c) * 100, 2)
-    } else {
-      NA_real_
-    }
-    prop_med <- if (is.finite(prop_med_num_fmt)) {
-      paste0(formatC(prop_med_num_fmt, format = "f", digits = 2), "%")
+    prop_med <- if (is.finite(prop_med_num)) {
+      paste0(formatC(prop_med_num, format = "f", digits = .d_est), "%")
     } else {
       NA_character_
     }

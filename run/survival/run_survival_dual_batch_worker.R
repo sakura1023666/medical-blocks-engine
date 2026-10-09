@@ -78,42 +78,74 @@ if (basename(script_path) %in% c("environment", "incidence", "survival", "feishu
     basename(dirname(script_path)) == "run") {
   script_path <- normalizePath(file.path(script_path, "..", ".."), winslash = "/")
 }
-setwd(script_path)
 
 args    <- commandArgs(trailingOnly = TRUE)
 wk_opts <- .parse_worker_args(args)
 
-root_guess <- normalizePath(getwd(), winslash = "/")
-if (!is.null(wk_opts$root) && nzchar(wk_opts$root))
-  root_guess <- normalizePath(wk_opts$root, winslash = "/", mustWork = TRUE)
+# 与发病 worker 对齐：引擎代码从 MEDICAL_BLOCKS_ROOT 加载；课题根仅作 cwd / 输出
+engine_root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+if (!nzchar(engine_root)) {
+  engine_root <- normalizePath(script_path, winslash = "/")
+} else {
+  engine_root <- normalizePath(engine_root, winslash = "/", mustWork = TRUE)
+}
+if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", engine_root)) {
+  .drv <- tolower(substr(engine_root, 1L, 1L))
+  engine_root <- paste0("/mnt/", .drv, substring(engine_root, 3L))
+}
+
+study_root <- Sys.getenv("INCIDENCE_BATCH_ROOT", unset = "")
+if (!nzchar(study_root) && !is.null(wk_opts$root) && nzchar(wk_opts$root)) {
+  study_root <- wk_opts$root
+}
+if (nzchar(study_root)) {
+  study_root <- normalizePath(study_root, winslash = "/", mustWork = TRUE)
+} else {
+  study_root <- engine_root
+}
 
 owd <- getwd()
-setwd(root_guess)
+setwd(study_root)
 on.exit(setwd(owd), add = TRUE)
-root <- root_guess
+root <- study_root
+message(sprintf(
+  "[worker-env] INCIDENCE_BATCH_ROOT=%s MEDICAL_BLOCKS_ROOT=%s study_root=%s",
+  Sys.getenv("INCIDENCE_BATCH_ROOT"),
+  Sys.getenv("MEDICAL_BLOCKS_ROOT"),
+  study_root
+))
 
 ix      <- wk_opts$index
 db_mode <- wk_opts$db_mode
 t_start <- proc.time()
 
-source(file.path(root, "R/feishu_env.R"))
-feishu_load_dotenv(root)
+source(file.path(engine_root, "R/feishu_env.R"))
+feishu_load_dotenv(engine_root)
 
 config_path <- if (!is.null(wk_opts$config) && nzchar(wk_opts$config)) {
   normalizePath(wk_opts$config, winslash = "/", mustWork = TRUE)
 } else {
-  file.path(root, "configs/templates/config_survival_dual_batch.template.R")
+  file.path(engine_root, "configs/templates/config_survival_dual_batch.template.R")
 }
 
-source(file.path(root, "R/utils.R"))
-source(file.path(root, "R/model3_required.R"))
-source(file.path(root, "R/dual_db_harmonize.R"))
-source(file.path(root, "R/cox_gate.R"))
-source(file.path(root, "R/pipeline_runner.R"))
-source(file.path(root, "configs/indices/composite_index_vars.R"))
-source(file.path(root, "R/survival_dual_batch_runner.R"))
-source(file.path(root, "R/incidence_sensitivity_suite.R"))
-source(file.path(root, "R/feishu_bitable.R"))
+source(file.path(engine_root, "R/utils.R"))
+source(file.path(engine_root, "R/model3_required.R"))
+source(file.path(engine_root, "R/dual_db_harmonize.R"))
+source(file.path(engine_root, "R/cox_gate.R"))
+source(file.path(engine_root, "R/pipeline_runner.R"))
+source(file.path(engine_root, "configs/indices/composite_index_vars.R"))
+source(file.path(engine_root, "R/survival_dual_batch_runner.R"))
+source(file.path(engine_root, "R/incidence_sensitivity_suite.R"))
+source(file.path(engine_root, "R/feishu_bitable.R"))
+source(file.path(engine_root, "R/pub_figure_export.R"))
+source(file.path(engine_root, "R/subgroup_forest_plot.R"))
+.med_common <- file.path(engine_root, "Blocks/20_mediation/00mediation_common.R")
+if (file.exists(.med_common)) {
+  tryCatch(
+    source(.med_common, local = FALSE),
+    error = function(e) message("[worker] mediation_common preload failed: ", conditionMessage(e))
+  )
+}
 source(config_path)
 config <- .survival_batch_bind_config(config)
 
@@ -213,30 +245,82 @@ if (!is.null(wk_opts$from) || !is.null(wk_opts$to) || length(wk_opts$blocks %||%
     cli::cli_h1("[{ix}] 定向重跑: from={wk_opts$from %||% '-'} to={wk_opts$to %||% '-'} blocks={paste(wk_opts$blocks %||% '-', collapse=',')}")
     .rerun_out <- Sys.getenv("MEDICAL_BLOCKS_RERUN_OUT", unset = "")
     if (nzchar(.rerun_out)) {
-      cli::cli_alert_info("独立输出目录(--out): {.file {.rerun_out}}（不覆盖【success】主结果）")
+      rerun_out_lab <- .rerun_out
+      cli::cli_alert_info("独立输出目录(--out): {.file {rerun_out_lab}}（不覆盖【success】主结果）")
     }
-    for (db in db_seq) {
-      cfg_db <- incidence_batch_apply_db_overrides(config_ix, db, root, ix)
-      per_ck <- file.path(
-        bc$index_ck_base %||% "checkpoints/_by_index", ix,
-        dual_db_slot_path_name(config_ix, db)
-      )
-      pipe <- incidence_batch_set_pipeline_ck(pipeline_regular_batch, per_ck)
-      run_opts_rerun <- list(
-        from = wk_opts$from, to = wk_opts$to,
-        only = wk_opts$blocks
-      )
-      run_pipeline(root, config = cfg_db, pipeline = pipe, run_opts = run_opts_rerun)
-    }
-    # 定向重跑后刷新汇总：分库镜像 + 双库拼图（含 Figure 4 森林图等）
-    tryCatch(
-      incidence_batch_finalize_index_outputs(root, config_ix, ix, db_seq),
-      error = function(e) {
-        cli::cli_alert_warning("定向重跑后汇总/拼图失败: {e$message}")
+    # 每库独立选续跑点：CLI --from 若该库无 ck，则回退到该库已有的最晚 pipeline 块
+    .resolve_from_token <- function(per_ck, preferred, blocks) {
+      .ck_names <- function() {
+        fs <- list.files(per_ck, pattern = "\\.rds$", full.names = FALSE)
+        unique(sub("^step[0-9]+_", "", sub("\\.rds$", "", fs)))
       }
-    )
-    cli::cli_alert_success("[{ix}] 定向重跑完成")
-    quit(save = "no", status = 0)
+      nms <- .ck_names()
+      if (!is.null(preferred) && nzchar(preferred) && preferred %in% nms)
+        return(preferred)
+      for (b in rev(as.character(blocks))) {
+        if (b %in% nms) {
+          if (!is.null(preferred) && nzchar(preferred) && !identical(b, preferred)) {
+            cli::cli_alert_warning(
+              "[{ix}] {basename(per_ck)} 无 {.field {preferred}} ck，回退续跑点 {.field {b}}"
+            )
+          }
+          return(b)
+        }
+      }
+      preferred
+    }
+    tryCatch({
+      blocks_full <- as.character(pipeline_regular_batch$blocks)
+      for (db in db_seq) {
+        cfg_db <- incidence_batch_apply_db_overrides(config_ix, db, root, ix)
+        per_ck <- file.path(
+          bc$index_ck_base %||% "checkpoints/by_index", ix,
+          dual_db_slot_path_name(config_ix, db)
+        )
+        # 兼容旧默认 checkpoints/_by_index
+        if (!dir.exists(per_ck)) {
+          alt <- file.path("checkpoints/_by_index", ix, dual_db_slot_path_name(config_ix, db))
+          if (dir.exists(alt)) per_ck <- alt
+        }
+        from_db <- if (!is.null(wk_opts$blocks) && length(wk_opts$blocks)) {
+          wk_opts$from
+        } else {
+          .resolve_from_token(per_ck, wk_opts$from, blocks_full)
+        }
+        pipe <- incidence_batch_set_pipeline_ck(pipeline_regular_batch, per_ck)
+        run_opts_rerun <- list(
+          from = from_db, to = wk_opts$to,
+          only = wk_opts$blocks
+        )
+        cli::cli_alert_info("[{ix}/{toupper(db)}] 定向续跑 from={from_db %||% '-'}")
+        run_pipeline(root, config = cfg_db, pipeline = pipe, run_opts = run_opts_rerun)
+      }
+      # 定向重跑后刷新汇总：分库镜像 + 双库拼图（含 Figure 4 森林图等）
+      tryCatch(
+        incidence_batch_finalize_index_outputs(root, config_ix, ix, db_seq),
+        error = function(e) {
+          cli::cli_alert_warning("定向重跑后汇总/拼图失败: {e$message}")
+        }
+      )
+      .write_status(status = "success", db_mode_used = db_mode)
+      tryCatch(
+        incidence_batch_rename_output_folder(
+          output_base, ix, "success",
+          overwrite = TRUE,
+          index_subdir = "by_index",
+          config = config_ix
+        ),
+        error = function(e) cli::cli_alert_warning("定向重跑后重命名失败: {e$message}")
+      )
+      cli::cli_alert_success("[{ix}] 定向重跑完成")
+      quit(save = "no", status = 0)
+    }, error = function(e) {
+      msg <- conditionMessage(e)
+      cli::cli_alert_danger("[{ix}] 定向重跑错误: {msg}")
+      .write_status(status = "error", error_message = msg)
+      # 定向 salvage：保留裸名目录，便于再次 --from 续跑（勿改成【failed】）
+      quit(save = "no", status = 1)
+    })
   }
 }
 
@@ -418,6 +502,7 @@ for (db in actual_db_seq) {
     scheme <- as.character(sb$.sensitivity_scheme %||% "quartile")[1L]
     keep <- incidence_sensitivity_light_blocks("prognosis", FALSE, scheme)
     pipe <- incidence_sensitivity_trim_pipeline(pipe, keep)
+    incidence_sensitivity_assert_prognosis_light_blocks(pipe$blocks)
     pipe$cox_gate$enable <- FALSE
   }
   per_ck <- file.path(
@@ -451,7 +536,7 @@ result_ctx <- list()
 
 tryCatch({
   if (light) {
-    cli::cli_h2("[{ix}] 敏感性轻量路径 — Table 1 + 选中档 Cox Table 2")
+    cli::cli_h2("[{ix}] 敏感性轻量路径 — landmark + Table 1 + 选中档 Cox Table 2")
     for (db in actual_db_seq) {
       pipe <- pipeline_regular_batch
       scheme <- as.character(sb$.sensitivity_scheme %||% "quartile")[1L]
@@ -461,6 +546,19 @@ tryCatch({
         stop("轻量路径截断后 pipeline$blocks 为空: ", db, call. = FALSE)
       }
       result_ctx[[db]] <- .run_db_phase(db, pipe$blocks[1], tail(pipe$blocks, 1))
+      # 出表前硬检：futime 不得超过 landmark（防漏跑行政截尾）
+      .df_lm <- tryCatch(
+        incidence_batch_ctx_data(result_ctx[[db]]),
+        error = function(e) NULL
+      )
+      if (is.null(.df_lm) && is.list(result_ctx[[db]])) {
+        .df_lm <- result_ctx[[db]]$data$imputed %||%
+          result_ctx[[db]]$data$mapped %||%
+          result_ctx[[db]]$data$cleaned
+      }
+      if (exists("incidence_sensitivity_assert_landmark_futime", mode = "function")) {
+        incidence_sensitivity_assert_landmark_futime(.df_lm, config_ix)
+      }
     }
     if (identical(actual_db_mode, "both") &&
         exists("survival_batch_realign_cox_to_unified", mode = "function")) {

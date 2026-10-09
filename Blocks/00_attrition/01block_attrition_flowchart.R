@@ -1,5 +1,5 @@
 ###############################################################################
-#  attrition_flowchart — 通用纳排表 + Figure 1 PDF（全套路默认末尾）
+#  attrition_flowchart — 通用纳排表 + Figure 1 PDF（CONSORT：主列纳入、右侧 Exclude、底部分叉）
 #
 #  register_block: "attrition_flowchart"
 #  典型位置: 任意 pipeline 最后一个 block（baseline_pipelines / 研究 batch 末尾）
@@ -8,16 +8,18 @@
 #    enable = TRUE,                  # FALSE 时整块跳过
 #    db_label = "MIMIC",             # 可选；也可从 dual_db/project 推断；用于文件名后缀与标题
 #    steps = list(                   # 队列步骤（无 steps 时仍可出单框/仅记账行，并 warning）
-#      list(id = "baseline", label = "ICU first-stay baseline",
-#           source = "fixed", n = 65366L),                 # fixed | rawdata | id_file | current
-#      list(id = "disease", label = "Disease cohort",
+#      list(id = "baseline", label = "Admission records in MIMIC-IV",
+#           source = "fixed", n = 65366L),                 # fixed | rawdata | rdata | id_file | current
+#      list(id = "disease", label = "The diagnosis includes SLE",
 #           source = "id_file", path = ".../disease.csv",
 #           id_col = "subject_id", join_on = "ID",
-#           join_universe_path = ".../baseline.RData",     # 与分析 dabiao 解耦
-#           join_universe_obj = "baseline"),
-#      list(id = "analytic", label = "Analytic cohort", source = "current")
+#           join_universe_path = ".../baseline.RData",
+#           join_universe_obj = "baseline",
+#           exclude_label = "Diagnosis does not include SLE"),
+#      list(id = "analytic", label = "Included", source = "current",
+#           exclude_label = "Incomplete after imputation")
 #    ),
-#    outcome_breakdown = TRUE,       # 末步按 outcome 分列 n_*（若列存在）
+#    outcome_breakdown = TRUE,       # 底部分叉：发病=病例/对照；预后=Expired/Alive（写入 fork_* 列，不塞进末步标题）
 #    auto_append = TRUE,             # runner 按 block 前后 nrow 变化自动记账
 #    draw_pdf = TRUE,
 #    specialty_figure_mode = "skip_if_generic",  # 专用 flowchart 遇通用 Figure 1 时 skip / 1b
@@ -95,6 +97,10 @@ block_attrition_flowchart <- function(ctx, ...) {
 
   csv_ok <- isTRUE(tryCatch(
     {
+      if (!"database" %in% names(rows)) {
+        db_lab <- .attrition_db_label(ctx)
+        if (nzchar(db_lab)) rows$database <- db_lab
+      }
       utils::write.csv(rows, csv_path, row.names = FALSE)
       TRUE
     },

@@ -74,7 +74,7 @@
     sm <- summary(m); ci <- suppressMessages(confint(m))
     list(hr = round(exp(coef(m))[row], 3),
          ci = paste0("(", round(exp(ci[row, 1]), 3), ",", round(exp(ci[row, 2]), 3), ")"),
-         p = round(sm$coefficients[row, "Pr(>|z|)"], 4))
+         p = pub_format_p_cell(sm$coefficients[row, "Pr(>|z|)"]))
   }
   n_total <- nrow(Data); cnt <- table(Data[[FactorName]])
   .pct <- function(lv) paste0(as.numeric(cnt[lv]), "(", round(as.numeric(cnt[lv]) / n_total * 100, 2), "%)")
@@ -103,10 +103,10 @@
       if (include_m3) c(r4$hr, r4$ci, r4$p) else character(0))
   })
   Line_trend <- c("p for trend", rep("", 4L),
-                  round(summary(mt1)$coefficients[1, "Pr(>|z|)"], 4), "", "",
-                  round(summary(mt2)$coefficients[1, "Pr(>|z|)"], 4), "", "",
-                  round(summary(mt3)$coefficients[1, "Pr(>|z|)"], 4),
-                  if (include_m3) c("", "", round(summary(mt4)$coefficients[1, "Pr(>|z|)"], 4)) else character(0))
+                  pub_format_p_cell(summary(mt1)$coefficients[1, "Pr(>|z|)"]), "", "",
+                  pub_format_p_cell(summary(mt2)$coefficients[1, "Pr(>|z|)"]), "", "",
+                  pub_format_p_cell(summary(mt3)$coefficients[1, "Pr(>|z|)"]),
+                  if (include_m3) c("", "", pub_format_p_cell(summary(mt4)$coefficients[1, "Pr(>|z|)"])) else character(0))
   rt <- do.call(rbind, c(list(Line1, Line2, Line3, Line4, Line5, Line_ref), lines_nonref, list(Line_trend)))
   rownames(rt) <- NULL
   list(table = rt, fits = list(grouped = list(crude = mf1, model1 = mf2, model2 = mf3, model3 = mf4)))
@@ -127,6 +127,13 @@ block_cox_quartile <- function(ctx, ...) {
   index_var <- bl_cfg$index_var %||% surv_cfg$index_var %||% (cfg$logistic %||% list())$index_var
   if (is.null(index_var) || !nzchar(index_var)) stop("cox_quartile: index_var 未设置。")
   for (v in c(time_var, event_var, index_var)) if (!v %in% names(data)) stop("cox_quartile: '", v, "' 不在数据中。")
+  if (exists("pipeline_apply_categorical_exposure", mode = "function")) {
+    bl_cfg <- pipeline_apply_categorical_exposure(bl_cfg, data, index_var)
+  }
+  if (isTRUE(bl_cfg$categorical_exposure)) {
+    cli::cli_alert_info("分类暴露：跳过 cox_quartile，仅回归变量本身")
+    return(ctx)
+  }
 
   disease_label <- cfg$project$analysis_group %||% cfg$project$disease
   data2 <- data

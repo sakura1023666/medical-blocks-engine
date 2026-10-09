@@ -1,0 +1,30 @@
+kma_id,station_id,name_ko,address,latitude,longitude,coord_source,agency,network,lcz_note
+108,SEL,서울,서울특별시 종로구 송월동,37.57142,126.9658,kma_asos_official,KMA,ASOS,LCZ from domain morphology at nearest 100 m cell
+110,GMP,김포(공),서울특별시 강서구 공항동,37.55568,126.79313,nominatim_dong_centroid,KMA,AWS,outside_default_bbox
+400,GNG,강남,서울특별시 강남구 일원동,37.48754,127.08705,nominatim_dong_centroid,KMA,AWS,
+401,SCO,서초,서울특별시 서초구 서초동,37.48845,127.01644,nominatim_dong_centroid,KMA,AWS,
+402,GDG,강동,서울특별시 강동구 고덕동,37.56528,127.15761,nominatim_dong_centroid,KMA,AWS,outside_default_bbox
+403,SPA,송파,서울특별시 송파구 장지동,37.47983,127.13102,nominatim_dong_centroid,KMA,AWS,outside_default_bbox
+404,GSO,강서,서울특별시 강서구 화곡동,37.54213,126.84418,nominatim_dong_centroid,KMA,AWS,outside_default_bbox
+405,YCN,양천,서울특별시 양천구 목동,37.52612,126.86452,nominatim_dong_centroid,KMA,AWS,outside_default_bbox
+406,DBG,도봉,서울특별시 도봉구 방학동,37.66432,127.03338,nominatim_dong_centroid,KMA,AWS,
+407,NOW,노원,서울특별시 노원구 공릉동,37.63022,127.08729,nominatim_dong_centroid,KMA,AWS,
+408,DDM,동대문,서울특별시 동대문구 전농동,37.5806,127.05543,nominatim_dong_centroid,KMA,AWS,
+409,JNG,중랑,서울특별시 중랑구 면목동,37.58179,127.09104,nominatim_dong_centroid,KMA,AWS,
+410,KMA,기상청,서울특별시 동작구 신대방동,37.49447,126.91736,kma_hq_known,KMA,AWS,
+411,MPO,마포,서울특별시 마포구 망원동,37.55602,126.90098,nominatim_dong_centroid,KMA,AWS,
+412,SDM,서대문,서울특별시 서대문구 신촌동,37.56623,126.9429,nominatim_dong_centroid,KMA,AWS,
+413,GWJ,광진,서울특별시 광진구 자양동,37.53169,127.07495,nominatim_dong_centroid,KMA,AWS,
+414,SBK,성북,서울특별시 성북구 정릉동,37.6168,126.9973,nominatim_dong_centroid,KMA,AWS,
+415,YSN,용산,서울특별시 용산구 이촌동,37.52194,126.97639,kma_known,KMA,AWS,
+416,EPG,은평,서울특별시 은평구 진관동,37.64212,126.93543,nominatim_dong_centroid,KMA,AWS,
+417,GCM,금천,서울특별시 금천구 독산동,37.4684,126.89796,nominatim_dong_centroid,KMA,AWS,
+418,HAN,한강,서울특별시 영등포구 여의도동,37.52846,126.93005,nominatim_dong_centroid,KMA,AWS,
+419,JGU,중구,서울특별시 중구 예장동,37.55472,126.98889,kma_known,KMA,AWS,
+421,SDG,성동,서울특별시 성동구 성수동1가,37.5435,127.03742,nominatim_dong_centroid,KMA,AWS,
+423,GRO,구로,서울특별시 구로구 온수동,37.49455,126.82044,nominatim_dong_centroid,KMA,AWS,outside_default_bbox
+424,GBK,강북,서울특별시 강북구 수유동,37.6366,127.00438,nominatim_dong_centroid,KMA,AWS,
+425,NHN,남현,서울특별시 관악구 남현동,37.47155,126.97649,nominatim_dong_centroid,KMA,AWS,
+509,GAK,관악,서울특별시 관악구 신림동,37.4869,126.92818,nominatim_dong_centroid,KMA,AWS,
+510,YDP,영등포,서울특별시 영등포구 당산동,37.53462,126.90655,nominatim_dong_centroid,KMA,AWS,
+889,HCM,현충원,서울특별시 동작구 사당동,37.48508,126.97049,nominatim_dong_centroid,KMA,AWS,

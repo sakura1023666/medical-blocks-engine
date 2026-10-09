@@ -109,21 +109,33 @@ source(file.path(root, "R/ml_dual_batch_runner.R"))
 source(file.path(root, "R/feishu_bitable.R"))
 source(file.path(root, "configs/indices/composite_index_vars.R"))
 source(config_path)
+if (exists("ml_dual_apply_baseline_index_ns_fail_rule", mode = "function")) {
+  config <- ml_dual_apply_baseline_index_ns_fail_rule(config)
+}
+if (exists("ml_dual_audit_study_inherited_excludes", mode = "function")) {
+  ml_dual_audit_study_inherited_excludes(config)
+}
 
 source(file.path(root, "R/pipeline_extension_guard.R"))
 .study_dir <- dirname(config_path)
-pipeline_extension_guard_check(
-  routine = "ml",
-  pipelines = list(
-    pipeline_nhanes_batch = if (exists("pipeline_nhanes_batch")) pipeline_nhanes_batch else NULL,
-    pipeline_regular_primary_ml_batch = if (exists("pipeline_regular_primary_ml_batch")) pipeline_regular_primary_ml_batch else NULL,
-    pipeline_mimic_ml_batch = if (exists("pipeline_mimic_ml_batch")) pipeline_mimic_ml_batch else NULL,
-    pipeline_shared_nhanes = if (exists("pipeline_shared_nhanes")) pipeline_shared_nhanes else NULL,
-    pipeline_shared_regular = if (exists("pipeline_shared_regular")) pipeline_shared_regular else NULL
-  ),
-  study_dir = .study_dir,
-  root = root
-)
+## 预后 ML 会把 univariate_incidence_binary → univariate_prognosis，相对发病基线有合法替换；
+## 在 baseline 分型落地前，可用 MEDICAL_BLOCKS_SKIP_PIPELINE_GUARD=1 跳过（单课题显式开启）。
+if (!identical(Sys.getenv("MEDICAL_BLOCKS_SKIP_PIPELINE_GUARD", unset = ""), "1")) {
+  pipeline_extension_guard_check(
+    routine = "ml",
+    pipelines = list(
+      pipeline_nhanes_batch = if (exists("pipeline_nhanes_batch")) pipeline_nhanes_batch else NULL,
+      pipeline_regular_primary_ml_batch = if (exists("pipeline_regular_primary_ml_batch")) pipeline_regular_primary_ml_batch else NULL,
+      pipeline_mimic_ml_batch = if (exists("pipeline_mimic_ml_batch")) pipeline_mimic_ml_batch else NULL,
+      pipeline_shared_nhanes = if (exists("pipeline_shared_nhanes")) pipeline_shared_nhanes else NULL,
+      pipeline_shared_regular = if (exists("pipeline_shared_regular")) pipeline_shared_regular else NULL
+    ),
+    study_dir = .study_dir,
+    root = root
+  )
+} else {
+  message("跳过 pipeline_extension_guard（MEDICAL_BLOCKS_SKIP_PIPELINE_GUARD=1）")
+}
 
 options(cli.hyperlink = FALSE, warn = 1)
 if (is.null(getOption("repos")) || identical(getOption("repos"), "@CRAN@")) {

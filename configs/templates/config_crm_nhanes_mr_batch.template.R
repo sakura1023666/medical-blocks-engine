@@ -98,7 +98,7 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.40,
     method = "cart",
-    m = 1L,
+    m = 5L,
     seed = 1234L,
     mi_quality_exclude_enable = TRUE,
     mi_quality_p_threshold = 0.05,

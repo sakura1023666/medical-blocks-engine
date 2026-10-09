@@ -1,46 +1,52 @@
-### Task 2: 指标库审计与补缺
+### Task 2: 数据组装 + 暴露核对 + 列审阅
 
 **Files:**
-- Modify: `Blocks/00_index/01block_index.R`（仅追加缺失 `list(name=...)`）
-- Create: `G:/02block_result/29_SLE/.../data/_index_coverage.md`
+- Create: `/mnt/g/02block_result/47_PE/Medication_regimen_model_alteplase_ipw/data/`
+- Create: `.../reports/exposure_definition_2026-10-09.md`
+- Create: `.../Data/_column_review.md`（或 `data/_column_review.md`）
+- Skill: `.cursor/skills/review-raw-covariate-columns/SKILL.md`
 
 **Interfaces:**
-- Consumes: `01block_index.R` 内公式列表
-- Produces: 本课题 `index$only` 推荐向量（覆盖文献+库内可算）
+- Consumes: `DATA/MIMIC|EICU` 下 PE CSV、阿替普酶处方/输液、`D01_baseline_*.RData`、`*预后数据-all.csv`
+- Produces: 每库分析宽表（含 ID、暴露候选列、预后时间/死亡、基线协变量）+ 暴露 n 报告 + `disease_vars` 草案
 
-- [ ] **Step 1: 列出已有 vs 文献目标**
+- [ ] **Step 1: 建产出目录**
 
 ```bash
-"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" -e '
-f <- "/mnt/e/01block/01Block-new-Final/Blocks/00_index/01block_index.R"
-tx <- readLines(f)
-nms <- unique(sub(".*name\\s*=\\s*\"([^\"]+)\".*", "\\1", grep("name\\s*=\\s*\"", tx, value=TRUE)))
-# crude; prefer parsing list(name=
-want <- c("CONUT_score","PNI","GNRI","NLR","SII","SIRI","SIS","LMR","BMI","PLR","MLR","CAR","PIV","AGR","SIIR")
-cat("have:\n"); print(intersect(want, nms))
-cat("missing:\n"); print(setdiff(want, nms))
-writeLines(c("## have", intersect(want, nms), "", "## missing", setdiff(want, nms), "", "## all_in_block", sort(nms)),
-  "G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/data/_index_coverage.md")
-'
+mkdir -p "/mnt/g/02block_result/47_PE/Medication_regimen_model_alteplase_ipw"/{data,reports,Data,logs}
 ```
 
-- [ ] **Step 2: 对 missing 追加公式**
+- [ ] **Step 2: 暴露语义核对（人工+脚本）**
 
-在 `01block_index.R` 公式列表末尾按现有风格追加（示例 SIS / LMR，若 Step1 显示缺失）：
+用 Linux `Rscript` 统计并写入报告：
 
 ```r
-list(name = "SIS",
-     expr = quote( /* 按文献: 低白蛋白/淋巴细胞/肿瘤等计分；若成分不足则 skip */ ),
-     digits = 4L),
-list(name = "LMR",
-     expr = quote(Lymphocytes / Monocyte),
-     digits = 4L)
+# 写入 reports/exposure_definition_2026-10-09.md 的数字须来自实算
+# MIMIC: ymtmd / 输液列（确认是否真为 alteplase）
+# eICU: gy / sy
+# 规则: Alteplase = 1 if rx OR iv else 0
 ```
 
-实现时：每个 missing 指标查文献定义；成分列不存在则依赖 index 块「自动跳过」行为，不改跳过逻辑。
+Expected 粗算量级（若偏离 >20% 须停并问用户）：MIMIC 并集约 400+/1621；eICU 并集约 100+/1721。
 
-- [ ] **Step 3: 冒烟——对 dabiao 子集跑 index 公式可用性**
+- [ ] **Step 3: 组装每库 dabiao/分析表**
 
-用临时 R 加载 dabiao，source index 内部公式函数（或跑最小 pipeline `--only index`），确认 `computed_indices` 非空。
+- 以 PE 队列 ID 为骨架，左连阿替普酶处方+输液，衍生 `Alteplase`。  
+- 合并预后 CSV：至少 `hosp_survival_day`（或 `hosp_day`）、`death_within_hosp_28days`（或等价）。  
+- 合并/对齐 `D01_baseline_*` 临床列；落盘 `data/D01_analysis_MIMIC.RData`、`data/D01_analysis_eICU.RData`（对象名 `baseline`）。
+
+- [ ] **Step 4: 列审阅**
+
+按 `review-raw-covariate-columns` 产出 `_column_review.md` 与 `disease_vars`（PE 诊断泄漏、严重度评分是否进回归等按 skill 判定）。  
+`protect_vars` 预留：`Alteplase`, `surv_time_28d`, `surv_event_28d`, `composite_risk`。
+
+- [ ] **Step 5: 验收**
+
+```r
+stopifnot(mean(df$Alteplase %in% 0:1) == 1)
+stopifnot(all(c("surv_time_28d","surv_event_28d") %in% names(df)) || 
+          all(c("hosp_survival_day","death_within_hosp_28days") %in% names(df)))
+```
 
 ---
+

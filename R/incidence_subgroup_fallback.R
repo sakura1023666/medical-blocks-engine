@@ -178,9 +178,24 @@ incidence_subgroup_write_config <- function(base_config_path, staging_run,
 incidence_subgroup_spawn_worker <- function(root, temp_config, ix, db_mode, log_path,
                                             worker_script = "run/incidence/run_incidence_dual_batch_worker.R",
                                             p_trim = 0) {
-  worker_path <- file.path(root, worker_script)
+  # root 是课题目录；引擎 worker 常为绝对路径或 MEDICAL_BLOCKS_ROOT 下相对路径
+  worker_path <- as.character(worker_script %||% "")[1L]
+  if (!nzchar(worker_path))
+    stop("worker_script 为空", call. = FALSE)
+  if (!file.exists(worker_path)) {
+    cand <- file.path(root, worker_path)
+    if (file.exists(cand)) {
+      worker_path <- cand
+    } else {
+      eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      if (nzchar(eng)) {
+        cand2 <- file.path(eng, worker_path)
+        if (file.exists(cand2)) worker_path <- cand2
+      }
+    }
+  }
   if (!file.exists(worker_path))
-    stop("Worker 脚本不存在: ", worker_path, call. = FALSE)
+    stop("Worker 脚本不存在: ", worker_path, " (root=", root, ")", call. = FALSE)
   rscript <- file.path(R.home("bin"),
                        if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
   p_trim <- suppressWarnings(as.numeric(p_trim %||% 0))

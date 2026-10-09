@@ -429,10 +429,14 @@
   y_min <- if (identical(metric, "auc")) 0.35 else max(0, min(0.35, all_low - 0.02))
 
   p_col_use <- if (!is.null(p_col) && p_col %in% names(res)) p_col else NA_character_
+  # 标注必须是「P=…」：裸数字易被误读为 AUC/C-index（与点位 y 刻度错位）
   p_labels <- res |>
     dplyr::mutate(
       .pv     = if (!is.na(p_col_use)) .data[[p_col_use]] else NA_real_,
-      p_label = ifelse(is.na(.pv), "", ifelse(.pv < 0.001, "<0.001", sprintf("%.3f", .pv))),
+      p_label = ifelse(
+        is.na(.pv), "",
+        ifelse(.pv < 0.001, "P<0.001", sprintf("P=%.3f", .pv))
+      ),
       y_text  = pmin(pmax(.data[[dyn_col]], .data[[weib_col]], na.rm = TRUE) + 0.015, 0.995)
     )
 
@@ -449,7 +453,7 @@
   if (!is.na(p_col_use) && any(nzchar(p_labels$p_label))) {
     p <- p + ggplot2::geom_text(
       data = p_labels, ggplot2::aes(x = landmark, y = y_text, label = p_label),
-      size = 2.8, vjust = 0, color = "#D55E00"
+      size = 2.6, vjust = 0, color = "#D55E00"
     )
   }
   p +
@@ -457,10 +461,17 @@
     ggplot2::scale_shape_manual(values = c("Dynamic prediction model" = 17, "Weibull survival model" = 16), name = NULL) +
     ggplot2::scale_x_continuous(breaks = landmarks) +
     ggplot2::coord_cartesian(ylim = c(y_min, y_max)) +
-    ggplot2::labs(title = title, x = "Days after ICU entry", y = ylab) +
+    ggplot2::labs(
+      title = title, x = "Days after ICU entry", y = ylab,
+      caption = "Orange labels: paired permutation P (Dynamic vs Weibull), not metric values."
+    ) +
     ggplot2::theme_bw(base_size = 13) +
-    ggplot2::theme(legend.position = "top", plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-                   text = ggplot2::element_text(family = font_family))
+    ggplot2::theme(
+      legend.position = "top",
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      plot.caption = ggplot2::element_text(size = 8, hjust = 0, color = "grey35"),
+      text = ggplot2::element_text(family = font_family)
+    )
 }
 
 # Acc/Sens/Spec：与 run_fig_APRI_v2.R 对齐的竖向散点图

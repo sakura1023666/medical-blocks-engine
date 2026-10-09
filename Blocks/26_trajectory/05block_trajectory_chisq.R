@@ -28,6 +28,8 @@
 #    config$trajectory$outcome_data_path     — 兜底路径（ctx$data$imputed 为空时）
 #    config$trajectory$outcome_data_obj      — RData 中对象名（默认 "imputed_data"）
 #    config$trajectory$p_threshold           — 显著性阈值（默认 0.05）
+#    config$trajectory$pause_on_all_ns       — 全阴性是否暂停（默认 TRUE 交互；
+#                                              批量扫描设 FALSE → 正当阴性不中断 worker）
 #    config$trajectory$long_data_dir         — 轨迹数据磁盘兜底目录（可选）
 #    config$trajectory$long_data_filename_template
 #    config$trajectory$long_data_obj
@@ -187,6 +189,11 @@ block_trajectory_chisq <- function(ctx, ...) {
           Class = dplyr::first(Class[!is.na(Class)]),
           .groups = "drop"
         )
+      if (exists("trajectory_resolve_class_map", mode = "function") &&
+          exists("trajectory_apply_class_swap", mode = "function")) {
+        mp <- trajectory_resolve_class_map(class_data$Class, cfg, Index, source = "raw")
+        class_data$Class <- paste0("Class", trajectory_apply_class_swap(class_data$Class, mp))
+      }
 
       outcome_slim[[id_col]] <- as.character(outcome_slim[[id_col]])
 
@@ -315,8 +322,12 @@ block_trajectory_chisq <- function(ctx, ...) {
   )
 
   # ── 6. 阴性结果暂停 ────────────────────────────────────────────────────────
+  # pause_on_all_ns（默认 TRUE，保持交互式单课题行为）：全阴性时暂停等人决策。
+  # 全指标批量扫描中「轨迹与结局无关联」是正当阴性结果，设 FALSE 让 worker
+  # 正常收尾（保 code 包 / 下游图），并把该指标标注为非显著而非失败。
+  pause_on_all_ns <- isTRUE(traj_cfg$pause_on_all_ns %||% TRUE)
   all_ns <- all(chisq_table$P_value >= p_threshold, na.rm = TRUE)
-  if (all_ns) {
+  if (all_ns && pause_on_all_ns) {
     ctx$results$pause_point <- list(
       block      = "block_trajectory_chisq",
       reason     = paste0(
@@ -326,7 +337,8 @@ block_trajectory_chisq <- function(ctx, ...) {
       suggestion = paste0(
         "建议：① 检查轨迹分类是否合理（尝试不同 class_for_test）；",
         "② 调整 trajectory$p_threshold；",
-        "③ 确认结局变量编码（是否为 0/1 或因子）"
+        "③ 确认结局变量编码（是否为 0/1 或因子）；",
+        "④ 批量扫描课题可设 trajectory_chisq$pause_on_all_ns = FALSE"
       ),
       data_snapshot = head(display_table, 5)
     )
@@ -334,6 +346,12 @@ block_trajectory_chisq <- function(ctx, ...) {
       "PAUSE_FOR_USER_DECISION: ",
       "轨迹-结局卡方检验全为阴性，请查看 ctx$results$pause_point 并指示下一步。"
     )
+  }
+  if (all_ns) {
+    cli::cli_alert_warning(
+      "轨迹-结局卡方检验全为阴性（pause_on_all_ns=FALSE：作为正当阴性结果继续收尾）"
+    )
+    ctx$results$trajectory_chisq_all_negative <- TRUE
   }
 
   n_sig <- sum(chisq_table$P_value < p_threshold, na.rm = TRUE)

@@ -94,9 +94,12 @@ def _label_overlay_pdf(
         return PdfReader(out)
 
 
-def _grid_shape(n: int) -> tuple[int, int]:
-    """Return (cols, rows). N==4 -> 2x2; otherwise 1xN row."""
-    if n == 4:
+def _grid_shape(n: int, layout: str = "side") -> tuple[int, int]:
+    """Return (cols, rows). stack/vertical -> 1xN column; N==4 or grid -> 2x2; else 1xN row."""
+    layout = (layout or "side").lower()
+    if layout in ("stack", "vertical", "col"):
+        return 1, n
+    if layout == "grid" or n == 4:
         return 2, 2
     return n, 1
 
@@ -130,9 +133,7 @@ def compose(
         sizes.append(_page_wh(pages[-1]))
 
     layout = (layout or "side").lower()
-    cols, rows = _grid_shape(n)
-    if layout == "grid":
-        cols, rows = 2, 2
+    cols, rows = _grid_shape(n, layout)
 
     # Equal-height panels within each row; rows stacked vertically.
     row_groups: list[list[int]] = []

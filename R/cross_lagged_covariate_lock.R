@@ -139,6 +139,89 @@ cross_lagged_validation_cohorts <- function(meta) {
   lst[intersect(names(lst), keep)]
 }
 
+#' 各库多因素显著变量 tb2（P < multivariate sig_cutoff），不是 VIF screen 全名单
+cross_lagged_read_mv_sig_lists <- function(study_root, cohorts) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+  out <- list()
+  for (db in as.character(cohorts)) {
+    base <- cross_lagged_phase1_dir(study_root, db)
+    v <- character(0)
+    ck_dir <- file.path(base, "checkpoints")
+    if (dir.exists(ck_dir)) {
+      cands <- list.files(ck_dir, pattern = "multivariate_incidence_binary\\.rds$", full.names = TRUE)
+      if (length(cands)) {
+        cands <- cands[order(file.info(cands)$mtime, decreasing = TRUE)]
+        ck <- tryCatch(readRDS(cands[[1L]]), error = function(e) NULL)
+        if (!is.null(ck$ctx)) ck <- ck$ctx
+        v <- as.character(ck$results$tb2 %||% ck$results$multivar_features %||% character(0))
+      }
+    }
+    if (!length(v)) {
+      steps <- list.dirs(base, recursive = FALSE, full.names = TRUE)
+      hit <- steps[grepl("multivariate_incidence", basename(steps), ignore.case = TRUE)]
+      for (d in hit) {
+        p <- file.path(d, "D05_Multivariable_Features.RData")
+        if (!file.exists(p)) next
+        e <- new.env(parent = emptyenv())
+        load(p, envir = e)
+        for (nm in ls(e)) {
+          obj <- e[[nm]]
+          if (is.character(obj) && length(obj)) {
+            v <- unique(as.character(obj))
+            break
+          }
+        }
+        if (length(v)) break
+      }
+    }
+    out[[db]] <- unique(v[nzchar(v)])
+  }
+  out
+}
+
+#' Model2 = 各库 tb2 交集。空集不回退 VIF screen / ELSA∩HRS。
+cross_lagged_lock_mv_sig_intersect <- function(mv_list,
+                                              drop_vars = c("FI", "Frailty", "ePWV", "Leisure_score",
+                                                            "Country", "Cohort", "ID",
+                                                            "Disease_Group", "Disease"),
+                                              index_var = "",
+                                              demo_for_model1 = c("Age", "Gender", "Sex",
+                                                                  "Education", "Marital_Status"),
+                                              prefer_age_only_model1 = TRUE,
+                                              study_root = NULL,
+                                              lock_cohorts = NULL) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+  drop_vars <- unique(c(drop_vars, as.character(index_var)[nzchar(as.character(index_var))]))
+  if (!is.null(lock_cohorts) && length(lock_cohorts)) {
+    mv_list <- .cross_lagged_subset_cohort_lists(mv_list, lock_cohorts)
+  }
+  if (is.null(mv_list) || !length(mv_list)) {
+    stop("mv_sig_intersect: 没有读到任何库的多因素显著变量（tb2）", call. = FALSE)
+  }
+  clean <- lapply(mv_list, function(x) {
+    unique(setdiff(as.character(x %||% character(0)), drop_vars))
+  })
+  locked <- Reduce(intersect, clean)
+  if (is.null(locked)) locked <- character(0)
+  locked <- unique(as.character(locked))
+  model1 <- intersect(locked, demo_for_model1)
+  if (isTRUE(prefer_age_only_model1) && "Age" %in% locked) {
+    model1 <- "Age"
+  }
+  list(
+    model1 = unique(as.character(model1)),
+    model2 = locked,
+    source = "mv_sig_intersect",
+    lock_cohort_n = length(clean),
+    intersect_final = locked,
+    intersect_screen = character(0),
+    empty = !length(locked),
+    by_db_final = clean,
+    by_db_screen = list(),
+    by_db_mv_sig = clean
+  )
+}
+
 #' 读取锁定协变量（按 meta$cohorts_covariate_lock；可选 meta$model1_locked 覆盖 Model1）
 cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
   if (is.null(meta)) {
@@ -147,6 +230,21 @@ cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
     meta <- cross_lagged_study_meta(study_root)
   }
   cohorts <- cross_lagged_covariate_lock_cohorts(meta)
+  rule <- as.character(meta$covariate_lock_rule %||% "vif_screen")[1L]
+  if (identical(rule, "mv_sig_intersect")) {
+    mv_list <- cross_lagged_read_mv_sig_lists(study_root, cohorts)
+    lock <- cross_lagged_lock_mv_sig_intersect(
+      mv_list,
+      study_root = study_root,
+      lock_cohorts = cohorts,
+      index_var = as.character(meta$index_var %||% "")[1L]
+    )
+    lock$lock_cohorts <- cohorts
+    lock$pooled_cohorts <- cross_lagged_pooled_cohorts(meta)
+    lock$validation_cohorts <- cross_lagged_validation_cohorts(meta)
+    lock$main_cohorts <- cross_lagged_main_cohorts(meta)
+    return(lock)
+  }
   m2_pack <- cross_lagged_read_cohort_model2_lists(study_root, cohorts)
   lock <- cross_lagged_lock_covariates_across_dbs(
     m2_pack$final, m2_pack$screen,
@@ -367,6 +465,10 @@ cross_lagged_format_lock_report <- function(lock) {
     paste0("elsa_hrs_uv_intersect=", paste(lock$elsa_hrs_uv_intersect %||% character(0), collapse = ", ")),
     paste0("Model1=", paste(lock$model1 %||% character(0), collapse = ", ")),
     paste0("Model2=", paste(lock$model2 %||% character(0), collapse = ", ")),
-    "rule=开发队列 TableS4/VIF_screen 交集；若空再 final 交集；验证队列不参与锁定、直接套用"
+    if (identical(as.character(lock$source %||% "")[1L], "mv_sig_intersect")) {
+      "rule=开发队列多因素显著变量交集（tb2）；不回退 VIF screen；验证队列不参与锁定、直接套用"
+    } else {
+      "rule=开发队列 TableS4/VIF_screen 交集；若空再 final 交集；验证队列不参与锁定、直接套用"
+    }
   )
 }

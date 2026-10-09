@@ -215,21 +215,33 @@ tryCatch({
   }
 
   .write_status("success", db_results = result_ctx, db_errors = db_errors)
-  # 发表图表整理：Fig1 占位 + 顺序编号 + Figure S*
+  # 发表图表整理：分库 curate → 双库 finalize（CONSORT / 竖拼 / 共享 cut / 13 图）
   tryCatch({
     curate_util <- file.path(root, "R/trajectory_pub_curate.R")
     if (file.exists(curate_util)) source(curate_util, local = FALSE)
+    fin_util <- file.path(root, "R/trajectory_pub_finalize.R")
+    if (file.exists(fin_util)) source(fin_util, local = FALSE)
     out_base <- trajectory_batch_index_output_dir(config_ix, ix)
-    disease <- (config_ix$feishu %||% list())$disease_label %||%
-      config_ix$project$disease %||% "ischemic stroke"
+    disease <- config_ix$project$disease %||%
+      (config_ix$feishu %||% list())$disease_label %||% "ischemic stroke"
     disease <- gsub("^\\d+_", "", as.character(disease)[1L])
+    disease <- gsub("(?i)[_ ]Trajectory$", "", disease, perl = TRUE)
     disease <- gsub("_", " ", disease)
+    disease <- trimws(disease)
     trajectory_curate_pub_outputs(
       base_dir = out_base,
       index_name = ix,
       dbs = done_dbs,
       disease = disease
     )
+    if (exists("trajectory_batch_finalize_index_outputs", mode = "function")) {
+      trajectory_batch_finalize_index_outputs(
+        index_root = out_base,
+        config = config_ix,
+        index_name = ix,
+        dbs = done_dbs
+      )
+    }
   }, error = function(e) {
     cli::cli_alert_warning("[{ix}] 发表图表整理失败（不影响成功状态）: {conditionMessage(e)}")
   })

@@ -76,6 +76,7 @@
     paste0("p=", formatC(round(p, 3), format = "f", digits = 3))
   }
   .fmt_ci_p <- function(est, lo, hi, p) {
+    if (exists("pub_fmt_est_ci_p", mode = "function")) return(pub_fmt_est_ci_p(est, lo, hi, p))
     if (length(est) != 1L || is.na(est)) return("")
     pt <- .fmt_p_inline(p)
     if (is.na(lo) || is.na(hi)) {
@@ -133,7 +134,8 @@
         all = stat_val,
         U1 = u1, stringsAsFactors = FALSE)
     } else {
-      xf <- factor(x)
+      xf <- if (is.factor(x)) x else univar_coerce_binary_predictor(x)
+      if (!is.factor(xf)) xf <- factor(x)
       lv <- levels(xf)
       if (!length(lv)) next
       n_tot <- sum(!is.na(x))
@@ -148,9 +150,7 @@
           lev <- lv[k]
           nk <- sum(xf == lev, na.rm = TRUE)
           pctk <- if (n_tot > 0) nk / n_tot * 100 else 0
-          mr <- sub_u[sub_u$Variable == paste0(bv, lev), , drop = FALSE]
-          if (nrow(mr) == 0L) mr <- sub_u[grepl(lev, sub_u$Variable, fixed = TRUE), , drop = FALSE]
-          if (nrow(mr) > 1L) mr <- mr[1L, , drop = FALSE]
+          mr <- univar_match_coef_row(sub_u, bv, lev)
           u1 <- if (nrow(mr) == 1L) .fmt_ci_p(mr[[if ("HR" %in% names(mr)) "HR" else "OR"]][1],
             mr$CI_lo[1], mr$CI_hi[1], mr$P[1]) else ""
           pub_rows[[length(pub_rows) + 1L]] <- data.frame(
@@ -170,8 +170,15 @@
     ctx, ctx$output_dir_tables, "supp_table",
     base_title, "Univariate Regression Analysis", "xlsx"
   )
+  uv_fn <- character(0)
+  if (any(grepl("^NE\\b", as.character(out_table[[lab_uni]] %||% ""), perl = TRUE))) {
+    uv_fn <- "NE = not estimable (complete separation, infinite CI, or unstable OR/HR)."
+  }
   tryCatch(
-    export_sci_table(out_table, pub_uv$filepath, title = pub_uv$title),
+    export_sci_table(
+      out_table, pub_uv$filepath, title = pub_uv$title,
+      table_footnotes = if (length(uv_fn)) uv_fn else NULL
+    ),
     error = function(e) cli::cli_alert_warning("Table S2a 导出失败: {e$message}")
   )
   invisible(TRUE)
@@ -240,6 +247,16 @@ block_univariate_incidence_binary <- function(ctx, ...) {
   cli::cli_alert_info(
     "univariate_incidence_binary: 分析队列 source={up_res$source %||% 'unknown'}, n={nrow(data)}（Logistic OR）"
   )
+  if (exists("pipeline_apply_extreme_to_na", mode = "function")) {
+    .ex <- pipeline_apply_extreme_to_na(ctx, data = data, label = "univariate_incidence_binary")
+    ctx <- .ex$ctx
+    data <- .ex$data
+    if (identical(source_tag, "train") && is.data.frame(ctx$data$train)) {
+      data <- ctx$data$train
+    } else if (identical(source_tag, "imputed") && is.data.frame(ctx$data$imputed)) {
+      data <- ctx$data$imputed
+    }
+  }
   p_threshold   <- .uvi02_resolve_sig_cutoff(bl_cfg, ctx)
   excluded_predictors <- unique(c(
     as.character(uv_cfg$excluded_predictors %||% character(0)),
@@ -398,9 +415,15 @@ block_univariate_incidence_binary <- function(ctx, ...) {
   cli::cli_alert_info("显著性阈值: P < {p_threshold}")
 
   .run_univariate_binary <- function(var, data, outcome_col, disease_label) {
+    fit_data <- data
+    x <- fit_data[[var]]
+    if (!is.factor(x)) {
+      x2 <- univar_coerce_binary_predictor(x)
+      if (is.factor(x2)) fit_data[[var]] <- x2
+    }
     fml <- as.formula(paste0(outcome_col, " ~ ", var))
     fit <- tryCatch(
-      glm(fml, data = data, family = "binomial"),
+      glm(fml, data = fit_data, family = "binomial"),
       error = function(e) NULL
     )
     if (is.null(fit)) return(NULL)
@@ -501,9 +524,17 @@ block_univariate_incidence_binary <- function(ctx, ...) {
   .extract_base_varname <- .uvi02_extract_base_varname
 
 
-  disease_label <- cfg$project$analysis_group %||% cfg$project$disease
+  disease_label <- if (exists("pipeline_outcome_case_label", mode = "function")) {
+    pipeline_outcome_case_label(cfg)
+  } else {
+    cfg$project$analysis_group %||% cfg$project$disease %||% outcome_col
+  }
   cli::cli_alert_info("阳性标签: {disease_label}")
-  data[[outcome_col]] <- as.integer(data[[outcome_col]] == disease_label)
+  data[[outcome_col]] <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    as.integer(pipeline_outcome_as_01(data[[outcome_col]], cfg))
+  } else {
+    as.integer(data[[outcome_col]] == disease_label)
+  }
   cli::cli_h2("单因素回归分析 (二分类 Logistic, OR)")
   univar_results <- list()
   pb <- cli::cli_progress_bar("Univariate", total = length(predictor_vars))

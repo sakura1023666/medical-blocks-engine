@@ -539,7 +539,7 @@ block_baseline_multiclass <- function(ctx, strata_var = NULL, ...) {
       } else if (idx_p >= sig_cutoff) {
         stop(
           "BASELINE_INDEX_NS_STOP: 暴露指标 ", index_var,
-          " 组间比较 P = ", format(round(idx_p, 4), scientific = FALSE),
+          " 组间比较 P = ", fmt_pval(idx_p),
           " >= ", sig_cutoff, "，按 early_stop_if_index_ns 早停 pipeline。",
           call. = FALSE
         )

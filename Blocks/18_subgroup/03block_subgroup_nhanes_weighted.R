@@ -65,9 +65,19 @@
 
 block_subgroup_nhanes_weighted <- function(ctx) {
   options(survey.lonely.psu = "adjust")
+  .engine_root <- function() {
+    candidates <- unique(c(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+      as.character(ctx$config$project$root %||% ""),
+      getwd()
+    ))
+    for (r in candidates) {
+      if (nzchar(r) && file.exists(file.path(r, "R", "subgroup_vars.R"))) return(r)
+    }
+    getwd()
+  }
   if (!exists("subgroup_render_forest_figure", mode = "function")) {
-    root_sf <- (ctx$config$project$root %||% getwd())
-    suppressWarnings(source(file.path(root_sf, "R", "subgroup_forest_plot.R"), local = FALSE))
+    suppressWarnings(source(file.path(.engine_root(), "R", "subgroup_forest_plot.R"), local = FALSE))
   }
 
   cfg        <- ctx$config
@@ -236,12 +246,13 @@ block_subgroup_nhanes_weighted <- function(ctx) {
   sub_cfg <- cfg$subgroup %||% list()
   forbid_extra <- c(grp_col, "Disease_Group", outcome_col)
   if (!exists("subgroup_build_variable_pool", mode = "function")) {
-    suppressWarnings(source(file.path(getwd(), "R", "subgroup_vars.R"), local = FALSE))
+    suppressWarnings(source(file.path(.engine_root(), "R", "subgroup_vars.R"), local = FALSE))
   }
 
   skip_age <- subgroup_age_forbidden(cfg, forbid_extra)
-  if (!skip_age && !"Age_Group" %in% names(design_grp$variables) &&
-      "Age" %in% names(design_grp$variables)) {
+  # 有 Age + age_cutoff 时强制按切点重建 Age_Group，覆盖原始 Old/Young 等标签
+  # （铁律：森林图 Age_Group 二分类须与 subgroup$age_cutoff 一致）。
+  if (!skip_age && "Age" %in% names(design_grp$variables)) {
     # 与 subgroup_incidence / CHARLS 对齐：默认 Age <65 / ≥65；
     # 仅当显式配置 age_group_cutoffs 时才用多档切点。
     sub_age_cut <- sub_cfg$age_cutoff %||% nhanes_cfg$age_cutoff %||% 65L
@@ -250,20 +261,44 @@ block_subgroup_nhanes_weighted <- function(ctx) {
       age_labels <- nhanes_cfg$age_group_labels %||% sub_cfg$age_group_labels %||%
         c("<30", "30-44", "45-59", "\u226560")
       design_grp$variables$Age_Group <- cut(
-        design_grp$variables$Age,
+        as.numeric(design_grp$variables$Age),
         breaks = c(-Inf, age_cuts, Inf),
         labels = age_labels, right = FALSE)
     } else {
       age_lo <- paste0("< ", sub_age_cut)
       age_hi <- paste0("\u2265 ", sub_age_cut)
+      # level_order$Age_Group 优先（须与切点一致）
+      lo_cfg <- sub_cfg$level_order$Age_Group %||% NULL
+      if (length(lo_cfg) == 2L) {
+        age_lo <- as.character(lo_cfg[[1L]])
+        age_hi <- as.character(lo_cfg[[2L]])
+      }
       design_grp$variables$Age_Group <- factor(
-        ifelse(design_grp$variables$Age < sub_age_cut, age_lo, age_hi),
+        ifelse(as.numeric(design_grp$variables$Age) < sub_age_cut, age_lo, age_hi),
         levels = c(age_lo, age_hi)
       )
       cli::cli_alert_info(
-        "NHANES Age_Group 与 CHARLS 对齐: {age_lo} / {age_hi}"
+        "NHANES Age_Group 按 age_cutoff={sub_age_cut}: {age_lo} / {age_hi}"
       )
     }
+  }
+
+  # BMI → BMI_Group（与 dual_db / probe 一致；required 名单写 BMI 时可用）
+  if ("BMI" %in% names(design_grp$variables) &&
+      (!"BMI_Group" %in% names(design_grp$variables) ||
+       all(is.na(design_grp$variables$BMI_Group)))) {
+    if (exists("dual_db_make_bmi_group", mode = "function")) {
+      design_grp$variables$BMI_Group <- dual_db_make_bmi_group(design_grp$variables$BMI)
+    } else {
+      bmi_num <- suppressWarnings(as.numeric(as.character(design_grp$variables$BMI)))
+      bg <- ifelse(
+        !is.finite(bmi_num), NA_character_,
+        ifelse(bmi_num < 25, "< 25",
+               ifelse(bmi_num < 30, "25-30", "\u2265 30"))
+      )
+      design_grp$variables$BMI_Group <- factor(bg, levels = c("< 25", "25-30", "\u2265 30"))
+    }
+    cli::cli_alert_info("NHANES BMI_Group 已由 BMI 生成")
   }
 
   if (isTRUE(sub_cfg$merge_borderline_levels %||% FALSE)) {
@@ -291,6 +326,58 @@ block_subgroup_nhanes_weighted <- function(ctx) {
     design_grp <- .merge_borderline_levels(design_grp)
   }
 
+  # 与 CHARLS 对齐（引擎默认=全部人群）：模型在全分析集上拟合（中间分位并为
+  # Middle，不删行），各层报告最高 vs 最低分位对比；图上 N=该层全量（与估计同分母）。
+  # 旧「仅 Q1+Q4 子集」口径仅在 forest_n_source="model_sample" 时保留。
+  ci_mode <- as.character(sub_cfg$continuous_index_mode %||% "highest_vs_lowest")[1L]
+  .sgn_full_pop_default <- !identical(
+    as.character(sub_cfg$forest_n_source %||% "full_stratum")[1L], "model_sample"
+  )
+  forest_cap_mode <- if (isTRUE(use_continuous)) {
+    "continuous"
+  } else if (identical(ci_mode, "keep_quantile")) {
+    "keep_quantile"
+  } else {
+    ci_mode
+  }
+  vars_full_for_n <- design_grp$variables
+  n_full_total <- nrow(vars_full_for_n)
+  if (!isTRUE(use_continuous) &&
+      !identical(ci_mode, "keep_quantile") &&
+      grp_col %in% names(design_grp$variables)) {
+    g_fac <- factor(design_grp$variables[[grp_col]])
+    lv_all <- levels(droplevels(g_fac))
+    if (length(lv_all) > 2L) {
+      keep_lv <- c(lv_all[1L], lv_all[length(lv_all)])
+      n0 <- nrow(design_grp$variables)
+      if (isTRUE(.sgn_full_pop_default)) {
+        # 全部人群：不删行，svyglm 取最高层系数（vs Q1 参照）＝主文同分位对比
+        forest_cap_mode <- "highest_vs_lowest"
+        cli::cli_alert_info(
+          "NHANES 亚组：全分析集估计（n={n0}），各层报告 {keep_lv[2]} vs {keep_lv[1]}（mode={ci_mode}）"
+        )
+      } else {
+        g_chr <- as.character(design_grp$variables[[grp_col]])
+        design_grp <- tryCatch(
+          subset(design_grp, g_chr %in% keep_lv),
+          error = function(e) {
+            keep_idx <- g_chr %in% keep_lv
+            design_grp$variables <- design_grp$variables[keep_idx, , drop = FALSE]
+            design_grp
+          }
+        )
+        design_grp$variables[[grp_col]] <- factor(
+          as.character(design_grp$variables[[grp_col]]),
+          levels = keep_lv
+        )
+        forest_cap_mode <- "highest_vs_lowest"
+        cli::cli_alert_info(
+          "NHANES 亚组：模型取最高 vs 最低（{keep_lv[2]} vs {keep_lv[1]}），模型 n {n0} → {nrow(design_grp$variables)}；图上 N 默认用全分层（mode={ci_mode}）"
+        )
+      }
+    }
+  }
+
   if (use_continuous) {
     # 连续：每层 Disease_Group ~ index；系数行 = index_var
     high_grp <- index_var
@@ -304,7 +391,23 @@ block_subgroup_nhanes_weighted <- function(ctx) {
   req <- as.character(sub_cfg$required_subgroup_vars %||% sub_cfg$vars %||% character(0))
   if (identical(sub_cfg$var_source %||% "table1_categorical", "required") && length(req)) {
     forbid <- subgroup_default_forbid(cfg, forbid_extra)
-    var_subgroups <- intersect(req, names(design_grp$variables))
+    # Age → Age_Group；BMI → BMI_Group；Smoke ↔ Smoking 别名
+    req_use <- req
+    if ("Age" %in% req_use && "Age_Group" %in% names(design_grp$variables)) {
+      req_use <- unique(c(setdiff(req_use, "Age"), "Age_Group"))
+    }
+    if ("BMI" %in% req_use && "BMI_Group" %in% names(design_grp$variables)) {
+      req_use <- unique(c(setdiff(req_use, "BMI"), "BMI_Group"))
+    }
+    if ("Smoke" %in% req_use && !"Smoke" %in% names(design_grp$variables) &&
+        "Smoking" %in% names(design_grp$variables)) {
+      req_use <- unique(c(setdiff(req_use, "Smoke"), "Smoking"))
+    }
+    if ("Smoking" %in% req_use && !"Smoking" %in% names(design_grp$variables) &&
+        "Smoke" %in% names(design_grp$variables)) {
+      req_use <- unique(c(setdiff(req_use, "Smoking"), "Smoke"))
+    }
+    var_subgroups <- intersect(req_use, names(design_grp$variables))
     var_subgroups <- setdiff(var_subgroups, forbid)
     cli::cli_alert_info("NHANES required subgroup vars: {paste(var_subgroups, collapse=', ')}")
   } else {
@@ -392,7 +495,8 @@ block_subgroup_nhanes_weighted <- function(ctx) {
   }
 
   dt_raw <- do.call(rbind, all_res)
-  total_n <- nrow(design_grp$variables)
+  # Percent 分母 / 图上 N 覆盖用全分析集
+  total_n <- n_full_total %||% nrow(design_grp$variables)
   res_glm <- subgroup_nhanes_results_to_glm_table(dt_raw, total_n, .sgn03_pretty_subgroup_label)
   plot_df <- subgroup_prepare_forest_plot_df(res_glm, "OR")
   if (is.null(plot_df)) {
@@ -400,11 +504,30 @@ block_subgroup_nhanes_weighted <- function(ctx) {
     return(ctx)
   }
 
+  n_src <- as.character(sub_cfg$forest_n_source %||% "full_stratum")[1L]
+  if (identical(n_src, "full_stratum") &&
+      exists("subgroup_stratum_n_map", mode = "function") &&
+      exists("subgroup_overlay_forest_count", mode = "function") &&
+      !is.null(vars_full_for_n)) {
+    n_map <- subgroup_stratum_n_map(vars_full_for_n, var_subgroups, .sgn03_pretty_subgroup_label)
+    plot_df <- subgroup_overlay_forest_count(
+      plot_df, n_map, total_n = n_full_total, n_source = n_src
+    )
+    res_glm <- subgroup_overlay_forest_count(
+      res_glm, n_map, total_n = n_full_total, n_source = n_src
+    )
+  }
+
   ref_grp <- cfg$project$reference_group %||% "Control"
   arrow_lab <- subgroup_forest_arrow_lab(ref_grp, disease_lbl)
+  fig_cap <- if (exists("pipeline_subgroup_forest_caption", mode = "function")) {
+    pipeline_subgroup_forest_caption(index_var, mode = forest_cap_mode %||% "highest_vs_lowest")
+  } else {
+    paste0("Subgroup analyses of ", index_var)
+  }
   subgroup_render_forest_figure(
     ctx, plot_df, var_subgroups, sub_cfg,
-    fig_caption = paste0("Weighted Subgroup of ", index_var, " (", grp_lbl, ")"),
+    fig_caption = fig_cap,
     effect_sym = "OR",
     arrow_lab = arrow_lab
   )

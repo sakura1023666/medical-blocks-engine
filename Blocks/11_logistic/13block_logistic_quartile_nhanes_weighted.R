@@ -70,10 +70,10 @@
   grp_chr[!is.na(xv) & xv >= qs[2L] & xv < qs[3L]] <- "Q3"
   raw_levels <- c("Q1", "Q2", "Q3", "Q4")
   cutoffs <- c(
-    Q1 = paste0("< ", fmt_num(qs[1L])),
-    Q2 = paste0(fmt_num(qs[1L]), " -< ", fmt_num(qs[2L])),
-    Q3 = paste0(fmt_num(qs[2L]), " -< ", fmt_num(qs[3L])),
-    Q4 = paste0("\u2265 ", fmt_num(qs[3L]))
+    Q1 = paste0("< ", fmt_num_cutoff(qs[1L])),
+    Q2 = paste0(fmt_num_cutoff(qs[1L]), " -< ", fmt_num_cutoff(qs[2L])),
+    Q3 = paste0(fmt_num_cutoff(qs[2L]), " -< ", fmt_num_cutoff(qs[3L])),
+    Q4 = paste0("\u2265 ", fmt_num_cutoff(qs[3L]))
   )
   list(
     design = stats::update(design, Group = factor(grp_chr, levels = raw_levels), Num = as.numeric(factor(grp_chr, levels = raw_levels))),
@@ -143,24 +143,32 @@
     mc4 <- if (include_m3) .lqq09_svyglm_fit(des, fj(c(index_var, M3))) else NULL
     cc1 <- .lqq09_coef_row(mc, index_var); cc2 <- .lqq09_coef_row(mc2, index_var); cc3 <- .lqq09_coef_row(mc3, index_var)
     cc4 <- if (include_m3) .lqq09_coef_row(mc4, index_var) else character(0)
-    rt <- do.call(rbind, c(list(Line1, Line2, c(index_label, rep("", n_pad)),
+    parts <- c(list(Line1, Line2, c(index_label, rep("", n_pad)),
       c(paste0(index_label, " continuous"), "", "", cc1[1L], cc1[2L], cc1[3L], cc2[1L], cc2[2L], cc2[3L], cc3[1L], cc3[2L], cc3[3L], cc4),
-      Line5, Line_ref), lines_nr, list(Line_trend)))
+      Line5, Line_ref), lines_nr)
   } else {
-    rt <- do.call(rbind, c(list(Line1, Line2, Line5, Line_ref), lines_nr, list(Line_trend)))
+    parts <- c(list(Line1, Line2, Line5, Line_ref), lines_nr)
   }
+  if (!is.null(Line_trend)) parts <- c(parts, list(Line_trend))
+  rt <- do.call(rbind, parts)
   rownames(rt) <- NULL
   colnames(rt) <- NULL
   rt
 }
 
 .lqq09_export_table <- function(ctx, cfg, bl_cfg, rt, caption_suffix, as_main = FALSE, M1 = NULL, M2 = NULL, M3 = NULL, m3_significant = NULL) {
-  is_rcs <- grepl("RCS", as.character(caption_suffix %||% ""), ignore.case = TRUE)
-  grouping <- if (is_rcs) "NHANES RCS cutoff" else "NHANES quartile"
-  cap <- paste0(
-    "Weighted logistic regression of ", pipeline_index_display_name(cfg, bl_cfg$index_var %||% "exposure"), " and ",
-    cfg$project$disease, " (", grouping, ", svyglm", if (is_rcs) "" else caption_suffix, ")"
-  )
+  is_rcs <- grepl("RCS", as.character(caption_suffix %||% ""), ignore.case = TRUE) ||
+    identical(as.character(bl_cfg$phase %||% "")[1L], "rcs")
+  ix <- pipeline_index_display_name(cfg, bl_cfg$index_var %||% "exposure")
+  # 「RCS cutoff」须在括号外，否则 shorten 剥括号后无法归入 Table S-XX
+  if (is_rcs) {
+    cap <- paste0("Weighted logistic regression of ", ix, " RCS cutoff")
+  } else {
+    cap <- paste0(
+      "Weighted logistic regression of ", ix, " and ",
+      cfg$project$disease, " (NHANES quartile, svyglm", caption_suffix, ")"
+    )
+  }
   footnotes <- .lnw00_table_footnotes(M1 %||% character(0), M2 %||% character(0), M3, m3_significant)
   .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = as_main, table_footnotes = footnotes,
                        family = if (is_rcs) "rcs" else "quartile")
@@ -172,31 +180,55 @@ block_logistic_quartile_nhanes_weighted <- function(ctx, ...) {
   bl_cfg <- cfg$logistic_quartile_nhanes_weighted %||% list()
   block_name <- ctx$current_block %||% "logistic_quartile_nhanes_weighted"
   is_rcs <- grepl("_rcs$", block_name) || identical(bl_cfg$phase, "rcs")
+  if (!is_rcs && exists("pipeline_categorical_exposure_should_skip_block", mode = "function") &&
+      isTRUE(pipeline_categorical_exposure_should_skip_block(block_name, ctx))) {
+    cli::cli_alert_info("分类暴露：跳过 {block_name}，仅回归变量本身")
+    return(ctx)
+  }
   if (is_rcs) {
     bl_cfg$phase <- "rcs"
     bl_cfg$include_continuous_row <- isTRUE(bl_cfg$include_continuous_row %||% FALSE)
     bl_cfg$group_var <- bl_cfg$group_var %||% ctx$results$nhanes_rcs_group_col
-    # 规则（发病专属）：RCS 非线性 P 阳性才做 S8（cutoff 分组 Logistic）；
-    # 不阳性 / RCS 未拟合成功 / 无切点 → 不导出本表（下游编号自动顺延）。
+    # 规则：单库默认要求非线性显著；双库为对齐对侧 S-XX，有切点即导出。
     p_nl_rcs <- suppressWarnings(
       as.numeric(((ctx$results$nhanes_rcs %||% list())$model2 %||% list())$p_nonlin)
     )
+    if (!is.finite(p_nl_rcs)) {
+      p_nl_rcs <- suppressWarnings(as.numeric(
+        ((ctx$results$rcs_nhanes_panel_stats %||% list())$Model2 %||% list())$p_nonlinear
+      ))
+    }
     pc_rcs <- suppressWarnings(
       as.numeric(ctx$results$nhanes_rcs_primary_cutoff %||% NA_real_)[1L]
     )
-    if (!is.finite(p_nl_rcs) || !is.finite(pc_rcs)) {
+    if (!is.finite(pc_rcs)) {
+      cuts <- suppressWarnings(as.numeric(ctx$results$nhanes_rcs_cutoffs_all %||% numeric(0)))
+      cuts <- cuts[is.finite(cuts)]
+      if (length(cuts)) pc_rcs <- cuts[[1L]]
+    }
+    if (!is.finite(pc_rcs)) {
       ctx$results$logistic_rcs_ns_skipped <- TRUE
       cli::cli_alert_warning(
-        "logistic_quartile_nhanes_weighted_rcs: RCS 未得到有效非线性 P/切点，跳过 Table S8。"
+        "logistic_quartile_nhanes_weighted_rcs: RCS 未得到有效切点，跳过 Table S8。"
       )
       return(ctx)
     }
-    if (isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE) && p_nl_rcs >= 0.05) {
+    require_nl <- isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)
+    if (isTRUE((cfg$dual_db %||% list())$enable) &&
+        !isFALSE(bl_cfg$dual_db_export_even_if_linear %||% TRUE)) {
+      require_nl <- FALSE
+    }
+    if (isTRUE(require_nl) && is.finite(p_nl_rcs) && p_nl_rcs >= 0.05) {
       ctx$results$logistic_rcs_ns_skipped <- TRUE
       cli::cli_alert_warning(
         "logistic_quartile_nhanes_weighted_rcs: RCS 非线性 P={round(p_nl_rcs,3)} >= 0.05，按规则不导出 Table S8（RCS cutoff 分组 Logistic）。"
       )
       return(ctx)
+    }
+    if (!isTRUE(require_nl) && is.finite(p_nl_rcs) && p_nl_rcs >= 0.05) {
+      cli::cli_alert_info(
+        "logistic_quartile_nhanes_weighted_rcs: 双库对齐仍导出 RCS cutoff 表（非线性 P={round(p_nl_rcs, 3)}）"
+      )
     }
   }
   if (!.is_nhanes_db(cfg)) stop("logistic_quartile_nhanes_weighted 仅用于 NHANES。", call. = FALSE)

@@ -2,6 +2,7 @@
 #  trajectory_piecewise_cox — 潜类别自动最优 cutpoint 分段 Cox（class vs ref_class HR）
 #
 #  v2：替换 v1 的空模型实现（原 coxph(Surv(t,e)~1) 不含 class 项，算不出组间 HR）。
+#  v3：0 事件段（准完全分离）NE → 自动 Firth 罚似然回退（R/firth_cox.R），标 ‡ 并加脚注。
 #  算法参考文献 Table 3 风格：逐天扫描 cut（默认 1..max_followup-1），两段模型
 #  对数似然之和最大者为最优 cutpoint；两段各拟合 coxph(Surv~class)（class 相对
 #  ref_class），输出 "cut 前/cut 后" 两列 HR (95% CI)。
@@ -20,12 +21,15 @@
 #    max_followup           = 28,
 #    auto_scan              = TRUE,
 #    cut_days               = NULL,     # NULL → 1:(max_followup-1)
+#    force_cut              = NULL,     # 非空则强制该切点（优先于 auto_scan / landmark）
 #    landmark_times         = NULL,     # auto_scan=FALSE 时使用的固定 cut（取第一个）
 #    min_events_each_piece  = 1L,
 #    min_n_after            = 1L,
 #    pause_enable           = TRUE,
 #    pause_on_no_output     = TRUE
 #  ),
+#  双库共享切点（finalize）：config$trajectory_pub$shared_piecewise_cut =
+#    list(enable=TRUE, mode="min_best")  → 见 R/trajectory_pub_finalize.R
 #
 #  register_block: "trajectory_piecewise_cox"
 #  写: ctx$results$trajectory_piecewise_cox（含 cut_best 与 HR 表）
@@ -88,16 +92,80 @@
   fit
 }
 
-.tpc01_fit_piece_hr_table <- function(fit) {
+# 准完全分离 / 极值 HR：正式表不打印 10^9 级无意义数字，标 NE
+.tpc01_hr_is_nonestimable <- function(hr, lo, hi, max_hr = 1e4) {
+  v <- c(hr, lo, hi)
+  if (any(!is.finite(v))) return(TRUE)
+  if (is.finite(hr) && abs(hr) >= max_hr) return(TRUE)
+  if (is.finite(hi) && hi >= 1e6) return(TRUE)
+  if (is.finite(lo) && lo <= 0) return(TRUE)
+  FALSE
+}
+
+# 准完全分离段的 Firth 回退（需 R/firth_cox.R；缺则返回 NULL 不报错）
+.tpc01_firth_piece <- function(dat_piece, ref_class) {
+  if (!exists("firth_cox_piecewise", mode = "function")) return(NULL)
+  if (is.null(dat_piece) || !nrow(dat_piece)) return(NULL)
+  if (!all(c("class", "t_piece", "e_piece") %in% names(dat_piece))) return(NULL)
+  ref <- as.character(ref_class %||% levels(droplevels(dat_piece$class))[1])
+  tryCatch(
+    firth_cox_piecewise(
+      t = as.numeric(dat_piece$t_piece),
+      e = as.integer(dat_piece$e_piece),
+      class = as.character(dat_piece$class),
+      ref = ref
+    ),
+    error = function(e) NULL
+  )
+}
+
+.tpc01_fit_piece_hr_table <- function(fit, dat_piece = NULL, ref_class = NULL) {
   if (is.null(fit)) return(NULL)
   ci <- as.data.frame(summary(fit)$conf.int)
   ci$term <- rownames(ci)
   ci$class_num <- suppressWarnings(as.integer(gsub("\\D+", "", ci$term)))
   ci <- ci[!is.na(ci$class_num), , drop = FALSE]
   if (!nrow(ci)) return(NULL)
+
+  # 任一类在该段 0 事件 → 准完全分离，整段对照 HR 不可估
+  zero_event_class <- FALSE
+  if (!is.null(dat_piece) && nrow(dat_piece) && all(c("class", "e_piece") %in% names(dat_piece))) {
+    ev <- tapply(dat_piece$e_piece == 1L, droplevels(dat_piece$class), sum, na.rm = TRUE)
+    zero_event_class <- any(!is.finite(ev)) || any(ev < 1)
+  }
+
+  hr <- ci[["exp(coef)"]]
+  lo <- ci[["lower .95"]]
+  hi <- ci[["upper .95"]]
+  ne <- zero_event_class | mapply(.tpc01_hr_is_nonestimable, hr, lo, hi)
+
+  # NE → 优先 Firth 罚似然估计（标 \u2021），失败才保留 NE\u2020
+  firth <- .tpc01_firth_piece(dat_piece, ref_class)
+  fclass <- if (!is.null(firth) && nrow(firth)) as.character(firth$class) else character(0)
+
+  hr_txt <- character(nrow(ci))
+  method <- rep("cox", nrow(ci))
+  for (i in seq_len(nrow(ci))) {
+    if (!ne[i]) {
+      hr_txt[i] <- sprintf("%.2f (%.2f, %.2f)", hr[i], lo[i], hi[i])
+      next
+    }
+    cn <- as.character(ci$class_num[i])
+    fi <- match(cn, fclass)
+    fr <- if (!is.na(fi)) firth[fi, ] else NULL
+    if (!is.null(fr) && identical(as.character(fr$method), "firth") && is.finite(fr$HR)) {
+      lo_s <- if (is.finite(fr$lo)) sprintf("%.2f", fr$lo) else "0.00"
+      hi_s <- if (is.finite(fr$hi)) sprintf("%.2f", fr$hi) else "Inf"
+      hr_txt[i] <- sprintf("%.2f (%s, %s)\u2021", fr$HR, lo_s, hi_s)
+      method[i] <- "firth"
+    } else {
+      hr_txt[i] <- "NE\u2020"
+    }
+  }
   data.frame(
     class = as.character(ci$class_num),
-    HR_CI = sprintf("%.2f (%.2f, %.2f)", ci[["exp(coef)"]], ci[["lower .95"]], ci[["upper .95"]]),
+    HR_CI = hr_txt,
+    method = method,
     stringsAsFactors = FALSE
   )
 }
@@ -123,20 +191,41 @@
 }
 
 # 与 run_FigS2_APRI.R 一致：cut-off 搜索的偏似然曲线（best cut 处竖线）
+# X 轴始终从 day 1 起；早期不稳定 cut（ev 不足）不连线，仅在有 loglik 的点上画线
 .tpc01_cut_search_plot <- function(scan_res, cut_best, title, max_followup, font_family = "sans") {
   suppressPackageStartupMessages(library(ggplot2))
-  df <- scan_res[!is.na(scan_res$loglik), , drop = FALSE]
-  if (!nrow(df)) return(NULL)
-  x_lo <- max(1, min(df$cut, na.rm = TRUE))
-  ggplot2::ggplot(df, ggplot2::aes(x = cut, y = loglik)) +
+  if (is.null(scan_res) || !nrow(scan_res)) return(NULL)
+  df <- as.data.frame(scan_res)
+  if (!"loglik" %in% names(df) || !"cut" %in% names(df)) return(NULL)
+  df_ok <- df[!is.na(df$loglik), , drop = FALSE]
+  if (!nrow(df_ok)) return(NULL)
+  max_followup <- as.numeric(max_followup %||% max(df$cut, na.rm = TRUE))[1L]
+  if (!is.finite(max_followup) || max_followup < 1) max_followup <- max(df_ok$cut, na.rm = TRUE)
+  cut_best <- as.numeric(cut_best %||% df_ok$cut[which.max(df_ok$loglik)])[1L]
+  ggplot2::ggplot(df_ok, ggplot2::aes(x = cut, y = loglik)) +
     ggplot2::geom_line(color = "grey30", linewidth = 0.6) +
     ggplot2::geom_point(color = "#D55E00", size = 2) +
     ggplot2::geom_vline(xintercept = cut_best, linewidth = 0.6) +
-    ggplot2::scale_x_continuous(breaks = seq(x_lo, max_followup, by = 2), limits = c(x_lo, max_followup)) +
-    ggplot2::labs(title = title, x = "Days after ICU entry", y = "Partial log-Likelihood") +
+    ggplot2::scale_x_continuous(
+      breaks = seq(1, max_followup, by = 2),
+      limits = c(1, max_followup),
+      expand = c(0.01, 0)
+    ) +
+    ggplot2::labs(
+      title = title,
+      x = "Days after ICU entry",
+      y = "Partial log-Likelihood",
+      caption = if (min(df_ok$cut, na.rm = TRUE) > 1)
+        sprintf("Cuts before day %d omitted (insufficient events in early piece)",
+                as.integer(min(df_ok$cut, na.rm = TRUE)))
+      else NULL
+    ) +
     ggplot2::theme_bw(base_size = 14) +
-    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", hjust = 0.5),
-                   text = ggplot2::element_text(family = font_family))
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", hjust = 0.5),
+      plot.caption = ggplot2::element_text(size = 9, hjust = 0, color = "grey40"),
+      text = ggplot2::element_text(family = font_family)
+    )
 }
 
 .tpc01_run_one <- function(ctx, data, bl_cfg, Index, class_col,
@@ -149,10 +238,16 @@
     stop("trajectory_piecewise_cox: 缺少生存列 (", time_var, "/", event_var, ")", call. = FALSE)
   }
 
-  # 与 run_FigS2_APRI.R 一致：ng==2 时交换 Class1/2（Class2=多数/低风险类，默认作参照）
   class_num0 <- suppressWarnings(as.integer(gsub("\\D+", "", as.character(data[[class_col]]))))
+  swap_map <- if (exists("trajectory_resolve_class_map", mode = "function")) {
+    trajectory_resolve_class_map(class_num0, ctx$config, Index, source = "aligned")
+  } else if (exists("trajectory_class_swap_map", mode = "function")) {
+    trajectory_class_swap_map(class_num0)
+  } else {
+    stats::setNames(sort(unique(stats::na.omit(class_num0))), sort(unique(stats::na.omit(class_num0))))
+  }
   class_num  <- if (exists("trajectory_apply_class_swap", mode = "function"))
-    trajectory_apply_class_swap(class_num0, trajectory_class_swap_map(class_num0)) else class_num0
+    trajectory_apply_class_swap(class_num0, swap_map) else class_num0
   dd <- data.frame(
     time  = suppressWarnings(as.numeric(as.character(data[[time_var]]))),
     event = if (exists("trajectory_coerce_event01", mode = "function")) {
@@ -177,8 +272,21 @@
   auto_scan <- if (is.null(bl_cfg$auto_scan)) TRUE else isTRUE(bl_cfg$auto_scan)
   min_ev    <- as.integer(bl_cfg$min_events_each_piece %||% 1L)
   min_n     <- as.integer(bl_cfg$min_n_after %||% 1L)
+  force_cut <- suppressWarnings(as.integer(bl_cfg$force_cut %||% NA_integer_)[1L])
 
-  if (auto_scan) {
+  if (is.finite(force_cut) && force_cut >= 1L && force_cut < max_followup) {
+    # 强制切点：仍可保留扫描表供 Fig S3（若已有 scan 传入则不重扫）
+    cut_best <- force_cut
+    if (!is.null(bl_cfg$scan_res) && is.data.frame(bl_cfg$scan_res)) {
+      scan_res <- bl_cfg$scan_res
+    } else if (isTRUE(auto_scan)) {
+      cut_days <- as.integer(bl_cfg$cut_days %||% seq_len(max_followup - 1L))
+      scan_res <- .tpc01_scan_best_cut(dd, cut_days, max_followup, ref_class, min_ev, min_n)
+    } else {
+      scan_res <- data.frame(cut = cut_best, n_after = NA, ev1 = NA, ev2 = NA,
+                             stable = NA, loglik = NA)
+    }
+  } else if (auto_scan) {
     cut_days <- as.integer(bl_cfg$cut_days %||% seq_len(max_followup - 1L))
     scan_res <- .tpc01_scan_best_cut(dd, cut_days, max_followup, ref_class, min_ev, min_n)
     valid <- scan_res[!is.na(scan_res$loglik), , drop = FALSE]
@@ -197,8 +305,8 @@
   d2 <- .tpc01_make_piece_data(dd, cut_best, 2L, max_followup, ref_class)
   f1 <- .tpc01_fit_piece(d1)
   f2 <- .tpc01_fit_piece(d2)
-  t1 <- .tpc01_fit_piece_hr_table(f1)
-  t2 <- .tpc01_fit_piece_hr_table(f2)
+  t1 <- .tpc01_fit_piece_hr_table(f1, d1, ref_class)
+  t2 <- .tpc01_fit_piece_hr_table(f2, d2, ref_class)
 
   left_col  <- paste0("(0,", cut_best, "]")
   right_col <- paste0("(", cut_best, ",", max_followup, "]")
@@ -225,6 +333,8 @@
 block_trajectory_piecewise_cox <- function(ctx, ...) {
   traj_util <- file.path(ctx$config$project$root %||% getwd(), "R/trajectory_survival_utils.R")
   if (file.exists(traj_util)) source(traj_util, local = FALSE)
+  firth_r <- file.path(ctx$config$project$root %||% getwd(), "R/firth_cox.R")
+  if (file.exists(firth_r)) source(firth_r, local = FALSE)
   paper_util <- file.path(ctx$config$project$root %||% getwd(), "R/trajectory_paper_tables.R")
   if (file.exists(paper_util)) source(paper_util, local = FALSE)
   bl <- ctx$config$trajectory_piecewise_cox %||% list()
@@ -332,7 +442,7 @@ block_trajectory_piecewise_cox <- function(ctx, ...) {
       if (is.null(p_ll)) next
       suffix <- if (identical(nm, "_")) "" else paste0("_", nm)
       fn <- paste0("Figure_Piecewise_Cox_CutSearch", suffix, ".pdf")
-      ctx <- save_figure(ctx, fn, (function(pp) function() print(pp))(p_ll), width = 7, height = 5)
+      ctx <- save_figure(ctx, fn, local({ pp <- p_ll; function() pp }), width = 7, height = 5)
     }
   }
 

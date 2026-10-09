@@ -1,5 +1,5 @@
 ###############################################################################
-#  supplementary_ml — ML 补充表（S2 超参数、S3 Log-Loss、S4/S5 DeLong、S6/S7 NRI/IDI）
+#  supplementary_ml — ML 补充表（超参数、Log-Loss、DeLong、NRI/IDI、可选校准 bootstrap）
 #
 #  register_block: "supplementary_ml"
 #  典型流水线: ml_models → supplementary_ml（勿与父块重复 source）
@@ -7,16 +7,21 @@
 #  # ── 前置条件 ─────────────────────────────────────────────────────────────
 #  require_results = ctx$results$ml_models；Data/Hpbest.RData、Models/evalresult_<tag>.RData
 #  require_data = ctx$data$train / test（logloss / delong / nri_idi）；超参数表仅需 Hpbest
+#  calibration_boot: 另需 ctx$results$ml_predictions_all（预后）
 #
 #  # ── 配置 config$supplementary_ml ─────────────────────────────────────────
 #  supplementary_ml = list(
 #    enable = TRUE,
 #    methods = c("hyperparameters", "logloss", "delong", "nri_idi"),
+#    # 可选（默认勿列入 methods）：验证集校准 intercept/slope + 95%CI
+#    # methods = c("hyperparameters", "calibration_boot"),
+#    calibration_boot_B = 1000L, calibration_boot_seed = 42L,
 #    delong_method = "delong", logloss_epsilon = 1e-15, nri_cutoff = c(0, 0.5, 1)
 #  ),
 #
 #  发病: Group 二分类；预后: survival$event_var 与 imputed 对齐
 #  源: Blocks/24_ml_supplementary/01block_supplementary_ml.R
+#  helper: R/ml_bootstrap_pub_tables.R（calibration_boot）
 ###############################################################################
 
 .sm_display_from_tag <- function(tag) {
@@ -25,7 +30,11 @@
     mlp = "MLP", logistic = "Logistic", lightgbm = "LightGBM", knn = "KNN",
     tabpfn = "TabPFN", adaboost = "AdaBoost", catboost = "CatBoost",
     tabpfnv2 = "TabPFNv2", realtabpfn_2_5 = "RealTabPFN-2.5",
-    tablcl_v2 = "TablCL_v2"
+    tablcl_v2 = "TablCL_v2",
+    xgbsurv = "XGBoost-Cox", coxboost = "CoxBoost", gbmsurv = "GBM-Cox",
+    rsf = "Random survival forest", ridge_cox = "Ridge-Cox",
+    enet_cox = "ElasticNet-Cox", survivalsvm = "Survival-SVM",
+    mboost_cox = "mboost-Cox"
   )
   tg <- tolower(as.character(tag)[1L])
   v <- unname(m[tg])
@@ -42,13 +51,36 @@
   out
 }
 
+.sm_package_for_tag <- function(tag) {
+  tg <- tolower(trimws(as.character(tag)[1L]))
+  m <- c(
+    ridge_cox = "glmnet / cv.glmnet",
+    enet_cox = "glmnet / cv.glmnet",
+    coxboost = "CoxBoost / CoxBoost",
+    rsf = "randomForestSRC / rfsrc",
+    gbmsurv = "gbm / gbm",
+    xgbsurv = "xgboost / xgb.train",
+    xgboost = "xgboost / xgb.train",
+    lightgbm = "lightgbm / lgb.train",
+    rf = "randomForest / randomForest",
+    enet = "glmnet / cv.glmnet",
+    logistic = "stats / glm"
+  )
+  unname(m[tg]) %||% tg
+}
+
 .sm_collect_hpbest_all <- function(ctx, tags, display_names) {
   parts <- list()
   for (tg in tags) {
     models_dir <- resolve_ml_models_dir_for_tag(ctx, tg)
     step_dir <- dirname(models_dir)
-    hp_path <- file.path(step_dir, "Data", "Hpbest.RData")
-    if (!file.exists(hp_path)) next
+    ## 分类模型：Hpbest.RData；预后生存模型：Hpbest_survival.RData
+    hp_cands <- c(
+      file.path(step_dir, "Data", "Hpbest_survival.RData"),
+      file.path(step_dir, "Data", "Hpbest.RData")
+    )
+    hp_path <- hp_cands[file.exists(hp_cands)][1]
+    if (is.na(hp_path) || !nzchar(hp_path)) next
     e <- new.env(parent = emptyenv())
     tryCatch(load(hp_path, envir = e), error = function(er) NULL)
     hpl <- e$hpbest_list %||% list()
@@ -57,8 +89,22 @@
     if (is.null(x)) next
     if (!is.data.frame(x) && !inherits(x, "tbl_df")) next
     df <- as.data.frame(x, stringsAsFactors = FALSE)
-    df$Model <- display_names[[tg]] %||% .sm_display_from_tag(tg)
-    parts[[tg]] <- df
+    disp <- display_names[[tg]] %||% .sm_display_from_tag(tg)
+    ## 文献三列：Model | Package / function | Hyperparameter setting or tuning strategy
+    hp_txt <- if ("Hyperparameter" %in% names(df)) {
+      paste(as.character(df$Hyperparameter), collapse = "; ")
+    } else {
+      paste(vapply(seq_len(ncol(df)), function(j) {
+        paste0(names(df)[j], "=", as.character(df[[j]][1]))
+      }, character(1L)), collapse = "; ")
+    }
+    parts[[tg]] <- data.frame(
+      Model = disp,
+      `Package / function` = .sm_package_for_tag(tg),
+      `Hyperparameter setting or tuning strategy` = hp_txt,
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
   }
   if (!length(parts)) return(NULL)
   dplyr::bind_rows(parts)
@@ -188,7 +234,12 @@
     if (length(parts) < 2L) return(list(val = trimws(parts[1L]), p = NA_character_))
     list(val = trimws(parts[1L]), p = trimws(gsub("^.*p-value:\\s*", "", parts[2L], ignore.case = TRUE)))
   }
-  nri <- pick("NRI\\(Categorical\\)\\s*\\[95% CI\\]:[^;]+;[^\\n]+")
+  ## 低事件率 + 固定 cutoffs(0,0.5,1) 时 categorical NRI 常退化（多模型逐位相同）；
+  ## 优先导出 continuous NRI，与 IDI / DeLong 方向一致。
+  nri <- pick("NRI\\(Continuous\\)\\s*\\[95% CI\\]:[^;]+;[^\\n]+")
+  if (is.na(nri$val)) {
+    nri <- pick("NRI\\(Categorical\\)\\s*\\[95% CI\\]:[^;]+;[^\\n]+")
+  }
   idi <- pick("IDI\\s*\\[95% CI\\]:[^;]+;[^\\n]+")
   if (is.na(nri$val)) {
     li <- grep("NRI", output_lines, value = TRUE, ignore.case = TRUE)
@@ -502,6 +553,74 @@ block_Supplementary_ml <- function(ctx, ...) {
     }
   }
 
+  ## ── 可选：验证集校准 intercept / slope bootstrap（默认勿列入 methods）──
+  if ("calibration_boot" %in% methods || "cal_boot" %in% methods) {
+    root <- cfg$project$root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
+    boot_src <- file.path(root, "R/ml_bootstrap_pub_tables.R")
+    if (!file.exists(boot_src)) {
+      cli::cli_alert_warning(
+        "methods 含 calibration_boot 但未找到 {boot_src}，跳过校准 bootstrap 表。"
+      )
+    } else {
+      source(boot_src, local = FALSE)
+      preds <- ctx$results$ml_predictions_all %||% list()
+      if (!length(preds)) {
+        cli::cli_alert_warning(
+          "calibration_boot: ctx$results$ml_predictions_all 为空，跳过。"
+        )
+      } else {
+        hz <- as.numeric(
+          sm$calibration_horizon %||%
+            cfg$performance_ml$surv_horizon %||% 48
+        )[1L]
+        if (!is.finite(hz) || hz <= 0) hz <- 48
+        B <- as.integer(sm$calibration_boot_B %||% sm$bootstrap_B %||% 1000L)[1L]
+        seed <- as.integer(sm$calibration_boot_seed %||% sm$bootstrap_seed %||% 42L)[1L]
+        disp_map <- stats::setNames(
+          vapply(names(preds), .sm_display_from_tag, character(1L)),
+          names(preds)
+        )
+        model_order <- vapply(tags_ok, .sm_display_from_tag, character(1L))
+        cli::cli_alert_info(
+          "supplementary_ml calibration_boot：horizon={hz}, B={B}…"
+        )
+        cal_tab <- tryCatch(
+          mlboot_build_calibration_table(
+            preds, display_names = disp_map, horizon = hz, B = B, seed = seed,
+            model_order = model_order
+          ),
+          error = function(e) {
+            cli::cli_alert_warning("校准 bootstrap 表失败: {conditionMessage(e)}")
+            NULL
+          }
+        )
+        if (!is.null(cal_tab) && nrow(cal_tab)) {
+          ## 脚注用可读时点（勿写死 60）
+          hz_lab <- if (isTRUE(prognosis)) {
+            paste0(hz, "-month")
+          } else {
+            as.character(hz)
+          }
+          cal_pub <- pub_paths(
+            ctx, tbl_dir, "supp_table",
+            "Calibration intercept and slope on validation set",
+            "xlsx"
+          )
+          export_sci_table(cal_tab, cal_pub$filepath, title = cal_pub$title)
+          ctx <- save_result(
+            ctx, "supplementary_ml_calibration_boot", cal_tab,
+            "Table_S_calibration_bootstrap.csv"
+          )
+          cli::cli_alert_success(
+            "校准 bootstrap 表已导出（{nrow(cal_tab)} 个模型，horizon={hz}）。"
+          )
+        } else {
+          cli::cli_alert_warning("校准 bootstrap 表无有效行，未导出。")
+        }
+      }
+    }
+  }
+
   ctx <- render_queued_tables(ctx)
   ctx$results$supplementary_ml_done <- TRUE
   cli::cli_alert_success("block_Supplementary_ml 完成（methods: {paste(methods, collapse = ', ')})。")
@@ -511,5 +630,5 @@ block_Supplementary_ml <- function(ctx, ...) {
 register_block(
   "supplementary_ml",
   block_Supplementary_ml,
-  "ML 补充表：S2 超参数、S3 Log-Loss、S4/S5 DeLong、S6/S7 NRI/IDI（发病/预后）"
+  "ML 补充表：超参数、Log-Loss、DeLong、NRI/IDI、可选校准 bootstrap（发病/预后）"
 )

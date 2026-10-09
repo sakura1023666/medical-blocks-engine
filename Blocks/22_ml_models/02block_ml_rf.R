@@ -347,7 +347,7 @@
   .eval_one <- function(pred2, pred_prob, ds) {
     pred2 %>%
       yardstick::conf_mat(truth = Group, estimate = .pred_class) %>%
-      summary(event_level = "first") %>%
+      summary(event_level = "second") %>%
       dplyr::bind_rows(
         pred_prob %>% yardstick::roc_auc(Group, !!rlang::sym(pred_ref_col), event_level = "first")
       ) %>%
@@ -428,7 +428,7 @@
   .eval_one <- function(pred2, pred_prob, ds) {
     pred2 %>%
       yardstick::conf_mat(truth = Group, estimate = .pred_class) %>%
-      summary(event_level = "first") %>%
+      summary(event_level = "second") %>%
       dplyr::bind_rows(
         pred_prob %>% yardstick::roc_auc(Group, !!rlang::sym(pred_ref_col), event_level = "first")
       ) %>%
@@ -489,7 +489,7 @@
     dplyr::inner_join(hpbest %>% dplyr::select(dplyr::all_of(hp_cols)),
                       by = hp_cols) %>%
     dplyr::group_by(id) %>%
-    yardstick::spec(truth = Group, estimate = .pred_class) %>%
+    yardstick::spec(truth = Group, estimate = .pred_class, event_level = "second") %>%
     dplyr::ungroup() %>%
     dplyr::mutate(model = model_name) %>%
     dplyr::inner_join(eval_cv %>% dplyr::select(.metric, mean, std_err),
@@ -503,7 +503,7 @@
     dplyr::inner_join(hpbest %>% dplyr::select(dplyr::all_of(hp_cols)),
                       by = hp_cols) %>%
     dplyr::group_by(id) %>%
-    yardstick::sens(truth = Group, estimate = .pred_class) %>%
+    yardstick::sens(truth = Group, estimate = .pred_class, event_level = "second") %>%
     dplyr::ungroup() %>%
     dplyr::mutate(model = model_name) %>%
     dplyr::inner_join(eval_cv %>% dplyr::select(.metric, mean, std_err),

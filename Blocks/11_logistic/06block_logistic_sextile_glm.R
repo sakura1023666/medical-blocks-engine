@@ -79,15 +79,15 @@
   lines_nonref <- lapply(seq_along(non_ref_lvs), function(i) {
     lv <- non_ref_lvs[i]; idx <- i + 1L
     c(lv, cutoffs[lv], .pct(lv),
-      round(exp(coef(mf)[idx]),  3), .ci(mf,  idx), round(summary(mf)$coefficients[idx, 4], 4),
-      round(exp(coef(mf2)[idx]), 3), .ci(mf2, idx), round(summary(mf2)$coefficients[idx, 4], 4),
-      round(exp(coef(mf3)[idx]), 3), .ci(mf3, idx), round(summary(mf3)$coefficients[idx, 4], 4))
+      round(exp(coef(mf)[idx]),  3), .ci(mf,  idx), pub_format_p_cell(summary(mf)$coefficients[idx, 4]),
+      round(exp(coef(mf2)[idx]), 3), .ci(mf2, idx), pub_format_p_cell(summary(mf2)$coefficients[idx, 4]),
+      round(exp(coef(mf3)[idx]), 3), .ci(mf3, idx), pub_format_p_cell(summary(mf3)$coefficients[idx, 4]))
   })
 
   Line_trend <- c("p for trend", rep("", 4),
-                  round(summary(mt)$coefficients[2, 4], 4), "", "",
-                  round(summary(mt2)$coefficients[2, 4], 4), "", "",
-                  round(summary(mt3)$coefficients[2, 4], 4))
+                  pub_format_p_cell(summary(mt)$coefficients[2, 4]), "", "",
+                  pub_format_p_cell(summary(mt2)$coefficients[2, 4]), "", "",
+                  pub_format_p_cell(summary(mt3)$coefficients[2, 4]))
 
   if (include_continuous) {
     fml_c01 <- as.formula(paste0(ResultName, "~", ContinuousName))
@@ -99,9 +99,9 @@
     .ci_c <- function(m) { ci <- logistic_safe_confint(m); paste0("(", round(exp(ci[2,1]),3), ",", round(exp(ci[2,2]),3), ")") }
     Line3 <- c(ContinuousName, rep("", 11))
     Line4 <- c(paste0(ContinuousName, " continuous"), "", "",
-               round(exp(coef(mc)[2]),  3), .ci_c(mc),  round(summary(mc)$coefficients[2, 4], 4),
-               round(exp(coef(mc2)[2]), 3), .ci_c(mc2), round(summary(mc2)$coefficients[2, 4], 4),
-               round(exp(coef(mc3)[2]), 3), .ci_c(mc3), round(summary(mc3)$coefficients[2, 4], 4))
+               round(exp(coef(mc)[2]),  3), .ci_c(mc),  pub_format_p_cell(summary(mc)$coefficients[2, 4]),
+               round(exp(coef(mc2)[2]), 3), .ci_c(mc2), pub_format_p_cell(summary(mc2)$coefficients[2, 4]),
+               round(exp(coef(mc3)[2]), 3), .ci_c(mc3), pub_format_p_cell(summary(mc3)$coefficients[2, 4]))
     rt <- do.call(rbind, c(list(Line1, Line2, Line3, Line4, Line5, Line_ref), lines_nonref, list(Line_trend)))
   } else {
     rt <- do.call(rbind, c(list(Line1, Line2, Line5, Line_ref), lines_nonref, list(Line_trend)))
@@ -118,7 +118,11 @@ block_logistic_sextile_glm <- function(ctx, ...) {
     .lqg06_pause(ctx, "未找到分析数据", "请先运行上游数据准备 block")
 
   outcome_col   <- cfg$data$outcome_column %||% "Disease"
-  disease_label <- cfg$project$analysis_group %||% cfg$project$disease %||% outcome_col
+  disease_label <- if (exists("pipeline_outcome_case_label", mode = "function")) {
+    pipeline_outcome_case_label(cfg)
+  } else {
+    cfg$project$analysis_group %||% cfg$project$disease %||% outcome_col
+  }
   index_var     <- bl_cfg$index_var %||% (cfg$logistic %||% list())$index_var
   if (is.null(index_var) || !nzchar(index_var))
     stop("logistic_sextile_glm: index_var 未设置。")
@@ -158,7 +162,11 @@ block_logistic_sextile_glm <- function(ctx, ...) {
   include_cont <- isTRUE(bl_cfg$include_continuous_row %||% !predefined)
 
   data2[[outcome_col]] <- as.character(data2[[outcome_col]])
-  data2[[outcome_col]] <- ifelse(data2[[outcome_col]] == disease_label, 1L, 0L)
+  data2[[outcome_col]] <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    as.integer(pipeline_outcome_as_01(data2[[outcome_col]], cfg))
+  } else {
+    as.integer(data2[[outcome_col]] == disease_label)
+  }
 
   excl_cols <- c(outcome_col, index_var, "Group", "Num", if (predefined) group_var_name)
   cov <- logistic_prepare_covariates(

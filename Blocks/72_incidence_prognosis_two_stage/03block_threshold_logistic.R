@@ -290,6 +290,13 @@ block_threshold_logistic <- function(ctx, ...) {
 
   grid <- .thl03_grid_search(d, ycol, Index, covs, q_lo, q_hi, n_grid, min_n)
   if (is.null(grid)) {
+    skip_ok <- isTRUE(bl_cfg$skip_if_no_fit %||% !isTRUE(bl_cfg$pause_enable %||% FALSE))
+    if (skip_ok) {
+      cli::cli_alert_warning(
+        "threshold_logistic: 网格搜索未得到有效两段模型，跳过本块（index={Index}, n={nrow(d)}）。"
+      )
+      return(ctx)
+    }
     stop("threshold_logistic: 网格搜索未得到有效两段模型。", call. = FALSE)
   }
   method <- "quantile_grid"

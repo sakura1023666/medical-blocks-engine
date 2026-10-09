@@ -39,23 +39,19 @@ ml_assoc_frame_for_slot <- function(ctx, slot) {
   ctx$data[[slot]]
 }
 
-#' VIF dual slots: train+test whenever both exist (independent of split_mode).
+#' VIF slots: honour data_slots ("train" / "test" / both). Train-only must NOT fall back to full imputed.
 ml_vif_resolve_slots <- function(ctx) {
   mc <- ctx$config$multicollinearity %||% list()
-  requested <- as.character(mc$data_slots %||% c("train", "test"))
+  requested <- unique(as.character(mc$data_slots %||% c("train", "test")))
+  requested <- requested[nzchar(requested)]
   has_tt <- is.data.frame(ctx$data$train) && is.data.frame(ctx$data$test) &&
     nrow(ctx$data$train) > 0L && nrow(ctx$data$test) > 0L
-  if (has_tt && all(c("train", "test") %in% requested)) {
-    return(data.frame(
-      slot = c("train", "test"), label = c("Train", "Validation"),
-      stringsAsFactors = FALSE
-    ))
+  want <- intersect(requested, c("train", "test"))
+  if (has_tt && length(want) >= 1L) {
+    lab <- ifelse(want == "train", "Train", "Validation")
+    return(data.frame(slot = want, label = lab, stringsAsFactors = FALSE))
   }
-  if (has_tt && length(intersect(requested, c("train", "test"))) >= 1L) {
-    cli::cli_alert_warning(
-      "ml_vif: train/test present but data_slots incomplete, falling back to imputed once"
-    )
-  } else if (length(intersect(requested, c("train", "test"))) >= 1L && !has_tt) {
+  if (length(want) >= 1L && !has_tt) {
     cli::cli_alert_warning(
       "ml_vif: data_slots request train/test but slots missing, falling back to imputed"
     )
@@ -183,4 +179,122 @@ ml_assoc_run_on_slot <- function(ctx, slot, label, block_name) {
     ctx$config$pub$slot_label <- slot_label_before
   }
   ctx
+}
+
+ml_vif_ensure_mcol_helpers <- function(ctx = NULL) {
+  if (exists(".mcol_build_orig_var_vif_table", mode = "function")) {
+    return(invisible(TRUE))
+  }
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er) && !is.null(ctx)) er <- ctx$config$project$root %||% getwd()
+  if (!nzchar(er)) er <- getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  root <- normalizePath(er, winslash = "/", mustWork = FALSE)
+  vif_f <- file.path(root, "Blocks/08_vif/01block_multicollinearity.R")
+  if (!file.exists(vif_f)) return(invisible(FALSE))
+  if (!exists("register_block", mode = "function")) {
+    register_block <- function(...) invisible(NULL)
+    assign("register_block", register_block, envir = .GlobalEnv)
+  }
+  source(vif_f, local = FALSE)
+  invisible(exists(".mcol_build_orig_var_vif_table", mode = "function"))
+}
+
+#' 用训练集选出的变量，在指定数据上出 VIF 报告表（不再重筛、不按本集 VIF 砍列）
+ml_vif_export_fixed_set <- function(ctx, data, vars, caption, csv_name = NULL) {
+  vars <- unique(as.character(vars)[nzchar(as.character(vars))])
+  if (!is.data.frame(data) || !nrow(data) || !length(vars)) {
+    return(invisible(FALSE))
+  }
+  ml_vif_ensure_mcol_helpers(ctx)
+  if (!exists(".mcol_build_orig_var_vif_table", mode = "function")) {
+    cli::cli_alert_warning("ml_vif_export_fixed_set: 缺少 VIF 计算函数，跳过。")
+    return(invisible(FALSE))
+  }
+  cfg <- ctx$config %||% list()
+  exposure <- character(0)
+  if (exists("pipeline_index_exposure_var", mode = "function")) {
+    exposure <- as.character(pipeline_index_exposure_var(cfg))
+    exposure <- exposure[nzchar(exposure)]
+  }
+  vars_use <- unique(c(vars, exposure))
+  present <- intersect(vars_use, names(data))
+  missing <- setdiff(vars_use, names(data))
+  if (length(missing)) {
+    cli::cli_alert_warning(
+      "VIF 固定名单本集缺失 {length(missing)} 个: {paste(head(missing, 8), collapse = ', ')}"
+    )
+  }
+  if (!length(present)) return(invisible(FALSE))
+  tbl <- .mcol_build_orig_var_vif_table(present, data)
+  if (is.null(tbl) || !nrow(tbl)) return(invisible(FALSE))
+  if (exists("order_vars_like_table1", mode = "function")) {
+    ord <- order_vars_like_table1(tbl$Variable, ctx, cfg)
+    ord <- ord[ord %in% tbl$Variable]
+    if (length(ord)) tbl <- tbl[match(ord, tbl$Variable), , drop = FALSE]
+  }
+  cap <- as.character(caption)[1L]
+  cap <- sub("^Table S\\d+[a-z]?\\.\\s*", "", cap)
+  if (!nzchar(cap)) cap <- "Multicollinearity Analysis VIF screen"
+  out_dir <- ctx$output_dir %||% getwd()
+  tbl_dir <- ctx$output_dir_tables %||% file.path(out_dir, "Tables")
+  dir.create(tbl_dir, recursive = TRUE, showWarnings = FALSE)
+  if (is.null(csv_name) || !nzchar(csv_name)) {
+    csv_name <- paste0(gsub("[^A-Za-z0-9]+", "_", cap), ".csv")
+  }
+  tbl_csv <- tbl
+  tbl_csv$Variable_display <- gsub("_", " ", tbl_csv$Variable, fixed = TRUE)
+  write.csv(
+    tbl_csv[, c("Variable_display", "VIF"), drop = FALSE],
+    file.path(out_dir, csv_name),
+    row.names = FALSE
+  )
+  tbl_pub <- data.frame(
+    Variable = gsub("_", " ", tbl$Variable, fixed = TRUE),
+    VIF = if (exists("format_vif_pub_column", mode = "function")) {
+      format_vif_pub_column(tbl$VIF)
+    } else {
+      tbl$VIF
+    },
+    stringsAsFactors = FALSE
+  )
+  if (exists("pub_paths", mode = "function") && exists("export_sci_table", mode = "function")) {
+    paths_vif <- pub_paths(ctx, tbl_dir, "supp_table", cap, "xlsx")
+    tryCatch(
+      export_sci_table(
+        tbl_pub, paths_vif$filepath, title = paths_vif$title,
+        blank_na_cells = FALSE, excel_use_prepared = FALSE
+      ),
+      error = function(e) cli::cli_alert_warning("VIF Excel export failed: {e$message}")
+    )
+    if (exists("flush_pub_output_queues", mode = "function")) {
+      tryCatch(flush_pub_output_queues(ctx), error = function(e) NULL)
+    }
+  } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+    openxlsx::write.xlsx(tbl_pub, file.path(tbl_dir, paste0(cap, ".xlsx")), overwrite = TRUE)
+  }
+  cli::cli_alert_success("VIF 固定名单报告: {cap}（n={nrow(tbl_pub)}）")
+  invisible(TRUE)
+}
+
+ml_vif_holdout_caption <- function(slot, config = list()) {
+  slot <- tolower(as.character(slot)[1L])
+  dev_ext <- exists("ml_dual_is_dev_ext_mode", mode = "function") &&
+    isTRUE(ml_dual_is_dev_ext_mode(config))
+  if (identical(slot, "train")) {
+    return("Multicollinearity Analysis VIF screen (training set)")
+  }
+  if (identical(slot, "test")) {
+    return(if (dev_ext) {
+      "Multicollinearity Analysis VIF screen (internal validation set)"
+    } else {
+      "Multicollinearity Analysis VIF screen (validation set)"
+    })
+  }
+  if (dev_ext) {
+    return("Multicollinearity Analysis VIF screen (external validation set)")
+  }
+  "Multicollinearity Analysis VIF screen (validation set)"
 }

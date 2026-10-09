@@ -2,7 +2,7 @@
 #  composite_index_vars.R — 复合指标名单（与 Blocks/00_index/01block_index.R 对应）
 #
 #  用法：source("configs/indices/composite_index_vars.R")
-#  产物：.composite_index_vars（字符向量，93 个指标名）
+#  产物：.composite_index_vars（字符向量；UA/CR 仅 UA_CR，旧名 UA_CrR 见 R/index_canonical.R）
 #
 #  分组说明：
 #    Group A  — 两库（NHANES + MIMIC）均可计算（基础炎症/脂代谢/肝肾/血液学）
@@ -24,6 +24,10 @@
   "HALP",         # Hemoglobin * Albumin * Lymphocytes / Platelet_Count
   "GLR",          # Glucose / Lymphocytes
   "WPR",          # WBC / Platelet_Count
+  # 血脂单指标 / 估算（HDL/LDL=原生列；VLDL=TG/5 Friedewald）
+  "HDL",          # 原生 HDL（组成=自身）
+  "LDL",          # 原生 LDL（组成=自身）
+  "VLDL",         # Triglycerides / 5（估算 VLDL-C，mg/dL）
   # 血脂比值
   "AIP",          # log10(Triglycerides / HDL)
   "TyG",          # log(Glucose * Triglycerides / 2)
@@ -52,7 +56,6 @@
   "log2LAR",      # log2(LD / Albumin)
   # 肾功能
   "CAR",          # Creatinine / Albumin
-  "UA_CrR",       # Uric_Acid / Creatinine（旧名）
   "UA_CR",        # UA/CR = Uric_Acid(mg/dL) / Creatinine(mg/dL)
   "BUN_Cr",       # BUN / Creatinine
   # 血液学
@@ -114,7 +117,7 @@
   "MCV",          # Hematocrit / RBC * 10 (fL)
   "MCHC",         # Hemoglobin / Hematocrit * 100 (g/dL)
   "RDW_CV",       # RDW * RBC / Hematocrit
-  "HHR",          # Hemoglobin / Hematocrit
+  "HHR",          # Hematocrit / Hemoglobin
   "ACAG",         # (4.4 - Albumin) * 2.5 + AnionGap
   "METSIR",       # log((2*Glucose+TG)*BMI) / log(HDL)
   "HOMA_IR",      # Glucose * Insulin / 22.5
@@ -154,6 +157,17 @@
 
 # ── 轨迹预后 APRI 研究专用子集（Index_All，见 decision_tree_trajectory_prognosis_apri.md）──
 .composite_index_vars_trajectory_apri <- c("NLR", "APRI", "LAR", "CAR", "BUN_Cr", "BAR")
+
+._idx_canon_path <- file.path(
+  Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd()),
+  "R", "index_canonical.R"
+)
+if (file.exists(._idx_canon_path)) {
+  source(._idx_canon_path, local = FALSE)
+  .composite_index_vars <- index_canonicalize_names(.composite_index_vars)
+  .composite_index_vars_dual_safe <- index_canonicalize_names(.composite_index_vars_dual_safe)
+}
+rm(._idx_canon_path)
 
 message(sprintf(
   "[composite_index_vars] 已加载：全量 %d 个指标 / 双库安全子集 %d 个 / 轨迹APRI子集 %d 个",

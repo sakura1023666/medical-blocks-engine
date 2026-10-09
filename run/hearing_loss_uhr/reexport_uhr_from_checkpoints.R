@@ -98,10 +98,20 @@ rerun_dual <- function(db) {
   }
   pl$checkpoint$enable <- TRUE
   pl$checkpoint$dir <- file.path(study, "checkpoints", "by_index", ix, dual_db_slot_path_name(config, db))
-  # from=index 之后：复用共享 index ck，重跑插补→主分析，重写全部表图（避免 0 字节残留）
-  cli::cli_h2("重导 dual [{toupper(db)}] from=index（全量重导表图）")
+  # 优先从 obj 续跑（跳过 MICE）；无 obj 则 trim → imputation → index
+  ck_dir <- pl$checkpoint$dir
+  from_block <- if (file.exists(file.path(ck_dir, "obj.rds"))) {
+    "obj"
+  } else if (file.exists(file.path(ck_dir, "trim_index_extreme.rds"))) {
+    "trim_index_extreme"
+  } else if (file.exists(file.path(ck_dir, "imputation.rds"))) {
+    "imputation"
+  } else {
+    "index"
+  }
+  cli::cli_h2("重导 dual [{toupper(db)}] from={from_block}（跳过已有插补，重写表图）")
   run_pipeline(root, config = cfg_db, pipeline = pl,
-               run_opts = list(from = "index"))
+               run_opts = list(from = from_block))
   drop_mv_tables(file.path(out_db, "Tables"))
 }
 

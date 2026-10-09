@@ -12,6 +12,13 @@
   c("tabpfn", "tabpfnv2", "realtabpfn_2_5", "tablcl_v2")
 }
 
+.shap_surv_tags <- function() {
+  c(
+    "xgbsurv", "rsf", "coxboost", "gbmsurv",
+    "ridge_cox", "enet_cox", "survivalsvm", "mboost_cox"
+  )
+}
+
 .shap_is_workflow_like <- function(obj) {
   inherits(obj, "workflow") || inherits(obj, "model_fit")
 }
@@ -29,6 +36,9 @@
 
 .shap_method_for_tag <- function(tag, wf = NULL) {
   tag <- tolower(trimws(as.character(tag)[1L]))
+  if (identical(tag, "xgbsurv")) return("surv_xgbsurv")
+  if (tag %in% c("ridge_cox", "enet_cox")) return("surv_glmnet_cox")
+  if (tag %in% .shap_surv_tags()) return("surv_kernel")
   if (tag %in% c("xgboost", "lightgbm", "rf", "dt")) return("tree_shapviz")
   if (identical(tag, "catboost")) return("catboost_native")
   if (tag %in% c("logistic", "enet")) return("linear_coef")
@@ -242,7 +252,9 @@
   if (!.shap_is_workflow_like(wf)) {
     stop("kernelshap 需要 tidymodels workflow。", call. = FALSE)
   }
+  source_ids <- attr(X_df, "shap_source_row_ids", exact = TRUE)
   X <- as.data.frame(X_df)
+  if (is.null(source_ids) || length(source_ids) != nrow(X)) source_ids <- seq_len(nrow(X))
   n <- nrow(X)
   bg_n <- as.integer(sh_cfg$kernel_bg_n %||% 30L)[1L]
   bg_n <- min(max(5L, bg_n), max(5L, n - 1L))
@@ -255,7 +267,9 @@
   ks <- kernelshap::kernelshap(
     wf, X = X_explain, bg_X = bg, pred_fun = pred_fun
   )
-  shapviz::shapviz(ks, X = X_explain)
+  out <- shapviz::shapviz(ks, X = X_explain)
+  attr(out, "shap_source_row_ids") <- as.integer(source_ids[seq_len(explain_n)])
+  out
 }
 
 .shap_build_kernel_perm <- function(wf, X_df, sh_cfg) {
@@ -265,7 +279,9 @@
   if (!.shap_is_workflow_like(wf)) {
     stop("kernel_perm 需要 tidymodels workflow。", call. = FALSE)
   }
+  source_ids <- attr(X_df, "shap_source_row_ids", exact = TRUE)
   X <- as.data.frame(X_df)
+  if (is.null(source_ids) || length(source_ids) != nrow(X)) source_ids <- seq_len(nrow(X))
   n <- nrow(X)
   p <- ncol(X)
   if (n < 2L || p < 1L) stop("kernel_perm: 样本或特征不足。", call. = FALSE)
@@ -298,7 +314,9 @@
       S[ii, fj] <- mean(diffs)
     }
   }
-  shapviz::shapviz(S, X = X_explain)
+  out <- shapviz::shapviz(S, X = X_explain)
+  attr(out, "shap_source_row_ids") <- as.integer(source_ids[explain_idx])
+  out
 }
 
 .shap_build_kernel_fastshap <- function(wf, X_df, sh_cfg) {
@@ -313,7 +331,9 @@
     if (!is.finite(nsim) || nsim < 10L) nsim <- 50L
     bg_n <- as.integer(sh_cfg$kernel_bg_n %||% sh_cfg$linear_bg_n %||% 30L)[1L]
     if (!is.finite(bg_n) || bg_n < 5L) bg_n <- 30L
+    source_ids <- attr(X_df, "shap_source_row_ids", exact = TRUE)
     X <- as.data.frame(X_df)
+    if (is.null(source_ids) || length(source_ids) != nrow(X)) source_ids <- seq_len(nrow(X))
     n <- nrow(X)
     bg_n <- min(bg_n, max(5L, n - 1L))
     set.seed(as.integer(sh_cfg$kernel_seed %||% 42L))
@@ -337,7 +357,9 @@
       }
     )
     if (!is.null(shap_out)) {
-      return(shapviz::shapviz(shap_out, X = X_explain))
+      out <- shapviz::shapviz(shap_out, X = X_explain)
+      attr(out, "shap_source_row_ids") <- as.integer(source_ids[seq_len(explain_n)])
+      return(out)
     }
   }
   if (requireNamespace("kernelshap", quietly = TRUE)) {
@@ -373,6 +395,268 @@
   stop("tabpfn 无 workflow 且无可代理树模型。", call. = FALSE)
 }
 
+###############################################################################
+#  生存模型 SHAP（非 tidymodels workflow）
+###############################################################################
+
+.shap_surv_scale01 <- function(x) {
+  x <- suppressWarnings(as.numeric(x))
+  rng <- range(x[is.finite(x)], na.rm = TRUE)
+  if (!all(is.finite(rng)) || diff(rng) < 1e-12) return(rep(0.5, length(x)))
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+.shap_surv_align_matrix <- function(model, X_mat, X_df) {
+  fn <- tryCatch({
+    if (inherits(model, "xgb.Booster")) model$feature_names else NULL
+  }, error = function(e) NULL)
+  fn <- as.character(fn %||% character(0))
+  if (!length(fn)) return(list(X_mat = X_mat, X_df = X_df))
+  miss <- setdiff(fn, colnames(X_mat))
+  if (length(miss)) {
+    add0 <- matrix(0, nrow = nrow(X_mat), ncol = length(miss))
+    colnames(add0) <- miss
+    X_mat <- cbind(X_mat, add0)
+    X_df <- cbind(X_df, as.data.frame(add0, check.names = FALSE))
+  }
+  keep <- intersect(fn, colnames(X_mat))
+  list(X_mat = X_mat[, keep, drop = FALSE], X_df = X_df[, keep, drop = FALSE])
+}
+
+.shap_surv_predict_risk <- function(tag, model, X_df) {
+  tag <- tolower(trimws(as.character(tag)[1L]))
+  X <- as.data.frame(X_df)
+  ## mboost / gbm / rsf / survivalsvm 需要与训练一致的列类型（可含 factor）
+  keep_factor <- tag %in% c("mboost_cox", "gbmsurv", "rsf", "survivalsvm")
+  if (!keep_factor) {
+    for (cn in names(X)) {
+      if (!is.numeric(X[[cn]])) X[[cn]] <- suppressWarnings(as.numeric(as.factor(as.character(X[[cn]]))))
+    }
+  } else {
+    for (cn in names(X)) {
+      if (is.character(X[[cn]])) X[[cn]] <- factor(X[[cn]])
+    }
+  }
+  X_mat <- X
+  for (cn in names(X_mat)) {
+    if (is.factor(X_mat[[cn]]) || is.character(X_mat[[cn]])) {
+      X_mat[[cn]] <- as.numeric(factor(as.character(X_mat[[cn]])))
+    }
+  }
+  X_mat <- as.matrix(X_mat)
+  storage.mode(X_mat) <- "double"
+
+  risk <- tryCatch({
+    if (identical(tag, "xgbsurv") && inherits(model, "xgb.Booster")) {
+      al <- .shap_surv_align_matrix(model, X_mat, as.data.frame(X_mat))
+      as.numeric(stats::predict(model, xgboost::xgb.DMatrix(al$X_mat)))
+    } else if (identical(tag, "rsf") && inherits(model, "rfsrc")) {
+      ## 训练用 time/status 列名；预测只需特征列
+      nd <- X
+      names(nd)[names(nd) == ".time"] <- "time"
+      names(nd)[names(nd) == ".event"] <- "status"
+      pr <- stats::predict(model, newdata = nd)
+      as.numeric(pr$predicted)
+    } else if (identical(tag, "coxboost")) {
+      as.numeric(stats::predict(model, newdata = X_mat, type = "lp"))
+    } else if (identical(tag, "gbmsurv")) {
+      ntr <- if (!is.null(model$n.trees)) model$n.trees else 100L
+      as.numeric(gbm::predict.gbm(model, newdata = X, n.trees = ntr, type = "link"))
+    } else if (tag %in% c("ridge_cox", "enet_cox")) {
+      ## glmnet 需要与训练相同的 dummy 列；缺列补 0
+      cn <- tryCatch(rownames(stats::coef(model)), error = function(e) colnames(X_mat))
+      cn <- as.character(cn %||% colnames(X_mat))
+      cn <- cn[nzchar(cn) & cn != "(Intercept)"]
+      miss <- setdiff(cn, colnames(X_mat))
+      if (length(miss)) {
+        add0 <- matrix(0, nrow = nrow(X_mat), ncol = length(miss))
+        colnames(add0) <- miss
+        X_mat <- cbind(X_mat, add0)
+      }
+      X_use <- X_mat[, cn, drop = FALSE]
+      as.numeric(stats::predict(model, newx = X_use, s = "lambda.min", type = "link"))
+    } else if (identical(tag, "mboost_cox")) {
+      ## 与训练一致：model.matrix 数值设计 + .time/.event 占位
+      lv <- attr(model, "mlsurv_train_levels")
+      X_raw <- as.data.frame(X_df)
+      if (is.list(lv) && length(lv)) {
+        for (cn in names(lv)) {
+          if (!cn %in% names(X_raw) || is.null(lv[[cn]])) next
+          X_raw[[cn]] <- factor(as.character(X_raw[[cn]]), levels = lv[[cn]])
+        }
+      }
+      ## 构造与训练相同的 design：优先用存储的列名对齐
+      tmp <- X_raw
+      if (!".time" %in% names(tmp)) tmp$.time <- 1
+      if (!".event" %in% names(tmp)) tmp$.event <- 0L
+      ## 用与 .mlsurv_model_matrix 相同方式展开
+      feat_cols <- setdiff(names(tmp), c(".time", ".event"))
+      form <- stats::as.formula(paste("~", paste(feat_cols, collapse = " + ")))
+      mm <- stats::model.matrix(form, data = tmp)
+      mm <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+      design_cols <- attr(model, "mlsurv_design_cols")
+      if (length(design_cols)) {
+        miss <- setdiff(design_cols, colnames(mm))
+        if (length(miss)) {
+          add0 <- matrix(0, nrow = nrow(mm), ncol = length(miss))
+          colnames(add0) <- miss
+          mm <- cbind(mm, add0)
+        }
+        mm <- mm[, design_cols, drop = FALSE]
+      }
+      nd <- data.frame(.time = tmp$.time, .event = tmp$.event, mm,
+                      check.names = FALSE, stringsAsFactors = FALSE)
+      as.numeric(stats::predict(model, newdata = nd, type = "link"))
+    } else if (identical(tag, "survivalsvm")) {
+      pr <- stats::predict(model, newdata = X)
+      x <- if (is.list(pr) && !is.null(pr$predicted)) pr$predicted else pr
+      if (is.list(x) && !is.data.frame(x) && !is.atomic(x)) x <- unlist(x)
+      as.numeric(x)
+    } else {
+      stop("未知生存模型 tag: ", tag, call. = FALSE)
+    }
+  }, error = function(e) {
+    stop("生存模型预测失败 [", tag, "]: ", conditionMessage(e), call. = FALSE)
+  })
+  .shap_surv_scale01(risk)
+}
+
+.shap_build_surv_xgbsurv <- function(model, X_mat, X_df) {
+  if (!inherits(model, "xgb.Booster")) {
+    stop("surv_xgbsurv 需要 xgb.Booster。", call. = FALSE)
+  }
+  if (!requireNamespace("shapviz", quietly = TRUE)) {
+    stop("需要 shapviz。", call. = FALSE)
+  }
+  al <- .shap_surv_align_matrix(model, X_mat, X_df)
+  out <- shapviz::shapviz(model, X_pred = al$X_mat, X = al$X_df)
+  attr(out, "shap_method") <- "surv_xgbsurv_tree"
+  out
+}
+
+.shap_build_surv_glmnet_cox <- function(model, X_mat, X_df) {
+  if (!requireNamespace("shapviz", quietly = TRUE)) {
+    stop("需要 shapviz。", call. = FALSE)
+  }
+  ## 线性近似 SHAP：β_j * (x_j - mean_j)
+  b <- tryCatch({
+    suppressPackageStartupMessages(requireNamespace("glmnet", quietly = TRUE))
+    as.matrix(coef(model, s = "lambda.min"))
+  }, error = function(e) NULL)
+  if (is.null(b) || !nrow(b)) {
+    b <- tryCatch({
+      j <- which.min(abs(model$lambda - model$lambda.min))
+      as.matrix(model$glmnet.fit$beta[, j, drop = FALSE])
+    }, error = function(e2) NULL)
+  }
+  if (is.null(b)) stop("glmnet Cox 系数不可用。", call. = FALSE)
+  rn <- rownames(b)
+  beta <- as.numeric(b[, 1L])
+  names(beta) <- rn
+  beta <- beta[abs(beta) > 1e-12]
+  cols <- intersect(names(beta), colnames(X_mat))
+  if (!length(cols)) stop("glmnet Cox 无非零系数对齐特征。", call. = FALSE)
+  X_use <- as.matrix(X_mat[, cols, drop = FALSE])
+  mu <- colMeans(X_use, na.rm = TRUE)
+  S <- sweep(X_use, 2L, mu, "-")
+  S <- sweep(S, 2L, beta[cols], "*")
+  out <- shapviz::shapviz(S, X = as.data.frame(X_use))
+  attr(out, "shap_method") <- "surv_glmnet_linear"
+  out
+}
+
+.shap_build_surv_kernel <- function(tag, model, X_df, sh_cfg) {
+  if (!requireNamespace("shapviz", quietly = TRUE)) {
+    stop("需要 shapviz。", call. = FALSE)
+  }
+  tag0 <- tolower(trimws(as.character(tag)[1L]))
+  ## RSF/GBM 等训练用 factor；若这里先 as.numeric(factor)→整数码再喂 predict，
+  ## 分类列扰动几乎不改变预测 → SHAP 图上大量 0.000（假零）。
+  keep_factor <- tag0 %in% c("mboost_cox", "gbmsurv", "rsf", "survivalsvm")
+  X <- as.data.frame(X_df)
+  for (cn in names(X)) {
+    if (keep_factor) {
+      if (is.character(X[[cn]]) || is.logical(X[[cn]])) {
+        X[[cn]] <- factor(as.character(X[[cn]]))
+      }
+      ## 已是 factor / numeric 原样保留
+    } else if (!is.numeric(X[[cn]])) {
+      X[[cn]] <- suppressWarnings(as.numeric(as.factor(as.character(X[[cn]]))))
+    }
+  }
+  n <- nrow(X)
+  if (n < 5L || ncol(X) < 1L) stop("surv_kernel: 样本/特征不足。", call. = FALSE)
+  explain_n <- as.integer(sh_cfg$kernel_explain_n %||% min(80L, n))[1L]
+  explain_n <- min(max(10L, explain_n), n)
+  bg_n <- as.integer(sh_cfg$kernel_bg_n %||% 30L)[1L]
+  bg_n <- min(max(5L, bg_n), max(5L, n - 1L))
+  set.seed(as.integer(sh_cfg$kernel_seed %||% 42L))
+  X_explain <- X[seq_len(explain_n), , drop = FALSE]
+  bg <- X[sample.int(n, bg_n), , drop = FALSE]
+
+  pred_fun <- function(object, newdata) {
+    .shap_surv_predict_risk(tag, object, newdata)
+  }
+
+  if (requireNamespace("fastshap", quietly = TRUE)) {
+    fs <- tryCatch(
+      fastshap::explain(
+        model,
+        X = X_explain,
+        pred_wrapper = function(object, newdata) pred_fun(object, newdata),
+        nsim = as.integer(sh_cfg$fastshap_nsim %||% 50L)[1L],
+        adjust = TRUE
+      ),
+      error = function(e) {
+        cli::cli_alert_warning(
+          "block_shap surv_fastshap 失败 ({e$message})，改用保留类型的置换近似。"
+        )
+        NULL
+      }
+    )
+    if (!is.null(fs)) {
+      ## shapviz 的 X 展示层：factor 转数值码仅用于着色，不参与再预测
+      X_plot <- X_explain
+      for (cn in names(X_plot)) {
+        if (is.factor(X_plot[[cn]]) || is.character(X_plot[[cn]])) {
+          X_plot[[cn]] <- as.numeric(factor(as.character(X_plot[[cn]])))
+        }
+      }
+      out <- shapviz::shapviz(fs, X = X_plot)
+      attr(out, "shap_method") <- "surv_fastshap"
+      return(out)
+    }
+  }
+
+  ## 无 fastshap：特征置换近似
+  p <- ncol(X_explain)
+  S <- matrix(0, nrow = nrow(X_explain), ncol = p)
+  colnames(S) <- names(X_explain)
+  base <- pred_fun(model, bg)
+  for (j in seq_len(p)) {
+    for (i in seq_len(nrow(X_explain))) {
+      diffs <- vapply(seq_len(nrow(bg)), function(b) {
+        x1 <- bg[b, , drop = FALSE]
+        x0 <- x1
+        x1[[j]] <- X_explain[[j]][i]
+        pred_fun(model, x1) - pred_fun(model, x0)
+      }, numeric(1))
+      S[i, j] <- mean(diffs)
+    }
+  }
+  out <- shapviz::shapviz(S, X = {
+    X_plot <- X_explain
+    for (cn in names(X_plot)) {
+      if (is.factor(X_plot[[cn]]) || is.character(X_plot[[cn]])) {
+        X_plot[[cn]] <- as.numeric(factor(as.character(X_plot[[cn]])))
+      }
+    }
+    X_plot
+  })
+  attr(out, "shap_method") <- "surv_kernel_perm"
+  out
+}
+
 .shap_compute_for_tag <- function(tag, wf, baked, sh_cfg, ctx = NULL) {
   method <- .shap_method_for_tag(tag, wf)
   X_mat <- baked$X_mat
@@ -387,6 +671,9 @@
       linear_coef = .shap_build_linear_coef(wf, X_df),
       kernel_fastshap = .shap_build_kernel_fastshap(wf, X_df, sh_cfg),
       kernel_tabpfn = .shap_build_kernel_tabpfn(wf, X_df, sh_cfg, ctx),
+      surv_xgbsurv = .shap_build_surv_xgbsurv(wf, X_mat, X_df),
+      surv_glmnet_cox = .shap_build_surv_glmnet_cox(wf, X_mat, X_df),
+      surv_kernel = .shap_build_surv_kernel(tag, wf, X_df, sh_cfg),
       stop("未知 SHAP 方法: ", m, call. = FALSE)
     )
   }
@@ -394,10 +681,14 @@
   out <- tryCatch(
     .do_compute(method),
     error = function(e) {
-      if (method %in% c("tree_shapviz", "catboost_native")) {
+      if (method %in% c("tree_shapviz", "catboost_native", "surv_xgbsurv", "surv_glmnet_cox")) {
         cli::cli_alert_warning(
-          "block_shap [{tag}]: {method} 失败 ({e$message})，回退 kernel_fastshap。"
+          "block_shap [{tag}]: {method} 失败 ({e$message})，回退 surv_kernel/kernel_fastshap。"
         )
+        if (tag %in% .shap_surv_tags()) {
+          actual_method <<- "surv_kernel"
+          return(.do_compute("surv_kernel"))
+        }
         actual_method <<- if (requireNamespace("fastshap", quietly = TRUE)) {
           "kernel_fastshap"
         } else if (requireNamespace("kernelshap", quietly = TRUE)) {
@@ -424,6 +715,11 @@
 .shap_interpret_tag_order <- function(ctx, sh_cfg, fitted_names) {
   fitted_names <- as.character(fitted_names)[nzchar(as.character(fitted_names))]
   primary <- .shap_resolve_model_tag(ctx, sh_cfg, fitted_names)
+  ## 预后 / force_kernel：最优模型必须排第一，其后才允许失败回退
+  if (isTRUE(sh_cfg$force_kernel_best_model %||% FALSE) ||
+      identical(tolower(trimws(ctx$config$project$study_type %||% "")), "prognosis")) {
+    return(unique(c(primary, setdiff(fitted_names, primary))))
+  }
   proxy_trees <- .shap_shapviz_capable_tags()
   proxy <- .shap_pick_best_tag_among(ctx, fitted_names, proxy_trees)
   c(
@@ -433,14 +729,63 @@
   )
 }
 
+.shap_prioritize_waterfall_case <- function(ctx, sh_cfg, tag, baked) {
+  if (is.null(baked$X_df) || !is.data.frame(baked$X_df) ||
+      !nrow(baked$X_df) ||
+      isFALSE(sh_cfg$waterfall_auto_case_high_prob %||% TRUE) ||
+      !identical(tolower(as.character(sh_cfg$explain_on %||% "train")[1L]), "train")) {
+    return(baked)
+  }
+  tr <- tryCatch(.shap_ml_train_frame(ctx, shap_plot_only = TRUE), error = function(e) NULL)
+  if (is.null(tr) || nrow(tr) != nrow(baked$X_df) || !"Group" %in% names(tr)) return(baked)
+  models_dir <- if (exists("resolve_ml_models_dir_for_tag", mode = "function")) {
+    resolve_ml_models_dir_for_tag(ctx, tag)
+  } else {
+    ""
+  }
+  rdata <- file.path(models_dir, paste0("evalresult_", tag, ".RData"))
+  if (!file.exists(rdata)) return(baked)
+  env <- new.env(parent = emptyenv())
+  if (!isTRUE(tryCatch({ load(rdata, envir = env); TRUE }, error = function(e) FALSE))) {
+    return(baked)
+  }
+  pt <- env$predtrain %||% env[[paste0("predtrain_", tag)]]
+  if (is.null(pt) || !is.data.frame(pt) || nrow(pt) != nrow(tr)) return(baked)
+  ana <- trimws(as.character(
+    ctx$config$project$analysis_group %||% ctx$config$project$disease %||% "Case"
+  )[1L])
+  pred_col <- ctx$results$ml_pred_ana_col %||% paste0(".pred_", make.names(ana))
+  if (!pred_col %in% names(pt)) return(baked)
+  outcome01 <- as.integer(trimws(as.character(tr$Group)) == ana)
+  threshold <- suppressWarnings(as.numeric(sh_cfg$waterfall_prob_threshold %||% 0.75)[1L])
+  pick <- pipeline_pick_shap_waterfall_row(
+    ctx, as.numeric(pt[[pred_col]]), outcome01, prob_threshold = threshold
+  )
+  rid <- suppressWarnings(as.integer(pick$row_id)[1L])
+  if (!isTRUE(pick$met_threshold) || !is.finite(rid) ||
+      rid < 1L || rid > nrow(baked$X_df)) {
+    return(baked)
+  }
+  ord <- c(rid, setdiff(seq_len(nrow(baked$X_df)), rid))
+  baked$X_df <- baked$X_df[ord, , drop = FALSE]
+  attr(baked$X_df, "shap_source_row_ids") <- as.integer(ord)
+  if (!is.null(baked$X_mat) && nrow(baked$X_mat) == length(ord)) {
+    baked$X_mat <- baked$X_mat[ord, , drop = FALSE]
+  }
+  baked
+}
+
 .shap_try_compute_best <- function(ctx, sh_cfg, models) {
   fitted <- names(models)
   order_tags <- unique(.shap_interpret_tag_order(ctx, sh_cfg, fitted))
   explain_on <- sh_cfg$explain_on %||% "train"
   last_err <- NULL
+  force_best <- isTRUE(sh_cfg$force_kernel_best_model %||% FALSE) ||
+    identical(tolower(trimws(ctx$config$project$study_type %||% "")), "prognosis")
   for (tag in order_tags) {
     if (!tag %in% fitted || is.null(models[[tag]])) next
     wf <- models[[tag]]
+    is_surv <- tag %in% .shap_surv_tags()
     if (tag %in% .shap_tabpfn_tags() && !.shap_is_workflow_like(wf)) {
       baked <- tryCatch(
         .shap_baked_matrix(ctx, tag, explain_on, sh_cfg = sh_cfg),
@@ -454,6 +799,32 @@
       if (!is.null(shp)) {
         return(list(tag = tag, shp = shp, baked = baked, method = attr(shp, "shap_method")))
       }
+      if (force_best) break
+      next
+    }
+    if (is_surv) {
+      sh_surv <- modifyList(sh_cfg %||% list(), list(use_train_without_recipe = TRUE))
+      baked <- tryCatch(
+        .shap_baked_matrix(ctx, tag, explain_on, sh_cfg = sh_surv),
+        error = function(e) { last_err <<- e$message; NULL }
+      )
+      if (is.null(baked)) {
+        if (force_best) break
+        next
+      }
+      shp <- tryCatch(
+        .shap_compute_for_tag(tag, wf, baked, sh_cfg, ctx),
+        error = function(e) { last_err <<- e$message; NULL }
+      )
+      if (!is.null(shp)) {
+        return(list(tag = tag, shp = shp, baked = baked, method = attr(shp, "shap_method")))
+      }
+      if (force_best) {
+        cli::cli_alert_warning(
+          "block_shap: 最优生存模型 {tag} SHAP 失败（{last_err}），按铁律不回退其它模型。"
+        )
+        break
+      }
       next
     }
     if (!.shap_is_workflow_like(wf)) next
@@ -462,6 +833,7 @@
       error = function(e) { last_err <<- e$message; NULL }
     )
     if (is.null(baked)) next
+    baked <- .shap_prioritize_waterfall_case(ctx, sh_cfg, tag, baked)
     shp <- tryCatch(
       .shap_compute_for_tag(tag, wf, baked, sh_cfg, ctx),
       error = function(e) { last_err <<- e$message; NULL }
@@ -469,6 +841,7 @@
     if (!is.null(shp)) {
       return(list(tag = tag, shp = shp, baked = baked, method = attr(shp, "shap_method")))
     }
+    if (force_best) break
   }
   list(tag = NULL, shp = NULL, baked = NULL, method = NULL, error = last_err)
 }

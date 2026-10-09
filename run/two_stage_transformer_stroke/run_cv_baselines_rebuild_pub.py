@@ -248,13 +248,13 @@ def fmt_mean_sd(vals: list[float], *, kind: str) -> str:
             return f"{100.0 * v:.2f}"
         if kind == "f1":
             return f"{v:.3f}"
-        return f"{v:.3f}"
+        return f"{v:.2f}"
     m, s = float(a.mean()), float(a.std(ddof=1))
     if kind == "acc":
         return f"{100.0 * m:.2f} ({100.0 * s:.2f})"
     if kind == "f1":
         return f"{m:.3f} ({s:.3f})"
-    return f"{m:.3f} ({s:.3f})"
+    return f"{m:.2f} ({s:.3f})"
 
 
 def p_value_kruskal(groups: list[list[float]]) -> float:
@@ -409,14 +409,20 @@ def rebuild_table3(rows: list[dict]) -> Path:
     ]
 
     title = (
-        "Table 3. Comparative performance metrics [mean (SD)] of predictive models "
-        "for in-hospital mortality: decision tree, XGBoost, Multilayer Perceptron (MLP), "
-        "LSTM, and two-stage Transformer."
+        "Table 3-MIMIC. Comparative performance metrics [mean (SD)] of predictive models "
+        "for in-hospital mortality"
     )
     footnotes = ["ᵃ F1-score, harmonic mean of precision and recall."]
 
-    path = PROJ / "summary_results/Tables/Table 3-MIMIC-Comparative_model_performance.xlsx"
+    path = (
+        PROJ
+        / "summary_results/Tables"
+        / f"{title}.xlsx"
+    )
     _write_sci_table(path, title, headers, table_rows, footnotes, widths=[14, 14, 14, 14, 14, 16, 10])
+    old = PROJ / "summary_results/Tables/Table 3-MIMIC-Comparative_model_performance.xlsx"
+    if old.is_file() and old.resolve() != path.resolve():
+        old.unlink(missing_ok=True)
     return path
 
 

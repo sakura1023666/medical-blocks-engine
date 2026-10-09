@@ -1,0 +1,34 @@
+# 双库发病 ML 预测发表对齐（全项目复用）
+
+ML 双库 / 发病双库批量在指标成功 finalize 时须与**单库发病**同一套编号与命名；区别仅多一个库目录与 A/B 拼图。
+
+## 铁律
+
+1. **汇总禁止双前缀**：`mirror_aggregate_prefix_db = FALSE`（默认）；禁止 `NHANES_Table 1-NHANES…`。
+2. **表名格式**：`Table N-<库名>. <标题>.xlsx`（主表 1–4 + 附表 S 连续；train/val 标题保留）。
+3. **图名格式**：`Figure N-<库名>. <标题>.pdf`；成对图在汇总 `Figures/` **A/B 拼成一张**（`dual_db_combine_paired_figures`）。
+4. **协变量对齐**：Gate B / `dual_db_covariate_harmonize` / ML `ml_assoc_covariate_resolve` 两库 Model1/2 一致；临床交集空时 `require_same_clinical_cols=FALSE` 各库保留 Model1/2（见 `baseline_index_ns_ml_dual.mdc` Gate B 节）。
+5. **Table 1 暴露显著性**：主/次库 Table 1 暴露 P ≥ 0.05 → `BASELINE_INDEX_NS_STOP` → `【failed】`（`baseline_index_ns_ml_dual.mdc`，不可关）。
+6. **ML 特征对齐**：次库走 `ml_inherit_primary_features`，禁止次库重新海选。
+7. **curate 闸门**：`pub_figure_scheme = ml_dual_standard`；非胜出 logistic 分位 drop；`incidence_batch_curate_ml_pub_tables` + `export_pub_figures`。
+
+## 实现入口
+
+- 表：`R/ml_dual_pub_table_curate.R` → `.ml_ptc_table_db_infix` / `incidence_batch_curate_ml_pub_tables`
+- 图：`R/incidence_dual_batch_runner.R` → `incidence_batch_ml_pub_figure_target_bn` / `incidence_batch_curate_ml_pub_figures_dir`
+- 拼图：`R/dual_db_combine_figures.R` → `dual_db_combine_paired_figures`（finalize 内 mirror 之后）
+- 薄 config：`configs/study_interface/ml_dual_batch_build.R`（`merge_dual_db_tables`、`mirror_aggregate_prefix_db`）
+
+## 检查清单
+
+- [ ] 汇总 `Tables/` 为 `Table 2-NHANES.` / `Table 2-CHARLS.`，无库名前缀重复
+- [ ] 汇总 `Figures/pdf/` ML/SHAP/Flowchart 为拼图，非两库各留一张
+- [ ] 各库 `Tables/` 与单库序号链一致（含 train/val 附表）
+- [ ] `_batch_status.json` success 且 code/ 包存在
+- [ ] Table 1 暴露不显著指标在 `【failed】`，不在 `【success】`
+
+## 反例（禁止）
+
+- `NHANES_Table 1-NHANES. …` 与 `Table 1. NHANES. …` 混留
+- 汇总目录两库各一张 Figure 4 而不拼图
+- 次库单独跑 feature selection 导致 ML 特征与主库不一致

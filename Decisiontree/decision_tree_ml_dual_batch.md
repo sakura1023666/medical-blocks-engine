@@ -8,6 +8,22 @@
 
 ---
 
+## ★ 第零步：发病预测 vs 预后预测
+
+| | **发病 / 分类 ML** | **预后 ML（本树重点分支）** |
+|---|---|---|
+| `.study$study_type` | `incidence`（默认） | **`prognosis`** |
+| 时间列 | 可不配 | 必填 `survival$time_var` / `event_var`（或 `.study$time_var` / `event_var`） |
+| 统计上游 | `univariate_incidence_binary` → `ml_vif_train_test` | **`univariate_prognosis` → `ml_vif_train_test`** |
+| 特征选择 | 多方法（LASSO→…）或 LASSO-first | **仅 `feature_selection_lasso_cox`（LASSO-Cox）** |
+| 特征选择图 | S2A/S2B 或韦恩 | **A 路径 + B CV 偏差 + C 相关热图拼图**（`Figure S2/S1.LASSO-Cox.pdf`） |
+| 关联表 | Logistic（可选带时间再挂 Cox） | **仅 Cox**（无 logistic 闸门） |
+| Cox 协变量 | 默认：Age + UV显著且未进 ML | **Age +「单因素→VIF」通过池**（`model2_from_vif_pass=TRUE`） |
+
+覆盖函数：`ml_dual_apply_prognosis_ml_overrides()`（仅 `study_type=prognosis` 时由 build 自动调用）。
+
+---
+
 ## ★ 第一步：选哪种模式？（关键决策点）
 
 | 问题 | 选【双库批量】 | 选【外部验证模式】 |
@@ -30,9 +46,10 @@
 
 | 项 | 值 |
 |---|---|
-| 研究类型 | 多为 `incidence` 二分类；亦可 prognosis 上游 |
+| 研究类型 | `incidence`（分类）或 **`prognosis`（预后）** |
 | 暴露 | `index_vars` / `index_group` |
 | 结局列 | `outcome_column`（Factor），`analysis_group`→1，`reference_group`→0 |
+| 预后时间 | `survival$time_var` / `event_var`（如 `futime` / `fustatus`） |
 
 ---
 
@@ -43,11 +60,11 @@
 
 ```mermaid
 flowchart TD
-  Q["研究问题\n指标/特征 → 疾病分类预测？"]
+  Q["研究问题\n指标/特征 → 预测？"]
   S1["共享层 primary"]
   S2["共享层 secondary"]
-  P["主库 worker\n清洗 → 划分 → 基线/单因素 → 特征选择 → 多模型 → 性能/SHAP"]
-  SEC["次库 worker\nml_inherit_primary_features → 同模型外推"]
+  P["主库 worker\n清洗 → 划分 → 基线 → UV→VIF → FS → 关联 → 多模型"]
+  SEC["次库 worker\nml_inherit_primary_features → 同构下游"]
   OUT["by_index + Tables + Shiny"]
   Q --> S1 --> P --> OUT
   Q --> S2 --> SEC --> OUT
@@ -55,26 +72,89 @@ flowchart TD
 ```
 
 ### 共享层（每库 1 次）
-`data_clean` → `column_mapping` → `dual_db_column_harmonize` → `index`
+`ml_id_deduplicate` → `data_clean` → `column_mapping` → `dual_db_column_harmonize` → `index`  
 CLI：`run_study.bat <研究> --shared-only`
 
-### 主库（Regular 示例：CHARLS）
+---
+
+### ★ 预后主库链（`study_type = "prognosis"`）
+
+```mermaid
+flowchart TD
+  H["头: train_validation → imputation(fit_on=train)"]
+  B["基线: baseline_binary → simple_ROC → boxplot"]
+  UV["univariate_prognosis\n单因素 p&lt;0.1 → tb_screen"]
+  VIF["ml_vif_train_test\n→ vif_screen_pass / Model2Factors"]
+  FS["ml_feature_selection_bundle\n仅 feature_selection_lasso_cox"]
+  FIG["Figure S2/S1.LASSO-Cox\nA 路径 | B CV | C 相关"]
+  CV["ml_assoc_covariate_resolve\nModel2 = VIF 通过池"]
+  COX["ml_assoc_bundle\ncox_Q/T/B + rcs_prognosis + km_binary\n无 logistic"]
+  ML["ml_models_bundle → performance → shap → shiny"]
+  SUB["subgroup_prognosis → attrition_flowchart"]
+
+  H --> B --> UV --> VIF --> FS --> FIG
+  FS --> CV --> COX --> ML --> SUB
+```
+
+| 阶段 | Blocks | 铁律 |
+|------|--------|------|
+| 头 | `train_validation` → `imputation` | 不挂 `trim_index_extreme` |
+| 基线 | `baseline_binary` → `simple_ROC` → `boxplot` | — |
+| 统计上游 | **`univariate_prognosis` → `ml_vif_train_test`** | **Cox / LASSO 候选 = 单因素→VIF** |
+| 特征选择 | `ml_feature_selection_bundle` → **仅 `lasso_cox`** | 不跑 Boruta/RF/共识 |
+| 协变量 | `ml_assoc_covariate_resolve` | `model2_from_vif_pass=TRUE`；可含已进 ML 的变量；排除暴露 |
+| 关联 | `ml_assoc_bundle` | **Cox only**（`gate_enable=FALSE`） |
+| ML 尾 | `ml_models_bundle` → `performance_ml` → `supplementary_ml` → `shap` → `shiny_ml_app` → `subgroup_prognosis` → `attrition_flowchart` | **默认模型见下表**；性能图出分面校准 + 合并 DCA |
+
+**预后默认 ML 模型**（`ml_dual_apply_prognosis_ml_overrides`）：
+
+| Tag | 显示名 | 说明 |
+|-----|--------|------|
+| `xgbsurv` | XGBoost-Cox | 文献主模型 |
+| `coxboost` | CoxBoost | 似然提升 |
+| `gbmsurv` | GBM-Cox | gbm coxph |
+| `rsf` | Random survival forest | RSF |
+| `ridge_cox` | Ridge-Cox | glmnet α=0（小样本友好） |
+| `enet_cox` | ElasticNet-Cox | glmnet α=0.5（小样本友好） |
+| `survivalsvm` | SurvivalSVM | **小样本补充** |
+| `mboost_cox` | mboost-Cox | **高维/小样本补充** |
+
+性能图（预后）：`Figure. Prognosis calibration faceted.pdf`（A 分面校准）+ `Figure. Prognosis DCA combined.pdf`（B 合并 DCA）。
+
+**时间窗 `surv_horizon`（写 config 必查数据）**：
+- 默认 `NULL`/`auto`：跑 `performance_ml` 时按 `time_var` 列名与分布推断（如 `*_28d`→28 天；月随访→12/36/60）
+- 本仓库 ICU 预后模板多为 **28 天行政截尾**，不是文献图里的 60 月
+- 显式写法：`config$performance_ml$surv_horizon <- 28`；单位 `surv_horizon_unit = "day"|"month"`
+
+**`.study` 最小示例（预后）**：
+```r
+.study <- list(
+  study_type = "prognosis",
+  time_var = "futime",
+  event_var = "fustatus",
+  # ... disease / 双库路径 / index_vars ...
+)
+```
+
+---
+
+### 发病主库链（`study_type = "incidence"`，对照）
+
 | 阶段 | Blocks |
 |------|--------|
-| 头 | `train_validation` → `imputation`（`fit_on=train`；不挂 trim） |
+| 头 | `train_validation` → `imputation` |
 | 基线 | `baseline_binary` → `simple_ROC` → `boxplot` |
-| 统计上游 | `univariate_incidence_binary` → `multicollinearity_screen`（预后则为 `univariate_prognosis`） |
-| ML 尾 | `ml_feature_selection_bundle` → `ml_models_bundle` → `performance_ml` → `supplementary_ml` → `shap` → `shiny_ml_app` |
+| 统计上游 | `univariate_incidence_binary` → `ml_vif_train_test` |
+| ML 尾 | `ml_feature_selection_bundle`（多方法/LASSO-first）→ `ml_assoc_covariate_resolve` → `ml_assoc_bundle`（logistic）→ `ml_models_bundle` → … → `subgroup_incidence` + `subgroup_prognosis` |
 
 若主库为 NHANES：基线改为 `cutoff` → `obj` → `baseline_nhanes`，上游用 `*_nhanes` 系列。
 
-### 次库（外推）
+### 次库（外推，发病/预后同构）
 | Step | Block | 说明 |
 |------|-------|------|
-| 01–04 | clean / map / harmonize / index | 与主库同构准备 |
-| 05–06 | `train_validation` → `imputation` | 不修剪指标极端值 |
-| 07 | **`ml_inherit_primary_features`** | **继承主库入选特征，禁止重新海选** |
-| 08–11 | `train_validation` → `ml_models_bundle` → `performance_ml` → `supplementary_ml` → `shap` | 外推验证 |
+| 头+基线 | 同主库 | — |
+| 继承 | **`ml_inherit_primary_features`** | **禁止重新海选** |
+| 下游 | `ml_assoc_covariate_resolve` → `ml_assoc_bundle` → ML 尾 → 亚组 | 与主库同构 |
 
 ### 常用命令
 ```bat
@@ -83,7 +163,7 @@ run_study.bat <研究名> --workers 2
 run_study.bat <研究名> --workers 2 --only-index Leisure_activities
 run_study.bat <研究名> --no-skip
 ```
-产出：`by_index/<指标>/<库>/`、性能表、SHAP 图、可选 Shiny。
+产出：`by_index/<指标>/<库>/`、性能表、SHAP 图、预后另有 `Figure S1/S2.LASSO-Cox.pdf`。
 
 ---
 
@@ -104,46 +184,29 @@ run_study.bat <研究名> --no-skip
 4. **手动装载** `ctx$data$train`=A 库全集、`ctx$data$test`=B 库全集、`ctx$data$imputed`=A 库全集（模型块用它校验结局列/特征）
 5. **预建 `Group` 结局因子列**（levels=`c(reference_group, analysis_group)`）—— 正常由 `train_validation` 生成，此处手动建
 6. 设 `ctx$results$feature_selection_final` = 固定特征清单
-7. `setwd(engine_root)` ← **必须**：SHAP 块在 *source 期* 用 `getwd()` 定位 `Blocks/17_shap/00shap_router.R`（`01block_shap.R:951`）
+7. `setwd(engine_root)` ← **必须**：SHAP 块在 *source 期* 用 `getwd()` 定位 `Blocks/17_shap/00shap_router.R`
 8. 依次 `pipeline_source_block(root, tag)` + `run_block(ctx, tag)`：
    `ml_models_bundle` → `performance_ml` → `supplementary_ml` → `shap`
-   （`ml_models_bundle` 内部已串联各 `ml_*` 子块 + `ml_aggregate`）
 
 ### config.R 关键设置（外部验证）
 - `.study`：`primary`=A 库（训练）、`secondary`=B 库（验证）；`outcome_column`、`analysis_group`/`reference_group`、`index_vars`。
-- `primary_name` 勿用 `"MIMIC"`：引擎次库槽位有遗留目录回退 `_shared/mimic`，Windows 大小写不敏感 → 主库 `_shared/MIMIC` 与之撞库 → 次库被误判"已存在"跳过。改用 `"MIMIC_IV"`（lower=`mimic_iv`≠`mimic`）。
-- 纯 ML 无时间列：清空 `config$survival$time_var/event_var`（疾病预设会塞占位符 `futime`）→ `has_time=FALSE`，避免时间泄漏与 cox 步骤。
-- `config$ml_models$methods`：在 `source(builder)` **之后**赋值（构建器 line103 会重置为默认）。
-- 标志 `config$.run_mode <- "external_validation"`、`config$.external_validation_features`（固定 9 特征）供脚本消费。
+- `primary_name` 勿用 `"MIMIC"`：改用 `"MIMIC_IV"`。
+- 纯分类 ML：可清空 `survival$time_var/event_var`；**预后外部验证**须保留时间列并建议先跑 LASSO-Cox 定特征。
+- `config$ml_models$methods`：在 `source(builder)` **之后**赋值。
 
-### ★ 引擎契约 gotchas（外部验证踩坑）
-1. **`Group` 是结局列，不是 train/test 标记**。模型块做 `df[, c("Group", feats)]`（如 `03block_ml_xgboost.R:158-162`）；`ctx$data$train`/`test` 各自含 `Group`（结局 0/1）+ 特征列。
-2. **`train_ratio` 必须 ∈ (0,1)** → 无法用 `train_validation` 做 100% 训练；故外部验证**跳过** `train_validation`，手动赋 `ctx$data$train/test`。
-3. **`ctx$data$imputed` 必须含结局列**：模型块读 `imputed` 校验 `outcome_column` 是否存在、特征是否在列。设 `imputed`=A 库全集即可。
-4. **performance_ml 在 incidence 分支只用 `train$Group`/`test$Group`**（不依赖 imputed 对齐，`01block_performance_ml.R:292`）→ 外部验证下 train/test 来自不同库也能正确评估。
-5. **SHAP 块的 `getwd()` 依赖**：source 块前必须 `setwd(engine_root)`，否则 `00shap_router.R` 找不到。
-6. **SHAP 模型固定为 XGBoost**：`config$shap$ml_model <- "xgboost"`。若用 `"auto"` 且最优模型是黑盒基础模型（TablCL_v2/TabPFN 等，非 tree-SHAP-capable），引擎会**回退用 xgboost 算 TreeSHAP 却仍标题为该黑盒模型**（method=`venn_xgb_shapviz`），造成图名误导。显式指定 xgboost 即可正确标注。
-
-### 运行命令（Windows 原生 R 4.5.1）
+### 运行命令（Windows 原生 R）
 ```bat
 cd "G:\DockerHome\5003\medical-blocks-studies\studies\03_pancreatic cancer"
-:: 全流程：15 模型训练(MIMIC)+评估(eICU) + 性能图 + SHAP
 "C:\Program Files\R\R-4.5.1\bin\x64\Rscript.exe" run_ml_external_validation.R
-:: （可选）只重跑 SHAP，复用已训练模型，固定 XGBoost TreeSHAP
-"C:\Program Files\R\R-4.5.1\bin\x64\Rscript.exe" run_shap_xgboost.R
 ```
-产出（`Output_ML_external_validation/`）：
-- `step17_ml_aggregate/ml_eval_all.csv` — 各模型 train(MIMIC)/test(eICU) 指标宽表
-- `Tables/` — 性能宽表、超参数、Log-Loss、DeLong、NRI/IDI
-- `Figures/` — 多模型 ROC/DCA/校准、平行线、CV 箱线图、**SHAP(XGboost) 蜂群/瀑布/依赖图**
-- `ctx_external_validation.rds` — 含全部已拟合模型，可供 `run_shap_xgboost.R` 复用
 
 ---
 
 ## 程序员注意（两种模式通用）
 
-1. `.study` 块只改疾病、库路径、指标、结局；勿手改 pipeline blocks 顺序（pipeline 完整性守卫会 abort）。
-2. 次库成败依赖主库特征清单；主库失败时次库通常无法继承（仅模式 A）。
-3. `feishu_enable` 程序员侧建议 `FALSE`。
-4. TabPFN 系列未接受 priorlabs 许可会 tryCatch 静默跳过（非致命），实际模型数可能少于 16。
-5. ML 与生存两套 routine 共用 `checkpoints/_shared` 但 index 步不同，**串行**运行勿并发。
+1. `.study` 块只改疾病、库路径、指标、结局、`study_type`；勿手改 pipeline blocks 顺序。
+2. 预后必须 `study_type = "prognosis"`，否则不会挂 LASSO-Cox / UV→VIF Cox 铁律。
+3. 次库成败依赖主库特征清单；主库失败时次库通常无法继承（仅模式 A）。
+4. `feishu_enable` 程序员侧建议 `FALSE`。
+5. 预后默认跑生存八模型；SHAP **固定解释验证集最优模型**（`shap$ml_model=auto` + `force_kernel_best_model=TRUE`），不回退 xgboost 画图。
+6. ML 与生存两套 routine 共用 `checkpoints/_shared` 但 index 步不同，**串行**运行勿并发。

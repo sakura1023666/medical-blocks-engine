@@ -195,8 +195,11 @@ environment_collect_dkd_results <- function(
   add_row(8L, "Table", "Table S4-VOC-VIF",
     "Table S4-NHANES-VOC. Weighted Multicollinearity Analysis (VIF, univariate p_0.05 screen)",
     find_first(
-      "_shared/Tables/Table S4-NHANES-VOC*.xlsx",
-      "Tables/Table S4-NHANES-VOC*.xlsx"
+      "_shared/Tables/Table S4-NHANES-VOC*Weighted Multicollinearity*.xlsx",
+      "_shared/Tables/Table S4-NHANES-VOC*VIF*.xlsx",
+      "_shared/step11_multicollinearity_nhanes_screen/Tables/Table S4-NHANES-VOC*.xlsx",
+      "Tables/Table S4-NHANES-VOC*Weighted Multicollinearity*.xlsx",
+      exclude_pattern = "Univariate|Regression"
     ),
     "Table S4-NHANES-VOC. Weighted Multicollinearity Analysis (VIF, univariate p_0.05 screen).xlsx")
 
@@ -212,9 +215,13 @@ environment_collect_dkd_results <- function(
     paste0("Table S7. Association between Environmental Toxicants and ", disease),
     find_first(
       "_shared/step15_lasso_environment_voc/Tables/Table S7*.xlsx",
+      "_shared/step15_lasso_environment_voc/Tables/*Association*.xlsx",
+      "_shared/step15_lasso_environment_voc/Tables/Table_Lasso_Univariate_Screen.xlsx",
       "_shared/step13_lasso_environment_voc/Tables/Table S7*.xlsx",
-      "_shared/Tables/Table S7*.xlsx",
-      "_shared/Tables/Table_Lasso_Univariate_Screen.xlsx"
+      "_shared/step13_lasso_environment_voc/Tables/*Association*.xlsx",
+      "_shared/Tables/Table S7*Association*.xlsx",
+      "_shared/Tables/Table_Lasso_Univariate_Screen.xlsx",
+      exclude_pattern = "Multicollinearity|VIF"
     ),
     paste0("Table S7. Association between Environmental Toxicants and ", disease, ".xlsx"))
 
@@ -252,8 +259,11 @@ environment_collect_dkd_results <- function(
   add_row(14L, "Table", "Table S11-Mediation",
     paste0("Table S11. Mediation effects in the associations of Environmental Toxicants with ", disease),
     find_first(
+      "_tail/step23_mediation_ers_environment/Tables/Table S11*.xlsx",
+      "_tail/step22_mediation_ers_environment/Tables/Table S11*.xlsx",
       "_tail/step19_mediation_ers_environment/Tables/Table S11*.xlsx",
       "_tail/Tables/Table S11*.xlsx",
+      "_tail/step23_mediation_ers_environment/Tables/Table_S7_Mediation_DKD.xlsx",
       "_tail/step19_mediation_ers_environment/Tables/Table_S7_Mediation_DKD.xlsx",
       "_tail/Tables/Table_S7_Mediation_DKD.xlsx"
     ),
@@ -262,7 +272,7 @@ environment_collect_dkd_results <- function(
   add_row(13L, "Table", "Table S12-Subgroup-Gender",
     paste0("Table S12. Subgroup analysis stratified by Gender (", disease, ")"),
     find_first(
-      "_tail/**/Table_S*Subgroup*Gender*.xlsx",
+      "_tail/*/Tables/Table_S*Subgroup*Gender*.xlsx",
       "_tail/Tables/Table_S*Subgroup*Gender*.xlsx"
     ),
     paste0("Table S12. Subgroup analysis stratified by Gender (", disease, ").xlsx"))
@@ -270,7 +280,7 @@ environment_collect_dkd_results <- function(
   add_row(14L, "Table", "Table S13-Subgroup-Race",
     paste0("Table S13. Subgroup analysis stratified by Race (", disease, ")"),
     find_first(
-      "_tail/**/Table_S*Subgroup*Race*.xlsx",
+      "_tail/*/Tables/Table_S*Subgroup*Race*.xlsx",
       "_tail/Tables/Table_S*Subgroup*Race*.xlsx",
       "Tables/Table_S9_Subgroup_Race*.xlsx"
     ),
@@ -279,7 +289,7 @@ environment_collect_dkd_results <- function(
   add_row(15L, "Table", "Table S14-Subgroup-PIR",
     paste0("Table S14. Subgroup analysis stratified by PIR (", disease, ")"),
     find_first(
-      "_tail/**/Table_S*Subgroup*PIR*.xlsx",
+      "_tail/*/Tables/Table_S*Subgroup*PIR*.xlsx",
       "_tail/Tables/Table_S*Subgroup*PIR*.xlsx",
       "Tables/Table_S10_Subgroup_PIR*.xlsx"
     ),
@@ -288,7 +298,7 @@ environment_collect_dkd_results <- function(
   add_row(16L, "Table", "Table S15-Subgroup-Smoked",
     paste0("Table S15. Subgroup analysis stratified by Smoking (", disease, ")"),
     find_first(
-      "_tail/**/Table_S*Subgroup*Smok*.xlsx",
+      "_tail/*/Tables/Table_S*Subgroup*Smok*.xlsx",
       "_tail/Tables/Table_S*Subgroup*Smok*.xlsx",
       "Tables/Table_S11_Subgroup_Smoking*.xlsx"
     ),
@@ -297,29 +307,66 @@ environment_collect_dkd_results <- function(
   add_row(17L, "Table", "Table S19-Qgcomp",
     paste0("Table S19. Associations of Environmental Toxicants with ", disease, " by using Quantile g-Computation"),
     find_first(
+      "_tail/step22_qgcomp_environment/Tables/Table S19*.csv",
       "_tail/step19_qgcomp_environment/Tables/Table S19*.csv",
-      "_tail/**/Table S19*.csv",
+      "_tail/*/Tables/Table S19*.csv",
       "_tail/Tables/Table S19*.csv",
       "_tail/Tables/Table S12*.csv"
     ),
     paste0("Table S19. Associations of Environmental Toxicants with ", disease, " by using Quantile g-Computation.csv"))
 
-  add_row(19L, "Table", "Table S12-KEGG",
+  # FDR 表已由 environment_build_*_fdr 直接写入 Results_Summary（病名用空格）；
+  # collect 侧 dest 必须同口径，否则会复制出 Female_Infertility 重复件。
+  disease_fdr <- gsub("_", " ", disease, fixed = TRUE)
+
+  add_row(18L, "Table", "Table S20-FDR-GLM",
+    paste0("Table S20. FDR-adjusted GLM continuous associations of Environmental Toxicants with ", disease_fdr, " (full population)"),
+    find_first(
+      "Results_Summary/Tables/Table S20. FDR-adjusted GLM*.xlsx",
+      "Results_Summary/Tables/*FDR-adjusted GLM*.xlsx"
+    ),
+    paste0("Table S20. FDR-adjusted GLM continuous associations of Environmental Toxicants with ", disease_fdr, " (full population).xlsx"))
+
+  add_row(19L, "Table", "Table S21-FDR-WQS",
+    paste0("Table S21. FDR-adjusted WQS index association with ", disease_fdr, " (full population)"),
+    find_first(
+      "Results_Summary/Tables/Table S21. FDR-adjusted WQS*.xlsx",
+      "Results_Summary/Tables/*FDR-adjusted WQS*.xlsx"
+    ),
+    paste0("Table S21. FDR-adjusted WQS index association with ", disease_fdr, " (full population).xlsx"))
+
+  add_row(20L, "Table", "Table S22-FDR-BKMR",
+    paste0("Table S22. FDR-adjusted BKMR PIP for Environmental Toxicants with ", disease_fdr, " (full population)"),
+    find_first(
+      "Results_Summary/Tables/Table S22. FDR-adjusted BKMR*.xlsx",
+      "Results_Summary/Tables/*FDR-adjusted BKMR*.xlsx"
+    ),
+    paste0("Table S22. FDR-adjusted BKMR PIP for Environmental Toxicants with ", disease_fdr, " (full population).xlsx"))
+
+  add_row(21L, "Table", "Table S23-FDR-QGC",
+    paste0("Table S23. FDR-adjusted Quantile g-Computation associations with ", disease_fdr, " (full population)"),
+    find_first(
+      "Results_Summary/Tables/Table S23. FDR-adjusted Quantile*.xlsx",
+      "Results_Summary/Tables/*FDR-adjusted Quantile*.xlsx"
+    ),
+    paste0("Table S23. FDR-adjusted Quantile g-Computation associations with ", disease_fdr, " (full population).xlsx"))
+
+  add_row(22L, "Table", "Table S12-KEGG",
     "Table S12. Results of KEGG Enrichment Analysis",
     find_first("_tail/**/Table S12*.xlsx", "Tables/Table S12*.xlsx"),
     "Table S12. Results of KEGG Enrichment Analysis.xlsx")
 
-  add_row(20L, "Table", "Table S13-GO-BP",
+  add_row(23L, "Table", "Table S13-GO-BP",
     "Table S13. Results of GO-BP Enrichment Analysis",
     find_first("_tail/**/Table S13*.xlsx", "Tables/Table S13*.xlsx"),
     "Table S13. Results of GO-BP Enrichment Analysis.xlsx")
 
-  add_row(21L, "Table", "Table S14-GO-CC",
+  add_row(24L, "Table", "Table S14-GO-CC",
     "Table S14. Results of GO-CC Enrichment Analysis",
     find_first("_tail/**/Table S14*.xlsx", "Tables/Table S14*.xlsx"),
     "Table S14. Results of GO-CC Enrichment Analysis.xlsx")
 
-  add_row(22L, "Table", "Table S15-GO-MF",
+  add_row(25L, "Table", "Table S15-GO-MF",
     "Table S15. Results of GO-MF Enrichment Analysis",
     find_first("_tail/**/Table S15*.xlsx", "Tables/Table S15*.xlsx"),
     "Table S15. Results of GO-MF Enrichment Analysis.xlsx")
@@ -328,6 +375,7 @@ environment_collect_dkd_results <- function(
   add_row(30L, "Figure", "Figure S1",
     "Figure S1. Variable missing value overview",
     find_first(
+      "_shared/step05_imputation/Figures/Figure Missing Value Overview.pdf",
       "_shared/step04_imputation/Figures/Figure Missing Value Overview.pdf",
       "_shared/Figures/Figure Missing Value Overview.pdf"
     ),
@@ -338,6 +386,7 @@ environment_collect_dkd_results <- function(
     find_first(
       "_shared/step15_lasso_environment_voc/Figures/Figure 2*.pdf",
       "_shared/step13_lasso_environment_voc/Figures/Figure 2*.pdf",
+      "_shared/Figures/pdf/Figure 2*.pdf",
       "_shared/Figures/Figure 2*.pdf"
     ),
     "Figure 2. Selection of Environmental exposure variables for Lasso regression.pdf")
@@ -346,6 +395,7 @@ environment_collect_dkd_results <- function(
     "Figure S2. Correlation of Environmental Toxicants (Spearman)",
     find_first(
       "_shared/step12_environment_voc_corrplot/Figures/Figure Corrplot VOC.pdf",
+      "_shared/Figures/pdf/Figure Corrplot VOC.pdf",
       "_shared/Figures/Figure Corrplot VOC.pdf"
     ),
     "Figure S2. Correlation of Environmental Toxicants.pdf")
@@ -354,6 +404,7 @@ environment_collect_dkd_results <- function(
     "Figure S2. Correlation of baseline covariates (Spearman)",
     find_first(
       "_shared/step12_environment_voc_corrplot/Figures/Figure Corrplot Baseline.pdf",
+      "_shared/Figures/pdf/Figure Corrplot Baseline.pdf",
       "_shared/Figures/Figure Corrplot Baseline.pdf"
     ),
     "Figure S2. Correlation of baseline covariates.pdf")
@@ -361,8 +412,10 @@ environment_collect_dkd_results <- function(
   add_row(34L, "Figure", "Figure 3",
     paste0("Figure 3. The WQS model weights of screened Environmental Toxicants on ", disease),
     find_first(
+      "_shared/step19_wqs_environment/Figures/Figure_WQS_Weights.pdf",
       "_shared/step16_wqs_environment/Figures/Figure_WQS_Weights.pdf",
       "_shared/step15_wqs_environment/Figures/Figure_WQS_Weights.pdf",
+      "_shared/Figures/pdf/Figure_WQS_Weights.pdf",
       "_shared/Figures/Figure_WQS_Weights.pdf",
       "Figures/Figure_WQS_Weights.pdf"
     ),
@@ -371,8 +424,10 @@ environment_collect_dkd_results <- function(
   add_row(35L, "Figure", "Figure 4",
     paste0("Figure 4. The combined effect of Environmental Toxicants on ", disease, " risk"),
     find_first(
+      "_shared/step21_bkmr_analysis/Figures/Figure_BKMR_Overall.pdf",
       "_shared/step18_bkmr_analysis/Figures/Figure_BKMR_Overall.pdf",
       "_shared/step17_bkmr_analysis/Figures/Figure_BKMR_Overall.pdf",
+      "_shared/Figures/pdf/Figure_BKMR_Overall.pdf",
       "_shared/Figures/Figure_BKMR_Overall.pdf"
     ),
     paste0("Figure 4. The combined effect of Environmental Toxicants on ", disease, " risk.pdf"))
@@ -380,8 +435,10 @@ environment_collect_dkd_results <- function(
   add_row(36L, "Figure", "Figure 5",
     paste0("Figure 5. Association of individual Environmental Toxicants with ", disease),
     find_first(
+      "_shared/step21_bkmr_analysis/Figures/Figure_BKMR_SingVar.pdf",
       "_shared/step18_bkmr_analysis/Figures/Figure_BKMR_SingVar.pdf",
       "_shared/step17_bkmr_analysis/Figures/Figure_BKMR_SingVar.pdf",
+      "_shared/Figures/pdf/Figure_BKMR_SingVar.pdf",
       "_shared/Figures/Figure_BKMR_SingVar.pdf"
     ),
     paste0("Figure 5. Association of individual Environmental Toxicants with ", disease, ".pdf"))
@@ -389,8 +446,10 @@ environment_collect_dkd_results <- function(
   add_row(37L, "Figure", "Figure 6",
     paste0("Figure 6. Dose-response of individual Environmental Toxicants with ", disease),
     find_first(
+      "_shared/step21_bkmr_analysis/Figures/Figure_BKMR_DoseResponse.pdf",
       "_shared/step18_bkmr_analysis/Figures/Figure_BKMR_DoseResponse.pdf",
       "_shared/step17_bkmr_analysis/Figures/Figure_BKMR_DoseResponse.pdf",
+      "_shared/Figures/pdf/Figure_BKMR_DoseResponse.pdf",
       "_shared/Figures/Figure_BKMR_DoseResponse.pdf"
     ),
     paste0("Figure 6. Dose-response of individual Environmental Toxicants with ", disease, ".pdf"))
@@ -398,11 +457,56 @@ environment_collect_dkd_results <- function(
   add_row(40L, "Figure", "Figure 8",
     paste0("Figure 8. QGC model weights of screened Environmental Toxicants on ", disease),
     find_first(
+      "_tail/step22_qgcomp_environment/Figures/Figure_QGComp_Weights.pdf",
       "_tail/step19_qgcomp_environment/Figures/Figure_QGComp_Weights.pdf",
-      "_tail/**/Figure_QGComp_Weights.pdf",
+      "_tail/*/Figures/Figure_QGComp_Weights.pdf",
+      "_tail/Figures/pdf/Figure_QGComp_Weights.pdf",
       "_tail/Figures/Figure_QGComp_Weights.pdf"
     ),
     paste0("Figure 8. QGC model weights of screened Environmental Toxicants on ", disease, ".pdf"))
+
+  # FDR 配套图：复用主文 Figure 3/4/5/8 同款图面（WQS / BKMR overall / BKMR singvar / QGC）
+  disease_fdr_fig <- gsub("_", " ", disease, fixed = TRUE)
+  add_row(42L, "Figure", "Figure 9-FDR-WQS",
+    paste0("Figure 9. WQS model weights with FDR tables (", disease_fdr_fig, "; full population)"),
+    find_first(
+      "Results_Summary/Figures/**/Figure 9. WQS model weights with FDR*.pdf",
+      "Results_Summary/Figures/pdf/Figure 9. WQS model weights with FDR*.pdf",
+      "Results_Summary/Figures/Figure 9. WQS model weights with FDR*.pdf"
+    ),
+    paste0("Figure 9. WQS model weights with FDR tables (", disease_fdr_fig, "; full population).pdf"))
+  add_row(43L, "Figure", "Figure 10-FDR-BKMR-Overall",
+    paste0("Figure 10. BKMR overall mixture effect with FDR tables (", disease_fdr_fig, "; full population)"),
+    find_first(
+      "Results_Summary/Figures/**/Figure 10. BKMR overall mixture effect with FDR*.pdf",
+      "Results_Summary/Figures/pdf/Figure 10. BKMR overall mixture effect with FDR*.pdf",
+      "Results_Summary/Figures/Figure 10. BKMR overall mixture effect with FDR*.pdf"
+    ),
+    paste0("Figure 10. BKMR overall mixture effect with FDR tables (", disease_fdr_fig, "; full population).pdf"))
+  add_row(44L, "Figure", "Figure 11-FDR-BKMR-SingVar",
+    paste0("Figure 11. BKMR single-variable effect with FDR tables (", disease_fdr_fig, "; full population)"),
+    find_first(
+      "Results_Summary/Figures/**/Figure 11. BKMR single-variable effect with FDR*.pdf",
+      "Results_Summary/Figures/pdf/Figure 11. BKMR single-variable effect with FDR*.pdf",
+      "Results_Summary/Figures/Figure 11. BKMR single-variable effect with FDR*.pdf"
+    ),
+    paste0("Figure 11. BKMR single-variable effect with FDR tables (", disease_fdr_fig, "; full population).pdf"))
+  add_row(45L, "Figure", "Figure 12-FDR-QGC",
+    paste0("Figure 12. QGC model weights with FDR tables (", disease_fdr_fig, "; full population)"),
+    find_first(
+      "Results_Summary/Figures/**/Figure 12. QGC model weights with FDR*.pdf",
+      "Results_Summary/Figures/pdf/Figure 12. QGC model weights with FDR*.pdf",
+      "Results_Summary/Figures/Figure 12. QGC model weights with FDR*.pdf"
+    ),
+    paste0("Figure 12. QGC model weights with FDR tables (", disease_fdr_fig, "; full population).pdf"))
+  add_row(46L, "Figure", "Figure 13-FDR-BKMR-Dose",
+    paste0("Figure 13. BKMR dose-response with FDR tables (", disease_fdr_fig, "; full population)"),
+    find_first(
+      "Results_Summary/Figures/**/Figure 13. BKMR dose-response with FDR*.pdf",
+      "Results_Summary/Figures/pdf/Figure 13. BKMR dose-response with FDR*.pdf",
+      "Results_Summary/Figures/Figure 13. BKMR dose-response with FDR*.pdf"
+    ),
+    paste0("Figure 13. BKMR dose-response with FDR tables (", disease_fdr_fig, "; full population).pdf"))
 
   add_row(41L, "Figure", "Figure 9A",
     "Figure 9A. Venn Plot",
@@ -417,9 +521,11 @@ environment_collect_dkd_results <- function(
     fig_title <- paste0("Figure 7. RCS plot between ", voc_lbl, " and ", disease)
     fig_file  <- paste0(fig_title, ".pdf")
     src <- find_first(
+      paste0("by_voc/", voc, "/step22_rcs_nhanes/Figures/Figure 7-NHANES. RCS plot between ", voc, " and Female Infertility.pdf"),
+      paste0("by_voc/", voc, "/Figures/pdf/Figure 1-NHANES. RCS plot between ", voc, " and Female Infertility.pdf"),
       paste0("by_voc/", voc, "/Figures/", fig_file),
-      paste0("by_voc/", voc, "/**/Figure 7*.pdf"),
-      paste0("by_voc/", voc, "/**/Figure_RCS_*", voc, "*.pdf")
+      paste0("by_voc/", voc, "/*/Figures/Figure 7*.pdf"),
+      paste0("by_voc/", voc, "/Figures/pdf/*.pdf")
     )
     add_row(37L + i, "Figure", paste0("Figure 7 (", voc, ")"), fig_title, src, fig_file)
   }
@@ -471,6 +577,38 @@ environment_batch_collect_results_summary <- function(config, root = NULL) {
   disease <- as.character(config$project$disease %||% "DKD")[1L]
   proj_root <- root %||% bc$project_root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
 
+  fdr_src <- file.path(proj_root, "R/environment_sensitivity_fdr.R")
+  if (file.exists(fdr_src) &&
+      !exists("environment_build_full_population_fdr_table", mode = "function")) {
+    tryCatch(source(fdr_src, local = FALSE), error = function(e) NULL)
+  }
+  if (exists("environment_build_full_population_fdr_table", mode = "function")) {
+    tryCatch(
+      environment_build_full_population_fdr_table(
+        config = config,
+        result_root = result_root,
+        project_root = proj_root
+      ),
+      error = function(e) {
+        cli::cli_alert_warning("全人群方法 FDR 表生成失败: {e$message}")
+        NULL
+      }
+    )
+  }
+  if (exists("environment_build_sensitivity_method_fdr_tables", mode = "function")) {
+    tryCatch(
+      environment_build_sensitivity_method_fdr_tables(
+        config = config,
+        result_root = result_root,
+        project_root = proj_root
+      ),
+      error = function(e) {
+        cli::cli_alert_warning("敏感性方法 FDR 表生成失败: {e$message}")
+        NULL
+      }
+    )
+  }
+
   cli::cli_h2("Results_Summary 汇总")
   res <- tryCatch(
     environment_collect_dkd_results(
@@ -484,6 +622,14 @@ environment_batch_collect_results_summary <- function(config, root = NULL) {
     }
   )
   if (is.null(res)) return(invisible(NULL))
+
+  # collect 若仍写出下划线病名 FDR 副本，收尾再清一次
+  sum_tables <- file.path(result_root, "Results_Summary", "Tables")
+  if (exists("environment_fdr_dedupe_underscore_twins", mode = "function")) {
+    environment_fdr_dedupe_underscore_twins(sum_tables)
+    sens_tables <- file.path(result_root, "Sensitivity", "Tables")
+    if (dir.exists(sens_tables)) environment_fdr_dedupe_underscore_twins(sens_tables)
+  }
 
   cli::cli_alert_success(
     "Results_Summary: {res$n_ok}/{res$n_total} 已复制 -> {.file {res$out_root}}"

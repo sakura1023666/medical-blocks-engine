@@ -77,8 +77,10 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.30,
     method = "rf",
-    m = 1L,
+    m = 5L,
     seed = 1234L,
+    fit_on = "train",
+    complete_action = 1L,
     export_missing_fig = FALSE,
     export_table_s1 = FALSE,
     pause_enable = FALSE
@@ -168,9 +170,8 @@ pipeline_shared <- list(
   name = "tst_stroke_shared",
   blocks = c(
     "data_clean", "column_mapping",
-    "tst_cohort", "tst_timeseries",
-    "imputation", "baseline_binary",
-    "tst_landmark", "tst_split"
+    "tst_cohort", "tst_split", "imputation",
+    "tst_timeseries", "baseline_binary", "tst_landmark"
   ),
   checkpoint = list(enable = TRUE, dir = file.path(.tst_ck_root, "_shared", "main"))
 )

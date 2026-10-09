@@ -313,6 +313,37 @@ if (requireNamespace("openxlsx", quietly = TRUE)) {
   stopifnot(!any(grepl("^Table S[34]-", list.files(tmpd))))
   unlink(tmpd, recursive = TRUE)
 
+  # Weighted associations 与 Associations of … 必须压成同一 lab_assoc S 号
+  tmpw <- tempfile("compact_lab"); dir.create(tmpw)
+  for (nm in c(
+    "Table S8-CHARLS. Associations of LCI with laboratory indicators.xlsx",
+    "Table S9-NHANES. Weighted associations of LCI with laboratory indicators.xlsx",
+    "Table S10-CHARLS. Mediation analysis of LCI.xlsx",
+    "Table S10-NHANES. Mediation analysis of LCI.xlsx"
+  )) {
+    wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(wb, "Sheet1")
+    openxlsx::writeData(wb, "Sheet1", data.frame(x = 1))
+    openxlsx::saveWorkbook(wb, file.path(tmpw, nm), overwrite = TRUE)
+  }
+  incidence_batch_compact_supp_s_numbers(tmpw, list(incidence = list(index_var = "LCI")))
+  stopifnot(file.exists(file.path(
+    tmpw, "Table S1-CHARLS. Associations of LCI with laboratory indicators.xlsx"
+  )))
+  stopifnot(file.exists(file.path(
+    tmpw, "Table S1-NHANES. Weighted associations of LCI with laboratory indicators.xlsx"
+  )))
+  stopifnot(file.exists(file.path(
+    tmpw, "Table S2-CHARLS. Mediation analysis of LCI.xlsx"
+  )))
+  stopifnot(file.exists(file.path(
+    tmpw, "Table S2-NHANES. Mediation analysis of LCI.xlsx"
+  )))
+  stopifnot(!file.exists(file.path(
+    tmpw, "Table S9-NHANES. Weighted associations of LCI with laboratory indicators.xlsx"
+  )))
+  unlink(tmpw, recursive = TRUE)
+
   tmp <- tempfile("sxx"); dir.create(tmp)
   old_f <- file.path(
     tmp,

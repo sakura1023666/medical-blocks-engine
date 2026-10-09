@@ -13,6 +13,9 @@ engine.env
 Rplots.pdf
 *.Rcheck/
 
+# Local tooling (origin CLI binary, not source)
+.tools/
+
 # Python / caches
 .venv/
 venv/
@@ -34,7 +37,40 @@ Thumbs.db
 *.swp
 *~
 
-# Large local study dumps (keep code/docs only by default)
-# Uncomment if these dirs grow huge on disk:
-# PDF/
-# _archive/
+# Large local study dumps / literature blobs (engine source only in git)
+PDF/
+OPC-002/
+Output/
+Data/
+by_index/
+*.xlsx
+!configs/**/*.xlsx
+
+# Loose root study artifacts (Chinese/English one-offs)
+资料03-Tables/
+结果审查报告.md
+最终资料整理.xlsx
+方案1：脂质组无创识别高风险分层研究方案.pdf
+RAR-卵巢癌-*/
+De/
+
+# Ephemeral scratch dirs (mis-filed relative-path output; not engine source)
+tmp/
+_archive/
+.tmp_flow_compare/
+.venv_ml_pub/
+studies_run/
+G:/
+SHR/
+extra_analyses.log
+
+# Local IDE / agent noise (keep shared rules; ignore machine-local)
+.claude/settings.local.json
+
+# Project-specific one-off hotfixes must NOT live in the shared engine
+run/ml/._*_*.R
+run/ml/repair_*.R
+
+# Misc root one-offs
+De Ritis*
+C01_network_analysis.R

@@ -24,6 +24,31 @@
 #  注意: 禁止在本块之前对 Pooled 跑 UV/VIF；本块也不跑筛选
 ###############################################################################
 
+if (!exists("%||%", mode = "function")) {
+  `%||%` <- function(a, b) if (is.null(a)) b else a
+}
+
+#' 库内把暴露变成可比尺度。percentile = 平均秩百分位 0–100（同分同一百分位）。
+cross_lagged_harmonize_exposure <- function(x, method = "percentile") {
+  x <- suppressWarnings(as.numeric(x))
+  method <- tolower(as.character(method)[1L])
+  ok <- is.finite(x)
+  out <- rep(NA_real_, length(x))
+  if (!any(ok)) return(out)
+  if (identical(method, "percentile")) {
+    r <- rank(x[ok], ties.method = "average")
+    out[ok] <- 100 * r / sum(ok)
+    return(out)
+  }
+  if (identical(method, "zscore")) {
+    mu <- mean(x[ok])
+    sdv <- stats::sd(x[ok])
+    out[ok] <- if (is.finite(sdv) && sdv > 0) (x[ok] - mu) / sdv else 0
+    return(out)
+  }
+  stop("cross_lagged_harmonize_exposure: 未知 method=", method, call. = FALSE)
+}
+
 block_cross_lagged_pooled_bind <- function(ctx, ...) {
   cfg <- ctx$config
   bl <- cfg$cross_lagged_pooled_bind %||% list()
@@ -73,6 +98,13 @@ block_cross_lagged_pooled_bind <- function(ctx, ...) {
     if (!id_col %in% names(d))
       stop("cross_lagged_pooled_bind: ", nm, " 缺 ID 列 ", id_col, call. = FALSE)
     d[[id_col]] <- paste0(nm, "_", as.character(d[[id_col]]))
+    harm <- tolower(as.character(bl$harmonize %||% "")[1L])
+    if (nzchar(harm) && !identical(harm, "none")) {
+      hname <- as.character(bl$harmonized_index %||% paste0(index_var, "_harmonized"))[1L]
+      if (!index_var %in% names(d))
+        stop("cross_lagged_pooled_bind: ", nm, " 缺暴露 ", index_var, call. = FALSE)
+      d[[hname]] <- cross_lagged_harmonize_exposure(d[[index_var]], harm)
+    }
     parts[[nm]] <- d
   }
 

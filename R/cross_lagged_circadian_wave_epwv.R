@@ -84,10 +84,15 @@ circadian_rebuild_conditions <- function(df, cohort) {
   asia <- grepl("CHARLS", as.character(cohort)[1L], ignore.case = TRUE)
   w_m <- if (isTRUE(asia)) 90 else 94
   w_f <- 80
-  tg_cut <- if (isTRUE(asia) || stats::median(tg, na.rm = TRUE) > 20) 150 else 1.7
-  hdl_m <- if (isTRUE(asia) || stats::median(hdl, na.rm = TRUE) > 5) 40 else 1.0
-  hdl_f <- if (isTRUE(asia) || stats::median(hdl, na.rm = TRUE) > 5) 50 else 1.3
-  glu_cut <- if (isTRUE(asia) || stats::median(glu, na.rm = TRUE) > 20) 100 else 5.6
+  # 全 NA 时 median(..., na.rm=TRUE) 为 NA，不能直接进 if()
+  .unit_high <- function(x, thr) {
+    m <- suppressWarnings(stats::median(x, na.rm = TRUE))
+    is.finite(m) && m > thr
+  }
+  tg_cut <- if (isTRUE(asia) || .unit_high(tg, 20)) 150 else 1.7
+  hdl_m <- if (isTRUE(asia) || .unit_high(hdl, 5)) 40 else 1.0
+  hdl_f <- if (isTRUE(asia) || .unit_high(hdl, 5)) 50 else 1.3
+  glu_cut <- if (isTRUE(asia) || .unit_high(glu, 20)) 100 else 5.6
   ces_cut <- if (!is.null(ces_nm) && grepl("10", ces_nm)) 10 else 4
 
   c1 <- ifelse(is.na(waist) | is.na(male), NA_integer_,
@@ -163,6 +168,13 @@ circadian_wave_enrich <- function(df, cohort, year, baseline_year, age_map,
   if (!is.finite(off)) off <- 0
   age_w <- age0 + off
   df$Age_wave <- age_w
-  df$ePWV <- circadian_epwv_from_age_bp(age_w, df$SBP, df$DBP)
+  n <- nrow(df)
+  sbp <- if ("SBP" %in% names(df)) circadian_num(df$SBP) else rep(NA_real_, n)
+  dbp <- if ("DBP" %in% names(df)) circadian_num(df$DBP) else rep(NA_real_, n)
+  if (length(sbp) != n) sbp <- rep(NA_real_, n)
+  if (length(dbp) != n) dbp <- rep(NA_real_, n)
+  df$SBP <- sbp
+  df$DBP <- dbp
+  df$ePWV <- circadian_epwv_from_age_bp(age_w, sbp, dbp)
   df
 }

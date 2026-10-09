@@ -43,4 +43,24 @@ stopifnot(!file.exists(pathfig))
 stopifnot(length(.table_queue_env$items) == 1L)
 stopifnot(identical(.table_queue_env$items[[1L]]$filepath, keep))
 unlink(td, recursive = TRUE)
+
+cols <- c("WBC", "Hematocrit", "Alcohol_drinking", "Marital_Status",
+          "Height", "DBP", "Waist_circumference", "Uric_Acid")
+pool <- .mi02_resolve_lab_indicator_pool(
+  list(),
+  list(lab_indicator_vars = c("WBC", "Hematocrit", "Uric_Acid")),
+  cols, "LCI"
+)
+stopifnot(identical(sort(pool), c("Hematocrit", "Uric_Acid", "WBC")))
+pool_extra <- .mi02_resolve_lab_indicator_pool(
+  list(),
+  list(
+    lab_indicator_vars = c("WBC", "Hematocrit"),
+    mediator_extra_vars = "Waist_circumference"
+  ),
+  cols, "LCI"
+)
+stopifnot("Waist_circumference" %in% pool_extra)
+stopifnot(!"Alcohol_drinking" %in% pool_extra)
+
 message("test_mediation_unlink_assoc: OK")

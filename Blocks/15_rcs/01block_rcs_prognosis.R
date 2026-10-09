@@ -15,7 +15,8 @@
 #
 #  # ── 配置 config$rcs_prognosis ─────────────────────────────────────────────
 #  rcs_prognosis = list(
-#    index_var                = NULL,    # 连续暴露；NULL → survival$index_var
+#    index_var                = NULL,    # 主暴露（多页时 primary cutoff；合并页序跟 cox_ml/KM）
+#    vars                     = NULL,    # NULL → cox_ml_continuous_batch_features（与 Fig KM 一致）→ rcs$vars → index_var
 #    model1_factors           = NULL,    # 覆盖 Model1Factors；NULL 用 ctx$results
 #    model2_factors           = NULL,    # 覆盖 Model2Factors
 #    nk_range                 = 3:5,     # coxph + rcspline.eval，AIC 选 nk
@@ -175,15 +176,20 @@
 
 .rcp01_draw_panel <- function(panel_letter, Index, smoothlogHR.point, p, refvalue, cfg,
                               plot_ff = "serif", show_cutoff_lines = FALSE, cutoffs = NULL,
-                              label_digits = 2L, xlim = NULL, ylim = NULL) {
+                              label_digits = 2L, xlim = NULL, ylim = NULL, ylim_force = FALSE) {
   par(family = plot_ff, mar = c(5, 4, 4, 2) + 0.3, xpd = FALSE)
 
   x_vec <- as.numeric(smoothlogHR.point[, 1L])
   hr_vec <- exp(as.numeric(smoothlogHR.point$LnHR))
   lo_vec <- exp(as.numeric(smoothlogHR.point$`lower .95`))
   hi_vec <- exp(as.numeric(smoothlogHR.point$`upper .95`))
-  # Cox 不收敛时 LnHR 可为 ±Inf；ylim 只取有限正值
-  finite_y <- c(hr_vec, lo_vec, hi_vec)
+  x_win <- rep(TRUE, length(x_vec))
+  if (!is.null(xlim) && length(xlim) >= 2L && all(is.finite(as.numeric(xlim[1:2])))) {
+    xl <- as.numeric(xlim[1:2])
+    x_win <- is.finite(x_vec) & x_vec >= xl[1L] & x_vec <= xl[2L]
+  }
+  # Cox 不收敛时 LnHR 可为 ±Inf；ylim 只取作图窗内有限正值
+  finite_y <- c(hr_vec[x_win], lo_vec[x_win], hi_vec[x_win])
   finite_y <- finite_y[is.finite(finite_y) & finite_y > 0]
   if (!length(finite_y)) {
     ylim.bot <- 0.1
@@ -196,18 +202,37 @@
       ylim.bot <- 0.1
       ylim.top <- 10
     }
-    # 极端尾巴压到 99% 分位，避免单点 Inf 撑爆轴
-    q99 <- as.numeric(stats::quantile(finite_y, 0.99, na.rm = TRUE))
-    if (is.finite(q99) && q99 > ylim.bot) {
-      ylim.top <- min(ylim.top, max(q99 * 1.2, ylim.bot * 1.5))
+    # 极端尾巴压到 95% 分位，避免 CI 外推撑爆轴
+    q95 <- as.numeric(stats::quantile(finite_y, 0.95, na.rm = TRUE))
+    if (is.finite(q95) && q95 > ylim.bot) {
+      ylim.top <- min(ylim.top, max(q95 * 1.15, ylim.bot * 1.4, 2))
     }
   }
-  y_pad <- max((ylim.top - ylim.bot) * 0.12, 0.05)
+  y_pad <- max((ylim.top - ylim.bot) * 0.10, 0.04)
   ylim_user <- suppressWarnings(as.numeric(ylim)[1:2])
+  ylim_force <- isTRUE(ylim_force)
   if (length(ylim_user) >= 2L && all(is.finite(ylim_user)) && ylim_user[2L] > ylim_user[1L]) {
-    ylim.bot <- ylim_user[1L]
-    ylim.top <- ylim_user[2L]
-    y_pad <- 0
+    ## 用户显式 ylim 且上限已足够容纳窗内 CI：直接采用，避免 Model2 宽 CI 被压成「向上翘」假象
+    if (ylim_user[2L] + 1e-8 >= ylim.top) {
+      ylim.bot <- ylim_user[1L]
+      ylim.top <- ylim_user[2L]
+      y_pad <- 0
+    } else if (isTRUE(ylim_force) && length(finite_y)) {
+      q95 <- as.numeric(stats::quantile(finite_y, 0.95, na.rm = TRUE))
+      if (is.finite(q95)) {
+        ylim.top <- min(ylim_user[2L], max(q95 * 1.12, 2))
+      } else {
+        ylim.top <- ylim_user[2L]
+      }
+      ylim.bot <- ylim_user[1L]
+    } else if (ylim_user[2L] + 1e-8 >= ylim.top) {
+      ylim.bot <- ylim_user[1L]
+      ylim.top <- ylim_user[2L]
+      y_pad <- 0
+    } else {
+      ylim.bot <- ylim_user[1L]
+      ylim.top <- max(ylim.top, ylim_user[2L])
+    }
   }
 
   y_lim_final <- c(max(0, ylim.bot - y_pad), ylim.top + y_pad)
@@ -236,7 +261,9 @@
     type = "l",
     ylim = y_lim_final,
     col = cfg$color2, lwd = 2,
-    xaxs = "i", yaxs = "i"
+    xaxs = if (!is.null(xlim) && length(xlim) >= 2L && is.finite(as.numeric(xlim[1L])) &&
+             as.numeric(xlim[1L]) > 0) "r" else "i",
+    yaxs = "i"
   )
   if (!is.null(xlim) && length(xlim) >= 2L &&
       all(is.finite(as.numeric(xlim[1:2])))) {
@@ -334,10 +361,180 @@ block_rcs_prognosis <- function(ctx, ...) {
 
   time_var <- surv_cfg$time_var %||% "futime"
   event_var <- surv_cfg$event_var %||% "fustatus"
-  Index <- rp_cfg$index_var %||% surv_cfg$index_var %||% (cfg$logistic %||% list())$index_var
-  if (is.null(Index) || !nzchar(Index)) {
-    stop("rcs_prognosis: 未设置 index_var（config$survival$index_var 或 rcs_prognosis$index_var）。")
+  primary_ix <- as.character(
+    rp_cfg$index_var %||% surv_cfg$index_var %||% (cfg$logistic %||% list())$index_var %||% ""
+  )[1L]
+  # 多连续特征：优先与 KM 同源（cox_ml_continuous_batch_features）
+  # 显式 rcs_prognosis$vars > cox_ml 特征 > rcs$vars > index_var
+  vars_cand <- unique(as.character(
+    rp_cfg$vars %||%
+      ctx$results$cox_ml_continuous_batch_features %||%
+      names(ctx$results$continuous_km_cutpoints %||% list()) %||%
+      (cfg$rcs %||% list())$vars %||%
+      if (nzchar(primary_ix)) primary_ix else character(0)
+  ))
+  vars_cand <- vars_cand[nzchar(vars_cand)]
+  exclude_ix <- unique(c(
+    as.character(rp_cfg$exclude_vars %||% character(0)),
+    as.character(cfg$force_factor_vars %||% character(0)),
+    as.character((cfg$km_continuous %||% list())$exclude_vars %||% character(0))
+  ))
+  exclude_ix <- exclude_ix[nzchar(exclude_ix)]
+  if (length(exclude_ix)) vars_cand <- setdiff(vars_cand, exclude_ix)
+  vars_ok <- vars_cand[vapply(vars_cand, function(v) {
+    v %in% names(rt) &&
+      is.numeric(rt[[v]]) && !is.factor(rt[[v]]) &&
+      length(unique(stats::na.omit(rt[[v]]))) >= 8L
+  }, logical(1L))]
+  if (!length(vars_ok) && nzchar(primary_ix) && primary_ix %in% names(rt)) {
+    vars_ok <- primary_ix
   }
+  if (!length(vars_ok)) {
+    stop("rcs_prognosis: 未设置可用连续 index（vars / cox_ml 特征 / rcs$vars / index_var）。")
+  }
+  # 多页循环的单变量子调用：强制只用 index_var（勿再展开为 cox_ml 全表）
+  if (isTRUE(rp_cfg$.rcs_single_pass)) {
+    ix_one <- as.character(rp_cfg$index_var %||% primary_ix)[1L]
+    if (!nzchar(ix_one)) {
+      stop("rcs_prognosis: .rcs_single_pass 需要 index_var。", call. = FALSE)
+    }
+    vars_ok <- ix_one
+  }
+  # 保持与 cox_ml / KM 相同顺序（勿因 primary 重排打乱 Fig2↔Fig3 面板对应）
+  cox_ord <- as.character(ctx$results$cox_ml_continuous_batch_features %||% character(0))
+  if (length(cox_ord) && length(vars_ok) > 1L) {
+    vars_ok <- c(intersect(cox_ord, vars_ok), setdiff(vars_ok, cox_ord))
+  }
+
+  ## 多变量：每页一张 ABC，再合并为 Figure 2（避免只画 AMH）
+  if (length(vars_ok) > 1L && !isTRUE(rp_cfg$.rcs_single_pass)) {
+    Disease <- cfg$project$disease %||% cfg$project$analysis_group %||% "Disease"
+    fig_dir <- ctx$output_dir_figures %||% file.path(ctx$output_dir, "Figures")
+    if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
+    tmp_dir <- file.path(fig_dir, "_rcs_pages_tmp")
+    if (dir.exists(tmp_dir)) unlink(tmp_dir, recursive = TRUE)
+    dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
+    page_pdfs <- character(0)
+    by_var_stats <- list()
+    primary_keep <- if (nzchar(primary_ix) && primary_ix %in% vars_ok) primary_ix else vars_ok[[1L]]
+    # primary 仍放最后写 cutoff，但合并 PDF 页序按 vars_ok（与 KM 一致）
+    vars_fit <- c(setdiff(vars_ok, primary_keep), primary_keep)
+    page_by_var <- list()
+
+    old_fig <- ctx$output_dir_figures
+
+    for (v in vars_fit) {
+      ctx$config$rcs_prognosis <- modifyList(rp_cfg, list(
+        index_var = v,
+        # 勿写 vars=NULL（modifyList 会删键，子调用又展开成 cox_ml 全表）
+        vars = v,
+        .rcs_single_pass = TRUE,
+        bump_counter = FALSE,
+        figure_number = NA_integer_,
+        figure_filename = paste0("RCS_page_", v, ".pdf")
+      ))
+      ctx$output_dir_figures <- tmp_dir
+      ctx <- tryCatch(block_rcs_prognosis(ctx), error = function(e) {
+        cli::cli_alert_warning("rcs_prognosis 跳过 {v}: {conditionMessage(e)}")
+        ctx
+      })
+      # 必须匹配当前变量名，禁止沿用上一页的 rcs_prognosis_figure 路径
+      .v_pat <- paste0("(?i)", gsub("_", "[ _]", v))
+      page <- as.character(ctx$results$rcs_prognosis_figure %||% "")[1L]
+      if (!nzchar(page) || !isTRUE(file.exists(page)) ||
+          !grepl(.v_pat, basename(page), perl = TRUE)) {
+        page <- file.path(tmp_dir, paste0("RCS_page_", v, ".pdf"))
+      }
+      if (!file.exists(page) || !grepl(.v_pat, basename(page), perl = TRUE)) {
+        hits <- list.files(tmp_dir, pattern = "\\.pdf$", full.names = TRUE)
+        # 排除 KEEP_ 与其它变量页，只取本变量新页
+        hits <- hits[!grepl("^KEEP_", basename(hits))]
+        hits <- hits[grepl(.v_pat, basename(hits), perl = TRUE)]
+        hits <- hits[order(file.info(hits)$mtime, decreasing = TRUE)]
+        if (length(hits)) page <- hits[[1L]]
+      }
+      if (isTRUE(file.exists(page))) {
+        keep <- file.path(tmp_dir, paste0("KEEP_", v, ".pdf"))
+        file.copy(page, keep, overwrite = TRUE)
+        page_by_var[[v]] <- keep
+        by_var_stats[[v]] <- ctx$results$rcs_prognosis_panel_stats
+        cli::cli_alert_success("RCS page: {v}")
+      } else {
+        cli::cli_alert_warning("rcs_prognosis: {v} 未产出 PDF")
+      }
+    }
+    # 合并顺序 = vars_ok（与 Fig3 KM 一致），不是拟合顺序
+    page_pdfs <- unlist(page_by_var[intersect(vars_ok, names(page_by_var))], use.names = FALSE)
+
+    if (!length(page_pdfs)) {
+      stop("rcs_prognosis: 多变量模式无任何页面 PDF。", call. = FALSE)
+    }
+
+    fig_caption <- paste0(
+      "RCS Analysis of Continuous Features and Mortality in ", Disease
+    )
+    fig_no <- suppressWarnings(as.integer(rp_cfg$figure_number %||% 2L)[1L])
+    fig_kind <- as.character(rp_cfg$figure_kind %||% "main_figure")[1L]
+    if (!nzchar(fig_kind)) fig_kind <- "main_figure"
+    outfile <- if (is.finite(fig_no) && fig_no >= 1L &&
+                   exists("pub_figure_filepath_at", mode = "function")) {
+      pub_figure_filepath_at(
+        fig_dir, fig_no, fig_caption, ext = "pdf",
+        bump_counter = isTRUE(rp_cfg$bump_counter %||% TRUE),
+        kind = fig_kind
+      )
+    } else if (!is.null(rp_cfg$figure_filename) && nzchar(rp_cfg$figure_filename)) {
+      file.path(fig_dir, rp_cfg$figure_filename)
+    } else {
+      file.path(fig_dir, paste0("Figure ", fig_no, ". ", fig_caption, ".pdf"))
+    }
+    if (exists(".pub_figure_filename", mode = "function")) {
+      outfile <- file.path(fig_dir, .pub_figure_filename(basename(outfile)))
+    }
+
+    combined_ok <- FALSE
+    if (requireNamespace("pdftools", quietly = TRUE)) {
+      tryCatch({
+        pdftools::pdf_combine(page_pdfs, output = outfile)
+        combined_ok <- TRUE
+      }, error = function(e) {
+        cli::cli_alert_warning("pdf_combine 失败: {conditionMessage(e)}")
+      })
+    }
+    if (!combined_ok) {
+      file.copy(page_pdfs[[1L]], outfile, overwrite = TRUE)
+      cli::cli_alert_warning(
+        "rcs_prognosis: 无 pdftools，仅保留首页；共 {length(page_pdfs)} 页在 {tmp_dir}"
+      )
+    } else {
+      cli::cli_alert_success(
+        "Saved multipage RCS ({length(page_pdfs)} pages): {basename(outfile)}"
+      )
+      if (exists("pub_mirror_saved", mode = "function")) {
+        pub_mirror_saved(ctx, outfile)
+      }
+    }
+
+    ctx$output_dir_figures <- old_fig
+    ctx$config$rcs_prognosis <- rp_cfg
+    ctx$results$rcs_prognosis_vars <- names(by_var_stats)
+    ctx$results$rcs_prognosis_by_var_panel_stats <- by_var_stats
+    ctx$results$rcs_prognosis_figure <- outfile
+    ctx$results$rcs_prognosis_panel_stats <- by_var_stats[[primary_keep]] %||%
+      by_var_stats[[1L]]
+    # primary cutoff 已在最后一次单变量循环写入；若 primary 非末项则再标一次
+    if (!identical(ctx$results$rcs_cutoff_index, primary_keep) &&
+        primary_keep %in% names(by_var_stats)) {
+      ctx$results$rcs_cutoff_index <- primary_keep
+      ctx$results$cutoff_variable <- primary_keep
+    }
+    cli::cli_alert_success(
+      "rcs_prognosis 多变量完成: {paste(names(by_var_stats), collapse = ', ')}"
+    )
+    return(ctx)
+  }
+
+  Index <- vars_ok[[1L]]
   Disease <- cfg$project$disease %||% cfg$project$analysis_group %||% "Disease"
 
   for (v in c(time_var, event_var, Index)) {
@@ -366,6 +563,13 @@ block_rcs_prognosis <- function(ctx, ...) {
   Model2Factors <- setdiff(Model2Factors, Index)
   Model1Factors <- intersect(Model1Factors, names(rt))
   Model2Factors <- intersect(Model2Factors, names(rt))
+  # 多变量时 Index=Age 会掏空 Model1（仅 Age）；回退用 Model2 中剩余首项
+  if (length(Model1Factors) == 0L && length(Model2Factors) > 0L) {
+    Model1Factors <- Model2Factors[[1L]]
+    cli::cli_alert_warning(
+      "rcs_prognosis: Model1 剔除 Index={Index} 后为空，回退 Model1={Model1Factors}"
+    )
+  }
   if (length(Model1Factors) == 0L) stop("rcs_prognosis: Model1Factors 在数据中无可用列。")
   if (length(Model2Factors) == 0L) stop("rcs_prognosis: Model2Factors 在数据中无可用列。")
   Model3Factors <- if (exists("pipeline_rcs_model3_covs", mode = "function")) {
@@ -511,8 +715,19 @@ block_rcs_prognosis <- function(ctx, ...) {
 
   if (!exists(".pub_figure_extract_cox_rcs_p", mode = "function") ||
       !exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
-    pf_r <- file.path(ctx$config$project$root %||% getwd(), "R/pub_figure_export.R")
-    if (file.exists(pf_r)) source(pf_r, local = FALSE)
+    # worker cwd 常为课题根；必须优先 MEDICAL_BLOCKS_ROOT
+    pf_cands <- c(
+      file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), "R/pub_figure_export.R"),
+      file.path(ctx$config$project$root %||% "", "R/pub_figure_export.R"),
+      file.path(getwd(), "R/pub_figure_export.R")
+    )
+    pf_cands <- pf_cands[nzchar(pf_cands) & file.exists(pf_cands)]
+    if (length(pf_cands)) source(pf_cands[[1L]], local = FALSE)
+  }
+  if (!exists(".pub_figure_extract_cox_rcs_p", mode = "function") ||
+      !exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
+    stop("rcs_prognosis: 缺少 .pub_figure_extract_cox_rcs_p（请 source R/pub_figure_export.R）",
+         call. = FALSE)
   }
   .rcp01_panel_stats <- function(res, cuts = numeric(0)) {
     pe <- .pub_figure_extract_cox_rcs_p(res$p)
@@ -555,20 +770,21 @@ block_rcs_prognosis <- function(ctx, ...) {
     if (is.null(y_lim_plot) && !is.null(rp_cfg$y_max)) {
       y_lim_plot <- c(as.numeric(rp_cfg$y_min %||% 0)[1L], as.numeric(rp_cfg$y_max)[1L])
     }
+    ylim_force <- isTRUE(rp_cfg$ylim_force %||% FALSE)
 
     .rcp01_draw_panel("Crude Model", Index, resA$smoothlogHR.point, resA$p, resA$refvalue, cfgA, ff,
                       show_cutoff_lines = FALSE, cutoffs = cutA, label_digits = label_digits,
-                      xlim = x_lim_plot, ylim = y_lim_plot)
+                      xlim = x_lim_plot, ylim = y_lim_plot, ylim_force = ylim_force)
     .rcp01_draw_panel("Model 1", Index, resB$smoothlogHR.point, resB$p, resB$refvalue, cfgB, ff,
                       show_cutoff_lines = FALSE, cutoffs = cutB, label_digits = label_digits,
-                      xlim = x_lim_plot, ylim = y_lim_plot)
+                      xlim = x_lim_plot, ylim = y_lim_plot, ylim_force = ylim_force)
     .rcp01_draw_panel("Model 2", Index, resC$smoothlogHR.point, resC$p, resC$refvalue, cfgC, ff,
                       show_cutoff_lines = show_cut_c, cutoffs = cutC, label_digits = label_digits,
-                      xlim = x_lim_plot, ylim = y_lim_plot)
+                      xlim = x_lim_plot, ylim = y_lim_plot, ylim_force = ylim_force)
     if (n_panel >= 4L) {
       .rcp01_draw_panel("Model 3", Index, resD$smoothlogHR.point, resD$p, resD$refvalue, cfgD, ff,
                         show_cutoff_lines = show_cut_d, cutoffs = cutD, label_digits = label_digits,
-                        xlim = x_lim_plot, ylim = y_lim_plot)
+                        xlim = x_lim_plot, ylim = y_lim_plot, ylim_force = ylim_force)
     }
     TRUE
   }, error = function(e) {
@@ -578,7 +794,8 @@ block_rcs_prognosis <- function(ctx, ...) {
   invisible(grDevices::dev.off())
   if (isTRUE(plot_ok)) {
     cli::cli_alert_success("Saved: {basename(outfile)}")
-    if (exists("pub_mirror_saved", mode = "function")) {
+    # 多变量分页临时文件勿镜像到根 Figures（仅合并后的 Figure 2 镜像）
+    if (!isTRUE(rp_cfg$.rcs_single_pass) && exists("pub_mirror_saved", mode = "function")) {
       pub_mirror_saved(ctx, outfile)
     }
   }

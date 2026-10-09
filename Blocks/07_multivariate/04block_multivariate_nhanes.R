@@ -842,7 +842,16 @@ block_multivariate_nhanes <- function(ctx, ...) {
   mv_excl <- unique(c(
     as.character(mc_cfg$exclude_vars %||% character(0)),
     as.character(mv_cfg$excluded_predictors %||% character(0)),
-    as.character(nhanes_cfg$exclude_cols %||% character(0)),
+    if (exists("pipeline_nhanes_survey_design_exclude_cols", mode = "function")) {
+      pipeline_nhanes_survey_design_exclude_cols(names(design$variables), cfg)
+    } else {
+      c(as.character(nhanes_cfg$exclude_cols %||% character(0)),
+        if (exists("pipeline_meta_exclude_cols", mode = "function")) {
+          pipeline_meta_exclude_cols()
+        } else {
+          character(0)
+        })
+    },
     as.character(cfg$data$id_column %||% character(0)),
     index_excl
   ))

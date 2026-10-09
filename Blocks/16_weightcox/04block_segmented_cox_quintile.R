@@ -84,7 +84,7 @@
   list(hr = round(as.numeric(ci[ig, hr_col]), 3),
        ci_lo = round(as.numeric(ci[ig, lo_col]), 3),
        ci_hi = round(as.numeric(ci[ig, hi_col]), 3),
-       p = round(co[ig, pcol], 4))
+       p = pub_format_p_cell(co[ig, pcol]))
 }
 .scq05_dichot <- function(v, m) {
   fn <- if (tolower(m)[1] == "median") median else mean

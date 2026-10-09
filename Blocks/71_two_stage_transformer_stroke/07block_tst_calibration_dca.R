@@ -25,65 +25,22 @@
   stop("PAUSE_FOR_USER_DECISION: ", reason, " / ", suggestion, call. = FALSE)
 }
 
-.tst71_root <- function(ctx) ctx$config$project$root %||% getwd()
-
-.tst71_ensure_py <- function(root) {
-  if (!exists("run_literature_python", mode = "function")) {
-    source(file.path(root, "R/python_literature.R"), local = FALSE)
-  }
-}
-
-.tst71_tst_cfg <- function(ctx) ctx$config$tst_stroke %||% list()
-
-.tst71_seed <- function(cfg) as.integer((cfg$split %||% list())$seed %||% 42L)[1L]
-
-.tst71_hourly_csv <- function(ctx) {
-  path <- ctx$results$tst_timeseries$hourly_long_path %||% ""
-  if (nzchar(path) && file.exists(path)) return(path)
-  override <- (ctx$config$tst_stroke %||% list())$hourly_long_path %||% ""
-  if (nzchar(override) && file.exists(override)) return(override)
-  smoke <- file.path(
-    .tst71_root(ctx),
-    "Output/_smoke_task4_shared/step06_tst_timeseries/Tables/_tst_hourly_long.csv"
+local({
+  cands <- c(
+    "Blocks/71_two_stage_transformer_stroke/00tst_common.R",
+    file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", ""), "Blocks/71_two_stage_transformer_stroke/00tst_common.R"),
+    "/mnt/e/01block/01Block-new-Final/Blocks/71_two_stage_transformer_stroke/00tst_common.R"
   )
-  if (file.exists(smoke)) return(smoke)
-  NULL
-}
+  hit <- cands[file.exists(cands)][1L]
+  if (!length(hit) || is.na(hit)) stop("找不到 00tst_common.R", call. = FALSE)
+  source(hit, local = FALSE)
+})
 
+# Prefer already-prepared npz from train_eval / a1 when present
 .tst71_npz_dir <- function(ctx) {
   prior <- ctx$results$tst_train_eval$npz_dir %||% ctx$results$tst_repo_a1$npz_dir %||% ""
   if (nzchar(prior) && dir.exists(prior)) return(prior)
   file.path(ctx$output_dir_tables, "npz")
-}
-
-.tst71_run_tst_python <- function(root, mode, args, timeout_sec = 1200L) {
-  .tst71_ensure_py(root)
-  run_literature_python(
-    root, mode, args,
-    timeout_sec = timeout_sec,
-    script = "block_two_stage_transformer.py"
-  )
-}
-
-.tst71_prepare_npz <- function(ctx, root, npz_dir, hourly_csv, seed, timeout_sec = 1200L) {
-  dir.create(npz_dir, recursive = TRUE, showWarnings = FALSE)
-  train_npz <- file.path(npz_dir, "train.npz")
-  if (file.exists(train_npz)) return(invisible(train_npz))
-  ts <- .tst71_tst_cfg(ctx)
-  n_days <- as.integer(ceiling(max(as.integer(ts$landmarks %||% c(24L, 48L, 72L, 96L, 120L))) / 24))[1L]
-  n_hours <- as.integer(ts$n_hours %||% 24L)[1L]
-  max_cal <- as.integer(ts$max_calendar_day %||% 30L)[1L]
-  args <- c(
-    "--out-dir", npz_dir, "--data-path", hourly_csv,
-    "--seed", as.character(seed),
-    "--n-days", as.character(n_days),
-    "--n-hours", as.character(n_hours),
-    "--max-calendar-day", as.character(max_cal)
-  )
-  if (isTRUE(ts$sliding_window %||% TRUE)) args <- c(args, "--sliding-window") else args <- c(args, "--no-sliding-window")
-  if (isTRUE(ts$expand_hours %||% TRUE)) args <- c(args, "--expand-hours") else args <- c(args, "--no-expand-hours")
-  .tst71_run_tst_python(root, "tst_prepare", args, timeout_sec = timeout_sec)
-  invisible(train_npz)
 }
 
 .tst71_resolve_model <- function(ctx, arch) {
@@ -99,7 +56,8 @@ block_tst_calibration_dca <- function(ctx, ...) {
   cfg  <- .tst71_tst_cfg(ctx)
   root <- .tst71_root(ctx)
   out  <- ctx$output_dir_tables
-  arch <- as.character(cfg$calibration_arch %||% ctx$results$tst_train_eval$arch %||% "b")[1L]
+  branch <- .tst71_branch_spec(ctx)
+  arch <- as.character(cfg$calibration_arch %||% ctx$results$tst_train_eval$arch %||% branch$arch %||% "b")[1L]
   dir.create(out, recursive = TRUE, showWarnings = FALSE)
 
   npz_dir <- .tst71_npz_dir(ctx)
@@ -112,7 +70,7 @@ block_tst_calibration_dca <- function(ctx, ...) {
         "请先运行 tst_timeseries + tst_train_eval，或设置 hourly_long_path。"
       )
     }
-    .tst71_prepare_npz(ctx, root, npz_dir, hourly_csv, .tst71_seed(cfg), timeout_sec = 1200L)
+    .tst71_prepare_npz(ctx, root, npz_dir, hourly_csv, .tst71_seed(cfg), timeout_sec = 1200L, branch = branch)
   }
 
   model_path <- .tst71_resolve_model(ctx, arch)
@@ -122,9 +80,10 @@ block_tst_calibration_dca <- function(ctx, ...) {
     "--seed", as.character(.tst71_seed(cfg))
   )
   if (nzchar(model_path)) py_args <- c(py_args, "--model-path", model_path)
-  cutoff <- cfg$calibration_cutoff %||% cfg$active_landmark %||% 0L
-  if (!is.na(cutoff) && as.integer(cutoff)[1L] > 0L) {
-    py_args <- c(py_args, "--cutoff", as.character(as.integer(cutoff)[1L]))
+  cutoff <- as.integer(branch$landmark %||% cfg$calibration_cutoff %||% cfg$active_landmark %||% 0L)[1L]
+  # calibrate cutoff day index = landmark days
+  if (!is.na(cutoff) && cutoff > 0L) {
+    py_args <- c(py_args, "--cutoff", as.character(.tst71_landmark_n_days(cutoff)))
   }
 
   .tst71_run_tst_python(root, "tst_calibrate", py_args, timeout_sec = 1200L)
@@ -141,7 +100,8 @@ block_tst_calibration_dca <- function(ctx, ...) {
     calibration_path = cal_path,
     dca_path = dca_path,
     calibration = calibration,
-    dca = dca
+    dca = dca,
+    landmark = as.integer(branch$landmark %||% NA_integer_)[1L]
   )
   cli::cli_alert_success("tst_calibration_dca: 校准 + DCA 完成 (arch={arch})")
   ctx

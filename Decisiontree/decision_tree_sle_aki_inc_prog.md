@@ -54,7 +54,7 @@ flowchart TD
 | ⑫ | 第二阶段 cohort | `ip_stage2_cohort_28d` |
 | ⑬ | KM + Cox | Stage2；28 天窗，脚注非真长期随访 |
 | ⑭ | MI | Stage0 `imputation`（MICE cart） |
-| ⑮ | sensitivity | `incidence_batch$sensitivity_suite`（年龄切点与森林图同为 65） |
+| ⑮ | sensitivity | `incidence_batch$sensitivity_suite$enable=TRUE` → 主分析 **success 后自动**跑轻量敏感性（Yes/No + 年龄±完整病例；Table1+Logistic）；两阶段从 `_shared` 回退插补 ck |
 
 ---
 
@@ -100,7 +100,7 @@ flowchart TD
     SOFA, CHARLSON, DN
 ```
 
-锁定协变量：`Model 候选 = Stage1 入选 ∪ Stage2 入选 ∪ ip_two_stage$force_covariates` → 去重 → `analysis_exclusion` / VIF。Age 强制（`covariate_policy$force_age`）；Gender 强制（`force_sex`）。
+锁定协变量：**仅 Stage1** 经单因素 → VIF → 多因素 → logistic 闸门得到 Model1/Model2；**Stage2 不再筛协变量**，Cox/RCS/KM/亚组直接注入发病锁定集（`ip_two_stage$reuse_stage1_covariates=TRUE`）。`ip_two_stage$force_covariates` 仅作 Stage1 UV/MV 候选池必填项。Age/Gender 强制（`covariate_policy$force_age` / `force_sex`）。
 
 ---
 

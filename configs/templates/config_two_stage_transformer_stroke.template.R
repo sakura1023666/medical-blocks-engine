@@ -89,8 +89,10 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.30,
     method = "rf",
-    m = 1L,
+    m = 5L,
     seed = 1234L,
+    fit_on = "train",
+    complete_action = 1L,
     export_missing_fig = FALSE,
     export_table_s1 = FALSE,
     pause_enable = FALSE
@@ -197,15 +199,13 @@ config <- list(
   )
 )
 
-# 【方法学顺序 — 2026-07-28 纠正】
-# merge/纳排 → 纵向≥2天 → 缺失>40%删列+插补 → baseline → landmark → split → …
+# 【方法学顺序 — 防泄漏 A2】tst_cohort → tst_split → imputation(fit_on=train) → timeseries → …
 pipeline <- list(
   name = "tst_stroke_single",
   blocks = c(
     "data_clean", "column_mapping",
-    "tst_cohort", "tst_timeseries",
-    "imputation", "baseline_binary",
-    "tst_landmark", "tst_split",
+    "tst_cohort", "tst_split", "imputation",
+    "tst_timeseries", "baseline_binary", "tst_landmark",
     "tst_repo_a1", "tst_train_eval", "tst_calibration_dca", "tst_shap",
     "tst_external", "tst_literature_validate", "tst_pub_export", "tst_summary_results"
   ),

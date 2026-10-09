@@ -235,7 +235,10 @@
   sec_cfg <- bl_cfg$table1_sections
   if (!is.null(sec_cfg) && length(sec_cfg) == 0L) sec_cfg <- NULL
   section_rows <- NULL
-  if (!is.null(sec_cfg) && length(sec_cfg) > 0L) {
+  if (exists("table1_resolve_sections", mode = "function")) {
+    sec_use <- table1_resolve_sections(cfg, bl_cfg)
+    section_rows <- table1_section_insert_rows_from_gtsummary(tbl, sec_use)
+  } else if (!is.null(sec_cfg) && length(sec_cfg) > 0L) {
     section_rows <- table1_section_insert_rows_from_gtsummary(tbl, sec_cfg)
   }
   if (is.null(section_rows) || length(section_rows) == 0L) {
@@ -827,9 +830,46 @@ block_baseline_binary <- function(ctx, strata_var = NULL, ...) {
         )
         bdy_tv <- tryCatch(as.data.frame(tbl_tv), error = function(e) NULL)
         if (!is.null(bdy_tv)) {
+          sec_tv <- if (exists("table1_resolve_sections", mode = "function")) {
+            table1_resolve_sections(cfg, bl_cfg)
+          } else {
+            bl_cfg$table1_sections %||% .default_table1_sections()
+          }
+          rows_tv <- table1_section_insert_rows_from_gtsummary(tbl_tv, sec_tv)
+          if ((is.null(rows_tv) || !length(rows_tv)) &&
+              !isTRUE(bl_cfg$table1_sections_disable_default)) {
+            rows_tv <- table1_section_insert_rows_from_gtsummary(
+              tbl_tv, .default_table1_sections()
+            )
+          }
+          built_tv <- table1_build_display_df(
+            bdy_tv,
+            section_insert_rows = rows_tv,
+            gtsummary_tbl = tbl_tv
+          )
+          styled_tv <- FALSE
+          tryCatch({
+            write_table1_xlsx_guan_style(
+              bdy_tv, paths_tv$filepath, paths_tv$title,
+              footnotes = ft_tv, prebuilt = built_tv
+            )
+            styled_tv <- TRUE
+          }, error = function(e) {
+            cli::cli_alert_warning(
+              "train/validation Table 1 分区样式写出失败: {e$message}"
+            )
+          })
           export_sci_table(
             bdy_tv, paths_tv$filepath, title = paths_tv$title,
-            table_footnotes = ft_tv
+            table_footnotes = ft_tv,
+            skip_excel = styled_tv,
+            latex_include_colnames = FALSE,
+            table1_render_spec = list(
+              df = built_tv$df,
+              footnotes = ft_tv,
+              insert_map = built_tv$insert_map,
+              level_row_idx = built_tv$level_row_idx
+            )
           )
           ctx$results$table_1_train_validation <- bdy_tv
           cli::cli_alert_success(
@@ -891,7 +931,7 @@ block_baseline_binary <- function(ctx, strata_var = NULL, ...) {
       } else if (idx_p >= sig_cutoff) {
         stop(
           "BASELINE_INDEX_NS_STOP: 暴露指标 ", index_var,
-          " 组间比较 P = ", format(round(idx_p, 4), scientific = FALSE),
+          " 组间比较 P = ", fmt_pval(idx_p),
           " >= ", sig_cutoff, "，按 early_stop_if_index_ns 早停 pipeline。",
           call. = FALSE
         )

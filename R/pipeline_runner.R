@@ -8,8 +8,19 @@
 #    only  — 只跑列出的 block（保持 pipeline$blocks 顺序）
 ###############################################################################
 
+pipeline_engine_root <- function(root) {
+  root <- normalizePath(as.character(root)[1L], winslash = "/", mustWork = FALSE)
+  if (file.exists(file.path(root, "Blocks", "00_index", "01block_index.R"))) return(root)
+  eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (nzchar(eng)) {
+    eng <- normalizePath(eng, winslash = "/", mustWork = FALSE)
+    if (file.exists(file.path(eng, "Blocks", "00_index", "01block_index.R"))) return(eng)
+  }
+  root
+}
+
 pipeline_block_sources <- function(root) {
-  root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  root <- pipeline_engine_root(root)
   b <- function(...) file.path(root, "Blocks", ...)
   list(
     data_clean                    = b("02_data_clean/01block_data_clean.R"),
@@ -21,6 +32,7 @@ pipeline_block_sources <- function(root) {
     dual_db_logistic_scheme_harmonize = b("00_dual_db/04block_dual_db_logistic_scheme_harmonize.R"),
     dual_db_logistic_main_table_realign = b("00_dual_db/05block_dual_db_logistic_main_table_realign.R"),
     imputation                    = b("03_imputation/01block_imputation.R"),
+    prognosis_outcome_landmark    = b("03_imputation/04block_prognosis_outcome_landmark.R"),
     environment_voc_log_transform = b("35_environment_function/00block_environment_voc_log_transform.R"),
     trim_index_extreme            = b("03_imputation/02block_trim_index_extreme.R"),
     analysis_exclusion            = b("03_imputation/03block_analysis_exclusion.R"),
@@ -45,6 +57,33 @@ pipeline_block_sources <- function(root) {
     multicollinearity_nhanes_screen = b("08_vif/02block_multicollinearity_nhanes_weighted.R"),
     multicollinearity_nhanes_final  = b("08_vif/02block_multicollinearity_nhanes_weighted.R"),
     correlation                   = b("09_correlation/01block_correlation.R"),
+    dxa_qct_agreement             = b("75_osteo_dxa_qct/01block_dxa_qct_agreement.R"),
+    diagnostic_vs_fracture        = b("75_osteo_dxa_qct/02block_diagnostic_vs_fracture.R"),
+    modality_discordance_profile  = b("75_osteo_dxa_qct/03block_modality_discordance_profile.R"),
+    ckm_attrition_flowchart       = b("76_cum_egdr_kmeans_ckm_full/00block_ckm_attrition_flowchart.R"),
+    ckm_stroke_data_ingest        = b("76_cum_egdr_kmeans_ckm_full/01block_ckm_stroke_data_ingest.R"),
+    cum_exposure_build            = b("76_cum_egdr_kmeans_ckm_full/02block_cum_exposure_build.R"),
+    kmeans_elbow_bivar            = b("76_cum_egdr_kmeans_ckm_full/03block_kmeans_elbow_bivar.R"),
+    kmeans_trajectory_panels      = b("76_cum_egdr_kmeans_ckm_full/04block_kmeans_trajectory_panels.R"),
+    table1_by_class_ckm           = b("76_cum_egdr_kmeans_ckm_full/04b_block_table1_by_class_ckm.R"),
+    logistic_cum_index_bundle     = b("76_cum_egdr_kmeans_ckm_full/05block_logistic_cum_index_bundle.R"),
+    rcs_ckm_strata_panels         = b("76_cum_egdr_kmeans_ckm_full/06block_rcs_ckm_strata_panels.R"),
+    sensitivity_cox_mice_bundle   = b("76_cum_egdr_kmeans_ckm_full/07block_sensitivity_cox_mice_bundle.R"),
+    table3_class_subgroup_forests = b("76_cum_egdr_kmeans_ckm_full/08block_table3_class_subgroup_forests.R"),
+    ckm_pub_finalize              = b("76_cum_egdr_kmeans_ckm_full/09block_ckm_pub_finalize.R"),
+    gallstone_flowchart           = b("77_gallstone_nomogram_full/00block_gallstone_flowchart.R"),
+    gallstone_data_ingest         = b("77_gallstone_nomogram_full/01block_gallstone_data_ingest.R"),
+    gallstone_uv_covariate_screen = b("77_gallstone_nomogram_full/01a_block_gallstone_uv_covariate_screen.R"),
+    gallstone_assoc_or_panels     = b("77_gallstone_nomogram_full/02block_gallstone_assoc_or_panels.R"),
+    gallstone_rcs_panels          = b("77_gallstone_nomogram_full/03block_gallstone_rcs_panels.R"),
+    gallstone_table1              = b("77_gallstone_nomogram_full/04block_gallstone_table1.R"),
+    gallstone_train_split         = b("77_gallstone_nomogram_full/05block_gallstone_train_split.R"),
+    gallstone_lasso_onese         = b("77_gallstone_nomogram_full/06block_gallstone_lasso_onese.R"),
+    gallstone_mv_nomogram         = b("77_gallstone_nomogram_full/07block_gallstone_mv_nomogram.R"),
+    gallstone_roc_cal_boot        = b("77_gallstone_nomogram_full/08block_gallstone_roc_cal_boot.R"),
+    gallstone_dca_cic             = b("77_gallstone_nomogram_full/09block_gallstone_dca_cic.R"),
+    gallstone_subgroup_sex        = b("77_gallstone_nomogram_full/10block_gallstone_subgroup_sex.R"),
+    gallstone_pub_finalize        = b("77_gallstone_nomogram_full/11block_gallstone_pub_finalize.R"),
     lca                           = b("30_lca/01block_lca.R"),
     subtype_viz                   = b("31_subtype_viz/01block_subtype_viz.R"),
     chord_diagram                 = b("29_chord_diagram/01block_chord_diagram.R"),
@@ -62,6 +101,7 @@ pipeline_block_sources <- function(root) {
     logistic_quartile_glm         = b("11_logistic/01block_logistic_quartile_glm.R"),
     logistic_quartile_glm_rcs     = b("11_logistic/01block_logistic_quartile_glm.R"),
     logistic_quintile_glm         = b("11_logistic/02block_logistic_quintile_glm.R"),
+    logistic_quintile_glm_rcs     = b("11_logistic/02block_logistic_quintile_glm.R"),
     logistic_tertile_glm          = b("11_logistic/05block_logistic_tertile_glm.R"),
     logistic_tertile_glm_rcs      = b("11_logistic/05block_logistic_tertile_glm.R"),
     logistic_binary_glm_rcs       = b("11_logistic/04block_logistic_binary_glm.R"),
@@ -109,7 +149,14 @@ pipeline_block_sources <- function(root) {
     ml_tablcl_v2                  = b("22_ml_models/16block_ml_tablcl_v2.R"),
     ml_rsf                        = b("22_ml_models/18block_ml_rsf.R"),
     ml_xgbsurv                    = b("22_ml_models/19block_ml_xgbsurv.R"),
+    ml_coxboost                   = b("22_ml_models/20block_ml_surv_extra_models.R"),
+    ml_gbmsurv                    = b("22_ml_models/20block_ml_surv_extra_models.R"),
+    ml_ridge_cox                  = b("22_ml_models/20block_ml_surv_extra_models.R"),
+    ml_enet_cox                   = b("22_ml_models/20block_ml_surv_extra_models.R"),
+    ml_survivalsvm                = b("22_ml_models/20block_ml_surv_extra_models.R"),
+    ml_mboost_cox                 = b("22_ml_models/20block_ml_surv_extra_models.R"),
     ml_aggregate                  = b("22_ml_models/17block_ml_aggregate.R"),
+    cart_decision_path            = b("22_ml_models/21block_cart_decision_path.R"),
     performance_ml                = b("23_ml_performance/01block_performance_ml.R"),
     supplementary_ml              = b("24_ml_supplementary/01block_supplementary_ml.R"),
     shiny_dynnom                  = b("25_shiny/01block_shiny_dynnom.R"),
@@ -122,13 +169,32 @@ pipeline_block_sources <- function(root) {
     feature_selection_lvq         = b("19_feature_selection/06block_feature_selection_lvq.R"),
     feature_selection_consensus   = b("19_feature_selection/07block_feature_selection_consensus.R"),
     feature_selection_venn        = b("19_feature_selection/08block_feature_selection_venn.R"),
+    feature_selection_lasso_cox   = b("19_feature_selection/10block_feature_selection_lasso_cox.R"),
     ml_feature_selection_bundle   = b("24_ml_dual/02block_ml_feature_selection_bundle.R"),
     ml_models_bundle              = b("24_ml_dual/03block_ml_models_bundle.R"),
+    ml_id_deduplicate             = b("24_ml_dual/00block_ml_id_deduplicate.R"),
     ml_inherit_primary_features   = b("24_ml_dual/01block_ml_inherit_primary_features.R"),
     ml_logistic_multi_index_bundle = b("24_ml_dual/04block_ml_logistic_multi_index_bundle.R"),
     ml_assoc_bundle               = b("24_ml_dual/05block_ml_assoc_bundle.R"),
     ml_vif_train_test             = b("24_ml_dual/06block_ml_vif_train_test.R"),
     ml_assoc_covariate_resolve    = b("24_ml_dual/07block_ml_assoc_covariate_resolve.R"),
+    ml_eval_external              = b("24_ml_dual/08block_ml_eval_external.R"),
+    ml_nafld_feature_spaces       = b("73_ml_nafld_cm/01block_ml_nafld_feature_spaces.R"),
+    ml_nafld_nested_cv            = b("73_ml_nafld_cm/02block_ml_nafld_nested_cv.R"),
+    ml_nafld_score_compare        = b("73_ml_nafld_cm/03block_ml_nafld_score_compare.R"),
+    ml_nafld_pub_finalize         = b("73_ml_nafld_cm/04block_ml_nafld_pub_finalize.R"),
+    ml_nafld_external_bridge      = b("73_ml_nafld_cm/06block_ml_nafld_external_bridge.R"),
+    ml_nafld_omics_display        = b("73_ml_nafld_cm/08block_ml_nafld_omics_display.R"),
+    glide_fetch_stations          = b("74_glide_sol_full/01block_glide_fetch_stations.R"),
+    glide_domain_inputs           = b("74_glide_sol_full/02block_glide_domain_inputs.R"),
+    glide_wind_coeff              = b("74_glide_sol_full/03block_glide_wind_coeff.R"),
+    glide_meteo_forcing           = b("74_glide_sol_full/04block_glide_meteo_forcing.R"),
+    glide_solweig_run             = b("74_glide_sol_full/05block_glide_solweig_run.R"),
+    glide_station_extract         = b("74_glide_sol_full/06block_glide_station_extract.R"),
+    glide_validate_metrics        = b("74_glide_sol_full/07block_glide_validate_metrics.R"),
+    glide_figures_all             = b("74_glide_sol_full/08block_glide_figures_all.R"),
+    glide_appendix_tables         = b("74_glide_sol_full/09block_glide_appendix_tables.R"),
+    glide_pub_finalize            = b("74_glide_sol_full/10block_glide_pub_finalize.R"),
     ROC                           = b("13_roc/01block_ROC.R"),
     simple_ROC                    = b("13_roc/02block_simple_ROC.R"),
     shap                          = b("17_shap/01block_shap.R"),
@@ -393,6 +459,7 @@ pipeline_block_sources <- function(root) {
     subgroup_iptw_weighted        = b("18_subgroup/08block_subgroup_iptw_weighted.R"),
     subgroup_treatment_forest     = b("18_subgroup/07block_subgroup_treatment_forest.R"),
     ipw_diabetes_exposure         = b("69_ipw_diabetes_stroke_full/01block_ipw_diabetes_exposure.R"),
+    ipw_alteplase_exposure        = b("69_ipw_diabetes_stroke_full/10block_ipw_alteplase_exposure.R"),
     ipw_diabetes_flowchart        = b("69_ipw_diabetes_stroke_full/02block_ipw_flowchart.R"),
     ipw_weighted_km_pub           = b("69_ipw_diabetes_stroke_full/03block_ipw_weighted_km_pub.R"),
     ipw_overlap_weights           = b("69_ipw_diabetes_stroke_full/04block_ipw_overlap_weights.R"),
@@ -416,6 +483,24 @@ pipeline_block_sources <- function(root) {
     ip_cohort_sle_aki             = b("72_incidence_prognosis_two_stage/01block_ip_cohort_sle_aki.R"),
     ip_stage2_cohort_28d          = b("72_incidence_prognosis_two_stage/02block_ip_stage2_cohort_28d.R"),
     threshold_logistic            = b("72_incidence_prognosis_two_stage/03block_threshold_logistic.R"),
+    pamob_feasibility             = b("74_pa_mobility_cognitive_full/01block_pamob_feasibility.R"),
+    pamob_assemble_charls         = b("74_pa_mobility_cognitive_full/02block_pamob_assemble_charls.R"),
+    pamob_cognition_long          = b("74_pa_mobility_cognitive_full/03block_pamob_cognition_long.R"),
+    pamob_baseline_charls         = b("74_pa_mobility_cognitive_full/04block_pamob_baseline_charls.R"),
+    pamob_lmm_global              = b("74_pa_mobility_cognitive_full/05block_pamob_lmm_global.R"),
+    pamob_lmm_episodic            = b("74_pa_mobility_cognitive_full/06block_pamob_lmm_episodic.R"),
+    pamob_contrast_preset         = b("74_pa_mobility_cognitive_full/07block_pamob_contrast_preset.R"),
+    pamob_traj_plot               = b("74_pa_mobility_cognitive_full/08block_pamob_traj_plot.R"),
+    pamob_sensitivity_charls      = b("74_pa_mobility_cognitive_full/09block_pamob_sensitivity_charls.R"),
+    pamob_flowchart               = b("74_pa_mobility_cognitive_full/10block_pamob_flowchart.R"),
+    pamob_concept_fig1            = b("74_pa_mobility_cognitive_full/11block_pamob_concept_fig1.R"),
+    pamob_assemble_nhanes         = b("74_pa_mobility_cognitive_full/12block_pamob_assemble_nhanes.R"),
+    pamob_baseline_nhanes         = b("74_pa_mobility_cognitive_full/13block_pamob_baseline_nhanes.R"),
+    pamob_svy_dsst                = b("74_pa_mobility_cognitive_full/14block_pamob_svy_dsst.R"),
+    pamob_svy_nfl                 = b("74_pa_mobility_cognitive_full/15block_pamob_svy_nfl.R"),
+    pamob_panel_fig4              = b("74_pa_mobility_cognitive_full/16block_pamob_panel_fig4.R"),
+    pamob_sensitivity_nhanes      = b("74_pa_mobility_cognitive_full/17block_pamob_sensitivity_nhanes.R"),
+    pamob_pub_export              = b("74_pa_mobility_cognitive_full/18block_pamob_pub_export.R"),
     render_tables                 = b("Tables_Blocks/block_render_tables.R")
   )
 }
@@ -613,7 +698,7 @@ pipeline_parse_cli <- function(args) {
     } else if (a == "--to" && i < length(args)) {
       opts$to <- args[[i + 1L]]
       i <- i + 2L
-    } else if (a == "--only" && i < length(args)) {
+    } else if ((a == "--only" || a == "--blocks") && i < length(args)) {
       opts$only <- strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]
       opts$only <- trimws(opts$only)
       i <- i + 2L
@@ -663,22 +748,29 @@ pipeline_figures_is_dual_slot <- function(figs, config) {
 }
 
 run_pipeline <- function(root, config, pipeline, run_opts = list()) {
-  root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  study_root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  engine_root <- pipeline_engine_root(study_root)
+  root <- study_root
   if (exists("pipeline_normalize_project_outcome_labels", mode = "function")) {
     config <- pipeline_normalize_project_outcome_labels(config)
   }
-  dual_harm_path <- file.path(root, "R", "dual_db_harmonize.R")
+  dual_harm_path <- file.path(engine_root, "R", "dual_db_harmonize.R")
   if (file.exists(dual_harm_path)) source(dual_harm_path, local = FALSE)
   for (gate_file in c("cox_gate.R", "logistic_gate.R", "model3_required.R", "cox_ph_test.R")) {
-    gate_path <- file.path(root, "R", gate_file)
+    gate_path <- file.path(engine_root, "R", gate_file)
     if (file.exists(gate_path)) source(gate_path, local = FALSE)
   }
-  attr_log <- file.path(root, "R", "attrition_log.R")
+  attr_log <- file.path(engine_root, "R", "attrition_log.R")
   if (file.exists(attr_log)) source(attr_log, local = FALSE)
-  logistic_common <- file.path(root, "Blocks/11_logistic/00logistic_nhanes_weighted_common.R")
+  logistic_common <- file.path(engine_root, "Blocks/11_logistic/00logistic_nhanes_weighted_common.R")
   if (file.exists(logistic_common)) source(logistic_common, local = FALSE)
-  logistic_iptw_common <- file.path(root, "Blocks/11_logistic/00logistic_iptw_weighted_common.R")
+  logistic_iptw_common <- file.path(engine_root, "Blocks/11_logistic/00logistic_iptw_weighted_common.R")
   if (file.exists(logistic_iptw_common)) source(logistic_iptw_common, local = FALSE)
+  utils_path <- file.path(engine_root, "R/utils.R")
+  if (file.exists(utils_path)) source(utils_path, local = FALSE)
+  if (exists("pipeline_apply_pub_digits", mode = "function")) {
+    pipeline_apply_pub_digits(config)
+  }
   blocks_full <- as.character(pipeline$blocks)
   if (!length(blocks_full)) {
     stop("run_pipeline: pipeline$blocks is empty.", call. = FALSE)
@@ -882,6 +974,22 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
         }
       }
     }
+    if (exists("incidence_batch_mirror_index_aggregate_from_ctx", mode = "function")) {
+      tryCatch(
+        incidence_batch_mirror_index_aggregate_from_ctx(ctx, root, config),
+        error = function(e) cli::cli_alert_warning("指标根汇总刷新跳过: {e$message}")
+      )
+    } else {
+      ib_src <- file.path(root, "R", "incidence_dual_batch_runner.R")
+      if (file.exists(ib_src)) {
+        tryCatch({
+          source(ib_src, local = FALSE)
+          incidence_batch_mirror_index_aggregate_from_ctx(ctx, root, config)
+        }, error = function(e) {
+          cli::cli_alert_warning("指标根汇总刷新跳过: {e$message}")
+        })
+      }
+    }
   }
   if (exists("export_pub_figures", mode = "function") ||
       file.exists(file.path(root, "R/pub_figure_export.R"))) {
@@ -891,17 +999,67 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
     out_root <- ctx$root_output_dir %||% config$project$output_dir
     figs <- file.path(out_root, "Figures")
     is_dual_slot <- pipeline_figures_is_dual_slot(figs, config)
-    if (!isTRUE(is_dual_slot) && dir.exists(figs) && !dir.exists(file.path(figs, "pdf"))) {
+    # 分库槽位：不在此导出四目录（由 finalize 对指标根 Figures 统一导出）
+    # 指标根 / 单库：若四目录缺失或不完整则强制补齐（勿因空 pdf/ 目录而跳过）
+    if (!isTRUE(is_dual_slot) && dir.exists(figs)) {
+      need <- TRUE
+      if (exists("pub_figure_formats_status", mode = "function")) {
+        st <- tryCatch(pub_figure_formats_status(figs), error = function(e) NULL)
+        need <- is.null(st) || !isTRUE(st$ok)
+      } else {
+        need <- !dir.exists(file.path(figs, "pdf")) ||
+          !length(list.files(file.path(figs, "pdf"), pattern = "^Figure.*\\.pdf$", ignore.case = TRUE))
+      }
+      if (isTRUE(need)) {
+        tryCatch({
+          if (exists("pub_figure_ensure_formats", mode = "function")) {
+            pub_figure_ensure_formats(figs, meta = list(
+              exposure = config$project$exposure_var %||% config$project$index_var %||% "",
+              outcome = config$data$outcome_column %||% "",
+              databases = config$project$database %||% character(0),
+              combined = FALSE
+            ), config = config, purge = TRUE)
+          } else {
+            export_pub_figures(figs, meta = list(
+              exposure = config$project$exposure_var %||% config$project$index_var %||% "",
+              outcome = config$data$outcome_column %||% "",
+              databases = config$project$database %||% character(0),
+              combined = FALSE
+            ), config = config)
+          }
+        }, error = function(e) cli::cli_alert_warning("发表图四目录导出跳过: {e$message}"))
+      }
+    }
+  }
+  # 单库平链（all-vars ML 等）：成功收尾写 code 包（与 dual-batch 指标铁律对齐）
+  out_root <- ctx$root_output_dir %||% config$project$output_dir %||% study_root
+  if (exists("index_code_bundle_finalize_single_pipeline", mode = "function") ||
+      file.exists(file.path(engine_root, "R/index_code_bundle.R"))) {
+    if (!exists("index_code_bundle_finalize_single_pipeline", mode = "function")) {
       tryCatch(
-        export_pub_figures(figs, meta = list(
-          exposure = config$project$exposure_var %||% config$project$index_var %||% "",
-          outcome = config$data$outcome_column %||% "",
-          databases = config$project$database %||% character(0),
-          combined = FALSE
-        ), config = config),
-        error = function(e) cli::cli_alert_warning("发表图四目录导出跳过: {e$message}")
+        source(file.path(engine_root, "R/index_code_bundle.R"), local = FALSE),
+        error = function(e) NULL
+      )
+    }
+    if (exists("index_code_bundle_finalize_single_pipeline", mode = "function")) {
+      tryCatch(
+        index_code_bundle_finalize_single_pipeline(
+          study_root = out_root,
+          config = config,
+          pipeline = pipeline,
+          engine_root = engine_root
+        ),
+        error = function(e) cli::cli_alert_warning("单库 code 包跳过: {e$message}")
       )
     }
   }
+  # Phase 6：发表质控骨架（Agent 须继续 nature-statistics / nature-figure）
+  tryCatch({
+    qc_src <- file.path(engine_root, "R/pub_qc_after_finalize.R")
+    if (file.exists(qc_src)) source(qc_src, local = FALSE)
+    if (exists("pub_qc_run_after_project", mode = "function")) {
+      pub_qc_run_after_project(out_root, config = config)
+    }
+  }, error = function(e) cli::cli_alert_warning("pub-qc 跳过: {e$message}"))
   invisible(ctx)
 }

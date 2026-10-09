@@ -54,7 +54,7 @@ stopifnot(!"LD" %in% pack_deg$M2)
 stopifnot("Gender" %in% pack_deg$M3, "Age" %in% pack_deg$M2)
 stopifnot(sig_calls >= 2L)
 
-# 双库默认禁止按库改写 Model2
+# 双库默认仍导出 Model3 列（不显著时脚注说明，下游用 Model2）
 cfg_dual <- cfg
 cfg_dual$dual_db <- list(enable = TRUE)
 pack_dual <- pipeline_apply_model3_after_m2(
@@ -62,8 +62,16 @@ pack_dual <- pipeline_apply_model3_after_m2(
   sig_fn = function(covs) FALSE,
   M1 = c("Age", "Education")
 )
-stopifnot(!isTRUE(pack_dual$include_m3), isTRUE(pack_dual$dual_degrade_skipped))
+stopifnot(isTRUE(pack_dual$include_m3), isTRUE(pack_dual$model3_insignificant_dual))
 stopifnot(identical(sort(pack_dual$M2), sort(M2)))
+cfg_dual_off <- cfg_dual
+cfg_dual_off$analysis_models$model3_show_when_insignificant <- FALSE
+pack_dual_off <- pipeline_apply_model3_after_m2(
+  list(results = list()), cfg_dual_off, M2, cols, "ALT_HDL_C",
+  sig_fn = function(covs) FALSE,
+  M1 = c("Age", "Education")
+)
+stopifnot(!isTRUE(pack_dual_off$include_m3), isTRUE(pack_dual_off$dual_degrade_skipped))
 
 lay4 <- pipeline_rcs_layout(4)
 stopifnot(identical(lay4$nrow, 2L), identical(lay4$ncol, 2L), lay4$width == 12, lay4$height == 10)

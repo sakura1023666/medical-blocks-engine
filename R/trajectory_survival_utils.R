@@ -25,13 +25,44 @@ trajectory_unwrap_jointlcmm <- function(m) {
 }
 
 trajectory_jlcm_cov_cols <- function(jlcm_entry, model_obj = NULL) {
+  drop <- c("time_day", "intercept", "(Intercept)", "scr_std", "subject_id_num")
+  m <- trajectory_unwrap_jointlcmm(model_obj %||% jlcm_entry)
+  # predictY / dynpred 以 Names$Xnames2 为准；Xnames 常含样条项，不能当 newdata 列
+  if (!is.null(m) && !is.null(m$Names) && length(m$Names$Xnames2)) {
+    cov <- setdiff(as.character(m$Names$Xnames2), drop)
+    if (length(cov)) return(as.character(cov))
+  }
   cov <- as.character(jlcm_entry$covariate_vars_used %||% character(0))
-  if (length(cov)) return(cov)
-  m <- trajectory_unwrap_jointlcmm(model_obj)
+  if (length(cov)) return(setdiff(cov, drop))
   if (!is.null(m) && length(m$Xnames)) {
-    return(setdiff(as.character(m$Xnames), c("time_day", "(Intercept)")))
+    return(setdiff(as.character(m$Xnames), drop))
   }
   character(0)
+}
+
+#' 展示用类别映射：已对齐数据用恒等；原始 pprob 用 class_align_maps，否则旧 majority-swap
+trajectory_resolve_class_map <- function(class_vec, cfg = NULL, index = NULL,
+                                         source = c("auto", "aligned", "raw")) {
+  source <- match.arg(source)
+  cfg <- cfg %||% list()
+  cl <- suppressWarnings(as.integer(gsub("\\D+", "", as.character(class_vec))))
+  ux <- sort(unique(cl[!is.na(cl)]))
+  identity <- stats::setNames(as.integer(ux), as.character(ux))
+  skip <- isTRUE(cfg$trajectory$skip_class_swap) ||
+    isTRUE(cfg$trajectory_plot_jlcm$skip_class_swap) ||
+    isTRUE(cfg$trajectory_km_class$skip_class_swap)
+  maps <- NULL
+  if (!is.null(index)) {
+    maps <- cfg$trajectory$class_align_maps[[index]] %||%
+      cfg$trajectory_plot_jlcm$class_align_maps[[index]] %||%
+      cfg$trajectory_dynpred$class_align_maps[[index]]
+  }
+  if (identical(source, "aligned") || (skip && !identical(source, "raw"))) {
+    return(identity)
+  }
+  if (!is.null(maps) && length(maps)) return(maps)
+  if (skip) return(identity)
+  trajectory_class_swap_map(class_vec)
 }
 
 # 与 Fig2A.R / Fig2B.R / Fig3.R 一致：当 ng==2 且 Class 1 为多数类时，交换 Class1/Class2
@@ -56,6 +87,152 @@ trajectory_apply_class_swap <- function(class_vec, swap_map) {
   out <- swap_map[key]
   out <- ifelse(is.na(out), cl, as.integer(out))
   as.integer(out)
+}
+
+#' JLCM predictY 曲线：返回 time × 原始 class 的矩阵
+trajectory_jlcm_pred_curves <- function(model_obj, model_data, cycle = 28L, n = 50L) {
+  m <- trajectory_unwrap_jointlcmm(model_obj)
+  if (is.null(m)) return(NULL)
+  if (!requireNamespace("splines", quietly = TRUE)) {
+    stop("需要 splines 包以调用 JLCM predictY(ns())", call. = FALSE)
+  }
+  suppressPackageStartupMessages(library(splines, quietly = TRUE))
+  md <- as.data.frame(model_data)
+  cov_cols <- as.character(m$Names$Xnames2 %||% character(0))
+  cov_cols <- setdiff(cov_cols, c("time_day", "intercept", "(Intercept)"))
+  if (!length(cov_cols)) {
+    cov_cols <- setdiff(as.character(m$Xnames %||% character(0)),
+                        c("time_day", "intercept", "(Intercept)"))
+  }
+  grid <- trajectory_jlcm_cov_grid(md, cov_cols, time_var = "time_day", cycle = cycle, n = n)
+  pred <- tryCatch(
+    lcmm::predictY(m, newdata = grid, var.time = "time_day", draws = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(pred) || is.null(pred$pred)) return(NULL)
+  d <- as.data.frame(pred$pred)
+  ycols <- grep("^Ypred", names(d), value = TRUE)
+  if (!length(ycols)) ycols <- names(d)
+  mat <- as.matrix(d[, ycols, drop = FALSE])
+  cls <- suppressWarnings(as.integer(gsub("\\D+", "", ycols)))
+  if (all(is.finite(cls))) colnames(mat) <- as.character(cls)
+  attr(mat, "time") <- grid$time_day
+  mat
+}
+
+#' 各类观察均值（用于对齐；比极端 predictY 更稳）
+trajectory_jlcm_obs_class_means <- function(model_obj, model_data, value_col = "scr_std") {
+  m <- trajectory_unwrap_jointlcmm(model_obj)
+  if (is.null(m) || is.null(m$pprob) || !value_col %in% names(model_data)) return(NULL)
+  pp <- as.data.frame(m$pprob)
+  md <- as.data.frame(model_data)
+  d <- merge(md[, c("subject_id_num", value_col)],
+             pp[, c("subject_id_num", "class")],
+             by = "subject_id_num")
+  tapply(d[[value_col]], as.integer(d$class), mean, na.rm = TRUE)
+}
+
+#' 双库轨迹类别对齐：参考库按均值升序重标为 Class 1..K，其它库按曲线相关匹配
+#'
+#' @param curves_by_db named list of time×class 矩阵（列名为原始 class）
+#' @param ref 参考库名（通常 primary / eicu）
+#' @param obs_means_by_db 可选：各库原始 class 的观察均值；优先于预测均值排序（避免 predictY 外推到负数）
+#' @return list(maps = named list of old->new integer named vectors, order_ref = …)
+trajectory_align_class_maps <- function(curves_by_db, ref = NULL, obs_means_by_db = NULL) {
+  nms <- names(curves_by_db)
+  nms <- nms[vapply(curves_by_db, function(x) is.matrix(x) && ncol(x) > 0L, logical(1))]
+  if (!length(nms)) return(list(maps = list()))
+  if (is.null(ref) || !ref %in% nms) ref <- nms[[1L]]
+  ref_mat <- curves_by_db[[ref]]
+  ref_old <- colnames(ref_mat)
+  ref_mu <- if (!is.null(obs_means_by_db[[ref]])) {
+    mu <- obs_means_by_db[[ref]]
+    as.numeric(mu[ref_old])
+  } else {
+    colMeans(ref_mat, na.rm = TRUE)
+  }
+  names(ref_mu) <- ref_old
+  ref_new <- rank(ref_mu, ties.method = "first")
+  names(ref_new) <- ref_old
+  # 参考库新列顺序 1..K
+  ref_ord <- ref_old[order(as.integer(ref_new))]
+  ref_aligned <- ref_mat[, ref_ord, drop = FALSE]
+  colnames(ref_aligned) <- as.character(seq_len(ncol(ref_aligned)))
+
+  .greedy_match <- function(cost) {
+    n <- nrow(cost)
+    used <- rep(FALSE, n)
+    map <- integer(n)
+    for (i in order(apply(cost, 1L, min))) {
+      js <- which(!used)
+      j <- js[which.min(cost[i, js])]
+      map[i] <- j
+      used[j] <- TRUE
+    }
+    map
+  }
+
+  maps <- list()
+  maps[[ref]] <- stats::setNames(as.integer(ref_new), names(ref_new))
+
+  for (db in setdiff(nms, ref)) {
+    if (!is.null(obs_means_by_db[[db]])) {
+      mu <- obs_means_by_db[[db]]
+      maps[[db]] <- stats::setNames(as.integer(rank(as.numeric(mu), ties.method = "first")),
+                                    names(mu))
+      next
+    }
+    mat <- curves_by_db[[db]]
+    src_old <- colnames(mat)
+    k <- min(ncol(mat), ncol(ref_aligned))
+    cost <- matrix(1, nrow = ncol(mat), ncol = ncol(ref_aligned))
+    for (i in seq_len(ncol(mat))) {
+      for (j in seq_len(ncol(ref_aligned))) {
+        r <- suppressWarnings(stats::cor(mat[, i], ref_aligned[, j], use = "complete.obs"))
+        cost[i, j] <- if (is.finite(r)) 1 - r else 2
+      }
+    }
+    asg <- .greedy_match(cost[seq_len(k), seq_len(k), drop = FALSE])
+    mp <- as.integer(asg)
+    names(mp) <- src_old[seq_len(k)]
+    maps[[db]] <- mp
+  }
+  list(maps = maps, ref = ref, ref_means = ref_mu)
+}
+
+#' 图面统一 Y 轴：默认从 1 起，上限取预测/观察 99% 分位。
+#' 若数据整体低于默认 ymin（如 WPR≈0.01–0.6），改为按数据留白，禁止 ymin=1 把曲线裁成平线。
+trajectory_shared_ylim <- function(obs_values, pred_values = NULL, ymin = 1) {
+  vv <- c(as.numeric(obs_values), as.numeric(pred_values))
+  vv <- vv[is.finite(vv)]
+  if (!length(vv)) return(c(ymin, 4))
+  lo_q <- as.numeric(stats::quantile(vv, 0.01, na.rm = TRUE))
+  hi_q <- as.numeric(stats::quantile(vv, 0.99, na.rm = TRUE))
+  if (!is.finite(hi_q)) hi_q <- max(vv, na.rm = TRUE)
+  if (!is.finite(lo_q)) lo_q <- min(vv, na.rm = TRUE)
+  # 小尺度比值（WPR/NLPR 等）：全部 < 默认 ymin → 数据驱动
+  if (is.finite(hi_q) && hi_q < ymin) {
+    span <- max(hi_q - lo_q, abs(hi_q) * 0.2, 1e-3)
+    pad <- max(span * 0.12, 1e-3)
+    lo <- max(0, lo_q - pad)
+    hi <- hi_q + pad
+    # 漂亮刻度：跨度 <1 时保留 2 位小数
+    if (hi <= 1) {
+      lo <- floor(lo * 100) / 100
+      hi <- ceiling(hi * 100) / 100
+    } else {
+      lo <- floor(lo)
+      hi <- ceiling(hi * 2) / 2
+    }
+    if (!is.finite(lo) || !is.finite(hi) || hi <= lo) {
+      lo <- 0
+      hi <- max(hi_q * 1.2, 0.1)
+    }
+    return(c(lo, hi))
+  }
+  hi <- hi_q
+  if (!is.finite(hi) || hi <= ymin) hi <- ymin + 3
+  c(ymin, max(ymin + 1, ceiling(hi * 2) / 2))
 }
 
 #' 从 JLCM 结果解析最优潜类别数 ng（供画图/动态预测/卡方等下游块共用）
@@ -138,8 +315,8 @@ trajectory_coerce_vital_numeric <- function(data) {
 trajectory_index_column_aliases <- function(data) {
   if (is.null(data) || !is.data.frame(data)) return(data)
   alias <- list(
-    BUN            = c("UreaNitrogen", "BUN"),
-    Platelet_Count = c("PlateletCount", "Platelet_Count"),
+    BUN            = c("UreaNitrogen", "Urea Nitrogen", "BUN"),
+    Platelet_Count = c("PlateletCount", "Platelet Count", "Platelet_Count"),
     Neutrophil_Count = c("Neutrophil_Count", "Neutrophils"),
     Lymphocytes    = c("Lymphocytes", "Lymphocyte"),
     Albumin        = c("Albumin"),
@@ -151,6 +328,17 @@ trajectory_index_column_aliases <- function(data) {
     if (std %in% names(data)) next
     src <- intersect(alias[[std]], names(data))[1]
     if (!is.na(src) && nzchar(src)) data[[std]] <- suppressWarnings(as.numeric(data[[src]]))
+  }
+  # 标准名已齐时丢掉同义别名列，避免基线表 PlateletCount / Platelet Count、BUN / UreaNitrogen 双行
+  drop_if_std <- list(
+    Platelet_Count = c("PlateletCount", "Platelet Count", "plateletcount"),
+    BUN = c("UreaNitrogen", "Urea Nitrogen")
+  )
+  for (std in names(drop_if_std)) {
+    if (!std %in% names(data)) next
+    for (al in drop_if_std[[std]]) {
+      if (al %in% names(data) && !identical(al, std)) data[[al]] <- NULL
+    }
   }
   data
 }

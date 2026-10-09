@@ -20,7 +20,7 @@
 #    color_seed           = 123,     # 多组配色时 sample 种子
 #    histbin              = 0.01,    # ggrcs 直方图 bin 宽度（0704wx）
 #    plot_x_quantiles     = NULL,    # 如 c(0.01, 0.99)：拟合仍用全样本，作图 x 轴限制在分位内（尾部稀疏时防曲线乱穿 OR=1）
-#    figure_filename      = NULL,    # NULL → Fig 2. RCS plot between <Index> and <Disease>.pdf
+#    figure_filename      = NULL,    # NULL → Fig 2. RCS of <Index> and <Disease>.pdf（双库对题统一）
 #    cuttab_config_path   = "24point_02_config.R"  # 未加载 cuttab 时向上搜索并 source
 #    group_cutoffs        = "primary", # <Index>_RCS_Group：primary=仅主 cutoff→二分（默认）；
 #                                     # all=用全部 OR=1/峰值交点→可能多组（仅诊断用，不推荐进 Table S-XX）
@@ -300,13 +300,71 @@
   plot_obj
 }
 
-.rci01_ggrcs_y_limits <- function(plot_obj, ann_frac = 0.18) {
+.rci01_clip_ggrcs_layers <- function(plot_obj, y_cap = NULL, x_range = NULL) {
+  xr <- suppressWarnings(as.numeric(x_range)[1:2])
+  use_x <- length(xr) >= 2L && all(is.finite(xr)) && xr[2L] > xr[1L]
+  for (i in seq_along(plot_obj$layers)) {
+    ly <- plot_obj$layers[[i]]$data
+    if (is.null(ly) || !is.data.frame(ly)) next
+    if (use_x && "x" %in% names(ly)) {
+      out_x <- is.finite(ly$x) & (ly$x < xr[1L] | ly$x > xr[2L])
+      for (nm in c("y", "ymin", "ymax")) {
+        if (nm %in% names(ly)) ly[[nm]][out_x] <- NA_real_
+      }
+    }
+    if (is.finite(y_cap) && y_cap > 0) {
+      for (nm in c("y", "ymin", "ymax")) {
+        if (nm %in% names(ly)) {
+          v <- ly[[nm]]
+          v[!is.finite(v)] <- NA_real_
+          v[v > y_cap] <- NA_real_
+          ly[[nm]] <- v
+        }
+      }
+    }
+    plot_obj$layers[[i]]$data <- ly
+  }
+  plot_obj
+}
+
+.rci01_window_y_quantile <- function(plot_obj, x_range = NULL, q = 0.95) {
   bd <- ggplot2::ggplot_build(plot_obj)
+  xr <- suppressWarnings(as.numeric(x_range)[1:2])
+  use_x <- length(xr) >= 2L && all(is.finite(xr)) && xr[2L] > xr[1L]
+  vals <- numeric(0)
+  for (i in seq_along(bd$data)) {
+    ly <- bd$data[[i]]
+    if ("count" %in% names(ly) && "xmin" %in% names(ly)) next
+    if (use_x && "x" %in% names(ly)) {
+      keep <- is.finite(ly$x) & ly$x >= xr[1L] & ly$x <= xr[2L]
+      if (!any(keep)) next
+      ly <- ly[keep, , drop = FALSE]
+    }
+    for (nm in c("y", "ymax")) {
+      if (nm %in% names(ly)) {
+        v <- ly[[nm]]
+        vals <- c(vals, v[is.finite(v) & v > 0])
+      }
+    }
+  }
+  if (!length(vals)) return(NA_real_)
+  as.numeric(stats::quantile(vals, probs = q, na.rm = TRUE, names = FALSE))
+}
+
+.rci01_ggrcs_y_limits <- function(plot_obj, ann_frac = 0.18, x_range = NULL) {
+  bd <- ggplot2::ggplot_build(plot_obj)
+  xr <- suppressWarnings(as.numeric(x_range)[1:2])
+  use_x <- length(xr) >= 2L && all(is.finite(xr)) && xr[2L] > xr[1L]
   ymaxs <- numeric(0)
   ymins <- numeric(0)
   for (i in seq_along(bd$data)) {
     ly <- bd$data[[i]]
     if ("count" %in% names(ly) && "xmin" %in% names(ly)) next
+    if (use_x && "x" %in% names(ly)) {
+      keep <- is.finite(ly$x) & ly$x >= xr[1L] & ly$x <= xr[2L]
+      if (!any(keep)) next
+      ly <- ly[keep, , drop = FALSE]
+    }
     if ("y" %in% names(ly)) {
       ymaxs <- c(ymaxs, ly$y)
       ymins <- c(ymins, ly$y)
@@ -391,9 +449,10 @@
 .rci01_ggrcs_panel <- function(data_imp, fit, Index, selected_colors3, an, out,
                                title_label, cutoffs, histbin = 1, plot_ff = NULL,
                                cutoff_label_digits = 2L, show_cutoff_lines = FALSE,
-                               cutoff_vline_mode = c("primary", "all"),
+                               cutoff_vline_mode = c("primary", "all", "none"),
                                xlab_display = NULL, ylim = NULL, y_min = 0, y_max = NULL,
-                               ylim_force = FALSE, config = NULL) {
+                               ylim_force = FALSE, config = NULL, x_range = NULL,
+                               p_overall = NULL, p_nonlinear = NULL) {
   cutoff_vline_mode <- match.arg(cutoff_vline_mode)
   if (is.null(plot_ff)) {
     plot_ff <- if (exists("plot_font_from_config", mode = "function")) {
@@ -434,6 +493,12 @@
   )
 
   plot_obj <- .rci01_strip_histogram_layers(plot_obj)
+  ylim_fixed <- suppressWarnings(as.numeric(ylim %||% numeric(0)))
+  y_max_cap <- suppressWarnings(as.numeric(y_max %||% NA_real_)[1L])
+  if (length(ylim_fixed) >= 2L && all(is.finite(ylim_fixed[1:2]))) {
+    y_max_cap <- ylim_fixed[2L]
+  }
+  plot_obj <- .rci01_clip_ggrcs_layers(plot_obj, y_cap = y_max_cap, x_range = x_range)
   ## 去掉 ggrcs 可能写入的 y 轴 limits（否则 CI 会被硬裁到 ~5）
   if (!is.null(plot_obj$scales) && length(plot_obj$scales$scales)) {
     keep_sc <- vapply(plot_obj$scales$scales, function(s) {
@@ -442,35 +507,60 @@
     }, logical(1L))
     plot_obj$scales$scales <- plot_obj$scales$scales[keep_sc]
   }
-  y_lim <- .rci01_ggrcs_y_limits(plot_obj)
+  y_lim <- .rci01_ggrcs_y_limits(plot_obj, x_range = x_range)
   y_max_cap <- suppressWarnings(as.numeric(y_max %||% NA_real_)[1L])
   y_min_cap <- suppressWarnings(as.numeric(y_min %||% 0)[1L])
   ylim_fixed <- suppressWarnings(as.numeric(ylim %||% numeric(0)))
+  y_q <- suppressWarnings(as.numeric(config$rcs_incidence$ylim_auto_quantile %||% 0.95)[1L])
+  if (!is.finite(y_q) || y_q <= 0 || y_q > 1) y_q <- 0.95
+  win_q <- .rci01_window_y_quantile(plot_obj, x_range = x_range, q = y_q)
   if (length(ylim_fixed) >= 2L && all(is.finite(ylim_fixed[1:2]))) {
     y_min_cap <- ylim_fixed[1L]
     y_max_cap <- ylim_fixed[2L]
   }
-  ## 未指定或过小：按 CI 上界自动抬高，避免高位置信带贴顶被裁
-  ## ylim_force=TRUE：窄暴露窗尾部外推 OR 可达 1e7，强制裁到配置 ylim/y_max
-  auto_max <- max(y_lim$ymax_data * 1.15, y_lim$ymax_data + 1, 2, na.rm = TRUE)
+  ## 未指定 ylim：按作图窗内 CI 分位数自动定轴，避免贴顶假横线
+  auto_from_win <- if (is.finite(win_q)) max(win_q * 1.12, 2, na.rm = TRUE) else NA_real_
+  auto_max <- max(
+    c(y_lim$ymax_data * 1.12, y_lim$ymax_data + 0.8, auto_from_win, 2),
+    na.rm = TRUE
+  )
+  ylim_locked <- isTRUE(ylim_force) ||
+    (length(ylim_fixed) >= 2L && all(is.finite(ylim_fixed[1:2])))
   if (!is.finite(y_max_cap) || y_max_cap <= 0) {
-    y_max_cap <- max(y_lim$ymax_plot, auto_max, na.rm = TRUE)
-  } else if (y_max_cap + 1e-8 < y_lim$ymax_data) {
-    if (isTRUE(ylim_force)) {
-      cli::cli_alert_info(
-        "RCS y_max 强制裁剪到 {y_max_cap}（数据 CI max={round(y_lim$ymax_data, 2)}，不外扩）"
-      )
-    } else {
-      cli::cli_alert_warning(
-        "RCS y_max={y_max_cap} < data CI max={round(y_lim$ymax_data,2)}，自动抬高到 {round(auto_max,2)}"
-      )
-      y_max_cap <- auto_max
-    }
+    y_max_cap <- auto_max
+  } else if (y_lim$ymax_data > y_max_cap * 1.05 && !ylim_locked) {
+    cli::cli_alert_warning(
+      "RCS y_max={y_max_cap} < 数据/CI 峰值 {round(y_lim$ymax_data, 2)}，自动抬高 y 轴至 {round(auto_max, 2)}"
+    )
+    y_max_cap <- auto_max
+  } else if (ylim_locked && y_lim$ymax_data > y_max_cap * 1.05) {
+    cli::cli_alert_info(
+      "RCS ylim_force：保留 y_max={y_max_cap}（窗内 CI 峰值 {round(y_lim$ymax_data, 2)} 已裁剪）"
+    )
+  } else if (y_max_cap + 1e-8 < y_lim$ymax_data && !isTRUE(ylim_force)) {
+    cli::cli_alert_warning(
+      "RCS y_max={y_max_cap} < 窗内 CI max={round(y_lim$ymax_data,2)}，自动抬高到 {round(auto_max,2)}"
+    )
+    y_max_cap <- auto_max
+  } else if (isTRUE(ylim_force) && is.finite(auto_from_win) &&
+             auto_from_win + 1e-8 < y_max_cap &&
+             !(length(ylim_fixed) >= 2L && all(is.finite(ylim_fixed[1:2])))) {
+    y_max_cap <- auto_from_win
+    cli::cli_alert_info(
+      "RCS y 轴按窗内 P{round(y_q*100)} CI 定至 {round(y_max_cap, 2)}（裁剪极端外推）"
+    )
   }
   if (is.finite(y_max_cap) && y_max_cap > 0) {
-    y_lim$ymin <- if (is.finite(y_min_cap)) y_min_cap else 0
+    y_min_cap <- if (is.finite(y_min_cap)) y_min_cap else 0
+    y_lim$ymin <- y_min_cap
     y_lim$ymax_plot <- y_max_cap
     y_lim$y_step <- max((y_lim$ymax_plot - y_lim$ymin) * 0.06, 0.15)
+  }
+  y_breaks <- if (is.finite(y_lim$ymax_plot) && y_lim$ymax_plot > y_lim$ymin) {
+    by <- max(1, floor((y_lim$ymax_plot - y_lim$ymin) / 5))
+    seq(y_lim$ymin, y_lim$ymax_plot, by = by)
+  } else {
+    NULL
   }
   cli::cli_alert_info(
     "RCS y-axis: data_max={round(y_lim$ymax_data, 2)}, plot_max={round(y_lim$ymax_plot, 2)}"
@@ -495,32 +585,78 @@
       vline_mode = cutoff_vline_mode
     )
   }
+  p_ov_val <- suppressWarnings(as.numeric(p_overall %||% an[nrow(an), 3]))
+  p_nl_val <- suppressWarnings(as.numeric(p_nonlinear %||% an[2, 3]))
+  fmt_p_annot <- function(p) {
+    if (!is.finite(p)) return("NA")
+    if (p < 0.001) "< 0.001" else paste0("= ", sprintf("%.3f", as.numeric(p)))
+  }
+  kn_lab <- ""
+  if (isTRUE((config$rcs_incidence %||% list())$annotate_knots %||% FALSE)) {
+    kn <- tryCatch(as.numeric(fit$Design$parms[[Index]]), error = function(e) numeric(0))
+    kn <- kn[is.finite(kn)]
+    if (length(kn)) {
+      kn_lab <- paste0(
+        "Knots (", length(kn), "): ",
+        paste(formatC(kn, digits = 1L, format = "f"), collapse = ", ")
+      )
+    }
+  }
+  ref_lab <- ""
+  if (isTRUE((config$rcs_incidence %||% list())$annotate_reference %||% FALSE)) {
+    ref_v <- tryCatch(
+      as.numeric(fit$Design$limits["Adjust to", Index]),
+      error = function(e) NA_real_
+    )
+    if (!is.finite(ref_v)) {
+      ref_v <- suppressWarnings(stats::median(as.numeric(data_imp[[Index]]), na.rm = TRUE))
+    }
+    if (is.finite(ref_v)) {
+      ref_lab <- paste0(
+        "Reference (OR=1): ",
+        formatC(ref_v, digits = 1L, format = "f"),
+        " (median)"
+      )
+    }
+  }
   plot_obj <- plot_obj +
-    ggplot2::theme_classic() +
     ggplot2::annotate(
       "text", x = x_min, y = y_top * 0.98,
-      label = paste0(
-        "P for overall ",
-        ifelse(round(as.numeric(an[nrow(an), 3]), 3) == 0, "< 0.001",
-               paste0("= ", round(as.numeric(an[nrow(an), 3]), 3)))
-      ),
+      label = paste0("P for overall ", fmt_p_annot(p_ov_val)),
       family = plot_ff, hjust = 0, vjust = 1
     ) +
     ggplot2::annotate(
       "text", x = x_min, y = y_top * 0.98 - y_step,
-      label = paste0(
-        "P for nonlinear ",
-        ifelse(round(as.numeric(an[2, 3]), 3) == 0, "< 0.001",
-               paste0("= ", round(as.numeric(an[2, 3]), 3)))
-      ),
+      label = paste0("P for nonlinear ", fmt_p_annot(p_nl_val)),
       family = plot_ff, hjust = 0, vjust = 1
     ) +
+    {
+      extra <- list()
+      if (nzchar(kn_lab)) {
+        extra[[length(extra) + 1L]] <- ggplot2::annotate(
+          "text", x = x_min, y = y_top * 0.98 - 2 * y_step,
+          label = kn_lab,
+          family = plot_ff, hjust = 0, vjust = 1, size = 3.2
+        )
+      }
+      if (nzchar(ref_lab)) {
+        extra[[length(extra) + 1L]] <- ggplot2::annotate(
+          "text", x = x_min, y = y_top * 0.98 - 3 * y_step,
+          label = ref_lab,
+          family = plot_ff, hjust = 0, vjust = 1, size = 3.2
+        )
+      }
+      if (!length(extra)) ggplot2::geom_blank() else extra
+    } +
     ggplot2::scale_y_continuous(
-      limits = c(y_lim$ymin, y_lim$ymax_plot),
+      breaks = y_breaks,
       oob = scales::oob_squish,
       expand = ggplot2::expansion(mult = c(0.02, 0.06))
     ) +
-    ggplot2::coord_cartesian(clip = "on") +
+    ggplot2::coord_cartesian(
+      ylim = c(y_lim$ymin, y_lim$ymax_plot),
+      clip = "on"
+    ) +
     ggplot2::labs(title = title_label, x = xlab_display, y = "OR (95%CI)") +
     ggplot2::theme_bw() +
     ggplot2::theme(
@@ -547,7 +683,11 @@
       plot_obj <- pub_figure_profile_apply_ggplot(plot_obj, config)
     }
   }
-  plot_obj
+  plot_obj <- plot_obj +
+    ggplot2::coord_cartesian(
+      ylim = c(y_lim$ymin, y_lim$ymax_plot),
+      clip = "on"
+    )
 }
 
 .rci01_fit_panel <- function(data_imp, Index, nk, covar_rhs = NULL) {
@@ -599,9 +739,17 @@ block_rcs_incidence <- function(ctx, ...) {
     stop("rcs_incidence: 无分析数据，请先运行 data_clean / imputation。")
   }
 
-  Index <- ri_cfg$index_var %||% inc_cfg$index_var %||% (cfg$logistic %||% list())$index_var
+  Index <- as.character(
+    ri_cfg$index_var %||% inc_cfg$index_var %||% (cfg$logistic %||% list())$index_var
+  )[1L]
   if (is.null(Index) || !nzchar(Index)) {
     stop("rcs_incidence: 未设置 index_var。")
+  }
+  if (exists("pipeline_index_is_categorical", mode = "function") &&
+      Index %in% names(data_imp) &&
+      isTRUE(pipeline_index_is_categorical(data_imp[[Index]]))) {
+    cli::cli_alert_info("分类暴露：跳过 rcs_incidence（RCS 仅适用于连续暴露）")
+    return(ctx)
   }
   Disease <- cfg$project$analysis_group %||% cfg$project$disease %||% "Disease"
   outcome_col <- inc_cfg$outcome_var %||% cfg$data$outcome_column %||% "Disease"
@@ -619,12 +767,23 @@ block_rcs_incidence <- function(ctx, ...) {
   cfg_m2 <- as.character(cox_legacy$model2_covariates %||% character(0))
   gate_m1 <- .rci01_parse_factors(ctx$results$Model1Factors)
   gate_m2 <- .rci01_parse_factors(ctx$results$Model2Factors)
-  # 闸门 B / VIF-final 锁定后，禁止 db_rcs_logistic_models 预设覆盖 Model1/2
+  ac_on <- isTRUE((cfg$assoc_covariate %||% list())$enable %||% TRUE)
+  assoc_m1 <- .rci01_parse_factors(
+    ctx$results$assoc_model1_factors %||% ctx$results$logistic_model1_factors
+  )
+  assoc_m2 <- .rci01_parse_factors(
+    ctx$results$assoc_model2_factors %||% ctx$results$logistic_model2_factors
+  )
+  # 闸门 B / VIF-final 锁定后：禁止 preset 覆盖
   if (isTRUE(ctx$results$dual_db_covariate_harmonized) &&
       length(gate_m1) && length(gate_m2)) {
     Model1Factors <- gate_m1
     Model2Factors <- gate_m2
     cli::cli_alert_info("rcs_incidence: 使用闸门 B 锁定 Model1/Model2")
+  } else if (ac_on && length(assoc_m1)) {
+    Model1Factors <- assoc_m1
+    Model2Factors <- if (length(assoc_m2)) assoc_m2 else gate_m2
+    cli::cli_alert_info("rcs_incidence: 使用 assoc 协变量铁律 Model1/Model2（与 Table 2 一致）")
   } else {
     Model1Factors <- .rci01_parse_factors(
       ri_cfg$model1_factors %||% ctx$results$Model1Factors %||% cfg_m1
@@ -668,13 +827,33 @@ block_rcs_incidence <- function(ctx, ...) {
   }
   if (length(Model1Factors) == 0L) stop("rcs_incidence: Model1Factors 无可用列。")
   if (length(Model2Factors) == 0L) stop("rcs_incidence: Model2Factors 无可用列。")
+  if (length(Model1Factors) && length(Model2Factors) &&
+      setequal(Model1Factors, Model2Factors) && length(Model1Factors) > 3L) {
+    demo <- intersect(c("Age", "Gender", "Sex", "Race"), Model2Factors)
+    if (length(demo)) {
+      cli::cli_alert_warning(
+        "rcs_incidence: Model1 与 Model2 相同，Model1 回退为 {paste(demo, collapse = ', ')}"
+      )
+      Model1Factors <- demo
+    }
+  }
   Model3Factors <- if (exists("pipeline_rcs_model3_covs", mode = "function")) {
     pipeline_rcs_model3_covs(ctx, cfg, Model2Factors, names(data_imp), Index)
   } else {
     character(0)
   }
   Model3Factors <- intersect(setdiff(as.character(Model3Factors %||% character(0)), Index), names(data_imp))
-  if (!length(setdiff(Model3Factors, Model2Factors))) Model3Factors <- character(0)
+  if (!length(setdiff(Model3Factors, Model2Factors))) {
+    if (exists("pipeline_model3_enabled", mode = "function") &&
+        isTRUE(pipeline_model3_enabled(cfg))) {
+      Model3Factors <- as.character(Model2Factors)
+      cli::cli_alert_info(
+        "rcs_incidence Model3: 本库无额外学术必调列，仍保留第 4 面板（协变量同 Model2，双库布局对齐）"
+      )
+    } else {
+      Model3Factors <- character(0)
+    }
+  }
   m3_sig <- isTRUE(ctx$results$model3_significant)
 
   CrudeFactors <- .rci01_parse_factors(ri_cfg$crude_factors %||% character(0))
@@ -742,9 +921,9 @@ block_rcs_incidence <- function(ctx, ...) {
   if (!is.finite(cutoff_label_digits) || cutoff_label_digits < 0L) {
     cutoff_label_digits <- 2L
   }
-  # Model2 竖虚线：默认仅 primary 一条；设 cutoff_vlines="all" 可标全部交点
+  # Model2/3 竖虚线：默认 primary；all=全部交点；none=不画阈值竖线（完整剂量–反应为主时）
   cutoff_vline_mode <- tolower(as.character(ri_cfg$cutoff_vlines %||% "primary")[1L])
-  if (!cutoff_vline_mode %in% c("primary", "all")) cutoff_vline_mode <- "primary"
+  if (!cutoff_vline_mode %in% c("primary", "all", "none")) cutoff_vline_mode <- "primary"
   plot_ff <- plot_font_from_config(cfg)
 
   # 作图 x 轴限制：小样本尾部稀疏时避免曲线外推到空区乱穿 OR=1
@@ -782,27 +961,128 @@ block_rcs_incidence <- function(ctx, ...) {
   }
 
   if (!exists(".pub_figure_extract_lrm_anova_p", mode = "function") ||
-      !exists(".pub_figure_rcs_vline_cutoffs", mode = "function")) {
-    pf_r <- file.path(ctx$config$project$root %||% getwd(), "R/pub_figure_export.R")
-    if (file.exists(pf_r)) source(pf_r, local = FALSE)
+      !exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
+    candidates <- unique(c(
+      file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), "R/pub_figure_export.R"),
+      file.path(ctx$config$project$root %||% "", "R/pub_figure_export.R"),
+      file.path(getwd(), "R/pub_figure_export.R")
+    ))
+    candidates <- candidates[nzchar(candidates) & file.exists(candidates)]
+    if (length(candidates)) source(candidates[[1L]], local = FALSE)
   }
-  show_cut_c <- !length(Model3Factors) || !isTRUE(m3_sig)
-  show_cut_d <- length(Model3Factors) && isTRUE(m3_sig)
-  .panel_from_res <- function(res, show_cuts = FALSE) {
+  if (!exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
+    stop("rcs_incidence: 缺少 .pub_figure_rcs_panel_vline_cutoffs（请 source R/pub_figure_export.R）",
+         call. = FALSE)
+  }
+  show_cut_c <- !identical(cutoff_vline_mode, "none") &&
+    (!length(Model3Factors) || !isTRUE(m3_sig))
+  show_cut_d <- !identical(cutoff_vline_mode, "none") &&
+    length(Model3Factors) && isTRUE(m3_sig)
+  .panel_from_res <- function(res, show_cuts = FALSE, panel = NULL) {
     pe <- .pub_figure_extract_lrm_anova_p(res$an)
+    p_ov <- pe$p_overall
+    if (exists("pipeline_rcs_p_overall_source", mode = "function") &&
+        exists("pipeline_logistic_table2_trend_p", mode = "function") &&
+        !is.null(panel) &&
+        identical(pipeline_rcs_p_overall_source(cfg, ri_cfg), "table2_trend")) {
+      pt <- if (exists("pipeline_rcs_table2_trend_p", mode = "function")) {
+        pipeline_rcs_table2_trend_p(ctx, panel)
+      } else {
+        pipeline_logistic_table2_trend_p(ctx, panel)
+      }
+      if (!is.finite(pt) && exists("pipeline_rcs_incidence_trend_p", mode = "function")) {
+        covs <- switch(panel,
+          crude = character(0),
+          model1 = Model1Factors,
+          model2 = Model2Factors,
+          model3 = Model3Factors,
+          character(0)
+        )
+        pt <- pipeline_rcs_incidence_trend_p(
+          data_imp, covs, Index, "Disease"
+        )
+      }
+      if (is.finite(pt)) p_ov <- pt
+    }
     cuts <- .pub_figure_rcs_panel_vline_cutoffs(
       res$cutoffs, show_cuts, cutoff_vline_mode
     )
     list(
-      p_overall = pe$p_overall,
+      p_overall = p_ov,
       p_nonlinear = pe$p_nonlinear,
       cutoffs = cuts
     )
   }
+  .rci01_panel_p_overall <- function(panel) {
+    if (!identical(pipeline_rcs_p_overall_source(cfg, ri_cfg), "table2_trend")) {
+      return(NULL)
+    }
+    # 直接从磁盘读 Table 2 trend P
+    if (exists("pipeline_logistic_table2_read_from_disk", mode = "function") &&
+        exists("pipeline_logistic_table2_trend_p_from_tb", mode = "function")) {
+      tb <- tryCatch(pipeline_logistic_table2_read_from_disk(ctx), error = function(e) NULL)
+      if (!is.null(tb)) {
+        pv <- tryCatch(pipeline_logistic_table2_trend_p_from_tb(tb, panel), error = function(e) NA_real_)
+        if (is.finite(pv)) return(pv)
+      }
+    }
+    # 从 ctx$results 读
+    tp <- tryCatch(ctx[["results"]][["logistic_table2_trend_p"]], error = function(e) NULL)
+    if (!is.null(tp) && is.list(tp)) {
+      pv <- suppressWarnings(as.numeric(tp[[panel]]))
+      if (length(pv) > 0 && is.finite(pv[1])) return(pv[1])
+    }
+    # 从数据算
+    if (!is.finite(pv)) {
+      covs <- switch(panel,
+        crude = character(0),
+        model1 = Model1Factors,
+        model2 = Model2Factors,
+        model3 = Model3Factors,
+        character(0)
+      )
+      pt <- pipeline_rcs_incidence_trend_p(data_imp, covs, Index, "Disease")
+      if (is.finite(pt)) return(pt)
+    }
+    NULL
+  }
+  if (identical(pipeline_rcs_p_overall_source(cfg, ri_cfg), "table2_trend")) {
+    pts <- c(
+      if (exists("pipeline_rcs_table2_trend_p", mode = "function")) {
+        pipeline_rcs_table2_trend_p(ctx, "crude")
+      } else {
+        pipeline_logistic_table2_trend_p(ctx, "crude")
+      },
+      if (exists("pipeline_rcs_table2_trend_p", mode = "function")) {
+        pipeline_rcs_table2_trend_p(ctx, "model1")
+      } else {
+        pipeline_logistic_table2_trend_p(ctx, "model1")
+      },
+      if (exists("pipeline_rcs_table2_trend_p", mode = "function")) {
+        pipeline_rcs_table2_trend_p(ctx, "model2")
+      } else {
+        pipeline_logistic_table2_trend_p(ctx, "model2")
+      }
+    )
+    if (!any(is.finite(pts))) {
+      pts <- c(
+        .rci01_panel_p_overall("crude") %||% NA_real_,
+        .rci01_panel_p_overall("model1") %||% NA_real_,
+        .rci01_panel_p_overall("model2") %||% NA_real_
+      )
+    }
+    if (any(is.finite(pts))) {
+      cli::cli_alert_info(
+        "rcs_incidence: P for overall ← Table 2 trend: Crude={pts[1]}, M1={pts[2]}, M2={pts[3]}"
+      )
+    } else {
+      cli::cli_alert_warning("rcs_incidence: table2_trend 对齐失败，仍用样条联合检验 P。")
+    }
+  }
   ctx$results$rcs_incidence_panel_stats <- list(
-    Crude  = .panel_from_res(resA, FALSE),
-    Model1 = .panel_from_res(resB, FALSE),
-    Model2 = .panel_from_res(resC, show_cut_c)
+    Crude  = .panel_from_res(resA, FALSE, "crude"),
+    Model1 = .panel_from_res(resB, FALSE, "model1"),
+    Model2 = .panel_from_res(resC, show_cut_c, "model2")
   )
   if (!is.null(resD)) {
     ctx$results$rcs_incidence_panel_stats$Model3 <- .panel_from_res(resD, show_cut_d)
@@ -818,6 +1098,7 @@ block_rcs_incidence <- function(ctx, ...) {
   } else {
     "A.Crude Model"
   }
+  x_plot_range <- range(plot_data[[Index]], na.rm = TRUE)
   plot_A <- .rci01_ggrcs_panel(
     plot_data, resA$fit, Index, selected_colors3, resA$an, resA$out,
     title_A, resA$cutoffs, histbin = histbin, plot_ff = plot_ff,
@@ -825,7 +1106,8 @@ block_rcs_incidence <- function(ctx, ...) {
     xlab_display = xlab_disp,
     ylim = ri_cfg$ylim, y_min = ri_cfg$y_min, y_max = ri_cfg$y_max,
     ylim_force = isTRUE(ri_cfg$ylim_force),
-    config = cfg
+    config = cfg, x_range = x_plot_range,
+    p_overall = .rci01_panel_p_overall("crude")
   )
   plot_B <- .rci01_ggrcs_panel(
     plot_data, resB$fit, Index, selected_colors3, resB$an, resB$out,
@@ -834,7 +1116,8 @@ block_rcs_incidence <- function(ctx, ...) {
     xlab_display = xlab_disp,
     ylim = ri_cfg$ylim, y_min = ri_cfg$y_min, y_max = ri_cfg$y_max,
     ylim_force = isTRUE(ri_cfg$ylim_force),
-    config = cfg
+    config = cfg, x_range = x_plot_range,
+    p_overall = .rci01_panel_p_overall("model1")
   )
   plot_C <- .rci01_ggrcs_panel(
     plot_data, resC$fit, Index, selected_colors3, resC$an, resC$out,
@@ -844,7 +1127,8 @@ block_rcs_incidence <- function(ctx, ...) {
     xlab_display = xlab_disp,
     ylim = ri_cfg$ylim, y_min = ri_cfg$y_min, y_max = ri_cfg$y_max,
     ylim_force = isTRUE(ri_cfg$ylim_force),
-    config = cfg
+    config = cfg, x_range = x_plot_range,
+    p_overall = .rci01_panel_p_overall("model2")
   )
   plot_D <- if (!is.null(resD)) {
     .rci01_ggrcs_panel(
@@ -855,7 +1139,7 @@ block_rcs_incidence <- function(ctx, ...) {
       xlab_display = xlab_disp,
       ylim = ri_cfg$ylim, y_min = ri_cfg$y_min, y_max = ri_cfg$y_max,
       ylim_force = isTRUE(ri_cfg$ylim_force),
-      config = cfg
+      config = cfg, x_range = x_plot_range
     )
   } else {
     NULL
@@ -867,7 +1151,11 @@ block_rcs_incidence <- function(ctx, ...) {
   suppressPackageStartupMessages(library(patchwork, warn.conflicts = FALSE))
 
   comb_pack <- if (exists("pipeline_rcs_patchwork", mode = "function")) {
-    pipeline_rcs_patchwork(list(plot_A, plot_B, plot_C, plot_D))
+    rcs_panels <- list(crude = plot_A, model1 = plot_B, model2 = plot_C, model3 = plot_D)
+    if (exists("pipeline_rcs_select_plot_panels", mode = "function")) {
+      rcs_panels <- pipeline_rcs_select_plot_panels(rcs_panels, ri_cfg)
+    }
+    pipeline_rcs_patchwork(rcs_panels)
   } else {
     list(
       plot = plot_A + plot_B + plot_C + patchwork::plot_layout(nrow = 1),
@@ -881,7 +1169,7 @@ block_rcs_incidence <- function(ctx, ...) {
   fig_dir <- ctx$output_dir_figures %||% file.path(ctx$output_dir, "Figures")
   if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
   fig_caption <- paste0(
-    "RCS plot between ", pipeline_index_display_name(cfg, Index), " and ", Disease
+    "RCS of ", pipeline_index_display_name(cfg, Index), " and ", Disease
   )
   fig_stem <- if (!is.null(ri_cfg$figure_filename) && nzchar(ri_cfg$figure_filename)) {
     ri_cfg$figure_filename
@@ -990,11 +1278,15 @@ block_rcs_incidence <- function(ctx, ...) {
     cutoff_detail <- cutoff_detail[order(cutoff_detail$cutoff), , drop = FALSE]
   }
 
+  # 勿用 key "rcs_cutoff"：上面已写入 primary 标量；CSV 明细另存，避免覆盖
   ctx <- save_result(
-    ctx, "rcs_cutoff",
+    ctx, "rcs_cutoff_detail",
     cutoff_detail,
     paste0("cutoff_", Index, ".csv")
   )
+  # 再次钉死 primary，防止其它步骤误覆盖
+  ctx$results$rcs_cutoff <- cutoff
+  ctx$results$cutoff_value <- cutoff
 
   group_counts <- as.data.frame(
     table(data_imp[[group_info$col_name]], useNA = "ifany"),

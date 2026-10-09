@@ -295,7 +295,8 @@
     stop(model_label, " 数据文件不存在: ", xlsx_path, call. = FALSE)
   }
 
-  .rd <- function(sheet) openxlsx::read.xlsx(xlsx_path, sheet = sheet)[, -1L]
+  # sep.names=" "：保留 "No AKI" 等带空格标签；默认 "." 会变成 No.AKI
+  .rd <- function(sheet) openxlsx::read.xlsx(xlsx_path, sheet = sheet, sep.names = " ")[, -1L]
 
   eval_ml           <- .rd(paste0("eval_", sheet_stem))
   eval_ml$model     <- model_label
@@ -309,8 +310,28 @@
   eval_best_cv5_ml_sens  <- .rd(paste0("eval_best_cv5_", sheet_stem, "_sens"))
   eval_best_cv5_ml_sens$model <- model_label
 
+  .pick_name <- function(nms, want) {
+    if (want %in% nms) return(want)
+    cands <- unique(c(
+      make.names(want),
+      gsub(" ", ".", want, fixed = TRUE),
+      gsub(" ", "_", want, fixed = TRUE)
+    ))
+    hit <- intersect(cands, nms)
+    if (length(hit)) return(hit[[1L]])
+    stop(
+      model_label, " 未找到列 ", want, "。现有列: ",
+      paste(nms, collapse = ", "),
+      call. = FALSE
+    )
+  }
   .fix_pred <- function(df) {
-    df <- df[, c(ref_g, ana_g, "Group", "dataset", "model")]
+    need <- vapply(
+      c(ref_g, ana_g, "Group", "dataset", "model"),
+      function(w) .pick_name(names(df), w),
+      character(1L)
+    )
+    df <- df[, need, drop = FALSE]
     colnames(df) <- c(pred_ref_col, pred_ana_col, "Group", "dataset", "model")
     df$model <- model_label
     df

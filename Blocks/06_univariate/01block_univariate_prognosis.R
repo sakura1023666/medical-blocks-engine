@@ -104,6 +104,7 @@
     paste0("p=", formatC(round(p, 3), format = "f", digits = 3))
   }
   .fmt_ci_p <- function(est, lo, hi, p) {
+    if (exists("pub_fmt_est_ci_p", mode = "function")) return(pub_fmt_est_ci_p(est, lo, hi, p))
     if (length(est) != 1L || is.na(est)) return("")
     pt <- .fmt_p_inline(p)
     if (is.na(lo) || is.na(hi)) {
@@ -193,15 +194,7 @@
           lev <- lv[k]
           nk <- sum(xf == lev, na.rm = TRUE)
           pctk <- if (n_tot > 0) nk / n_tot * 100 else 0
-          mr <- sub_u[sub_u$Variable == paste0(bv, lev), , drop = FALSE]
-          if (nrow(mr) == 0L && "Group" %in% names(sub_u)) {
-            mr <- sub_u[as.character(sub_u$Group) == as.character(lev), , drop = FALSE]
-          }
-          if (nrow(mr) == 0L) {
-            mr <- sub_u[grepl(paste0("^", bv, ".*", lev, "$"), sub_u$Variable), , drop = FALSE]
-          }
-          if (nrow(mr) == 0L) mr <- sub_u[grepl(lev, sub_u$Variable, fixed = TRUE), , drop = FALSE]
-          if (nrow(mr) > 1L) mr <- mr[1L, , drop = FALSE]
+          mr <- univar_match_coef_row(sub_u, bv, lev)
           u1 <- if (nrow(mr) == 1L) .fmt_ci_p(mr[[if ("HR" %in% names(mr)) "HR" else "OR"]][1],
             mr$CI_lo[1], mr$CI_hi[1], mr$P[1]) else ""
           pub_rows[[length(pub_rows) + 1L]] <- data.frame(
@@ -221,8 +214,15 @@
     ctx, ctx$output_dir_tables, "supp_table",
     base_title, "Univariate Regression Analysis", "xlsx"
   )
+  uv_fn <- character(0)
+  if (any(grepl("^NE\\b", as.character(out_table[[lab_uni]] %||% ""), perl = TRUE))) {
+    uv_fn <- "NE = not estimable (complete separation, infinite CI, or unstable OR/HR)."
+  }
   tryCatch(
-    export_sci_table(out_table, pub_uv$filepath, title = pub_uv$title),
+    export_sci_table(
+      out_table, pub_uv$filepath, title = pub_uv$title,
+      table_footnotes = if (length(uv_fn)) uv_fn else NULL
+    ),
     error = function(e) cli::cli_alert_warning("Table S2a 导出失败: {e$message}")
   )
   invisible(TRUE)
@@ -252,6 +252,11 @@ block_univariate_prognosis <- function(ctx, ...) {
   cli::cli_alert_info(
     "univariate_prognosis: 分析队列 source={up_res$source %||% 'unknown'}, n={nrow(data)}（Cox HR）"
   )
+  if (exists("pipeline_apply_extreme_to_na", mode = "function")) {
+    .ex <- pipeline_apply_extreme_to_na(ctx, data = data, label = "univariate_prognosis")
+    ctx <- .ex$ctx
+    data <- .ex$data
+  }
 
   outcome_col   <- cfg$data$outcome_column    %||% "Disease"
   bl_cfg        <- cfg$univariate_prognosis %||% list()
@@ -407,6 +412,36 @@ block_univariate_prognosis <- function(ctx, ...) {
       data[[v]] <- .coerce_force_continuous(data[[v]])
     }
     cli::cli_alert_info("强制按连续变量处理: {paste(force_continuous_vars, collapse = ', ')}")
+  }
+
+  ## 分类强制 + 低基数 numeric→factor，避免「表按水平展示、却贴同一连续 HR」
+  force_factor_vars <- intersect(
+    as.character(cfg$force_factor_vars %||% uv_cfg$force_factor_vars %||% character(0)),
+    predictor_vars
+  )
+  disc_n_fit <- as.integer(uv_cfg$discrete_max_levels %||% 5L)[1L]
+  if (!is.finite(disc_n_fit) || disc_n_fit < 2L) disc_n_fit <- 5L
+  if (exists("pipeline_coerce_discrete_numeric", mode = "function")) {
+    coerced <- pipeline_coerce_discrete_numeric(
+      data,
+      vars = predictor_vars,
+      threshold = disc_n_fit,
+      force_continuous = force_continuous_vars,
+      outcome_col = if (exists("event_var")) event_var else NULL
+    )
+    data <- coerced$data
+    if (length(coerced$discrete)) {
+      cli::cli_alert_info(
+        "低基数数值已按分类拟合（≤{disc_n_fit} 水平）: {paste(coerced$discrete, collapse = ', ')}"
+      )
+    }
+  }
+  if (length(force_factor_vars)) {
+    for (v in force_factor_vars) {
+      if (!v %in% names(data)) next
+      if (!is.factor(data[[v]])) data[[v]] <- factor(data[[v]])
+    }
+    cli::cli_alert_info("强制按分类变量处理: {paste(force_factor_vars, collapse = ', ')}")
   }
 
   # 核心指标尺度变换（仅本块内用于回归的 data 副本，不写回 ctx$data）

@@ -46,6 +46,7 @@
 .lqg04_Tb_ModelGroup3_OR <- function(ResultName, ContinuousName, FactorName, TrendName,
                                       Data, Model1Factors, Model2Factors,
                                       cutoffs, group_labels, include_continuous = TRUE) {
+  is_rcs_grp <- isTRUE(attr(cutoffs, "is_rcs_group") %||% FALSE)
   fml_f01 <- as.formula(paste0(ResultName, "~", FactorName))
   fml_f02 <- as.formula(paste0(ResultName, "~", paste(c(FactorName, Model1Factors), collapse = "+")))
   fml_f03 <- as.formula(paste0(ResultName, "~", paste(c(FactorName, Model2Factors), collapse = "+")))
@@ -53,12 +54,12 @@
   fml_t02 <- as.formula(paste0(ResultName, "~", paste(c(TrendName, Model1Factors), collapse = "+")))
   fml_t03 <- as.formula(paste0(ResultName, "~", paste(c(TrendName, Model2Factors), collapse = "+")))
 
-  mf  <- glm(fml_f01, data = Data, family = binomial)
-  mf2 <- glm(fml_f02, data = Data, family = binomial)
-  mf3 <- glm(fml_f03, data = Data, family = binomial)
-  mt  <- glm(fml_t01, data = Data, family = binomial)
-  mt2 <- glm(fml_t02, data = Data, family = binomial)
-  mt3 <- glm(fml_t03, data = Data, family = binomial)
+  mf  <- logistic_glm_binomial_safe(fml_f01, Data)
+  mf2 <- logistic_glm_binomial_safe(fml_f02, Data)
+  mf3 <- logistic_glm_binomial_safe(fml_f03, Data)
+  mt  <- logistic_glm_binomial_safe(fml_t01, Data)
+  mt2 <- logistic_glm_binomial_safe(fml_t02, Data)
+  mt3 <- logistic_glm_binomial_safe(fml_t03, Data)
 
   n_total <- nrow(Data); cnt <- table(Data[[FactorName]])
   .ci <- function(m, row) {
@@ -92,33 +93,40 @@
   lines_nonref <- lapply(seq_along(non_ref_lvs), function(i) {
     lv <- non_ref_lvs[i]; idx <- i + 1L
     c(lv, cutoffs[lv], .pct(lv),
-      round(exp(coef(mf)[idx]),  3), .ci(mf,  idx), round(summary(mf)$coefficients[idx, 4], 4),
-      round(exp(coef(mf2)[idx]), 3), .ci(mf2, idx), round(summary(mf2)$coefficients[idx, 4], 4),
-      round(exp(coef(mf3)[idx]), 3), .ci(mf3, idx), round(summary(mf3)$coefficients[idx, 4], 4))
+      round(exp(coef(mf)[idx]),  3), .ci(mf,  idx), logistic_glm_format_p(summary(mf)$coefficients[idx, 4], is_rcs_grp),
+      round(exp(coef(mf2)[idx]), 3), .ci(mf2, idx), logistic_glm_format_p(summary(mf2)$coefficients[idx, 4], is_rcs_grp),
+      round(exp(coef(mf3)[idx]), 3), .ci(mf3, idx), logistic_glm_format_p(summary(mf3)$coefficients[idx, 4], is_rcs_grp))
   })
 
-  Line_trend <- c("p for trend", rep("", 4),
-                  round(summary(mt)$coefficients[2, 4], 4), "", "",
-                  round(summary(mt2)$coefficients[2, 4], 4), "", "",
-                  round(summary(mt3)$coefficients[2, 4], 4))
+  # RCS cutoff 分组表不放 p for trend
+  Line_trend <- if (isTRUE(attr(cutoffs, "is_rcs_group") %||% FALSE)) {
+    NULL
+  } else {
+    c("p for trend", rep("", 4),
+      pub_format_p_cell(summary(mt)$coefficients[2, 4]), "", "",
+      pub_format_p_cell(summary(mt2)$coefficients[2, 4]), "", "",
+      pub_format_p_cell(summary(mt3)$coefficients[2, 4]))
+  }
 
   if (include_continuous) {
     fml_c01 <- as.formula(paste0(ResultName, "~", ContinuousName))
     fml_c02 <- as.formula(paste0(ResultName, "~", paste(c(ContinuousName, Model1Factors), collapse = "+")))
     fml_c03 <- as.formula(paste0(ResultName, "~", paste(c(ContinuousName, Model2Factors), collapse = "+")))
-    mc <- glm(fml_c01, data = Data, family = binomial)
-    mc2 <- glm(fml_c02, data = Data, family = binomial)
-    mc3 <- glm(fml_c03, data = Data, family = binomial)
+    mc <- logistic_glm_binomial_safe(fml_c01, Data)
+    mc2 <- logistic_glm_binomial_safe(fml_c02, Data)
+    mc3 <- logistic_glm_binomial_safe(fml_c03, Data)
     .ci_c <- function(m) { ci <- logistic_safe_confint(m); paste0("(", round(exp(ci[2,1]),3), ",", round(exp(ci[2,2]),3), ")") }
     Line3 <- c(ContinuousName, rep("", 11))
     Line4 <- c(paste0(ContinuousName, " continuous"), "", "",
-               round(exp(coef(mc)[2]),  3), .ci_c(mc),  round(summary(mc)$coefficients[2, 4], 4),
-               round(exp(coef(mc2)[2]), 3), .ci_c(mc2), round(summary(mc2)$coefficients[2, 4], 4),
-               round(exp(coef(mc3)[2]), 3), .ci_c(mc3), round(summary(mc3)$coefficients[2, 4], 4))
-    rt <- do.call(rbind, c(list(Line1, Line2, Line3, Line4, Line5, Line_ref), lines_nonref, list(Line_trend)))
+               round(exp(coef(mc)[2]),  3), .ci_c(mc),  logistic_glm_format_p(summary(mc)$coefficients[2, 4], is_rcs_grp),
+               round(exp(coef(mc2)[2]), 3), .ci_c(mc2), logistic_glm_format_p(summary(mc2)$coefficients[2, 4], is_rcs_grp),
+               round(exp(coef(mc3)[2]), 3), .ci_c(mc3), logistic_glm_format_p(summary(mc3)$coefficients[2, 4], is_rcs_grp))
+    parts <- c(list(Line1, Line2, Line3, Line4, Line5, Line_ref), lines_nonref)
   } else {
-    rt <- do.call(rbind, c(list(Line1, Line2, Line5, Line_ref), lines_nonref, list(Line_trend)))
+    parts <- c(list(Line1, Line2, Line5, Line_ref), lines_nonref)
   }
+  if (!is.null(Line_trend)) parts <- c(parts, list(Line_trend))
+  rt <- do.call(rbind, parts)
   rownames(rt) <- NULL; rt
 }
 
@@ -150,7 +158,11 @@ block_logistic_binary_glm <- function(ctx, ...) {
   }
 
   outcome_col   <- cfg$data$outcome_column %||% "Disease"
-  disease_label <- cfg$project$analysis_group %||% cfg$project$disease %||% outcome_col
+  disease_label <- if (exists("pipeline_outcome_case_label", mode = "function")) {
+    pipeline_outcome_case_label(cfg)
+  } else {
+    cfg$project$analysis_group %||% cfg$project$disease %||% outcome_col
+  }
   index_var     <- bl_cfg$index_var %||% (cfg$logistic %||% list())$index_var
   if (is.null(index_var) || !nzchar(index_var))
     stop("logistic_binary_glm: index_var 未设置。")
@@ -174,6 +186,9 @@ block_logistic_binary_glm <- function(ctx, ...) {
     data2$Group <- factor(data2[[group_var_name]], levels = raw_levels)
     data2$Num   <- as.numeric(data2$Group)
     cutoffs     <- setNames(rep("", length(raw_levels)), raw_levels)
+    if (identical(phase, "rcs")) {
+      cutoffs <- logistic_rcs_prepare_cutoffs(raw_levels, ctx)
+    }
     cli::cli_alert_info("logistic_binary_glm: 使用已有分类列 '{group_var_name}'")
   } else {
     q_med       <- as.numeric(quantile(data2[[index_var]], probs = 0.5, na.rm = TRUE))
@@ -191,7 +206,11 @@ block_logistic_binary_glm <- function(ctx, ...) {
   if (predefined && is_subphenotype) {
     data3 <- data2
     data3[[outcome_col]] <- as.character(data3[[outcome_col]])
-    data3[[outcome_col]] <- ifelse(data3[[outcome_col]] == disease_label, 1L, 0L)
+    data3[[outcome_col]] <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    as.integer(pipeline_outcome_as_01(data3[[outcome_col]], cfg))
+  } else {
+    as.integer(data3[[outcome_col]] == disease_label)
+  }
     data3$.outcome_tmp   <- data3[[outcome_col]]  # 安全的临时列名（避免 in-hospital 被解析为关键字）
     data3$Group <- factor(as.character(data3[[group_var_name]]), levels = raw_levels)
     keep3 <- unique(c(".outcome_tmp", "Group", as.character(bl_cfg$model2_factors %||% ctx$results$Model2Factors %||% "Age")))
@@ -201,14 +220,14 @@ block_logistic_binary_glm <- function(ctx, ...) {
     fml_c <- as.formula(".outcome_tmp ~ Group")
     fml_a <- if (length(m2fac) > 0L) as.formula(paste0(".outcome_tmp ~ Group + ", paste(m2fac, collapse="+"))) else fml_c
     get_or <- function(fml) tryCatch({
-      m <- glm(fml, data = dt3, family = binomial)
+      m <- logistic_glm_binomial_safe(fml, dt3)
       sm <- summary(m)$coefficients
       sm <- sm[grepl("^Group", rownames(sm)), , drop = FALSE]
       data.frame(Term = rownames(sm),
                  OR = round(exp(sm[,"Estimate"]),3),
                  CI95 = apply(logistic_safe_confint(m)[grepl("^Group", rownames(logistic_safe_confint(m))), , drop=FALSE], 1,
                               function(r) paste0("(", round(exp(r[1]),3),",", round(exp(r[2]),3),")")),
-                 P = round(sm[,"Pr(>|z|)"],4), stringsAsFactors=FALSE)
+                 P = pub_format_p_cell(sm[,"Pr(>|z|)"]), stringsAsFactors=FALSE)
     }, error = function(e) NULL)
     or_crude <- get_or(fml_c); or_adj <- get_or(fml_a)
     rt_out   <- if (!is.null(or_crude) && !is.null(or_adj)) {
@@ -225,7 +244,11 @@ block_logistic_binary_glm <- function(ctx, ...) {
   }
 
   data2[[outcome_col]] <- as.character(data2[[outcome_col]])
-  data2[[outcome_col]] <- ifelse(data2[[outcome_col]] == disease_label, 1L, 0L)
+  data2[[outcome_col]] <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    as.integer(pipeline_outcome_as_01(data2[[outcome_col]], cfg))
+  } else {
+    as.integer(data2[[outcome_col]] == disease_label)
+  }
 
   excl_cols <- c(outcome_col, index_var, "Group", "Num", if (predefined) group_var_name)
   cov <- logistic_prepare_covariates(
@@ -310,8 +333,10 @@ block_logistic_binary_glm <- function(ctx, ...) {
   ix_disp <- gsub("_", " ", as.character(index_var), fixed = TRUE)
   caption <- if (exists("logistic_glm_pub_caption", mode = "function")) {
     logistic_glm_pub_caption(
-      ix_disp, disease_disp, scheme = "binary",
-      is_rcs = is_rcs, unweighted = isTRUE(has_weighted_main)
+      ix_disp, disease_disp,
+      scheme = if (isTRUE(bl_cfg$categorical_exposure)) "" else "binary",
+      is_rcs = is_rcs, unweighted = isTRUE(has_weighted_main),
+      native_levels = isTRUE(bl_cfg$categorical_exposure)
     )
   } else if (is_rcs) {
     paste0("Logistic regression of ", ix_disp, " RCS cutoff")

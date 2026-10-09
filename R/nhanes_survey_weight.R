@@ -18,8 +18,25 @@ nhanes_fasting_only_indices <- function() {
   )
 }
 
-#' Gate A / harmonize 须保留的 NHANES 权重源列（供 block_obj 计算 new_Weight）
+#' Gate A / harmonize 须保留的调查权重源列
+#'
+#' KNHANES 走 `knhanes_survey_weight_source_cols()`（wt_itvex / kstrata / psu），
+#' 不可与 CDC WTMEC* 混用。
 nhanes_survey_weight_source_cols <- function(cfg = NULL) {
+  if (!is.null(cfg) && exists(".is_knhanes_db", mode = "function") &&
+      isTRUE(.is_knhanes_db(cfg))) {
+    if (!exists("knhanes_survey_weight_source_cols", mode = "function")) {
+      root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      p <- file.path(root, "R", "knhanes_survey_weight.R")
+      if (!nzchar(root) || !file.exists(p)) {
+        p <- file.path((cfg$project$root %||% getwd()), "R", "knhanes_survey_weight.R")
+      }
+      if (file.exists(p)) source(p, local = FALSE)
+    }
+    if (exists("knhanes_survey_weight_source_cols", mode = "function")) {
+      return(knhanes_survey_weight_source_cols(cfg))
+    }
+  }
   nh <- if (!is.null(cfg)) (cfg$nhanes %||% list()) else list()
   unique(c(
     nh$survey_weight %||% "new_Weight",

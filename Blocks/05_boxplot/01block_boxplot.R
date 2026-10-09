@@ -266,15 +266,34 @@ block_boxplot <- function(ctx, group_var = NULL, response_vars = NULL, ...) {
       as.character(sv$event_column %||% character(0)),
       "fustatus", "Fustatus", "status"
     ))
-    event_cols <- event_cols[nzchar(event_cols)]
+    outcome_cols <- unique(c(
+      as.character((cfg$data %||% list())$outcome_column %||% character(0)),
+      as.character((cfg$incidence %||% list())$outcome_var %||% character(0)),
+      as.character(prj$outcome %||% character(0))
+    ))
+    group_cols <- unique(c(event_cols, outcome_cols))
+    group_cols <- group_cols[nzchar(group_cols)]
     is_event_group <- tolower(group_var) %in% tolower(event_cols)
+    is_outcome_group <- tolower(group_var) %in% tolower(outcome_cols)
+    outcome_cap <- if (is_outcome_group &&
+        exists("pipeline_outcome_case_label", mode = "function")) {
+      as.character(pipeline_outcome_case_label(cfg))[1L]
+    } else if (is_outcome_group) {
+      as.character((prj$disease %||% group_var)[1L])
+    } else {
+      NA_character_
+    }
     show_x_lab <- if (!is.null(bx$show_group_axis_title)) {
       isTRUE(bx$show_group_axis_title)
     } else {
-      # 默认：结局/状态列不显示轴标题；其它分层仍显示
-      !is_event_group
+      # 默认：结局/状态列不显示轴标题（分组水平名已可读；旧版把列名 DN
+      # 露到 x 轴底部，发表图禁止）；其它分层仍显示
+      !is_event_group && !is_outcome_group
     }
-    group_lab <- if (is_event_group) {
+    group_lab <- if (is_outcome_group && nzchar(outcome_cap %||% "")) {
+      # 疾病名下划线→空格（Uterine_fibroids → Uterine fibroids），与刻度一致
+      gsub("_", " ", outcome_cap, fixed = TRUE)
+    } else if (is_event_group) {
       as.character(bx$group_axis_label %||% "survival status")[1L]
     } else if (exists("pipeline_plot_axis_label", mode = "function")) {
       pipeline_plot_axis_label(group_var, cfg)
@@ -295,8 +314,17 @@ block_boxplot <- function(ctx, group_var = NULL, response_vars = NULL, ...) {
       paste0("Comparison of ", resp_lab, " by ", group_lab)
     }
     xlab_plot <- if (isTRUE(show_x_lab)) group_lab else NULL
-    fig_cap <- if (is_event_group) {
+    # 结局分组：文件名/标题/轴一律用疾病显示名（如 Uterine fibroids），
+    # 禁止把数据列名（DN/fustatus 等）漏到发表文件名与图内文字。
+    .bp_outcome_stub <- if (is_outcome_group && nzchar(outcome_cap %||% "")) {
+      .safe_stub(outcome_cap)
+    } else {
+      .safe_stub(group_var)
+    }
+    fig_cap <- if (is_event_group && !is_outcome_group) {
       paste0("Boxplot ", .safe_stub(resp), " by survival status")
+    } else if (is_outcome_group && nzchar(outcome_cap %||% "")) {
+      paste0("Boxplot ", .safe_stub(resp), " by ", .bp_outcome_stub)
     } else {
       paste0("Boxplot ", .safe_stub(resp), " by ", .safe_stub(group_var))
     }

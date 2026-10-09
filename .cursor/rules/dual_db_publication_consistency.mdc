@@ -1,0 +1,39 @@
+---
+description: 双库发病/预后发表产物一致性（Gate A、S 号、标题、拼图）全项目复用
+alwaysApply: true
+---
+
+# 双库发表产物一致性铁律（全项目复用）
+
+凡 NHANES + 次库（CHARLS/MIMIC/eICU）发病 / 预后 dual-batch，汇总 `by_index/【success】<INDEX>/` 的 Tables/Figures 必须遵守。
+
+## 铁律
+
+1. **Gate A 同生共死**：次库 Table1 / S1 / S3 等展示列不得残留 Residence/Familysize/HR/CRP 等次库独有列（除非显式 `keep_secondary_only_table1_cols=TRUE`）。实现：`dual_db_compute_gate_a` / `incidence_batch_gate_a_from_clean` 须从 `keep_mimic` **真正剔除**，不能只打日志。
+2. **S 角色双库同号**：关联=S8、中介=S9、RCS=S-XX、NHANES 不加权基线=S10、不加权 logistic=S11（或课题编号规则一致）。禁止对根 `Tables` 盲目 `compact_supp_s_numbers` 把双库同角色拆成错位编号。S8 变量名单须同一实验室池（见中介关联表铁律），禁止一侧人口学、一侧血检。
+2a. **S6 临床交集空 ⇒ 省略 S5/S6 并顺延**：只要两库多因素-VIF final 临床交集为空（无论走 auto 回退、`covariate_source="vif_screen"`，还是 `lock_covariates_preset` 锁 Age+X），发表表一律不出「多因素(S5)」与「VIF final(S6)」，Final harmonized 顶替为 S5。实现：`dual_db_try_sync_gate_b` lock 路径也探测并写 `omit_multivariate_and_vif_final_tables`；`incidence_batch_realign_dual_supp_tables` 删除+顺延。禁止 lock 预设时残留 S5/S6。
+3. **表内外标题一致**：`incidence_batch_sync_supp_table_title` 写 A1 时 caption 必须 `trimws`（避免 `Table S8-NHANES.  xxx` 双空格）；文件名与 A1 须同号同库标签。
+4. **结局 0/1 编码**：`analysis_group` 可为 `"1"`，但数据经 `pipeline_relabel_binary_outcome_column` 后常为疾病显示名。单因素 / logistic GLM 必须走 `pipeline_outcome_as_01` / `pipeline_outcome_case_label`，禁止 `x == "1"` 直接比显示标签。
+5. **亚组 Age / Smoke**：森林图 Age 用 `age_cutoff` 二分类 `Age_Group`；`Smoke`↔`Smoking` 别名两边都要挂。
+6. **Figures 拼图**：指标根 `Figures/` 必须是双库拼图（无 `-NHANES`/`-CHARLS` 后缀的主图）。单库 worker finalize 后若只剩一侧，须跑：
+   `Rscript run/incidence/remirror_index_pub_outputs.R --config … --index … --protect-tables`
+6a. **NHANES Fig1 权重记账**：obj 构建 svydesign 后必录 `after_survey_weight` 步（`attrition_record_survey_weight_step`），Exclude 框写明权重名与来源（如 `new_Weight from WTMEC2YR / WTMEC4YR`）与剔除 n；**即使剔除 0 人也画框并写 (n = 0)**。双栏拼图经 `attrition_draw_dual_panel_pdf(footnotes_by_db=)` 在 NHANES 面板带权重脚注。禁止只在日志里报权重不画图。
+6b. **表题禁用原始结局列名**：重导/对齐类表标题一律用疾病显示名（`pipeline_outcome_case_label` / `disease_lbl`），禁止拼 `outcome_column` 原列名（如 `DN`）进「…and <col>…」。
+7. **临时脚本不进引擎**：`/tmp/LCI_*.R`、课题 `repair_*.R` 仅一次性修补；可复用逻辑必须落在 `R/` / `Blocks/` / `run/incidence/`。
+
+## 实现入口
+
+- Gate A：`R/dual_db_harmonize.R`、`R/incidence_dual_batch_runner.R`
+- 标题同步：`incidence_batch_sync_supp_table_title`
+- 结局编码：`R/utils.R` → `pipeline_outcome_as_01`；调用方：`Blocks/06_univariate/*`、`Blocks/11_logistic/*`
+- 亚组：`Blocks/18_subgroup/03block_subgroup_nhanes_weighted.R`、`02block_subgroup_incidence.R`
+- 重镜像：`run/incidence/remirror_index_pub_outputs.R`
+- 锁协变量跳过救援：`Blocks/11_logistic/00logistic_nhanes_weighted_common.R`
+
+## 检查清单
+
+- [ ] Table1 / S1 / S3 双库变量集对齐（无次库独有列）
+- [ ] 根 Tables S8+ 角色与文件名、表内标题一致
+- [ ] NHANES 有 S11 不加权 logistic（若流水线含 `logistic_quartile_glm`）
+- [ ] 根 Figures/pdf 为拼图名（Figure 2. RCS…），非仅 `Figure 2-CHARLS…`
+- [ ] 未在 `/tmp` 留下课题私有「引擎补丁」却不进仓库

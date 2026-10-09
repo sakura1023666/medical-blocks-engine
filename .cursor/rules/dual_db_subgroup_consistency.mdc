@@ -1,0 +1,68 @@
+---
+description: 双库亚组森林图必须同变量、同口径（OR/N/切点），禁止单库各跑各的
+alwaysApply: true
+---
+
+# 双库亚组一致性铁律（全项目复用）
+
+凡 **双库** 发病 / 预后 / NHANES×对照库 拼图 Figure（亚组森林）必须遵守。
+**禁止** NHANES 与 CHARLS/MIMIC 各用一套亚组变量、暴露对比或 N 口径。
+
+## 铁律
+
+1. **同一变量名单**：`config$subgroup$var_source = "required"`，双库共用 `required_subgroup_vars`（及 Gate D / `force_subgroup_vars`）。禁止一侧 `table1_categorical` 自动扩库特异列、另一侧锁名单。
+2. **同一年龄切点与水平**：`age_cutoff` + `level_order$Age_Group` 双库一致（见 `age_subgroup_binary` 铁律）；禁止一侧二分类、一侧多档。
+3. **同一暴露对比**：默认 `continuous_index_mode = "highest_vs_lowest"`（主文 quartile 时为 **Q4 vs Q1**；tertile 则为最高 vs 最低）。禁止一侧连续 OR/unit、一侧分位对比。
+4. **全部人群估计（默认且强制）**：亚组森林图必须在 **全分析集**（含中间分位）上估计，各层报告「最高 vs 最低」分位对比；**分位跟随主文锁定方案**（`subgroup_resolve_main_scheme`：ctx 的 `logistic_grouping_scheme` / `dual_db_*_unified_scheme` / `cox_grouping_scheme`，回退 config `enable=TRUE` 的 tertile/quartile 块）。
+ - 图上 **N 与 OR 同一分母 = 全分析集**（主文 tertile → T3 vs T1，全人群；非旧 Q1+Q4 子集）。
+ - 实现：把中间分位并为 `Middle`（`subgroup_collapse_middle_levels`，不删行），jstable 输出用 `subgroup_fold_quantile_contrast_rows` 折叠成每层一行「最高 vs 最低」。哑变量嵌套保证最高层系数＝全分位模型对比值。
+ - 旧「模型只用 Q1+Q4 子集、图上 N 再覆盖」的分裂口径**已废弃为默认**；仅当显式 `config$subgroup$forest_n_source = "model_sample"` 时保留。
+ - **禁止**：主文 tertile 却把亚组硬编码 quartile；MIMIC/NHANES 一侧全人群、一侧 Q1+Q4 子集拼成一张 Fig3。
+5. **同一森林画布**：`forest_xlim` / `force_forest_xlim` 双库一致（拼图观感）；库特异超宽 CI 用同一上限策略，勿只改一侧。
+6. **forbid 同步**：`forbid_subgroup_vars` 双库同一黑名单（疾病泄漏、通气小时、单库人口学等）。
+
+## 实现入口
+
+- 发病 MIMIC/对照库：`Blocks/18_subgroup/02block_subgroup_incidence.R`
+- 发病 NHANES 加权：`Blocks/18_subgroup/03block_subgroup_nhanes_weighted.R`
+- 预后 Cox：`Blocks/18_subgroup/01block_subgroup_prognosis.R`
+- 全部人群三件套：`R/subgroup_forest_plot.R` → `subgroup_resolve_main_scheme` / `subgroup_collapse_middle_levels` / `subgroup_fold_quantile_contrast_rows`
+- N 覆盖（旧口径兼容）：`R/subgroup_forest_plot.R` → `subgroup_stratum_n_map` / `subgroup_overlay_forest_count`
+- 模板：`configs/templates/config_incidence_dual_batch.template.R` 的 `subgroup = list(...)`
+- 指标 code 包：`force_subgroup_vars` / `force_continuous_index_mode` / `force_forest_n_source` / `force_forest_xlim` / `force_subgroup_adjust_covariates`
+
+## 调整版亚组（`subgroup$adjust_covariates`）行结构铁律
+
+`adjust_covariates` 非空时走 `Blocks/18_subgroup/02block_subgroup_incidence.R` 的 `.sgi02_adjusted_subgroup_glm`（jstable 只收单自变量，多协变量须手动逐层 glm）。**输出 res 必须与 jstable 同构**：变量标题行（无缩进、仅 P for interaction）+ 水平缩进行（`"  level"`，含 OR/CI/P）。**禁止**扁平行 `"Var: level"` —— `subgroup_prepare_forest_plot_df` 会把整表判成标题行，导致 **OR (95% CI) 文本列全空、图不像发表森林图**（白内障 TyG_WWI 已踩）。层内调整协变量须剔除分层变量自身（Age_Group 层同时剔 Age）。`R/subgroup_forest_plot.R` 的 `subgroup_merge_levels_into_variable` 已保留原缩进，勿回退成裸 `trimws`。
+
+```r
+# ✅ 双库一致
+subgroup = list(
+  var_source = "required",
+  required_subgroup_vars = c("Age", "Gender", "Education", "..."),
+  age_cutoff = 65L,
+  continuous_index_mode = "highest_vs_lowest",
+  forest_n_source = "full_stratum",
+  forest_xlim = c(0.2, 4),
+  level_order = list(Age_Group = c("< 65", "\u2265 65"))
+)
+
+# ❌ 禁止
+# NHANES 用 table1 自动亚组，CHARLS 用 required 锁名单
+# NHANES 图上 N=全样本，CHARLS 图上 N=仅 Q1+Q4
+# 一侧 exposure_continuous=TRUE，另一侧 Q4 vs Q1
+```
+
+## 新课题 / 重跑检查清单
+
+- [ ] 双库 Fig3 亚组变量顺序与水平名对齐（允许库间标签用词差异，如 Non-higher vs Below High school，但变量集合相同）
+- [ ] 日志两侧均出现「模型取最高 vs 最低」且「N 列：已用全分层样本量覆盖」（除非显式改口径）
+- [ ] 各亚组水平 N 之和 ≈ 该库分析集 N（非约一半）
+- [ ] `force_subgroup_vars` / `forest_xlim` / `continuous_index_mode` / `forest_n_source` 写入 code 包 overrides
+- [ ] 只重跑一侧亚组后须 **双库 remirror/finalize**，避免汇总 Figures 只剩单库图
+
+## 反例（禁止）
+
+- NHANES 森林 N=7523 口径、CHARLS 森林 N≈一半（仅 Q1+Q4）却拼成一张 Fig3
+- Gate D 锁了 7 个亚组，NHANES 仍按 Table1 多出 Race/PIR
+- 改 `force_forest_xlim` 只重跑 CHARLS，NHANES 面板刻度仍旧

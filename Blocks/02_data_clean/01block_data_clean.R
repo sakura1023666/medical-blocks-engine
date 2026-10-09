@@ -13,7 +13,8 @@
 #    row_missing_threshold = NULL,  # 行缺失率超过此阈值则删人；NULL 不筛；建议 ≤0.4
 #    row_missing_vars      = NULL,  # 计算行缺失的列；NULL=除 ID/结局外全部数值列
 #    age_filter            = NULL,   # 行过滤表达式字符串，如 "Age >= 18"；NULL 不筛行
-#    drop_columns          = NULL    # 额外强制删除的列名向量
+#    drop_columns          = NULL,   # 额外强制删除的列名向量
+#    implausible_ranges    = NULL    # 列→list(min,max,only_if_median_below)；超范围置 NA，不删人
 #  ),
 #  另读: config$data（outcome_column、id_column、outcome_path）、config$computed_indices、
 #        config$project（analysis_group、reference_group、disease）
@@ -51,6 +52,11 @@ block_data_clean <- function(ctx, ...) {
   } else if (!is.null(ctx$data$mapped)) {
     data <- ctx$data$mapped
     cli::cli_alert_info("Using mapped data from column_mapping block")
+  } else if (!is.null(ctx$data$raw)) {
+    data <- ctx$data$raw
+    cli::cli_alert_info(
+      "Using preloaded ctx$data$raw ({nrow(data)} rows x {ncol(data)} cols)"
+    )
   } else {
     # 规范为绝对路径并打印，便于双库对比：若两库此处路径/字节数相同，则读的是同一文件
     abs_raw <- normalizePath(rawdata_path, winslash = "/", mustWork = TRUE)
@@ -184,8 +190,41 @@ block_data_clean <- function(ctx, ...) {
   row_filter <- cfg$data_clean$age_filter
   if (!is.null(row_filter) && nzchar(row_filter %||% "")) {
     n_before <- nrow(data)
+    if (exists("attrition_record", mode = "function") &&
+        !any(vapply(
+          ((ctx$results$attrition %||% list())$log %||% list()),
+          function(e) identical(as.character(e$step_id %||% "")[1L], "starting_cohort"),
+          logical(1L)
+        ))) {
+      ctx <- attrition_record(
+        ctx, "starting_cohort", "Starting cohort",
+        as.integer(n_before), meta = list(block = "data_clean", source = "pre_age_filter")
+      )
+    }
     data <- data[with(data, eval(parse(text = row_filter))), ]
-    cli::cli_alert_info("Row filter '{row_filter}': {n_before} -> {nrow(data)} rows")
+    n_after_age <- as.integer(nrow(data))
+    n_excl_age <- as.integer(n_before - n_after_age)
+    cli::cli_alert_info("Row filter '{row_filter}': {n_before} -> {n_after_age} rows")
+    if (exists("attrition_record", mode = "function")) {
+      age_lab <- if (grepl("Age\\s*>=\\s*50", row_filter, ignore.case = TRUE, perl = TRUE)) {
+        sprintf("Age \u2265 50 (excluded Age < 50: %s)", format(n_excl_age, big.mark = ","))
+      } else if (grepl("Age\\s*>=\\s*40", row_filter, ignore.case = TRUE, perl = TRUE)) {
+        sprintf("Age \u2265 40 (excluded Age < 40: %s)", format(n_excl_age, big.mark = ","))
+      } else {
+        sprintf("Age filter (%s; excluded %s)", row_filter, format(n_excl_age, big.mark = ","))
+      }
+      ctx <- attrition_record(
+        ctx, "after_age_filter", age_lab, n_after_age,
+        meta = list(
+          block = "data_clean", n_before = as.integer(n_before),
+          n_excluded = n_excl_age, filter = as.character(row_filter)[1L]
+        )
+      )
+    }
+  }
+
+  if (exists("pipeline_data_clean_apply_implausible_ranges", mode = "function")) {
+    data <- pipeline_data_clean_apply_implausible_ranges(data, cfg)
   }
 
   ## 按行缺失率删人（共享层也会执行；列阈在共享层常被强制为 1.0，不删列）

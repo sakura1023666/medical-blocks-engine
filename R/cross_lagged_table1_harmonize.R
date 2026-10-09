@@ -46,8 +46,18 @@ cross_lagged_apply_table1_harmonized <- function(config, root = getwd()) {
     as.character(config$univariate_incidence_binary$excluded_predictors %||% character(0)),
     as.character(e$.CROSS_LAGGED_TABLE1_EXCLUDE_VARS)
   ))
-  # FI → Frailty Index（全称）用于 logistic / RCS / 图题等
-  disp <- e$.CROSS_LAGGED_INDEX_DISPLAY_NAME %||% "Frailty Index"
+  # 髋部等 FI 课题默认 Frailty Index。课题已写展示名，或暴露不是 FI 时，不覆盖成虚弱指数。
+  preset <- as.character((config$incidence %||% list())$index_var_display_name %||% "")[1L]
+  idx <- as.character((config$incidence %||% list())$index_var %||% "")[1L]
+  disp <- if (nzchar(preset)) {
+    preset
+  } else if (idx %in% c("FI", "Frailty", "Frailty_Index", "frailty_index", "")) {
+    e$.CROSS_LAGGED_INDEX_DISPLAY_NAME %||% "Frailty Index"
+  } else if (identical(idx, "Leisure_score")) {
+    "Leisure activity score"
+  } else {
+    gsub("_", " ", idx, fixed = TRUE)
+  }
   if (is.null(config$incidence)) config$incidence <- list()
   config$incidence$index_var_display_name <- disp
   if (is.null(config$logistic)) config$logistic <- list()

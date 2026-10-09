@@ -9,7 +9,8 @@
        只在固定 cutoff=D(最后一天)算 loss,不做多截止监督扩展 ——「公开代码实现」单独命名,
        不与 a2/b 的规范管线结果混名(对齐设计文档 3.1 节 A1 定义)。
 
-FocalLoss(gamma=2, alpha=0.8) 处理类别不平衡；保存 min val_loss 的模型。
+FocalLoss(gamma=2, alpha=0.8) 处理类别不平衡；按验证集 AUC（末日本 cutoff）存盘，
+patience 轮无提升则早停（默认 patience=15）。文件头勿再写 min val_loss。
 """
 from __future__ import annotations
 
@@ -24,7 +25,8 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .dataloader import TSTDataset
+from .dataloader import TSTDataset, fit_feature_norm, write_feature_norm
+from .eval import score_all_cutoffs
 from .focal import FocalLoss
 from .model import build_model
 
@@ -48,24 +50,33 @@ def _write_train_log(out_dir: Path, rows: list[dict], name: str = "Table_TST_Tra
         w.writerows(rows)
 
 
-def _train_epoch_multi_cutoff(model, crit, opt, loader, D: int) -> float:
+def _train_epoch_multi_cutoff(model, crit, opt, loader, D: int,
+                               day_weights: Optional[list] = None,
+                               input_noise: float = 0.0) -> float:
     model.train()
     total = 0.0
     n_batches = max(len(loader), 1)
+    if day_weights is None:
+        day_weights = [1.0] * D
+    wsum = float(sum(day_weights)) or 1.0
     for x, m, y in tqdm(loader, total=len(loader), leave=False, desc="train"):
         x, m, y = x.to(device), m.to(device), y.to(device)
+        if input_noise and input_noise > 0:
+            x = x + torch.randn_like(x) * float(input_noise)
         los = m.sum(1).long()
         loss = 0.0
-        cnt = 0
+        w_used = 0.0
         for c in range(1, D + 1):
             sel = los >= c
             if sel.sum() == 0:
                 continue
-            loss = loss + crit(model(x[sel], m[sel], c), y[sel])
-            cnt += 1
-        loss = loss / max(cnt, 1)
+            wc = float(day_weights[c - 1])
+            loss = loss + wc * crit(model(x[sel], m[sel], c), y[sel])
+            w_used += wc
+        loss = loss / max(w_used, 1e-6)
         opt.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         opt.step()
         total += float(loss.item()) / n_batches
     return total
@@ -97,6 +108,29 @@ def _train_epoch_single_cutoff(model, crit, opt, loader, D: int) -> float:
     return total
 
 
+def _val_auc_at_cutoff(model, loader: DataLoader, D: int) -> float:
+    """Validation AUC at final day cutoff (aligns with Day-D test metric)."""
+    model.eval()
+    scores = score_all_cutoffs(model, loader, D)[D]
+    ys = []
+    for _, _, y in loader:
+        ys.append(y.numpy())
+    y = np.concatenate(ys) if ys else np.array([])
+    if len(y) == 0 or len(np.unique(y)) < 2:
+        return 0.5
+    try:
+        from sklearn.metrics import roc_auc_score
+
+        return float(roc_auc_score(y, scores))
+    except Exception:
+        pos = scores[y == 1]
+        neg = scores[y == 0]
+        if len(pos) == 0 or len(neg) == 0:
+            return 0.5
+        wins = sum((p > n) + 0.5 * (p == n) for p in pos for n in neg)
+        return float(wins / (len(pos) * len(neg)))
+
+
 def train(
     data_dir: str,
     out_dir: str,
@@ -108,8 +142,15 @@ def train(
     d_model: int = 128,
     heads: int = 4,
     n_layers: int = 2,
-    dropout: float = 0.5,
+    dropout: float = 0.3,
     patience: int = 15,
+    day5_loss_weight: float = 3.0,
+    input_noise: float = 0.01,
+    rich_tabular: bool = True,
+    tab_dim: int = 128,
+    focal_alpha: float = 0.75,
+    focal_gamma: float = 2.0,
+    model_tag: str = "",
 ) -> dict:
     """训练主循环。
 
@@ -118,10 +159,17 @@ def train(
       - a2: 规范单阶段 + 多截止监督（与 b 公平对比结构）
       - b : 两阶段 + 多截止监督（主轨）
     训练预算对齐原文「约 100 epoch + 早停」口径：默认 epochs=100、patience=15。
+    day5_loss_weight: 多截止监督中最终日 cutoff 的损失权重（冲 Day-D AUC）。
     """
     seed_everything(seed)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    data_dir_p = Path(data_dir)
+
+    tr_raw = np.load(data_dir_p / "train.npz", allow_pickle=False)
+    mu, sd = fit_feature_norm(np.asarray(tr_raw["X"], dtype=np.float32))
+    norm_path = write_feature_norm(data_dir_p, mu, sd)
+    print(f"[train:{arch}] feature_norm -> {norm_path}", flush=True)
 
     tr_ds = TSTDataset("train", data_dir)
     va_ds = TSTDataset("val", data_dir)
@@ -133,14 +181,26 @@ def train(
           f"train_batches={len(tr)} val_batches={len(va)} | "
           f"epochs={epochs} patience={patience}", flush=True)
 
-    model = build_model(arch, D, H, F, d_model=d_model, heads=heads, N=n_layers, dropout=dropout).to(device)
-    crit = FocalLoss(gamma=2, alpha=0.8)
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    model = build_model(
+        arch, D, H, F, d_model=d_model, heads=heads, N=n_layers, dropout=dropout,
+        fusion=(arch in ("b", "a1")),
+        rich_tabular=rich_tabular if arch in ("b", "a1") else False,
+        tab_dim=tab_dim,
+    ).to(device)
+    crit = FocalLoss(gamma=float(focal_gamma), alpha=float(focal_alpha))
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(epochs, 1), eta_min=lr * 0.05)
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"[train:{arch}] 参数量={n_params:,}", flush=True)
+    day_weights = [1.0] * (D - 1) + [float(day5_loss_weight)]
+    print(f"[train:{arch}] 参数量={n_params:,} fusion={getattr(model, 'fusion', False)} "
+          f"rich_tab={getattr(model, 'rich_tabular', False)} "
+          f"day5_w={day5_loss_weight} noise={input_noise} "
+          f"focal(a={focal_alpha},g={focal_gamma})", flush=True)
 
-    model_path = out_dir / f"model_{arch}.pth"
-    min_loss = 1e9
+    tag = f"_{model_tag}" if model_tag else ""
+    model_path = out_dir / f"model_{arch}{tag}.pth"
+    best_auc = -1.0
+    best_loss = 1e9
     bad_epochs = 0
     best_ep = 0
     log_rows: list[dict] = []
@@ -149,11 +209,17 @@ def train(
             tl = _train_epoch_single_cutoff(model, crit, opt, tr, D)
             vl = _val_epoch_multi_cutoff(model, crit, va, D)
         else:
-            tl = _train_epoch_multi_cutoff(model, crit, opt, tr, D)
+            tl = _train_epoch_multi_cutoff(
+                model, crit, opt, tr, D,
+                day_weights=day_weights, input_noise=input_noise,
+            )
             vl = _val_epoch_multi_cutoff(model, crit, va, D)
+        va_auc = _val_auc_at_cutoff(model, va, D)
+        sched.step()
         saved = False
-        if vl < min_loss:
-            min_loss = vl
+        if va_auc > best_auc + 1e-5:
+            best_auc = va_auc
+            best_loss = vl
             torch.save(model.state_dict(), model_path)
             saved = True
             bad_epochs = 0
@@ -161,22 +227,36 @@ def train(
         else:
             bad_epochs += 1
         log_rows.append({"epoch": ep + 1, "arch": arch, "train_loss": round(tl, 6),
-                          "val_loss": round(vl, 6), "saved": int(saved)})
+                          "val_loss": round(vl, 6), "val_auc": round(va_auc, 6), "saved": int(saved)})
         print(f"[train:{arch}] Epoch {ep+1:2d}/{epochs}: loss={tl:.4f} "
-              f"val_loss(Day{D})={vl:.4f}{' <- save' if saved else ''}", flush=True)
+              f"val_loss(Day{D})={vl:.4f} val_auc={va_auc:.4f}{' <- save' if saved else ''}", flush=True)
         if patience > 0 and bad_epochs >= patience:
             print(f"[train:{arch}] early stop @ epoch {ep+1} "
-                  f"(best={best_ep}, patience={patience})", flush=True)
+                  f"(best={best_ep}, best_val_auc={best_auc:.4f}, patience={patience})", flush=True)
             break
 
-    _write_train_log(out_dir, log_rows, name=f"Table_TST_Train_Log_{arch}.csv")
+    _write_train_log(out_dir, log_rows, name=f"Table_TST_Train_Log_{arch}{tag}.csv")
+    arch_cfg = {
+        "arch": arch, "d_model": d_model, "heads": heads, "n_layers": n_layers,
+        "dropout": dropout, "fusion": bool(getattr(model, "fusion", False)),
+        "rich_tabular": bool(getattr(model, "rich_tabular", False)),
+        "tab_dim": tab_dim, "n_days": D, "n_hours": H, "n_features": F,
+    }
     summary = {
-        "arch": arch, "n_days": D, "n_hours": H, "n_features": F,
-        "n_params": int(n_params), "best_val_loss": float(min_loss),
+        **arch_cfg,
+        "n_params": int(n_params), "best_val_loss": float(best_loss),
+        "best_val_auc": float(best_auc), "feature_norm": str(norm_path),
         "epochs": epochs, "epochs_ran": len(log_rows), "best_epoch": best_ep,
         "patience": patience, "model_path": str(model_path), "seed": seed,
+        "include_current_day": True,
+        "optimizer": "AdamW",
+        "day5_loss_weight": float(day5_loss_weight),
+        "input_noise": float(input_noise),
+        "focal_alpha": float(focal_alpha),
+        "focal_gamma": float(focal_gamma),
     }
-    (out_dir / f"train_meta_{arch}.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (out_dir / f"train_meta_{arch}{tag}.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (out_dir / f"model_{arch}{tag}.meta.json").write_text(json.dumps(arch_cfg, indent=2), encoding="utf-8")
     print(f"[train:{arch}] OK -> {model_path}", flush=True)
     return summary
 

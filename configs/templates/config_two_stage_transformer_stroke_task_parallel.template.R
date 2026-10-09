@@ -91,8 +91,11 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.30,  # 缺失率>30% 的列剔除后再插补（仅入选队列）
     method = "rf",                 # 静态特征：随机森林插补（对齐原文 Methods）
-    m = 1L,
+    m = 5L,
     seed = 1234L,
+    # A2 铁律：仅训练集拟合；val∪test 用 mice(ignore=TRUE) 套用（禁止 val/test 各自重拟合）
+    fit_on = "train",
+    complete_action = 1L,
     export_missing_fig = FALSE,
     export_table_s1 = FALSE,
     pause_enable = FALSE
@@ -101,6 +104,7 @@ config <- list(
   # 纵向：day1 缺失>30% 剔特征；再在保留特征×前5天上、前向填前剔患者缺失>30%；然后前向填充
   tst_timeseries = list(
     feature_missing_threshold = 0.30,
+    density_gate_apply_coverage_drop = TRUE,
     patient_missing_threshold = 0.30,
     patient_missing_days = 5L,
     min_longitudinal_days = 1L,
@@ -141,10 +145,13 @@ config <- list(
     external = list(mode = "synthetic", is_synthetic = TRUE, n = 200L, seed = 42L),
     model_families = c("A1", "A2", "B", "logistic", "xgb", "mlp", "lstm"),
     ablation_variants = c("mask", "structure"),
-    # 对齐原文约 100 epoch + 早停
+    # 对齐原文约 100 epoch + 早停（A3：patience 盯验证集 val_auc，非 val_loss）
     epochs = 100L,
     worker_epochs = 100L,
     early_stop_patience = 15L,
+    early_stop_monitor = "val_auc",
+    # A4：Two-stage = 小时级 Transformer → 日级 Transformer（架构）；非两阶段训练流程；
+    #     arch B 可另加 tabular fusion，但“两阶段”不指表格+时序两路
     # CPU 训练易超 1h；system2 exit=124=超时。默认 12h，可按机器调大/调小
     python_train_timeout_sec = 43200L,
     max_workers = 4L,
@@ -186,20 +193,19 @@ config <- list(
 # 子集 smoke 示例：--only-unit L72_B_twostage,external_synthetic
 task_units <- character(0)
 
-# 【方法学顺序 — 方案 A 日级对齐增强】
-# 1) dabiao 卒中内连接 + merge 预后
-# 2) 纵向：day1≤30% 留特征 → 患者缺失≤30%（前5天、前向填前）→ 前向填充 + 导出≤30天
-# 3) 静态：缺失>30% 删列 + RF 插补
-# 4) baseline → landmark → 7:2:1；时间外强制 skip
-# 5) Python：expand_hours(24) + sliding_window(>5天) + Day-k 用前 k-1 天
-# 6) 训练：100 epoch + early stop(patience=15)；A1/A2/B 双轨
+# 【方法学顺序 — 防泄漏 A2】
+# 1) dabiao 内连接 + 预后 → tst_cohort
+# 2) 患者级 7:2:1（tst_split）→ 物化 train / (val∪test)
+# 3) MICE fit_on=train，holdout 仅套用（mice ignore）
+# 4) 纵向 timeseries（静态广播用插补后基线）→ baseline → landmark
+# 5) Python：expand_hours / true_hourly + Day-k；训练 100 epoch + early stop(val_auc, patience=15)
+# 6) A1/A2/B：A4 两阶段=小时→日架构；B 可另加 tabular fusion
 pipeline_shared <- list(
   name = "tst_stroke_shared",
   blocks = c(
     "data_clean", "column_mapping",
-    "tst_cohort", "tst_timeseries",
-    "imputation", "baseline_binary",
-    "tst_landmark", "tst_split"
+    "tst_cohort", "tst_split", "imputation",
+    "tst_timeseries", "baseline_binary", "tst_landmark"
   ),
   checkpoint = list(enable = TRUE, dir = file.path(.tst_ck_root, "_shared", "main"))
 )

@@ -49,6 +49,15 @@ clpn_node_label_db_builtin <- function() {
     row("DN", "DN", "Circadian syndrome", "Outcome", "Disease_Group;circadian_disorder"),
     row("met_count", "met", "Circadian component count", "Other", "")
   )
+  # ── 自杀门诊 CLPM（HAMD/HAMA/CSSRS 拆开为独立节点）──
+  suicide <- rbind(
+    row("HAMD", "S1", "HAMD depression total", "Mood",
+        "HAMD_Index;HAMD_1st;HAMD_index_all"),
+    row("HAMA", "S2", "HAMA anxiety total", "Mood",
+        "HAMA_Index;HAMA_1st;HAMA_intex_all"),
+    row("CSSRS", "S3", "C-SSRS ideation item1", "Outcome",
+        "CSSRS_Index;CSSRS_1st;C_SSRS_Ideation")
+  )
   # ── ELSA CES-D-8（参考图 DN1–DN8）──
   cesd <- rbind(
     row("psceda", "DN1", "Frustrated", "Depression", "CESD1;PScedA"),
@@ -107,8 +116,8 @@ clpn_node_label_db_builtin <- function() {
     TyG_WWI = "TyG-WWI",
     TyG_ABSI = "TyG-ABSI",
     PHR = "Platelet to HDL ratio",
-    HHR = "Hemoglobin to hematocrit ratio",
-    UA_CrR = "Uric acid to creatinine ratio",
+    HHR = "Hematocrit to hemoglobin ratio",
+    UA_CR = "Uric acid to creatinine ratio",
     NLR = "Neutrophil to lymphocyte ratio",
     PLR = "Platelet to lymphocyte ratio",
     SII = "Systemic immune-inflammation index",
@@ -198,7 +207,7 @@ clpn_node_label_db_builtin <- function() {
   idx <- do.call(rbind, lapply(names(idx_pretty), function(nm) {
     row(nm, nm, unname(idx_pretty[[nm]]), "Index", "")
   }))
-  db <- rbind(circ, cesd, fi, outc, idx)
+  db <- rbind(circ, suicide, cesd, fi, outc, idx)
   db
 }
 

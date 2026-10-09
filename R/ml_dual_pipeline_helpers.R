@@ -111,7 +111,23 @@ pipeline_is_demo_var <- function(v, kws) {
   any(vapply(kws, function(k) grepl(tolower(k), vl, fixed = TRUE), logical(1)))
 }
 
+#' 单库 ML：db_mode=nhanes 或次库槽位 UNUSED → 非真双库 logistic 初筛
+ml_dual_is_single_primary_db <- function(ctx) {
+  cfg <- if (is.list(ctx) && !is.null(ctx$config)) ctx$config else ctx
+  batch <- cfg$ml_batch %||% cfg$incidence_batch %||% list()
+  db_mode <- tolower(as.character(batch$db_mode %||% "")[1L])
+  if (identical(db_mode, "nhanes")) return(TRUE)
+  dual <- cfg$dual_db %||% list()
+  sec <- trimws(as.character((dual$secondary %||% list())$name %||% ""))[1L]
+  identical(toupper(sec), "UNUSED") || !nzchar(sec)
+}
+
 pipeline_get_sys_cols <- function(cfg) {
+  meta <- if (exists("pipeline_meta_exclude_cols", mode = "function")) {
+    pipeline_meta_exclude_cols()
+  } else {
+    character(0)
+  }
   unique(c(
     as.character(cfg$data$id_column %||% character(0)),
     as.character(cfg$data$strip_id_columns_after_imputation %||% character(0)),
@@ -119,7 +135,11 @@ pipeline_get_sys_cols <- function(cfg) {
     as.character(cfg$nhanes$survey_cluster %||% character(0)),
     as.character(cfg$nhanes$survey_strata %||% character(0)),
     "WTINT2YR", "WTMEC2YR", "WTINT4YR", "WTMEC4YR",
-    "SDMVPSU", "SDMVSTRA", "Source_File", "SDDSRVYR"
+    "WTSAF2YR", "WTSAF4YR", "WTSOG2YR", "WTDRD1", "WTDR2D",
+    "new_Weight", "new_weight",
+    "SDMVPSU", "SDMVSTRA", "Source_File", "SDDSRVYR",
+    "Group",
+    meta
   ))
 }
 
@@ -227,13 +247,33 @@ pipeline_harmonization_dir <- function(root, config) {
   normalizePath(d, winslash = "/", mustWork = FALSE)
 }
 
+## 从多个候选 ctx 键里取第一个非空特征向量（venn_center 可能被 strip 成
+## 非 NULL 的 character(0)，直接 `%||%` 会误取空值，故逐键扫描）。
+.ml_primary_pick_feats <- function(res) {
+  for (k in c(
+    "feature_selection_final", "feature_selection_venn_center", "ml_feature_names"
+  )) {
+    v <- unique(as.character(res[[k]] %||% character(0)))
+    v <- v[nzchar(v)]
+    if (length(v)) return(v)
+  }
+  character(0)
+}
+
 pipeline_export_primary_ml_features <- function(ctx8, root, config) {
-  feats <- as.character(
-    ctx8$results$feature_selection_venn_center %||%
-      ctx8$results$feature_selection_final %||%
-      character(0)
-  )
-  feats <- feats[nzchar(feats)]
+  feats <- .ml_primary_pick_feats(ctx8$results)
+  if (!length(feats)) {
+    ## 单方法（如仅 Boruta）共识已把最终特征持久化到输出根 / checkpoint 的
+    ## feature_selection_final.rds，但某些路径下未回灌到当前 ctx。导出前先尝试回读，
+    ## 避免「主库已选出特征却报未产出」误停（对全部双库 ML 课题均为安全兜底）。
+    if (exists("load_feature_selection_final_into_ctx", mode = "function")) {
+      ctx8 <- tryCatch(
+        load_feature_selection_final_into_ctx(ctx8),
+        error = function(e) ctx8
+      )
+      feats <- .ml_primary_pick_feats(ctx8$results)
+    }
+  }
   if (!length(feats)) {
     stop("主库 feature_selection 未产出 feature_selection_final，无法传递给验证库。", call. = FALSE)
   }
@@ -253,6 +293,250 @@ pipeline_export_primary_ml_features <- function(ctx8, root, config) {
     "主库最终 ML 特征已导出（n={length(feats)}）: {.file {basename(rds_path)}}"
   )
   invisible(list(rds = rds_path, txt = txt_path, features = feats))
+}
+
+pipeline_assoc_current_index <- function(config, ctx = NULL) {
+  as.character(
+    (config$ml_batch %||% list())$current_index %||%
+      (config$incidence_batch %||% list())$current_index %||%
+      (ctx$results$current_index %||% NULL) %||%
+      ((config$prediction %||% list())$index_vars %||%
+         (config$index_vars %||% character(0)))[1L] %||%
+      ""
+  )[1L]
+}
+
+pipeline_load_imputed_colnames_for_slot <- function(root, config, slot_path, ctx = NULL) {
+  slot_path <- as.character(slot_path)[1L]
+  if (!nzchar(slot_path)) return(character(0))
+  if (!is.null(ctx) && is.data.frame(ctx$data$imputed) &&
+      grepl(slot_path, as.character(config$project$database %||% ""), ignore.case = TRUE)) {
+    return(names(ctx$data$imputed))
+  }
+  ck_base <- as.character(
+    (config$dual_db %||% list())$checkpoint_base %||%
+      file.path(root, "checkpoints", "by_index", pipeline_assoc_current_index(config, ctx))
+  )[1L]
+  if (!grepl("^(/|[A-Za-z]:[/\\\\])", ck_base)) {
+    ck_base <- file.path(root, ck_base)
+  }
+  for (fn in c("imputation.rds", "step08_imputation.rds", "step05_imputation.rds")) {
+    p <- file.path(ck_base, slot_path, fn)
+    if (!file.exists(p)) next
+    obj <- tryCatch(readRDS(p), error = function(e) NULL)
+    if (is.null(obj)) next
+    cx <- if (!is.null(obj$ctx)) obj$ctx else obj
+    df <- cx$data$imputed %||% cx$data$train
+    if (is.data.frame(df)) return(names(df))
+  }
+  character(0)
+}
+
+#' 双库插补后列名交集（发表 M2 / VIF 必须用这个，禁止一侧独有列如高缺失砍掉的 TotalCo2）
+pipeline_dual_db_imputed_common_names <- function(root, config, ctx = NULL) {
+  dual <- config$dual_db %||% list()
+  pri <- as.character((dual$primary %||% list())$name %||% "")[1L]
+  sec <- as.character((dual$secondary %||% list())$name %||% "")[1L]
+  if (exists("dual_db_slot_path_name", mode = "function")) {
+    pri <- dual_db_slot_path_name(config, "nhanes")
+    sec <- dual_db_slot_path_name(config, "mimic")
+  }
+  n1 <- pipeline_load_imputed_colnames_for_slot(root, config, pri, ctx)
+  n2 <- pipeline_load_imputed_colnames_for_slot(root, config, sec, ctx)
+  if (is.data.frame(ctx$data$imputed) && !length(n1)) {
+    n1 <- names(ctx$data$imputed)
+  }
+  if (!length(n1) || !length(n2)) return(character(0))
+  intersect(n1, n2)
+}
+
+pipeline_assoc_restrict_to_imputed_common <- function(vars, common, what = "协变量") {
+  vars <- unique(as.character(vars)[nzchar(as.character(vars))])
+  common <- unique(as.character(common)[nzchar(as.character(common))])
+  if (!length(vars) || !length(common)) return(vars)
+  dropped <- setdiff(vars, common)
+  if (length(dropped) && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "发表{what}改为插补后双库交集，去掉 {length(dropped)} 个单库列: {paste(dropped, collapse = ', ')}"
+    )
+  }
+  intersect(vars, common)
+}
+
+#' 主库训练集锁定的 Table 2 / VIF 协变量（次库必须原样继承，禁止再 UV 解析成只剩 Age）
+pipeline_export_primary_assoc_covariates <- function(ctx, root, config) {
+  m1 <- unique(as.character(
+    ctx$results$assoc_model1_factors %||%
+      ctx$results$logistic_model1_factors %||%
+      ctx$results$Model1Factors %||%
+      character(0)
+  ))
+  m2 <- unique(as.character(
+    ctx$results$assoc_model2_factors %||%
+      ctx$results$logistic_model2_factors %||%
+      character(0)
+  ))
+  m1 <- m1[nzchar(m1)]
+  m2 <- m2[nzchar(m2)]
+  if (!length(m1)) {
+    cli::cli_alert_warning("主库 assoc 协变量未锁定，跳过导出 assoc_covariates_primary.rds")
+    return(invisible(NULL))
+  }
+  if (!length(m2)) m2 <- m1
+  exposure <- character(0)
+  if (exists("ml_assoc_exposure_var", mode = "function")) {
+    exposure <- as.character(ml_assoc_exposure_var(ctx))
+  } else if (exists("pipeline_index_exposure_var", mode = "function")) {
+    exposure <- as.character(pipeline_index_exposure_var(config))
+  }
+  exposure <- exposure[nzchar(exposure)]
+  m1 <- setdiff(m1, exposure)
+  m2 <- unique(c(m1, setdiff(m2, exposure)))
+  vif_pass <- unique(as.character(ctx$results$vif_screen_pass %||% character(0)))
+  vif_pass <- vif_pass[nzchar(vif_pass)]
+  common <- pipeline_dual_db_imputed_common_names(root, config, ctx)
+  if (length(common)) {
+    m1 <- pipeline_assoc_restrict_to_imputed_common(m1, common, "Model1")
+    m2 <- unique(c(m1, pipeline_assoc_restrict_to_imputed_common(setdiff(m2, m1), common, "Model2")))
+    vif_pass <- pipeline_assoc_restrict_to_imputed_common(vif_pass, common, "VIF")
+    ctx$results$assoc_model1_factors <- m1
+    ctx$results$assoc_model2_factors <- m2
+    ctx$results$logistic_model1_factors <- m1
+    ctx$results$logistic_model2_factors <- m2
+    ctx$results$vif_screen_pass <- vif_pass
+    ctx$results$assoc_restricted_to_imputed_common <- TRUE
+  }
+  harm_dir <- pipeline_harmonization_dir(root, config)
+  rds_path <- file.path(harm_dir, "assoc_covariates_primary.rds")
+  payload <- list(
+    model1 = m1,
+    model2 = m2,
+    vif_screen_pass = vif_pass,
+    source_db = config$project$database %||% "primary",
+    exported_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+    index_vars = if (exists("pipeline_index_mode", mode = "function")) {
+      pipeline_index_mode(config)$index_vars
+    } else {
+      character(0)
+    }
+  )
+  saveRDS(payload, rds_path)
+  writeLines(
+    c(
+      paste("Model1:", paste(m1, collapse = ", ")),
+      paste("Model2:", paste(m2, collapse = ", ")),
+      paste("vif_screen_pass:", paste(vif_pass, collapse = ", "))
+    ),
+    file.path(harm_dir, "assoc_covariates_primary.txt")
+  )
+  cli::cli_alert_success(
+    "主库训练集协变量已导出（M1={length(m1)}, M2={length(m2)}, VIF={length(vif_pass)}）: {.file {basename(rds_path)}}"
+  )
+  invisible(list(rds = rds_path, model1 = m1, model2 = m2, vif_screen_pass = vif_pass))
+}
+
+pipeline_load_primary_assoc_covariates <- function(root, config, must_exist = FALSE) {
+  harm_dir <- pipeline_harmonization_dir(root, config)
+  rds_path <- file.path(harm_dir, "assoc_covariates_primary.rds")
+  if (!file.exists(rds_path)) {
+    if (isTRUE(must_exist)) {
+      stop(
+        "未找到主库协变量文件 {.file {rds_path}}；请先完成主库 ml_assoc_covariate_resolve。",
+        call. = FALSE
+      )
+    }
+    return(NULL)
+  }
+  obj <- readRDS(rds_path)
+  m1 <- unique(as.character(obj$model1 %||% obj$M1 %||% character(0)))
+  m2 <- unique(as.character(obj$model2 %||% obj$M2 %||% character(0)))
+  m1 <- m1[nzchar(m1)]
+  m2 <- m2[nzchar(m2)]
+  if (!length(m1)) {
+    if (isTRUE(must_exist)) stop("主库协变量 RDS 中 Model1 为空。", call. = FALSE)
+    return(NULL)
+  }
+  if (!length(m2)) m2 <- m1
+  list(
+    model1 = m1,
+    model2 = unique(c(m1, m2)),
+    vif_screen_pass = unique(as.character(obj$vif_screen_pass %||% character(0))),
+    rds_path = rds_path,
+    meta = obj
+  )
+}
+
+pipeline_intersect_named_vars <- function(vars, data_names, db_tag, what) {
+  vars <- unique(as.character(vars)[nzchar(as.character(vars))])
+  if (!length(vars)) return(character(0))
+  if (is.null(data_names)) return(vars)
+  present <- intersect(vars, data_names)
+  missing <- setdiff(vars, data_names)
+  if (length(missing)) {
+    cli::cli_alert_warning(
+      "{db_tag}: 主库{what}在本库缺失 {length(missing)} 个，已跳过: {paste(head(missing, 8), collapse = ', ')}"
+    )
+  }
+  present
+}
+
+pipeline_inject_primary_assoc_covariates <- function(cx, root, config, db_tag = "DB2") {
+  loaded <- pipeline_load_primary_assoc_covariates(root, config, must_exist = FALSE)
+  if (is.null(loaded)) {
+    cli::cli_alert_warning(
+      "{db_tag}: 未找到主库 assoc_covariates_primary.rds，外验 Table 2 仍可能只解析出 Age。"
+    )
+    return(cx)
+  }
+  dat <- cx$data$imputed %||% cx$data$test %||% cx$data$cleaned
+  nm <- if (is.data.frame(dat)) names(dat) else NULL
+  m1 <- pipeline_intersect_named_vars(loaded$model1, nm, db_tag, "Model1")
+  m2 <- pipeline_intersect_named_vars(loaded$model2, nm, db_tag, "Model2")
+  if (!length(m1)) {
+    cli::cli_alert_warning("{db_tag}: 主库 Model1 在本库列中全部缺失，放弃注入。")
+    return(cx)
+  }
+  m2 <- unique(c(m1, setdiff(m2, m1)))
+  vif_pass <- pipeline_intersect_named_vars(
+    loaded$vif_screen_pass, nm, db_tag, "VIF screen"
+  )
+  cx$results$assoc_model1_factors <- m1
+  cx$results$assoc_model2_factors <- m2
+  cx$results$assoc_model2_extras <- setdiff(m2, m1)
+  cx$results$logistic_model1_factors <- m1
+  cx$results$logistic_model2_factors <- m2
+  cx$results$cox_model1_covariates <- m1
+  cx$results$cox_model2_covariates <- setdiff(m2, m1)
+  cx$results$Model1Factors <- m1
+  ## assoc bundle 读 Model2Factors 当 Table 2 M2；ML 特征另存 feature_selection_final
+  cx$results$Model2Factors <- m2
+  if (length(vif_pass)) cx$results$vif_screen_pass <- vif_pass
+  cx$results$assoc_covariates_inherited_from <- "primary"
+  cx$results$assoc_covariates_primary_rds <- loaded$rds_path
+  cx$results$assoc_covariate_note <- sprintf(
+    "继承主库训练集 Model1=%s; Model2=%s",
+    paste(m1, collapse = "+"), paste(m2, collapse = "+")
+  )
+  n2 <- length(m2)
+  if (n2 > 0L) {
+    cx$config$logistic <- modifyList(
+      cx$config$logistic %||% list(),
+      list(model2_max_covariates = max(
+        n2,
+        as.integer((cx$config$logistic %||% list())$model2_max_covariates %||% 10L)
+      ))
+    )
+    if (!is.null(cx$config$incidence)) {
+      cx$config$incidence$model2_max_covariates <- max(
+        n2,
+        as.integer((cx$config$incidence %||% list())$model2_max_covariates %||% 10L)
+      )
+    }
+  }
+  cli::cli_alert_success(
+    "{db_tag}: 已注入主库训练集协变量 M1={length(m1)} M2={length(m2)} VIF={length(vif_pass)}"
+  )
+  cx
 }
 
 pipeline_load_primary_ml_features <- function(root, config) {
@@ -303,6 +587,10 @@ pipeline_inject_primary_features_to_ctx <- function(cx, root, config, db_tag = "
   cli::cli_alert_success(
     "{db_tag}: 已注入主库 ML 特征 n={length(present)}（跳过缺失 {length(missing)}）"
   )
+  ## Table 2 / VIF 必须跟训练集选出的协变量，不能再在外验库用空 UV 解析成 Age
+  if (exists("pipeline_inject_primary_assoc_covariates", mode = "function")) {
+    cx <- pipeline_inject_primary_assoc_covariates(cx, root, config, db_tag)
+  }
   cx
 }
 
@@ -459,4 +747,114 @@ inject_feature_selection_compound_indices <- function(cx, db_tag = "DB") {
     "{db_tag}: 复合指标并入 feature_selection 候选 (Model2Factors+univar): {paste(present, collapse = ', ')}"
   )
   cx
+}
+
+#' 铁律：主库插补后 N 须 ≥ 外验库。从共享/指标 index 检查点读行数。
+#'
+#' @param stop_on_fail TRUE 时硬停；FALSE 仅警告（调试用）
+ml_dual_assert_primary_larger_n <- function(config, ix = NULL, stop_on_fail = TRUE) {
+  dual <- config$dual_db %||% list()
+  if (!isTRUE(dual$enable %||% FALSE)) return(invisible(NULL))
+  bc <- config$ml_batch %||% config$incidence_batch %||% list()
+  shared_base <- bc$shared_ck_base %||% file.path(
+    dual$checkpoint_base %||% "checkpoints", "_shared"
+  )
+  ## use_ix=TRUE 读 per-index（本组合完整病例）；FALSE 读 shared 队列层（推导库人数）。
+  .n_from_ck <- function(slot, use_ix = TRUE) {
+    dir <- tryCatch(
+      incidence_batch_shared_ck_dir(config, slot),
+      error = function(e) {
+        file.path(shared_base, dual_db_slot_path_name(config, slot))
+      }
+    )
+    if (use_ix && !is.null(ix) && nzchar(as.character(ix)[1L])) {
+      ck_base <- bc$index_ck_base %||% file.path(
+        dual$checkpoint_base %||% "checkpoints", "by_index"
+      )
+      per <- file.path(ck_base, as.character(ix)[1L], dual_db_slot_path_name(config, slot))
+      for (stem in c("imputation", "index")) {
+        p <- file.path(per, paste0(stem, ".rds"))
+        if (!file.exists(p) && dir.exists(per)) {
+          hits <- list.files(
+            per,
+            pattern = paste0("(^|_)", stem, "\\.rds$"),
+            full.names = TRUE
+          )
+          if (length(hits)) p <- hits[[1L]]
+        }
+        if (!file.exists(p)) next
+        obj <- tryCatch(readRDS(p), error = function(e) NULL)
+        df <- tryCatch(
+          if (exists("incidence_batch_ctx_data", mode = "function")) {
+            incidence_batch_ctx_data(obj$ctx)
+          } else {
+            obj$ctx$data$imputed %||% obj$ctx$data$analysis %||% obj$ctx$data$raw
+          },
+          error = function(e) NULL
+        )
+        if (is.data.frame(df) && nrow(df) > 0L) return(as.integer(nrow(df)))
+      }
+    }
+    p <- file.path(dir, "index.rds")
+    if (!file.exists(p)) return(NA_integer_)
+    obj <- tryCatch(readRDS(p), error = function(e) NULL)
+    df <- tryCatch(
+      if (exists("incidence_batch_ctx_data", mode = "function")) {
+        incidence_batch_ctx_data(obj$ctx)
+      } else {
+        obj$ctx$data$imputed %||% obj$ctx$data$analysis %||% obj$ctx$data$raw
+      },
+      error = function(e) NULL
+    )
+    if (is.data.frame(df) && nrow(df) > 0L) as.integer(nrow(df)) else NA_integer_
+  }
+  ## 「人多当主库」= 推导库队列人数（shared 层），据此定角色；
+  ## 各指标/组合的完整病例 N 只作信息 + 缺失提醒，不翻转主/外验（否则 10 组合角色会不一致）。
+  pri_nm <- as.character((dual$primary %||% list())$name %||% "primary")[1L]
+  sec_nm <- as.character((dual$secondary %||% list())$name %||% "secondary")[1L]
+  n_pri_q <- .n_from_ck("nhanes", use_ix = FALSE)
+  n_sec_q <- .n_from_ck("mimic", use_ix = FALSE)
+  n_pri <- .n_from_ck("nhanes")
+  n_sec <- .n_from_ck("mimic")
+
+  if (!is.na(n_pri) && !is.na(n_sec)) {
+    cli::cli_alert_info(
+      "双库样本量[{ix %||% 'ALL'} 完整病例]: 主库 {pri_nm} N={n_pri}; 外验 {sec_nm} N={n_sec}"
+    )
+  }
+  if (is.na(n_pri_q) || is.na(n_sec_q)) {
+    cli::cli_alert_warning(
+      "主库/外验队列 N 未能从共享层读取（primary={n_pri_q}, secondary={n_sec_q}），跳过 N 校验"
+    )
+    return(invisible(list(
+      primary_n = n_pri, secondary_n = n_sec,
+      primary_cohort_n = n_pri_q, secondary_cohort_n = n_sec_q, ok = NA
+    )))
+  }
+  cli::cli_alert_info(
+    "队列人数: 主库 {pri_nm} N={n_pri_q}; 外验 {sec_nm} N={n_sec_q}"
+  )
+  if (n_pri_q < n_sec_q) {
+    msg <- paste0(
+      "主库队列 N(", n_pri_q, ", ", pri_nm, ") < 外验队列 N(", n_sec_q, ", ", sec_nm,
+      ")。请在 .study 中把人多的库设为 primary_*，人少的设为 secondary_*。"
+    )
+    if (isTRUE(stop_on_fail)) stop(msg, call. = FALSE)
+    cli::cli_alert_danger(msg)
+    return(invisible(list(
+      primary_n = n_pri, secondary_n = n_sec,
+      primary_cohort_n = n_pri_q, secondary_cohort_n = n_sec_q, ok = FALSE
+    )))
+  }
+  ## 角色对（队列人多=主库）但本指标完整病例主库<外验 → 缺失结构提醒（不 fail）
+  if (!is.na(n_pri) && !is.na(n_sec) && n_pri < n_sec) {
+    cli::cli_alert_warning(paste0(
+      "本指标/组合 [{ix %||% '-'}] 主库完整病例 N({n_pri}) < 外验 N({n_sec})：",
+      "主库相关列缺失更多，请在结果解读 / Table1 脚注披露；角色仍按队列人数固定。"
+    ))
+  }
+  invisible(list(
+    primary_n = n_pri, secondary_n = n_sec,
+    primary_cohort_n = n_pri_q, secondary_cohort_n = n_sec_q, ok = TRUE
+  ))
 }

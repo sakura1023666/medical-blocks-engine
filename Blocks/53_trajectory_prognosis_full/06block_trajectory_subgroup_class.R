@@ -22,7 +22,7 @@
 #    continuous_cutoffs            = list(),        # 可选：{var}=cutoff 覆盖中位数
 #    age_var                       = NULL,           # 若提供，额外按 age_cutoff 分组
 #    age_cutoff                    = 65,
-#    auto_scan_categorical         = TRUE,   # 未显式配置 subgroup_vars 时，自动扫描分类列
+#    auto_scan_categorical         = FALSE,  # 默认关；须显式 subgroup_vars（双库铁律）
 #    min_n_per_subgroup            = 5L,
 #    pause_enable                  = TRUE,
 #    pause_on_no_output            = TRUE
@@ -109,7 +109,8 @@
     cols[[v]] <- factor(data[[v]])
   }
 
-  auto_scan <- if (is.null(bl$auto_scan_categorical)) TRUE else isTRUE(bl$auto_scan_categorical)
+  # 双库铁律：默认关 auto_scan，须显式 subgroup_vars（避免扩库特异列）
+  auto_scan <- if (is.null(bl$auto_scan_categorical)) FALSE else isTRUE(bl$auto_scan_categorical)
   if (!length(explicit_vars) && auto_scan) {
     reserved <- c(
       id_col, "trajectory_class", "class_factor", "survival_time", "event",
@@ -144,10 +145,16 @@
     traj_util <- file.path(ctx$config$project$root %||% getwd(), "R/trajectory_survival_utils.R")
     if (file.exists(traj_util)) source(traj_util, local = FALSE)
   }
-  # 与 FigS3.R 一致：ng==2 时交换 Class1/2 标签（Class2=多数/低风险类，作参照）
   class_num0 <- suppressWarnings(as.integer(gsub("\\D+", "", as.character(data[[class_col]]))))
+  swap_map <- if (exists("trajectory_resolve_class_map", mode = "function")) {
+    trajectory_resolve_class_map(class_num0, ctx$config, Index, source = "aligned")
+  } else if (exists("trajectory_class_swap_map", mode = "function")) {
+    trajectory_class_swap_map(class_num0)
+  } else {
+    stats::setNames(sort(unique(stats::na.omit(class_num0))), sort(unique(stats::na.omit(class_num0))))
+  }
   class_num  <- if (exists("trajectory_apply_class_swap", mode = "function"))
-    trajectory_apply_class_swap(class_num0, trajectory_class_swap_map(class_num0)) else class_num0
+    trajectory_apply_class_swap(class_num0, swap_map) else class_num0
   base <- data
   base$class_factor <- factor(class_num, levels = sort(unique(stats::na.omit(class_num))),
                                labels = as.character(sort(unique(stats::na.omit(class_num)))))
@@ -229,10 +236,30 @@
 
   brk    <- c(0.1, 0.25, 0.5, 1, 2, 4, 8)
   brk_lb <- c("0.1", "0.25", "0.5", "1", "2", "4", "8")
-  fp <- plot_dat[!is.na(plot_dat$estimate) & is.finite(plot_dat$estimate) &
-                   plot_dat$estimate > 0 &
-                   is.finite(plot_dat$conf.low) & plot_dat$conf.low > 0 &
-                   is.finite(plot_dat$conf.high) & plot_dat$conf.high > 0, , drop = FALSE]
+  # 允许零事件导致的分离估计（HR≈0 / CI 含 Inf）：作图时把端点裁到可画范围，避免整图被滤空
+  fp <- plot_dat[
+    !is.na(plot_dat$estimate) & is.finite(plot_dat$estimate) & plot_dat$estimate > 0,
+    ,
+    drop = FALSE
+  ]
+  if (nrow(fp)) {
+    fp$conf.low <- ifelse(
+      !is.finite(fp$conf.low) | fp$conf.low <= 0,
+      pmin(as.numeric(fp$estimate), 1e-3),
+      as.numeric(fp$conf.low)
+    )
+    fp$conf.high <- ifelse(
+      !is.finite(fp$conf.high) | fp$conf.high <= 0,
+      pmax(as.numeric(fp$estimate) * 1e3, 100),
+      as.numeric(fp$conf.high)
+    )
+    # 点估计过小（数值分离）时抬到轴下限，避免 log 轴塌缩
+    tiny <- is.finite(fp$estimate) & fp$estimate < 1e-4
+    if (any(tiny)) {
+      fp$estimate[tiny] <- 1e-4
+      fp$conf.low[tiny] <- pmin(fp$conf.low[tiny], 1e-4)
+    }
+  }
   n_comp <- if (nrow(fp)) length(unique(as.character(fp$comparison))) else 1L
   comp_levels <- if (nrow(fp)) unique(as.character(fp$comparison)) else character(0)
   # 稳定排序：Class 数字升序
@@ -374,7 +401,7 @@ block_trajectory_subgroup_class <- function(ctx, ...) {
     if (!is.null(res$plot)) {
       fn <- paste0("Figure_Subgroup_TrajectoryClass", suffix, ".pdf")
       n_rows <- nrow(res$count_table)
-      ctx <- save_figure(ctx, fn, (function(pp) function() print(pp))(res$plot),
+      ctx <- save_figure(ctx, fn, local({ pp <- res$plot; function() pp }),
                           width = 14, height = max(6, n_rows * 0.35))
     }
   }

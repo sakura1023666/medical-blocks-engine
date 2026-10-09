@@ -60,6 +60,10 @@ config <- list(
     root                = NULL
   ),
 
+  # ── 发表小数位（全项目统一；一般勿改。改后新跑表/图才生效，旧表不自动回刷）──
+  # est=OR/HR；p=P 值；desc=均值/SD/%；cutoff=ROC/RCS 切点
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+
   # ── 发病（index_var 由 batch runner patch）────────────────────────────────
   incidence = list(
     outcome_var          = "Disease_Group",
@@ -123,6 +127,7 @@ config <- list(
     title = NULL,
     db_label = NULL,
     steps = list(),
+    # CONSORT Figure 1：主列纳入、右侧 Exclude、底部分叉（发病=病例/对照；预后=Expired/Alive）
     outcome_breakdown = TRUE,
     auto_append = TRUE,
     draw_pdf = TRUE,
@@ -442,15 +447,22 @@ config <- list(
   rcs_nhanes = list(
     index_var = NULL, max_model1_vars = 4L,
     knot_quantiles = c(0.1, 0.5, 0.9), histper = 25L,
-    plot_x_quantiles = c(0.01, 0.99)
+    plot_x_quantiles = c(0.01, 0.99),
+    group_cutoffs = "primary"   # Table S-XX 只用主 cutoff 二分
   ),
 
   subgroup = list(
     min_n = 20,
     # 年龄切点依据：写 config 前查本疾病常用界值；默认二分类（见 age_subgroup_binary 铁律）
     age_cutoff = 65L,
-    var_source = "table1_categorical",
-    required_subgroup_vars = NULL,
+    # 双库亚组必须一致（见 dual_db_subgroup_consistency 铁律）
+    var_source = "required",
+    required_subgroup_vars = NULL,  # 课题填写；或由 Gate D / force_subgroup_vars 注入
+    # 发表铁律（引擎默认）：亚组森林图 = 全部人群估计，各层报告「最高 vs 最低」分位对比，
+    # 分位跟随主文锁定方案（subgroup_resolve_main_scheme：tertile/quartile），与 Table 2 同分母。
+    # full_stratum（默认）= OR 与 N 都用全分析集；model_sample 才回退旧「仅 Q1+Q4 子集」口径。
+    continuous_index_mode = "highest_vs_lowest",
+    forest_n_source = "full_stratum",
     forbid_subgroup_vars = c(
       "Index_Group", "Index_Group_Tertile", "Index_Group_Quartile", "MCV_RCS_Group",
       # 双库类型常不一致（Yes/No vs 连续通气小时），默认不进亚组森林
@@ -475,6 +487,8 @@ config <- list(
     dual_library_lm_screen = TRUE, lm_screen_alpha = 0.05,
     lm_screen_require_nonneg_beta = TRUE,
     fallback_single_library_model2 = TRUE, auto_covariate_search = FALSE,
+    # 与 CHARLS mediation_incidence 共用 .mi02_resolve_lab_indicator_pool
+    mediator_extra_vars = NULL,
     path_use_covariates = TRUE,
     mediation_path_alpha = 0.05, diagram_enable = TRUE, pause_enable = FALSE
   ),
@@ -586,6 +600,10 @@ config <- list(
     exposure = NULL, mediators = NULL, outcome = NULL,
     bootstrap_iter = 100L, auto_covariate_search = FALSE,
     dual_library_lm_screen = TRUE,
+    # S8 候选池由引擎 .mi02_resolve_lab_indicator_pool 决定（血检+mediator_extra_vars+best_mediator）
+    # lm_screen_exclude_vars 只作额外黑名单，不能再靠它从「全列」里抠实验室指标
+    lab_indicator_vars = NULL,
+    mediator_extra_vars = NULL,
     lm_screen_exclude_vars = c(
       "ID", "subject_id", "Group", "Disease", "Disease_Group",
       "Age", "Gender", "Education", "Smoke", "Hemoglobin",

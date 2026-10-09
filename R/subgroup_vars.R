@@ -295,6 +295,52 @@ subgroup_apply_min_n_filter <- function(data, vars, min_group_size, cfg = NULL) 
   list(vars = vars_to_keep, data = data)
 }
 
+#' 亚组水平显式剔除（课题 config 用）：把指定水平置 NA 使其不进森林图/亚组表。
+#' 与 min_n 过滤互补：min_n 按样本量，exclude_levels 按研究决定（如 OR 不可估/NE 行）。
+#' config$subgroup$exclude_levels = list(Race = c("Asian", "Hispanic"), ...)
+#' 水平名匹配大小写不敏感、忽略首尾空格；剔除后若该变量仅剩 1 水平则整变量返回剔除。
+subgroup_apply_exclude_levels <- function(data, vars, cfg) {
+  sub_cfg <- cfg$subgroup %||% list()
+  excl_map <- sub_cfg$exclude_levels %||% list()
+  if (!length(excl_map)) return(list(vars = vars, data = data, dropped_vars = character(0)))
+  data <- as.data.frame(data)
+  vars <- as.character(vars)
+  dropped_vars <- character(0)
+  keep_vars <- character(0)
+  for (v in vars) {
+    if (!v %in% names(data)) next
+    drop_lv <- tolower(trimws(as.character(excl_map[[v]] %||% character(0))))
+    drop_lv <- drop_lv[nzchar(drop_lv)]
+    if (!length(drop_lv)) {
+      keep_vars <- c(keep_vars, v)
+      next
+    }
+    x <- data[[v]]
+    x_chr <- trimws(as.character(x))
+    hit <- tolower(x_chr) %in% drop_lv
+    if (any(hit, na.rm = TRUE)) {
+      x_chr[hit] <- NA_character_
+      cli::cli_alert_info(
+        "exclude_levels: {v} 剔除水平 {paste(unique(trimws(as.character(x[hit]))), collapse=', ')}（置 NA，{sum(hit)} 行）"
+      )
+    }
+    lv_left <- unique(x_chr[!is.na(x_chr) & nzchar(x_chr)])
+    if (length(lv_left) >= 2L) {
+      data[[v]] <- factor(x_chr, levels = lv_left)
+      keep_vars <- c(keep_vars, v)
+    } else if (length(lv_left) == 1L) {
+      dropped_vars <- c(dropped_vars, v)
+      cli::cli_alert_warning(
+        "exclude_levels: {v} 剔除后仅剩 1 个水平（{lv_left}），整变量不进亚组"
+      )
+    } else {
+      dropped_vars <- c(dropped_vars, v)
+      cli::cli_alert_warning("exclude_levels: {v} 剔除后无水平剩余，整变量不进亚组")
+    }
+  }
+  list(vars = unique(keep_vars), data = data, dropped_vars = unique(dropped_vars))
+}
+
 subgroup_vars_pass_min_n <- function(data, vars, min_group_size) {
   data <- as.data.frame(data)
   kept <- character(0)
@@ -315,8 +361,10 @@ subgroup_vars_pass_min_n <- function(data, vars, min_group_size) {
 subgroup_order_vars_clinical <- function(v) {
   v <- unique(as.character(v[nzchar(as.character(v))]))
   canon <- c(
+    # 人口学（含 Insurance）
     "Age_Group", "BMI_Group", "Gender", "Education", "Marital_Status",
-    "Income", "Smoking", "Alcohol_drinking", "Race",
+    "Income", "Smoking", "Alcohol_drinking", "Race", "Language", "Insurance",
+    # 共病 / 临床
     "Hypertension", "Diabetes", "T1DM", "T2DM",
     "Heart_Failure", "Myocardial_Infarction", "Atrial_Fibrillation",
     "Stroke", "COPD", "CKD", "Acute_Renal_Failure",

@@ -29,14 +29,23 @@ from ml_small_sample_metrics import (  # noqa: E402
     youden_thr,
 )
 
-DEFAULT_ORDER = ["TabPFN", "CatBoost", "XGBoost", "LightGBM", "AdaBoost", "RF"]
+DEFAULT_ORDER = [
+    "Logistic", "LASSO", "ElasticNet", "RF",
+    "XGBoost", "LightGBM", "SVM", "TabNet",
+    "TabPFN", "CatBoost", "AdaBoost",
+]
 COLORS = {
-    "TabPFN": "#E41A1C",
-    "CatBoost": "#4DAF4A",
+    "Logistic": "#1B9E77",
+    "LASSO": "#D95F02",
+    "ElasticNet": "#7570B3",
+    "RF": "#A65628",
     "XGBoost": "#FF7F00",
     "LightGBM": "#984EA3",
+    "SVM": "#E41A1C",
+    "TabNet": "#377EB8",
+    "TabPFN": "#E41A1C",
+    "CatBoost": "#4DAF4A",
     "AdaBoost": "#377EB8",
-    "RF": "#A65628",
 }
 
 
@@ -123,15 +132,17 @@ def main():
             p = np.asarray(pdata[name], dtype=float)
             if n_events < 2:
                 continue
-            n_bins = max(2, min(4, n_events))
-            try:
-                frac, mp = calibration_curve(yv, p, n_bins=n_bins, strategy="uniform")
-            except ValueError:
+            # quantile first (stable ascending); uniform fallback — same look as ML 套路
+            n_bins = max(3, min(5, max(2, n_events // 15)))
+            frac = mp = None
+            for strategy, nb in (("quantile", n_bins), ("quantile", 3), ("uniform", 4)):
                 try:
-                    frac, mp = calibration_curve(yv, p, n_bins=3, strategy="quantile")
+                    frac, mp = calibration_curve(yv, p, n_bins=nb, strategy=strategy)
+                    if len(mp) >= 2:
+                        break
                 except ValueError:
                     continue
-            if len(mp) < 2:
+            if mp is None or len(mp) < 2:
                 continue
             ax.plot(mp, frac, marker="o", ms=4, color=COLORS.get(name, "0.3"), lw=1.2, label=name)
         ax.set_xlim(0, 1)

@@ -9,6 +9,7 @@ feature_names(F,)(可选) / apache(n,)(可选,基线评分对比用)。
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -16,6 +17,39 @@ from typing import Optional
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
+
+
+def feature_norm_path(data_dir: str | Path) -> Path:
+    return Path(data_dir) / "feature_norm.json"
+
+
+def fit_feature_norm(train_X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Per-feature z-score from train split (axes: patients, days, hours)."""
+    mu = train_X.mean(axis=(0, 1, 2))
+    sd = train_X.std(axis=(0, 1, 2))
+    sd[sd < 1e-8] = 1.0
+    return mu.astype(np.float32), sd.astype(np.float32)
+
+
+def write_feature_norm(data_dir: str | Path, mu: np.ndarray, sd: np.ndarray) -> Path:
+    path = feature_norm_path(data_dir)
+    path.write_text(
+        json.dumps({"mu": mu.tolist(), "sigma": sd.tolist()}, indent=2),
+        encoding="utf-8",
+    )
+    return path
+
+
+def load_feature_norm(data_dir: str | Path) -> tuple[np.ndarray | None, np.ndarray | None]:
+    path = feature_norm_path(data_dir)
+    if not path.exists():
+        return None, None
+    d = json.loads(path.read_text(encoding="utf-8"))
+    return np.asarray(d["mu"], dtype=np.float32), np.asarray(d["sigma"], dtype=np.float32)
+
+
+def apply_feature_norm(X: np.ndarray, mu: np.ndarray, sd: np.ndarray) -> np.ndarray:
+    return ((X - mu) / sd).astype(np.float32)
 
 
 class TSTDataset(Dataset):
@@ -29,6 +63,10 @@ class TSTDataset(Dataset):
             raise FileNotFoundError(f"未找到数据文件: {path}")
         d = np.load(path, allow_pickle=False)
         self.X = np.asarray(d["X"], dtype=np.float32)  # (n,D,H,F)
+        norm_root = path.parent if npz_path is not None else Path(data_dir)
+        mu, sd = load_feature_norm(norm_root)
+        if mu is not None and sd is not None:
+            self.X = apply_feature_norm(self.X, mu, sd)
         n, D = self.X.shape[0], self.X.shape[1]
         self.day_mask = (
             np.asarray(d["day_mask"], dtype=np.float32)

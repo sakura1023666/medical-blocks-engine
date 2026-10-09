@@ -3,6 +3,16 @@
 #  配置: config$logistic_nhanes_weighted（或 config$logistic_covariates）
 ###############################################################################
 
+.lnw00_dual_db_save_covariates <- function(ctx, cfg, m1, m2) {
+  if (!exists("dual_db_save_logistic_covariates", mode = "function")) return(invisible(NULL))
+  root <- normalizePath(
+    (cfg$project %||% list())$root %||% getwd(),
+    winslash = "/", mustWork = FALSE
+  )
+  db_name <- as.character((cfg$dual_db %||% list())$current_db %||% "")[1L]
+  dual_db_save_logistic_covariates(root, cfg, m1, m2, db_name = db_name)
+}
+
 .lnw00_lcfg <- function(cfg) {
   cfg$logistic_nhanes_weighted %||% cfg$logistic_covariates %||% list()
 }
@@ -31,6 +41,35 @@ logistic_safe_confint <- function(m) {
       ci
     }
   )
+}
+
+#' GLM 二项回归：自动剔除单水平/常数协变量后拟合
+logistic_glm_binomial_safe <- function(formula, data) {
+  d <- data
+  for (v in all.vars(formula)[-1]) {
+    if (v %in% names(d) && is.character(d[[v]])) d[[v]] <- factor(d[[v]])
+  }
+  fit <- tryCatch(stats::glm(formula, data = d, family = stats::binomial), error = function(e) e)
+  if (!inherits(fit, "error")) return(fit)
+  msg <- conditionMessage(fit)
+  if (!grepl("contrasts can be applied", msg, fixed = TRUE)) stop(msg, call. = FALSE)
+  mf <- stats::model.frame(formula, data = d, na.action = stats::na.omit)
+  rhs <- setdiff(all.vars(formula), all.vars(formula)[1L])
+  drop_vars <- if (exists("pipeline_drop_degenerate_covariates", mode = "function")) {
+    setdiff(rhs, pipeline_drop_degenerate_covariates(mf, rhs))
+  } else {
+    rhs[vapply(rhs, function(v) {
+      if (!v %in% names(mf)) return(TRUE)
+      x <- mf[[v]]
+      (is.factor(x) || is.character(x)) && nlevels(factor(x)) < 2L
+    }, logical(1L))]
+  }
+  keep <- setdiff(rhs, drop_vars)
+  if (!length(keep)) stop(msg, call. = FALSE)
+  new_fml <- stats::as.formula(
+    paste(all.vars(formula)[1L], "~", paste(keep, collapse = " + "))
+  )
+  stats::glm(new_fml, data = d, family = stats::binomial)
 }
 
 # survey design 里的暴露若被 Table 1 转成 factor，分位/连续行会空。只改局部 design，不写回 ctx。
@@ -116,6 +155,7 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   }
   if (!length(demo)) {
     demo <- c("Age", "Gender", "Sex", "Race", "Smoking", "Smoke",
+              "Alcohol_drinking", "Drinking", "Alcohol",
               "Education", "Marital_Status", "Marital")
   }
   unique(demo[nzchar(demo)])
@@ -196,6 +236,19 @@ logistic_covariate_lcfg <- .lnw00_lcfg
     }
   }
   if (!length(M1)) {
+    # 优先：config 强制人口学（Gender/Smoke/Alcohol 等）——勿把全体非实验室塞进 Model1
+    force_demo <- character(0)
+    if (exists("pipeline_force_include_covariates", mode = "function")) {
+      force_demo <- pick_demo(pipeline_force_include_covariates(cfg))
+      force_demo <- intersect(force_demo, design_candidates)
+    }
+    if (length(force_demo)) {
+      tier <- "force_demo"
+      M1 <- force_demo
+      cli::cli_alert_info(
+        "协变量选择: 单/多因素 VIF 无显著人口学，Model1 用强制人口学: {paste(M1, collapse = ', ')}"
+      )
+    } else {
     tier <- "nonlab_uvif_fallback"
     lab_names <- .lnw00_lab_indicator_names(cfg, bl_cfg)
     uvif_cands <- intersect(as.character(uvif_pool), design_candidates)
@@ -230,6 +283,7 @@ logistic_covariate_lcfg <- .lnw00_lcfg
         "协变量选择: 三级回退后 Model1 仍为空（单因素/多因素 VIF 池均无可用候选）"
       )
     }
+    } # end else nonlab fallback
   }
   if ("Age_Years" %in% M1 && "Age_Group" %in% M1) {
     M1 <- setdiff(M1, "Age_Group")
@@ -335,21 +389,65 @@ logistic_covariate_lcfg <- .lnw00_lcfg
       (cfg$incidence %||% list())$index_var %||% "BMI"
   )[1L]
 
+  # 预设锁 / 闸门 B：禁止被 VIF/ML 脏 Model1Factors（如 SBP,WTSOG2YR）盖掉
+  harm <- cfg$dual_db$harmonization %||% list()
+  am <- cfg$analysis_models %||% list()
+  prefer_locked <- isTRUE(harm$lock_covariates_preset) ||
+    isTRUE(ctx$results$dual_db_covariate_harmonized)
+  slot <- as.character(
+    cfg$dual_db$current_db %||% ctx$results$current_db %||% "nhanes"
+  )[1L]
+  use_mimic <- identical(tolower(slot), "mimic") ||
+    identical(tolower(slot), "charls") ||
+    (exists("dual_db_slot_is_primary", mode = "function") &&
+       !isTRUE(dual_db_slot_is_primary(slot)))
+  harm_m1 <- as.character(
+    if (use_mimic) harm$harmonized_model1_mimic else harm$harmonized_model1_nhanes
+  )
+  harm_m2 <- as.character(
+    if (use_mimic) harm$harmonized_model2_mimic else harm$harmonized_model2_nhanes
+  )
+  if (isTRUE(harm$lock_covariates_preset) && length(harm_m1) && length(harm_m2)) {
+    m1_locked <- harm_m1
+    m2_locked <- harm_m2
+  } else if (isTRUE(ctx$results$dual_db_covariate_harmonized) &&
+             length(as.character(ctx$results$Model1Factors %||% character(0))) &&
+             length(as.character(ctx$results$Model2Factors %||% character(0)))) {
+    m1_locked <- as.character(ctx$results$Model1Factors)
+    m2_locked <- as.character(ctx$results$Model2Factors)
+  } else {
+    m1_locked <- as.character(am$model1_factors %||% character(0))
+    m2_locked <- as.character(am$model2_factors %||% character(0))
+  }
   m1_manual <- as.character(
-    bl_cfg$model1_factors %||%
-      ctx$results$assoc_model1_factors %||%
-      lcfg$model1_factors %||% character(0)
+    if (prefer_locked && length(m1_locked) && length(m2_locked)) {
+      m1_locked
+    } else {
+      bl_cfg$model1_factors %||%
+        ctx$results$assoc_model1_factors %||%
+        lcfg$model1_factors %||% character(0)
+    }
   )
   m2_manual <- as.character(
-    bl_cfg$model2_factors %||%
-      ctx$results$assoc_model2_factors %||%
-      lcfg$model2_factors %||% character(0)
+    if (prefer_locked && length(m1_locked) && length(m2_locked)) {
+      m2_locked
+    } else {
+      bl_cfg$model2_factors %||%
+        ctx$results$assoc_model2_factors %||%
+        lcfg$model2_factors %||% character(0)
+    }
   )
   use_manual <- length(m1_manual) > 0L && length(m2_manual) > 0L
   if (use_manual) {
     M1 <- m1_manual
     M2 <- m2_manual
-    cli::cli_alert_info("logistic NHANES: 使用 config 手动指定 Model1/Model2 协变量")
+    cli::cli_alert_info(
+      if (prefer_locked) {
+        "logistic NHANES: 使用双库锁定 Model1/Model2 协变量"
+      } else {
+        "logistic NHANES: 使用 config 手动指定 Model1/Model2 协变量"
+      }
+    )
     M1 <- intersect(M1, names(design$variables))
     M2 <- intersect(M2, names(design$variables))
     M1 <- setdiff(M1, index_var)
@@ -679,30 +777,43 @@ logistic_covariate_lcfg <- .lnw00_lcfg
 }
 
 .lnw00_design_from_rcs_groups <- function(ctx, design, bl_cfg) {
-  gv <- as.character(bl_cfg$group_var %||% ctx$results$nhanes_rcs_group_col %||% "")[1L]
-  if (!nzchar(gv)) {
-    stop("logistic NHANES (rcs): group_var / nhanes_rcs_group_col 未设置；请先运行 rcs_nhanes。", call. = FALSE)
+  cfg <- ctx$config
+  index_var <- as.character(
+    bl_cfg$index_var %||%
+      ctx$results$nhanes_rcs_cutoff_index %||%
+      (cfg$logistic %||% list())$index_var %||%
+      (cfg$incidence %||% list())$index_var %||% "BMI"
+  )[1L]
+  if (is.null(design$variables) || !index_var %in% names(design$variables)) {
+    stop("logistic NHANES (rcs): 指标列 '", index_var, "' 不在 survey design 中。", call. = FALSE)
   }
-  if (is.null(design$variables) || !gv %in% names(design$variables)) {
-    stop("logistic NHANES (rcs): 分组列 '", gv, "' 不在 survey design 中。", call. = FALSE)
+  rn_cfg <- cfg$rcs_nhanes %||% list()
+  group_mode <- tolower(as.character(rn_cfg$group_cutoffs %||% "primary")[1L])
+  cut_use <- list(
+    all = as.numeric(ctx$results$nhanes_rcs_cutoffs_all %||% numeric(0)),
+    or1 = as.numeric(ctx$results$nhanes_rcs_cutoff_or1 %||% numeric(0)),
+    peak = as.numeric(ctx$results$nhanes_rcs_cutoff_peak %||% numeric(0))
+  )
+  primary <- suppressWarnings(as.numeric(ctx$results$nhanes_rcs_primary_cutoff %||% NA_real_)[1L])
+  group_cuts <- rcs_table_group_cutoffs(cut_use, primary = primary, mode = group_mode)
+  if (!length(group_cuts)) {
+    stop("SKIP_RCS_GROUP_LEVELS: RCS 切点为空，无法分组。", call. = FALSE)
   }
-  xv <- design$variables[[gv]]
-  raw_levels <- levels(factor(xv, exclude = NULL))
+  grp <- rcs_cutoff_factor(design$variables[[index_var]], group_cuts, index_var)
+  raw_levels <- levels(grp$factor)
   if (length(raw_levels) < 2L) {
-    # 唯一值过少 / 无 RCS 切点时只有 "All" 一档：由调用方跳过，勿硬崩整指标
     stop("SKIP_RCS_GROUP_LEVELS: RCS 分组水平不足（n_levels=", length(raw_levels), "）。", call. = FALSE)
   }
-  grp_chr <- as.character(xv)
+  grp_chr <- as.character(grp$factor)
   des2 <- stats::update(
     design,
     Group = factor(grp_chr, levels = raw_levels),
     Num = as.numeric(factor(grp_chr, levels = raw_levels))
   )
-  cutoffs <- setNames(rep("", length(raw_levels)), raw_levels)
-  pc <- suppressWarnings(as.numeric(ctx$results$nhanes_rcs_primary_cutoff %||% NA_real_)[1L])
+  cutoffs <- grp$cutoffs_named
+  pc <- if (length(group_cuts) == 1L) group_cuts[[1L]] else NA_real_
   if (is.finite(pc) && length(raw_levels) >= 2L) {
-    cutoffs[1L] <- paste0("< ", fmt_num(pc))
-    cutoffs[length(raw_levels)] <- paste0("\u2265 ", fmt_num(pc))
+    cutoffs <- rcs_table_exposure_cutoff_labels(raw_levels, pc)
   }
   list(
     design = des2,
@@ -798,6 +909,105 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   m2_trend || m2_grp
 }
 
+#' 闸门口径：只看最高暴露组 Model2 P（与 logistic_gate_highest_sig 一致）
+.lnw00_highest_m2_significant <- function(pvals, threshold) {
+  is.finite(pvals$last_m2) && pvals$last_m2 < threshold
+}
+
+#' 减 Model2 额外协变量以救最高组显著性（优先于 degrade 分位）
+#'
+#' 在现有 M1/M2 基础上只删 `setdiff(M2, M1 ∪ force_keep)`；优先保留尽可能多的额外变量。
+#' 全子集（≤ max_extras_powerset）或贪心逐个剔除。锁定协变量时也允许调用。
+.lnw00_reduce_m2_extras_for_highest_sig <- function(
+    M1, M2, build_table_fn, threshold, rs_cfg = list(),
+    force_keep = character(0), max_extras_powerset = 8L) {
+  M1 <- unique(as.character(M1[nzchar(M1)]))
+  M2 <- unique(as.character(M2[nzchar(M2)]))
+  force_keep <- unique(as.character(force_keep[nzchar(force_keep)]))
+  core <- unique(c(M1, force_keep))
+  extras <- setdiff(M2, core)
+  if (!length(extras)) {
+    return(list(M1 = M1, M2 = M2, tb = NULL, succeeded = FALSE, dropped = character(0)))
+  }
+  threshold <- as.numeric(threshold %||% 0.05)[1L]
+  if (!is.finite(threshold) || threshold <= 0 || threshold >= 1) threshold <- 0.05
+
+  try_one <- function(ex_try) {
+    M2_try <- unique(c(core, ex_try))
+    if (!.lnw00_m2_has_extra(M1, M2_try)) return(NULL)
+    tb_try <- suppressWarnings(tryCatch(
+      build_table_fn(M1, M2_try), error = function(e) NULL
+    ))
+    if (is.null(tb_try)) return(NULL)
+    pv <- .lnw00_table_pvals(tb_try)
+    # 闸门优先看最高组；同时要求 Model2 趋势或最高组显著（与 .lnw00_model2_significant 对齐）
+    if (!.lnw00_highest_m2_significant(pv, threshold) &&
+        !.lnw00_model2_significant(pv, threshold, rs_cfg)) {
+      return(NULL)
+    }
+    if (!.lnw00_highest_m2_significant(pv, threshold)) return(NULL)
+    list(M1 = M1, M2 = M2_try, tb = tb_try, dropped = setdiff(extras, ex_try),
+         last_m2 = pv$last_m2)
+  }
+
+  best <- NULL
+  best_n <- -1L
+  if (length(extras) <= as.integer(max_extras_powerset %||% 8L)[1L]) {
+    subsets <- .lnw00_power_subsets_nonempty(extras)
+    subsets <- c(list(character(0)), subsets)
+    subsets <- subsets[order(-vapply(subsets, length, integer(1L)))]
+    for (ex_try in subsets) {
+      hit <- try_one(ex_try)
+      if (is.null(hit)) next
+      if (length(ex_try) > best_n) {
+        best_n <- length(ex_try)
+        best <- hit
+      }
+    }
+  } else {
+    # 贪心：每次删掉一个后最高组 P 最小的那个，直到显著或删光
+    cur <- extras
+    while (TRUE) {
+      hit <- try_one(cur)
+      if (!is.null(hit)) {
+        best <- hit
+        break
+      }
+      if (!length(cur)) break
+      scores <- vapply(cur, function(v) {
+        rem <- setdiff(cur, v)
+        h <- try_one(rem)
+        if (is.null(h)) return(Inf)
+        suppressWarnings(as.numeric(h$last_m2 %||% Inf))
+      }, numeric(1L))
+      drop_i <- which.min(scores)
+      if (!length(drop_i) || !is.finite(scores[[drop_i]])) {
+        # 无改善信息：任删一个继续
+        cur <- cur[-1L]
+      } else {
+        cur <- setdiff(cur, cur[[drop_i]])
+      }
+    }
+  }
+
+  if (is.null(best)) {
+    return(list(M1 = M1, M2 = M2, tb = NULL, succeeded = FALSE, dropped = character(0)))
+  }
+  if (length(best$dropped)) {
+    cli::cli_alert_success(
+      "减协变量救最高组: 去掉 {paste(best$dropped, collapse = ', ')} | Model2={paste(best$M2, collapse = ', ')} | 最高组 Model2 P={format(round(best$last_m2, 4), scientific = FALSE)}"
+    )
+  } else {
+    cli::cli_alert_success(
+      "减协变量救最高组: 无需删变量 | Model2={paste(best$M2, collapse = ', ')}"
+    )
+  }
+  list(
+    M1 = best$M1, M2 = best$M2, tb = best$tb,
+    succeeded = TRUE, dropped = best$dropped
+  )
+}
+
 .lnw00_models_adjusted_significant <- function(pvals, threshold, rs_cfg = list()) {
   m1_ok <- is.finite(pvals$trend_m1) && pvals$trend_m1 < threshold
   m2_ok <- is.finite(pvals$trend_m2) && pvals$trend_m2 < threshold
@@ -815,6 +1025,136 @@ logistic_covariate_lcfg <- .lnw00_lcfg
     if (!all(is.finite(vals)) || !all(vals < threshold)) return(FALSE)
   }
   TRUE
+}
+
+#' 搜索命中判定：闸门救援只看最高组 Model2；常规仍看 Model1/2 趋势
+.lnw00_search_hit_ok <- function(pvals, threshold, rs_cfg = list()) {
+  if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+    return(.lnw00_highest_m2_significant(pvals, threshold))
+  }
+  .lnw00_models_adjusted_significant(pvals, threshold, rs_cfg)
+}
+
+#' Model2 必须严格多于 Model1（至少 1 个额外协变量）
+.lnw00_m2_has_extra <- function(M1, M2) {
+  length(setdiff(unique(as.character(M2)), unique(as.character(M1)))) >= 1L
+}
+
+#' 闸门救援候选池：多因素 VIF 优先，空则单因素 VIF；均不含 Model1
+.lnw00_gate_rescue_search_pools <- function(
+    ctx, cfg, design, index_var, bl_cfg, M1, locked_m2 = character(0)) {
+  M1 <- unique(as.character(M1[nzchar(M1)]))
+  locked_m2 <- unique(as.character(locked_m2[nzchar(locked_m2)]))
+  mvif <- .lnw00_get_vif_final_pool(ctx)
+  screen <- as.character(
+    ctx$results$vif_screen_pass %||% ctx$results$vif_screen_pass_weighted %||% character(0)
+  )
+  split <- .lnw00_split_vif_final_models(
+    mvif, cfg, design, index_var, bl_cfg, screen_pool = screen
+  )
+  lcfg <- .lnw00_lcfg(cfg)
+  excl <- .lnw00_model_exclude_vars(cfg, lcfg, index_var)
+  design_vars <- if (is.list(design) && !is.null(design$variables)) {
+    names(design$variables)
+  } else if (is.data.frame(design)) {
+    names(design)
+  } else {
+    character(0)
+  }
+  mvif_extra <- setdiff(split$m2_search_pool %||% character(0), M1)
+  mvif_extra <- unique(c(mvif_extra, intersect(setdiff(locked_m2, M1), mvif_extra)))
+  uvif_extra <- intersect(screen, design_vars)
+  uvif_extra <- setdiff(uvif_extra, c(M1, mvif_extra, excl, as.character(index_var)))
+  uvif_extra <- unique(c(
+    uvif_extra,
+    setdiff(setdiff(locked_m2, M1), mvif_extra)
+  ))
+  list(mvif_pool = mvif_extra, uvif_pool = uvif_extra)
+}
+
+#' 闸门救援：多因素 VIF 池优先随机扩搜，失败再单因素 VIF；Model2 必须多于 Model1
+#' covariate_source=vif_final_pass 时禁止回退单因素池（协变量只认 Table S6 / VIF final）
+.lnw00_gate_rescue_run_search <- function(
+    ctx, cfg, design, index_var, bl_cfg, M1, M2, build_table_fn, crude_sig,
+    rs_cfg = list()) {
+  rs_cfg$gate_rescue <- TRUE
+  pools <- .lnw00_gate_rescue_search_pools(ctx, cfg, design, index_var, bl_cfg, M1, locked_m2 = M2)
+  lcfg <- .lnw00_lcfg(cfg)
+  src <- tolower(as.character(
+    bl_cfg$covariate_source %||% lcfg$covariate_source %||% ""
+  )[1L])
+  tiers <- list(
+    list(label = "多因素 VIF", pool = pools$mvif_pool)
+  )
+  if (!identical(src, "vif_final_pass") && !identical(src, "vif_final")) {
+    tiers[[length(tiers) + 1L]] <- list(label = "单因素 VIF", pool = pools$uvif_pool)
+  } else {
+    cli::cli_alert_info(
+      "闸门救援: covariate_source={src}，不回退单因素 VIF 池（保持 VIF final / Table S6 口径）"
+    )
+  }
+  for (tier in tiers) {
+    sp <- unique(as.character(tier$pool)[nzchar(as.character(tier$pool))])
+    if (!length(sp)) next
+    cli::cli_alert_info(
+      "闸门救援: {tier$label} 池 ({length(sp)}): {paste(sp, collapse = ', ')}"
+    )
+    sr <- .lnw00_random_search_covariates(
+      ctx, cfg, M1, sp, build_table_fn, crude_sig, rs_cfg, bl_cfg
+    )
+    if (isTRUE(sr$succeeded) && .lnw00_m2_has_extra(M1, sr$M2)) return(sr)
+  }
+  list(
+    M1 = M1, M2 = M2, tb = NULL,
+    succeeded = FALSE, sample_factors = character(0)
+  )
+}
+
+#' GLM 闸门救援：vif_final 池 → vif_screen 池
+.lnw00_gate_rescue_run_search_glm <- function(
+    ctx, cfg, data_cols, excl_cols, index_var, M1, M2, block_name,
+    build_table_fn, rs_cfg = list(), combine_model2_fn = NULL) {
+  rs_cfg$gate_rescue <- TRUE
+  M1 <- unique(as.character(M1[nzchar(M1)]))
+  mvif <- setdiff(
+    logistic_resolve_pos_factors(ctx, data_cols, excl_cols, block_name), M1
+  )
+  screen <- as.character(
+    ctx$results$vif_screen_pass %||% ctx$results$vif_screen_pass_weighted %||% character(0)
+  )
+  screen <- intersect(setdiff(screen, c(M1, mvif, excl_cols, as.character(index_var))), data_cols)
+  locked_extra <- setdiff(as.character(M2), M1)
+  mvif <- unique(c(mvif, intersect(locked_extra, mvif)))
+  uvif <- unique(c(screen, setdiff(locked_extra, mvif)))
+  combine_model2_fn <- combine_model2_fn %||% function(m1, sampled) unique(c(m1, sampled))
+  p_thr <- as.numeric(rs_cfg$p_threshold %||% 0.05)[1L]
+  tiers <- list(
+    list(label = "多因素 VIF", pool = mvif),
+    list(label = "单因素 VIF", pool = uvif)
+  )
+  for (tier in tiers) {
+    sp <- unique(as.character(tier$pool)[nzchar(as.character(tier$pool))])
+    if (!length(sp)) next
+    cli::cli_alert_info(
+      "闸门救援: {tier$label} 池 ({length(sp)}): {paste(sp, collapse = ', ')}"
+    )
+    sr <- logistic_nested_random_search(
+      sp, M1, NULL, p_thr, rs_cfg,
+      build_table_fn = function(m2) build_table_fn(m2),
+      combine_model2_fn = combine_model2_fn
+    )
+    if (isTRUE(sr$search_succeeded) && .lnw00_m2_has_extra(M1, sr$Model2Factors)) {
+      return(list(
+        M1 = M1, M2 = sr$Model2Factors, tb = sr$tb01,
+        succeeded = TRUE, sample_factors = sr$sample_factors,
+        attempt_count = sr$attempt_count %||% 0L
+      ))
+    }
+  }
+  list(
+    M1 = M1, M2 = M2, tb = NULL,
+    succeeded = FALSE, sample_factors = character(0), attempt_count = 0L
+  )
 }
 
 .lnw00_summary_coefs <- function(fit) {
@@ -866,13 +1206,17 @@ logistic_covariate_lcfg <- .lnw00_lcfg
 
 .lnw00_need_covariate_search <- function(tb, threshold, crude_sig, rs_cfg = list(),
                                          ctx = NULL, cfg = NULL, bl_cfg = list()) {
+  if (!isTRUE(crude_sig)) return(FALSE)
+  pv <- .lnw00_table_pvals(tb)
+  # 闸门救援：减协失败后强制搜；不受 enable=FALSE / Gate B 锁定拦截
+  if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+    return(!.lnw00_highest_m2_significant(pv, threshold))
+  }
   # 默认关闭随机搜协变量，避免 Table2 与 S7/锁定集分叉
   if (!isTRUE(rs_cfg$enable %||% FALSE)) return(FALSE)
   if (!is.null(ctx) && !is.null(cfg) && .lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)) {
     return(FALSE)
   }
-  if (!isTRUE(crude_sig)) return(FALSE)
-  pv <- .lnw00_table_pvals(tb)
   !.lnw00_models_adjusted_significant(pv, threshold, rs_cfg)
 }
 
@@ -948,10 +1292,73 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   if (!isTRUE(crude_sig)) {
     return(list(M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx))
   }
-  if (.lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)) {
-    return(list(M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx, run_random = FALSE))
+  # 闸门 B 已对齐双库 Model1/2：禁止单库减协 / 闸门救援改写（避免 NHANES/MIMIC 分叉）
+  if (isTRUE(ctx$results$dual_db_covariate_harmonized)) {
+    return(list(
+      M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx,
+      run_random = FALSE, gate_rescue = FALSE
+    ))
   }
+  # config 预设锁（lock_covariates_preset / 手写 Model1+Model2）：禁止闸门救援改写
+  if (isTRUE((cfg$dual_db$harmonization %||% list())$lock_covariates_preset) ||
+      (exists("logistic_locked_model_factors", mode = "function") &&
+         length(logistic_locked_model_factors(cfg)[["model2"]]))) {
+    return(list(
+      M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx,
+      run_random = FALSE, gate_rescue = FALSE
+    ))
+  }
+  locked <- .lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)
   pv <- .lnw00_table_pvals(tb)
+  # 锁定时仍允许「减 Model2」；失败则标记 gate_rescue 强制搜协变量（优先于 degrade）
+  if (isTRUE(locked)) {
+    if (!.lnw00_highest_m2_significant(pv, threshold)) {
+      force_keep <- character(0)
+      if (exists("pipeline_force_include_covariates", mode = "function")) {
+        force_keep <- tryCatch(
+          as.character(pipeline_force_include_covariates(cfg) %||% character(0)),
+          error = function(e) character(0)
+        )
+      }
+      if (!length(force_keep)) {
+        force_keep <- as.character(
+          (cfg$assoc_covariate %||% list())$force_model1 %||% "Age"
+        )
+      }
+      red <- .lnw00_reduce_m2_extras_for_highest_sig(
+        M1, M2, build_table_fn, threshold, rs_cfg, force_keep = force_keep
+      )
+      if (isTRUE(red$succeeded)) {
+        ctx$results$logistic_m2_reduce_applied <- TRUE
+        ctx$results$logistic_m2_reduce_dropped <- red$dropped
+        if (length(red$dropped)) {
+          .lnw00_dual_db_save_covariates(ctx, cfg, red$M1, red$M2)
+        }
+        return(list(
+          M1 = red$M1, M2 = red$M2, tb = red$tb,
+          tuned = TRUE, ctx = ctx, run_random = FALSE, gate_rescue = FALSE
+        ))
+      }
+      # 已尝试过闸门救援则不再重复标记（避免 tune1 二次触发）
+      if (isTRUE(ctx$results$logistic_gate_rescue_attempted %||% FALSE)) {
+        return(list(
+          M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx,
+          run_random = FALSE, gate_rescue = FALSE
+        ))
+      }
+      cli::cli_alert_info(
+        "减协变量未救回最高组 Model2 显著（P={format(round(pv$last_m2, 4), scientific = FALSE)}），将闸门救援搜索协变量（优先于降分位）"
+      )
+      return(list(
+        M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx,
+        run_random = TRUE, gate_rescue = TRUE
+      ))
+    }
+    return(list(
+      M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx,
+      run_random = FALSE, gate_rescue = FALSE
+    ))
+  }
   need_triple <- isTRUE(rs_cfg$require_triple_model_sig %||% TRUE)
   if (!need_triple && .lnw00_models_adjusted_significant(pv, threshold, rs_cfg)) {
     return(list(M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx))
@@ -970,23 +1377,64 @@ logistic_covariate_lcfg <- .lnw00_lcfg
       tuned <- TRUE
       ctx$results$logistic_triple_tune_applied <- TRUE
       ctx$results$logistic_m1_to_m2_fallback <- tr$moved_vars
-      if (length(tr$moved_vars) && exists("dual_db_save_logistic_covariates", mode = "function")) {
-        root <- normalizePath(
-          (cfg$project %||% list())$root %||% getwd(),
-          winslash = "/", mustWork = FALSE
-        )
-        dual_db_save_logistic_covariates(root, cfg, M1, M2)
+      if (length(tr$moved_vars)) {
+        .lnw00_dual_db_save_covariates(ctx, cfg, M1, M2)
       }
     }
   }
 
+  # 三模型调参仍救不回最高组 → 再减 Model2 额外协变量
   pv2 <- .lnw00_table_pvals(tb)
-  locked <- .lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)
-  if (!tuned && !locked && isTRUE(rs_cfg$enable %||% TRUE) &&
-      !.lnw00_models_adjusted_significant(pv2, threshold, rs_cfg)) {
-    return(list(M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx, run_random = TRUE))
+  if (!.lnw00_highest_m2_significant(pv2, threshold)) {
+    force_keep <- character(0)
+    if (exists("pipeline_force_include_covariates", mode = "function")) {
+      force_keep <- tryCatch(
+        as.character(pipeline_force_include_covariates(cfg) %||% character(0)),
+        error = function(e) character(0)
+      )
+    }
+    if (!length(force_keep)) {
+      force_keep <- as.character(
+        (cfg$assoc_covariate %||% list())$force_model1 %||% "Age"
+      )
+    }
+    red <- .lnw00_reduce_m2_extras_for_highest_sig(
+      M1, M2, build_table_fn, threshold, rs_cfg, force_keep = force_keep
+    )
+    if (isTRUE(red$succeeded)) {
+      M1 <- red$M1
+      M2 <- red$M2
+      tb <- red$tb
+      tuned <- TRUE
+      ctx$results$logistic_m2_reduce_applied <- TRUE
+      ctx$results$logistic_m2_reduce_dropped <- red$dropped
+      if (length(red$dropped)) {
+        .lnw00_dual_db_save_covariates(ctx, cfg, M1, M2)
+      }
+    }
   }
-  list(M1 = M1, M2 = M2, tb = tb, tuned = tuned, ctx = ctx, run_random = FALSE)
+
+  pv3 <- .lnw00_table_pvals(tb)
+  locked2 <- .lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)
+  # 最高组仍不显著：闸门救援（即便 random_search$enable=FALSE）
+  if (!.lnw00_highest_m2_significant(pv3, threshold) &&
+      !isTRUE(ctx$results$logistic_gate_rescue_attempted %||% FALSE)) {
+    return(list(
+      M1 = M1, M2 = M2, tb = tb, tuned = tuned, ctx = ctx,
+      run_random = TRUE, gate_rescue = TRUE
+    ))
+  }
+  if (!tuned && !locked2 && isTRUE(rs_cfg$enable %||% TRUE) &&
+      !.lnw00_models_adjusted_significant(pv3, threshold, rs_cfg)) {
+    return(list(
+      M1 = M1, M2 = M2, tb = tb, tuned = FALSE, ctx = ctx,
+      run_random = TRUE, gate_rescue = FALSE
+    ))
+  }
+  list(
+    M1 = M1, M2 = M2, tb = tb, tuned = tuned, ctx = ctx,
+    run_random = FALSE, gate_rescue = FALSE
+  )
 }
 
 .lnw00_random_search_covariates <- function(
@@ -1012,22 +1460,44 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   }
 
   n_fits <- 0L
+  gate_rescue <- isTRUE(rs_cfg$gate_rescue %||% FALSE)
   try_one <- function(sample_factors) {
     n_fits <<- n_fits + 1L
     M2_try <- unique(c(M1, sample_factors))
+    if (gate_rescue && !.lnw00_m2_has_extra(M1, M2_try)) return(NULL)
     tb_try <- suppressWarnings(tryCatch(
       build_table_fn(M1, M2_try), error = function(e) NULL
     ))
     if (is.null(tb_try)) return(NULL)
     pv <- .lnw00_table_pvals(tb_try)
-    if (.lnw00_models_adjusted_significant(pv, p_thr, rs_cfg)) {
-      list(M2 = M2_try, tb = tb_try, sample_factors = sample_factors)
+    if (.lnw00_search_hit_ok(pv, p_thr, rs_cfg)) {
+      list(
+        M2 = M2_try, tb = tb_try, sample_factors = sample_factors,
+        n_extra = length(setdiff(M2_try, M1))
+      )
     } else {
       NULL
     }
   }
 
-  cli::cli_h3("logistic NHANES: crude 显著但 Model1/2 不显著，开始协变量搜索")
+  pick_best_hit <- function(hit) {
+    if (is.null(hit)) return(NULL)
+    if (gate_rescue) {
+      cli::cli_alert_success(
+        "闸门救援命中 (k={hit$n_extra}): Model2={paste(hit$M2, collapse = ', ')}"
+      )
+    }
+    list(
+      M1 = M1, M2 = hit$M2, tb = hit$tb,
+      succeeded = TRUE, sample_factors = hit$sample_factors
+    )
+  }
+
+  if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+    cli::cli_h3("logistic NHANES: 闸门救援 — 搜索使最高组 Model2 显著的协变量")
+  } else {
+    cli::cli_h3("logistic NHANES: crude 显著但 Model1/2 不显著，开始协变量搜索")
+  }
   pool_label <- if (isTRUE(lab_only_m2)) "实验室指标" else "协变量"
   cli::cli_alert_info(
     "搜索池（{pool_label}, {length(search_pool)}): {paste(search_pool, collapse = ', ')} | outer≤{max_attempts}, inner≤{max_inner}, total_fits≤{max_total_fits}, p<{p_thr}"
@@ -1038,68 +1508,103 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   max_combn <- as.integer(rs_cfg$max_exhaustive_combinations %||% 400L)
   if (length(search_pool) <= exhaustive_max) {
     cli::cli_alert_info("候选池≤{exhaustive_max}，先穷举 combn（≤{max_combn} 组/层）")
-    for (n_sample in seq_len(length(search_pool))) {
+    n_seq <- seq_len(length(search_pool))
+    if (gate_rescue) {
+      # 闸门救援：从最多协变量往下穷举，禁止 M2=M1
+      n_seq <- rev(n_seq)
+    }
+    for (n_sample in n_seq) {
       n_combn <- choose(length(search_pool), n_sample)
-      if (n_combn > max_combn) next
-      subsets <- combn(search_pool, n_sample, simplify = FALSE)
+      if (n_sample > 0L && n_combn > max_combn) next
+      subsets <- if (n_sample == 0L) {
+        list(character(0))
+      } else {
+        combn(search_pool, n_sample, simplify = FALSE)
+      }
       for (sample_factors in subsets) {
         if (n_fits >= max_total_fits) break
         hit <- try_one(sample_factors)
         if (!is.null(hit)) {
-          cli::cli_alert_success(
-            "穷举命中 (n={n_sample}, fits={n_fits}): {paste(hit$sample_factors, collapse = ', ')}"
-          )
-          return(list(
-            M1 = M1, M2 = hit$M2, tb = hit$tb,
-            succeeded = TRUE, sample_factors = hit$sample_factors
-          ))
+          if (!gate_rescue) {
+            cli::cli_alert_success(
+              "穷举命中 (n={n_sample}, fits={n_fits}): {paste(hit$sample_factors, collapse = ', ')}"
+            )
+          }
+          return(pick_best_hit(hit))
         }
       }
       if (n_fits >= max_total_fits) break
     }
   }
 
-  # Cox 式：外层递增 factors_Num，内层随机抽样（上限由 config 控制，非 1000×1000 全跑）
+  # 闸门救援：从 k 最大往下随机抽；常规：k 递增
   attempt_count <- 0L
   exit_outer <- FALSE
   tb_best <- NULL
   M2_best <- NULL
   sample_best <- character(0)
 
-  while (attempt_count < max_attempts && !exit_outer && n_fits < max_total_fits) {
-    inner_count <- 0L
-    condition_met <- FALSE
-    n_sample <- min(factors_Num, length(search_pool))
-
-    while (inner_count < max_inner && !condition_met && n_fits < max_total_fits) {
-      sample_factors <- if (n_sample > 0L) {
-        sample(search_pool, n_sample, replace = FALSE)
-      } else {
-        character(0)
+  if (gate_rescue && length(search_pool)) {
+    for (n_sample in rev(seq_len(length(search_pool)))) {
+      if (n_fits >= max_total_fits) break
+      tier_best <- NULL
+      inner_count <- 0L
+      while (inner_count < max_inner && n_fits < max_total_fits) {
+        sample_factors <- sample(search_pool, n_sample, replace = FALSE)
+        inner_count <- inner_count + 1L
+        hit <- try_one(sample_factors)
+        if (is.null(hit)) next
+        if (is.null(tier_best) || hit$n_extra > tier_best$n_extra) tier_best <- hit
       }
-      inner_count <- inner_count + 1L
-      hit <- try_one(sample_factors)
-      if (!is.null(hit)) {
-        tb_best <- hit$tb
-        M2_best <- hit$M2
-        sample_best <- hit$sample_factors
-        condition_met <- TRUE
-        exit_outer <- TRUE
-        cli::cli_alert_success(
-          "随机搜索命中 (outer={attempt_count + 1L}, inner={inner_count}, n={n_sample}): {paste(sample_factors, collapse = ', ')}"
-        )
-        break
+      if (!is.null(tier_best)) {
+        return(pick_best_hit(tier_best))
       }
+      attempt_count <- attempt_count + 1L
+      if (attempt_count >= max_attempts) break
     }
+  } else {
+    while (attempt_count < max_attempts && !exit_outer && n_fits < max_total_fits) {
+      inner_count <- 0L
+      condition_met <- FALSE
+      n_sample <- min(factors_Num, length(search_pool))
 
-    if (!condition_met) {
-      factors_Num <- factors_Num + 1L
-      if (factors_Num > length(search_pool)) {
-        cli::cli_alert_warning("logistic NHANES: factors_Num 超出候选池，停止搜索。")
-        break
+      while (inner_count < max_inner && !condition_met && n_fits < max_total_fits) {
+        sample_factors <- if (n_sample > 0L) {
+          sample(search_pool, n_sample, replace = FALSE)
+        } else {
+          character(0)
+        }
+        inner_count <- inner_count + 1L
+        hit <- try_one(sample_factors)
+        if (!is.null(hit)) {
+          tb_best <- hit$tb
+          M2_best <- hit$M2
+          sample_best <- hit$sample_factors
+          condition_met <- TRUE
+          exit_outer <- TRUE
+          cli::cli_alert_success(
+            "随机搜索命中 (outer={attempt_count + 1L}, inner={inner_count}, n={n_sample}): {paste(sample_factors, collapse = ', ')}"
+          )
+          break
+        }
       }
+
+      if (!condition_met) {
+        factors_Num <- factors_Num + 1L
+        if (factors_Num > length(search_pool)) {
+          cli::cli_alert_warning("logistic NHANES: factors_Num 超出候选池，停止搜索。")
+          break
+        }
+      }
+      attempt_count <- attempt_count + 1L
     }
-    attempt_count <- attempt_count + 1L
+  }
+
+  if (exit_outer && !gate_rescue) {
+    return(list(
+      M1 = M1, M2 = M2_best, tb = tb_best,
+      succeeded = TRUE, sample_factors = sample_best
+    ))
   }
 
   if (!exit_outer) {
@@ -1149,7 +1654,7 @@ logistic_covariate_lcfg <- .lnw00_lcfg
     ))
     if (is.null(tb_try)) return(NULL)
     pv <- .lnw00_table_pvals(tb_try)
-    if (.lnw00_models_adjusted_significant(pv, p_thr, rs_cfg)) {
+    if (.lnw00_search_hit_ok(pv, p_thr, rs_cfg)) {
       list(M1 = M1_try, M2 = M2_try, tb = tb_try,
            sample_factors = unique(c(M1_try, lab_sample)))
     } else {
@@ -1250,41 +1755,67 @@ logistic_covariate_lcfg <- .lnw00_lcfg
     ))
   }
 
-  pv0 <- .lnw00_table_pvals(tb)
-  if (isTRUE(rs_cfg$require_triple_model_sig %||% TRUE) &&
-      .lnw00_triple_models_significant(pv0, threshold, rs_cfg)) {
-    return(list(M1 = M1, M2 = M2, tb = tb, searched = FALSE, fallback = FALSE,
-                sample_factors = character(0), ctx = ctx))
+  # 闸门救援：减协失败后强制搜，命中标准=最高组 Model2 显著
+  if (isTRUE(tune0$gate_rescue %||% FALSE)) {
+    rs_cfg$gate_rescue <- TRUE
+    # 救援时放宽尝试次数（仍受 max_total_fits 约束）
+    if (is.null(rs_cfg$max_attempts) || as.integer(rs_cfg$max_attempts) < 50L) {
+      rs_cfg$max_attempts <- 80L
+    }
+    if (is.null(rs_cfg$max_total_fits) || as.integer(rs_cfg$max_total_fits) < 200L) {
+      rs_cfg$max_total_fits <- 400L
+    }
   }
-  if (!isTRUE(rs_cfg$require_triple_model_sig %||% TRUE) &&
-      .lnw00_models_adjusted_significant(pv0, threshold, rs_cfg)) {
-    return(list(M1 = M1, M2 = M2, tb = tb, searched = FALSE, fallback = FALSE,
-                sample_factors = character(0), ctx = ctx))
+
+  pv0 <- .lnw00_table_pvals(tb)
+  if (!isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+    if (isTRUE(rs_cfg$require_triple_model_sig %||% TRUE) &&
+        .lnw00_triple_models_significant(pv0, threshold, rs_cfg)) {
+      return(list(M1 = M1, M2 = M2, tb = tb, searched = FALSE, fallback = FALSE,
+                  sample_factors = character(0), ctx = ctx))
+    }
+    if (!isTRUE(rs_cfg$require_triple_model_sig %||% TRUE) &&
+        .lnw00_models_adjusted_significant(pv0, threshold, rs_cfg)) {
+      return(list(M1 = M1, M2 = M2, tb = tb, searched = FALSE, fallback = FALSE,
+                  sample_factors = character(0), ctx = ctx))
+    }
   }
 
   searched <- FALSE
   sample_factors <- character(0)
 
-  if (isTRUE(tune0$run_random) &&
-      .lnw00_need_covariate_search(tb, threshold, crude_sig, rs_cfg, ctx, cfg, bl_cfg)) {
-    pool <- .lnw00_get_vif_final_pool(ctx)
-    screen_pool <- as.character(
-      ctx$results$vif_screen_pass %||% ctx$results$vif_screen_pass_weighted %||% character(0)
-    )
-    split <- .lnw00_split_vif_final_models(
-      pool, cfg, design, index_var, bl_cfg, screen_pool = screen_pool
-    )
-    if (isTRUE(split$model2_lab_only) && identical(split$model1_tier, "nonlab_uvif_fallback")) {
-      sr <- .lnw00_random_search_nonlab_m1_lab_m2(
-        ctx, cfg, split$m1_search_pool, split$m2_search_pool,
-        build_table_fn, rs_cfg
+  do_search <- isTRUE(tune0$run_random) &&
+    .lnw00_need_covariate_search(tb, threshold, crude_sig, rs_cfg, ctx, cfg, bl_cfg)
+
+  if (isTRUE(do_search)) {
+    if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+      ctx$results$logistic_gate_rescue_attempted <- TRUE
+    }
+    if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+      sr <- .lnw00_gate_rescue_run_search(
+        ctx, cfg, design, index_var, bl_cfg, M1, M2,
+        build_table_fn, crude_sig, rs_cfg
       )
     } else {
-      search_pool <- setdiff(split$m2_search_pool %||% character(0), M1)
-      sr <- .lnw00_random_search_covariates(
-        ctx, cfg, M1, search_pool, build_table_fn, crude_sig, rs_cfg, bl_cfg,
-        lab_only_m2 = isTRUE(split$model2_lab_only)
+      pool <- .lnw00_get_vif_final_pool(ctx)
+      screen_pool <- as.character(
+        ctx$results$vif_screen_pass %||% ctx$results$vif_screen_pass_weighted %||% character(0)
       )
+      split <- .lnw00_split_vif_final_models(
+        pool, cfg, design, index_var, bl_cfg, screen_pool = screen_pool
+      )
+      if (isTRUE(split$model2_lab_only) && identical(split$model1_tier, "nonlab_uvif_fallback")) {
+        sr <- .lnw00_random_search_nonlab_m1_lab_m2(
+          ctx, cfg, split$m1_search_pool, split$m2_search_pool,
+          build_table_fn, rs_cfg
+        )
+      } else {
+        search_pool <- setdiff(split$m2_search_pool %||% character(0), M1)
+        sr <- .lnw00_random_search_covariates(
+          ctx, cfg, M1, search_pool, build_table_fn, crude_sig, rs_cfg, bl_cfg,
+          lab_only_m2 = isTRUE(split$model2_lab_only)
+        )
+      }
     }
     if (isTRUE(sr$succeeded)) {
       ctx$results$nhanes_logistic_covariate_search_applied <- TRUE
@@ -1293,6 +1824,13 @@ logistic_covariate_lcfg <- .lnw00_lcfg
       ctx$results$logistic_search_succeeded <- TRUE
       ctx$results$nhanes_logistic_search_sample_factors <- sr$sample_factors
       ctx$results$logistic_search_sample_factors <- sr$sample_factors
+      if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+        ctx$results$logistic_gate_rescue_applied <- TRUE
+        cli::cli_alert_success(
+          "闸门救援成功: Model2={paste(sr$M2, collapse = ', ')}"
+        )
+        .lnw00_dual_db_save_covariates(ctx, cfg, sr$M1, sr$M2)
+      }
       return(list(
         M1 = sr$M1, M2 = sr$M2, tb = sr$tb,
         searched = TRUE, fallback = FALSE, sample_factors = sr$sample_factors, ctx = ctx
@@ -1300,6 +1838,11 @@ logistic_covariate_lcfg <- .lnw00_lcfg
     }
     ctx$results$nhanes_logistic_search_succeeded <- FALSE
     ctx$results$logistic_search_succeeded <- FALSE
+    if (isTRUE(rs_cfg$gate_rescue %||% FALSE)) {
+      cli::cli_alert_warning(
+        "闸门救援搜索未命中最高组 Model2 显著，将交由 logistic_gate 降分位"
+      )
+    }
     if (!is.null(sr$tb)) {
       tb <- sr$tb
       M2 <- sr$M2
@@ -1316,7 +1859,8 @@ logistic_covariate_lcfg <- .lnw00_lcfg
         call. = FALSE
       )
     }
-  } else if (.lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)) {
+  } else if (.lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg) &&
+             !isTRUE(tune0$gate_rescue %||% FALSE)) {
     cli::cli_alert_info("logistic NHANES: 双库闸门 B 已锁定协变量池，跳过随机搜索")
   }
 
@@ -1376,6 +1920,7 @@ logistic_nested_random_search <- function(
     build_table_fn,
     combine_model2_fn = NULL) {
   rs_cfg <- rs_cfg %||% list()
+  gate_rescue <- isTRUE(rs_cfg$gate_rescue %||% FALSE)
   combine_model2_fn <- combine_model2_fn %||% function(m1, sampled) unique(c(m1, sampled))
   M1 <- as.character(M1)
   search_pool <- setdiff(as.character(search_pool), M1)
@@ -1403,35 +1948,67 @@ logistic_nested_random_search <- function(
     ))
   }
 
-  while (attempt_count < max_outer && !exit_outer) {
-    inner_count <- 0L
-    n_sample <- min(factors_Num, length(search_pool))
-    while (inner_count < max_inner && !exit_outer) {
-      sampled <- if (n_sample > 0L) sample(search_pool, n_sample, replace = FALSE) else character(0)
-      M2_try <- combine_model2_fn(M1, sampled)
-      tb_try <- suppressWarnings(tryCatch(
-        build_table_fn(M2_try), error = function(e) NULL
-      ))
-      inner_count <- inner_count + 1L
-      if (!is.null(tb_try)) {
-        tb_last <- tb_try
-        M2_last <- M2_try
+  try_hit <- function(sampled) {
+    M2_try <- combine_model2_fn(M1, sampled)
+    if (gate_rescue && !.lnw00_m2_has_extra(M1, M2_try)) return(NULL)
+    tb_try <- suppressWarnings(tryCatch(
+      build_table_fn(M2_try), error = function(e) NULL
+    ))
+    if (is.null(tb_try)) return(NULL)
+    pv <- .lnw00_table_pvals(tb_try)
+    if (!.lnw00_search_hit_ok(pv, p_threshold, rs_cfg)) return(NULL)
+    list(tb = tb_try, M2 = M2_try, sampled = sampled)
+  }
+
+  if (gate_rescue) {
+    for (n_sample in rev(seq_len(length(search_pool)))) {
+      if (attempt_count >= max_outer) break
+      tier_best <- NULL
+      inner_count <- 0L
+      while (inner_count < max_inner) {
+        sampled <- sample(search_pool, n_sample, replace = FALSE)
+        inner_count <- inner_count + 1L
+        hit <- try_hit(sampled)
+        if (is.null(hit)) next
+        n_extra <- length(setdiff(hit$M2, M1))
+        if (is.null(tier_best) || n_extra > length(setdiff(tier_best$M2, M1))) tier_best <- hit
       }
-      if (is.null(tb_try)) next
-      pv <- .lnw00_table_pvals(tb_try)
-      if (.lnw00_models_adjusted_significant(pv, p_threshold, rs_cfg)) {
-        tb_best <- tb_try
-        M2_best <- M2_try
-        sample_best <- sampled
+      attempt_count <- attempt_count + 1L
+      if (!is.null(tier_best)) {
+        tb_best <- tier_best$tb
+        M2_best <- tier_best$M2
+        sample_best <- tier_best$sampled
         exit_outer <- TRUE
+        cli::cli_alert_success(
+          "闸门救援命中 (k={length(setdiff(M2_best, M1))}): Model2={paste(M2_best, collapse = ', ')}"
+        )
         break
       }
     }
-    if (!exit_outer) {
-      factors_Num <- factors_Num + 1L
-      if (factors_Num > length(search_pool)) break
+  } else {
+    while (attempt_count < max_outer && !exit_outer) {
+      inner_count <- 0L
+      n_sample <- min(factors_Num, length(search_pool))
+      while (inner_count < max_inner && !exit_outer) {
+        sampled <- if (n_sample > 0L) sample(search_pool, n_sample, replace = FALSE) else character(0)
+        hit <- try_hit(sampled)
+        inner_count <- inner_count + 1L
+        if (!is.null(hit)) {
+          tb_last <- hit$tb
+          M2_last <- hit$M2
+          tb_best <- hit$tb
+          M2_best <- hit$M2
+          sample_best <- hit$sampled
+          exit_outer <- TRUE
+          break
+        }
+      }
+      if (!exit_outer) {
+        factors_Num <- factors_Num + 1L
+        if (factors_Num > length(search_pool)) break
+      }
+      attempt_count <- attempt_count + 1L
     }
-    attempt_count <- attempt_count + 1L
   }
 
   list(
@@ -1461,6 +2038,11 @@ logistic_prepare_covariates <- function(
     M2 <- unique(c(M1, intersect(M2, if (is.data.frame(data)) colnames(data) else names(data))))
   }
   M2 <- setdiff(M2, as.character(excl_cols))
+  if (exists("pipeline_drop_degenerate_covariates", mode = "function")) {
+    M1 <- pipeline_drop_degenerate_covariates(data, M1)
+    M2 <- pipeline_drop_degenerate_covariates(data, M2)
+    M2 <- unique(c(M1, M2))
+  }
 
   tb <- tryCatch(build_table_fn(M1, M2), error = function(e) {
     attr(e, ".keep") <- TRUE
@@ -1479,7 +2061,9 @@ logistic_prepare_covariates <- function(
       tb_new <- tryCatch(build_table_fn(M1, M2), error = function(e) NULL)
       if (!is.null(tb_new)) tb <- tb_new
     }
-    cli::cli_alert_info("{block_name}: 协变量已锁定（config 预设），跳过调参与随机搜索")
+    # 任何锁定（Gate B / config 预设 / 块内 model*_factors）一律禁止减协与闸门救援，
+    # 避免 RCS 分组 logistic 在 VIF 池里搜几十分钟卡住。
+    cli::cli_alert_info("{block_name}: 协变量已锁定，跳过调参与随机搜索（含闸门救援）")
     return(list(
       M1 = M1, M2 = M2, tb = tb, ctx = ctx,
       search_succeeded = FALSE, sample_factors = character(0), attempt_count = 0L
@@ -1502,41 +2086,73 @@ logistic_prepare_covariates <- function(
   tb <- tune0$tb
   ctx <- tune0$ctx
 
-  if (crude_sig && isTRUE(tune0$run_random) &&
-      isTRUE(rs_cfg$enable %||% TRUE) &&
-      !.lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)) {
-    cli::cli_h3("{block_name}: crude 显著但 Model1/2 不显著，开始随机搜索协变量")
-    pool <- setdiff(logistic_resolve_pos_factors(ctx, colnames(data), excl_cols, block_name), M1)
-    if (!is.null(rs_cfg$seed)) set.seed(as.integer(rs_cfg$seed))
-    sr <- logistic_nested_random_search(
-      pool, M1, NULL, p_thr, rs_cfg,
-      build_table_fn = function(m2) build_table_fn(M1, m2),
-      combine_model2_fn = combine_model2_fn
-    )
-    attempt_count <- sr$attempt_count %||% 0L
-    if (!is.null(sr$tb01)) tb <- sr$tb01
-    if (isTRUE(sr$search_succeeded)) {
-      M2 <- sr$Model2Factors
-      sample_factors <- sr$sample_factors
-      search_succeeded <- TRUE
-      ctx$results$logistic_covariate_search_applied <- TRUE
-      ctx$results$nhanes_logistic_covariate_search_applied <- TRUE
-      ctx$results$logistic_search_succeeded <- TRUE
-      ctx$results$logistic_search_sample_factors <- sample_factors
-      cli::cli_alert_success(
-        "{block_name}: 随机搜索命中（attempt #{attempt_count}, k={length(sample_factors)}）"
+  if (crude_sig && isTRUE(tune0$run_random) && (
+      isTRUE(tune0$gate_rescue %||% FALSE) ||
+      (isTRUE(rs_cfg$enable %||% TRUE) &&
+         !.lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg))
+    )) {
+    rs_search <- rs_cfg
+    if (isTRUE(tune0$gate_rescue %||% FALSE)) {
+      rs_search$gate_rescue <- TRUE
+      ctx$results$logistic_gate_rescue_attempted <- TRUE
+      sr <- .lnw00_gate_rescue_run_search_glm(
+        ctx, cfg, colnames(data), excl_cols, index_var, M1, M2, block_name,
+        build_table_fn = function(m2) build_table_fn(M1, m2),
+        rs_cfg = rs_search, combine_model2_fn = combine_model2_fn
       )
-    } else {
-      cli::cli_alert_warning("{block_name}: 随机搜索未命中，尝试 M1→M2 回退")
-      ctx$results$logistic_search_succeeded <- FALSE
-      if (isTRUE(rs_cfg$pause_on_search_fail %||% FALSE)) {
-        ctx$results$pause_point <- list(
-          block = block_name,
-          reason = "crude 显著但随机搜索未找到 Model1/2 均显著的协变量组合",
-          suggestion = "增大 random_search$max_attempts 或启用 m1_to_m2_fallback",
-          data_snapshot = utils::head(as.data.frame(tb), 8L)
+      attempt_count <- sr$attempt_count %||% 0L
+      if (!is.null(sr$tb)) tb <- sr$tb
+      if (isTRUE(sr$succeeded)) {
+        M2 <- sr$M2
+        sample_factors <- sr$sample_factors
+        search_succeeded <- TRUE
+        ctx$results$logistic_covariate_search_applied <- TRUE
+        ctx$results$nhanes_logistic_covariate_search_applied <- TRUE
+        ctx$results$logistic_search_succeeded <- TRUE
+        ctx$results$logistic_search_sample_factors <- sample_factors
+        ctx$results$logistic_gate_rescue_applied <- TRUE
+        cli::cli_alert_success(
+          "{block_name}: 闸门救援成功 Model2={paste(M2, collapse = ', ')}"
         )
-        stop("PAUSE_FOR_USER_DECISION: ", block_name, " 协变量随机搜索失败。", call. = FALSE)
+          .lnw00_dual_db_save_covariates(ctx, cfg, M1, M2)
+      } else {
+        cli::cli_alert_warning("{block_name}: 闸门救援未命中，将交由 logistic_gate 降分位")
+        ctx$results$logistic_search_succeeded <- FALSE
+      }
+    } else {
+      cli::cli_h3("{block_name}: crude 显著但 Model1/2 不显著，开始随机搜索协变量")
+      pool <- setdiff(logistic_resolve_pos_factors(ctx, colnames(data), excl_cols, block_name), M1)
+      if (!is.null(rs_search$seed)) set.seed(as.integer(rs_search$seed))
+      sr <- logistic_nested_random_search(
+        pool, M1, NULL, p_thr, rs_search,
+        build_table_fn = function(m2) build_table_fn(M1, m2),
+        combine_model2_fn = combine_model2_fn
+      )
+      attempt_count <- sr$attempt_count %||% 0L
+      if (!is.null(sr$tb01)) tb <- sr$tb01
+      if (isTRUE(sr$search_succeeded)) {
+        M2 <- sr$Model2Factors
+        sample_factors <- sr$sample_factors
+        search_succeeded <- TRUE
+        ctx$results$logistic_covariate_search_applied <- TRUE
+        ctx$results$nhanes_logistic_covariate_search_applied <- TRUE
+        ctx$results$logistic_search_succeeded <- TRUE
+        ctx$results$logistic_search_sample_factors <- sample_factors
+        cli::cli_alert_success(
+          "{block_name}: 随机搜索命中（attempt #{attempt_count}, k={length(sample_factors)}）"
+        )
+      } else {
+        cli::cli_alert_warning("{block_name}: 随机搜索未命中，尝试 M1→M2 回退")
+        ctx$results$logistic_search_succeeded <- FALSE
+        if (isTRUE(rs_cfg$pause_on_search_fail %||% FALSE)) {
+          ctx$results$pause_point <- list(
+            block = block_name,
+            reason = "crude 显著但随机搜索未找到 Model1/2 均显著的协变量组合",
+            suggestion = "增大 random_search$max_attempts 或启用 m1_to_m2_fallback",
+            data_snapshot = utils::head(as.data.frame(tb), 8L)
+          )
+          stop("PAUSE_FOR_USER_DECISION: ", block_name, " 协变量随机搜索失败。", call. = FALSE)
+        }
       }
     }
   } else if (crude_sig && .lnw00_logistic_covariates_locked(ctx, cfg, bl_cfg)) {

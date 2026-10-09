@@ -162,7 +162,8 @@ pl <- pipeline_unit %||% list(
   blocks = worker_blocks,
   checkpoint = list(enable = TRUE, dir = unit_ck)
 )
-if (!length(pl$blocks)) pl$blocks <- worker_blocks
+# branch_map$blocks / worker_blocks 优先：双库不同 block 清单时不得沿用 pipeline_unit$blocks
+pl$blocks <- worker_blocks
 pl$checkpoint$enable <- TRUE
 pl$checkpoint$dir    <- unit_ck
 

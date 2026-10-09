@@ -1,0 +1,61 @@
+Software versions for manuscript submission
+Project: <disease / routine / database>
+Path: <summary_results or by_index/【success】INDEX/>
+Recorded: <YYYY-MM-DD>
+Host capture: <Windows conda env / WSL R — fill after running run/pub/collect_software_versions.py>
+
+================================================================================
+1. Operating system / environment
+================================================================================
+Windows                         <e.g. 11 10.0.xxxxx>
+WSL2 / Ubuntu                   <optional>
+Miniconda (conda)               <e.g. 25.x>
+Conda env name                  <e.g. torch>
+
+================================================================================
+2. Python (fill from collector)
+================================================================================
+Python
+PyTorch
+NumPy
+SciPy
+pandas
+scikit-learn
+XGBoost
+SHAP
+matplotlib
+seaborn
+Pillow
+openpyxl
+# add/remove rows to match the study
+
+CUDA / GPU                      <available or N/A>
+
+================================================================================
+3. R (fill from collector)
+================================================================================
+R
+openxlsx
+data.table
+dplyr
+ggplot2
+survival
+mice
+# add packages actually used in Methods
+
+================================================================================
+4. Suggested Methods wording (English)
+================================================================================
+Analyses were implemented in Python <X> (<env>) with <key packages and versions>.
+Auxiliary pipeline and table exports used R <X> with openxlsx <X>.
+
+================================================================================
+5. Suggested Methods wording (中文)
+================================================================================
+主要分析在 Python <X>（环境 <env>）中完成，使用 <关键包与版本>。
+流水线与表格导出使用 R <X>（openxlsx <X> 等）。
+
+================================================================================
+Generator: python run/pub/collect_software_versions.py --out <this file>
+Template: configs/templates/Software_versions_for_submission.template.txt
+================================================================================

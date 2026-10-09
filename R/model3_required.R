@@ -23,6 +23,11 @@ pipeline_model3_enabled <- function(cfg) {
   length(pipeline_model3_required_raw(cfg)) > 0L
 }
 
+pipeline_model3_show_insignificant <- function(cfg) {
+  am <- (cfg %||% list())$analysis_models %||% list()
+  isTRUE(am$model3_show_when_insignificant %||% TRUE)
+}
+
 pipeline_model3_alias_map <- function(cfg = NULL) {
   base <- list(
     Smoke = c("Smoke", "Smoking"),
@@ -219,6 +224,346 @@ pipeline_rcs_patchwork <- function(panels) {
   list(plot = comb, width = lay$width, height = lay$height, n = length(panels))
 }
 
+#' 按 config$plot_models 筛选 RCS 面板（默认 crude+model1+model2）。
+#' 例：plot_models = c("model2") 仅出 Model 2，避免与 Table 2 三列重复。
+pipeline_rcs_select_plot_panels <- function(panels, cfg = list()) {
+  panels <- as.list(panels)
+  if (!length(panels)) return(panels)
+  pm <- cfg$plot_models %||% NULL
+  if (is.null(pm) && isTRUE(cfg$plot_model2_only)) pm <- "model2"
+  if (is.null(pm)) return(Filter(Negate(is.null), panels))
+  pm <- tolower(trimws(as.character(pm)))
+  pm <- unique(pm[nzchar(pm)])
+  wanted <- character(0)
+  for (p in pm) {
+    if (p %in% c("crude", "a")) wanted <- c(wanted, "crude")
+    else if (p %in% c("model1", "m1", "b")) wanted <- c(wanted, "model1")
+    else if (p %in% c("model2", "m2", "c")) wanted <- c(wanted, "model2")
+    else if (p %in% c("model3", "m3", "d")) wanted <- c(wanted, "model3")
+    else if (p %in% names(panels)) wanted <- c(wanted, p)
+  }
+  wanted <- unique(intersect(wanted, names(panels)))
+  if (!length(wanted)) return(Filter(Negate(is.null), panels))
+  Filter(Negate(is.null), panels[wanted])
+}
+
+#' 解析 Table 2 单元格 P 值（含 "<0.001"）。
+pipeline_parse_table2_p <- function(x) {
+  x <- trimws(as.character(x %||% ""))
+  if (!nzchar(x) || identical(toupper(x), "NA")) return(NA_real_)
+  if (grepl("^\\s*<", x)) return(0.0001)
+  suppressWarnings(as.numeric(x))
+}
+
+#' 从 ctx 中已导出的 Table 2 读取 p for trend（与主文 logistic 一致）。
+pipeline_logistic_table2_trend_p_from_tb <- function(tb, model = c("crude", "model1", "model2", "model3")) {
+  model <- match.arg(model)
+  col_map <- c(crude = 6L, model1 = 9L, model2 = 12L, model3 = 15L)
+  col_i <- col_map[[model]]
+  tb <- as.data.frame(tb, stringsAsFactors = FALSE)
+  trend_rows <- which(grepl("p for trend", tb[[1L]], ignore.case = TRUE))
+  if (!length(trend_rows)) {
+    nr <- nrow(tb)
+    trend_rows <- if (nr >= 2L) nr - 2L else return(NA_real_)
+  }
+  tr <- tb[trend_rows[1L], , drop = TRUE]
+  if (length(tr) < col_i) return(NA_real_)
+  pipeline_parse_table2_p(tr[[col_i]])
+}
+
+pipeline_logistic_table2_trend_p <- function(ctx, model = c("crude", "model1", "model2", "model3")) {
+  model <- match.arg(model)
+  tb_disk <- pipeline_logistic_table2_read_from_disk(ctx)
+  if (!is.null(tb_disk)) {
+    pt <- pipeline_logistic_table2_trend_p_from_tb(tb_disk, model)
+    if (is.finite(pt)) return(pt)
+  }
+  tp <- ctx$results$logistic_table2_trend_p %||% list()
+  if (is.list(tp) && length(tp[[model]])) {
+    pt <- suppressWarnings(as.numeric(tp[[model]]))
+    if (is.finite(pt)) return(pt)
+  }
+  tb <- ctx$results$logistic_table2_nhanes %||%
+    ctx$results$nhanes_logistic_table2 %||%
+    ctx$results$logistic_table2_weighted %||%
+    ctx$results$logistic_table2 %||%
+    ctx$results$logistic_table2_tertile_nhanes %||%
+    ctx$results$logistic_table2_quartile_nhanes %||%
+    ctx$results$logistic_table2_binary_nhanes
+  if (is.null(tb) || !nrow(tb)) return(NA_real_)
+  pipeline_logistic_table2_trend_p_from_tb(tb, model)
+}
+
+#' RCS 对齐专用：磁盘主表 → ctx 缓存 trend_p；不读内存中的临时 Table2（易与发表表不一致）。
+pipeline_rcs_table2_trend_p <- function(ctx, model = c("crude", "model1", "model2", "model3")) {
+  model <- match.arg(model)
+  tb_disk <- tryCatch(pipeline_logistic_table2_read_from_disk(ctx), error = function(e) NULL)
+  if (!is.null(tb_disk)) {
+    pt <- tryCatch(pipeline_logistic_table2_trend_p_from_tb(tb_disk, model), error = function(e) NA_real_)
+    if (is.finite(pt)) return(pt)
+  }
+  tp <- ctx$results$logistic_table2_trend_p %||% list()
+  if (is.list(tp) && length(tp[[model]])) {
+    pt <- suppressWarnings(as.numeric(tp[[model]]))
+    if (is.finite(pt)) return(pt)
+  }
+  NA_real_
+}
+
+#' 续跑时 ctx$results 可能无 Table 2，从当前库 Tables/ 读主表。
+pipeline_logistic_table2_read_from_disk <- function(ctx) {
+  if (!requireNamespace("readxl", quietly = TRUE)) return(NULL)
+  od <- ctx$output_dir %||% "."
+  roots <- unique(c(
+    ctx$output_dir_tables,
+    file.path(od, "Tables"),
+    file.path(dirname(od), "Tables"),
+    file.path(dirname(dirname(od)), "Tables"),
+    file.path(dirname(dirname(od)), "MIMIC", "Tables"),
+    file.path(dirname(dirname(od)), "NHANES", "Tables")
+  ))
+  roots <- unique(tryCatch(normalizePath(roots, winslash = "/", mustWork = FALSE), error = function(e) as.character(roots)))
+  roots <- roots[nzchar(roots) & !is.na(roots)]
+  roots <- roots[dir.exists(roots)]
+  hits <- character(0)
+  for (td in roots) {
+    hits <- c(
+      hits,
+      list.files(
+        td,
+        pattern = "^Table 2.*\\.xlsx$",
+        full.names = TRUE,
+        ignore.case = TRUE
+      )
+    )
+  }
+  hits <- unique(hits)
+  if (!length(hits)) return(NULL)
+  db_tag <- tolower(as.character(
+    ctx$db_name %||% ctx$results$db_name %||%
+      ((ctx$config %||% list())$dual_db %||% list())$current_db %||% ""
+  ))[1L]
+  if (!nzchar(db_tag)) {
+    od <- as.character(ctx$output_dir %||% "")
+    for (tag in c("NHANES", "MIMIC", "nhanes", "mimic")) {
+      if (grepl(tag, od, ignore.case = TRUE)) { db_tag <- tolower(tag); break }
+    }
+  }
+  if (nzchar(db_tag) && db_tag %in% c("nhanes", "mimic")) {
+    tagged <- hits[grepl(db_tag, basename(hits), ignore.case = TRUE)]
+    if (length(tagged)) hits <- tagged
+  }
+  ord <- order(file.info(hits)$mtime, decreasing = TRUE)
+  hits <- hits[ord]
+  for (fp in hits) {
+    tb <- tryCatch(
+      as.data.frame(
+        readxl::read_excel(fp, col_names = FALSE),
+        stringsAsFactors = FALSE
+      ),
+      error = function(e) NULL
+    )
+    if (!is.null(tb) && any(grepl("p for trend", tb[[1L]], ignore.case = TRUE))) {
+      return(tb)
+    }
+  }
+  NULL
+}
+
+#' NHANES 加权：与 logistic tertile Table 2 相同的 Num 线性 trend P。
+pipeline_rcs_nhanes_weighted_tertile_num <- function(design, index_var) {
+  if (is.null(design) || !index_var %in% names(design$variables)) return(NULL)
+  xv <- suppressWarnings(as.numeric(design$variables[[index_var]]))
+  qs <- tryCatch({
+    qq <- survey::svyquantile(
+      stats::as.formula(paste0("~", index_var)),
+      design,
+      quantiles = c(1 / 3, 2 / 3),
+      na.rm = TRUE
+    )
+    if (index_var %in% names(qq)) {
+      mat <- qq[[index_var]]
+      if (is.matrix(mat) && "quantile" %in% colnames(mat)) {
+        as.numeric(mat[, "quantile", drop = TRUE])
+      } else {
+        as.numeric(mat)
+      }
+    } else if (!is.null(qq$quantiles)) {
+      as.numeric(qq$quantiles)
+    } else {
+      as.numeric(unlist(qq, use.names = FALSE))
+    }
+  }, error = function(e) {
+    as.numeric(stats::quantile(xv, probs = c(1 / 3, 2 / 3), na.rm = TRUE))
+  })
+  if (length(qs) < 2L || any(!is.finite(qs))) return(NULL)
+  if (qs[1L] >= qs[2L]) qs[2L] <- qs[1L] + .Machine$double.eps
+  grp_chr <- rep("Q3", length(xv))
+  grp_chr[is.na(xv)] <- NA_character_
+  grp_chr[!is.na(xv) & xv < qs[1L]] <- "Q1"
+  grp_chr[!is.na(xv) & xv >= qs[1L] & xv < qs[2L]] <- "Q2"
+  as.numeric(factor(grp_chr, levels = c("Q1", "Q2", "Q3")))
+}
+
+pipeline_rcs_nhanes_trend_p <- function(design, covs, index_var, outcome_col, disease_lbl, cfg = NULL) {
+  if (is.null(design) || !requireNamespace("survey", quietly = TRUE)) return(NA_real_)
+  index_var <- as.character(index_var %||% "")[1L]
+  if (!nzchar(index_var)) return(NA_real_)
+  des <- design
+  if (!"Num" %in% names(des$variables)) {
+    num <- pipeline_rcs_nhanes_weighted_tertile_num(des, index_var)
+    if (is.null(num)) return(NA_real_)
+    des$variables$Num <- num
+  }
+  if (!"Disease_Group" %in% names(des$variables)) {
+    oc <- outcome_col %||% "Disease"
+    if (exists("pipeline_outcome_as_01", mode = "function")) {
+      des <- survey::update(
+        des,
+        Disease_Group = pipeline_outcome_as_01(
+          des$variables[[oc]], cfg = cfg, case_label = disease_lbl
+        )
+      )
+    } else {
+      return(NA_real_)
+    }
+  }
+  covs <- intersect(as.character(covs %||% character(0)), names(des$variables))
+  covs <- setdiff(covs, c(index_var, "Group", "Num", "Disease_Group", "Disease"))
+  rhs <- paste(c("Num", covs), collapse = "+")
+  fit <- tryCatch(
+    survey::svyglm(
+      stats::as.formula(paste("Disease_Group ~", rhs)),
+      design = des,
+      family = stats::quasibinomial()
+    ),
+    error = function(e) NULL
+  )
+  if (is.null(fit)) return(NA_real_)
+  p <- tryCatch(
+    survey::regTermTest(fit, ~Num)$p,
+    error = function(e) NA_real_
+  )
+  if (is.finite(p)) return(p)
+  sm <- tryCatch(summary(fit)$coefficients, error = function(e) NULL)
+  if (is.null(sm) || !("Num" %in% rownames(sm))) return(NA_real_)
+  pr_i <- grep("^Pr\\(", colnames(sm))
+  if (!length(pr_i)) return(NA_real_)
+  p <- suppressWarnings(as.numeric(sm["Num", pr_i[1L], drop = TRUE]))
+  if (is.finite(p)) return(p)
+  if (exists(".lnw00_wald_p_from_estimate", mode = "function")) {
+    return(.lnw00_wald_p_from_estimate(sm["Num", "Estimate"], sm["Num", "Std. Error"]))
+  }
+  NA_real_
+}
+
+#' MIMIC/GLM：与 logistic tertile Table 2 相同的 Num trend P。
+pipeline_rcs_incidence_trend_p <- function(data, covs, index_var, outcome_col = "Disease") {
+  if (is.null(data) || !nrow(data)) return(NA_real_)
+  index_var <- as.character(index_var %||% "")[1L]
+  if (!index_var %in% names(data)) return(NA_real_)
+  df <- as.data.frame(data)
+  xv <- suppressWarnings(as.numeric(df[[index_var]]))
+  if (!"Num" %in% names(df)) {
+    qs <- stats::quantile(xv, probs = c(1 / 3, 2 / 3), na.rm = TRUE, names = FALSE)
+    if (length(qs) < 2L || any(!is.finite(qs))) return(NA_real_)
+    grp <- rep("Q3", length(xv))
+    grp[!is.na(xv) & xv < qs[1L]] <- "Q1"
+    grp[!is.na(xv) & xv >= qs[1L] & xv < qs[2L]] <- "Q2"
+    df$Group <- factor(grp, levels = c("Q1", "Q2", "Q3"))
+    df$Num <- as.numeric(df$Group)
+  }
+  oc <- outcome_col %||% "Disease"
+  if (!oc %in% names(df) && "Disease_Group" %in% names(df)) oc <- "Disease_Group"
+  if (oc %in% names(df) && !is.numeric(df[[oc]])) {
+    df[[oc]] <- as.integer(df[[oc]] %in% c(1, "1", TRUE))
+  }
+  covs <- intersect(as.character(covs %||% character(0)), names(df))
+  covs <- setdiff(covs, c(index_var, "Group", "Num", oc, "Disease_Group"))
+  rhs <- paste(c("Num", covs), collapse = "+")
+  fit <- tryCatch(
+    stats::glm(
+      stats::as.formula(paste(oc, "~", rhs)),
+      data = df,
+      family = stats::binomial()
+    ),
+    error = function(e) NULL
+  )
+  if (is.null(fit)) return(NA_real_)
+  sm <- tryCatch(summary(fit)$coefficients, error = function(e) NULL)
+  if (is.null(sm) || !("Num" %in% rownames(sm))) return(NA_real_)
+  pr_i <- grep("^Pr\\(", colnames(sm))
+  if (!length(pr_i)) return(NA_real_)
+  suppressWarnings(as.numeric(sm["Num", pr_i[1L]]))
+}
+
+pipeline_rcs_p_overall_source <- function(cfg, block_cfg = list()) {
+  if (!is.list(block_cfg)) block_cfg <- list()
+  rcs_nh <- cfg$rcs_nhanes %||% list()
+  if (!is.list(rcs_nh)) rcs_nh <- list()
+  rcs_in <- cfg$rcs_incidence %||% list()
+  if (!is.list(rcs_in)) rcs_in <- list()
+  src <- block_cfg$p_overall_source %||%
+    rcs_nh$p_overall_source %||%
+    rcs_in$p_overall_source %||%
+    cfg$p_overall_source %||%
+    "spline_joint"
+  tolower(as.character(src)[1L])
+}
+
+#' RCS 面板 P for overall：默认样条联合检验；table2_trend 与 Table 2 p for trend 对齐。
+pipeline_rcs_override_p_overall <- function(res, ctx, cfg, panel,
+                                             block_cfg = list(), ...) {
+  if (is.null(res)) return(res)
+  src <- pipeline_rcs_p_overall_source(cfg, block_cfg)
+  if (!identical(src, "table2_trend")) return(res)
+
+  pt <- NA_real_
+
+  # 1) 优先从 ctx$results$logistic_table2_trend_p 读（最可靠）
+  tp <- tryCatch(ctx[["results"]][["logistic_table2_trend_p"]], error = function(e) NULL)
+  if (is.null(tp)) tp <- tryCatch(ctx$results$logistic_table2_trend_p, error = function(e) NULL)
+  if (!is.null(tp) && is.list(tp)) {
+    pv <- suppressWarnings(as.numeric(tp[[as.character(panel)[1L]]]))
+    if (length(pv) > 0 && is.finite(pv[1])) pt <- pv[1]
+  }
+
+  # 2) 从磁盘读 Table 2
+  if (!is.finite(pt)) {
+    tb <- tryCatch(pipeline_logistic_table2_read_from_disk(ctx), error = function(e) NULL)
+    if (!is.null(tb)) {
+      pv <- tryCatch(pipeline_logistic_table2_trend_p_from_tb(tb, panel), error = function(e) NA_real_)
+      if (is.finite(pv)) pt <- pv
+    }
+  }
+
+  # 3) 从 survey design 算
+  extra <- list(...)
+  if (!is.finite(pt) && !is.null(extra$design) &&
+      exists("pipeline_rcs_nhanes_trend_p", mode = "function")) {
+    covs <- switch(panel,
+      crude = character(0),
+      model1 = extra$M1 %||% character(0),
+      model2 = extra$M2 %||% character(0),
+      model3 = extra$M3 %||% character(0),
+      character(0)
+    )
+    pt <- tryCatch(
+      pipeline_rcs_nhanes_trend_p(
+        extra$design, covs,
+        extra$index_var, extra$outcome_col, extra$disease_lbl, extra$cfg
+      ),
+      error = function(e) NA_real_
+    )
+  }
+
+  if (is.finite(pt)) {
+    res$p_overall <- pt
+    attr(res, "p_overall_source") <- "table2_trend"
+  }
+  res
+}
+
 pipeline_fully_adjusted_factors <- function(ctx, fallback = character(0)) {
   out <- as.character(
     ctx$results$logistic_final_factors %||%
@@ -262,6 +607,17 @@ pipeline_apply_model3_after_m2 <- function(ctx, cfg, M2, data_cols, index_var = 
     dual_on <- isTRUE((cfg$dual_db %||% list())$enable)
     allow_per_db <- isTRUE(deg$allow_per_db_m2_change %||% FALSE)
     if (!m3_sig && deg_enable && dual_on && !allow_per_db) {
+      if (isTRUE(pipeline_model3_show_insignificant(cfg))) {
+        cli::cli_alert_info(
+          "Model3 双库不显著：仍导出 Model3 列，下游全调整回退 Model2。"
+        )
+        final <- pipeline_finalize_adjusted_factors(M2, M3, FALSE)
+        ctx <- pipeline_store_model3(ctx, M3, FALSE, final, announce = is.function(sig_fn))
+        return(list(
+          ctx = ctx, M2 = M2, M3 = M3, m3_sig = FALSE,
+          final = final, include_m3 = TRUE, model3_insignificant_dual = TRUE
+        ))
+      }
       cli::cli_alert_warning(
         "Model3 不显著且双库已启用：跳过按库降级（避免两库 Model2 分叉）。请用 Gate C / force_model2 锁定两库共用子集。"
       )

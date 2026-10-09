@@ -6,6 +6,7 @@
   tst_train_a1           A1: 公开实现(单截止训练)迁移
   tst_train_a2           A2: 统一规范管线单阶段公平基线
   tst_train_b            B : 两阶段 Transformer(小时+天,多截止监督)
+  tst_eval               已有权重上评估 test/val（--model-path 必填）
   tst_baselines          Logistic / XGBoost / MLP / LSTM 传统基线
   tst_ablation           Mask / 特征子集 / 结构消融
   tst_calibrate          校准曲线 + DCA
@@ -56,6 +57,16 @@ def main() -> None:
     ap.add_argument("--patience", type=int, default=15, help="早停耐心（0=关闭）")
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--lr", type=float, default=1e-4)
+    ap.add_argument("--d-model", type=int, default=128)
+    ap.add_argument("--heads", type=int, default=4)
+    ap.add_argument("--n-layers", type=int, default=2)
+    ap.add_argument("--dropout", type=float, default=0.3)
+    ap.add_argument("--day5-loss-weight", type=float, default=3.0,
+                    help="多截止监督中最终日 cutoff 损失权重")
+    ap.add_argument("--input-noise", type=float, default=0.01)
+    ap.add_argument("--tab-dim", type=int, default=128)
+    ap.add_argument("--focal-alpha", type=float, default=0.75)
+    ap.add_argument("--focal-gamma", type=float, default=2.0)
     ap.add_argument("--split", default="test")
 
     # tst_prepare
@@ -67,11 +78,14 @@ def main() -> None:
     ap.add_argument("--apache-col", default="apache")
     ap.add_argument("--n-days", type=int, default=5)
     ap.add_argument("--n-hours", type=int, default=24)
+    ap.add_argument("--max-calendar-day", type=int, default=30)
+    ap.add_argument("--landmark-hours", type=int, default=0, help="landmark 小时（写入 meta；0=未指定）")
+    ap.add_argument("--patient-ids-file", default="", help="eligible patient CSV（列 patient）")
+    ap.add_argument("--split-ids-dir", default="", help="含 train/val/test_ids.csv 的共享划分目录")
     ap.add_argument("--sliding-window", action="store_true", default=True)
     ap.add_argument("--no-sliding-window", action="store_true")
     ap.add_argument("--expand-hours", action="store_true", default=True)
     ap.add_argument("--no-expand-hours", action="store_true")
-    ap.add_argument("--max-calendar-day", type=int, default=30)
 
     # tst_baselines / tst_ablation
     ap.add_argument("--baseline-models", default="logistic,xgboost,mlp,lstm")
@@ -100,6 +114,7 @@ def main() -> None:
     if mode == "tst_prepare":
         sliding = not args.no_sliding_window
         expand = not args.no_expand_hours
+        lm = int(args.landmark_hours) if int(args.landmark_hours or 0) > 0 else None
         prepare_mod.prepare(
             out_dir=str(out), csv_path=args.data_path or None,
             patient_col=args.patient_col, day_col=args.day_col, hour_col=args.hour_col,
@@ -107,6 +122,9 @@ def main() -> None:
             n_days=args.n_days, n_hours=args.n_hours, seed=args.seed,
             sliding_window=sliding, expand_hours=expand,
             max_calendar_day=args.max_calendar_day,
+            patient_ids_file=(args.patient_ids_file or None),
+            split_ids_dir=(args.split_ids_dir or None),
+            landmark_hours=lm,
         )
     elif mode in ("tst_train_a1", "tst_train_a2", "tst_train_b"):
         arch = {"tst_train_a1": "a1", "tst_train_a2": "a2", "tst_train_b": "b"}[mode]
@@ -114,10 +132,21 @@ def main() -> None:
             data_dir=data_dir, out_dir=str(out), arch=arch, epochs=args.epochs,
             batch_size=args.batch_size, lr=args.lr, seed=args.seed,
             patience=args.patience,
+            d_model=args.d_model, heads=args.heads, n_layers=args.n_layers,
+            dropout=args.dropout, day5_loss_weight=args.day5_loss_weight,
+            input_noise=args.input_noise, tab_dim=args.tab_dim,
+            focal_alpha=args.focal_alpha, focal_gamma=args.focal_gamma,
         )
         eval_mod.evaluate(
             data_dir=data_dir, out_dir=str(out), model_path=summary["model_path"], arch=arch,
             split="test", is_synthetic=False, metrics_name=f"Table_TST_Metrics_{arch}.csv",
+        )
+    elif mode == "tst_eval":
+        arch = args.arch
+        model_path = args.model_path or str(Path(out) / f"model_{arch}.pth")
+        eval_mod.evaluate(
+            data_dir=data_dir, out_dir=str(out), model_path=model_path, arch=arch,
+            split=args.split, is_synthetic=False, metrics_name=f"Table_TST_Metrics_{arch}.csv",
         )
     elif mode == "tst_baselines":
         baselines_mod.run_baselines(

@@ -17,13 +17,14 @@
 #    index_var          = NULL,           # NULL → logistic/incidence/survival$index_var
 #    max_model1_vars    = 4L,             # Model1 纳入 svyglm 的协变量个数上限
 #    knot_quantiles     = c(0.1, 0.5, 0.9),  # 加权 RCS 结点分位数（非 AIC 选 nk）
-#    figure_filename    = NULL,           # NULL → "Figure 2. Weighted RCS of <index> and <disease>.pdf"
+#    figure_filename    = NULL,           # NULL → "Figure 2. RCS of <index> and <disease>.pdf"（双库对题勿加 Weighted）
 #    pdf_color_config   = NULL,           # NULL → 与 rcs_incidence 相同默认三色
 #    color_seed         = 123,
 #    histper            = 25,             # 自适应 bin 宽 = (xmax-xmin)/histper；BMI 范围大，25 比默认 50 更疏
 #    histbinwidth       = NULL,           # 非 NULL 时固定 bin 宽，覆盖 histper
 #    plot_x_quantiles   = NULL,           # 如 c(0.01, 0.99)：拟合仍用全样本，作图 x 轴限制在分位内
-#    lrm_plot_nk        = 3                # ggrcs 绘图用 lrm rcs 结数（仅出图，P 值仍来自 svyglm）
+#    lrm_plot_nk        = 3,               # ggrcs 绘图用 lrm rcs 结数（仅出图，P 值仍来自 svyglm）
+#    group_cutoffs      = "primary"        # Table S-XX / logistic_*_rcs：primary=仅主 cutoff 二分（默认）；all=全部交点
 #  ),
 #
 #  # ── 读写 ctx ─────────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@
 #      rcs_nhanes_figure；rcs_nhanes_model1|2_factors
 #
 #  # ── 产出 ─────────────────────────────────────────────────────────────────
-#  Figures/Figure 2. Weighted RCS ...pdf（P 值表仅写入 ctx$results$nhanes_rcs$p_table，不导出 xlsx）
+#  Figures/Figure 2. RCS of ...pdf（P 值表仅写入 ctx$results$nhanes_rcs$p_table，不导出 xlsx）
 #  cutoff_<index>_rcs_nhanes.csv；rcs_cutoff_groups_<index>_nhanes.csv
 #
 #  cutoff 规则: 仅 1 个 OR=1 → 该 x；≥2 个 OR=1 时斜率=0 峰值仅当其落在两 OR=1 之间才保留（utils.R）
@@ -129,7 +130,17 @@ block_rcs_nhanes <- function(ctx, ...) {
     character(0)
   }
   M3_vars <- intersect(as.character(M3_vars %||% character(0)), names(design$variables))
-  if (!length(setdiff(M3_vars, M2_vars))) M3_vars <- character(0)
+  if (!length(setdiff(M3_vars, M2_vars))) {
+    if (exists("pipeline_model3_enabled", mode = "function") &&
+        isTRUE(pipeline_model3_enabled(cfg))) {
+      M3_vars <- as.character(M2_vars)
+      cli::cli_alert_info(
+        "RCS Model3: 本库无额外学术必调列，仍保留第 4 面板（协变量同 Model2，双库布局对齐）"
+      )
+    } else {
+      M3_vars <- character(0)
+    }
+  }
   m3_sig <- isTRUE(ctx$results$model3_significant)
   if (!length(M1_vars)) {
     cli::cli_alert_warning("rcs_nhanes: Model1 协变量为空，跳过。")
@@ -477,6 +488,60 @@ block_rcs_nhanes <- function(ctx, ...) {
   } else {
     NULL
   }
+  if (exists("pipeline_rcs_override_p_overall", mode = "function")) {
+    .rcn01_ov <- function(res, panel) {
+      tryCatch(
+        pipeline_rcs_override_p_overall(
+          res, ctx, cfg, panel, rn_cfg,
+          design = design, index_var = index_var,
+          outcome_col = outcome_col, disease_lbl = disease_lbl,
+          M1 = M1_vars, M2 = M2_vars, M3 = M3_vars, cfg = cfg
+        ),
+        error = function(e) {
+          cli::cli_alert_warning(paste0(
+            "rcs_nhanes: P for overall 对齐失败 (", panel, "): ", e$message
+          ))
+          res
+        }
+      )
+    }
+    resA <- .rcn01_ov(resA, "crude")
+    resB <- .rcn01_ov(resB, "model1")
+    resC <- .rcn01_ov(resC, "model2")
+    resD <- .rcn01_ov(resD, "model3")
+    # 直接从磁盘读 Table 2 trend P 并强制覆盖（绕过 override 函数的环境问题）
+    if (identical(pipeline_rcs_p_overall_source(cfg, rn_cfg), "table2_trend") &&
+        exists("pipeline_logistic_table2_trend_p_from_tb", mode = "function") &&
+        exists("pipeline_logistic_table2_read_from_disk", mode = "function")) {
+      .rcn01_force_trend <- function(res, panel) {
+        if (is.null(res)) return(res)
+        tb <- tryCatch(pipeline_logistic_table2_read_from_disk(ctx), error = function(e) NULL)
+        if (is.null(tb)) return(res)
+        pv <- tryCatch(pipeline_logistic_table2_trend_p_from_tb(tb, panel), error = function(e) NA_real_)
+        if (is.finite(pv)) {
+          res$p_overall <- pv
+          attr(res, "p_overall_source") <- "table2_trend"
+        }
+        res
+      }
+      resA <- .rcn01_force_trend(resA, "crude")
+      resB <- .rcn01_force_trend(resB, "model1")
+      resC <- .rcn01_force_trend(resC, "model2")
+      if (!is.null(resD)) resD <- .rcn01_force_trend(resD, "model3")
+    }
+    if (identical(pipeline_rcs_p_overall_source(cfg, rn_cfg), "table2_trend")) {
+      .safe_p <- function(r) {
+        if (is.null(r)) return(NA_character_)
+        p <- suppressWarnings(as.numeric(r$p_overall)[1L])
+        if (!is.finite(p)) return(NA_character_)
+        if (p < 0.001) "<0.001" else as.character(round(p, 3))
+      }
+      cli::cli_alert_info(paste0(
+        "rcs_nhanes: P for overall <- Table 2 trend: Crude=", .safe_p(resA),
+        ", M1=", .safe_p(resB), ", M2=", .safe_p(resC)
+      ))
+    }
+  }
 
   cutA <- .rcn01_cutoffs_from_res(resA)
   cutB <- .rcn01_cutoffs_from_res(resB)
@@ -558,7 +623,12 @@ block_rcs_nhanes <- function(ctx, ...) {
                        histper = histper, histbinwidth = histbinwidth,
                        show_cutoff_lines = show_cut_d, cutoff_label_digits = cutoff_label_digits)
   } else NULL
-  panels <- Filter(Negate(is.null), list(pA, pB, pC, pD))
+  panels <- Filter(Negate(is.null), list(crude = pA, model1 = pB, model2 = pC, model3 = pD))
+  if (exists("pipeline_rcs_select_plot_panels", mode = "function")) {
+    panels <- pipeline_rcs_select_plot_panels(panels, rn_cfg)
+  } else {
+    panels <- unname(panels)
+  }
 
   if (length(panels) == 0L) {
     cli::cli_alert_warning("rcs_nhanes: 未生成有效图面板，未写入 PDF。")
@@ -568,7 +638,7 @@ block_rcs_nhanes <- function(ctx, ...) {
       fig_dir <- normalizePath(file.path(getwd(), fig_dir), winslash = "/", mustWork = FALSE)
     }
     if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
-    fig_caption <- paste0("Weighted RCS of ", index_disp, " and ",
+    fig_caption <- paste0("RCS of ", index_disp, " and ",
       gsub("_", " ", proj_cfg$disease %||% "outcome", fixed = TRUE))
     fig_name <- if (!is.null(rn_cfg$figure_filename) && nzchar(rn_cfg$figure_filename)) {
       rn_cfg$figure_filename
@@ -664,8 +734,17 @@ block_rcs_nhanes <- function(ctx, ...) {
   ctx$results$rcs_nhanes_model3_factors <- M3_vars
 
   if (!exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
-    pf_r <- file.path(ctx$config$project$root %||% getwd(), "R/pub_figure_export.R")
-    if (file.exists(pf_r)) source(pf_r, local = FALSE)
+    candidates <- unique(c(
+      file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), "R/pub_figure_export.R"),
+      file.path(ctx$config$project$root %||% "", "R/pub_figure_export.R"),
+      file.path(getwd(), "R/pub_figure_export.R")
+    ))
+    candidates <- candidates[nzchar(candidates) & file.exists(candidates)]
+    if (length(candidates)) source(candidates[[1L]], local = FALSE)
+  }
+  if (!exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
+    stop("rcs_nhanes: 缺少 .pub_figure_rcs_panel_vline_cutoffs（请 source R/pub_figure_export.R）",
+         call. = FALSE)
   }
   .rcn01_panel_stats <- function(res, cuts = numeric(0)) {
     cuts <- as.numeric(cuts)
@@ -719,7 +798,12 @@ block_rcs_nhanes <- function(ctx, ...) {
     paste0("cutoff_", index_var, "_rcs_nhanes.csv")
   )
 
-  grp_info <- rcs_cutoff_factor(design$variables[[index_var]], cut_use$all, index_var)
+  rn_cfg <- cfg$rcs_nhanes %||% list()
+  group_mode <- tolower(as.character(rn_cfg$group_cutoffs %||% "primary")[1L])
+  group_cuts <- rcs_table_group_cutoffs(cut_use, primary = primary_cutoff, mode = group_mode)
+  grp_info <- rcs_cutoff_factor(design$variables[[index_var]], group_cuts, index_var)
+  ctx$results$nhanes_rcs_group_cutoffs_mode <- group_mode
+  ctx$results$nhanes_rcs_group_cutoffs_used <- group_cuts
   ctx$results$nhanes_rcs_group_col <- grp_info$col_name
   ctx$results$nhanes_rcs_group_labels <- grp_info$labels
   design <- do.call(stats::update, c(list(design), setNames(list(grp_info$factor), grp_info$col_name)))
@@ -747,10 +831,15 @@ block_rcs_nhanes <- function(ctx, ...) {
   cli::cli_alert_info("RCS cutoffs — OR=1: {or1_txt}; peak OR: {slope_txt}")
   primary_txt <- if (is.finite(primary_cutoff)) rcs_format_cutoff(primary_cutoff) else "NA"
   cli::cli_alert_info(
-    "RCS 分组 {grp_info$col_name}: {grp_info$n_groups} 组 — {paste(grp_info$labels, collapse = ' | ')}"
+    "RCS 分组 {grp_info$col_name}: {grp_info$n_groups} 组（mode={group_mode}）— {paste(grp_info$labels, collapse = ' | ')}"
   )
+  if (identical(group_mode, "primary") && grp_info$n_groups != 2L) {
+    cli::cli_alert_warning(
+      "group_cutoffs=primary 但得到 {grp_info$n_groups} 组（期望 2）。primary cutoff={primary_txt}；请检查 RCS 曲线。"
+    )
+  }
   cli::cli_alert_success(
-    "rcs_nhanes 完成（primary cutoff = {primary_txt}，共 {length(cut_use$all)} 个 cutoff）。"
+    "rcs_nhanes 完成（primary cutoff = {primary_txt}，共 {length(cut_use$all)} 个 cutoff 可标在图上；分组用 {group_mode}）。"
   )
   ctx
 }

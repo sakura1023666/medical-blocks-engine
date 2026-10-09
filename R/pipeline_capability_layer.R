@@ -27,6 +27,10 @@ pipeline_mi_quality_protect_vars <- function(cfg) {
     as.character(pred$index_vars %||% character(0)),
     as.character(imp$mi_quality_protect_vars %||% character(0)),
     as.character(imp$mi_quality_force_keep_vars %||% character(0)),
+    # 亚组分层列不得因 MI 质量闸门被整列剔除（森林缺层）；
+    # analysis_exclusion$protect_vars（展示保列）与 subgroup$required 同源
+    as.character((cfg$analysis_exclusion %||% list())$protect_vars %||% character(0)),
+    as.character((cfg$subgroup %||% list())$required_subgroup_vars %||% character(0)),
     "Group", "ID", "Pt_ID", "SEQN", "subject_id",
     "new_weight", "WTINT2YR", "WTMEC2YR", "SDMVSTRA", "SDMVPSU"
   ))
@@ -215,12 +219,20 @@ pipeline_imputation_missing_protect_vars <- function(cfg) {
     as.character(dat$outcome_column %||% character(0)),
     as.character((cfg$project %||% list())$id_column %||% character(0))
   )
-  unique(c(
+  protect <- unique(c(
     protect[nzchar(as.character(protect))],
     "Disease", "Disease_Group", "Group", "fustatus", "futime",
     "Gender", "Sex", "Age", "Age_Years",
-    "ID", "SEQN", "Pt_ID", "Patient_ID", "subject_id"
+    "ID", "SEQN", "Pt_ID", "Patient_ID", "subject_id",
+    "CRP", "HSCRP", "Residence", "Hukou", "HR", "Pulse"
   ))
+  if (pipeline_dual_db_enabled(cfg)) {
+    harm <- (cfg$dual_db %||% list())$harmonization %||% list()
+    keep_m <- as.character(harm$column_keep_mimic %||% character(0))
+    keep_n <- as.character(harm$column_keep_nhanes %||% character(0))
+    protect <- c(protect, setdiff(keep_m, keep_n))
+  }
+  unique(protect[nzchar(as.character(protect))])
 }
 
 pipeline_sparse_categorical_protect_vars <- function(cfg) {
@@ -248,15 +260,61 @@ pipeline_sparse_categorical_protect_vars <- function(cfg) {
       as.character(bl$include_vars %||% character(0))
     )
   }
+  sg <- cfg$subgroup %||% list()
   protect <- unique(c(
     protect,
+    as.character(sg$required_subgroup_vars %||% character(0)),
     as.character((cfg$analysis_var_policy %||% list())$protect_categorical_vars %||% character(0)),
     as.character((cfg$analysis_var_policy %||% list())$protect_vars %||% character(0)),
+    if (exists("pipeline_model3_required_raw", mode = "function")) {
+      pipeline_model3_required_raw(cfg)
+    } else {
+      character(0)
+    },
+    # 复杂抽样设计列：绝不可当稀疏分类删掉（KNHANES psu/kstrata；NHANES SDMV*）
+    if (exists("nhanes_survey_weight_source_cols", mode = "function")) {
+      tryCatch(nhanes_survey_weight_source_cols(cfg), error = function(e) character(0))
+    } else {
+      character(0)
+    },
+    if (exists("knhanes_survey_weight_source_cols", mode = "function")) {
+      tryCatch(knhanes_survey_weight_source_cols(cfg), error = function(e) character(0))
+    } else {
+      character(0)
+    },
+    "W_pooled", "PSU", "STRATA", "new_Weight",
+    "wt_itvex", "wt_tot", "psu", "kstrata", "cycle",
+    "SDMVPSU", "SDMVSTRA", "Source_File",
     "Disease", "Disease_Group", "Group", "fustatus", "futime",
     "Gender", "Sex", "Age", "Age_Years",
-    "BMI", "Weight", "Height"
+    "BMI", "Weight", "Height",
+    # ID / 时间戳：不可当「稀疏分类协变量」删掉（否则 TST 等下游丢主键）
+    "ID", "SEQN", "Pt_ID", "Patient_ID", "subject_id", "stay_id", "hadm_id",
+    "tst_patient_id", "icustay_id", "patientunitstayid",
+    "admit_time", "disch_time", "icu_intime", "icu_outtime",
+    "hosp_intime", "hosp_outtime", "charttime", "intime", "outtime"
   ))
   protect[nzchar(as.character(protect))]
+}
+
+#' 去掉数据中单水平/常数的协变量（glm 拟合前）
+#' @return 仍可用于建模的变量名向量
+pipeline_drop_degenerate_covariates <- function(data, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  if (!length(vars) || is.null(data) || !is.data.frame(data)) return(character(0))
+  keep <- character(0)
+  for (cn in vars) {
+    if (!cn %in% names(data)) next
+    x <- data[[cn]]
+    if (is.factor(x) || is.character(x) || is.logical(x)) {
+      if (length(unique(na.omit(as.character(x)))) >= 2L) keep <- c(keep, cn)
+    } else {
+      xv <- suppressWarnings(as.numeric(x))
+      if (length(unique(na.omit(xv))) >= 2L) keep <- c(keep, cn)
+    }
+  }
+  keep
 }
 
 pipeline_is_categorical_analysis_col <- function(x, var_name, cfg = list(),
@@ -402,7 +460,18 @@ pipeline_dual_db_partner_high_missing_cols <- function(cfg, threshold = 0.4) {
   miss <- vapply(df, function(x) mean(is.na(x)), numeric(1))
   drop <- names(miss)[is.finite(miss) & miss > thr]
   protect <- pipeline_sparse_categorical_protect_vars(cfg)
-  setdiff(drop, protect)
+  partner_drop <- setdiff(drop, protect)
+  # 本库缺失率可接受时，不因伙伴库高缺失并集剔除（保留 CHARLS CRP 等次库可展示列）
+  cur <- as.character((cfg$dual_db %||% list())$current_db %||% "")[1L]
+  if (nzchar(cur)) {
+    df_self <- pipeline_dual_db_load_analysis_df(cfg, cur)
+    if (is.data.frame(df_self) && ncol(df_self)) {
+      miss_self <- vapply(df_self, function(x) mean(is.na(x)), numeric(1))
+      ok_self <- names(miss_self)[is.finite(miss_self) & miss_self <= thr]
+      partner_drop <- setdiff(partner_drop, ok_self)
+    }
+  }
+  partner_drop
 }
 
 #' 双库：伙伴库全 NA / 零方差列（插补前并集剔除）
@@ -763,7 +832,10 @@ pipeline_default_sensitivity_scenarios <- function(cfg = list()) {
   alias <- (cfg$capability %||% list())$variable_aliases %||% list()
   age_v <- as.character(alias$age %||% "Age")[1L]
   cut <- as.integer(
-    (cfg$incidence_batch %||% list())$sensitivity_suite$age_cutoff %||%
+    (cfg$sensitivity_suite %||% list())$age_cutoff %||%
+      (cfg$nhanes %||% list())$age_cutoff %||%
+      (cfg$subgroup %||% list())$age_cutoff %||%
+      (cfg$incidence_batch %||% list())$sensitivity_suite$age_cutoff %||%
       (cfg$survival_batch %||% list())$sensitivity_suite$age_cutoff %||% 65
   )[1L]
   list(
@@ -778,6 +850,7 @@ pipeline_default_sensitivity_scenarios <- function(cfg = list()) {
 
 pipeline_sensitivity_scenarios_for_data <- function(cfg, data = NULL) {
   sens <- (cfg$capability %||% list())$sensitivity_suite %||%
+    (cfg$sensitivity_suite %||% list()) %||%
     (cfg$incidence_batch %||% list())$sensitivity_suite %||%
     (cfg$survival_batch %||% list())$sensitivity_suite %||% list()
   scenarios <- sens$scenarios %||% NULL
@@ -902,7 +975,7 @@ pipeline_quantile_group_factor <- function(x, method = c("quartile", "tertile"),
     ord <- order(x, na.last = NA)
     q2 <- rep(NA_integer_, length(x))
     n_ok <- length(ord)
-    cuts <- c(0L, vapply(seq_len(n_g - 1L), function(k) floor(k * n_ok / n_g), integer(1L)), n_ok)
+    cuts <- c(0L, vapply(seq_len(n_g - 1L), function(k) as.integer(floor(k * n_ok / n_g)), integer(1L)), n_ok)
     for (k in seq_len(n_g)) {
       if (cuts[k] < cuts[k + 1L]) q2[ord[(cuts[k] + 1L):cuts[k + 1L]]] <- k
     }

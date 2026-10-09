@@ -13,7 +13,7 @@
 #    target_n_features_max           = 50L,
 #    prompt_final_methods            = NULL,   # NULL=交互式询问；批跑请设 final_methods
 #    final_methods                   = NULL,
-#    overlap_plot_methods            = NULL,   # 供下游 08 韦恩块；本块仅写入 venn_input
+#    overlap_plot_methods            = NULL,   # 仅供图；>4 方法时图可截前 4，不得否决定稿
 #    force_composite_features        = TRUE,
 #    composite_features              = NULL,   # NULL → prediction$index_vars
 #    min_composite_features          = 0L,
@@ -136,6 +136,13 @@
   .fsc07_order_subset(vars, order_vec, n_max, protect = comp_ok)
 }
 
+# 画图方法是否为定稿方法的真子集（图心变大是预期，不得 stop / 覆盖 ML）
+.fsc07_is_plot_method_subset <- function(overlap_methods, selected_methods) {
+  om <- unique(as.character(overlap_methods[nzchar(as.character(overlap_methods))]))
+  sm <- unique(as.character(selected_methods[nzchar(as.character(selected_methods))]))
+  length(sm) >= 2L && length(om) >= 1L && !setequal(om, sm)
+}
+
 .fsc07_venn_list_for_final <- function(
     by_model, overlap_methods, final, U, composite_in_final) {
   composite_in_final <- intersect(composite_in_final, final)
@@ -153,8 +160,8 @@
   if (length(overlap_methods) == 1L) {
     m1 <- overlap_methods[1L]
     return(stats::setNames(
-      list(final, final),
-      c(m1, paste0(m1, " (final)"))
+      list(unique(final)),
+      m1
     ))
   }
   list()
@@ -701,7 +708,14 @@ block_feature_selection_consensus <- function(ctx, ...) {
   } else {
     list_in <- list()
   }
-  list_in_full <- list_in
+  ## 定稿闸门用全部入选方法；图用 overlap_methods（可截前 4）
+  list_in_full <- if (overlap_eligible && length(selected_methods) >= 1L) {
+    .fsc07_venn_list_for_final(
+      by_model, selected_methods, final, U, comp_in_final
+    )
+  } else {
+    list_in
+  }
   n_sets <- length(list_in)
   if (overlap_eligible && n_sets < 2L && length(method_names) >= 2L) {
     overlap_methods <- method_names[seq_len(min(2L, length(method_names)))]
@@ -713,9 +727,29 @@ block_feature_selection_consensus <- function(ctx, ...) {
 
   if (identical(selection_source, "univar_fallback")) {
     cli::cli_alert_info("单因素回退入选，韦恩图不可画（无多模型共识）")
+  } else if (overlap_eligible && length(list_in_full) >= 2L) {
+    center_canon <- Reduce(intersect, list_in_full)
+    if (!setequal(center_canon, final)) {
+      stop(
+        "feature_selection_consensus: 定稿方法全集 (",
+        paste(selected_methods, collapse = "+"),
+        ") 交集 n=", length(center_canon), " 与 final n=", length(final),
+        " 不一致；请检查复合指标与各方法入选集。",
+        call. = FALSE
+      )
+    }
+    if (n_sets >= 2L && .fsc07_is_plot_method_subset(overlap_methods, selected_methods)) {
+      plot_n <- length(Reduce(intersect, list_in))
+      if (plot_n != length(final)) {
+        cli::cli_alert_info(
+          "韦恩图仅展示 {length(overlap_methods)}/{length(selected_methods)} 个定稿方法，图心 n={plot_n} 与定稿 n={length(final)} 不同是预期现象（图心=展示方法交集，定稿=全部入选方法交集）。不以图心否决定稿。"
+        )
+      }
+    }
   } else if (overlap_eligible && n_sets >= 2L) {
     venn_center_n <- length(Reduce(intersect, list_in))
-    if (venn_center_n != length(final)) {
+    if (venn_center_n != length(final) &&
+        !.fsc07_is_plot_method_subset(overlap_methods, selected_methods)) {
       stop(
         "feature_selection_consensus: 韦恩中心 (", venn_center_n, ") 与 final (",
         length(final), ") 不一致；请检查复合指标与各方法入选集。",

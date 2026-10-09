@@ -10,7 +10,13 @@
 
 .mediation_outcome_diag_label <- function(cfg) {
   proj <- cfg$project %||% list()
-  .mediation_diag_pretty_label(proj$disease %||% proj$analysis_group %||% "Outcome")
+  st <- tolower(trimws(as.character(proj$study_type %||% "")[1L]))
+  ag <- as.character(proj$analysis_group %||% "")[1L]
+  # 发病：结局标签用病例组（如 ASCVD），勿用 disease 字段（如 Rheumatoid_Arthritis）
+  if (identical(st, "incidence") && nzchar(ag)) {
+    return(.mediation_diag_pretty_label(ag))
+  }
+  .mediation_diag_pretty_label(proj$disease %||% ag %||% "Outcome")
 }
 
 .mediation_format_prop_med_table <- function(prop_med_num) {
@@ -18,7 +24,9 @@
       is.na(prop_med_num) || !is.finite(prop_med_num)) {
     return(NA_character_)
   }
-  paste0(formatC(prop_med_num, format = "f", digits = 2), "%")
+  .d <- as.integer(.pipeline_pub_digits()$est)[1L]
+  if (!is.finite(.d) || .d < 0L) .d <- 3L
+  paste0(formatC(prop_med_num, format = "f", digits = .d), "%")
 }
 
 .mi02_palettes <- list(
@@ -70,7 +78,8 @@
       paste0(strrep(" ", L), lines[i], strrep(" ", R))
     }, character(1L), USE.NAMES = FALSE), collapse = "\n")
   }
-  .path_lbl_p_below_ci <- function(est, p, lo, hi, d_est = 3L) {
+  .path_lbl_p_below_ci <- function(est, p, lo, hi,
+                                     d_est = as.integer(.pipeline_pub_digits()$est)[1L]) {
     L1 <- paste0(.fc(est, d_est), " (", .fp(p), ")")
     lines <- if (is.finite(lo) && is.finite(hi)) {
       c(L1, paste0("(", .fc(lo, d_est), ", ", .fc(hi, d_est), ")"))
@@ -80,10 +89,12 @@
     if (length(lines) == 1L) lines else .lines_equal_width(lines)
   }
 
-  lbl_a <- .path_lbl_p_below_ci(coef_a, p_a, ci_a_lo, ci_a_hi, 3L)
-  lbl_b <- .path_lbl_p_below_ci(coef_b, p_b, ci_b_lo, ci_b_hi, 3L)
-  lbl_d <- .path_lbl_p_below_ci(effect_total, p_total, ci_tot_lo, ci_tot_hi, 3L)
-  pm_c <- if (!is.na(prop_pct) && is.finite(prop_pct)) .fc(prop_pct, 2) else "?"
+  .d_est <- as.integer(.pipeline_pub_digits()$est)[1L]
+  if (!is.finite(.d_est) || .d_est < 0L) .d_est <- 3L
+  lbl_a <- .path_lbl_p_below_ci(coef_a, p_a, ci_a_lo, ci_a_hi, .d_est)
+  lbl_b <- .path_lbl_p_below_ci(coef_b, p_b, ci_b_lo, ci_b_hi, .d_est)
+  lbl_d <- .path_lbl_p_below_ci(effect_total, p_total, ci_tot_lo, ci_tot_hi, .d_est)
+  pm_c <- if (!is.na(prop_pct) && is.finite(prop_pct)) .fc(prop_pct, .d_est) else "?"
   lbl_pm <- paste0("Proportion mediated\n", pm_c, "%")
 
   .pad_equal_width <- function(s1, s2, s3) {
@@ -313,10 +324,79 @@
   invisible(n_tot)
 }
 
+#' 实验室关联 / 中介 LM 候选池（双库共用）
+#' 血检名单（lab_indicator_vars 或 Table1 Laboratory Tests）+ mediator_extra_vars
+#' 不含人口学 / 体征 / 共病；best_mediator（如腰围）由调用方 pin
+.mi02_resolve_lab_indicator_pool <- function(cfg, bl_cfg, data_names, exposure = "") {
+  lab_pool <- bl_cfg$lab_indicator_vars
+  if (is.null(lab_pool) || !length(lab_pool)) {
+    lab_pool <- if (exists(".default_laboratory_test_vars", mode = "function")) {
+      .default_laboratory_test_vars()
+    } else {
+      character(0)
+    }
+  }
+  extra_med <- as.character(bl_cfg$mediator_extra_vars %||% character(0))
+  extra_med <- extra_med[nzchar(extra_med)]
+  lab_pool <- unique(c(as.character(lab_pool), extra_med))
+  data_names <- as.character(data_names %||% character(0))
+  lab_pool <- intersect(lab_pool, data_names)
+  exp <- as.character(exposure %||% "")[1L]
+  if (nzchar(exp) && !is.na(exp)) lab_pool <- setdiff(lab_pool, exp)
+  unique(as.character(lab_pool))
+}
+
+#' 解析锁定中介名（config best_mediator / 双库 preferred）
+.mi02_resolve_best_mediator_name <- function(cfg, bl_cfg = list()) {
+  pin <- as.character(bl_cfg$best_mediator %||% "")[1L]
+  if ((!nzchar(pin) || is.na(pin)) &&
+      isTRUE((cfg$dual_db %||% list())$enable) &&
+      isTRUE(bl_cfg$dual_db_lock_best_mediator %||% TRUE) &&
+      exists("dual_db_load_preferred_mediator", mode = "function")) {
+    root_m <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
+    pin <- as.character(dual_db_load_preferred_mediator(root_m, cfg) %||% "")[1L]
+  }
+  if (!nzchar(pin) || identical(pin, "NA") || is.na(pin)) return("")
+  pin
+}
+
+#' 关联表按变量块（标题行 + Crude/M1/M2）把锁定中介置顶
+.mi02_assoc_rt_pin_variable <- function(rt, varname) {
+  if (is.null(rt) || !is.data.frame(rt) || !nrow(rt) || !"variable" %in% names(rt)) {
+    return(rt)
+  }
+  varname <- as.character(varname %||% "")[1L]
+  if (!nzchar(varname)) return(rt)
+  v <- trimws(as.character(rt$variable %||% ""))
+  pretty <- gsub("_", " ", varname, fixed = TRUE)
+  underscore <- gsub(" ", "_", varname, fixed = TRUE)
+  is_hdr <- nzchar(v) & !(v %in% c("Crude Model", "Model1", "Model2"))
+  hdr_idx <- which(is_hdr)
+  if (!length(hdr_idx)) return(rt)
+  key <- gsub(" ", "_", v[hdr_idx], fixed = TRUE)
+  hit <- which(key %in% c(varname, pretty, underscore) |
+                 v[hdr_idx] %in% c(varname, pretty, underscore))
+  if (!length(hit)) return(rt)
+  h <- hdr_idx[hit[[1L]]]
+  nxt <- hdr_idx[hdr_idx > h]
+  end <- if (length(nxt)) nxt[[1L]] - 1L else nrow(rt)
+  pin <- h:end
+  rest <- setdiff(seq_len(nrow(rt)), pin)
+  rt[c(pin, rest), , drop = FALSE]
+}
+
 #' 中介门控通过后导出「暴露–实验室关联」表（门控失败则永不落盘）
 .mi02_export_lab_association_table <- function(ctx, rt, exposure, weighted = FALSE) {
   if (is.null(rt) || !is.data.frame(rt) || !nrow(rt)) return(invisible(FALSE))
   exposure <- as.character(exposure %||% "Index")[1L]
+  cfg <- ctx$config %||% list()
+  bl <- if (isTRUE(weighted)) {
+    cfg$mediation_nhanes_weighted %||% list()
+  } else {
+    cfg$mediation_incidence %||% cfg$mediation_prognosis %||% list()
+  }
+  pin <- .mi02_resolve_best_mediator_name(cfg, bl)
+  if (nzchar(pin)) rt <- .mi02_assoc_rt_pin_variable(rt, pin)
   cap <- if (isTRUE(weighted)) {
     paste0("Weighted associations of ", gsub("_", " ", exposure), " with laboratory indicators")
   } else {
@@ -380,6 +460,12 @@
 #' 与路径图一致：shared preferred → config best_mediator → Prop_Med 最大
 .mi02_mediation_pick_best_row <- function(final_table, cfg, bl_cfg) {
   if (is.null(final_table) || !nrow(final_table)) return(NULL)
+  # 丢掉 Mediator 缺失的失败行，避免 skip 提示出现 [NA]
+  if ("Mediator" %in% names(final_table)) {
+    keep <- !is.na(final_table$Mediator) & nzchar(as.character(final_table$Mediator))
+    if (any(keep)) final_table <- final_table[keep, , drop = FALSE]
+  }
+  if (!nrow(final_table)) return(NULL)
   best_med_cfg <- as.character(bl_cfg$best_mediator %||% "")[1L]
   pref_shared <- NA_character_
   if (isTRUE((cfg$dual_db %||% list())$enable) &&
@@ -415,8 +501,8 @@
   best_row <- .mi02_mediation_pick_best_row(final_table, cfg, bl_cfg)
   if (is.null(best_row)) return(FALSE)
   # 默认：Proportion mediated 显著 且 Direct Effect 显著，缺一不出
-  .mi02_mediation_proportion_significant(best_row, alpha) &&
-    .mi02_mediation_direct_significant(best_row, alpha)
+  isTRUE(.mi02_mediation_proportion_significant(best_row, alpha)) &&
+    isTRUE(.mi02_mediation_direct_significant(best_row, alpha))
 }
 
 #' 跳过导出时的可读原因（供 cli 提示）

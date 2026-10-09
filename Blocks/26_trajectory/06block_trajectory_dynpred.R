@@ -150,10 +150,15 @@ block_trajectory_dynpred <- function(ctx, ...) {
     ng_use <- final_model$ng
     cli::cli_alert_info("使用模型 ng={ng_use}，conv={final_model$conv %||% NA}")
 
-    # ── 提取类别分配（与 Fig3.R 一致：ng==2 时交换 Class1/2 标签）─────────────
+    # ── 提取类别：优先双库 align maps（Class1=低位主类），禁止再 majority-swap
     pprob_df    <- as.data.frame(final_model$pprob)
-    swap_map    <- if (exists("trajectory_class_swap_map", mode = "function"))
-      trajectory_class_swap_map(pprob_df$class) else NULL
+    swap_map    <- if (exists("trajectory_resolve_class_map", mode = "function")) {
+      trajectory_resolve_class_map(pprob_df$class, cfg, Index, source = "raw")
+    } else if (exists("trajectory_class_swap_map", mode = "function")) {
+      trajectory_class_swap_map(pprob_df$class)
+    } else {
+      NULL
+    }
     if (!is.null(swap_map))
       pprob_df$class <- trajectory_apply_class_swap(pprob_df$class, swap_map)
     all_classes <- sort(unique(pprob_df$class))
@@ -403,7 +408,7 @@ block_trajectory_dynpred <- function(ctx, ...) {
     local({
       pp <- p; fn <- fig_name; pw <- dyn_width; ph <- dyn_height
       ctx <<- save_figure(ctx, filename = fn,
-                          plot_fn = (function(x) function() print(x))(pp),
+                          plot_fn = local({ x <- pp; function() x }),
                           width = pw, height = ph)
     })
     n_plotted <- n_plotted + 1L

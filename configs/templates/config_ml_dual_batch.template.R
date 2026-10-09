@@ -84,6 +84,29 @@ config <- list(
     write_cutoff_value = FALSE,
     export_table = FALSE
   ),
+  ## CART 临床决策路径图（默认关；开启后请把 "cart_decision_path" 插入 pipeline，
+  ## 建议位置：ml_feature_selection_bundle 之后、ml_models_bundle 之前）
+  cart_decision_path = list(
+    enable = FALSE,
+    features = NULL,              # NULL → feature_selection_final → Model2Factors
+    outcome = NULL,               # NULL → data$outcome_column
+    data_scope = "train",         # "train" | "analysis"
+    maxdepth = 3L,
+    minsplit = 20L,
+    minbucket = 10L,
+    cp = 0.01,
+    plot_clinical = TRUE,
+    plot_rpart = TRUE,
+    leaf_labels = NULL,           # 例: c("Control" = "首选 DXA", "Case" = "首选 QCT")
+    root_label = "Enrolled patients",
+    var_labels = NULL,
+    edge_yes = "Yes",
+    edge_no = "No",
+    figure_title = "CART decision path",
+    figure_width = 8,
+    figure_height = 6,
+    seed = NULL
+  ),
   feishu = list(
     enable = TRUE,
     push_on_worker_finish = TRUE,
@@ -92,3 +115,5 @@ config <- list(
 )
 
 # pipeline_* 定义与 configs/config_ml_dual_batch.R 相同（复制完整 blocks 列表）
+# 开启 CART 路径图时在 primary ML 尾部插入，例如:
+#   ... "ml_feature_selection_bundle", "cart_decision_path", "ml_models_bundle", ...

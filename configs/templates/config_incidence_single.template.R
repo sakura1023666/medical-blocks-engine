@@ -64,6 +64,7 @@ config <- list(
     title = NULL,
     db_label = NULL,
     steps = list(),
+    # CONSORT Figure 1：主列纳入、右侧 Exclude、底部分叉（发病=病例/对照）
     outcome_breakdown = TRUE,
     auto_append = TRUE,
     draw_pdf = TRUE,

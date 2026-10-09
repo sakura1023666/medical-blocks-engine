@@ -111,16 +111,34 @@
   out
 }
 
+#' 从分层列名还原暴露标签（Age_quartile / "Age quartile" → "Age"）
+#' 多连续特征 KM 时禁止一律用 survival$index_var（否则图例全写成 AMH）
+.kms02_index_label_from_strata <- function(strata_col) {
+  sc <- as.character(strata_col)[1L]
+  if (!nzchar(sc)) return(NULL)
+  if (grepl("_(tertile|quartile|binary)$| (tertile|quartile|binary)$", sc,
+            perl = TRUE, ignore.case = TRUE)) {
+    sc <- sub("_(tertile|quartile|binary)$", "", sc, perl = TRUE, ignore.case = TRUE)
+    sc <- sub(" (tertile|quartile|binary)$", "", sc, perl = TRUE, ignore.case = TRUE)
+    return(gsub("_", " ", trimws(sc), fixed = TRUE))
+  }
+  NULL
+}
+
 .kms02_index_var_from_ctx <- function(ctx, cfg, strata_col) {
+  derived <- .kms02_index_label_from_strata(strata_col)
+  if (!is.null(derived) && nzchar(derived)) return(derived)
   ix <- cfg$survival$index_var %||% cfg$km_strata$index_var %||% NULL
   if (!is.null(ix) && nzchar(as.character(ix)[1L])) return(as.character(ix)[1L])
-  sub("_(tertile|quartile)$", "", as.character(strata_col)[1L], perl = TRUE)
+  gsub("_", " ", as.character(strata_col)[1L], fixed = TRUE)
 }
 
 .kms02_method_label <- function(strata_col) {
   sc <- as.character(strata_col)[1L]
-  if (grepl("_tertile$", sc, ignore.case = TRUE)) return("tertile")
-  if (grepl("_quartile$", sc, ignore.case = TRUE)) return("quartile")
+  # 兼容 ANLR_quartile / "ANLR quartile"，只返回 method 词，避免标题变成 "ANLR ANLR quartile"
+  if (grepl("tertile", sc, ignore.case = TRUE)) return("tertile")
+  if (grepl("quartile", sc, ignore.case = TRUE)) return("quartile")
+  if (grepl("binary|dichotom", sc, ignore.case = TRUE)) return("binary")
   gsub("_", " ", sc, fixed = TRUE)
 }
 
@@ -251,10 +269,10 @@
 
 .kms02_safe_logrank_p <- function(formula, data) {
   pv <- .kms02_logrank_p_numeric(formula, data)
-  if (!is.finite(pv)) return("Log-rank P = NA")
-  # 保留 3 位小数；p < 0.001 显示为 P < 0.001
-  if (pv < 0.001) return("Log-rank P < 0.001")
-  paste0("Log-rank P = ", formatC(pv, digits = 3, format = "f"))
+  if (!is.finite(pv)) return("Log-rank p = NA")
+  # 参考发表图：Log-rank p = 0.007274；极小值用 < 0.001
+  if (pv < 0.001) return("Log-rank p < 0.001")
+  paste0("Log-rank p = ", formatC(pv, digits = 6, format = "f"))
 }
 
 .kms02_pdf_open <- function(path, width, height, family = "Times New Roman") {
@@ -537,14 +555,19 @@
     sn <- as.character(levels(rt_plot[[plot_col]]))
   }
   n_lab <- min(length(sn), nrow(cnt))
-  labs <- sprintf("%-15s (N=%d, E=%d)", sn[seq_len(n_lab)], cnt$n[seq_len(n_lab)],
+  labs <- sprintf("%s (N=%d, E=%d)", sn[seq_len(n_lab)], cnt$n[seq_len(n_lab)],
                   cnt$n_event[seq_len(n_lab)])
   labs <- .kms02_sanitize_legend(labs)
 
   med_values <- summary(fit)$table
   has_na_med <- if (is.matrix(med_values)) any(is.na(med_values[, "median"])) else
     is.na(med_values["median"])
-  median_line <- if (has_na_med) "none" else "hv"
+  # 配置优先；默认 none（对齐发表参考图，不画中位生存虚线）
+  median_line <- as.character(
+    bl_cfg$surv_median_line %||% km_cfg$surv_median_line %||% "none"
+  )[1L]
+  if (!median_line %in% c("none", "hv", "h", "v")) median_line <- "none"
+  if (identical(median_line, "hv") && isTRUE(has_na_med)) median_line <- "none"
 
   fun_arg <- bl_cfg$fun %||% "pct"
   if (identical(fun_arg, "none") || identical(fun_arg, NULL)) fun_arg <- NULL
@@ -554,8 +577,53 @@
   time_axis <- .kms02_resolve_time_axis(fit, rt_plot, time_col, time_div, bl_cfg, km_cfg)
   km_xlim <- time_axis$xlim
   km_break <- time_axis$break_time_by
+  km_ylim <- suppressWarnings(as.numeric(bl_cfg$ylim %||% km_cfg$ylim %||% numeric(0)))
+  if (!(length(km_ylim) >= 2L && all(is.finite(km_ylim[1:2])) && km_ylim[2L] > km_ylim[1L])) {
+    km_ylim <- NULL
+  } else {
+    km_ylim <- km_ylim[1:2]
+  }
   risk_tbl <- isTRUE(bl_cfg$risk_table %||% TRUE) && !for_combined
+  risk_y_text <- isTRUE(bl_cfg$risk_table_y_text %||% TRUE)
+  legend_in_table <- isTRUE(bl_cfg$risk_table_legend_in_table %||% FALSE)
+  risk_y_col <- isTRUE(bl_cfg$risk_table_y_text_col %||% risk_y_text)
+  legend_pos <- as.character(bl_cfg$legend_position %||% if (legend_in_table) "none" else "top")[1L]
   fallback <- isTRUE(bl_cfg$fallback_no_pval %||% TRUE)
+
+  # 图例/标题按本面板分层列还原变量名；禁止一律用 survival$index_var（多连续 KM 会全写成 AMH）
+  ix_lab <- if (!is.null(config)) {
+    .kms02_index_var_from_ctx(NULL, config, display_name)
+  } else {
+    .kms02_index_label_from_strata(display_name) %||%
+      gsub("_", " ", as.character(display_name)[1L], fixed = TRUE)
+  }
+  subtitle_raw <- bl_cfg$plot_subtitle_template %||% bl_cfg$subtitle %||% ""
+  if (nzchar(as.character(subtitle_raw)[1L]) && !is.null(config)) {
+    subtitle_raw <- gsub("\\{index\\}", ix_lab, as.character(subtitle_raw)[1L], fixed = FALSE)
+    subtitle_raw <- gsub("\\{method\\}", .kms02_method_label(display_name), subtitle_raw, fixed = FALSE)
+    subtitle_raw <- gsub(
+      "\\{disease\\}",
+      gsub("_", " ", config$project$disease %||% config$project$analysis_group %||% "patients"),
+      subtitle_raw, fixed = FALSE
+    )
+  } else {
+    subtitle_raw <- ""
+  }
+
+  meth <- .kms02_method_label(display_name)
+  # 参考发表图图例标题：如 "BAR quartile" / "ANLR quartile"
+  legend_title_raw <- as.character(
+    bl_cfg$legend_title %||% paste(ix_lab, meth)
+  )[1L]
+
+  title_raw <- if (for_combined) {
+    display_name
+  } else if (!is.null(bl_cfg$title) && nzchar(as.character(bl_cfg$title)[1L])) {
+    as.character(bl_cfg$title)[1L]
+  } else {
+    # 默认标题对齐发表参考图：Survival Analysis by {index} quartile
+    paste0("Survival Analysis by ", ix_lab, " ", meth)
+  }
 
   ## 全图强制 Times New Roman（cairo_pdf 可嵌入；禁止 mono/sans/Helvetica）
   ff <- as.character(font_family %||% "Times New Roman")[1L]
@@ -572,83 +640,167 @@
         legend.title = ggplot2::element_text(family = ff),
         strip.text = ggplot2::element_text(family = ff),
         axis.text = ggplot2::element_text(family = ff),
-        axis.title = ggplot2::element_text(family = ff)
+        axis.title = ggplot2::element_text(family = ff),
+        panel.grid = ggplot2::element_blank()
       )
   }
-  gg_km <- .kms02_tnr_theme(11)
+  gg_km <- .kms02_tnr_theme(12)
   tbl_km <- .kms02_tnr_theme(10)
 
   build_plot <- function(with_risk, show_pval) {
     pv <- if (isTRUE(show_pval)) .kms02_safe_logrank_p(formula, rt_plot) else FALSE
-    risk_h <- suppressWarnings(as.numeric(bl_cfg$risk_table_height %||% 0.28)[1L])
-    if (!is.finite(risk_h) || risk_h <= 0 || risk_h >= 1) risk_h <- 0.28
-    p <- ggsurvplot(
-      fit, data = rt_plot,
+    risk_h <- suppressWarnings(as.numeric(bl_cfg$risk_table_height %||% 0.32)[1L])
+    if (!is.finite(risk_h) || risk_h <= 0 || risk_h >= 1) risk_h <- 0.32
+    # fun=pct 时 y 为 0–100；pval 放左下角略高于 x 轴
+    pval_xy <- NULL
+    if (!for_combined) {
+      pval_xy <- suppressWarnings(as.numeric(bl_cfg$pval_coord %||% c(NA, NA)))
+      if (length(pval_xy) < 2L || !all(is.finite(pval_xy[1:2]))) {
+        x0 <- if (length(km_xlim) >= 1L && is.finite(km_xlim[1L])) km_xlim[1L] else 0
+        pval_xy <- c(x0 + max(diff(km_xlim) * 0.01, 0.3), 8)
+      }
+    }
+    size_ln <- suppressWarnings(as.numeric(bl_cfg$size %||% 0.9)[1L])
+    if (!is.finite(size_ln) || size_ln <= 0) size_ln <- 0.9
+    censor_sz <- suppressWarnings(as.numeric(bl_cfg$censor_size %||% 3.2)[1L])
+    if (!is.finite(censor_sz) || censor_sz <= 0) censor_sz <- 3.2
+    gs_args <- list(
+      fit = fit, data = rt_plot,
       risk.table = with_risk,
       risk.table.height = risk_h,
-      risk.table.y.text = FALSE,
+      risk.table.y.text = risk_y_text,
+      risk.table.y.text.col = isTRUE(risk_y_col),
+      risk.table.title = "Number at risk",
       tables.height = risk_h,
       conf.int = FALSE,
+      censor = TRUE,
+      censor.size = censor_sz,
+      size = size_ln,
       surv.median.line = median_line,
       xlim = if (for_combined) NULL else km_xlim,
       break.time.by = if (for_combined) NULL else km_break,
-      title = .kms02_sanitize_legend(
-        if (for_combined) {
-          display_name
-        } else if (!is.null(bl_cfg$title)) {
-          as.character(bl_cfg$title)[1L]
-        } else {
-          paste("Survival Analysis by", display_name)
-        }
-      ),
+      title = .kms02_sanitize_legend(title_raw),
+      subtitle = if (!for_combined && nzchar(subtitle_raw)) .kms02_sanitize_legend(subtitle_raw) else NULL,
       xlab = .kms02_sanitize_legend(if (for_combined) "Time (d)" else xlab),
       ylab = .kms02_sanitize_legend(if (for_combined) "Prob (%)" else ylab),
-      legend.title = .kms02_sanitize_legend(if (for_combined) "" else display_name),
+      # 参考图：图例标题 = "{index} quartile"
+      legend.title = .kms02_sanitize_legend(legend_title_raw),
       legend.labs = labs,
+      legend = if (legend_in_table && with_risk) "none" else legend_pos,
       fun = fun_arg,
       pval = pv,
-      pval.size = if (for_combined) 3 else 4,
+      pval.size = if (for_combined) 3.5 else 4.5,
+      pval.coord = pval_xy,
       palette = palette,
       ggtheme = if (for_combined) {
         .kms02_tnr_theme(8, title_size = 10)
       } else gg_km,
-      tables.theme = if (with_risk) tbl_km else NULL
+      tables.theme = if (with_risk) {
+        tbl_km + ggplot2::theme(
+          plot.title = ggplot2::element_text(
+            hjust = 0.5, face = "bold", family = ff, size = 11
+          )
+        )
+      } else NULL
     )
+    if (!is.null(km_ylim) && !for_combined) gs_args$ylim <- km_ylim
+    p <- do.call(ggsurvplot, gs_args)
     # survminer 部分图层会落到 Helvetica/Courier；强制整图 Times New Roman
     .force_tnr <- function(g) {
       if (is.null(g) || !inherits(g, "ggplot")) return(g)
       g + ggplot2::theme(
         text = ggplot2::element_text(family = ff),
-        plot.title = ggplot2::element_text(family = ff),
+        plot.title = ggplot2::element_text(family = ff, hjust = 0.5),
         legend.text = ggplot2::element_text(family = ff),
         legend.title = ggplot2::element_text(family = ff),
         axis.text = ggplot2::element_text(family = ff),
         axis.title = ggplot2::element_text(family = ff),
-        strip.text = ggplot2::element_text(family = ff)
+        strip.text = ggplot2::element_text(family = ff),
+        panel.grid = ggplot2::element_blank()
       )
     }
     if (!is.null(p$plot)) p$plot <- .force_tnr(p$plot)
     if (!is.null(p$table)) p$table <- .force_tnr(p$table)
     if (!is.null(p$cumevents)) p$cumevents <- .force_tnr(p$cumevents)
     if (!is.null(p$cumcensor)) p$cumcensor <- .force_tnr(p$cumcensor)
+    if (!for_combined && !legend_in_table && inherits(p$plot, "ggplot")) {
+      leg_ncol <- suppressWarnings(as.integer(bl_cfg$legend_ncol %||% length(labs))[1L])
+      if (!is.finite(leg_ncol) || leg_ncol < 1L) leg_ncol <- length(labs)
+      p$plot <- p$plot +
+        ggplot2::theme(
+          legend.position = "top",
+          legend.justification = "center",
+          legend.direction = "horizontal",
+          legend.box = "horizontal",
+          legend.title = ggplot2::element_text(family = ff, face = "plain", size = 11),
+          legend.text = ggplot2::element_text(family = ff, size = 10),
+          legend.box.margin = ggplot2::margin(0, 0, 2, 0),
+          plot.margin = ggplot2::margin(6, 16, 2, 10),
+          # 参考图：L 形坐标轴（保留底边轴线）
+          axis.line = ggplot2::element_line(colour = "black", linewidth = 0.4),
+          axis.ticks = ggplot2::element_line(colour = "black", linewidth = 0.35)
+        ) +
+        ggplot2::guides(
+          color = ggplot2::guide_legend(
+            title.position = "left",
+            nrow = 1L, ncol = leg_ncol,
+            override.aes = list(shape = NA, linetype = 1, linewidth = 1.1)
+          )
+        )
+    }
     # 主文 KM：上下图共用同一 x 轴 limits/breaks，避免 risk table 错位
     if (!for_combined && length(km_xlim) >= 2L && all(is.finite(km_xlim))) {
       br <- km_break
       if (!is.finite(br) || br <= 0) br <- max(diff(km_xlim) / 4, 1)
       breaks <- seq(km_xlim[1L], km_xlim[2L], by = br)
+      # 左侧多留一点，避免 risk table 在 t=0 的人数被竖轴线裁半
       sx <- ggplot2::scale_x_continuous(
-        limits = km_xlim, breaks = breaks, expand = c(0.02, 0)
+        limits = km_xlim, breaks = breaks,
+        expand = ggplot2::expansion(mult = c(0.04, 0.02))
       )
+      # 主图与风险表左侧边距一致，保证 x 刻度对齐；风险表左侧更宽以容纳
+      # 竖排 "{index} quartile" + 彩色 Q (N=, E=)
+      left_m <- 12
       if (inherits(p$plot, "ggplot")) {
         p$plot <- p$plot + sx +
-          ggplot2::theme(plot.margin = ggplot2::margin(6, 14, 2, 10))
+          ggplot2::theme(
+            plot.margin = ggplot2::margin(4, 16, 4, left_m)
+          )
       }
       if (inherits(p$table, "ggplot")) {
+        # 参考图：左侧竖排标题 + 彩色行标签 + 竖轴线/短刻度；底轴 Follow-up time
+        # 注意：不要覆盖 axis.text.y（survminer 用彩色 element，强改会 merge 失败并回退无风险表）
         p$table <- p$table + sx +
+          ggplot2::labs(x = xlab, y = legend_title_raw) +
+          ggplot2::coord_cartesian(clip = "off") +
           ggplot2::theme(
-            plot.margin = ggplot2::margin(0, 14, 6, 10),
-            axis.title.x = ggplot2::element_blank()
+            plot.margin = ggplot2::margin(8, 16, 8, left_m),
+            plot.title = ggplot2::element_text(
+              hjust = 0.5, face = "bold", family = ff, size = 11,
+              margin = ggplot2::margin(2, 0, 6, 0)
+            ),
+            axis.title.x = ggplot2::element_text(family = ff, size = 11),
+            axis.title.y = ggplot2::element_text(
+              family = ff, size = 11, angle = 90, vjust = 0.5
+            ),
+            axis.line.x = ggplot2::element_line(colour = "black", linewidth = 0.45),
+            axis.line.y = ggplot2::element_line(colour = "black", linewidth = 0.45),
+            axis.ticks.x = ggplot2::element_line(colour = "black", linewidth = 0.35),
+            axis.ticks.y = ggplot2::element_line(colour = "black", linewidth = 0.35),
+            axis.ticks.length = grid::unit(3.5, "pt"),
+            panel.border = ggplot2::element_blank(),
+            panel.grid = ggplot2::element_blank()
           )
+        if (isTRUE(legend_in_table)) {
+          p$table <- p$table +
+            ggplot2::labs(title = display_name, caption = NULL) +
+            ggplot2::theme(
+              plot.title = ggplot2::element_text(
+                hjust = 0, face = "plain", size = 10, family = ff,
+                margin = ggplot2::margin(0, 0, 4, 0)
+              )
+            )
+        }
       }
     }
     if (exists("is_pub_profile", mode = "function") &&
@@ -690,7 +842,14 @@
       last_err <<- conditionMessage(e)
       FALSE
     })
-    if (isTRUE(ok)) return(invisible(out_path))
+    if (isTRUE(ok)) {
+      if (!isTRUE(spec$risk) && isTRUE(risk_tbl)) {
+        cli::cli_alert_warning(
+          "KM risk table 写出失败已回退无风险表（{last_err %||% 'unknown'}）；请检查字体/theme。"
+        )
+      }
+      return(invisible(out_path))
+    }
   }
   ok_gg <- tryCatch({
     p <- NULL
@@ -814,7 +973,9 @@ block_km_strata <- function(ctx, ...) {
   ctx$data$km_strata_derived <- dat[, derived_cols, drop = FALSE]
   ctx$results$km_strata_vars <- plot_vars
 
-  palette <- bl_cfg$palette %||% block_default_palette(5L, cfg)
+  # 对齐发表参考图：钢蓝 / 褐红 / 青绿 / 棕（四分位默认）
+  palette <- bl_cfg$palette %||% km_cfg$palette %||%
+    c("#54789C", "#903840", "#3AA6A0", "#8B5A2B", "#6B5B95")
   font_family <- bl_cfg$font_family %||% cfg$plot$font_family %||% "Times New Roman"
   if (exists("resolve_plot_font_family", mode = "function") &&
       isTRUE(capabilities("cairo"))) {
@@ -898,16 +1059,37 @@ block_km_strata <- function(ctx, ...) {
     comb_name <- bl_cfg$combined_filename %||%
       pub_figure_file(ctx, comb_kind, "Combined KM Plots")
     comb_path <- file.path(fig_dir, comb_name)
-    ncol <- as.integer(bl_cfg$combined_ncol %||% 3L)
-    nrow <- as.integer(bl_cfg$combined_nrow %||% ceiling(length(plot_list) / ncol))
+    n_panel <- length(plot_list)
+    ## 未显式配置时：按面板数自动布局（4 张 → 2×2，避免默认 3×n 大空白）
+    ncol_cfg <- bl_cfg$combined_ncol
+    nrow_cfg <- bl_cfg$combined_nrow
+    if (is.null(ncol_cfg) || !is.finite(as.numeric(ncol_cfg)[1L])) {
+      ncol <- if (n_panel <= 1L) 1L else if (n_panel == 2L) 2L else if (n_panel <= 4L) 2L else if (n_panel <= 6L) 3L else 3L
+    } else {
+      ncol <- as.integer(ncol_cfg)[1L]
+    }
+    if (is.null(nrow_cfg) || !is.finite(as.numeric(nrow_cfg)[1L])) {
+      nrow <- as.integer(ceiling(n_panel / max(1L, ncol)))
+    } else {
+      nrow <- as.integer(nrow_cfg)[1L]
+    }
+    ## 4 张且用户仍写着旧默认 3×3 时，纠成 2×2（可用 combined_force_grid=TRUE 关闭）
+    if (!isTRUE(bl_cfg$combined_force_grid %||% FALSE) &&
+        n_panel == 4L && identical(as.integer(ncol), 3L) &&
+        (is.null(nrow_cfg) || identical(as.integer(nrow), 3L))) {
+      ncol <- 2L
+      nrow <- 2L
+    }
+    comb_w <- bl_cfg$combined_width %||% if (ncol <= 2L) 12 else 18
+    comb_h <- bl_cfg$combined_height %||% if (nrow <= 2L) 10 else 23
     tryCatch({
       res <- survminer::arrange_ggsurvplots(
         plot_list, print = FALSE, ncol = ncol, nrow = nrow
       )
       .kms02_write_pdf_atomic(
         res, comb_path,
-        bl_cfg$combined_width  %||% 18,
-        bl_cfg$combined_height %||% 23
+        comb_w,
+        comb_h
       )
       cli::cli_alert_success("合并 KM 已保存: {.file {basename(comb_path)}}")
       if (exists("pub_mirror_saved", mode = "function")) {

@@ -100,7 +100,7 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.5,
     method = "cart",
-    m = 1L,
+    m = 5L,
     max_iter = 2L,
     seed = 42L,
     complete_action = 1L,

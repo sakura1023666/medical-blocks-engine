@@ -15,6 +15,8 @@
 #    table1_label_overrides      = list(),
 #    table1_sections             = NULL,
 #    table1_sections_disable_default = FALSE,
+#    table1_append_units_from_dictionary = NULL,  # FALSE → 标签不加字典单位
+#    table1_factor_recode = list(),               # 列名 → c(原水平 = 新水平)，如 Health→No
 #    table1_xlsx_center_first_col = character(0),
 #    table1_xlsx_footnotes       = NULL,
 #    pause_enable                  = TRUE,
@@ -167,6 +169,24 @@
   unique(tbl$table_body$variable[sig_rows])
 }
 
+.bb03_apply_table1_factor_recodes <- function(design_tbl, bl_cfg) {
+  rec <- bl_cfg$table1_factor_recode
+  if (is.null(rec) || !length(rec)) return(design_tbl)
+  for (v in names(rec)) {
+    if (!v %in% names(design_tbl$variables)) next
+    mp <- rec[[v]]
+    if (is.null(mp) || !length(mp)) next
+    x <- as.character(design_tbl$variables[[v]])
+    for (from in names(mp)) {
+      x[x == from] <- as.character(mp[[from]])
+    }
+    levs <- unique(unname(as.character(mp)))
+    if (all(c("No", "Yes") %in% levs)) levs <- c("No", "Yes")
+    design_tbl$variables[[v]] <- factor(x, levels = levs)
+  }
+  design_tbl
+}
+
 .bb03_export_nhanes_table <- function(ctx, tb, bl_cfg, data_imp, n_rows, cont_v,
                                       non_normal_v, outcome_col, disease_lbl,
                                       title_str, out_name, label_mode) {
@@ -191,7 +211,10 @@
   sec_cfg <- bl_cfg$table1_sections
   if (!is.null(sec_cfg) && length(sec_cfg) == 0L) sec_cfg <- NULL
   section_rows <- NULL
-  if (!is.null(sec_cfg) && length(sec_cfg) > 0L) {
+  if (exists("table1_resolve_sections", mode = "function")) {
+    sec_use <- table1_resolve_sections(ctx$config, bl_cfg)
+    section_rows <- table1_section_insert_rows_from_gtsummary(tb, sec_use)
+  } else if (!is.null(sec_cfg) && length(sec_cfg) > 0L) {
     section_rows <- table1_section_insert_rows_from_gtsummary(tb, sec_cfg)
   }
   if (is.null(section_rows) || length(section_rows) == 0L) {
@@ -209,14 +232,16 @@
     has_normal_continuous = length(setdiff(cont_v, non_normal_v)) > 0L,
     has_skewed_continuous = length(non_normal_v) > 0L,
     has_categorical       = TRUE,
-    use_fisher_any        = FALSE
+    use_fisher_any        = FALSE,
+    weighted              = TRUE   # tbl_svysummary + add_p → 加权检验脚注
   )
   built <- table1_build_display_df(
     tbl_df,
     section_insert_rows = if (!is.null(section_rows) && length(section_rows) > 0L) section_rows else NULL,
     section_anchors     = NULL,
     gtsummary_tbl       = tb,
-    center_first_col_values = center_labs
+    center_first_col_values = center_labs,
+    strip_underscores   = !isTRUE(bl_cfg$table1_preserve_underscores)
   )
   fp <- .inject_db_into_pub_filepath(file.path(ctx$output_dir_tables, out_name))
   styled <- FALSE
@@ -304,14 +329,23 @@ block_baseline_nhanes <- function(ctx, ...) {
   wt_col     <- as.character(nhanes_cfg$survey_weight  %||% "new_Weight")[1L]
   psu_col    <- as.character(nhanes_cfg$survey_cluster %||% "SDMVPSU")[1L]
   str_col    <- as.character(nhanes_cfg$survey_strata  %||% "SDMVSTRA")[1L]
-  extra_excl <- as.character(nhanes_cfg$exclude_cols %||% c("WTINT2YR", "WTMEC2YR"))
-  excl_cols  <- unique(c(wt_col, psu_col, str_col, extra_excl, cfg$data$id_column %||% "SEQN"))
-  # 与 baseline_binary 一致：baseline_nhanes$exclude_vars 从 Table1/正态性候选剔除
-  excl_bl <- as.character(bl_cfg$exclude_vars %||% character(0))
-  excl_bl <- excl_bl[nzchar(excl_bl)]
-  excl_cols <- unique(c(excl_cols, excl_bl))
-
-  data_imp <- design$variables
+  data_imp   <- design$variables
+  excl_bl    <- as.character(bl_cfg$exclude_vars %||% character(0))
+  excl_bl    <- excl_bl[nzchar(excl_bl)]
+  excl_cols  <- if (exists("pipeline_nhanes_survey_design_exclude_cols", mode = "function")) {
+    unique(c(
+      pipeline_nhanes_survey_design_exclude_cols(names(data_imp), cfg),
+      excl_bl
+    ))
+  } else {
+    extra_excl <- as.character(nhanes_cfg$exclude_cols %||% c(
+      "WTINT2YR", "WTMEC2YR", "WTINT4YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR",
+      "WTDRD1", "WTDR2D", "WTSOG2YR", "WTSA2YR", "WTSB2YR", "WTSC2YR", "WTSVOC2YR"
+    ))
+    excl_cols <- unique(c(wt_col, psu_col, str_col, extra_excl, excl_bl, cfg$data$id_column %||% "SEQN"))
+    auto_wt <- grep("^(WT[A-Z]|SDMV|Source_File)", names(data_imp), value = TRUE, ignore.case = TRUE)
+    unique(c(excl_cols, setdiff(auto_wt, wt_col)))
+  }
   if (exists("environment_patch_table1_sections", mode = "function")) {
     cfg <- environment_patch_table1_sections(cfg, data_imp)
     ctx$config <- cfg
@@ -326,7 +360,12 @@ block_baseline_nhanes <- function(ctx, ...) {
     excl_cols <- unique(c(excl_cols, excl_bl2))
   }
   if (length(excl_bl) || length(as.character(bl_cfg$exclude_vars %||% character(0)))) {
-    dropped_bl <- intersect(names(data_imp), setdiff(excl_cols, c(wt_col, psu_col, str_col, extra_excl, cfg$data$id_column %||% "SEQN")))
+    wt_meta <- if (exists("pipeline_nhanes_survey_design_exclude_cols", mode = "function")) {
+      pipeline_nhanes_survey_design_exclude_cols(names(data_imp), cfg)
+    } else {
+      c(wt_col, psu_col, str_col)
+    }
+    dropped_bl <- intersect(names(data_imp), setdiff(excl_cols, wt_meta))
     if (length(dropped_bl)) {
       cli::cli_alert_info(
         "baseline_nhanes exclude_vars: dropped {length(dropped_bl)} vars from Table 1 pool"
@@ -421,6 +460,7 @@ block_baseline_nhanes <- function(ctx, ...) {
   weighted_err <- NULL
 
   cli::cli_h2("baseline_nhanes: weighted Table 1")
+  options(survey.lonely.psu = "adjust")
   tryCatch({
     w_cap <- paste0(
       "Weighted Baseline Characteristics of Participants Categorized by - ",
@@ -471,6 +511,12 @@ block_baseline_nhanes <- function(ctx, ...) {
     }
     nhanes_include_vars <- intersect(nhanes_include_vars, names(design_tbl$variables))
     ctx$results$table1_var_order <- nhanes_include_vars
+    design_tbl <- .bb03_apply_table1_factor_recodes(design_tbl, bl_cfg)
+    if (length(bl_cfg$table1_factor_recode %||% list())) {
+      data_imp <- design_tbl$variables
+      df_sw <- data_imp[, setdiff(names(data_imp), excl_cols), drop = FALSE]
+      categorical_vars <- setdiff(names(df_sw), c(cont_v, outcome_col))
+    }
     # 环境毒物代码 → 真实名（gtsummary 读取 attr(x,"label")）
     if (exists("environment_resolve_label_map", mode = "function")) {
       env_lmap <- environment_resolve_label_map(cfg)
@@ -481,6 +527,15 @@ block_baseline_nhanes <- function(ctx, ...) {
             attr(design_tbl$variables[[v]], "label") <- new_lbl
           }
         }
+      }
+    }
+    if (isTRUE(bl_cfg$table1_preserve_underscores)) {
+      lbl_ov <- bl_cfg$table1_label_overrides %||% list()
+      for (v in nhanes_include_vars) {
+        if (!v %in% names(design_tbl$variables)) next
+        ov <- lbl_ov[[v]]
+        lbl <- if (!is.null(ov) && nzchar(as.character(ov)[1L])) as.character(ov)[1L] else v
+        attr(design_tbl$variables[[v]], "label") <- lbl
       }
     }
     # 二分类强制 categorical：Yes/No 各出一行（默认 dichotomous 会把 Yes 合并进标签行）
@@ -501,18 +556,18 @@ block_baseline_nhanes <- function(ctx, ...) {
     cont_force <- setdiff(cont_force, bin_force_cat)
     type_arg <- NULL
     if (length(bin_force_cat) || length(cont_force)) {
-      type_arg <- c(
-        if (length(bin_force_cat)) {
-          stats::setNames(rep(list("categorical"), length(bin_force_cat)), bin_force_cat)
-        },
-        if (length(cont_force)) {
-          stats::setNames(rep(list("continuous"), length(cont_force)), cont_force)
-        }
-      )
+      type_parts <- list()
+      if (length(bin_force_cat)) {
+        for (v in bin_force_cat) type_parts[[v]] <- "categorical"
+      }
+      if (length(cont_force)) {
+        for (v in cont_force) type_parts[[v]] <- "continuous"
+      }
+      type_arg <- type_parts
     }
     tb_weighted <- design_tbl %>%
       gtsummary::tbl_svysummary(
-        by        = outcome_col,
+        by        = dplyr::all_of(outcome_col),
         include   = dplyr::all_of(nhanes_include_vars),
         digits    = list(all_continuous() ~ 2, all_categorical() ~ 2),
         statistic = stat_w,
@@ -525,8 +580,10 @@ block_baseline_nhanes <- function(ctx, ...) {
       ) %>%
       gtsummary::modify_caption(
         paste0("**", paths_w$title, "**")
-      ) %>%
-      gtsummary::bold_labels()
+      )
+    if (!isTRUE(bl_cfg$table1_preserve_underscores)) {
+      tb_weighted <- tb_weighted %>% gtsummary::bold_labels()
+    }
 
     out_w <- .bb03_export_nhanes_table(
       ctx, tb_weighted, bl_cfg, data_imp, n_rows, cont_v, skewed_vars,
@@ -560,6 +617,84 @@ block_baseline_nhanes <- function(ctx, ...) {
   if (!is.null(tbl_df_w)) {
     ctx$results$table_1    <- tbl_df_w
     ctx$results$table_1_gt <- tb_weighted
+  }
+
+  # dev_internal_ext：加权 train-vs-internal 基线附表（对齐 14_肌少症 S12 口径）。
+  # 默认关闭；ml_dual_dev_ext overrides 置 TRUE，仅发病双库 dev_ext 触发。
+  if (isTRUE(bl_cfg$export_train_val_baseline %||% FALSE) &&
+      !is.null(tb_weighted)) {
+    tryCatch({
+      tr <- ctx$data$train
+      va <- ctx$data$test %||% ctx$data$validation
+      idc <- cfg$data$id_column %||% "ID"
+      dv0 <- design_tbl$variables
+      if (!is.null(tr) && !is.null(va) && is.data.frame(tr) && is.data.frame(va) &&
+          idc %in% names(dv0) && wt_col %in% names(dv0)) {
+        tr_ids <- unique(as.character(tr[[idc]]))
+        va_ids <- setdiff(unique(as.character(va[[idc]])), tr_ids)
+        dv <- dv0
+        dv$.Split_Set <- factor(
+          ifelse(as.character(dv[[idc]]) %in% tr_ids, "Training",
+                 ifelse(as.character(dv[[idc]]) %in% va_ids, "Validation", NA_character_)),
+          levels = c("Training", "Validation")
+        )
+        dv_keep <- !is.na(dv$.Split_Set) & !is.na(dv[[wt_col]]) & dv[[wt_col]] > 0
+        des_tv <- survey::svydesign(
+          ids = stats::as.formula(paste0("~", psu_col)),
+          strata = stats::as.formula(paste0("~", str_col)),
+          weights = stats::as.formula(paste0("~", wt_col)),
+          data = dv[dv_keep, , drop = FALSE], nest = TRUE
+        )
+        tv_include <- intersect(nhanes_include_vars, names(dv))
+        skewed_hit_tv <- intersect(skewed_vars, names(dv))
+        if (exists("pipeline_median_stat_vars", mode = "function")) {
+          skewed_hit_tv <- pipeline_median_stat_vars(dv, skewed_hit_tv)
+        }
+        stat_tv <- list(
+          all_continuous() ~ "{mean} ({sd})",
+          all_categorical() ~ "{n_unweighted} ({p}%)"
+        )
+        if (length(skewed_hit_tv)) {
+          stat_tv <- c(
+            stat_tv,
+            stats::setNames(
+              rep(list("{median} ({p25}, {p75})"), length(skewed_hit_tv)),
+              skewed_hit_tv
+            )
+          )
+        }
+        tv_args <- list(
+          des_tv,
+          by = dplyr::all_of(".Split_Set"),
+          include = dplyr::all_of(tv_include),
+          digits = list(all_continuous() ~ 2, all_categorical() ~ 2),
+          statistic = stat_tv
+        )
+        if (!is.null(type_arg) && length(type_arg)) tv_args$type <- type_arg
+        tb_tv <- do.call(gtsummary::tbl_svysummary, tv_args) %>%
+          gtsummary::add_p(pvalue_fun = ~gtsummary::style_pvalue(.x, digits = 2)) %>%
+          gtsummary::add_overall() %>%
+          gtsummary::modify_header(
+            all_stat_cols() ~ "**{level}** \n (Unweighted N = {n_unweighted})"
+          )
+        cap_tv <- bl_cfg$train_val_table_title %||%
+          "Baseline characteristics by training and internal validation sets (after multiple imputation)"
+        cap_tv <- sub("^Table S\\d+\\.\\s*", "", cap_tv)
+        paths_tv <- pub_paths(ctx, ctx$output_dir_tables, "supp_table", cap_tv, "xlsx")
+        tb_tv <- tb_tv %>% gtsummary::modify_caption(paste0("**", paths_tv$title, "**"))
+        out_tv <- .bb03_export_nhanes_table(
+          ctx, tb_tv, bl_cfg, dv[dv_keep, , drop = FALSE], sum(dv_keep),
+          cont_v, skewed_vars, ".Split_Set", "Training vs Validation",
+          paths_tv$title, basename(paths_tv$filepath), "TrainVal"
+        )
+        if (!is.null(out_tv)) ctx$results$table_train_val_baseline <- out_tv$tbl_df
+        cli::cli_alert_success(
+          "dev_ext 加权 train-vs-internal 基线表已导出: {.file {basename(paths_tv$filepath)}}"
+        )
+      }
+    }, error = function(e) {
+      cli::cli_alert_warning("baseline_nhanes train-vs-internal 基线表失败（跳过）: {e$message}")
+    })
   }
 
   cli::cli_h2("baseline_nhanes: filtering variables from weighted table")
@@ -609,7 +744,7 @@ block_baseline_nhanes <- function(ctx, ...) {
       } else if (idx_p >= sig_cutoff) {
         stop(
           "BASELINE_INDEX_NS_STOP: 暴露指标 ", index_var,
-          " 加权组间比较 P = ", format(round(idx_p, 4), scientific = FALSE),
+          " 加权组间比较 P = ", fmt_pval(idx_p),
           " >= ", sig_cutoff, "，按 early_stop_if_index_ns 早停 pipeline。",
           call. = FALSE
         )

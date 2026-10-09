@@ -28,7 +28,7 @@ trajectory_jlcm_sabic <- function(m, n_subj) {
   round(-2 * loglik + n_params * log((n_subj + 2) / 24), 1)
 }
 
-trajectory_jlcm_class_props_pct <- function(m, max_classes = 6L) {
+trajectory_jlcm_class_props_pct <- function(m, max_classes = 6L, class_map = NULL) {
   m <- trajectory_unwrap_jointlcmm(m)
   ng <- as.integer(m$ng %||% NA_integer_)
   out <- rep("", max_classes)
@@ -39,14 +39,20 @@ trajectory_jlcm_class_props_pct <- function(m, max_classes = 6L) {
   }
   pprob <- tryCatch(as.data.frame(m$pprob), error = function(e) NULL)
   if (is.null(pprob) || !"class" %in% names(pprob)) return(out)
-  tab <- table(factor(pprob$class, levels = seq_len(ng)))
+  cl <- as.integer(pprob$class)
+  if (!is.null(class_map) && length(class_map) && ng == length(class_map)) {
+    cl <- trajectory_apply_class_swap(cl, class_map)
+  }
+  tab <- table(factor(cl, levels = seq_len(ng)))
   props <- round(100 * as.numeric(prop.table(tab)), 2)
   for (k in seq_len(min(ng, max_classes))) out[k] <- sprintf("%.2f", props[k])
   out
 }
 
 #' 从 JLCM models_list 构建 Table 2 正文（对齐轨迹预后.pdf / Fig2A）
-trajectory_build_table2_from_models <- function(models_list, max_classes = 6L) {
+#' @param class_map named int map old→new；仅对 ng==length(class_map) 的行重排占比（与 Fig2 对齐）
+trajectory_build_table2_from_models <- function(models_list, max_classes = 6L,
+                                               class_map = NULL) {
   if (is.null(models_list) || !length(models_list)) return(NULL)
   nms <- names(models_list)
   ngs <- suppressWarnings(as.integer(gsub("^m", "", nms)))
@@ -55,6 +61,7 @@ trajectory_build_table2_from_models <- function(models_list, max_classes = 6L) {
   nms <- nms[ok]
   ngs <- ngs[ok]
   ord <- order(ngs)
+  map_ng <- if (!is.null(class_map) && length(class_map)) length(class_map) else NA_integer_
   rows <- list()
   for (ii in ord) {
     ng <- ngs[ii]
@@ -62,7 +69,9 @@ trajectory_build_table2_from_models <- function(models_list, max_classes = 6L) {
     if (is.null(m) || !is.list(m)) next
     pprob  <- tryCatch(as.data.frame(m$pprob), error = function(e) NULL)
     n_subj <- if (!is.null(pprob) && nrow(pprob)) nrow(pprob) else NA_integer_
-    props  <- trajectory_jlcm_class_props_pct(m, max_classes)
+    use_map <- if (is.finite(map_ng) && identical(as.integer(ng), as.integer(map_ng)))
+      class_map else NULL
+    props  <- trajectory_jlcm_class_props_pct(m, max_classes, class_map = use_map)
     ll  <- suppressWarnings(as.numeric(m$loglik)[1L])
     aic <- suppressWarnings(as.numeric(m$AIC)[1L])
     bic <- suppressWarnings(as.numeric(m$BIC)[1L])
@@ -95,8 +104,10 @@ trajectory_table2_header_rows <- function(max_classes = 6L) {
 
 #' Table 2：SCI 三线表（与 Table 1 同 export_sci_table 管线）
 trajectory_export_table2_sci <- function(ctx, models_list, file_out, title,
-                                         max_classes = 6L) {
-  body <- trajectory_build_table2_from_models(models_list, max_classes)
+                                         max_classes = 6L, class_map = NULL) {
+  body <- trajectory_build_table2_from_models(
+    models_list, max_classes, class_map = class_map
+  )
   if (is.null(body) || !nrow(body)) return(invisible(FALSE))
   hdr  <- trajectory_table2_header_rows(max_classes)
   export_sci_table(
@@ -111,14 +122,17 @@ trajectory_export_table2_sci <- function(ctx, models_list, file_out, title,
 }
 
 #' 后验分类表：按最终分配类别求各类平均后验概率（对齐 FigS3 / Table S4）
-trajectory_build_posterior_classification_df <- function(model) {
+trajectory_build_posterior_classification_df <- function(model, class_map = NULL) {
   m <- trajectory_unwrap_jointlcmm(model)
   if (is.null(m$pprob)) return(NULL)
   pprob <- as.data.frame(m$pprob)
   if (!"class" %in% names(pprob)) return(NULL)
   prob_cols <- grep("^prob", names(pprob), value = TRUE)
   if (!length(prob_cols)) return(NULL)
-  pprob$Class <- paste0("Class", as.integer(pprob$class))
+  old_cl <- as.integer(pprob$class)
+  new_cl <- if (!is.null(class_map) && length(class_map))
+    trajectory_apply_class_swap(old_cl, class_map) else old_cl
+  pprob$Class <- paste0("Class", new_cl)
   agg <- stats::aggregate(
     pprob[, prob_cols, drop = FALSE],
     by = list(Class = pprob$Class),
@@ -126,6 +140,17 @@ trajectory_build_posterior_classification_df <- function(model) {
   )
   names(agg) <- c("Class", paste0("prob", seq_along(prob_cols)))
   agg <- agg[order(as.integer(gsub("\\D+", "", agg$Class))), , drop = FALSE]
+  if (!is.null(class_map) && length(class_map) && length(prob_cols) == length(class_map)) {
+    P <- as.matrix(agg[, paste0("prob", seq_along(prob_cols)), drop = FALSE])
+    Pnew <- P
+    old_idx <- as.integer(names(class_map))
+    new_idx <- as.integer(unname(class_map))
+    for (k in seq_along(old_idx)) {
+      if (old_idx[k] <= ncol(P) && new_idx[k] <= ncol(Pnew))
+        Pnew[, new_idx[k]] <- P[, old_idx[k]]
+    }
+    for (j in seq_len(ncol(Pnew))) agg[[paste0("prob", j)]] <- Pnew[, j]
+  }
   for (j in seq_along(prob_cols)) {
     cn <- paste0("prob", j)
     agg[[cn]] <- sprintf("%.5f", as.numeric(agg[[cn]]))
@@ -133,8 +158,8 @@ trajectory_build_posterior_classification_df <- function(model) {
   agg
 }
 
-trajectory_export_posterior_classification_sci <- function(ctx, model, file_out, title) {
-  body <- trajectory_build_posterior_classification_df(model)
+trajectory_export_posterior_classification_sci <- function(ctx, model, file_out, title, class_map = NULL) {
+  body <- trajectory_build_posterior_classification_df(model, class_map = class_map)
   if (is.null(body) || !nrow(body)) return(invisible(FALSE))
   prob_n <- sum(grepl("^prob", names(body)))
   h1 <- c("Class", "DATA", rep("", max(0L, prob_n - 1L)))
@@ -176,12 +201,45 @@ trajectory_export_table3_sci <- function(ctx, tab_all, cut_global, file_out, tit
   )
   disp[[left_col]]  <- body[[left_col]]  %||% body[["HR_before"]] %||% ""
   disp[[right_col]] <- body[[right_col]] %||% body[["HR_after"]]  %||% ""
+  # 历史脏值兜底：已落盘的 10^9 级 HR / Inf CI 一律改写为 NE
+  for (cn in c(left_col, right_col)) {
+    if (!cn %in% names(disp)) next
+    v <- as.character(disp[[cn]])
+    hr_num <- suppressWarnings(as.numeric(sub("\\s*\\(.*$", "", v)))
+    # \u2021 = Firth \u6807\u6ce8\uff08\u5927 HR/\u5bbd CI \u5c5e\u51c6\u5206\u79bb\u672c\u8d28\uff0c\u52ff\u518d\u6539\u5199\u4e3a NE\uff09
+    is_firth <- grepl("\u2021", v, fixed = TRUE)
+    bad <- (grepl("Inf", v, ignore.case = TRUE) |
+      grepl("^NE", v) |
+      (!is.na(hr_num) & hr_num >= 1e4)) & !is_firth
+    v[bad] <- "NE\u2020"
+    disp[[cn]] <- v
+  }
+  t3_cells <- as.character(unlist(disp[c(left_col, right_col)]))
+  has_ne <- any(grepl("^NE", t3_cells, perl = TRUE), na.rm = TRUE)
+  has_firth <- any(grepl("\u2021", t3_cells, fixed = TRUE), na.rm = TRUE)
+  footnotes <- list()
+  if (has_ne) {
+    footnotes <- c(footnotes, list(
+      "\u2020NE = not estimable (quasi-complete separation; e.g. zero events in a class within the interval)."
+    ))
+  }
+  if (has_firth) {
+    footnotes <- c(footnotes, list(
+      paste0(
+        "\u2021Firth penalized-likelihood Cox regression with profile penalized-likelihood ",
+        "95% CI, used where the interval shows quasi-complete separation (e.g. zero events in ",
+        "the reference class); the CI is wide by nature."
+      )
+    ))
+  }
+  if (!length(footnotes)) footnotes <- NULL
   h1 <- c("Database", "Trajectory class", "HR (95% CI)", "")
   h2 <- c("", "", left_col, right_col)
   export_sci_table(
     disp, file_out, title = title, sheet = "Table3",
     header_row1 = h1, header_row2 = h2,
-    blank_na_cells = TRUE
+    blank_na_cells = TRUE,
+    table_footnotes = footnotes
   )
   if (exists("render_queued_tables", mode = "function")) {
     render_queued_tables(ctx)
@@ -381,4 +439,170 @@ trajectory_reexport_paper_tables <- function(ctx, cfg_db, Index,
     }
   }
   ctx
+}
+
+#' 从 step14 JLCM RData 补写 Table 2 / Table S8（不重拟合、不编造）
+#' @param force 为 TRUE 时即使已有表也按 class_map 重导（用于占比与 Fig2 对齐）
+#' @param class_map named int old→new；写入最优 ng 行的 Class 占比
+trajectory_rebuild_jlcm_pub_tables <- function(unit_root, index_name, db_lab = "MIMIC",
+                                              ng = NULL, ctx = NULL,
+                                              force = FALSE, class_map = NULL) {
+  unit_root <- as.character(unit_root)[1L]
+  index_name <- as.character(index_name)[1L]
+  db_lab <- as.character(db_lab)[1L]
+  tab_dir <- file.path(unit_root, "Tables")
+  dir.create(tab_dir, recursive = TRUE, showWarnings = FALSE)
+
+  dest_t2 <- file.path(
+    tab_dir, paste0("Table 2-", db_lab, ". Metrics for determining the optimal number of classes.xlsx")
+  )
+  dest_s8 <- file.path(
+    tab_dir, paste0("Table S8-", db_lab, ". Posterior classification table.xlsx")
+  )
+  need_t2 <- isTRUE(force) || !file.exists(dest_t2)
+  need_s8 <- isTRUE(force) || !file.exists(dest_s8)
+  if (!need_t2 && !need_s8) return(invisible(list(ok = TRUE, skipped = TRUE)))
+
+  if (is.null(class_map) || !length(class_map)) {
+    class_map <- trajectory_read_class_align_map(
+      unit_root, index_name = index_name, db_lab = db_lab
+    )
+  }
+
+  rds <- list.files(
+    file.path(unit_root, "step14_trajectory_jlcm", "Data"),
+    pattern = paste0("jlcm_", index_name, "_models\\.RData$"),
+    full.names = TRUE
+  )
+  if (!length(rds)) {
+    rds <- list.files(
+      unit_root, pattern = paste0("jlcm_", index_name, "_models\\.RData$"),
+      recursive = TRUE, full.names = TRUE
+    )
+  }
+  if (!length(rds)) {
+    cli::cli_alert_warning("未找到 JLCM RData，无法补写 Table 2 / S8: {index_name}")
+    return(invisible(list(ok = FALSE, reason = "no_rdata")))
+  }
+
+  e <- new.env(parent = emptyenv())
+  load(rds[[1L]], envir = e)
+  models <- NULL
+  if (!is.null(e$models_list_with_cov) && is.list(e$models_list_with_cov)) {
+    models <- e$models_list_with_cov
+  } else if (!is.null(e$pack) && is.list(e$pack) && !is.null(e$pack$models)) {
+    models <- e$pack$models
+  } else if (!is.null(e$models) && is.list(e$models)) {
+    models <- e$models
+  }
+  if (is.null(models) || !length(models)) {
+    cli::cli_alert_warning("JLCM RData 无 models 列表: {basename(rds[[1L]])}")
+    return(invisible(list(ok = FALSE, reason = "no_models")))
+  }
+
+  if (is.null(ng) || !is.finite(suppressWarnings(as.integer(ng)[1L]))) {
+    ng_files <- c(
+      file.path(tab_dir, "Summary", paste0("optimal_ng_", index_name, ".txt")),
+      file.path(unit_root, "step14_trajectory_jlcm", "Tables", "Summary",
+                paste0("optimal_ng_", index_name, ".txt"))
+    )
+    ng <- NA_integer_
+    for (nf in ng_files) {
+      if (!file.exists(nf)) next
+      ng <- suppressWarnings(as.integer(readLines(nf, warn = FALSE)[1L]))
+      if (is.finite(ng)) break
+    }
+    if (!is.finite(ng)) ng <- 2L
+  }
+  ng <- as.integer(ng)[1L]
+
+  if (is.null(ctx)) {
+    ctx <- list(
+      config = list(project = list(database = db_lab)),
+      output_dir = unit_root,
+      output_dir_tables = tab_dir,
+      root_output_dir = unit_root
+    )
+  }
+  if (exists(".table_queue_env") && is.environment(.table_queue_env)) {
+    .table_queue_env$items <- list()
+  }
+
+  wrote <- character(0)
+  if (need_t2 && exists("trajectory_export_table2_sci", mode = "function")) {
+    t2_title <- paste0(
+      "Table 2. Metrics for determining the optimal number of classes (", index_name, ")"
+    )
+    ok <- isTRUE(tryCatch({
+      trajectory_export_table2_sci(
+        ctx, models, dest_t2, t2_title, class_map = class_map
+      )
+      TRUE
+    }, error = function(e) {
+      cli::cli_alert_warning("Table 2 SCI 导出失败，改用直写 xlsx: {e$message}")
+      FALSE
+    }))
+    if (!ok && exists("trajectory_export_table2_xlsx", mode = "function")) {
+      ok <- isTRUE(tryCatch(
+        trajectory_export_table2_xlsx(models, dest_t2, index_name = index_name),
+        error = function(e) FALSE
+      ))
+    }
+    if (ok && file.exists(dest_t2)) wrote <- c(wrote, dest_t2)
+  }
+
+  if (need_s8 && exists("trajectory_export_posterior_classification_sci", mode = "function")) {
+    m_sel <- models[[paste0("m", ng)]]
+    if (is.null(m_sel) && length(models)) m_sel <- models[[length(models)]]
+    if (!is.null(m_sel)) {
+      s8_title <- paste0("Table S8. Posterior classification table (", index_name, ", ", db_lab, ")")
+      ok <- isTRUE(tryCatch({
+        trajectory_export_posterior_classification_sci(
+          ctx, m_sel, dest_s8, s8_title, class_map = class_map
+        )
+        TRUE
+      }, error = function(e) {
+        cli::cli_alert_warning("Table S8 SCI 导出失败: {e$message}")
+        FALSE
+      }))
+      if (ok && file.exists(dest_s8)) wrote <- c(wrote, dest_s8)
+    }
+  }
+
+  if (length(wrote)) {
+    cli::cli_alert_success(
+      "已从 JLCM RData 补写: {paste(basename(wrote), collapse = '; ')}"
+    )
+  }
+  invisible(list(ok = length(wrote) > 0L, wrote = wrote, ng = ng, rdata = rds[[1L]]))
+}
+
+#' 读 Tables/Summary/class_align_{Index}.csv → named int map（单库）
+trajectory_read_class_align_map <- function(unit_or_index_root, index_name,
+                                            db_lab = NULL, db_slug = NULL) {
+  index_name <- as.character(index_name)[1L]
+  cands <- c(
+    file.path(unit_or_index_root, "Tables", "Summary",
+              paste0("class_align_", index_name, ".csv")),
+    file.path(unit_or_index_root, "Summary",
+              paste0("class_align_", index_name, ".csv")),
+    file.path(dirname(unit_or_index_root), "Tables", "Summary",
+              paste0("class_align_", index_name, ".csv"))
+  )
+  fp <- cands[file.exists(cands)][1L]
+  if (is.na(fp) || !nzchar(fp)) return(NULL)
+  al <- tryCatch(
+    utils::read.csv(fp, stringsAsFactors = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(al) || !nrow(al)) return(NULL)
+  need <- c("db", "old_class", "new_class")
+  if (!all(need %in% names(al))) return(NULL)
+  slug <- tolower(as.character(db_slug %||% db_lab %||% "")[1L])
+  if (!nzchar(slug)) return(NULL)
+  if (grepl("eicu", slug)) slug <- "eicu"
+  else if (grepl("mimic", slug)) slug <- "mimic"
+  sub <- al[tolower(as.character(al$db)) == slug, , drop = FALSE]
+  if (!nrow(sub)) return(NULL)
+  stats::setNames(as.integer(sub$new_class), as.character(sub$old_class))
 }

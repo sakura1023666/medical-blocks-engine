@@ -5,8 +5,13 @@
 #  典型位置: competing_index_exposure 之后、trim_index_extreme / 表导出之前
 #
 #  config$analysis_exclusion$protect_vars（可选，字符向量）:
-#    显式保护列名单，优先于 disease_vars / 组成变量 / other_index 硬排除生效。
-#    用于保护派生暴露/结局列（如 Diabetes_HbA1c）不被同名疾病变量的硬排除误删。
+#    显式保护列名单，优先于 disease_vars / 组成变量 / other_index 的「删列」生效。
+#    典型用途：
+#      1) 派生暴露/结局列（如 Diabetes_HbA1c）不被同名疾病变量误删；
+#      2) 暴露公式成分中需保留作 Table1 / 亚组展示的列（如 FIB4 的 Age、
+#         或其它复合指标名 BMI）——这些列仍禁止进入 Model1/2 协变量
+#         （由 pipeline_covariate_analysis_exclude_vars / logistic_constrain 排除）。
+#    实验室成分（AST/ALT/PLT 等）勿放入 protect_vars，继续从数据中硬删。
 ###############################################################################
 
 pipeline_analysis_exclusion_resolve_index_var <- function(cfg) {
@@ -40,6 +45,11 @@ pipeline_analysis_exclusion_keep_vars <- function(cfg) {
   bl <- cfg$competing_risk %||% list()
   ae <- cfg$analysis_exclusion %||% list()
   index_var <- pipeline_analysis_exclusion_resolve_index_var(cfg)
+  current_index_vars <- unique(c(
+    index_var,
+    as.character(ae$current_index_vars %||% character(0))
+  ))
+  current_index_vars <- current_index_vars[nzchar(current_index_vars)]
   unique(c(
     as.character((cfg$data %||% list())$id_column %||% character(0)),
     "ID", "subject_id", "SEQN",
@@ -49,7 +59,7 @@ pipeline_analysis_exclusion_keep_vars <- function(cfg) {
     as.character(bl$time_var %||% character(0)),
     as.character(bl$event_type_col %||% character(0)),
     "competing_time_28d", "competing_status_28d", "competing_primary_event",
-    index_var,
+    current_index_vars,
     as.character(bl$exposure_var %||% if (nzchar(index_var)) paste0(index_var, "_quartile") else character(0)),
     as.character(bl$trajectory_var %||% if (nzchar(index_var)) paste0(index_var, "_trajectory") else character(0)),
     if (nzchar(index_var)) paste0(index_var, c("", "_quartile", "_trajectory")) else character(0),
@@ -84,8 +94,18 @@ pipeline_analysis_exclusion_manifest <- function(cfg, data_names = character(0))
 
   if (!exists("pipeline_index_definition_map", mode = "function") ||
       !exists("pipeline_index_raw_components", mode = "function")) {
-    root <- cfg$project$root %||% getwd()
-    src <- file.path(root, "Blocks/00_index/01block_index.R")
+    eng_root <- if (exists("pipeline_engine_root", mode = "function")) {
+      pipeline_engine_root(cfg$project$root %||% getwd())
+    } else {
+      cfg$project$root %||% getwd()
+    }
+    src <- file.path(eng_root, "Blocks/00_index/01block_index.R")
+    if (!file.exists(src)) {
+      env_eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      if (nzchar(env_eng)) {
+        src <- file.path(env_eng, "Blocks/00_index/01block_index.R")
+      }
+    }
     if (file.exists(src)) source(src, local = FALSE)
   }
   if (!exists("pipeline_index_raw_components", mode = "function")) {
@@ -94,6 +114,11 @@ pipeline_analysis_exclusion_manifest <- function(cfg, data_names = character(0))
 
   bl <- cfg$competing_risk %||% list()
   index_var <- pipeline_analysis_exclusion_resolve_index_var(cfg)
+  current_index_vars <- unique(c(
+    index_var,
+    as.character(ae$current_index_vars %||% character(0))
+  ))
+  current_index_vars <- current_index_vars[nzchar(current_index_vars)]
   definitions <- pipeline_index_definition_map()
   allow_no_index <- isTRUE(ae$allow_no_index %||% FALSE)
   if (!nzchar(index_var) && !allow_no_index) {
@@ -102,9 +127,14 @@ pipeline_analysis_exclusion_manifest <- function(cfg, data_names = character(0))
 
   if (!nzchar(index_var)) {
     index_var <- "(none)"
+    current_index_vars <- character(0)
     component_vars <- character(0)
   } else {
-    component_vars <- pipeline_index_raw_components(index_var, definitions = definitions)
+    component_vars <- unique(unlist(lapply(
+      current_index_vars,
+      pipeline_index_raw_components,
+      definitions = definitions
+    ), use.names = FALSE))
   }
   disease_cfg <- as.character(ae$disease_vars %||% character(0))
   disease_vars <- pipeline_analysis_exclusion_match_names(disease_cfg, data_names)
@@ -122,7 +152,7 @@ pipeline_analysis_exclusion_manifest <- function(cfg, data_names = character(0))
     other_index_vars <- if (identical(index_var, "(none)")) {
       all_indices
     } else {
-      setdiff(all_indices, index_var)
+      setdiff(all_indices, current_index_vars)
     }
   }
 
@@ -135,6 +165,19 @@ pipeline_analysis_exclusion_manifest <- function(cfg, data_names = character(0))
     )
   } else {
     drop_vars <- setdiff(drop_candidates, keep_vars)
+  }
+
+  root <- (cfg$project %||% list())$root %||%
+    Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
+  ic_fp <- file.path(root, "R/index_canonical.R")
+  if (file.exists(ic_fp) && !exists("index_prune_alias_drop_vars", mode = "function")) {
+    source(ic_fp, local = FALSE)
+  }
+  if (exists("index_prune_alias_drop_vars", mode = "function")) {
+    alias_drop <- index_prune_alias_drop_vars(data_names, cfg)
+    if (length(alias_drop)) {
+      drop_vars <- unique(c(drop_vars, alias_drop))
+    }
   }
 
   list(
@@ -184,23 +227,33 @@ block_analysis_exclusion <- function(ctx, ...) {
   out_dir <- ctx$output_dir_tables %||%
     file.path(ctx$output_dir %||% (cfg$project$output_dir %||% "Output"), "Tables")
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-  audit <- data.frame(
-    index_var = manifest$index_var,
-    category = c(
-      rep("disease", length(manifest$disease_vars)),
-      rep("component", length(manifest$component_vars)),
-      rep("other_index", length(manifest$other_index_vars))
-    ),
-    variable = c(
-      manifest$disease_vars,
-      manifest$component_vars,
-      manifest$other_index_vars
-    ),
-    stringsAsFactors = FALSE
+  vars_audit <- c(
+    manifest$disease_vars,
+    manifest$component_vars,
+    manifest$other_index_vars
   )
+  audit <- if (!length(vars_audit)) {
+    data.frame(
+      index_var = character(0),
+      category = character(0),
+      variable = character(0),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    data.frame(
+      index_var = manifest$index_var,
+      category = c(
+        rep("disease", length(manifest$disease_vars)),
+        rep("component", length(manifest$component_vars)),
+        rep("other_index", length(manifest$other_index_vars))
+      ),
+      variable = vars_audit,
+      stringsAsFactors = FALSE
+    )
+  }
   utils::write.csv(
     audit,
-    file.path(out_dir, paste0("Analysis_exclusion_", manifest$index_var, ".csv")),
+    file.path(out_dir, paste0("Analysis_exclusion_", gsub("[^A-Za-z0-9_]+", "_", manifest$index_var), ".csv")),
     row.names = FALSE
   )
 

@@ -1,0 +1,47 @@
+---
+description: CKM cum-eGDR / 两波 k-means 发表复用入口（勿复活归档 rebuild）
+globs:
+  - Blocks/76_cum_egdr_kmeans_ckm_full/**
+  - run/cum_egdr_kmeans_ckm/**
+  - R/literature_ckm_cum_egdr.R
+  - R/cum_egdr_kmeans_pub.R
+alwaysApply: false
+---
+
+# cum-eGDR k-means CKM 复用铁律
+
+## 唯一可复用入口
+
+| 层 | 路径 |
+|----|------|
+| Blocks | `Blocks/76_cum_egdr_kmeans_ckm_full/` |
+| 数据/索引 helpers | `R/literature_ckm_cum_egdr.R` |
+| 发表 helpers | `R/cum_egdr_kmeans_pub.R` |
+| 批跑 | `run/cum_egdr_kmeans_ckm/run_cum_egdr_kmeans_ckm_batch.R` |
+| 发表重导 | `run/cum_egdr_kmeans_ckm/rebuild_publication.R` |
+
+模板：`configs/templates/config_cum_egdr_kmeans_ckm_batch.template.R`。
+
+## 禁止
+
+- 复活 / 复制 `run/cum_egdr_kmeans_ckm/_archive/*` 或 `tmp/_archive_ckm/*` 当现行入口
+- 再堆 `rebuild_pub_tables_fig2.R` / `rebuild_figures_match_paper.R` / `rebuild_summary_publication.R` 平行脚本
+- Fig2 只交分面板 2A/2B/2C；定稿必须 **A elbow · B scatter+hull · C trajectories** 合并一张
+- Table 版式自写一套绕过 `ckm_stroke_build_table*` helpers
+
+## 下一课题（CHARLS 两波 × 新 index）
+
+1. 复制模板 config，改暴露列与 `full_depth_indices`
+2. 用 `ckm_stroke_class_map_paper(map=..., colors=...)` 覆盖 Class 标签
+3. batch → `rebuild_publication.R`（或直接调 `ckm_stroke_build_*` / `ckm_stroke_fig2_abc`）
+4. 勿从 archive 拷旧 Class map（`rebuild_summary_publication.R` 已证错）
+
+## Fig2 / Table 口径速记
+
+- Fig2：`ckm_stroke_fig2_abc()` — A elbow | B hull-scatter | C mean±SE
+- Table1：`ckm_stroke_build_table1_by_class()` — Demographics / Labs / Comorbidities / Exposure
+- Table2/S1：`ckm_stroke_build_table2_assoc()` / `ckm_stroke_build_table_s1_cox()`
+- Table3：`ckm_stroke_build_table3_subgroup()` — Class2 ref 列在前
+- S2 long：`ckm_stroke_build_table_s2_long()`
+- S2/S3 森林：`ckm_stroke_forest_free_stats()` — continuous **per 1-SD**
+- LRT P-int：`ckm_stroke_lrt_pint()` — 固定读 `Pr(>Chi)` / `Pr(>|Chi|)`

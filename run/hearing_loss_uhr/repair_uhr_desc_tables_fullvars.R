@@ -1,6 +1,11 @@
 #!/usr/bin/env Rscript
-# 听力 UHR：Table1/S1–S4 各库全变量（不按双库交集裁列）
-# 从 _shared/column_mapping（全列）起步，NHANES 限 Age 45–69；跳过 dual_db_column_harmonize
+# 【已废弃 / 禁止再跑】全变量描述会把全部复合指标写入 Table1，不符合本课题「只放暴露 UHR」。
+# Table1 请用：run/hearing_loss_uhr/restore_table1_exposure_only.R
+stop(
+  "DEPRECATED: repair_uhr_desc_tables_fullvars.R fills Table1 with all composites. ",
+  "Use restore_table1_exposure_only.R for Table1 (exposure UHR only).",
+  call. = FALSE
+)
 suppressPackageStartupMessages(options(stringsAsFactors = FALSE, cli.hyperlink = FALSE, warn = 1))
 
 root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "/mnt/e/01block/01Block-new-Final")

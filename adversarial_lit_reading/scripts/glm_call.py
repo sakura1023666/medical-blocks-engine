@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""GLM 5.1（智谱 BigModel）调用助手 —— 纯标准库，OpenAI 兼容接口，带 provenance。
+"""对抗阅读 AI-B 调用助手 —— 纯标准库，带 provenance。
 
-供「一键对抗阅读」的 AI-B（攻击者）使用，也供 batch_adversarial_run.py
-在纯脚本全自动模式下调用任意 OpenAI 兼容端点（GLM / DeepSeek / OpenAI 兼容网关）。
+优先顺序：
+  1) ZHIPU_API_KEY → 智谱 OpenAI 兼容 /chat/completions（默认 glm-5.1）
+  2) ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL → Anthropic Messages API
+     （如阿里云 token-plan /apps/anthropic）
 
 环境变量：
-  ZHIPU_API_KEY   智谱 API key（必填，AI-B 用）
-  READER_BASE_URL / READER_API_KEY / READER_MODEL  可选，AI-A 在纯脚本模式的端点
+  ZHIPU_API_KEY
+  ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL
+  READER_BASE_URL / READER_API_KEY / READER_MODEL  （batch 脚本 AI-A 用）
 
 用法：
-  python3 scripts/glm_call.py --system-file prompts/AI_B_tree_critic.md \
-      --user-file rounds/_for_glm/paper_001_Q1.md \
+  python3 scripts/glm_call.py --system-file prompts/AI_B_tree_critic.md \\
+      --user-file rounds/_for_glm/paper_001_Q1.md \\
       --out rounds/B_attack_tree_paper_001_Q1.md --thinking
 """
 from __future__ import annotations
@@ -31,8 +34,13 @@ class GlmCallError(RuntimeError):
 
 def _load_dotenv() -> None:
     """极简 .env 读取：把 KEY=VALUE 装进 os.environ（不覆盖已有值）。"""
-    candidates = [Path.cwd() / ".env", Path.cwd() / ".env.glm",
-                  Path(__file__).resolve().parents[1] / ".env"]
+    here = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / ".env",
+        Path.cwd() / ".env.glm",
+        here.parents[1] / ".env",       # adversarial_lit_reading/
+        here.parents[2] / ".env",       # 项目根
+    ]
     for envfile in candidates:
         if not envfile.exists():
             continue
@@ -44,33 +52,18 @@ def _load_dotenv() -> None:
             os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
-def chat(base_url, api_key, model, system, user,
-         thinking=False, max_tokens=65536, temperature=1.0, timeout=600,
-         retries=2):
-    """调用 OpenAI 兼容 /chat/completions，返回纯文本。429/5xx 有限重试。"""
-    if not api_key:
-        raise GlmCallError("auth", "缺少 API key（设 ZHIPU_API_KEY 或 --api-key）")
-    messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": user})
-    send_thinking = thinking and any(h in base_url for h in GLM_HOSTS)
-    payload = {"model": model, "messages": messages, "max_tokens": max_tokens,
-               "temperature": temperature, "stream": False}
-    if send_thinking:
-        payload["thinking"] = {"type": "enabled"}   # 非 GLM 端点剥离，避免 400
-
+def _http_json(url, payload, headers, timeout=600, retries=2):
     req = urllib.request.Request(
-        f"{base_url.rstrip('/')}/chat/completions",
+        url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
-        method="POST")
+        headers=headers,
+        method="POST",
+    )
     last_err = None
     for attempt in range(retries + 1):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            break
+                return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", "ignore")[:800]
             last_err = GlmCallError("http", f"HTTP {e.code}: {body}", e.code)
@@ -84,10 +77,31 @@ def chat(base_url, api_key, model, system, user,
                 time.sleep(2 ** attempt)
                 continue
             raise last_err
-    else:
-        raise last_err
+    raise last_err
 
-    # 返回前自检：杜绝空/截断内容被静默当攻击意见
+
+def chat_openai(base_url, api_key, model, system, user,
+                thinking=False, max_tokens=65536, temperature=1.0, timeout=600,
+                retries=2):
+    """OpenAI 兼容 /chat/completions，返回 (content, data)。"""
+    if not api_key:
+        raise GlmCallError("auth", "缺少 API key（设 ZHIPU_API_KEY 或 --api-key）")
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": user})
+    send_thinking = thinking and any(h in base_url for h in GLM_HOSTS)
+    payload = {"model": model, "messages": messages, "max_tokens": max_tokens,
+               "temperature": temperature, "stream": False}
+    if send_thinking:
+        payload["thinking"] = {"type": "enabled"}
+
+    data = _http_json(
+        f"{base_url.rstrip('/')}/chat/completions",
+        payload,
+        {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+        timeout=timeout, retries=retries,
+    )
     if isinstance(data, dict) and "error" in data:
         raise GlmCallError("api", f"返回 error 结构: {str(data)[:500]}")
     choices = data.get("choices") if isinstance(data, dict) else None
@@ -97,21 +111,141 @@ def chat(base_url, api_key, model, system, user,
     content = (choice.get("message") or {}).get("content", "")
     finish = choice.get("finish_reason")
     if finish == "length":
-        sys.stderr.write(f"[glm_call] 警告：finish_reason=length（被 max_tokens 截断，"
-                         f"建议增大 --max-tokens）\n")
-    if not content.strip():
-        raise GlmCallError("api", "返回空 content（疑似被 thinking 耗尽预算，"
-                           "增大 max_tokens 或关闭 thinking）")
+        sys.stderr.write("[glm_call] 警告：finish_reason=length（被 max_tokens 截断）\n")
+    if isinstance(content, list):
+        # 部分网关返回 content blocks
+        content = "".join(
+            (b.get("text") or "") if isinstance(b, dict) else str(b) for b in content
+        )
+    if not str(content).strip():
+        raise GlmCallError("api", "返回空 content")
+    return str(content), data
+
+
+def chat_anthropic(base_url, api_key, model, system, user,
+                   max_tokens=65536, temperature=1.0, timeout=600, retries=2):
+    """Anthropic Messages API（/v1/messages），返回 (content, data)。"""
+    if not api_key:
+        raise GlmCallError("auth", "缺少 ANTHROPIC_AUTH_TOKEN")
+    payload = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "messages": [{"role": "user", "content": user}],
+        # 关闭深度思考，避免 thinking 吃光 max_tokens 导致 text 空/截断
+        "thinking": {"type": "disabled"},
+    }
+    if system:
+        payload["system"] = system
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+    }
+    data = _http_json(
+        f"{base_url.rstrip('/')}/v1/messages",
+        payload,
+        headers,
+        timeout=timeout, retries=retries,
+    )
+    if isinstance(data, dict) and data.get("type") == "error":
+        raise GlmCallError("api", f"Anthropic error: {str(data)[:500]}")
+    blocks = data.get("content") if isinstance(data, dict) else None
+    if not blocks:
+        raise GlmCallError("api", f"content 为空: {str(data)[:500]}")
+    text_parts, think_parts = [], []
+    for b in blocks:
+        if not isinstance(b, dict):
+            if isinstance(b, str):
+                text_parts.append(b)
+            continue
+        btype = b.get("type")
+        if btype == "thinking":
+            think_parts.append(b.get("thinking") or "")
+        elif btype in ("text", None) or "text" in b:
+            text_parts.append(b.get("text") or "")
+    content = "".join(text_parts).strip()
+    stop = data.get("stop_reason")
+    if stop == "max_tokens":
+        sys.stderr.write("[glm_call] 警告：stop_reason=max_tokens（被截断）\n")
+    # 部分网关（如 deepseek via anthropic）会先吐 thinking；若 text 空但 thinking 有字，
+    # 仅在 text 完全空时回退，避免把草稿当终稿却静默失败。
+    if not content:
+        think = "\n".join(x for x in think_parts if x.strip()).strip()
+        if think:
+            sys.stderr.write(
+                "[glm_call] 警告：仅有 thinking、无 text；将 thinking 回退为输出"
+                "（建议增大 --max-tokens）\n"
+            )
+            content = think
+        else:
+            raise GlmCallError("api", "返回空 text content（thinking 亦空）")
+    return content, data
+
+
+def chat(base_url, api_key, model, system, user,
+         thinking=False, max_tokens=65536, temperature=1.0, timeout=600,
+         retries=2, protocol=None):
+    """统一入口：protocol=openai|anthropic；返回文本（兼容旧调用方）。"""
+    content, _ = chat_with_meta(
+        base_url, api_key, model, system, user,
+        thinking=thinking, max_tokens=max_tokens, temperature=temperature,
+        timeout=timeout, retries=retries, protocol=protocol,
+    )
     return content
 
 
+def chat_with_meta(base_url, api_key, model, system, user,
+                   thinking=False, max_tokens=65536, temperature=1.0, timeout=600,
+                   retries=2, protocol=None):
+    proto = (protocol or "openai").lower()
+    if proto == "anthropic":
+        return chat_anthropic(
+            base_url, api_key, model, system, user,
+            max_tokens=max_tokens, temperature=temperature,
+            timeout=timeout, retries=retries,
+        )
+    return chat_openai(
+        base_url, api_key, model, system, user,
+        thinking=thinking, max_tokens=max_tokens, temperature=temperature,
+        timeout=timeout, retries=retries,
+    )
+
+
+def resolve_critic_endpoint():
+    """解析 AI-B 端点：优先智谱，其次 Anthropic 兼容网关。"""
+    _load_dotenv()
+    if os.environ.get("ZHIPU_API_KEY"):
+        return {
+            "protocol": "openai",
+            "base_url": DEFAULT_BASE,
+            "api_key": os.environ["ZHIPU_API_KEY"],
+            "model": os.environ.get("ZHIPU_MODEL", DEFAULT_MODEL),
+        }
+    token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    base = os.environ.get("ANTHROPIC_BASE_URL")
+    if token and base:
+        return {
+            "protocol": "anthropic",
+            "base_url": base,
+            "api_key": token,
+            "model": os.environ.get("ANTHROPIC_MODEL", "deepseek-v4-flash-0731"),
+        }
+    raise GlmCallError(
+        "auth",
+        "缺少 ZHIPU_API_KEY，且未配置 ANTHROPIC_AUTH_TOKEN+ANTHROPIC_BASE_URL",
+    )
+
+
 def glm_chat(system, user, *, thinking=False, max_tokens=65536, temperature=1.0):
-    """便捷函数：直接用 ZHIPU_API_KEY 调 GLM-5.1。"""
-    key = os.environ.get("ZHIPU_API_KEY")
-    if not key:
-        raise GlmCallError("auth", "缺少 ZHIPU_API_KEY（设环境变量或在 .env 里配置）")
-    return chat(DEFAULT_BASE, key, DEFAULT_MODEL, system, user,
-                thinking=thinking, max_tokens=max_tokens, temperature=temperature)
+    """便捷函数：自动解析智谱或 Anthropic 网关。"""
+    ep = resolve_critic_endpoint()
+    return chat(
+        ep["base_url"], ep["api_key"], ep["model"], system, user,
+        thinking=thinking, max_tokens=max_tokens, temperature=temperature,
+        protocol=ep["protocol"],
+    )
 
 
 def extract_json(text):
@@ -164,28 +298,47 @@ def _provenance_line(model, data, content):
 
 if __name__ == "__main__":
     _load_dotenv()
-    ap = argparse.ArgumentParser(description="调用 GLM 5.1（或任意 OpenAI 兼容端点）")
+    ap = argparse.ArgumentParser(description="调用智谱 GLM 或 Anthropic 兼容网关")
     ap.add_argument("--system-file", help="system 提示词文件（通常是角色 Prompt）")
     ap.add_argument("--user-file", required=True, help="user 正文文件")
     ap.add_argument("--out", required=True, help="输出文件路径")
-    ap.add_argument("--model", default=DEFAULT_MODEL)
-    ap.add_argument("--base-url", default=DEFAULT_BASE)
-    ap.add_argument("--api-key", default=None, help="默认读 ZHIPU_API_KEY")
+    ap.add_argument("--model", default=None)
+    ap.add_argument("--base-url", default=None)
+    ap.add_argument("--api-key", default=None)
+    ap.add_argument("--protocol", default=None, choices=["openai", "anthropic"])
     ap.add_argument("--thinking", action="store_true", help="启用 GLM 深度思考（攻击者推荐）")
     ap.add_argument("--max-tokens", type=int, default=65536)
     args = ap.parse_args()
 
     system = Path(args.system_file).read_text(encoding="utf-8") if args.system_file else ""
     user = Path(args.user_file).read_text(encoding="utf-8")
-    key = args.api_key or os.environ.get("ZHIPU_API_KEY")
+
     try:
-        content = chat(args.base_url, key, args.model, system, user,
-                       thinking=args.thinking, max_tokens=args.max_tokens)
-        data_obj = {}  # CLI 模式仅写来源标记；如需 request_id/usage 可让 chat() 返回 (content, data)
+        if args.api_key or args.base_url or args.protocol:
+            protocol = args.protocol or ("anthropic" if "anthropic" in (args.base_url or "") else "openai")
+            base = args.base_url or (DEFAULT_BASE if protocol == "openai" else os.environ.get("ANTHROPIC_BASE_URL"))
+            key = args.api_key or (
+                os.environ.get("ZHIPU_API_KEY") if protocol == "openai"
+                else os.environ.get("ANTHROPIC_AUTH_TOKEN")
+            )
+            model = args.model or (
+                DEFAULT_MODEL if protocol == "openai"
+                else os.environ.get("ANTHROPIC_MODEL", "deepseek-v4-flash-0731")
+            )
+        else:
+            ep = resolve_critic_endpoint()
+            protocol, base, key, model = ep["protocol"], ep["base_url"], ep["api_key"], ep["model"]
+            if args.model:
+                model = args.model
+
+        content, data_obj = chat_with_meta(
+            base, key, model, system, user,
+            thinking=args.thinking, max_tokens=args.max_tokens, protocol=protocol,
+        )
     except GlmCallError as e:
         sys.exit(f"{e}  ← glm_call 失败：整条对抗流程必须中止，禁止智能体自行生成该步产物。")
-    prov = _provenance_line(args.model, data_obj, content)
+    prov = _provenance_line(model, data_obj, content)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(prov + "\n" + content, encoding="utf-8")
-    print(f"[glm_call] -> {args.out}  ({len(content)} chars, provenance written)")
+    print(f"[glm_call] -> {args.out}  ({len(content)} chars, protocol={protocol}, model={model})")

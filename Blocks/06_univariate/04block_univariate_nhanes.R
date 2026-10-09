@@ -90,32 +90,7 @@
 }
 
 .uvn04_match_coef_row <- function(sub_m, bv, lev = NULL) {
-  if (is.null(sub_m) || !nrow(sub_m)) {
-    return(sub_m[0, , drop = FALSE])
-  }
-  if (is.null(lev)) {
-    mr <- sub_m[sub_m$Variable == bv, , drop = FALSE]
-    if (nrow(mr)) return(mr[1L, , drop = FALSE])
-    return(sub_m[0, , drop = FALSE])
-  }
-  lev <- as.character(lev)
-  candidates <- unique(c(
-    paste0(bv, lev),
-    paste0(bv, trimws(lev)),
-    paste0(bv, gsub("\\s+", " ", trimws(lev)))
-  ))
-  for (cand in candidates) {
-    mr <- sub_m[sub_m$Variable == cand, , drop = FALSE]
-    if (nrow(mr)) return(mr[1L, , drop = FALSE])
-  }
-  mr <- sub_m[grepl(paste0("^", bv), sub_m$Variable, perl = TRUE), , drop = FALSE]
-  if (nzchar(trimws(lev))) {
-    mr <- mr[vapply(mr$Variable, function(vn) {
-      grepl(trimws(lev), vn, fixed = TRUE) || grepl(trimws(lev, which = "right"), vn, fixed = TRUE)
-    }, logical(1)), , drop = FALSE]
-  }
-  if (nrow(mr) > 1L) mr <- mr[1L, , drop = FALSE]
-  mr
+  univar_match_coef_row(sub_m, bv, lev)
 }
 
 .uvn04_publish_table_s2a_nhanes <- function(
@@ -190,6 +165,7 @@
     paste0("p=", formatC(round(p, 3), format = "f", digits = 3))
   }
   .fmt_ci_p <- function(est, lo, hi, p) {
+    if (exists("pub_fmt_est_ci_p", mode = "function")) return(pub_fmt_est_ci_p(est, lo, hi, p))
     if (length(est) != 1L || is.na(est)) return("")
     pt <- .fmt_p_inline(p)
     if (is.na(lo) || is.na(hi)) {
@@ -590,9 +566,12 @@ block_univariate_nhanes <- function(ctx, ...) {
   wt_col  <- as.character(nhanes_cfg$survey_weight  %||% "new_Weight")[1L]
   psu_col <- as.character(nhanes_cfg$survey_cluster %||% "SDMVPSU")[1L]
   str_col <- as.character(nhanes_cfg$survey_strata  %||% "SDMVSTRA")[1L]
-  extra_excl <- as.character(nhanes_cfg$exclude_cols %||% c("WTINT2YR", "WTMEC2YR"))
-  excl_cols  <- unique(c(wt_col, psu_col, str_col, extra_excl,
-                         cfg$data$id_column %||% "SEQN"))
+  excl_cols <- if (exists("pipeline_nhanes_survey_design_exclude_cols", mode = "function")) {
+    pipeline_nhanes_survey_design_exclude_cols(names(design$variables), cfg)
+  } else {
+    extra_excl <- as.character(nhanes_cfg$exclude_cols %||% c("WTINT2YR", "WTMEC2YR"))
+    unique(c(wt_col, psu_col, str_col, extra_excl, cfg$data$id_column %||% "SEQN"))
+  }
 
   design <- stats::update(
     design,
@@ -615,10 +594,17 @@ block_univariate_nhanes <- function(ctx, ...) {
   if (length(idx_keep) && nzchar(idx_keep)) {
     uv_excl <- setdiff(uv_excl, idx_keep)
   }
+  meta_excl <- if (exists("pipeline_meta_exclude_cols", mode = "function")) {
+    pipeline_meta_exclude_cols()
+  } else {
+    character(0)
+  }
+  # Group 常与 Disease_Group 同义，禁止进单因素/下游特征池
   drop_always <- unique(c(
-    "Disease", "Disease_Group", outcome_col,
+    "Disease", "Disease_Group", "Group", outcome_col,
     cov_excl, uv_excl,
-    excl_cols
+    excl_cols,
+    meta_excl
   ))
   drop_always <- intersect(drop_always, names(design$variables))
   if (length(cov_excl)) {

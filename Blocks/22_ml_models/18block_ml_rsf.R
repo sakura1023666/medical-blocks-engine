@@ -23,7 +23,12 @@
 ###############################################################################
 
 .mlsrf18_source_helpers <- function(ctx) {
-  root <- ctx$config$project$root %||% getwd()
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- ctx$config$project$root %||% getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  root <- normalizePath(er, winslash = "/", mustWork = FALSE)
   path <- file.path(root, "R/ml_survival_model_helpers.R")
   if (file.exists(path)) source(path, local = FALSE)
 }
@@ -32,13 +37,26 @@
   if (!requireNamespace("randomForestSRC", quietly = TRUE)) {
     stop("需要安装 randomForestSRC 包。", call. = FALSE)
   }
+  if (!requireNamespace("survival", quietly = TRUE)) {
+    stop("需要安装 survival 包。", call. = FALSE)
+  }
   imp <- .mlsurv_impute_frame(train_df, test_df)
-  tr <- imp$train
-  te <- imp$validation
+  tr0 <- imp$train
+  te0 <- imp$validation
+  ## rfsrc 不接受 survival::Surv / 以点开头的 .time/.event 公式
+  .to_rsf <- function(df) {
+    out <- df
+    names(out)[names(out) == ".time"] <- "time"
+    names(out)[names(out) == ".event"] <- "status"
+    out
+  }
+  tr <- .to_rsf(tr0)
+  te <- .to_rsf(te0)
+  form_rsf <- stats::as.formula("Surv(time, status) ~ .")
 
   ntree_grid <- as.integer(bl_cfg$rsf_ntree_grid %||% c(500L, 1000L))
   nodesize_grid <- as.integer(bl_cfg$rsf_nodesize_grid %||% c(3L, 15L))
-  nfeat <- length(setdiff(names(tr), c(".time", ".event")))
+  nfeat <- length(setdiff(names(tr), c("time", "status")))
   mtry_opts <- unique(pmax(1L, c(
     max(1L, floor(sqrt(nfeat))),
     max(1L, floor(nfeat / 3)),
@@ -66,7 +84,7 @@
       va_f <- rsample::assessment(split)
       fit_f <- tryCatch(
         randomForestSRC::rfsrc(
-          stats::as.formula("survival::Surv(.time, .event) ~ ."),
+          form_rsf,
           data = tr_f,
           ntree = hp$ntree,
           mtry = hp$mtry,
@@ -83,12 +101,12 @@
         next
       }
       pr <- tryCatch(
-        stats::predict(fit_f, newdata = va_f)$predicted,
+        as.numeric(stats::predict(fit_f, newdata = va_f)$predicted),
         error = function(e) rep(NA_real_, nrow(va_f))
       )
-      fold_c[fi] <- .mlsurv_cindex(va_f$.time, va_f$.event, pr)
+      fold_c[fi] <- .mlsurv_cindex(va_f$time, va_f$status, pr)
     }
-    cv_rows[[gi]] <- .mlsurv_cv_cindex_rows(seq_len(fold_num), fold_c, "RSF")
+    cv_rows[[gi]] <- .mlsurv_cv_cindex_rows(seq_len(fold_num), fold_c, "Random survival forest")
     mc <- mean(fold_c, na.rm = TRUE)
     if (is.finite(mc) && mc > best_c) {
       best_c <- mc
@@ -97,7 +115,7 @@
   }
 
   final_fit <- randomForestSRC::rfsrc(
-    stats::as.formula("survival::Surv(.time, .event) ~ ."),
+    form_rsf,
     data = tr,
     ntree = best_hp$ntree,
     mtry = best_hp$mtry,
@@ -107,8 +125,9 @@
     importance = TRUE,
     seed = seed
   )
-  risk_tr <- stats::predict(final_fit, newdata = tr)$predicted
-  risk_te <- stats::predict(final_fit, newdata = te)$predicted
+  risk_tr <- as.numeric(stats::predict(final_fit, newdata = tr)$predicted)
+  risk_te <- as.numeric(stats::predict(final_fit, newdata = te)$predicted)
+  ## rfsrc$predicted 为 ensemble mortality（越大风险越高）；若方向反常则由 finish 再翻转
 
   hp_str <- paste(
     "ntree=", best_hp$ntree,
@@ -127,7 +146,7 @@
           std_err = stats::sd(.data$.estimate, na.rm = TRUE) / sqrt(sum(is.finite(.data$.estimate))),
           .groups = "drop"
         ) %>%
-        dplyr::mutate(model = "RSF")
+        dplyr::mutate(model = "Random survival forest")
     }
   }
 
@@ -136,7 +155,7 @@
     risk = list(train = risk_tr, test = risk_te),
     cv5_cindex = cv5,
     hpbest_frame = data.frame(
-      Model = "Random Survival Forest (RSF)",
+      Model = "Random survival forest",
       Hyperparameter = hp_str,
       stringsAsFactors = FALSE
     )
@@ -178,10 +197,21 @@ block_ml_rsf <- function(ctx, ...) {
   )
   if (is.null(res_core)) return(ctx)
 
+  oriented <- .mlsurv_orient_risk(
+    prep$df_train$.time, prep$df_train$.event,
+    res_core$risk$train, res_core$risk$test
+  )
+  if (isTRUE(oriented$flipped)) {
+    cli::cli_alert_info(
+      "rsf: 风险评分已翻转以对齐 Cox C-index 方向（train C≈{round(oriented$c_index_train, 3)}）。"
+    )
+  }
+  res_core$risk <- list(train = oriented$train, test = oriented$test)
+
   pe <- .mlsurv_predict_eval(
     prep$df_train$.time, prep$df_train$.event, res_core$risk,
     prep$df_train, prep$df_validation,
-    "RSF", prep$pred_ref_col, prep$pred_ana_col,
+    "Random survival forest", prep$pred_ref_col, prep$pred_ana_col,
     prep$ref_group, prep$ana_group
   )
   res <- c(res_core, pe)

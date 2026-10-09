@@ -1,55 +1,35 @@
-### Task 4: `ip_stage2_cohort_28d` + 单测
+### Task 4: 新建 Block `dxa_qct_agreement`
 
 **Files:**
-- Create: `Blocks/72_incidence_prognosis_two_stage/02block_ip_stage2_cohort_28d.R`
-- Create: `tests/test_ip_stage2_28d.R`
-- Modify: `R/pipeline_runner.R`
+- Create: `Blocks/75_osteo_dxa_qct/01block_dxa_qct_agreement.R`
+- Modify: `tests/test_osteo_dxa_qct_blocks.R`
 
 **Interfaces:**
-- Consumes: Stage1 分析 `ctx$data$imputed`（或 locked）；`config$ip_two_stage$prognosis_path`；时间零点规则 C
-- Produces: `ctx$data$stage2`（或覆写 imputed 子集）；列 `futime`,`fustatus`；`ctx$results$ip_stage2_timezero_source` ∈ `aki_onset|icu_intime`
+- Consumes: `ctx$data$imputed %||% ctx$data$cleaned`；列 `QCT_cat`, `DXA_cat_min`, `QCT_vBMD`, `DXA_T_min`
+- Config: `config$dxa_qct_agreement = list(enable=TRUE, qct_cat=, dxa_cat=, qct_continuous=, dxa_continuous=, op_level=2L, bland_zscore=TRUE)`
+- Produces: Table「DXA-QCT agreement」xlsx；Figure「Figure 3. DXA vs QCT agreement」；`ctx$results$dxa_qct_agreement`
+- register_block: `"dxa_qct_agreement"`
 
-- [ ] **Step 1: 写失败测试（行政截尾）**
+- [ ] **Step 1: 扩展单测 — 合成 data 上 κ 与 n**
 
 ```r
-# tests/test_ip_stage2_28d.R
-ip_admin_censor_28 <- function(t_days, dead) {
-  dead <- as.integer(dead)
-  t_days <- as.numeric(t_days)
-  fustatus <- as.integer(dead == 1L & t_days <= 28)
-  futime <- pmin(t_days, 28)
-  futime[dead != 1L | t_days > 28] <- pmin(t_days[dead != 1L | t_days > 28], 28)
-  # clarify: always futime = min(t,28); fustatus = 1 iff dead & t<=28
-  fustatus <- as.integer(!is.na(t_days) & dead == 1L & t_days <= 28)
-  futime <- pmin(t_days, 28)
-  data.frame(futime = futime, fustatus = fustatus)
-}
-x <- ip_admin_censor_28(c(10, 40, 28, 5), c(1, 1, 0, 0))
-stopifnot(identical(x$fustatus, c(1L, 0L, 0L, 0L)))
-stopifnot(identical(as.numeric(x$futime), c(10, 28, 28, 5)))
-cat("OK censor logic\n")
+# stub register_block if needed
+if (!exists("register_block", mode = "function"))
+  register_block <- function(...) invisible(NULL)
+# 构造 6 行 mini ctx 调用内部函数（导出 .dqa75_compute）
 ```
-
-Run:  
-`"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" tests/test_ip_stage2_28d.R`  
-Expected: `OK censor logic`（纯函数可先内嵌测试文件；block 实现后改为 source 公共函数）
 
 - [ ] **Step 2: 实现 block**
 
-```r
-# 伪代码要点
-# 1) d <- ctx$data$imputed; d2 <- d[d$Disease == 1L, ]
-# 2) merge prognosis on subject_id/ID
-# 3) t0 <- if (has aki_time) aki_time else icu_intime
-# 4) t_days <- as.numeric(difftime(dead_time_or_last, t0, units="days"))
-# 5) apply ip_admin_censor_28; study_type 切到 prognosis 字段供后续块
-# 6) ctx$config$data$outcome_column / survival$time_var/event_var 指向 fustatus/futime
-```
+文件头注释按引擎规范；`block_dxa_qct_agreement <- function(ctx, ...) { ...; ctx }`；末尾 `register_block(...)`。
 
-把 `ip_admin_censor_28` 放到同目录 `00ip_common.R` 供测试与 block 共用。
+图：左面板 2×2 或三分类马赛克/热力交叉；右面板 Bland–Altman（`bland_zscore=TRUE` 时对 vBMD 与 T-score 分别 z 化后画差 vs 均）。
 
-- [ ] **Step 3: 注册 `ip_stage2_cohort_28d`**
+表：κ（二分类 OP）、三分类一致率、n。
 
-- [ ] **Step 4: 测试 PASS**
+- [ ] **Step 3: Run 单测**
+
+Expected: PASS；无依赖完整 pipeline。
 
 ---
+

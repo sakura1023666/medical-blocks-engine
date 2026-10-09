@@ -224,8 +224,26 @@
     hd <- model_data[model_data$subject_id_num == pid & model_data$time_day <= L, ]
     hd <- hd[order(hd$time_day), ]
     if (!nrow(hd)) return(NA_real_)
-    r <- tryCatch(lcmm::dynpred(model_obj, newdata = hd, landmark = L, horizon = horizon - L,
-                                var.time = "time_day", draws = FALSE), error = function(e) NULL)
+    r <- tryCatch({
+      zz <- file(nullfile(), open = "wt")
+      sink(zz); sink(zz, type = "message")
+      on.exit({
+        try(sink(type = "message"), silent = TRUE)
+        try(sink(), silent = TRUE)
+        try(close(zz), silent = TRUE)
+      }, add = TRUE)
+      out <- lcmm::dynpred(model_obj, newdata = hd, landmark = L, horizon = horizon - L,
+                           var.time = "time_day", draws = FALSE)
+      try(sink(type = "message"), silent = TRUE)
+      try(sink(), silent = TRUE)
+      try(close(zz), silent = TRUE)
+      on.exit(NULL)
+      out
+    }, error = function(e) {
+      try(sink(type = "message"), silent = TRUE)
+      try(sink(), silent = TRUE)
+      NULL
+    })
     if (is.null(r)) return(NA_real_)
     pred_df <- as.data.frame(if (is.list(r) && !is.null(r$pred)) r$pred else r)
     if (!nrow(pred_df)) return(NA_real_)
@@ -451,7 +469,7 @@ block_trajectory_dynpred_individual <- function(ctx, ...) {
     results_all[[Index]] <- res
     ctx <- save_figure(
       ctx, paste0("Figure_Dynpred_Individual_", Index, ".pdf"),
-      (function(pp) function() print(pp))(res$plot), width = 10, height = 12
+      local({ pp <- res$plot; function() pp }), width = 10, height = 12
     )
     cli::cli_alert_success("{Index}: 代表病例 存活={res$final_survivor} / 非存活={res$final_nonsurvivor}")
   }

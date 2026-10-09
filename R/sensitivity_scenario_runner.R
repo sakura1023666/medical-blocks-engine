@@ -32,7 +32,10 @@ sensitivity_single_study_pass <- function(ctx, root = NULL) {
     cli::cli_alert_info("无可用敏感性场景（变量缺失或未配置）。")
     return(ctx)
   }
-  out_dir <- file.path(ctx$output_dir %||% ".", "sensitivity")
+  study_out <- (cfg$project %||% list())$output_dir %||%
+    (cfg$project %||% list())$root %||%
+    ctx$output_dir %||% "."
+  out_dir <- file.path(study_out, "sensitivity")
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   summary_rows <- list()
   for (sg in scenarios) {

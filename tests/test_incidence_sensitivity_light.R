@@ -64,24 +64,67 @@ unlink(td_cont, recursive = TRUE)
 unlink(td_main, recursive = TRUE)
 
 stopifnot(identical(
-  incidence_sensitivity_judge_status(TRUE, TRUE, 0.01, 0.02, 0.05),
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.02, 0.05, require_crude_highest_sig = FALSE
+  ),
   "success"
 ))
 stopifnot(identical(
-  incidence_sensitivity_judge_status(TRUE, TRUE, 0.01, 0.20, 0.05),
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.20, 0.05, require_crude_highest_sig = FALSE
+  ),
   "failed"
 ))
 stopifnot(identical(
-  incidence_sensitivity_judge_status(TRUE, FALSE, 0.01, 0.02, 0.05),
+  incidence_sensitivity_judge_status(
+    TRUE, FALSE, 0.01, 0.02, 0.05, require_crude_highest_sig = FALSE
+  ),
   "failed"
 ))
 stopifnot(identical(
-  incidence_sensitivity_judge_status(TRUE, TRUE, 0.01, 0.20, 0.05, require_sig = FALSE),
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.20, 0.05, require_sig = FALSE,
+    require_crude_highest_sig = FALSE
+  ),
   "success"
 ))
 stopifnot(identical(
-  incidence_sensitivity_judge_status(TRUE, FALSE, 0.01, 0.02, 0.05, require_sig = FALSE),
+  incidence_sensitivity_judge_status(
+    TRUE, FALSE, 0.01, 0.02, 0.05, require_sig = FALSE,
+    require_crude_highest_sig = FALSE
+  ),
   "failed"
+))
+# 最高分位 Crude：任一库 NS → failed（含 complete_case require_sig=FALSE）
+stopifnot(identical(
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.02, 0.05, require_sig = FALSE,
+    p_crude_primary = 0.16, p_crude_secondary = 0.001
+  ),
+  "failed"
+))
+stopifnot(identical(
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.02, 0.05, require_sig = FALSE,
+    p_crude_primary = 0.01, p_crude_secondary = 0.02
+  ),
+  "success"
+))
+stopifnot(identical(
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.02, 0.05,
+    p_crude_primary = 0.01, p_crude_secondary = NA_real_
+  ),
+  "failed"
+))
+# 显式关闭 crude 门控时仍可仅按 Model2 / 表齐判定
+stopifnot(identical(
+  incidence_sensitivity_judge_status(
+    TRUE, TRUE, 0.01, 0.02, 0.05, require_sig = FALSE,
+    p_crude_primary = 0.20, p_crude_secondary = 0.20,
+    require_crude_highest_sig = FALSE
+  ),
+  "success"
 ))
 cat("Task1 OK\n")
 
@@ -212,13 +255,48 @@ stopifnot("baseline_binary" %in% inc_u)
 stopifnot("logistic_tertile_glm" %in% inc_u)
 
 surv <- incidence_sensitivity_light_blocks("prognosis", FALSE, "binary")
-stopifnot(identical(surv, c("baseline_binary", "cox_binary")))
+stopifnot(identical(
+  surv,
+  c("prognosis_outcome_landmark", "baseline_binary", "cox_binary")
+))
+stopifnot(isTRUE(incidence_sensitivity_assert_prognosis_light_blocks(surv)))
+# 省略 landmark → 硬拒绝
+stopifnot(inherits(try(
+  incidence_sensitivity_assert_prognosis_light_blocks(c("baseline_binary", "cox_quartile")),
+  silent = TRUE
+), "try-error"))
+# 发病 logistic 截断不受 landmark 门控
+stopifnot(isTRUE(incidence_sensitivity_assert_prognosis_light_blocks(
+  c("baseline_binary", "logistic_quartile_glm")
+)))
+# futime 超 landmark → 硬拒绝
+stopifnot(inherits(try(
+  incidence_sensitivity_assert_landmark_futime(
+    data.frame(futime = c(1, 28, 100)), list(prognosis_outcome = list(landmark_days = 28L))
+  ),
+  silent = TRUE
+), "try-error"))
+stopifnot(isTRUE(incidence_sensitivity_assert_landmark_futime(
+  data.frame(futime = c(1, 14, 28)), list(prognosis_outcome = list(landmark_days = 28L))
+)))
 
-pipe <- list(blocks = c("imputation", "baseline_binary", "boxplot", "cox_quartile", "rcs_prognosis"),
-             render_tables_after = c("imputation", "baseline_binary", "cox_quartile"))
-tr <- incidence_sensitivity_trim_pipeline(pipe, c("baseline_binary", "cox_quartile"))
-stopifnot(identical(tr$blocks, c("baseline_binary", "cox_quartile")))
+pipe <- list(blocks = c(
+  "imputation", "prognosis_outcome_landmark", "baseline_binary",
+  "boxplot", "cox_quartile", "rcs_prognosis"
+), render_tables_after = c("imputation", "baseline_binary", "cox_quartile"))
+tr <- incidence_sensitivity_trim_pipeline(
+  pipe, c("prognosis_outcome_landmark", "baseline_binary", "cox_quartile")
+)
+stopifnot(identical(
+  tr$blocks,
+  c("prognosis_outcome_landmark", "baseline_binary", "cox_quartile")
+))
 stopifnot(!"imputation" %in% tr$render_tables_after)
+# 预后截断若丢 landmark → trim 内硬拒绝
+stopifnot(inherits(try(
+  incidence_sensitivity_trim_pipeline(pipe, c("baseline_binary", "cox_quartile")),
+  silent = TRUE
+), "try-error"))
 
 df <- data.frame(
   Age = 1:10,

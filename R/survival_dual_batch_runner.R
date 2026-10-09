@@ -5,7 +5,16 @@
 #  差异：per-index 流水线为 Cox 闸门链（非 logistic_gate），两库均为 regular。
 ###############################################################################
 
-source(file.path(getwd(), "R", "incidence_dual_batch_runner.R"), local = FALSE)
+# 引擎根：优先 MEDICAL_BLOCKS_ROOT（worker cwd 常为课题目录）
+.survival_engine_root <- local({
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  normalizePath(er, winslash = "/", mustWork = FALSE)
+})
+source(file.path(.survival_engine_root, "R", "incidence_dual_batch_runner.R"), local = FALSE)
 
 # 将 survival_batch 键合并到 incidence_batch，供底层 runner 复用
 .survival_batch_bind_config <- function(config) {
@@ -139,12 +148,62 @@ survival_batch_current_path_mediator <- function(root, config_ix, db) {
   as.character(tbl$Mediator[1L])[1L]
 }
 
+#' 闸门 E 重跑前：删除已发表/分库中介表，避免旧 S9 与新路径图并存错位
+survival_batch_purge_mediation_pub_tables <- function(config_ix, ix, db) {
+  roots <- character(0)
+  pub <- tryCatch(
+    survival_batch_index_pub_root(config_ix, ix),
+    error = function(e) NULL
+  )
+  slot <- dual_db_slot_path_name(config_ix, db)
+  if (!is.null(pub) && nzchar(pub)) {
+    roots <- c(
+      file.path(pub, "Tables"),
+      file.path(pub, slot, "Tables"),
+      file.path(pub, slot, "step23_mediation_prognosis", "Tables"),
+      file.path(pub, slot, "step28_mediation_prognosis", "Tables")
+    )
+  }
+  n <- 0L
+  for (td in unique(roots[dir.exists(roots)])) {
+    hits <- list.files(
+      td,
+      pattern = "Mediation analysis.*\\.xlsx$|Associations of .* with laboratory indicators.*\\.xlsx$",
+      full.names = TRUE,
+      ignore.case = TRUE
+    )
+    # 只删本库标签或无库标签的中介/关联表
+    hits <- hits[
+      grepl(paste0("-", slot, "\\.|Mediation analysis"), basename(hits), ignore.case = TRUE) |
+        grepl(paste0("-", db, "\\."), basename(hits), ignore.case = TRUE)
+    ]
+    for (f in hits) {
+      if (file.exists(f) && unlink(f) == 0L) n <- n + 1L
+      tex <- sub("\\.xlsx$", ".tex", f, ignore.case = TRUE)
+      if (file.exists(tex)) unlink(tex)
+    }
+  }
+  if (n > 0L) {
+    cli::cli_alert_info(
+      "闸门 E 预清理中介/实验室关联旧表 {n} 个（{slot}），防止 S9 残留对齐前数字"
+    )
+  }
+  invisible(n)
+}
+
 #' 闸门 E 后重跑中介块：固定 best_mediator（+ 可选 mediators 交集）
 survival_batch_realign_mediation_locked <- function(root, config_ix, ix, db,
                                                     locked, pipeline) {
   if (is.null(locked) || !nzchar(as.character(locked$best_mediator %||% "")[1L])) {
     return(invisible(NULL))
   }
+  # 先清旧中介发表表，再重跑，保证后续 realign 只剩 Gate E 同源表/图
+  tryCatch(
+    survival_batch_purge_mediation_pub_tables(config_ix, ix, db),
+    error = function(e) {
+      cli::cli_alert_warning("闸门 E 预清理跳过: {conditionMessage(e)}")
+    }
+  )
   cfg_db <- incidence_batch_apply_db_overrides(config_ix, db, root, ix)
   cfg_db$project$root <- config_ix$project$root %||%
     config_ix$project$output_dir %||% root
@@ -1283,54 +1342,15 @@ survival_batch_load_cohort_flow_rows <- function(project_root, db_label) {
   )
 }
 
-#' 绘制单库纳排流程图（Times 系字体）
+#' 绘制单库纳排流程图（转调 CONSORT attrition_draw_pdf）
 survival_batch_draw_flowchart_pdf <- function(rows, title, pdf_path,
                                               font_family = "Times New Roman") {
-  if (is.null(rows) || !nrow(rows)) return(invisible(FALSE))
-  dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
-  n_box <- nrow(rows)
-  if (exists("pipeline_pdf_device", mode = "function")) {
-    ff <- pipeline_pdf_device(
-      pdf_path, width = 8.5, height = max(6.5, 1.15 * n_box + 1.8),
-      family = font_family
-    )
-  } else {
-    ff <- if (exists("resolve_plot_font_family", mode = "function")) {
-      resolve_plot_font_family(font_family)
-    } else font_family
-    if (identical(ff, "Times New Roman") && !isTRUE(capabilities("cairo"))) ff <- "Times"
-    grDevices::pdf(pdf_path, width = 8.5, height = max(6.5, 1.15 * n_box + 1.8),
-                   family = ff)
+  if (!exists("attrition_draw_pdf", mode = "function")) {
+    al <- file.path(.survival_engine_root, "R", "attrition_log.R")
+    if (file.exists(al)) source(al, local = FALSE)
   }
-  on.exit(grDevices::dev.off(), add = TRUE)
-  op <- graphics::par(mar = c(0.4, 0.4, 2.2, 0.4), family = ff)
-  on.exit(graphics::par(op), add = TRUE)
-  graphics::plot.new()
-  graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1))
-  graphics::title(main = title, cex.main = 1.05, family = ff)
-  y_top <- 0.94
-  box_h <- min(0.11, 0.82 / (n_box * 1.35))
-  gap <- box_h * 0.32
-  for (i in seq_len(n_box)) {
-    y1 <- y_top - (i - 1) * (box_h + gap)
-    y0 <- y1 - box_h
-    graphics::rect(0.16, y0, 0.84, y1, border = "black", col = "#F7F7F7", lwd = 1.4)
-    lab <- sprintf("%s\nN = %s", rows$step[i],
-                   format(as.integer(rows$n[i]), big.mark = ","))
-    graphics::text(0.5, (y0 + y1) / 2, lab, cex = 0.85, family = ff)
-    if (i < n_box) {
-      graphics::arrows(0.5, y0 - 0.004, 0.5, y0 - gap + 0.008, length = 0.07, lwd = 1.1)
-      drop_n <- as.integer(rows$n[i]) - as.integer(rows$n[i + 1L])
-      if (is.finite(drop_n) && drop_n > 0L) {
-        graphics::text(
-          0.87, y0 - gap / 2,
-          sprintf("-%s", format(drop_n, big.mark = ",")),
-          cex = 0.72, col = "#555555", adj = 0, family = ff
-        )
-      }
-    }
-  }
-  invisible(TRUE)
+  if (!exists("attrition_draw_pdf", mode = "function")) return(invisible(FALSE))
+  invisible(attrition_draw_pdf(rows, title, pdf_path, font_family = font_family))
 }
 
 #' 为某预后指标写出双库 Figure 1 流程图
@@ -1446,22 +1466,40 @@ survival_batch_write_index_flowcharts <- function(project_root, index_root, ix,
     comb <- do.call(rbind, all_rows)
     utils::write.csv(comb, file.path(tab_root, sprintf("Flowchart_attrition_%s_dual.csv", ix)),
                      row.names = FALSE)
-    utils::write.csv(comb, file.path(project_root, "Tables",
-                                     sprintf("Flowchart_attrition_%s_dual.csv", ix)),
-                     row.names = FALSE)
+    proj_tab <- file.path(project_root, "Tables")
+    dir.create(proj_tab, recursive = TRUE, showWarnings = FALSE)
+    proj_csv <- file.path(proj_tab, sprintf("Flowchart_attrition_%s_dual.csv", ix))
+    tryCatch(
+      utils::write.csv(comb, proj_csv, row.names = FALSE),
+      error = function(e) {
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_warning(
+            "Figure 1: 未能写入项目根 Flowchart CSV ({proj_csv}): {e$message}"
+          )
+        }
+      }
+    )
 
+    n_panel <- length(all_rows)
+    # 单库：竖版居中单栏；双库：横排两栏
+    pdf_w <- if (n_panel <= 1L) 8.5 else 11
+    pdf_h <- 8.5
     pdf_dual <- file.path(fig_root, "Figure 1. Flowchart.pdf")
     if (exists("pipeline_pdf_device", mode = "function")) {
-      ff <- pipeline_pdf_device(pdf_dual, width = 11, height = 8.5, family = font_family)
+      ff <- pipeline_pdf_device(pdf_dual, width = pdf_w, height = pdf_h, family = font_family)
     } else {
       ff <- if (exists("resolve_plot_font_family", mode = "function")) {
         resolve_plot_font_family(font_family)
       } else font_family
       if (identical(ff, "Times New Roman") && !isTRUE(capabilities("cairo"))) ff <- "Times"
-      grDevices::pdf(pdf_dual, width = 11, height = 8.5, family = ff)
+      grDevices::pdf(pdf_dual, width = pdf_w, height = pdf_h, family = ff)
     }
     on.exit(grDevices::dev.off(), add = TRUE)
-    graphics::par(mfrow = c(1, 2), mar = c(0.6, 0.4, 2.2, 0.4), family = ff)
+    if (n_panel <= 1L) {
+      graphics::par(mfrow = c(1, 1), mar = c(0.8, 1.8, 2.4, 1.8), family = ff)
+    } else {
+      graphics::par(mfrow = c(1, n_panel), mar = c(0.6, 0.4, 2.2, 0.4), family = ff)
+    }
     for (db_disp in names(all_rows)) {
       rows <- all_rows[[db_disp]]
       n_box <- nrow(rows)
@@ -1471,14 +1509,17 @@ survival_batch_write_index_flowcharts <- function(project_root, index_root, ix,
       y_top <- 0.92
       box_h <- min(0.10, 0.8 / (n_box * 1.3))
       gap <- box_h * 0.28
+      # 单库时框略收窄，视觉居中
+      x0 <- if (n_panel <= 1L) 0.18 else 0.08
+      x1 <- if (n_panel <= 1L) 0.82 else 0.92
       for (i in seq_len(n_box)) {
         y1 <- y_top - (i - 1) * (box_h + gap)
         y0 <- y1 - box_h
-        graphics::rect(0.08, y0, 0.92, y1, border = "black", col = "#F7F7F7")
+        graphics::rect(x0, y0, x1, y1, border = "black", col = "#F7F7F7")
         graphics::text(
           0.5, (y0 + y1) / 2,
           sprintf("%s\nN = %s", rows$step[i], format(as.integer(rows$n[i]), big.mark = ",")),
-          cex = 0.62, family = ff
+          cex = if (n_panel <= 1L) 0.78 else 0.62, family = ff
         )
         if (i < n_box)
           graphics::arrows(0.5, y0 - 0.002, 0.5, y0 - gap + 0.006, length = 0.05)

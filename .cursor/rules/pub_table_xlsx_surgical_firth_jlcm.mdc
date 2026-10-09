@@ -1,0 +1,87 @@
+---
+description: 发表表外科式修复保样式 / Firth 准完全分离 / JLCM LL 单调守卫（全项目复用）
+alwaysApply: true
+---
+
+# 发表表审稿返工三铁律（外科修复 · Firth · JLCM 守卫）
+
+SOSM（主动脉瘤轨迹预后，2026-09）两轮审稿返工沉淀。**任何课题的已导出发表表/回归表返工都走这里，禁止再写一次性 hotfix。**
+
+## 铁律 1 — 发表 xlsx 只能「外科式」改，禁止整表重写
+
+**根因**：用 `write.xlsx()` 或自建 workbook 覆盖已导出的 SCI 三线表 → 边框、合并单元格、字体、sheet 名全丢（SOSM 第一轮就踩了，用户回「表的格式都不对了」）。
+
+**正确做法**（引擎已落地 `R/pub_xlsx_surgical.R` + `R/pub_xlsx_tools/*.py`）：
+
+1. **删行**：`pub_xlsx_delete_rows(path, rows)`（1-based）。先 strip 悬空 drawing 引用 → openpyxl 删（保 styles.xml）→ strip `xml:space` → openxlsx 复读校验。
+2. **改单元格**：`pub_xlsx_edit_cells(path, edits)`，`edits = data.frame(row, col, value)`。**绝不** `write.xlsx` 全表。
+3. **校验**：`pub_xlsx_verify(path)` 必 `readable=TRUE` 且 `corrupt_cells=0`；样式数 `styles>0`。
+
+**两个必须知道的坑（引擎已自动处理，手工时也要记）：**
+
+- openpyxl 保存会写 `inlineStr` + `xml:space="preserve"` → openxlsx 之后读出 `'xml:space="preserve">  Married'` 这种脏文本。**openpyxl 往返后必跑 `pub_xlsx_strip()`。**
+- openxlsx 写的 xlsx 留悬空 drawing rel → openpyxl 打开报 `KeyError: xl/drawings/drawing1.xml`。同样先 strip。
+
+CLI（任意课题一条命令）：
+
+```bash
+Rscript run/pub/surgical_xlsx_repair.R --xlsx "Tables/Table 1….xlsx" --delete-rows 34,39 \
+  --set 4,3="35.28 (1.18, 16895.23) ‡" --mirror "<mimic/Tables 目录>"
+```
+
+**数据本身**优先从链上重算再落表（删重复列 / 共线二选一走 config + `trajectory_index_column_aliases()`），外科修复只用于「已出表、无法整链重跑」的返工。
+
+## 铁律 2 — 分段 Cox 准完全分离：NE → Firth 罚似然（`‡`）
+
+**场景**：轨迹预后分段 Cox，某段内参照类 0 事件（准完全分离）→ 标准 `coxph` 给 1e9 级 HR 或 `Inf` CI。
+
+**要求**：
+
+1. 不得只填 `NE` 就交稿。引擎 `R/firth_cox.R` 提供一维 Firth 罚似然 Cox（Efron 偏似然 + 0.5·log|I| 惩罚，profile 罚似然 CI，penalized-LR P 值）。
+2. `Blocks/53_trajectory_prognosis_full/01block_trajectory_piecewise_cox.R` 的 `.tpc01_fit_piece_hr_table()`：NE 行自动回退 `firth_cox_piecewise()`，可估则输出 `"HR (lo, hi)‡"`，失败才保留 `NE†`。
+3. `R/trajectory_paper_tables.R` 表 3 导出识别 `‡` 并加脚注；**大 HR / 宽 CI 的 `‡` 单元格禁止被脏值兜底改回 NE**。
+4. 脚注须写：该段分离原因（各类事件数）+ 全期 HR 兜底。
+
+> `logistf` 对单协变量 Cox 会 `chol` 非正定失败，所以引擎自实现，勿依赖 logistf。
+
+## 铁律 3 — 潜类别 / 轨迹模型 LL 单调 + 空类守卫（自动 gridsearch 重拟合）
+
+**审稿必抓**：类别数↑ 时 Log-likelihood 反而↓、Entropy 崩、出现 0% 空类 → 模型陷局部极值、未真正收敛。
+
+**引擎已落地** `Blocks/26_trajectory/02block_trajectory_jlcm.R`：
+
+1. 拟合 ng=1..max 后自动跑 `.tfj02_jlcm_health_guard()`：检测 LL 非单调（`ll[g] < ll[g-1]`）或最小类占比 <0.5%（空/退化类）。
+2. 命中即用 m1 播种 `lcmm::gridsearch` 加大随机起始重跑（`rep` 翻倍、`maxiter` 提高），**只在新 loglik ≥ 旧值时替换**，绝不丢更好解。
+3. 结果写 `Tables/Summary/JLCM_health_{Index}.txt` + `ctx$results$trajectory_jlcm_health_*`。
+4. config 开关：`gridsearch_refit_on_health_fail`（默认 TRUE）、`gridsearch_refit_rep_cap`（默认 200）、`gridsearch_refit_maxiter`（默认 40）。
+
+**选类口径**：LL 单调修复后仍按预设最小类占比门槛（常 5%）+ BIC/SABIC 定 ng；高阶解 AIC 更低但最小类 <5% 时，正文写清「保留低阶解」的依据，Table 2 脚注标注「多随机起始 gridsearch 重拟合，LL 已单调、无空类」。
+
+## 复用检查清单
+
+- [ ] 返工已发表 xlsx：只用 `pub_xlsx_*` / `run/pub/surgical_xlsx_repair.R`，出表后 `pub_xlsx_verify` corrupt=0、styles>0
+- [ ] 分段 Cox 有 0 事件段：报 `‡` Firth HR + 脚注，不裸填 NE
+- [ ] 轨迹/潜类别表 2：LL 单调、无空类；否则触发 health guard 重拟合并在脚注写明
+- [ ] 不新增课题 `scripts/` 一次性 hotfix；可复用逻辑回写 `R/` `Blocks/` `run/pub/`
+
+## 反例（禁止）
+
+- 用 `write.xlsx` 覆盖已导出 Table 1 → 三线边框/合并全丢
+- openpyxl 往返后不 strip → 表里冒出 `xml:space="preserve">` 文本
+- 分段 Cox 0 事件段直接交 `NE`，不做 Firth
+- `logistf` 单协变量失败就放弃 Firth，不引引擎 `R/firth_cox.R`
+- LL 随类别数下降、Entropy 0.93→0.27、出现 0% 类仍原样交表 2
+- 把共线列（BUN/UreaNitrogen、PlateletCount/Platelet Count）都塞进多因素 → 0.00·Inf HR
+
+## 入口
+
+- `R/pub_xlsx_surgical.R`（edit/delete/strip/verify）+ `R/pub_xlsx_tools/{xlsx_strip.py,xlsx_delete_rows.py}`
+- `run/pub/surgical_xlsx_repair.R`（CLI）
+- `R/firth_cox.R`（`firth_cox1d` / `firth_cox_piecewise`）
+- `Blocks/53_trajectory_prognosis_full/01block_trajectory_piecewise_cox.R`（NE→Firth ‡）
+- `R/trajectory_paper_tables.R`（表 3 ‡ 脚注）
+- `Blocks/26_trajectory/02block_trajectory_jlcm.R`（`.tfj02_jlcm_health_guard`）
+- 别名去重（旧）：`R/trajectory_survival_utils.R` → `trajectory_index_column_aliases()`
+- 文献 wide 版式表（Table1/2 + S2–S11 + Fig S1）：`R/pub_reference_lit_tables.R` +
+  `run/pub/rebuild_lit_publication_tables.R`（用法 `run/pub/README_lit_tables.md`；
+  定稿脚注写课题 `config$lit_tables`，禁止再堆课题 `tmp/rebuild_*_lit.R`）

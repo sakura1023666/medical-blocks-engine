@@ -19,7 +19,14 @@ block_dual_db_logistic_main_table_realign <- function(ctx) {
   unified <- as.character(ctx$results$dual_db_logistic_unified_scheme %||% "")[1L]
   if (!nzchar(unified)) return(ctx)
 
-  # 清除旧主表 Logistic Table 2，避免降级后仍残留自然方案主表
+  root <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
+  cov_resync <- isTRUE(ctx$results$dual_db_logistic_covariate_resynced)
+  if (cov_resync && exists("dual_db_load_gate_b", mode = "function")) {
+    gate_b <- dual_db_load_gate_b(root, cfg)
+    if (!is.null(gate_b) && exists("dual_db_apply_gate_b_to_ctx", mode = "function")) {
+      ctx <- dual_db_apply_gate_b_to_ctx(ctx, db_name, gate_b)
+    }
+  }
   .purge_old_main_logistic <- function(dir) {
     if (!dir.exists(dir)) return(invisible(NULL))
     hits <- list.files(dir, pattern = "^Table [0-9]+.*Logistic", full.names = TRUE, ignore.case = TRUE)
@@ -33,7 +40,6 @@ block_dual_db_logistic_main_table_realign <- function(ctx) {
   }
   .purge_old_main_logistic(ctx$output_dir_tables %||% file.path(ctx$output_dir, "Tables"))
 
-  root <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
   index_var <- as.character(
     (cfg$incidence %||% list())$index_var %||%
       (cfg$logistic %||% list())$index_var %||% "Hematocrit"
@@ -79,6 +85,11 @@ block_dual_db_logistic_main_table_realign <- function(ctx) {
       tertile  = "logistic_table2_tertile_nhanes",
       binary   = "logistic_table2_binary_nhanes"
     )
+    blk_map <- list(
+      quartile = "logistic_quartile_nhanes_weighted",
+      tertile  = "logistic_tertile_nhanes_weighted",
+      binary   = "logistic_binary_nhanes_weighted"
+    )
     bl_map <- list(
       quartile = cfg$logistic_quartile_nhanes_weighted %||% list(),
       tertile  = cfg$logistic_tertile_nhanes_weighted %||% list(),
@@ -92,8 +103,15 @@ block_dual_db_logistic_main_table_realign <- function(ctx) {
       binary   = paste0("Weighted logistic regression of ", index_var, " and ", disease,
                         " (NHANES binary, svyglm) [dual-DB unified]")
     )
+    if (cov_resync && exists("dual_db_ensure_logistic_table2_helpers", mode = "function")) {
+      dual_db_ensure_logistic_table2_helpers(cfg, db_name, unified)
+    }
     for (fam in names(tbl_map)) {
       tb <- ctx$results[[tbl_map[[fam]]]]
+      if (is.null(tb) && cov_resync) {
+        r_ck <- .dual_db_ckpt_results(root, cfg, db_name, blk_map[[fam]])
+        tb <- r_ck[[tbl_map[[fam]]]] %||% r_ck$logistic_table2 %||% r_ck$nhanes_logistic_table2
+      }
       if (is.null(tb)) next
       as_main <- identical(fam, unified)
       # 非选中方案不再导出附表（只保留统一主表 + 后续 RCS）
@@ -125,6 +143,9 @@ block_dual_db_logistic_main_table_realign <- function(ctx) {
       tertile  = "logistic_tertile_glm",
       binary   = "logistic_binary_glm"
     )
+    if (cov_resync && exists("dual_db_ensure_logistic_table2_helpers", mode = "function")) {
+      dual_db_ensure_logistic_table2_helpers(cfg, db_name, unified)
+    }
     tb_main <- NULL
     for (fam in names(blk_map)) {
       r <- .dual_db_ckpt_results(root, cfg, db_name, blk_map[[fam]])

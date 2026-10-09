@@ -149,6 +149,117 @@ subgroup_order_vars <- function(v, req_ord = character(0)) {
   v
 }
 
+#' 各亚组水平在指定数据上的人数（森林图 N 列：展示分层全样本量）
+#'
+#' 必须按「变量 × 水平」嵌套，禁止只用 Yes/No 当键：Alcohol / Hypertension /
+#' Diabetes 等共病都是 No/Yes，扁平键会后写覆盖先写，图上人数变得一模一样。
+#'
+#' @return named list；`out[[varname]][[level]]` 为整数 n。varname 同时登记
+#'   原始名与 pretty 名；level 同时登记裸标签、pretty 标签及带缩进「  x」。
+subgroup_stratum_n_map <- function(data, vars, pretty_fn = NULL) {
+  if (is.null(data) || !is.data.frame(data) || !length(vars)) return(list())
+  if (is.null(pretty_fn) || !is.function(pretty_fn)) {
+    pretty_fn <- if (exists("subgroup_pretty_label", mode = "function")) {
+      subgroup_pretty_label
+    } else {
+      function(x) gsub("_", " ", as.character(x), fixed = TRUE)
+    }
+  }
+  out <- list()
+  for (v in unique(as.character(vars))) {
+    if (!nzchar(v) || !v %in% names(data)) next
+    x <- data[[v]]
+    if (!(is.factor(x) || is.character(x))) next
+    tab <- table(as.character(x), useNA = "no")
+    inner <- list()
+    for (lv in names(tab)) {
+      n <- as.integer(tab[[lv]])
+      lab <- pretty_fn(lv)
+      inner[[paste0("  ", lab)]] <- n
+      inner[[lab]] <- n
+      inner[[lv]] <- n
+      inner[[paste0("  ", lv)]] <- n
+    }
+    if (!length(inner)) next
+    out[[v]] <- inner
+    v_pretty <- pretty_fn(v)
+    if (nzchar(v_pretty) && !identical(v_pretty, v)) out[[v_pretty]] <- inner
+  }
+  out
+}
+
+#' 按当前标题行的亚组变量查找分层 n（兼容旧扁平 n_map）
+.subgroup_n_map_lookup <- function(n_map, var_name, level_label) {
+  if (is.null(n_map) || !length(n_map)) return(NULL)
+  var_name <- trimws(as.character(var_name %||% ""))
+  level_label <- as.character(level_label %||% "")
+  inner <- NULL
+  if (nzchar(var_name)) {
+    keys_var <- unique(c(
+      var_name,
+      gsub(" ", "_", var_name, fixed = TRUE),
+      gsub("_", " ", var_name, fixed = TRUE)
+    ))
+    keys_var <- keys_var[nzchar(keys_var)]
+    for (k in keys_var) {
+      cand <- n_map[[k]]
+      if (is.list(cand) && !is.null(cand) && length(cand) &&
+          !is.numeric(cand)) {
+        inner <- cand
+        break
+      }
+    }
+  }
+  pick <- function(mp) {
+    if (is.null(mp)) return(NULL)
+    n <- mp[[level_label]]
+    if (is.null(n)) n <- mp[[trimws(level_label)]]
+    if (is.null(n)) n <- mp[[paste0("  ", trimws(level_label))]]
+    n
+  }
+  n <- pick(inner)
+  if (!is.null(n)) return(n)
+  # 旧扁平 map：仅当该键不是「变量名 → 子 list」时才用（避免误取另一变量）
+  pick(n_map)
+}
+
+#' 将森林图表的 Count/N 覆盖为全分层样本量（OR 仍可为 Q4 vs Q1）
+#' @param n_source "full_stratum"（默认）| "model_sample"（保持模型样本）
+subgroup_overlay_forest_count <- function(df, n_map, total_n = NULL,
+                                          n_source = "full_stratum") {
+  n_source <- as.character(n_source %||% "full_stratum")[1L]
+  if (!identical(n_source, "full_stratum")) return(df)
+  if (is.null(df) || !is.data.frame(df) || !nrow(df) || !"Count" %in% names(df)) {
+    return(df)
+  }
+  if (is.null(n_map) || !length(n_map)) return(df)
+  var <- as.character(df$Variable %||% "")
+  n_changed <- 0L
+  current_var <- NA_character_
+  for (i in seq_len(nrow(df))) {
+    v <- var[i]
+    is_level <- grepl("^\\s+", v) && nzchar(trimws(v))
+    if (!is_level) {
+      current_var <- trimws(v)
+      next
+    }
+    n <- .subgroup_n_map_lookup(n_map, current_var, v)
+    if (is.null(n) || !is.finite(as.numeric(n)[1L])) next
+    n <- as.integer(n)[1L]
+    df$Count[i] <- n
+    n_changed <- n_changed + 1L
+    if ("Percent" %in% names(df) && is.finite(total_n) && as.numeric(total_n)[1L] > 0) {
+      df$Percent[i] <- sprintf("%.1f", 100 * n / as.numeric(total_n)[1L])
+    }
+  }
+  if (n_changed > 0L) {
+    cli::cli_alert_info(
+      "森林图 N 列：已用全分层样本量覆盖 {n_changed} 行（OR 仍为最高 vs 最低分位）"
+    )
+  }
+  df
+}
+
 subgroup_nhanes_results_to_glm_table <- function(dt_raw, total_n,
                                                 pretty_fn = subgroup_pretty_label) {
   rows <- list()
@@ -195,16 +306,136 @@ subgroup_nhanes_results_to_glm_table <- function(dt_raw, total_n,
 subgroup_merge_levels_into_variable <- function(plot_df) {
   if (!is.data.frame(plot_df) || !"Variable" %in% names(plot_df)) return(plot_df)
   if (!"Levels" %in% names(plot_df)) return(plot_df)
-  var <- trimws(as.character(plot_df$Variable))
+  var_raw <- as.character(plot_df$Variable)
+  var_raw[is.na(var_raw)] <- ""
+  was_indented <- grepl("^\\s+", var_raw)
+  var <- trimws(var_raw)
   lev <- trimws(as.character(plot_df$Levels))
   lev[is.na(lev)] <- ""
-  var[is.na(var)] <- ""
   # 行标签空但 Levels 有内容 → 缩进显示 Levels（多水平暴露对比）
   fill <- !nzchar(var) & nzchar(lev)
   var[fill] <- paste0("  ", subgroup_pretty_label(lev[fill]))
-  # 两者都有且不同 → Variable 保留，Levels 作补充缩进已足够
+  # 保留原缩进：trimws 后若不补回，层行会被误判为标题行 → OR 文本列空白
+  keep_indent <- was_indented & !fill & nzchar(var)
+  var[keep_indent] <- paste0("  ", var[keep_indent])
   plot_df$Variable <- var
   plot_df
+}
+
+#' 亚组森林分位解析：跟随主文锁定方案（tertile/quartile/binary）
+#'
+#' 双库 harmonize / scheme_harmonize / main_table_realign 会把最终方案写入
+#' ctx$results；旧版亚组块硬编码 "quartile" 导致主文 tertile、亚组却按 Q4 vs Q1
+#' 且只用两端子集（与主文分母脱节）。新铁律：亚组 = 全人群 + 主文同分位。
+subgroup_resolve_main_scheme <- function(ctx, cfg, default = "quartile") {
+  r <- ctx$results %||% list()
+  for (k in c("logistic_grouping_scheme", "nhanes_logistic_selected_scheme",
+              "nhanes_logistic_grouping_scheme", "dual_db_logistic_unified_scheme",
+              "dual_db_cox_unified_scheme", "cox_grouping_scheme",
+              "cox_selected_scheme")) {
+    v <- tolower(trimws(as.character(r[[k]] %||% "")[1L]))
+    if (v %in% c("quartile", "tertile", "binary")) return(v)
+  }
+  for (nm in c("logistic_tertile_glm", "cox_tertile")) {
+    blk <- cfg[[nm]]
+    if (!is.null(blk) && isTRUE(blk$enable %||% FALSE)) return("tertile")
+  }
+  for (nm in c("logistic_quartile_glm", "cox_quartile")) {
+    blk <- cfg[[nm]]
+    if (!is.null(blk) && isTRUE(blk$enable %||% FALSE)) return("quartile")
+  }
+  default
+}
+
+#' 将多水平分位因子折叠为「最低 | Middle | 最高」三水平（全人群，不删任何行）
+#'
+#' Q4 vs Q1（或 T3 vs T1）对比系数与四/三分位全模型完全一致：把中间分位并为
+#' 一个协变量类别不改变最高层的系数估计；且保留全部人群，与主文 Table 2 同分母。
+subgroup_collapse_middle_levels <- function(x, levels = NULL) {
+  lv <- levels %||% levels(factor(x))
+  lv <- as.character(lv)
+  if (length(lv) <= 2L) return(x)
+  mid <- lv[-c(1L, length(lv))]
+  xc <- trimws(as.character(x))
+  xc[xc %in% mid] <- "Middle"
+  factor(xc, levels = c(lv[1L], "Middle", lv[length(lv)]))
+}
+
+#' 从 jstable 多水平分位输出中提取「最高 vs 最低」对比行（每层一行）
+#'
+#' 输入为 TableSubgroupMultiGLM / MultiCox 在「最低|Middle|最高」三水平暴露上
+#' 的返回：每层 = 标题/参照行（Levels=index=Q1）+ Middle 行 + 最高行。
+#' 输出与二水平暴露的 jstable 表同构（标题行 + 缩进对比行），下游
+#' subgroup_prepare_forest_plot_df / N 覆盖 / 去 Overall 块全部原样可用。
+#' jstable 在「最低|Middle|最高」三水平暴露上的原始结构：
+#'   变量标题行（Variable=ageg, Levels=NA, P for interaction）
+#'   层行（Variable=< 45, Levels=x=Q1, Count=全层 n, OR=Reference）
+#'   对比行（Variable 空, Levels=x=Middle / x=Q4, OR/P 数值）
+#' 本函数把每个层块折叠成与「二水平暴露」输出同构的一行：
+#'   Variable 缩进「   层名」+ 层全量 Count/Percent + Levels 清空 +
+#'   Point Estimate / Lower / Upper / P value 取最高对比行（Q4 vs Q1）。
+#' 变量标题行原样保留；Overall 行由下游 res[-1,] / drop_exposure 去掉。
+#' 全人群估计下 Middle 不改变最高层系数（哑变量嵌套性质），故与
+#' 「仅 Q1+Q4 子集」旧口径相比，对比估计同值但分母为全分析集。
+subgroup_fold_quantile_contrast_rows <- function(res, index_var, end_level) {
+  if (is.null(res) || !is.data.frame(res) || !nrow(res)) return(res)
+  end_level <- trimws(as.character(end_level %||% "")[1L])
+  if (!nzchar(end_level)) return(res)
+  lev_raw <- if ("Levels" %in% names(res)) {
+    trimws(as.character(res$Levels))
+  } else {
+    rep("", nrow(res))
+  }
+  lev_raw[is.na(lev_raw)] <- ""
+  ix <- as.character(index_var %||% "")[1L]
+  ix_esc <- gsub("([][{}()*+?.^$|\\\\])", "\\\\\\1", ix, perl = TRUE)
+  ix_pfx <- paste0(ix_esc, "=")
+  is_exp_lev <- grepl(paste0("^", ix_pfx), lev_raw, perl = TRUE)
+  var_raw <- as.character(res$Variable %||% "")
+  var_raw[is.na(var_raw)] <- ""
+  # 块起点 = Variable 非空（含缩进的层行，如「 < 45」与非空标题行如「ageg」/「Overall」）
+  blk_i <- which(nzchar(trimws(var_raw)))
+  if (!length(blk_i)) return(res)
+  ends <- c(blk_i[-1L] - 1L, nrow(res))
+  num_cols <- intersect(
+    c("Point Estimate", "OR", "HR", "Lower", "Upper", "P value", "P.value"),
+    names(res)
+  )
+  end_set <- c(end_level, paste0(ix, "=", end_level))
+  rows <- list()
+  for (b in seq_along(blk_i)) {
+    s <- blk_i[[b]]; e <- ends[[b]]
+    block <- if (e >= s) seq(s, e) else s
+    block_exp <- block[is_exp_lev[block]]
+    cand <- block_exp[lev_raw[block_exp] %in% end_set]
+    if (!length(cand)) {
+      # 无暴露对比行 = 变量标题行（仅 P for interaction）→ 原样保留；
+      # 有对比行但缺最高层（极端情形）→ 整块丢弃
+      if (!length(block_exp)) rows[[length(rows) + 1L]] <- res[s, , drop = FALSE]
+      next
+    }
+    cmp_i <- cand[[length(cand)]]
+    base <- res[s, , drop = FALSE]
+    for (cn in num_cols) base[[cn]] <- res[[cn]][cmp_i]
+    base_var <- trimws(var_raw[s])
+    if (!base_var %in% c("Overall", "Total", "All")) {
+      base$Variable <- paste0("   ", base_var)
+    }
+    if ("Levels" %in% names(base)) base$Levels <- ""
+    rows[[length(rows) + 1L]] <- base
+  }
+  if (!length(rows)) return(res)
+  out <- do.call(rbind, rows)
+  # 折叠后 Levels 全空 → 删除该列，使下游 merge_levels_into_variable 提前返回、
+  # 保留 Variable 缩进（与二水平 jstable 输出同构；否则缩进被 trimws 抹掉，
+  # 层行会被误判为标题行而清空点估计）。
+  if ("Levels" %in% names(out)) {
+    lv_left <- trimws(as.character(out$Levels))
+    filled <- !is.na(lv_left) & nzchar(lv_left) & !lv_left %in% c("NA", " ")
+    if (!any(filled)) out$Levels <- NULL
+  }
+  rownames(out) <- NULL
+  out
 }
 
 #' 按亚组标题行切块，保证分页不拆开同一亚组
@@ -250,6 +481,66 @@ subgroup_forest_split_chunks <- function(plot_df, header_labels, max_rows = 45L)
   chunks
 }
 
+#' 亚组森林：去掉 Overall / 暴露分位块，只保留真正分层变量
+subgroup_drop_exposure_overall_block <- function(res, index_var, subgroup_vars) {
+  if (is.null(res) || !is.data.frame(res) || !nrow(res) || !"Variable" %in% names(res)) {
+    return(res)
+  }
+  var <- trimws(as.character(res$Variable))
+  is_hdr <- !grepl("^\\s+", as.character(res$Variable))
+  sg_ok <- unique(c(
+    as.character(subgroup_vars %||% character(0)),
+    gsub("_", " ", as.character(subgroup_vars %||% character(0)), fixed = TRUE)
+  ))
+  sg_ok <- sg_ok[nzchar(sg_ok)]
+  ix <- as.character(index_var %||% "")[1L]
+  ix_lab <- gsub("_", " ", ix, fixed = TRUE)
+  drop_hdr <- function(v) {
+    if (!nzchar(v)) return(TRUE)
+    if (v %in% c("Overall", "Total", "All")) return(TRUE)
+    if (nzchar(ix) && identical(v, ix)) return(TRUE)
+    if (nzchar(ix_lab) && identical(v, ix_lab)) return(TRUE)
+    # ANLR / ANLR_quartile / ANLR quartile / ANLR group …
+    # 指标名几乎都是 [A-Za-z0-9_]+；避免 TRE 字符类转义炸掉
+    if (nzchar(ix) && grepl("^[A-Za-z0-9_]+$", ix)) {
+      if (grepl(
+        paste0("^", ix, "([_[:space:]]+(quartile|tertile|binary|group|cut))?$"),
+        v, ignore.case = TRUE
+      )) {
+        return(TRUE)
+      }
+    }
+    if (nzchar(ix_lab) && !identical(ix_lab, ix) && grepl("^[A-Za-z0-9_ ]+$", ix_lab)) {
+      lab_pat <- gsub("[[:space:]]+", "[[:space:]]+", ix_lab)
+      if (grepl(
+        paste0("^", lab_pat, "([_[:space:]]+(quartile|tertile|binary|group|cut))?$"),
+        v, ignore.case = TRUE
+      )) {
+        return(TRUE)
+      }
+    }
+    # 非亚组名单中的标题块一律丢掉（防暴露别名漏网）
+    if (length(sg_ok) && !(v %in% sg_ok)) return(TRUE)
+    FALSE
+  }
+  keep <- rep(TRUE, nrow(res))
+  i <- 1L
+  while (i <= nrow(res)) {
+    if (is_hdr[i] && drop_hdr(var[i])) {
+      keep[i] <- FALSE
+      j <- i + 1L
+      while (j <= nrow(res) && !is_hdr[j]) {
+        keep[j] <- FALSE
+        j <- j + 1L
+      }
+      i <- j
+      next
+    }
+    i <- i + 1L
+  }
+  res[keep, , drop = FALSE]
+}
+
 subgroup_prepare_forest_plot_df <- function(res, effect_sym = "OR") {
   need_cols <- c("Lower", "Upper", "Variable", "Point Estimate")
   if (is.null(res) || !is.data.frame(res) || nrow(res) < 1L || !all(need_cols %in% names(res))) {
@@ -281,6 +572,8 @@ subgroup_prepare_forest_plot_df <- function(res, effect_sym = "OR") {
     !is.finite(plot_df$Lower) |
     !is.finite(plot_df$Upper) |
     plot_df$"Point Estimate" <= 0 |
+    plot_df$Lower <= 0 |
+    plot_df$Upper <= 0 |
     plot_df$"Point Estimate" > hide_est_gt |
     plot_df$Upper > hide_upper_gt
   # 标题行本身无点估计，不计入「隐藏」告警
@@ -508,6 +801,13 @@ subgroup_build_one_forest <- function(plot_df, final_subgroup_vars, sub_cfg,
   ))
   ci_col_idx <- which(forest_col_names == " ")[[1L]]
 
+  if (x_trans %in% c("log", "log2", "log10")) {
+    for (nm in c("Point Estimate", "Lower", "Upper")) {
+      v <- plot_df[[nm]]
+      v[is.finite(v) & v <= 0] <- NA_real_
+      plot_df[[nm]] <- v
+    }
+  }
   p <- forestploter::forest(
     disp[, forest_col_names, drop = FALSE],
     est = list(plot_df$"Point Estimate"),

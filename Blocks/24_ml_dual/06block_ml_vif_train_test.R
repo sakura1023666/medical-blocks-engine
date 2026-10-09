@@ -11,14 +11,24 @@ if (!exists("%||%", mode = "function")) {
 
 .ml_vif_ensure_helpers <- function(ctx) {
   if (exists("ml_vif_resolve_slots", mode = "function")) return(invisible(NULL))
-  root <- ctx$config$project$root %||% getwd()
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- ctx$config$project$root %||% getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  root <- normalizePath(er, winslash = "/", mustWork = FALSE)
   helper <- file.path(root, "R/ml_assoc_data_slots.R")
   if (file.exists(helper)) source(helper, local = FALSE)
 }
 
 .ml_vif_ensure_suffix <- function(ctx) {
   if (exists("ml_assoc_suffix_recent_outputs", mode = "function")) return(invisible(NULL))
-  root <- ctx$config$project$root %||% getwd()
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- ctx$config$project$root %||% getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  root <- normalizePath(er, winslash = "/", mustWork = FALSE)
   assoc <- file.path(root, "Blocks/24_ml_dual/05block_ml_assoc_bundle.R")
   if (file.exists(assoc)) source(assoc, local = FALSE)
 }
@@ -58,6 +68,26 @@ block_ml_vif_train_test <- function(ctx, ...) {
     }
     if (!is.null(snap)) {
       for (k in names(snap)) ctx$results[[k]] <- snap[[k]]
+    }
+  }
+  ## 筛选只在训练集；holdout 用同一变量集出报告表（不再重筛）
+  if (exists("ml_vif_export_fixed_set", mode = "function")) {
+    report_slots <- unique(as.character(mc$report_slots %||% character(0)))
+    if (!length(report_slots) && identical(selection_on, "train") &&
+        is.data.frame(ctx$data$test) && nrow(ctx$data$test) > 0L) {
+      report_slots <- "test"
+    }
+    vars <- unique(as.character(ctx$results$vif_screen_pass %||% character(0)))
+    vars <- vars[nzchar(vars)]
+    for (rs in report_slots) {
+      dat <- ctx$data[[rs]]
+      if (!is.data.frame(dat) || !nrow(dat) || !length(vars)) next
+      cap <- if (exists("ml_vif_holdout_caption", mode = "function")) {
+        ml_vif_holdout_caption(rs, ctx$config)
+      } else {
+        "Multicollinearity Analysis VIF screen (validation set)"
+      }
+      ml_vif_export_fixed_set(ctx, dat, vars, cap)
     }
   }
   ctx

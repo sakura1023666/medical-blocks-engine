@@ -1,0 +1,43 @@
+---
+description: TST 两阶段 Transformer — 写 config 先定对照评分与是否排 <18；主库排未成年则外验必须同步排除
+alwaysApply: true
+---
+
+# TST 年龄门控与对照评分铁律（写 config 先查）
+
+凡 **两阶段 Transformer / TST / `two_stage_transformer`** 新课题、换病种或开 eICU/外库验证，必须遵守。
+
+## 写 config 前必查（未查完禁止开跑）
+
+1. **对照评分（vs 原文 APACHE II）**  
+   先查该病 ICU 预后文献 / 主库 dabiao 实际列，选定 **1 个** 主文对照分，写入 config 注释与 `comparator_score`（或课题约定字段）。  
+   常见：AKI / 多数 MIMIC 重症 → `APSIII`；卒中等 → `SAPSII`；有病种特异评分则优先病种分（须注释文献）。  
+   **禁止**默认抄上一病的 `SAPSII`/`APSIII` 且无本病依据。
+
+2. **是否排除 &lt;18 岁**  
+   先查该病队列惯例（成人 ICU / 儿科 / 创伤含青少年等）与原文纳排。  
+   - 成人课题：主库 `min_age = 18`（或等价纳排），注释写清依据。  
+   - 明确含未成年：`min_age` 放宽或关闭，**必须**注释文献/纳排依据，并在外验说明中写明「含 &lt;18」。  
+   **禁止**不查病种就沿用模板 `min_age = 18`，也禁止主库排了未成年却在 Methods 写「未限制年龄」。
+
+## 外验与主库年龄同口径（硬同步）
+
+3. **主库若排除了 &lt;18，外验库有 &lt;18 也必须排除。**  
+   不得只靠「dabiao 碰巧没有未成年」蒙混；外验组装 / `prepare_eicu_external_and_eval.py`（及任何外库脚本）须施加与主库一致的 `min_age`（读主 config 或显式传入）。  
+4. 外验落盘 `eICU_外验纳排.txt`（或等价说明）须写：主库 `min_age`、外验是否同筛、筛前/筛后 n、若有年龄缺失如何处理。  
+5. 主库**未**排 &lt;18 时，外验不得擅自加排（除非用户/文献明确要求并注释）。
+
+## Agent 检查清单
+
+- [ ] 已检索本病常用对照评分，config 注释 + `comparator_score` 已写对本病分
+- [ ] 已检索本病是否成人队列；`min_age` 与注释一致
+- [ ] 主库 `min_age≥18` ⇒ 外验脚本/张量组装已同步排 &lt;18（非仅口头）
+- [ ] 外验纳排说明含年龄门控与人数
+- [ ] Fig2 / Table2 对照列名 = 所定评分（非他病残留 map）
+
+## 反例（禁止）
+
+- AKI/TBI 主分析 Fig1 已 Exclude &lt;18，eICU dabiao 混入未成年仍直接评 Day5
+- 卒中课题照抄 AKI 的 `APSIII`，或 AKI 照抄 `SAPSII`，无文献/列依据
+- 写 config 不查年龄与评分，直接复制 `config_two_stage_transformer_*` 模板开跑
+- 外验说明只写「Adult patients」却未在流水线落地 `min_age`

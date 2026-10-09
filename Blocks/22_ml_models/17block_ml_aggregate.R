@@ -100,7 +100,15 @@ block_ml_aggregate <- function(ctx, ...) {
         "RealTabPFN-2.5" = "realtabpfn_2_5",
         "AdaBoost" = "adaboost", "CatBoost" = "catboost", "TablCL_v2" = "tablcl_v2",
         "RSF" = "rsf", "Random Survival Forest (RSF)" = "rsf",
-        "XGBSurv" = "xgbsurv", "XGBoost Survival (XGBSurv)" = "xgbsurv"
+        "Random survival forest" = "rsf",
+        "XGBSurv" = "xgbsurv", "XGBoost Survival (XGBSurv)" = "xgbsurv",
+        "XGBoost-Cox" = "xgbsurv",
+        "CoxBoost" = "coxboost",
+        "GBM-Cox" = "gbmsurv",
+        "Ridge-Cox" = "ridge_cox",
+        "ElasticNet-Cox" = "enet_cox",
+        "SurvivalSVM" = "survivalsvm",
+        "mboost-Cox" = "mboost_cox"
       )
       .row_tag <- function(disp) {
         hit <- match(tolower(trimws(disp)), tolower(names(dm)), nomatch = NA_integer_)

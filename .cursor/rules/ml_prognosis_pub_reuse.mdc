@@ -1,0 +1,50 @@
+---
+description: 预后/发病 ML 发表产物复用铁律（SHAP/Shiny/KM/文献六模型/超参表）
+alwaysApply: true
+---
+
+# 预后 ML 发表复用铁律（全项目）
+
+本对话沉淀的引擎改动，**新课题直接走引擎即可复用**，勿再在 `02block_result/.../scripts/` 堆 hotfix。
+
+## 已进引擎（勿课题私改绕过）
+
+| 能力 | 入口 |
+|------|------|
+| 文献六模型默认 + 关 survivalsvm/mboost | `configs/ml_dual_shared_overrides.R` |
+| LASSO 横排 A\|B\|C | `Blocks/19_feature_selection/10block_feature_selection_lasso_cox.R` |
+| SHAP：RSF/GBM 等保留 factor（防分类列假 0.000） | `Blocks/17_shap/00shap_router.R` → `.shap_build_surv_kernel` |
+| Shiny：`shiny_staging` 对象名；RSF 用 `newdata`+`1-S(t)`；特征跟模型 `xvar.names` | `Blocks/25_shiny/02block_shiny_ml_app.R` |
+| Shiny RSF 预后 UI（navbar / 多时点 / 生存曲线，对齐 webcalcula 风格） | `ui_style="rsf_prognostic"` → `Blocks/25_shiny/templates/app_rsf_prognostic.R` |
+| KM 合并：4 张自动 2×2（可用 `combined_force_grid=TRUE` 强制旧网格） | `Blocks/27_KM/02block_km_strata.R` |
+| 超参补充表：读 `Hpbest_survival.RData`；文献三列 Model/Package/Hyperparameter | `Blocks/24_ml_supplementary/01block_supplementary_ml.R` |
+| 表现 bootstrap CI 表（默认关） | `performance_ml$bootstrap_ci_table` → `R/ml_bootstrap_pub_tables.R` |
+| 校准 intercept/slope bootstrap（默认勿列入 methods） | `supplementary_ml` methods=`calibration_boot` |
+| 文献 wide 版式表（Table1/2 + S2–S11 + Fig S1；双库 Panel / SOFA 层 / DeLong / GVIF / 分层五模型） | `R/pub_reference_lit_tables.R` → `run/pub/rebuild_lit_publication_tables.R`（见 `run/pub/README_lit_tables.md`）|
+
+## 铁律
+
+1. **禁止工程特征进主分析**（Age2/logAMH/Age_AMH/Adh_rAFS/AMH_miss 等）：config 指向原始数据；`force_include` 仅原始列。
+2. **SHAP 必须解释验证集最优模型**（`force_kernel_best_model=TRUE`）；预后勿为画图偷换成 xgboost TreeSHAP。
+3. **Shiny 生存模型禁止** `predict(..., new_data=, type="prob")`（tidymodels 口径）；RSF 必须 `predict(rfsrc, newdata=)` + 时点生存概率。
+4. **汇总 Figures 只留主文/必要补充**（Fig1–5 + S1–S2 一类）；DCA/ROC/parallel 单图勿当发表汇总主目录常驻。
+5. **课题 `scripts/` 热修用完归档**；可复用逻辑必须回写 `Blocks/` / `R/` / `configs/`。
+
+## 新课题检查
+
+- [ ] pipeline 含 `shap` → `shiny_ml_app`（若要网页）
+- [ ] 日志 SHAP 分类 |mean| 非 ~1e-17
+- [ ] `ShinyApp/shiny_staging.RData` 内对象名为 `shiny_staging`
+- [ ] 点 Submit 不闪退；错误应 `showNotification` 而非会话崩
+- [ ] 4 张 KM 合并为 2×2（除非显式 `combined_force_grid`）
+- [ ] 需要超参表时开 `supplementary_ml` 的 `hyperparameters`
+- [ ] 需要文献 Table3 风格 CI 时：`performance_ml$bootstrap_ci_table=TRUE`（时点=`surv_horizon`）
+- [ ] 需要校准表时：`methods` 含 `calibration_boot`（勿写死 60 月）
+
+## 反例
+
+- 在结果目录手写 `hotfix_shiny_*.R` 当长期方案
+- SHAP 先 `as.numeric(factor)` 再喂 RSF predict
+- `save(staged, ...)` 却 `load` 后读 `shiny_staging`
+- 主文 Table 3 用工程特征冲 C-index，正文不披露
+- 在课题 `scripts/` 再写一套 bootstrap 表绕过引擎开关

@@ -7,7 +7,16 @@
 }
 
 .mlsurv_is_prognosis <- function(cfg) {
-  identical(tolower(trimws(cfg$project$study_type %||% "incidence")), "prognosis")
+  st <- identical(tolower(trimws(cfg$project$study_type %||% "incidence")), "prognosis")
+  if (isTRUE(st)) return(TRUE)
+  ## 单指标预后 ML：流水线可保持 incidence（过 guard / UV），但 assoc=cox + 有生存列
+  assoc <- tolower(trimws(as.character(
+    (cfg$ml_batch %||% list())$assoc_model %||%
+      (cfg$incidence_batch %||% list())$assoc_model %||% ""
+  )[1L]))
+  has_surv <- nzchar(as.character((cfg$survival %||% list())$time_var %||% "")[1L]) &&
+    nzchar(as.character((cfg$survival %||% list())$event_var %||% "")[1L])
+  identical(assoc, "cox") && isTRUE(has_surv)
 }
 
 .mlsurv_should_pause <- function(bl_cfg, key, default = TRUE) {
@@ -69,7 +78,7 @@
   ok
 }
 
-.mlsurv_coerce_event01 <- function(x) {
+.mlsurv_coerce_event01 <- function(x, analysis_group = NULL, reference_group = NULL) {
   if (is.logical(x)) return(as.integer(x))
   if (is.numeric(x)) {
     ux <- sort(unique(x[is.finite(x)]))
@@ -78,10 +87,36 @@
   }
   if (is.factor(x) || is.character(x)) {
     xc <- trimws(as.character(x))
-    if (all(xc[!is.na(xc)] %in% c("0", "1"))) return(suppressWarnings(as.integer(xc)))
-    if (all(xc[!is.na(xc)] %in% c("1", "2"))) return(as.integer(xc == "2"))
+    ok <- !is.na(xc) & nzchar(xc)
+    if (all(xc[ok] %in% c("0", "1"))) return(suppressWarnings(as.integer(xc)))
+    if (all(xc[ok] %in% c("1", "2"))) return(as.integer(xc == "2"))
+    ana <- trimws(as.character(analysis_group %||% "")[1L])
+    ref <- trimws(as.character(reference_group %||% "")[1L])
+    if (nzchar(ana) && any(xc[ok] == ana, na.rm = TRUE)) {
+      return(as.integer(xc == ana))
+    }
+    if (nzchar(ref) && any(xc[ok] == ref, na.rm = TRUE) &&
+        length(unique(xc[ok])) == 2L) {
+      return(as.integer(xc != ref))
+    }
+    # 常见事件标签（复发/死亡/病例等）→ 1；其余 → 0
+    # 注意：排除 "No ... Recurrence" / Non-event 等否定标签，避免全员被标成事件
+    ev_pat <- "(?i)(?<!\\bno[-_ ]?)(?<!\\bnon[-_ ]?)(recurr|relaps|death|dead|died|event|case|yes|positive|fail)"
+    # R PCRE 对 lookbehind 长度敏感；改用两步：先匹配再剔除否定前缀
+    hit_ev <- grepl("(?i)recurr|relaps|death|dead|died|event|case|yes|positive|fail", xc)
+    hit_neg <- grepl("(?i)^(no|non|without|absent|negative)\\b|\\bno[-_ ]", xc)
+    if (any(hit_ev[ok] & !hit_neg[ok])) {
+      return(as.integer(hit_ev & !hit_neg))
+    }
+    # 因子水平码 1/2 → 事件=第 2 水平（与 Surv 惯例一致：后水平为事件）
+    if (is.factor(x) && nlevels(x) == 2L) {
+      return(as.integer(as.integer(x) == 2L))
+    }
   }
-  suppressWarnings(as.integer(as.numeric(x)))
+  out <- suppressWarnings(as.integer(as.numeric(x)))
+  ux <- sort(unique(out[is.finite(out)]))
+  if (length(ux) == 2L && all(ux %in% c(1L, 2L))) return(as.integer(out == 2L))
+  out
 }
 
 .mlsurv_prep <- function(ctx, bl_cfg, block_id) {
@@ -166,8 +201,12 @@
 
   df_train$.time <- suppressWarnings(as.numeric(df_train$.time))
   df_validation$.time <- suppressWarnings(as.numeric(df_validation$.time))
-  df_train$.event <- .mlsurv_coerce_event01(df_train$.event)
-  df_validation$.event <- .mlsurv_coerce_event01(df_validation$.event)
+  df_train$.event <- .mlsurv_coerce_event01(
+    df_train$.event, analysis_group = ana_group, reference_group = ref_group
+  )
+  df_validation$.event <- .mlsurv_coerce_event01(
+    df_validation$.event, analysis_group = ana_group, reference_group = ref_group
+  )
 
   ok_tr <- is.finite(df_train$.time) & df_train$.time > 0 & !is.na(df_train$.event)
   ok_va <- is.finite(df_validation$.time) & df_validation$.time > 0 & !is.na(df_validation$.event)
@@ -274,14 +313,31 @@
   risk <- suppressWarnings(as.numeric(risk))
   ok <- is.finite(time) & time > 0 & !is.na(event) & is.finite(risk)
   if (sum(ok) < 5L || sum(event[ok] == 1L) < 2L) return(NA_real_)
+  ## survival::concordance(公式接口) 把「更大预测值」当成更长生存；
+  ## Cox / 风险评分则是「越大风险越高 → 生存越短」，故对 risk 取负再算 C。
+  ## 与 coxph()$concordance 方向一致。
   sc <- tryCatch(
     {
-      cc <- survival::concordance(survival::Surv(time[ok], event[ok]) ~ risk[ok])
+      cc <- survival::concordance(
+        survival::Surv(time[ok], event[ok]) ~ I(-risk[ok])
+      )
       as.numeric(cc$concordance)
     },
     error = function(e) NA_real_
   )
   sc
+}
+
+## 若训练集上 -risk 的 C-index 明显高于 risk，则翻转（适配「预测生存时间」类输出）
+.mlsurv_orient_risk <- function(time, event, risk_train, risk_test = NULL) {
+  c_pos <- .mlsurv_cindex(time, event, risk_train)
+  c_neg <- .mlsurv_cindex(time, event, -risk_train)
+  flip <- is.finite(c_neg) && (!is.finite(c_pos) || (c_neg - c_pos) > 0.02)
+  if (flip) {
+    risk_train <- -risk_train
+    if (!is.null(risk_test)) risk_test <- -risk_test
+  }
+  list(train = risk_train, test = risk_test, flipped = flip, c_index_train = if (flip) c_neg else c_pos)
 }
 
 .mlsurv_scale01 <- function(x) {
@@ -448,4 +504,56 @@
     model = model_name,
     stringsAsFactors = FALSE
   )
+}
+
+###############################################################################
+#  通用生存 ML block 收尾 + 网格 CV
+###############################################################################
+
+.mlsurv_summarise_cv5 <- function(cv_rows, model_name) {
+  cv5 <- dplyr::bind_rows(cv_rows[which(vapply(cv_rows, nrow, integer(1L)) > 0L)])
+  if (!nrow(cv5)) return(cv5)
+  cv5 <- cv5[cv5$.metric == "c_index" & is.finite(cv5$.estimate), , drop = FALSE]
+  if (!nrow(cv5)) return(cv5)
+  cv5 %>%
+    dplyr::group_by(.data$.metric) %>%
+    dplyr::summarise(
+      mean = mean(.data$.estimate, na.rm = TRUE),
+      std_err = stats::sd(.data$.estimate, na.rm = TRUE) / sqrt(sum(is.finite(.data$.estimate))),
+      .groups = "drop"
+    ) %>%
+    dplyr::mutate(model = model_name)
+}
+
+.mlsurv_finish_block <- function(ctx, prep, tag, display_name, res_core) {
+  ## 统一风险方向（越高 = 越高复发/死亡风险）
+  oriented <- .mlsurv_orient_risk(
+    prep$df_train$.time, prep$df_train$.event,
+    res_core$risk$train, res_core$risk$test
+  )
+  if (isTRUE(oriented$flipped)) {
+    cli::cli_alert_info(
+      "{tag}: 风险评分已翻转以对齐 Cox C-index 方向（train C≈{round(oriented$c_index_train, 3)}）。"
+    )
+  }
+  res_core$risk <- list(train = oriented$train, test = oriented$test)
+  pe <- .mlsurv_predict_eval(
+    prep$df_train$.time, prep$df_train$.event, res_core$risk,
+    prep$df_train, prep$df_validation,
+    display_name, prep$pred_ref_col, prep$pred_ana_col,
+    prep$ref_group, prep$ana_group
+  )
+  res <- c(res_core, pe)
+  saved <- .mlsurv_save_result(prep, tag, res, res_core$model)
+  ctx <- .mlsurv_write_ctx_meta(ctx, prep)
+  ctx$results$ml_models[[tag]] <- saved$model
+  ctx$results$ml_predictions_all[[tag]] <- saved$preds
+  ctx$results$ml_eval_by_model[[tag]] <- saved$eval
+  ctx
+}
+
+.mlsurv_source_self <- function(ctx) {
+  root <- ctx$config$project$root %||% getwd()
+  path <- file.path(root, "R/ml_survival_model_helpers.R")
+  if (file.exists(path)) source(path, local = FALSE)
 }

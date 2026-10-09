@@ -183,5 +183,36 @@ chk <- system(
 )
 stopifnot(any(grepl("tiff_lzw|lzw", chk, ignore.case = TRUE)))
 
+# LASSO A|B 横排必须是单页
+pdf_a <- file.path(fd, "S2A.pdf")
+pdf_b <- file.path(fd, "S2B.pdf")
+make_min_pdf(pdf_a)
+make_min_pdf(pdf_b)
+ab_dest <- file.path(fd, "Figure S1. Lasso.pdf")
+ok_ab <- isTRUE(pub_figure_combine_ab_pdfs(pdf_a, pdf_b, ab_dest, stack = TRUE))
+stopifnot(isTRUE(ok_ab), file.exists(ab_dest), file.info(ab_dest)$size > 1000)
+if (requireNamespace("pdftools", quietly = TRUE)) {
+  inf <- pdftools::pdf_info(ab_dest)
+  stopifnot(identical(as.integer(inf$pages), 1L))
+  ## 上下：页高应大于页宽
+  stopifnot(as.numeric(inf$pagesize$height) > as.numeric(inf$pagesize$width) * 0.9)
+  txt <- paste(pdftools::pdf_text(ab_dest), collapse = " ")
+  stopifnot(grepl("A", txt), grepl("test fig", txt, ignore.case = TRUE))
+}
+
+ab_band_dest <- file.path(fd, "Figure S1. Lasso label band.pdf")
+ok_ab_band <- isTRUE(pub_figure_combine_ab_pdfs(
+  pdf_a, pdf_b, ab_band_dest,
+  labels = c("A  MIMIC-IV", "B  eICU"),
+  stack = FALSE,
+  label_band = 24
+))
+stopifnot(isTRUE(ok_ab_band), file.exists(ab_band_dest))
+if (requireNamespace("pdftools", quietly = TRUE)) {
+  side_inf <- pdftools::pdf_pagesize(ab_band_dest)
+  source_inf <- pdftools::pdf_pagesize(pdf_a)
+  stopifnot(side_inf$height[[1L]] > source_inf$height[[1L]])
+}
+
 unlink(fd, recursive = TRUE)
 cat("test_pub_figure_export: OK\n")

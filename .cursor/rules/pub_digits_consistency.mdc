@@ -1,0 +1,61 @@
+---
+description: 发表表小数位与整数千分位全项目统一（OR/HR/CI/描述/P/切点默认 3 位；整数默认千分位逗号）
+alwaysApply: true
+---
+
+# 发表小数位与整数格式统一（全项目复用）
+
+发病 / 预后 / ML / NHANES / 中介等所有 SCI 三线表与森林图必须遵守。**禁止**同一课题里 P 值有的 3 位、有的 4 位；**禁止**同一表里人数有的写 `4,000`、有的写 `4000`。
+
+## 铁律
+
+1. **单一入口**：位数只来自 `R/utils.R` 的 `.pipeline_pub_digits()` / `pipeline_apply_pub_digits(config)`；可用 `config$pub_digits` 覆盖（默认见下）。
+2. **默认口径**（新课题勿改，除非注释写清期刊要求）：
+   - 效应量 OR / HR / CI：`est = 3`（**固定**三位，含尾随 0，如 `1.010`）
+   - P 值：`p = 3`（`<0.001`）；**禁止**再写 `round(p, 4)` / `digits = 4` 出表
+   - 描述统计（均值、SD、%）：`desc = 3` 为**上限**；默认 `desc_trim = TRUE` 去掉尾随 0（`90` 不写 `90.000`；`2.9` 不写 `2.900`）
+   - ROC / RCS / Youden 切点：`cutoff = 3`
+   - **整数（人数 / 事件数 / 计数）**：`int_big_mark = TRUE`（默认千分位逗号 `1,234`；期刊要求无逗号时设 `FALSE`，全表统一）
+3. **必须走公共格式化**：`pub_format_p` / `pub_format_p_cell` / `fmt_pval` / `pub_format_est` / `pub_fmt_est_ci_p` / `logistic_glm_format_p`；单因素 OR/HR 用 `pub_fmt_est_ci_p`，**不要**用 `fmt_num` 硬编码位数格式化效应量。描述统计走 `fmt_num` / `fmt_continuous`（自动 trim）。
+4. **Cox / logistic 单元格**：写入前用 `pub_format_p_cell`；导出前可用 `pub_fix_p_cells`。`logistic_glm_format_p` 已与 3 位对齐，勿再分叉。
+5. **整数只有一把尺子**：凡表内人数 / 事件数 / `n (%)` 中的 n，一律走 `pub_format_int()`（`R/utils.R`）。**禁止** Block / 课题里再手写 `format(n, big.mark=",")`、`sprintf("%d", n)`、`paste0(n, " (")` 出发表表——同表 4,000 与 4000 混排审稿必抓。
+   - 引擎已在 `.prepare_df_for_tex` 挂**渲染层守卫** `.pub_group_count_ints()`：凡经 `export_sci_table` 落盘的发表表，「计数上下文」（含 `%`、`/`、`N=`）里的 ≥4 位独立整数自动补千分位，且对年份区间（`2006-2010`）、小数（`0.1234`）、效应量单元格**不误伤**；已带逗号者幂等。
+   - 守卫只管**渲染呈现**，数据层 CSV（如 `Flowchart_attrition*.csv` 的 n 列）仍存裸整数，禁止把逗号写回数据。
+   - 若某课题整表不想带逗号：`config$pub_digits$int_big_mark = FALSE`（渲染守卫与 `pub_format_int` 同步关闭），禁止逐表手工删。
+6. **旧课题**：不必为统一小数位强制回刷已出表；新跑 / 新课题自动生效。已导出表返工按 `pub_table_xlsx_surgical` 铁律外科改，禁止整表重写。
+7. **中介路径图与 Table S9**：须同源同一 `pub_digits$est`；禁止图用 2 位、表用 3 位导致 0.99 vs 0.992 / Proportion 错位。
+
+## 实现入口
+
+- `R/utils.R`：`.pipeline_pub_digits` / `pipeline_apply_pub_digits` / `pub_format_*` / `fmt_num` / `fmt_pval` / `pub_format_int` / `.pub_group_count_ints` / `.pub_int_comma`
+- 渲染挂载点：`R/utils.R` → `.prepare_df_for_tex`（`export_sci_table` 队列渲染 xlsx+tex 前统一补千分位）
+- `R/pipeline_runner.R`：`run_pipeline` 启动时 `pipeline_apply_pub_digits(config)`
+- 模板：`configs/templates/config_incidence_dual_batch.template.R` 的 `pub_digits`
+
+```r
+config$pub_digits <- list(
+  est = 3L, p = 3L, desc = 3L, cutoff = 3L,
+  int_big_mark = TRUE, desc_trim = TRUE
+)
+```
+
+## 新课题检查清单
+
+- [ ] config 含 `pub_digits`（或接受引擎默认 3/3/3/3 + 千分位开 + desc_trim）
+- [ ] 无新建 `round(p, 4)` / `formatC(..., digits = 4)` 写进回归表 P 列
+- [ ] Table 2 / 中介 / 单因素 OR(CI) 为固定 **3** 位；Table 1 / S1 描述最多 3 位且无强制整数 `.000`
+- [ ] 切点默认 **3** 位
+- [ ] 表内人数 / 事件数 / `n (%)` 的 n 千分位口径一致（全 `1,234` 或全 `1234`），无同表混排
+- [ ] 新写 Block 取整数值时用 `pub_format_int(n)`，不再 `sprintf("%d")` / 手拼 `big.mark`
+- [ ] 中介路径图效应量位数与 Table S9 一致（均走 `pub_digits$est`）
+
+## 反例（禁止）
+
+- Cox 表 P 四位、森林图 / `fmt_pval` 三位
+- 同一课题 OR 有的 2 位、有的 3 位（未统一走 `pub_format_est`）
+- 中介图 HR 两位成 0.99、表三位 0.992
+- Table 1 / S1 把心率等整数硬写成 `90.000 (78.000, 106.000)`（未开 `desc_trim`）
+- 课题私自再写一套 `sprintf("%.4f", p)` 绕过公共函数
+- 同一张 Table 1 里 `1,234 (34.5%)` 与 `5678 (12.3%)` 千分位混排
+- 把千分位逗号写回数据层 CSV / rds（守卫只作用渲染层）
+- 为个别单元格手工删逗号导致全表口径再度分叉

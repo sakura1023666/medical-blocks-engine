@@ -37,6 +37,10 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   }
   base_imp$ID <- as.character(base_imp$ID)
   id_keep <- unique(stats::na.omit(base_imp$ID))
+  idx_var <- as.character(ctx$config$incidence$index_var %||% "FI")[1L]
+  require_fi <- bl$require_complete_fi
+  if (is.null(require_fi)) require_fi <- !identical(idx_var, "Leisure_score")
+  require_fi <- isTRUE(require_fi)
 
   .recode01 <- function(x) {
     ifelse(is.na(x), NA_real_,
@@ -50,6 +54,24 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
            ifelse(xc %in% c("Circadian_Disorder"), "Circadian_Disorder",
            ifelse(xc %in% c("0", "No_Fracture"), "No_Fracture",
            ifelse(xc %in% c("No_Disorder"), "No_Disorder", xc)))))
+  }
+  .pick_charls_id <- function(raw_id, target_ids) {
+    raw_id <- as.character(raw_id)
+    nlen <- nchar(raw_id)
+    inserted <- ifelse(
+      nlen == 11L, paste0(substr(raw_id, 1, 9), "0", substr(raw_id, 10, 11)),
+      ifelse(nlen == 10L, paste0(substr(raw_id, 1, 8), "0", substr(raw_id, 9, 10)), raw_id)
+    )
+    penult <- substr(raw_id, pmax(nlen - 1L, 1L), pmax(nlen - 1L, 1L))
+    stripped <- ifelse(
+      nlen >= 2L & penult == "0",
+      paste0(substr(raw_id, 1, nlen - 2L), substr(raw_id, nlen, nlen)),
+      raw_id
+    )
+    cands <- list(raw = raw_id, insert0 = inserted, strip0 = stripped)
+    n_hit <- vapply(cands, function(z) length(intersect(z, as.character(target_ids))), integer(1))
+    pick <- names(which.max(n_hit))
+    list(id = cands[[pick]], pick = pick, n_hit = n_hit)
   }
   .norm_id <- function(x) sub("^0+", "", as.character(x))
   .as_chr_id <- function(x) {
@@ -170,12 +192,15 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
           if (!length(alt)) stop("circadian_csv 无 ID 列: ", circ_path, call. = FALSE)
           cid <- alt[[1L]]
         }
-        cc$ID <- as.character(cc[[cid]])
+        raw_id <- as.character(cc[[cid]])
         if (identical(cohort, "CHARLS")) {
-          cc$ID <- ifelse(
-            nchar(cc$ID) == 11L, paste0(substr(cc$ID, 1, 9), "0", substr(cc$ID, 10, 11)),
-            ifelse(nchar(cc$ID) == 10L, paste0(substr(cc$ID, 1, 8), "0", substr(cc$ID, 9, 10)), cc$ID)
+          picked <- .pick_charls_id(raw_id, fr$ID)
+          cc$ID <- picked$id
+          cli::cli_alert_info(
+            "{cohort} wave ID overlap raw={picked$n_hit['raw']}, insert0={picked$n_hit['insert0']}, strip0={picked$n_hit['strip0']}; use {picked$pick}"
           )
+        } else {
+          cc$ID <- raw_id
         }
         # 昼夜：该波血压+该波年龄算 ePWV；预编码 condition 药物 NA 会把 C2–C4 打成全 1，故从源列重建
         want_wave_epwv <- any(grepl("^condition[0-9]+$", carry)) ||
@@ -230,12 +255,22 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
           stop("circadian_csv 缺 carry_vars: ", paste(miss_c, collapse = ","), call. = FALSE)
         cc <- cc[, c("ID", keep_c), drop = FALSE]
         cc <- cc[!duplicated(cc$ID), , drop = FALSE]
-        fr <- merge(fr, cc, by = "ID", all.x = TRUE)
+        # 休闲活动课题：波次文件里有得分、但不在虚弱表的人仍进入配对
+        fr <- merge(fr, cc, by = "ID", all.x = TRUE, all.y = !isTRUE(require_fi))
+        fr$year <- y
       }
       fr_list[[as.character(y)]] <- fr
       ids_y <- union(ids_y, fr$ID)
     }
     if (!is.null(yo)) {
+      if (identical(cohort, "CHARLS")) {
+        target_ids <- if (!is.null(fr)) fr$ID else id_keep
+        picked_y <- .pick_charls_id(yo$ID, target_ids)
+        yo$ID <- picked_y$id
+        cli::cli_alert_info(
+          "{cohort} {y} outcome ID overlap raw={picked_y$n_hit['raw']}, insert0={picked_y$n_hit['insert0']}, strip0={picked_y$n_hit['strip0']}; use {picked_y$pick}"
+        )
+      }
       yo$year <- y
       dis_list[[as.character(y)]] <- yo
       ids_y <- union(ids_y, yo$ID)
@@ -305,8 +340,8 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   flow$n_with_followup <- length(has_fu)
   eligible_ids <- has_fu
 
-  # 要求基线有 FI
-  if (!is.null(fr_long)) {
+  # 虚弱指数课题才要求基线 FI。休闲活动按两波得分 + 随访结局纳入。
+  if (isTRUE(require_fi) && !is.null(fr_long)) {
     bl_fi <- fr_long[fr_long$year == baseline_year & fr_long$ID %in% eligible_ids & !is.na(fr_long$FI), "ID", drop = TRUE]
     flow$n_drop_no_baseline_FI <- length(setdiff(eligible_ids, bl_fi))
     eligible_ids <- intersect(eligible_ids, bl_fi)
@@ -332,7 +367,10 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
     d_sub <- fu_dis[fu_dis$ID == id & !is.na(fu_dis$Disease01), , drop = FALSE]
     p_sub <- present_fu[present_fu$ID == id, , drop = FALSE]
     any_event <- nrow(d_sub) > 0L && any(d_sub$Disease01 == 1)
-    if (any_event) {
+    if (!isTRUE(require_fi) && nrow(d_sub) == 0L) {
+      wave2_year <- NA_integer_
+      event <- NA_integer_
+    } else if (any_event) {
       event_year <- min(d_sub$year[d_sub$Disease01 == 1], na.rm = TRUE)
       wave2_year <- as.integer(event_year)
       event <- 1L
@@ -408,8 +446,8 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   )
   fr2 <- .join_fr_year(w2$ID, w2$year)
   # if FI missing at event year, fall back to nearest prior FU frailty year
-  miss_fi <- is.na(fr2$FI)
-  if (any(miss_fi) && !is.null(fr_long)) {
+  miss_fi <- if ("FI" %in% names(fr2)) is.na(fr2$FI) else rep(FALSE, nrow(fr2))
+  if (any(miss_fi) && !is.null(fr_long) && isTRUE(require_fi)) {
     for (i in which(miss_fi)) {
       id <- w2$ID[i]; ty <- w2$year[i]
       cand <- fr_long[fr_long$ID == id & fr_long$year %in% fu_years & fr_long$year <= ty & !is.na(fr_long$FI), , drop = FALSE]
@@ -438,10 +476,24 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   long_pair$Cohort <- cohort
   long_pair$Year <- as.character(long_pair$year)
 
-  # drop IDs with missing FI on either wave
-  ok_fi <- tapply(long_pair$FI, long_pair$ID, function(z) all(!is.na(z)))
-  keep_fi_ids <- names(ok_fi)[ok_fi]
-  flow$n_drop_incomplete_FI_pair <- length(setdiff(unique(long_pair$ID), keep_fi_ids))
+  if (isTRUE(require_fi)) {
+    ok_fi <- tapply(long_pair$FI, long_pair$ID, function(z) all(!is.na(z)))
+    keep_fi_ids <- names(ok_fi)[ok_fi]
+    flow$n_drop_incomplete_FI_pair <- length(setdiff(unique(long_pair$ID), keep_fi_ids))
+  } else {
+    if (!idx_var %in% names(long_pair)) {
+      stop("long_prepare: 宽表缺暴露列 ", idx_var, call. = FALSE)
+    }
+    ok_x <- tapply(long_pair[[idx_var]], long_pair$ID, function(z) length(z) >= 2L && all(!is.na(z)))
+    keep_x <- names(ok_x)[ok_x]
+    flow$n_drop_no_baseline_FI <- length(setdiff(unique(long_pair$ID), keep_x))
+    w2_ok <- long_pair$wave == 2L & !is.na(long_pair$Disease01)
+    keep_fi_ids <- intersect(keep_x, unique(long_pair$ID[w2_ok]))
+    flow$n_drop_incomplete_FI_pair <- length(setdiff(keep_x, keep_fi_ids))
+    cli::cli_alert_info(
+      "{cohort}: 不按 FI 剔除；{idx_var} 两波齐全 {length(keep_x)}，再要求随访结局后 {length(keep_fi_ids)}"
+    )
+  }
   long_pair <- long_pair[long_pair$ID %in% keep_fi_ids, , drop = FALSE]
   flow$n_final_pair <- length(unique(long_pair$ID))
 
@@ -617,8 +669,8 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
       "After baseline disease-free",
       "Exclude no follow-up in any FU year",
       "With any follow-up",
-      "Exclude missing baseline FI",
-      "Exclude incomplete FI at T1/T2 pair",
+      if (isTRUE(require_fi)) "Exclude missing baseline FI" else paste0("Exclude missing ", idx_var, " at T1 or T2"),
+      if (isTRUE(require_fi)) "Exclude incomplete FI at T1/T2 pair" else "Exclude missing follow-up outcome",
       "Final analytic (wave1+wave2 pair)"
     ),
     n = c(
@@ -652,8 +704,14 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
     sprintf("− No follow-up in any FU year (%s): %s",
             paste(fu_years, collapse = "/"), flow$n_drop_no_followup),
     sprintf("= With any follow-up: N = %s", flow$n_with_followup),
-    sprintf("− Missing baseline FI: %s", flow$n_drop_no_baseline_FI %||% 0L),
-    sprintf("− Incomplete FI at T1/T2 pair: %s", flow$n_drop_incomplete_FI_pair %||% 0L),
+    sprintf(
+      if (isTRUE(require_fi)) "− Missing baseline FI: %s" else paste0("− Missing ", idx_var, " at T1 or T2: %s"),
+      flow$n_drop_no_baseline_FI %||% 0L
+    ),
+    sprintf(
+      if (isTRUE(require_fi)) "− Incomplete FI at T1/T2 pair: %s" else "− Missing follow-up outcome: %s",
+      flow$n_drop_incomplete_FI_pair %||% 0L
+    ),
     sprintf("Final analytic sample: N = %s (events at T2 = %s)",
             flow$n_final_pair,
             sum(long_pair$Disease01[long_pair$wave == 2L] == 1, na.rm = TRUE))

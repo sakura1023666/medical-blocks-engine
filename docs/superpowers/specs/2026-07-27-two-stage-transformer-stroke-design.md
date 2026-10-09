@@ -42,11 +42,12 @@
 ```
 基线 RData + 实验室长表 CSV (+ 预后宽表辅助)
         ↓ 共享层（R，1 次）
-data_clean → column_mapping → imputation → baseline_binary
-        → tst_cohort（纳排 / 院内死亡 / 时间零点）
-        → tst_timeseries（小时网格、单位、审计表）
-        → tst_landmark（5 个可预测队列 ID）
-        → tst_split（7:2:1 + 可选时间外；训练集拟合插补/标准化参数）
+data_clean → column_mapping → tst_cohort（纳排 / 院内死亡 / 时间零点）
+        → tst_split（7:2:1 + 可选时间外；**先划分**）
+        → imputation（**fit_on=train**；val∪test 仅 mice ignore 套用，禁止 holdout 各自重拟合）
+        → tst_timeseries（小时网格、单位、审计表；静态广播用插补后基线）
+        → baseline_binary → tst_landmark（5 个可预测队列 ID）
+        （标准化/特征选择参数亦仅训练集拟合）
         → checkpoint _shared
         ↓ 任务 worker（并行）
 A1 / A2 / B / baselines / ablation / calibrate_dca / shap

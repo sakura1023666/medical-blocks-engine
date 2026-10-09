@@ -79,8 +79,7 @@ secondary_obj    <- .study$secondary_rdata_obj %||% "data"
 secondary_map    <- .study$secondary_column_mapping %||% secondary_name
 
 merge_tables     <- isTRUE(.study$merge_dual_db_tables %||% FALSE)
-prefix_db        <- isTRUE(.study$mirror_aggregate_prefix_db %||% TRUE)
-baseline_no_stop <- isTRUE(.study$baseline_early_stop_disable %||% TRUE)
+prefix_db        <- isTRUE(.study$mirror_aggregate_prefix_db %||% FALSE)
 use_nhanes_path  <- isTRUE(.study$apply_nhanes_upstream %||% (primary_type == "nhanes"))
 
 disease_preset <- .study$disease_config_preset %||% "psoriasis"
@@ -99,6 +98,8 @@ if (use_nhanes_path) {
 } else {
   config <- ml_dual_apply_regular_upstream_overrides(config)
 }
+# 次库/外验走 inherit + logistic/ML（不跑 UV/VIF）；仍应用 regular pause 关闭
+config <- ml_dual_apply_regular_upstream_overrides(config)
 config <- ml_dual_apply_train_validation_batch_overrides(config)
 config$ml_models$methods <- ml_dual_default_ml_methods()
 
@@ -116,11 +117,21 @@ config$baseline <- modifyList(
   config$baseline %||% list(),
   list(strata = outcome_col)
 )
+config$nhanes <- modifyList(
+  config$nhanes %||% list(),
+  list(
+    exclude_cols = unique(c(
+      as.character(config$nhanes$exclude_cols %||% character(0)),
+      "ID", "SEQN", "new_Weight", "WTINT2YR", "WTMEC2YR", "WTINT4YR", "WTMEC4YR",
+      "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"
+    ))
+  )
+)
+
 config$baseline_binary <- modifyList(
   config$baseline_binary %||% list(),
   list(
     sig_cutoff = 0.05,
-    early_stop_if_index_ns = !baseline_no_stop,
     pause_enable = FALSE,
     pause_on_min_sig_vars = FALSE
   )
@@ -132,7 +143,12 @@ config$project$disease             <- disease
 config$project$literature_pmid     <- pmid
 config$project$database            <- primary_name
 config$project$database_type       <- if (primary_type == "nhanes") "nhanes" else "regular"
-config$project$study_type          <- "incidence"
+config$project$study_type          <- {
+  st0 <- tolower(trimws(as.character(.study$study_type %||% "incidence")[1L]))
+  if (!st0 %in% c("incidence", "prognosis", "prediction")) st0 <- "incidence"
+  ## prediction 与 incidence 同走分类 ML；预后必须显式 prognosis
+  if (identical(st0, "prediction")) "incidence" else st0
+}
 config$project$analysis_group      <- analysis_group
 config$project$reference_group     <- reference_grp
 config$project$output_dir          <- .batch_project_root
@@ -140,7 +156,55 @@ config$project$use_step_prefixed_block_dirs <- TRUE
 config$project$block_steps_prefix  <- "step"
 config$project$mirror_pub_outputs_to_root  <- TRUE
 
+## 预后：时间/事件列 + UV→VIF + 仅 LASSO-Cox
+if (identical(config$project$study_type, "prognosis")) {
+  config$survival <- modifyList(
+    config$survival %||% list(),
+    list(
+      time_var = as.character(.study$time_var %||% config$survival$time_var %||% "futime")[1L],
+      event_var = as.character(.study$event_var %||% config$survival$event_var %||% "fustatus")[1L]
+    )
+  )
+  config <- ml_dual_apply_prognosis_ml_overrides(config)
+}
+
+## 发病壳 + Cox 关联的预后 ML（如 IBD ACAG）：Shiny 仍走 surv_prognostic 默认
+if (identical(tolower(as.character(config$ml_batch$assoc_model %||% "")[1L]), "cox") &&
+    !identical(config$project$study_type, "prognosis")) {
+  config$shiny <- modifyList(
+    config$shiny %||% list(),
+    list(enable = TRUE, export_app = TRUE, run_interactive = FALSE)
+  )
+  config$shiny_ml_app <- modifyList(
+    config$shiny_ml_app %||% list(),
+    list(
+      enable = TRUE,
+      export_app = TRUE,
+      run_interactive = FALSE,
+      ui_style = config$shiny_ml_app$ui_style %||% "surv_prognostic",
+      app_subdir = config$shiny_ml_app$app_subdir %||% "ShinyApp"
+    )
+  )
+  ## 与正式 prognosis 一致：不足 min 靠放宽 λ，不事后补足
+  .fs_methods <- tolower(as.character((config$feature_selection %||% list())$methods %||% character(0)))
+  if (length(.fs_methods) && all(.fs_methods %in% c("lasso_cox", "lassocox"))) {
+    config$feature_selection <- modifyList(
+      config$feature_selection %||% list(),
+      list(pad_if_below_min = FALSE)
+    )
+    config$feature_selection_lasso_cox <- modifyList(
+      config$feature_selection_lasso_cox %||% list(),
+      list(lambda_adjust_to_n = TRUE)
+    )
+  }
+}
+
 config$prediction$index_vars <- index_vars
+if (length(index_vars)) {
+  config$incidence$index_var <- index_vars
+  config$logistic$index_var <- index_vars[[1L]]
+  config$rcs_incidence$index_var <- index_vars[[1L]]
+}
 config$index <- list(enable = FALSE, only = NULL, skip = NULL, digits = 4L)
 
 config$train_validation$enable <- TRUE
@@ -159,6 +223,17 @@ config$shap <- modifyList(
     force_index_in_plot = FALSE
   )
 )
+## 预后：SHAP 必须钉死最优模型（build 后再次强调，避免被上面覆盖丢键）
+if (identical(config$project$study_type, "prognosis")) {
+  config$shap <- modifyList(
+    config$shap %||% list(),
+    list(
+      ml_model = "auto",
+      force_kernel_best_model = TRUE,
+      prefer_tree_shapviz = FALSE
+    )
+  )
+}
 config$feature_selection_venn <- modifyList(
   config$feature_selection_venn %||% list(),
   list(
@@ -172,6 +247,12 @@ config$shiny <- modifyList(config$shiny %||% list(), list(ml_model_tag = NULL))
 
 config$ml_feature_selection_bundle <- list(enable = TRUE, export_for_secondary = TRUE)
 config$ml_inherit_primary_features <- list(enable = TRUE)
+config$ml_id_deduplicate <- list(
+  enable = TRUE,
+  id_column = NULL,
+  keep = "first",
+  stop_if_no_id_col = TRUE
+)
 
 config$dual_db <- list(
   enable = TRUE,
@@ -206,8 +287,11 @@ config$dual_db <- list(
       "Insurance", "Language", "Alcohol"
     ),
     covariate_source = "vif_screen",
-    sync_after_vif_final = FALSE,
-    sync_logistic_branch = FALSE
+    sync_after_vif_final = TRUE,
+    sync_logistic_branch = FALSE,
+    # ML 次库 VIF 池常与主库不一致：临床交集空时各库保留 Model1/2，不因 GATE_B_EMPTY_COMMON 硬停
+    require_same_clinical_cols = FALSE,
+    stop_on_empty_common_clinical = FALSE
   )
 )
 
@@ -247,7 +331,19 @@ config$feishu <- list(
   protocol_label = paste0(disease_code, "_", disease, "_ml_", pmid)
 )
 
-.study_split_mode <- .study$split_mode %||% "per_db_internal"
+## 双库均为非 NHANES regular 时默认开发内验+外验（对齐 12_AKI 发表口径）；
+## 主库为 NHANES 加权时仍默认 per_db_internal（两侧各自训练）。
+.study_split_mode <- {
+  sm0 <- .study$split_mode %||% NULL
+  if (!is.null(sm0) && nzchar(as.character(sm0)[1L])) {
+    as.character(sm0)[1L]
+  } else if (!identical(tolower(primary_type), "nhanes") &&
+             !identical(tolower(secondary_type), "nhanes")) {
+    "dev_internal_ext"
+  } else {
+    "per_db_internal"
+  }
+}
 
 config$ml_batch <- list(
   index_mode = "single_loop",
@@ -278,6 +374,15 @@ config$ml_batch <- list(
 
 config$incidence_batch <- config$ml_batch
 config <- ml_dual_apply_cross_db_split_overrides(config)
+if (exists("ml_dual_apply_dev_ext_overrides", mode = "function")) {
+  config <- ml_dual_apply_dev_ext_overrides(config)
+} else {
+  de_src <- file.path(.engine, "R/ml_dual_dev_ext.R")
+  if (file.exists(de_src)) {
+    source(de_src, local = FALSE)
+    config <- ml_dual_apply_dev_ext_overrides(config)
+  }
+}
 config$multi_db <- NULL
 
 source(file.path(.engine, "configs/study_interface/ml_dual_batch_pipelines.R"), local = TRUE)
@@ -293,11 +398,14 @@ config$data$rawdata_path <- file.path(.batch_data_root, primary_subdir, primary_
 config$dual_db$primary$rawdata_path <- file.path(.batch_data_root, primary_subdir, primary_file)
 config$dual_db$secondary$rawdata_path <- file.path(.batch_data_root, secondary_subdir, secondary_file)
 
+# 铁律：Table 1 暴露不显著 → BASELINE_INDEX_NS_STOP（worker 启动前会再次强制）
+config <- ml_dual_apply_baseline_index_ns_fail_rule(config)
+
 rm(.study, .engine, .req, disease_code, disease, pmid, analysis_group, reference_grp,
    index_group, index_vars, feishu_on, outcome_col, id_col,
    primary_name, primary_type, primary_subdir, primary_file, primary_obj, primary_map,
    secondary_name, secondary_type, secondary_subdir, secondary_file, secondary_obj, secondary_map,
-   merge_tables, prefix_db, baseline_no_stop, use_nhanes_path, disease_preset, preset_path,
+   merge_tables, prefix_db, use_nhanes_path, disease_preset, preset_path,
    .normalize_study_root, .study_split_mode,
    list = intersect(c(".study_config_file"), ls()))
 

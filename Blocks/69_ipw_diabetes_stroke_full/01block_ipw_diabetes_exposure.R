@@ -51,7 +51,24 @@ block_ipw_diabetes_exposure <- function(ctx, ...) {
   tt <- suppressWarnings(as.numeric(data[[tsrc]]))
   data[[tvar]] <- pmin(tt, days, na.rm = FALSE)
   data[[tvar]][is.na(tt)] <- NA_real_
-  data[[yvar]] <- as.integer(suppressWarnings(as.numeric(data[[esrc]])) == 1)
+  # 插补后结局常被标成疾病显示名因子；禁止 as.numeric(factor)==1（会把参考组当成事件）
+  if (exists("pipeline_outcome_as_01", mode = "function")) {
+    data[[yvar]] <- as.integer(pipeline_outcome_as_01(data[[esrc]], cfg = cfg))
+  } else {
+    y_raw <- data[[esrc]]
+    if (is.factor(y_raw) || is.character(y_raw)) {
+      yc <- trimws(as.character(y_raw))
+      case_labs <- unique(c(
+        "1", "Yes", "yes", "TRUE", "True",
+        as.character(cfg$project$analysis_group %||% "")[1L],
+        as.character(cfg$project$disease %||% "")[1L]
+      ))
+      case_labs <- case_labs[nzchar(case_labs)]
+      data[[yvar]] <- as.integer(yc %in% case_labs)
+    } else {
+      data[[yvar]] <- as.integer(suppressWarnings(as.numeric(y_raw)) == 1)
+    }
+  }
 
   if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data else ctx$data$cleaned <- data
   ctx$config$survival$time_var  <- tvar

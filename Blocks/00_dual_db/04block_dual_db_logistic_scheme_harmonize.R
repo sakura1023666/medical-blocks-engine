@@ -39,12 +39,28 @@ block_dual_db_logistic_scheme_harmonize <- function(ctx) {
   ctx$results$dual_db_logistic_unified_scheme <- unified_info$scheme
   ctx$results$dual_db_logistic_unified_locked <- TRUE
 
+  gate_b <- dual_db_resync_gate_b_after_logistic(root, cfg, scheme_hint = unified_info$scheme)
+  if (!is.null(gate_b)) {
+    uni_scheme <- as.character(unified_info$scheme %||% "")[1L]
+    ctx <- dual_db_apply_gate_b_to_ctx(ctx, db_name, gate_b)
+    ctx$results$dual_db_logistic_needs_realign <- TRUE
+    ctx$results$dual_db_logistic_covariate_resynced <- TRUE
+    for (peer in c(dual_db_slot_primary(), dual_db_slot_secondary())) {
+      dual_db_rebuild_logistic_table2_for_db(root, cfg, peer, gate_b, uni_scheme)
+    }
+    cli::cli_alert_success(
+      "双库 Model2 已统一（临床 {length(gate_b$common_model_factors)} 个）: {paste(gate_b$common_model_factors, collapse = ', ')}"
+    )
+  }
+
   natural <- dual_db_read_logistic_natural_branch(root, cfg, db_name)
   # 自然方案与统一方案不一致时必须重导主表（含降级：quartile→tertile/binary）
   nat_scheme <- as.character(natural$scheme %||% "")[1L]
   uni_scheme <- as.character(unified_info$scheme %||% "")[1L]
-  ctx$results$dual_db_logistic_needs_realign <-
-    nzchar(uni_scheme) && (!nzchar(nat_scheme) || !identical(nat_scheme, uni_scheme))
+  if (!isTRUE(ctx$results$dual_db_logistic_covariate_resynced)) {
+    ctx$results$dual_db_logistic_needs_realign <-
+      nzchar(uni_scheme) && (!nzchar(nat_scheme) || !identical(nat_scheme, uni_scheme))
+  }
   if (isTRUE(ctx$results$dual_db_logistic_needs_realign)) {
     cli::cli_alert_info(
       "闸门 C [{toupper(db_name)}] 自然方案 {nat_scheme} → 双库统一 {uni_scheme}（将重导 Table 2）"

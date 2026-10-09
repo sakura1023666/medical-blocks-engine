@@ -1,0 +1,22 @@
+---
+description: 发表图/表展示层禁止下划线（全项目复用）
+alwaysApply: true
+---
+
+# 发表展示禁下划线铁律
+
+凡 **Tables xlsx / Figures 图面文字 / image_information / 表脚注**，展示层不得出现编程下划线（如 `diameter_cm`、`energy_j`、`Methods_split_…`）。数据列名、checkpoint、内部 CSV 可用 `_`。
+
+## 铁律
+
+1. **单一清洗入口**：`pipeline_display_label()` / `pipeline_scrub_pub_df()` / `pipeline_scrub_pub_text()`（`R/utils.R`）；`sci_xlsx_single_header_booktabs` 与 Table1 guan-style 已挂去下划线。
+2. **画图**：facet / 轴标签 / forest 变量列须走展示名（课题 `display_labels` 或字典），禁止把裸列名直接 `facet_grid(feature ~ .)`。
+3. **质控**：`run/pub/run_pub_qc_after_project.R` 扫描 xlsx 与 image_information；命中下划线 → WARN（Agent 须修）。
+4. **禁止**课题再写一套 `gsub("_"," ")` 长期分叉；一次性 hotfix 用完归档。
+
+## 检查清单
+
+- [ ] 主文/补充表 Variable 列为 `Diameter, cm` 类展示名
+- [ ] Fig 轴/条带无 `*_`
+- [ ] image_information 无 `_`
+- [ ] 脚注不写磁盘文件名式 `Methods_xxx.txt`

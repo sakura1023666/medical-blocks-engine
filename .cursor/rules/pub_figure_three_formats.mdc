@@ -1,0 +1,44 @@
+---
+description: 发表图必须 pdf/png/tiff/image_information 四目录（含 TST）
+alwaysApply: true
+---
+
+# 发表图四目录铁律（全项目复用）
+
+所有发病 / 预后 / ML / 竞争风险 / **两阶段 Transformer（TST）** 等指标汇总 `Figures/` 必须含 **pdf / png / tiff / image_information** 四目录。禁止只留根目录平铺 `Figure*.pdf`。
+
+## 铁律
+
+1. **落盘结构**（指标根，如 `by_index/【success】INDEX/Figures/` 或 TST `summary_results/Figures/`）：
+   - `pdf/Figure ….pdf`
+   - `png/Figure ….png`
+   - `tiff/Figure ….tiff`
+   - `image_information/Figure ….md`
+2. **唯一写出入口**：`R/pub_figure_export.R` → `export_pub_figures()` / `pub_figure_ensure_formats()`。
+3. **finalize 必挂**：
+   - 发病/预后：`incidence_batch_finalize_index_outputs()` → `incidence_batch_ensure_index_pub_figure_formats()`
+   - TST：`tst_summary_results` 在 `build_summary_results.py` 之后必须调用 `export_pub_figures(summary_results/Figures)`
+4. **手工改图后必重导**：重跑中介 / 亚组 / 只拷 PDF / 重画 Fig2 后，必须再跑 `pub_figure_ensure_formats(Figures目录)`，禁止只更新一个 pdf。
+5. **校验**：`pub_figure_formats_status()` 要求每张 pdf 都有对应 png+tiff（**0 字节/过小 TIFF 视为缺失**），且 Figures 根目录无残留 `Figure*.pdf`。
+6. **TIFF 非零兜底（SMB/WSL 坑）**：Windows python/PIL 直写 SMB 常落 0 字节；`pub_figure_ensure_tiff_from_png()` 已三层兜底（PIL → R 原生 png+tiff::writeTIFF LZW → magick），`.pub_figure_rasterize_one()` 自动调用。批量修旧结果：`Rscript run/pub/repair_zero_tiffs.R --dir .../Figures` 或 `--root /mnt/g/02block_result`。禁止再手写 `tmp_tiff_fix.R`。
+
+## Agent / 手工操作禁令
+
+- ❌ 只把 `Figure S3….pdf` 拷到 `Figures/` 根目录就结束
+- ❌ 在指标根旁建空的 `pdf/` `png/` `tiff/`（必须在 `Figures/` 下）
+- ❌ 因 `mirror_aggregate=FALSE` 就跳过四目录导出
+- ❌ TST `summary_results/Figures` 只留平铺 PDF
+- ✅ 改完图后：`pub_figure_ensure_formats(file.path(index_root, "Figures"), config = config)`
+
+## 实现入口
+
+- `R/pub_figure_export.R`：`export_pub_figures` / `pub_figure_ensure_formats` / `pub_figure_formats_status`
+- `R/incidence_dual_batch_runner.R`：`incidence_batch_ensure_index_pub_figure_formats` + finalize 挂点
+- `Blocks/71_two_stage_transformer_stroke/12block_tst_summary_results.R`：TST 汇总后四目录
+- `R/pipeline_runner.R`：流水线收尾对非分库槽位 Figures 补齐
+
+## 检查清单
+
+- [ ] `Figures/pdf|png|tiff` 三目录存在且图数量一致
+- [ ] `Figures/` 根目录无 `Figure*.pdf` 平铺残留
+- [ ] 中介 / 亚组 / TST Fig2 重跑后四目录已刷新（含新图）

@@ -29,6 +29,12 @@ stopifnot(identical(as.integer(ctx$results$attrition$log[[1]]$n), 10L))
 rows <- attrition_finalize_rows(ctx, ctx$config)
 stopifnot(nrow(rows) >= 1L)
 stopifnot(any(rows$n == 10L))
+last <- rows[nrow(rows), , drop = FALSE]
+stopifnot(!grepl("ASCVD:", last$step, fixed = TRUE))
+stopifnot(identical(as.integer(last$fork_left_n), 3L))
+stopifnot(identical(as.integer(last$fork_right_n), 7L))
+stopifnot(grepl("ASCVD", last$fork_left_label, fixed = TRUE))
+stopifnot(grepl("Non_ASCVD", last$fork_right_label, fixed = TRUE))
 
 # auto append only when nrow changes
 ctx2 <- ctx
@@ -36,6 +42,59 @@ ctx2 <- attrition_auto_append_nrow(ctx2, "boxplot", 10L, 10L)
 stopifnot(length(ctx2$results$attrition$log) == 1L)
 ctx2 <- attrition_auto_append_nrow(ctx2, "boxplot", 10L, 8L)
 stopifnot(any(vapply(ctx2$results$attrition$log, function(x) identical(x$step_id, "auto_boxplot"), logical(1))))
+
+# NHANES survey design eligibility must become an explicit attrition step
+ctx_w <- ctx
+ctx_w$results$attrition <- list(log = list())
+ctx_w$results$nhanes_weight_info <- list(
+  weight_col = "new_Weight", source = "WTMEC2YR / WTMEC4YR", n_dropped = 4L
+)
+ctx_w <- attrition_record_survey_weight_step(ctx_w, design_n = 6L)
+weight_idx <- which(vapply(
+  ctx_w$results$attrition$log,
+  function(x) identical(x$step_id, "after_survey_weight"),
+  logical(1)
+))
+stopifnot(length(weight_idx) == 1L)
+weight_entry <- ctx_w$results$attrition$log[[weight_idx]]
+stopifnot(identical(weight_entry$n, 6L))
+stopifnot(grepl("new_Weight", weight_entry$meta$exclude_label, fixed = TRUE))
+stopifnot(grepl("WTMEC", weight_entry$meta$exclude_label, fixed = TRUE))
+
+# 0 人因权重剔除时仍须记账（标明权重名）
+ctx_w0 <- ctx
+ctx_w0$results$attrition <- list(log = list())
+ctx_w0 <- attrition_record(ctx_w0, "after_imputation", "After imputation", 10L)
+ctx_w0$results$nhanes_weight_info <- list(
+  weight_col = "new_Weight", source = "WTMEC2YR / WTMEC4YR", n_dropped = 0L
+)
+ctx_w0 <- attrition_record_survey_weight_step(ctx_w0, design_n = 10L)
+stopifnot(any(vapply(
+  ctx_w0$results$attrition$log,
+  function(x) identical(x$step_id, "after_survey_weight"),
+  logical(1)
+)))
+w0 <- ctx_w0$results$attrition$log[[which(vapply(
+  ctx_w0$results$attrition$log,
+  function(x) identical(x$step_id, "after_survey_weight"),
+  logical(1)
+))[1L]]]
+stopifnot(identical(w0$n, 10L))
+stopifnot(grepl("new_Weight", w0$meta$exclude_label, fixed = TRUE))
+
+# Outcome fork must use the same survey-eligible cohort as weighted Table 1
+ctx_w$results$nhanes_design <- list(
+  variables = data.frame(
+    Disease_Group = factor(
+      c(rep("ASCVD", 2), rep("Non_ASCVD", 4)),
+      levels = c("Non_ASCVD", "ASCVD")
+    )
+  )
+)
+fork_w <- attrition_resolve_outcome_fork(ctx_w, ctx_w$config)
+stopifnot(identical(fork_w$left_n, 2L))
+stopifnot(identical(fork_w$right_n, 4L))
+stopifnot(fork_w$left_n + fork_w$right_n == 6L)
 
 # missing evidence step skipped (source=id_file bad path)
 ctx$config$attrition$steps <- list(
@@ -64,6 +123,24 @@ ok_tnr <- attrition_draw_pdf(
   font_family = "Times New Roman"
 )
 stopifnot(isTRUE(ok_tnr), file.exists(file.path(td, "tnr.pdf")))
+
+# CONSORT fork boxes (incidence case / control)
+ok_fork <- attrition_draw_pdf(
+  data.frame(
+    step = c("Admission records in MIMIC-IV", "The diagnosis includes SLE", "Included"),
+    n = c(65366L, 271L, 264L),
+    exclude_label = c(NA_character_, "Diagnosis does not include SLE", "Incomplete after imputation"),
+    fork_left_label = c(NA, NA, "AKI group"),
+    fork_left_n = c(NA, NA, 106L),
+    fork_right_label = c(NA, NA, "No AKI group"),
+    fork_right_n = c(NA, NA, 158L),
+    stringsAsFactors = FALSE
+  ),
+  title = "Figure 1. CONSORT test",
+  pdf_path = file.path(td, "consort.pdf")
+)
+stopifnot(isTRUE(ok_fork), file.exists(file.path(td, "consort.pdf")),
+          file.info(file.path(td, "consort.pdf"))$size > 2000)
 
 # Promote Inclusion-exclusion PDF → Figure 1. Flowchart.pdf
 promoted <- attrition_promote_figure1(td)

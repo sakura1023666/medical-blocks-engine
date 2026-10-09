@@ -11,7 +11,7 @@
 #      1) continuous：Crude 显著且 Model1、Model2 均显著
 #      2) Q2/Q3/Q4 至少一个：Model2 显著
 #      3) p for trend：Crude、Model1、Model2 均显著
-#    未通过者不写入 select_vocs_final，下游 WQS/BKMR/RCS 等不再运行；全无通过则 stop。
+#    未通过者不写入 select_vocs_final，下游 WQS/BKMR/RCS 等不再运行；全无通过则写空（report_all_vocs=TRUE 时仍导出全表）。
 #    导出 SCI 三线格式表格（xlsx）。
 #
 #  # ── Bug 修复说明（相对原 C01_GLM.R）─────────────────────────────────────
@@ -38,7 +38,10 @@
 #    select_vocs           = NULL,            # VOC 列名；NULL = ctx$results$select_vocs
 #    model1_factors        = NULL,            # Model1 协变量；NULL = ctx$results$Model1Factors
 #    model2_factors        = NULL,            # Model2 协变量；NULL = ctx$results$final_features
+#    locked_covariates     = NULL,            # 敏感性锁协变量（审稿口径：协变量集与主分析一致，仅换样本）：
+#                                            #   命中 VOC 后跳过 covariate_search / force_report，直接沿用锁定的 Model1/Model2
 #    screening_p_threshold = 0.05,           # continuous 行 Model2 p 筛选阈值
+#    report_all_vocs       = FALSE,           # TRUE：不显著 VOC 仍写入 GLM 表（敏感性）；下游 select_vocs 仍只含过门禁者
 #    label_mapping         = NULL,            # 命名向量 c(内部列名 = "展示名")，可选
 #    table_filename        = NULL,            # NULL = "Table_GLM_Environment_Quartile.xlsx"
 #    table_title           = NULL             # 表格标题；NULL = 自动生成
@@ -309,7 +312,7 @@
   p <- suppressWarnings(as.numeric(p))
   if (!is.finite(p)) return(as.character(p))
   if (p < 0.001) return("P < 0.001")
-  formatC(round(p, 4), format = "f", digits = 4)
+  pub_format_p_cell(p)
 }
 
 .env36_format_pval_cols <- function(rt) {
@@ -598,6 +601,43 @@
 
 .env36_per_voc_covariates_enabled <- function(bl_cfg) {
   isTRUE(bl_cfg$per_voc_covariates %||% TRUE)
+}
+
+# 敏感性锁协变量：命中 VOC → 直接用主分析 Model1/Model2（不搜协变量）
+# locked_covariates = list(URX2MH = list(model1 = c("Percentage_of_neutrophils"), model2 = c("Percentage_of_neutrophils","SBP")), ...)
+.env36_locked_covs_for_voc <- function(i, bl_cfg, data) {
+  lk <- bl_cfg$locked_covariates
+  if (is.null(lk) || !is.list(lk)) return(NULL)
+  ent <- lk[[i]]
+  if (is.null(ent)) ent <- lk[["*"]]
+  if (is.null(ent)) return(NULL)
+  m1 <- unique(intersect(as.character(ent$model1 %||% character(0)), names(data)))
+  m2 <- unique(intersect(as.character(ent$model2 %||% character(0)), names(data)))
+  if (!length(m1) && !length(m2)) return(NULL)
+  if (!length(m1)) m1 <- intersect(m2, names(data))[seq_len(min(1L, length(m2)))] %||% character(0)
+  if (!length(m1)) return(NULL)
+  if (!length(m2)) m2 <- m1
+  m2 <- unique(c(m1, setdiff(m2, m1)))
+  list(model1 = m1, model2 = m2)
+}
+
+.env36_fit_glm_locked_covariates <- function(i, data, outcome_col, bl_cfg,
+                                             fixed_scheme = NULL, wt_col = "new_Weight") {
+  lk <- .env36_locked_covs_for_voc(i, bl_cfg, data)
+  if (is.null(lk)) return(NULL)
+  scheme <- as.character(fixed_scheme %||% "quartile")[1L]
+  if (!nzchar(scheme)) scheme <- "quartile"
+  qres <- .env36_assign_exposure_groups(data, i, scheme)
+  if (is.null(qres)) return(NULL)
+  fin <- .env36_finalize_glm_fit(i, qres, outcome_col, lk$model1, lk$model2, bl_cfg, wt_col = wt_col)
+  if (is.null(fin)) return(NULL)
+  c(fin, list(
+    covariate_source = "locked_main",
+    pool_tag = "主分析锁定",
+    exposure_scheme = scheme,
+    covariate_search = FALSE,
+    locked_cov = TRUE
+  ))
 }
 
 .env36_crude_continuous_p <- function(i, data, outcome_col, wt_col = "new_Weight") {
@@ -1018,10 +1058,42 @@
   NULL
 }
 
-.env36_finalize_glm_fit <- function(i, qres, outcome_col, m1, m2, bl_cfg = list()) {
+.env36_finalize_glm_fit <- function(i, qres, outcome_col, m1, m2, bl_cfg = list(),
+                                    wt_col = "new_Weight") {
   use_wald <- isTRUE(bl_cfg$use_wald_ci %||% TRUE)
-  rt <- .env36_build_glm_rt(i, qres, outcome_col, m1, m2, use_wald_ci = use_wald)
+  rt <- .env36_build_glm_rt(
+    i, qres, outcome_col, m1, m2,
+    use_wald_ci = use_wald, wt_col = wt_col
+  )
+  if (is.null(rt)) return(NULL)
   list(rt = rt, model1 = m1, model2 = m2)
+}
+
+#' 不显著也出表：用默认协变量强制拟合 Crude/M1/M2（不要求过门禁）
+.env36_force_report_glm <- function(i, data, outcome_col, bl_cfg, ctx,
+                                    fixed_scheme = NULL, wt_col = "new_Weight") {
+  scheme <- as.character(fixed_scheme %||% "quartile")[1L]
+  if (!nzchar(scheme)) scheme <- "quartile"
+  qres <- .env36_assign_exposure_groups(data, i, scheme)
+  if (is.null(qres)) return(NULL)
+  pools <- .env36_resolve_covariate_pools(
+    ctx, bl_cfg, data, voc = i, source = "vif_uni", outcome_col = outcome_col
+  )
+  m1 <- unique(intersect(as.character(pools$model1_default %||% character(0)), names(data)))
+  m2 <- unique(intersect(as.character(pools$model2_default %||% character(0)), names(data)))
+  m2 <- unique(c(m1, setdiff(m2, m1)))
+  if (!length(m1) && "Age" %in% names(data)) m1 <- "Age"
+  if (!length(m2)) m2 <- m1
+  if (!length(m2)) return(NULL)
+  fin <- .env36_finalize_glm_fit(i, qres, outcome_col, m1, m2, bl_cfg, wt_col = wt_col)
+  if (is.null(fin)) return(NULL)
+  c(fin, list(
+    covariate_source = "forced_report",
+    pool_tag = pools$pool_tag %||% "vif_uni",
+    exposure_scheme = scheme,
+    covariate_search = FALSE,
+    forced_ns = TRUE
+  ))
 }
 
 # ── 辅助：在 crude 显著前提下，尝试多组 Model1/Model2 协变量 + 暴露分位方案 ──
@@ -1253,6 +1325,7 @@ block_glm_environment_quartile <- function(ctx, ...) {
   )
 
   p_threshold <- as.numeric(bl_cfg$screening_p_threshold %||% 0.05)
+  report_all <- isTRUE(bl_cfg$report_all_vocs %||% FALSE)
   wt_col <- as.character(
     bl_cfg$weight_col %||% cfg$nhanes$survey_weight %||% "new_Weight"
   )[1L]
@@ -1292,16 +1365,38 @@ block_glm_environment_quartile <- function(ctx, ...) {
   for (i in select_vocs) {
     cli::cli_alert_info("  VOC = {i}")
 
-    fit_res <- .env36_fit_glm_with_covariate_search(
-      i, data, outcome_col, bl_cfg, ctx, p_threshold,
-      fixed_scheme = global_exposure_scheme,
-      wt_col = wt_col
+    fit_res <- .env36_fit_glm_locked_covariates(
+      i, data, outcome_col, bl_cfg,
+      fixed_scheme = global_exposure_scheme, wt_col = wt_col
     )
-    if (is.null(fit_res)) {
-      cli::cli_alert_info(
-        "  [{i}] GLM 失败（crude 不显著或 M1/M2 未同时显著 / 协变量搜索未命中），跳过"
+    if (!is.null(fit_res)) {
+      cli::cli_alert_success(
+        "  [{i}] 敏感性锁定协变量命中: M1={paste(fit_res$model1, collapse=', ')}, M2={paste(fit_res$model2, collapse=', ')}"
       )
-      next
+    } else {
+      fit_res <- .env36_fit_glm_with_covariate_search(
+        i, data, outcome_col, bl_cfg, ctx, p_threshold,
+        fixed_scheme = global_exposure_scheme,
+        wt_col = wt_col
+      )
+    }
+    voc_passed <- FALSE
+    if (is.null(fit_res)) {
+      if (!report_all) {
+        cli::cli_alert_info(
+          "  [{i}] GLM 失败（crude 不显著或 M1/M2 未同时显著 / 协变量搜索未命中），跳过"
+        )
+        next
+      }
+      fit_res <- .env36_force_report_glm(
+        i, data, outcome_col, bl_cfg, ctx,
+        fixed_scheme = global_exposure_scheme, wt_col = wt_col
+      )
+      if (is.null(fit_res)) {
+        cli::cli_alert_warning("  [{i}] report_all：强制拟合失败，仍跳过")
+        next
+      }
+      cli::cli_alert_info("  [{i}] 未过门禁，仍写入 GLM 表（report_all_vocs）")
     }
 
     lite_chk <- .env36_light_continuous_significant(
@@ -1313,13 +1408,6 @@ block_glm_environment_quartile <- function(ctx, ...) {
       p_threshold,
       wt_col = wt_col
     )
-    if (!isTRUE(lite_chk$ok)) {
-      cli::cli_alert_info(
-        "  [{i}] crude 显著但 Model1/Model2 continuous 未同时显著，跳过"
-      )
-      next
-    }
-
     nrg <- if (exists(".env36_assign_exposure_groups", mode = "function")) {
       sp <- fit_res$exposure_scheme %||% "quartile"
       specs <- .env36_exposure_scheme_specs()
@@ -1342,11 +1430,24 @@ block_glm_environment_quartile <- function(ctx, ...) {
     } else {
       list(pass = TRUE)
     }
-    if (!isTRUE(chk$pass)) {
-      cli::cli_alert_info(
-        "  [{i}] GLM 筛选未通过（{chk$reason %||% 'unknown'}），不进入下游"
-      )
+
+    if (isTRUE(lite_chk$ok) && isTRUE(chk$pass) && !isTRUE(fit_res$forced_ns)) {
+      voc_passed <- TRUE
+    } else if (!report_all) {
+      if (!isTRUE(lite_chk$ok)) {
+        cli::cli_alert_info(
+          "  [{i}] crude 显著但 Model1/Model2 continuous 未同时显著，跳过"
+        )
+      } else {
+        cli::cli_alert_info(
+          "  [{i}] GLM 筛选未通过（{chk$reason %||% 'unknown'}），不进入下游"
+        )
+      }
       next
+    } else if (!voc_passed) {
+      cli::cli_alert_info(
+        "  [{i}] 未过 GLM 门禁，仍写入表（不进入下游混合物）"
+      )
     }
 
     voc_covariates[[i]] <- list(
@@ -1363,7 +1464,7 @@ block_glm_environment_quartile <- function(ctx, ...) {
       covariate_search = isTRUE(fit_res$covariate_search)
     )
     rt <- fit_res$rt
-    passed_vocs <- c(passed_vocs, i)
+    if (voc_passed) passed_vocs <- c(passed_vocs, i)
     tab  <- if (is.null(tab)) rt else rbind(tab, rt)
   }
 
@@ -1390,9 +1491,9 @@ block_glm_environment_quartile <- function(ctx, ...) {
   used_model1 <- if (length(voc_covariates)) voc_covariates[[length(voc_covariates)]]$model1 else Model1Factors
   used_model2 <- if (length(voc_covariates)) voc_covariates[[length(voc_covariates)]]$model2 else Model2Factors
 
-  if (is.null(tab) || nrow(tab) == 0L || !length(passed_vocs)) {
+  if (is.null(tab) || nrow(tab) == 0L) {
     cli::cli_alert_warning(
-      "glm_environment_quartile: 无 VOC 通过 GLM 完整筛选，写入空 select_vocs_final，由 extreme_trim / 下游决定是否 recovery。"
+      "glm_environment_quartile: 无可用 GLM 结果表，写入空 select_vocs_final。"
     )
     ctx$results$glm_environment_table <- NULL
     ctx$results$select_vocs_glm       <- character(0)
@@ -1400,6 +1501,19 @@ block_glm_environment_quartile <- function(ctx, ...) {
     ctx$results$select_vocs           <- character(0)
     ctx$results$glm_environment_zero_voc <- TRUE
     return(ctx)
+  }
+  if (!length(passed_vocs)) {
+    cli::cli_alert_warning(
+      "glm_environment_quartile: 无 VOC 通过 GLM 完整筛选；{if (report_all) 'report_all_vocs=TRUE，仍导出全表；' else ''}下游 select_vocs_final 为空。"
+    )
+    if (!report_all) {
+      ctx$results$glm_environment_table <- NULL
+      ctx$results$select_vocs_glm       <- character(0)
+      ctx$results$select_vocs_final     <- character(0)
+      ctx$results$select_vocs           <- character(0)
+      ctx$results$glm_environment_zero_voc <- TRUE
+      return(ctx)
+    }
   }
 
   # ── 筛选显著 VOC（LASSO 仅作候选池，必须通过 GLM 三门禁）──────────────────
@@ -1438,14 +1552,14 @@ block_glm_environment_quartile <- function(ctx, ...) {
     ctx$results$select_vocs_final     <- character(0)
     ctx$results$select_vocs           <- character(0)
     ctx$results$glm_environment_zero_voc <- TRUE
-    return(ctx)
+    if (!report_all) return(ctx)
+  } else {
+    ctx$results$glm_environment_table <- tab
+    ctx$results$select_vocs_glm        <- select_vocs_glm
+    ctx$results$select_vocs_final      <- select_vocs_final
+    # 同步写通用 select_vocs 供下游 block 使用
+    ctx$results$select_vocs            <- select_vocs_final
   }
-
-  ctx$results$glm_environment_table <- tab
-  ctx$results$select_vocs_glm        <- select_vocs_glm
-  ctx$results$select_vocs_final      <- select_vocs_final
-  # 同步写通用 select_vocs 供下游 block 使用
-  ctx$results$select_vocs            <- select_vocs_final
 
   if (!is.null(ctx$results$glm_voc_covariates) && nrow(ctx$results$glm_voc_covariates)) {
     cov_tbl_path <- file.path(
@@ -1460,7 +1574,7 @@ block_glm_environment_quartile <- function(ctx, ...) {
   }
 
   cli::cli_alert_success(
-    "glm_environment_quartile: GLM \u7b5b\u9009 {length(select_vocs_glm)} \u4e2a\u663e\u8457 VOC, final {length(select_vocs_final)} \u4e2a"
+    "glm_environment_quartile: GLM \u7b5b\u9009 {length(select_vocs_glm)} \u4e2a\u663e\u8457 VOC, final {length(ctx$results$select_vocs_final)} \u4e2a{if (report_all) paste0('（表内共 ', length(unique(names(voc_covariates))), ' 个含未过门禁）') else ''}"
   )
 
   # ── 导出 Excel 三线表 ─────────────────────────────────────────────────────

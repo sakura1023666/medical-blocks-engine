@@ -71,15 +71,124 @@
   trimws(x)
 }
 
+## 调整版亚组（P0-6②）：逐层 glm(.y01 ~ <index> + covs)，拼 jstable 同构 8 列 res。
+## <index> 因子在调用前已按 Q1..Q4 分好并二分为最高 vs 最低（highest_vs_lowest）。
+## 返回列：Variable / Count / Percent / Point Estimate / Lower / Upper / P value / P for interaction
+## 行结构必须与 jstable 一致：变量标题行（无缩进，仅 P for interaction）+
+## 水平缩进行（"  level"，含 OR/CI/P）。若写成 "Var: level" 扁平行，
+## subgroup_prepare_forest_plot_df 会把全部当标题行 → OR 文本列空白、图面不像发病套路。
+.sgi02_adjusted_subgroup_glm <- function(rt, index_var, var_subgroups, covs,
+                                         total_n = nrow(rt)) {
+  fmt_p <- function(p) {
+    p <- suppressWarnings(as.numeric(p))
+    if (is.na(p)) return("")
+    if (p < 0.001) return("<0.001")
+    formatC(round(p, 3), format = "f", digits = 3)
+  }
+  .empty_row <- function(variable, count = NA_real_, percent = NA_real_,
+                         or = NA_real_, lo = NA_real_, hi = NA_real_,
+                         pv = "", pint = "") {
+    data.frame(
+      Variable = variable, Count = count, Percent = percent,
+      `Point Estimate` = or, Lower = lo, Upper = hi,
+      `P value` = pv, `P for interaction` = pint,
+      check.names = FALSE, stringsAsFactors = FALSE
+    )
+  }
+  iv <- paste0("`", index_var, "`")
+  rows <- list()
+  rows[[length(rows) + 1L]] <- .empty_row("Overall")
+  for (sv in var_subgroups) {
+    lv <- levels(droplevels(factor(as.character(rt[[sv]]))))
+    lv <- lv[lv %in% unique(as.character(stats::na.omit(rt[[sv]])))]
+    pint <- tryCatch({
+      m <- stats::glm(
+        stats::as.formula(paste0(".y01 ~ ", iv, " + `", sv, "` + ", iv, ":`", sv, "`")),
+        data = rt, family = stats::binomial()
+      )
+      an <- stats::anova(m, test = "LRT")
+      fmt_p(an$`Pr(>Chi)`[nrow(an)])
+    }, error = function(e) "")
+    rows[[length(rows) + 1L]] <- .empty_row(
+      .sgi02_pretty_subgroup_label(sv), pint = pint
+    )
+    # 层内调整：剔除分层变量本身；Age_Group 层同时剔除 Age，避免同信息共线
+    covs_l <- setdiff(covs, sv)
+    if (identical(sv, "Age_Group") || identical(sv, "Age")) {
+      covs_l <- setdiff(covs_l, "Age")
+    }
+    if (sv %in% c("Smoke", "Smoking")) {
+      covs_l <- setdiff(covs_l, c("Smoke", "Smoking"))
+    }
+    if (sv %in% c("Gender", "Sex")) {
+      covs_l <- setdiff(covs_l, c("Gender", "Sex"))
+    }
+    for (l in lv) {
+      sub <- rt[as.character(rt[[sv]]) == l & !is.na(rt[[sv]]), , drop = FALSE]
+      n_l <- nrow(sub)
+      or <- lo <- hi <- NA_real_; pv <- ""
+      tryCatch({
+        fo <- paste0(
+          ".y01 ~ ", iv,
+          if (length(covs_l)) paste0(" + ", paste0("`", covs_l, "`", collapse = " + ")) else ""
+        )
+        m <- stats::glm(stats::as.formula(fo), data = sub, family = stats::binomial())
+        co <- summary(m)$coefficients
+        hit <- grep(paste0("^", index_var), rownames(co), value = TRUE)
+        if (length(hit)) {
+          or <- exp(co[hit[1], 1]); lo <- exp(co[hit[1], 1] - 1.959963985 * co[hit[1], 2])
+          hi <- exp(co[hit[1], 1] + 1.959963985 * co[hit[1], 2])
+          pv <- fmt_p(co[hit[1], 4])
+        }
+      }, error = function(e) NULL)
+      rows[[length(rows) + 1L]] <- .empty_row(
+        paste0("  ", .sgi02_pretty_subgroup_label(l)),
+        count = n_l, percent = round(100 * n_l / total_n, 2),
+        or = or, lo = lo, hi = hi, pv = pv, pint = ""
+      )
+    }
+  }
+  do.call(rbind, rows)
+}
+
+
 block_subgroup_incidence <- function(ctx, ...) {
   suppressPackageStartupMessages({
     library(jstable)
     library(forestploter)
     library(grid)
   })
+  .sgi02_engine_root <- function() {
+    candidates <- unique(c(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+      as.character(ctx$config$project$engine_root %||% ""),
+      as.character(ctx$config$project$root %||% ""),
+      getwd()
+    ))
+    for (r in candidates) {
+      if (nzchar(r) && file.exists(file.path(r, "R", "subgroup_vars.R"))) return(r)
+    }
+    getwd()
+  }
   if (!exists("subgroup_render_forest_figure", mode = "function")) {
-    root_sf <- (ctx$config$project$root %||% getwd())
+    root_sf <- .sgi02_engine_root()
+    if (!file.exists(file.path(root_sf, "R", "subgroup_forest_plot.R"))) {
+      for (r in unique(c(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), getwd()))) {
+        if (nzchar(r) && file.exists(file.path(r, "R", "subgroup_forest_plot.R"))) {
+          root_sf <- r
+          break
+        }
+      }
+    }
     suppressWarnings(source(file.path(root_sf, "R", "subgroup_forest_plot.R"), local = FALSE))
+  }
+  if (!exists("subgroup_resolve_min_n", mode = "function") ||
+      !exists("subgroup_build_variable_pool", mode = "function") ||
+      !exists("subgroup_coerce_low_card_numeric_to_factor", mode = "function")) {
+    root_sv <- .sgi02_engine_root()
+    if (nzchar(root_sv %||% "") && file.exists(file.path(root_sv, "R", "subgroup_vars.R"))) {
+      suppressWarnings(source(file.path(root_sv, "R", "subgroup_vars.R"), local = FALSE))
+    }
   }
 
   cfg <- ctx$config
@@ -98,7 +207,15 @@ block_subgroup_incidence <- function(ctx, ...) {
   time_col <- surv$time_var %||% surv$time_column %||% "futime"
   status_col <- surv$event_var %||% surv$status_column %||% surv$event_column %||% "fustatus"
 
-  index_var <- inc_cfg$index_var %||% log_idx
+  index_var <- as.character(
+    cfg$prediction$index_vars %||%
+      cfg$ml_batch$index_vars %||%
+      inc_cfg$index_var %||%
+      log_idx
+  )
+  index_var <- index_var[nzchar(trimws(index_var))]
+  if (!length(index_var)) stop("index_var is required", call. = FALSE)
+  index_var <- index_var[[1L]]
   disease_col <- inc_cfg$outcome_var %||% sub_cfg$incidence_outcome_column %||%
     cfg$data$outcome_column %||% "Disease"
 
@@ -110,6 +227,9 @@ block_subgroup_incidence <- function(ctx, ...) {
   cli::cli_alert_info("Index variable: {index_var}")
   cli::cli_alert_info("Case / positive label: {disease_label}")
 
+  if (!exists("subgroup_resolve_min_n", mode = "function")) {
+    stop("subgroup_resolve_min_n 未加载（检查 MEDICAL_BLOCKS_ROOT/R/subgroup_vars.R）", call. = FALSE)
+  }
   min_group_size <- subgroup_resolve_min_n(sub_cfg, nrow(data_imp))
   age_cut <- sub_cfg$age_cutoff %||% 65
   var_source <- sub_cfg$var_source %||% "table1_categorical"
@@ -241,13 +361,27 @@ block_subgroup_incidence <- function(ctx, ...) {
       if (!skip_age && r %in% c("Age", "Age_Years") && "Age_Group" %in% names(data_imp) &&
           !all(is.na(data_imp$Age_Group))) {
         col <- "Age_Group"
+      } else if (r == "Smoke" && !"Smoke" %in% names(data_imp) && "Smoking" %in% names(data_imp)) {
+        col <- "Smoking"
+      } else if (r == "Smoking" && !"Smoking" %in% names(data_imp) && "Smoke" %in% names(data_imp)) {
+        col <- "Smoke"
       } else if (r %in% cont_vars && paste0(r, suf) %in% names(data_imp)) {
         col <- paste0(r, suf)
       } else if (r %in% names(data_imp) &&
                  !(is.factor(data_imp[[r]]) || is.character(data_imp[[r]]))) {
+        xv_num <- suppressWarnings(as.numeric(data_imp[[r]]))
+        n_u <- length(unique(xv_num[is.finite(xv_num)]))
+        if (n_u > 0L && n_u <= 2L) {
+          lv <- sort(unique(as.character(data_imp[[r]][!is.na(data_imp[[r]])])))
+          data_imp[[r]] <- factor(as.character(data_imp[[r]]), levels = lv)
+          cli::cli_alert_info(
+            "Required binary\u2192factor {.field {r}}: {paste(lv, collapse = ', ')}"
+          )
+          col <- r
+        } else {
         subnm <- paste0(r, suf)
         if (!subnm %in% names(data_imp)) {
-          xv <- suppressWarnings(as.numeric(data_imp[[r]]))
+          xv <- xv_num
           if (sum(is.finite(xv)) > 0L) {
             cu <- if (identical(r, index_var)) {
               ctx$results$cutoff_value %||% stats::median(xv, na.rm = TRUE)
@@ -264,6 +398,7 @@ block_subgroup_incidence <- function(ctx, ...) {
           }
         }
         if (subnm %in% names(data_imp)) col <- subnm
+        }
       }
       req_mapped <- c(req_mapped, col)
     }
@@ -320,7 +455,15 @@ block_subgroup_incidence <- function(ctx, ...) {
   if (length(req) && identical(var_source, "required")) {
     miss <- setdiff(req, names(data_imp))
     if (length(miss)) {
-      stop("config$subgroup$required_subgroup_vars 不在数据中: ", paste(miss, collapse = ", "))
+      cli::cli_alert_warning(
+        "required_subgroup_vars 不在数据中（已跳过）: {paste(miss, collapse = ', ')}"
+      )
+      req <- intersect(req, names(data_imp))
+      categorical_vars <- intersect(categorical_vars, names(data_imp))
+    }
+    if (!length(req)) {
+      cli::cli_alert_warning("required_subgroup_vars 均不可用，跳过亚组分析")
+      return(ctx)
     }
     for (rv in req) {
       if (!is.factor(data_imp[[rv]]) && !is.character(data_imp[[rv]])) {
@@ -343,11 +486,22 @@ block_subgroup_incidence <- function(ctx, ...) {
   filtered <- subgroup_apply_min_n_filter(data_imp, subgroup_vars, min_group_size, cfg)
   data_imp <- filtered$data
   subgroup_vars <- filtered$vars
+  # 课题显式剔除指定水平（config$subgroup$exclude_levels；如 OR 不可估/NE 行不进森林图）
+  if (exists("subgroup_apply_exclude_levels", mode = "function")) {
+    excl_res <- subgroup_apply_exclude_levels(data_imp, subgroup_vars, cfg)
+    data_imp <- excl_res$data
+    subgroup_vars <- excl_res$vars
+    if (length(excl_res$dropped_vars)) {
+      cli::cli_alert_warning(
+        "exclude_levels 后整变量剔除: {paste(excl_res$dropped_vars, collapse=', ')}"
+      )
+    }
+  }
   if (length(req) && identical(var_source, "required")) {
     dropped_req <- setdiff(req, subgroup_vars)
     if (length(dropped_req)) {
-      stop(
-        "下列 required_subgroup_vars 在 min_n={min_group_size} 过滤后未能保留: ",
+      cli::cli_alert_warning(
+        "下列 required_subgroup_vars 在 min_n={min_group_size} 过滤后未能保留（已跳过）: ",
         paste(dropped_req, collapse = ", ")
       )
     }
@@ -379,20 +533,66 @@ block_subgroup_incidence <- function(ctx, ...) {
   rt[[disease_col]] <- as.numeric(rt[[disease_col]])
   rt <- rt[!is.na(rt[[disease_col]]) & rt[[disease_col]] %in% c(0, 1), , drop = FALSE]
 
-  # 连续暴露：中位数二分；分类暴露：保留原水平（须 ≥2）
+  # 连续暴露：与主文 logistic/KM 同分位（默认四分位 Q4 vs Q1）；分类暴露：保留原水平（须 ≥2）
   idx_raw <- rt[[index_var]]
   idx_num <- suppressWarnings(as.numeric(as.character(idx_raw)))
+  n_unique_num <- length(unique(stats::na.omit(idx_num)))
   is_cont_idx <- sum(is.finite(idx_num)) >= max(20L, floor(0.5 * nrow(rt))) &&
-    length(unique(stats::na.omit(idx_num))) > 5L
+    n_unique_num > 5L
+  forest_cap_mode <- "continuous"
+  rt_full_for_n <- NULL
   if (is_cont_idx) {
-    cutoff <- ctx$results$cutoff_value %||% stats::median(idx_num, na.rm = TRUE)
-    if (!is.finite(as.numeric(cutoff)[1L])) {
-      cli::cli_alert_warning("Index cutoff 无效，跳过亚组")
-      return(ctx)
+    grp_method <- as.character(
+      (cfg$logistic_quartile_glm %||% list())$scheme %||%
+        (cfg$cox_ml_continuous_batch %||% list())$method %||%
+        (cfg$km_continuous %||% list())$method %||%
+        "quartile"
+    )[1L]
+    if (!grp_method %in% c("quartile", "tertile")) grp_method <- "quartile"
+    store <- ctx$results$continuous_km_cutpoints[[index_var]]
+    br <- store$breaks %||% NULL
+    store_method <- as.character(store$method %||% "")[1L]
+    if ((is.null(br) || !length(br) || !identical(store_method, grp_method)) &&
+        exists("pipeline_quantile_breaks", mode = "function")) {
+      br <- pipeline_quantile_breaks(idx_num, method = grp_method)
+      if (!is.null(br) && exists("pipeline_store_continuous_km_cutpoints", mode = "function")) {
+        ctx <- pipeline_store_continuous_km_cutpoints(ctx, index_var, br, method = grp_method)
+      }
     }
-    cli::cli_alert_info("Using index cutoff: {cutoff}")
-    rt[[index_var]] <- ifelse(idx_num >= as.numeric(cutoff)[1L], "high", "low")
-    rt[[index_var]] <- factor(rt[[index_var]], levels = c("low", "high"))
+    if (!exists("pipeline_quantile_group_factor", mode = "function")) {
+      stop("subgroup_incidence: 缺少 pipeline_quantile_group_factor", call. = FALSE)
+    }
+    rt[[index_var]] <- pipeline_quantile_group_factor(idx_num, method = grp_method, breaks = br)
+    cli::cli_alert_info(
+      "连续暴露 {.field {index_var}} 使用{grp_method}: {paste(levels(rt[[index_var]]), collapse=', ')}"
+    )
+    ci_mode <- as.character(sub_cfg$continuous_index_mode %||% "highest_vs_lowest")[1L]
+    .sgi_full_pop <- !identical(
+      as.character(sub_cfg$forest_n_source %||% "full_stratum")[1L], "model_sample"
+    )
+    if (identical(ci_mode, "median_split")) {
+      med <- stats::median(idx_num, na.rm = TRUE)
+      rt[[index_var]] <- factor(
+        ifelse(idx_num <= med, "Low", "High"),
+        levels = c("Low", "High")
+      )
+      forest_cap_mode <- "median_split"
+      cli::cli_alert_info(
+        "亚组森林图：连续暴露按中位数二分（High vs Low, median={round(med, 4)}）"
+      )
+    } else if (!identical(ci_mode, "keep_quantile") && nlevels(rt[[index_var]]) > 2L) {
+      lv <- levels(rt[[index_var]])
+      keep_lv <- c(lv[1L], lv[length(lv)])
+      n0 <- nrow(rt)
+      # 保留全分析集用于森林图 N（展示分层样本量，如全部女性）；模型仍只用 Q1+Q4
+      rt_full_for_n <- rt
+      rt <- rt[as.character(rt[[index_var]]) %in% keep_lv, , drop = FALSE]
+      rt[[index_var]] <- factor(as.character(rt[[index_var]]), levels = keep_lv)
+      forest_cap_mode <- "highest_vs_lowest"
+      cli::cli_alert_info(
+        "亚组森林图：连续暴露取最高 vs 最低（{keep_lv[2]} vs {keep_lv[1]}），模型 n {n0} → {nrow(rt)}；图上 N 默认用全分层（mode={ci_mode}）"
+      )
+    }
   } else {
     if (is.factor(idx_raw) || is.character(idx_raw)) {
       rt[[index_var]] <- factor(trimws(as.character(idx_raw)))
@@ -468,22 +668,52 @@ block_subgroup_incidence <- function(ctx, ...) {
   rt <- subgroup_apply_level_order(rt, final_subgroup_vars, cfg)
 
   glm_fam <- sub_cfg$glm_family %||% "binomial"
-  glm_formula <- stats::reformulate(termlabels = index_var, response = disease_col)
-  cli::cli_alert_info("Running TableSubgroupMultiGLM (family = {glm_fam})...")
-  res <- tryCatch(
-    TableSubgroupMultiGLM(
-      formula = glm_formula,
-      var_subgroups = final_subgroup_vars,
-      data = rt,
-      family = glm_fam
-    ),
-    error = function(e) {
-      cli::cli_alert_danger("TableSubgroupMultiGLM error: {e$message}")
-      NULL
+  ## 调整版亚组（P0-6②）：config$subgroup$adjust_covariates = c("Age", ...) 时
+  ## 森林点估计 = 分层内 Q4 vs Q1 + 协变量调整；NULL/空 = 默认 Crude（不变）。
+  ## jstable::TableSubgroupMultiGLM 只接受单自变量 formula（多协变量会报
+  ## "Formula must contain only 1 independent variable"），故调整版改为
+  ## 手动逐层 glm(y ~ Group + covs) 并拼装与 jstable 同构的 res（8 列），
+  ## 下游 forest/表格渲染零改动。
+  adj_covs <- as.character(sub_cfg$adjust_covariates %||% character(0))
+  adj_covs <- adj_covs[nzchar(trimws(adj_covs))]
+  adj_covs <- setdiff(adj_covs, c(index_var, disease_col, final_subgroup_vars))
+  adj_covs <- intersect(adj_covs, names(rt))
+  if (length(adj_covs)) {
+    cli::cli_alert_info(
+      "亚组森林图（调整版）: Q4 vs Q1 + adjust for {paste(adj_covs, collapse = ', ')}"
+    )
+    rt$.y01 <- if (is.numeric(rt[[disease_col]]) && all(na.omit(rt[[disease_col]]) %in% c(0, 1))) {
+      as.integer(rt[[disease_col]])
+    } else if (exists("pipeline_outcome_as_01", mode = "function")) {
+      as.integer(pipeline_outcome_as_01(rt[[disease_col]], cfg))
+    } else {
+      as.integer(as.character(rt[[disease_col]]) == disease_label)
     }
-  )
+    res <- .sgi02_adjusted_subgroup_glm(
+      rt, index_var, final_subgroup_vars, adj_covs, total_n = nrow(rt)
+    )
+  } else {
+    glm_formula <- stats::reformulate(termlabels = index_var, response = disease_col)
+    cli::cli_alert_info("Running TableSubgroupMultiGLM (family = {glm_fam})...")
+    res <- tryCatch(
+      TableSubgroupMultiGLM(
+        formula = glm_formula,
+        var_subgroups = final_subgroup_vars,
+        data = rt,
+        family = glm_fam
+      ),
+      error = function(e) {
+        cli::cli_alert_danger("TableSubgroupMultiGLM error: {e$message}")
+        NULL
+      }
+    )
+  }
   effect_sym <- "OR"
   arrow_lab <- subgroup_forest_arrow_lab(ref_grp, disease_label)
+  # config$subgroup$forest_arrow_lab 可整体覆盖左右箭头标签（课题自定措辞）
+  arrow_ov <- as.character(sub_cfg$forest_arrow_lab %||% character(0))
+  arrow_ov <- arrow_ov[nzchar(trimws(arrow_ov))]
+  if (length(arrow_ov) >= 2L) arrow_lab <- arrow_ov[1:2]
 
   if (!is.null(res) && is.data.frame(res) && !"Point Estimate" %in% names(res) && "OR" %in% names(res)) {
     io <- which(names(res) == "OR")[[1L]]
@@ -518,6 +748,30 @@ block_subgroup_incidence <- function(ctx, ...) {
     return(ctx)
   }
 
+  # 图上 N = 该亚组水平在全分析集中的人数（非仅 Q1+Q4）
+  n_src <- as.character(sub_cfg$forest_n_source %||% "full_stratum")[1L]
+  if (identical(n_src, "full_stratum") &&
+      exists("subgroup_stratum_n_map", mode = "function") &&
+      exists("subgroup_overlay_forest_count", mode = "function")) {
+    data_for_n <- if (!is.null(rt_full_for_n) && is.data.frame(rt_full_for_n)) {
+      rt_full_for_n
+    } else {
+      NULL
+    }
+    # rt_full_for_n 仅在连续暴露 highest_vs_lowest 时有；否则无需覆盖
+    if (!is.null(data_for_n)) {
+      n_map <- subgroup_stratum_n_map(data_for_n, final_subgroup_vars, .sgi02_pretty_subgroup_label)
+      plot_df <- subgroup_overlay_forest_count(
+        plot_df, n_map, total_n = nrow(data_for_n), n_source = n_src
+      )
+      if ("Count" %in% names(res)) {
+        res <- subgroup_overlay_forest_count(
+          res, n_map, total_n = nrow(data_for_n), n_source = n_src
+        )
+      }
+    }
+  }
+
   if (exists("is_pub_profile", mode = "function") &&
       is_pub_profile(ctx$config, "mimic_inc_prog_sle_aki")) {
     ov <- if (exists("pub_figure_profile_forest_overrides", mode = "function")) {
@@ -531,9 +785,14 @@ block_subgroup_incidence <- function(ctx, ...) {
     }
   }
 
+  fig_cap <- if (exists("pipeline_subgroup_forest_caption", mode = "function")) {
+    pipeline_subgroup_forest_caption(index_var, mode = forest_cap_mode %||% "highest_vs_lowest")
+  } else {
+    paste0("Subgroup Forest analyses of ", index_var)
+  }
   subgroup_render_forest_figure(
     ctx, plot_df, final_subgroup_vars, sub_cfg,
-    fig_caption = paste0("Subgroup Forest analyses of ", index_var),
+    fig_caption = fig_cap,
     effect_sym = effect_sym,
     arrow_lab = arrow_lab
   )

@@ -10,7 +10,8 @@
   root <- ctx$config$project$root %||% getwd()
   if (!exists("pipeline_source_block", mode = "function")) return(invisible(NULL))
   needed <- c(
-    "feature_selection_lasso", "feature_selection_boruta",
+    "feature_selection_lasso", "feature_selection_lasso_cox",
+    "feature_selection_boruta",
     "feature_selection_bayesian", "feature_selection_random_forest",
     "feature_selection_bagged_trees", "feature_selection_lvq",
     "feature_selection_consensus", "feature_selection_venn"
@@ -55,7 +56,23 @@
 }
 
 ## 最终特征 < min 时放宽：暴露 → Age → 单因素(按P) → VIF/Model2 → 并集补足
+## 预后 LASSO-Cox：默认关闭（应靠放宽 λ）；仅 pad_if_below_min=TRUE 时启用
 .mlfsb_ensure_min_features <- function(ctx, fn_min = 3L) {
+  fs <- ctx$config$feature_selection %||% list()
+  if (isFALSE(fs$pad_if_below_min %||% TRUE)) {
+    final0 <- as.character(
+      ctx$results$feature_selection_final %||%
+        ctx$results$ml_feature_names %||%
+        character(0)
+    )
+    final0 <- unique(final0[nzchar(final0)])
+    if (length(final0) < as.integer(fn_min)[1L]) {
+      cli::cli_alert_info(
+        "ml_feature_selection_bundle: pad_if_below_min=FALSE，不事后补足（当前 {length(final0)} < {fn_min}；应靠 LASSO λ 放宽）。"
+      )
+    }
+    return(ctx)
+  }
   fn_min <- as.integer(fn_min)[1L]
   if (is.na(fn_min) || fn_min < 1L) fn_min <- 3L
   final <- as.character(
@@ -136,8 +153,11 @@
     methods <- c("lasso", "boruta", "random_forest", "bayesian", "bagged_trees", "lvq")
   }
   methods <- tolower(as.character(methods))
+  methods <- gsub("-", "_", methods, fixed = TRUE)
+  methods[methods %in% c("lasocox", "cox_lasso", "lassocox")] <- "lasso_cox"
   method_map <- list(
     lasso = "feature_selection_lasso",
+    lasso_cox = "feature_selection_lasso_cox",
     boruta = "feature_selection_boruta",
     bayesian = "feature_selection_bayesian",
     random_forest = "feature_selection_random_forest",
@@ -159,6 +179,59 @@
     ctx
   }
 
+  ## 预后专用：仅 LASSO-Cox，不跑多模型共识
+  only_lasso_cox <- length(setdiff(methods, "lasso_cox")) == 0L && "lasso_cox" %in% methods
+  if (only_lasso_cox || ("lasso_cox" %in% methods && length(setdiff(methods, c("lasso_cox", "lasso"))) == 0L && !"lasso" %in% methods)) {
+    ctx <- run_one("lasso_cox")
+    cox_feats <- as.character(
+      ctx$results$feature_selection_by_model$lasso_cox %||%
+        ctx$results$feature_selection_final %||% character(0)
+    )
+    cox_feats <- unique(cox_feats[nzchar(cox_feats)])
+    if (length(cox_feats)) {
+      ctx$results$feature_selection_final <- cox_feats
+      ctx$results$feature_selection_venn_center <- cox_feats
+      ctx$results$ml_feature_names <- cox_feats
+      ctx$results$feature_selection_lasso_only <- TRUE
+      ctx$results$feature_selection_methods_selected <- "lasso_cox"
+      ctx$results$feature_selection_by_model <- modifyList(
+        ctx$results$feature_selection_by_model %||% list(),
+        list(lasso_cox = cox_feats, lasso = cox_feats)
+      )
+      cli::cli_alert_success(
+        "ml_feature_selection_bundle: 仅 LASSO-Cox，采用 {length(cox_feats)} 个特征。"
+      )
+      if (isTRUE(fs$draw_venn %||% TRUE)) {
+        ctx$results$feature_selection_venn_input <- list(
+          by_model = list(lasso_cox = cox_feats),
+          by_model_all = list(lasso_cox = cox_feats),
+          final = cox_feats,
+          selected_methods = "lasso_cox",
+          selection_source = "single_method",
+          comp_in_final = character(0),
+          U = cox_feats,
+          overlap_eligible = TRUE,
+          method_names = "lasso_cox",
+          overlap_methods = "lasso_cox",
+          list_in = list(lasso_cox = cox_feats),
+          list_in_full = list(lasso_cox = cox_feats)
+        )
+        ctx <- tryCatch(
+          run_block(ctx, "feature_selection_venn"),
+          error = function(e) {
+            cli::cli_alert_warning("feature_selection_venn 跳过: {conditionMessage(e)}")
+            ctx
+          }
+        )
+      }
+      return(ctx)
+    }
+    cli::cli_alert_warning(
+      "ml_feature_selection_bundle: LASSO-Cox 未选出特征，将回退其它方法（若有）。"
+    )
+    methods <- setdiff(methods, "lasso_cox")
+  }
+
   only_lasso <- length(setdiff(methods, "lasso")) == 0L && "lasso" %in% methods
   if ("lasso" %in% methods) {
     ctx <- run_one("lasso")
@@ -172,6 +245,11 @@
       ctx$results$feature_selection_venn_center <- lasso_feats
       ctx$results$ml_feature_names <- lasso_feats
       ctx$results$feature_selection_lasso_only <- TRUE
+      ctx$results$feature_selection_methods_selected <- "lasso"
+      ctx$results$feature_selection_by_model <- modifyList(
+        ctx$results$feature_selection_by_model %||% list(),
+        list(lasso = lasso_feats)
+      )
       fn_min <- as.integer(fs$target_n_features_min %||% 5L)[1L]
       fn_max <- as.integer(fs$target_n_features_max %||% 12L)[1L]
       if (only_lasso) {
@@ -181,6 +259,31 @@
       } else {
         cli::cli_alert_success(
           "ml_feature_selection_bundle: LASSO 已选出 {length(lasso_feats)} 个特征（目标 {fn_min}-{fn_max} 且含暴露），跳过后续算法。"
+        )
+      }
+      ## 单方法：仍跑 venn 块，把 LASSO 两图上下拼成 Figure S1（不是韦恩）
+      if (isTRUE(fs$draw_venn %||% TRUE)) {
+        ## 早退未跑 consensus，需手写最小 venn_input，否则块会缺输入直接跳过
+        ctx$results$feature_selection_venn_input <- list(
+          by_model = list(lasso = lasso_feats),
+          by_model_all = list(lasso = lasso_feats),
+          final = lasso_feats,
+          selected_methods = "lasso",
+          selection_source = "single_method",
+          comp_in_final = character(0),
+          U = lasso_feats,
+          overlap_eligible = TRUE,
+          method_names = "lasso",
+          overlap_methods = "lasso",
+          list_in = list(lasso = lasso_feats),
+          list_in_full = list(lasso = lasso_feats)
+        )
+        ctx <- tryCatch(
+          run_block(ctx, "feature_selection_venn"),
+          error = function(e) {
+            cli::cli_alert_warning("feature_selection_venn 跳过: {conditionMessage(e)}")
+            ctx
+          }
         )
       }
       return(ctx)
@@ -204,9 +307,19 @@
       fn_max <- as.integer(fs$target_n_features_max %||% 12L)[1L]
       ## 即使不足 min 也先落地，交给后续 .mlfsb_ensure_min_features 放宽补足
       if (length(lasso_fb)) {
+        data_cols <- names(
+          ctx$data$train %||% ctx$data$imputed %||% ctx$data$cleaned %||% list()
+        )
+        exp_fb <- intersect(.mlfsb_exposure_vars(ctx), data_cols)
+        if (length(exp_fb)) lasso_fb <- unique(c(lasso_fb, exp_fb))
         cli::cli_alert_warning(
           "feature_selection_consensus 失败，暂用 LASSO 特征 ({length(lasso_fb)} 个，目标 {fn_min}-{fn_max})，稍后放宽补足: {conditionMessage(e)}"
         )
+        if (length(exp_fb)) {
+          cli::cli_alert_info(
+            "LASSO 回退已强制并入暴露指标: {paste(exp_fb, collapse = ', ')}"
+          )
+        }
         ctx$results$feature_selection_final <- lasso_fb
         ctx$results$feature_selection_venn_center <- lasso_fb
         ctx$results$ml_feature_names <- lasso_fb
@@ -221,6 +334,11 @@
         ))
         union_fb <- union_fb[nzchar(union_fb)]
         if (length(union_fb)) {
+          data_cols <- names(
+            ctx$data$train %||% ctx$data$imputed %||% ctx$data$cleaned %||% list()
+          )
+          exp_fb <- intersect(.mlfsb_exposure_vars(ctx), data_cols)
+          if (length(exp_fb)) union_fb <- unique(c(union_fb, exp_fb))
           cli::cli_alert_warning(
             "feature_selection_consensus 失败且无 LASSO，暂用模型并集/Model2 ({length(union_fb)} 个): {conditionMessage(e)}"
           )
@@ -242,6 +360,55 @@
         ctx
       }
     )
+  }
+  ctx
+}
+
+## 剔除调查权重 / 结局别名 / 系统列，禁止进最终 ML 特征
+.mlfsb_strip_forbidden_features <- function(vars, ctx) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  if (!length(vars)) return(character(0))
+  cfg <- ctx$config %||% list()
+  outcome <- as.character(
+    (cfg$data %||% list())$outcome_column %||%
+      (cfg$incidence %||% list())$outcome_var %||%
+      character(0)
+  )
+  drop <- unique(c(
+    if (exists("pipeline_meta_exclude_cols", mode = "function")) pipeline_meta_exclude_cols() else character(0),
+    if (exists("pipeline_get_sys_cols", mode = "function")) pipeline_get_sys_cols(cfg) else character(0),
+    outcome,
+    "Group", "Disease", "Disease_Group", "fustatus", "futime"
+  ))
+  drop <- drop[nzchar(drop)]
+  kept <- setdiff(vars, drop)
+  dropped <- setdiff(vars, kept)
+  if (length(dropped)) {
+    cli::cli_alert_warning(
+      "ml_feature_selection_bundle: 已剔除权重/结局/系统列: {paste(dropped, collapse = ', ')}"
+    )
+  }
+  kept
+}
+
+.mlfsb_apply_strip_to_ctx <- function(ctx) {
+  for (slot in c(
+    "feature_selection_final", "feature_selection_venn_center", "ml_feature_names"
+  )) {
+    ctx$results[[slot]] <- .mlfsb_strip_forbidden_features(ctx$results[[slot]], ctx)
+  }
+  by_m <- ctx$results$feature_selection_by_model %||% list()
+  if (length(by_m)) {
+    ctx$results$feature_selection_by_model <- lapply(by_m, function(x) {
+      .mlfsb_strip_forbidden_features(x, ctx)
+    })
+  }
+  # VIF / Model2 候选池同步清权重（供后续 LASSO）
+  for (slot in c("vif_screen_pass", "Model2Factors", "univar_features", "tb1", "tb_screen")) {
+    if (!is.null(ctx$results[[slot]])) {
+      ctx$results[[slot]] <- .mlfsb_strip_forbidden_features(ctx$results[[slot]], ctx)
+    }
   }
   ctx
 }
@@ -340,6 +507,8 @@ block_ml_feature_selection_bundle <- function(ctx, ...) {
     }
   }
   db_tag <- ctx$config$project$database %||% "NHANES"
+  ## 进 FS 前先清权重/结局列，避免 LASSO/LVQ 选中 WTSOG2YR
+  ctx <- .mlfsb_apply_strip_to_ctx(ctx)
   ctx <- inject_feature_selection_compound_indices(ctx, db_tag)
   ctx <- .mlfsb_run_methods(ctx)
   ## ICU 严重度评分成分重叠：APSIII/SAPSII/OASIS/SOFA/GCS 最多保留 1 个
@@ -351,6 +520,7 @@ block_ml_feature_selection_bundle <- function(ctx, ...) {
   }
   ## 最终特征必须 ≥ min：不足则按暴露/Age/单因素P/并集放宽补足
   ctx <- .mlfsb_ensure_min_features(ctx, fn_min = fn_min)
+  ctx <- .mlfsb_apply_strip_to_ctx(ctx)
   if (isTRUE(bl$export_for_secondary %||% TRUE)) {
     root <- ctx$config$project$root %||% getwd()
     if (!exists("pipeline_export_primary_ml_features", mode = "function")) {

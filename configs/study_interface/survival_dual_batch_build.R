@@ -120,7 +120,7 @@ config <- list(
   data_clean = list(missing_threshold = 0.3, age_filter = NULL, drop_columns = NULL),
   column_mapping = list(enable = TRUE, database_type = eicu_map),
   imputation = list(
-    missing_col_threshold = 0.4, method = "cart", m = 1L, max_iter = 5L,
+    missing_col_threshold = 0.4, method = "cart", m = 5L, max_iter = 5L,
     seed = 1234L, complete_action = 1L, export_missing_fig = TRUE, export_table_s1 = TRUE
   ),
   dual_db = list(

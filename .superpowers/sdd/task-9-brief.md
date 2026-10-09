@@ -1,15 +1,14 @@
-### Task 9: 飞书挂接
+### Task 9: Table2 Panel 合并脚本
 
 **Files:**
-- Create or modify: `run/feishu/run_feishu_setup_sle_aki_tables.R`（可复用 `run_feishu_setup_routine_table.R` 模式）
-- 工作计划行：模块名含 `SLE` / `发病预后两阶段`；编号取当前最大 B + 1（查飞书或本地 xlsx）
+- Create: `{STUDY}/scripts/merge_table2_dual_bmd_panels.R`
 
 **Interfaces:**
-- `BLOCK_RESULT_ROOT` 含 `G:/02block_result`；扫描 `29_SLE`
-- `.env.feishu` 已有 `FEISHU_APP_ID/SECRET/BITABLE_APP_TOKEN`
+- Consumes: QCT / DXA 两次 multivariate 导出的 Table2 xlsx（或 `ctx` 落盘 csv）
+- Produces: 单一 `Table 2. ...xlsx`，Panel A=QCT-vBMD，Panel B=DXA T-score；脚注两套 n 与变量锁
 
-- [ ] **Step 1: dry-run `run_feishu_resync_block_result.R --dry-run`**
-- [ ] **Step 2: 写入工作计划「进行中」**
-- [ ] **Step 3: 全批成功后 mark done**
+- [ ] **Step 1: 实现读写合并（优先 `openxlsx`/`pub_xlsx` 外科式；若尚无表则先 csv rbind + `export_sci_table`）**
+- [ ] **Step 2: 冒烟用两张假 Panel csv 合并出文件**
 
 ---
+

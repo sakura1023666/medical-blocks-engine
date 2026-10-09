@@ -1,0 +1,33 @@
+# 外验库 Table 1 暴露不显著 → 整指标算 error（全项目复用）
+
+所有双库（主库 + 外验库）发病 / 预后 / ML 课题必须遵守。
+
+## 铁律
+
+1. **外验库 Table 1 暴露不显著即 error**：外验库（NHANES / eICU / MIMIC 等）`baseline_binary` 的 `early_stop_if_index_ns` 触发时（暴露指标组间比较 P ≥ sig_cutoff），**整个指标标记为 error / 【failed】**，不算 success。
+2. **主库与外验库同一标准**：主库 Table 1 暴露不显著 → error（已有逻辑）；外验库同理，不得因「外验只是验证」就放行。
+3. **WTMEC4YR 等权重空 factor 不得阻断 Table 1**：NHANES 权重 / 抽样列（`WTMEC4YR` / `WTMEC2YR` / `WTSAF2YR` / `WTSAF4YR` / `WTINT2YR` / `WTINT4YR` / `SDMVPSU` / `SDMVSTRA` / `Source_File` / `Group` 等）必须加入 `config$baseline_binary$exclude_vars`，否则空 levels factor 会致 `gtsummary::tbl_summary` 崩溃，Table 1 生成失败，早停判定被跳过，不显著指标被误标为 success。
+4. **汇总表只放 .xlsx**：`by_index/【success】<INDEX>/Tables/` 汇总目录只收集 `.xlsx`（及 `.csv`），**不放 `.tex`**。LaTeX 源文件留在各 step 目录，不进汇总。
+5. **打标**：成功 → `【success】<INDEX>`；失败（含外验 Table 1 NS）→ `【failed】<INDEX>`。`_batch_status.json` 的 `status` 字段须为 `"success"` 或 `"error"`。
+
+## 实现入口
+
+- **权重列排除**：课题 `config.R` 中 `config$baseline_binary$exclude_vars` 须含 `.config_weight_drop`（与 `config$multicollinearity$exclude_vars` 同源）。
+- **早停**：`Blocks/04_baseline/01block_baseline_binary.R` 的 `early_stop_if_index_ns`（默认 `sig_cutoff = 0.05`）。
+- **Worker 收尾**：`run/ml/run_ml_dual_batch_worker.R` — 早停抛错 → tryCatch → `.write_status("error")`。
+- **汇总脚本**：`._aggregate_fast.py` — `collect(ix, 'Tables', {'.xlsx', '.csv'})`，不含 `.tex`。
+
+## 新课题检查清单
+
+- [ ] `config$baseline_binary$exclude_vars` 含 NHANES 权重 / 抽样列（`.config_weight_drop`）
+- [ ] 外验库 Table 1 能正常生成（无 WTMEC4YR 空 factor 崩溃）
+- [ ] 外验库 Table 1 暴露 P ≥ 0.05 的指标被标为 `【failed】`，`_batch_status.json` status=error
+- [ ] 汇总 `Tables/` 无 `.tex` 文件
+- [ ] `by_index/` 目录名带 `【success】` / `【failed】` 前缀
+
+## 反例（禁止）
+
+- NHANES Table 1 因 WTMEC4YR 崩溃 → 早停跳过 → 不显著指标被标为 success
+- 外验库 Table 1 暴露 P = 0.09 但指标仍标 success
+- 汇总 `Tables/` 里混入 `.tex` 文件
+- 只在 `config$baseline$exclude_vars` 加权重列，却忘了 `config$baseline_binary$exclude_vars`（baseline 块读的是后者）

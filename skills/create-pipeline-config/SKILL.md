@@ -5,14 +5,16 @@ description: >-
   for Medical Blocks: inspect data, map old config keys to split sub-blocks,
   define config + pipeline blocks list, pair with run_*.R. Use when the user
   asks to write a new config, new analysis routine, config_survival,
-  config_incidence, or migrate from monolithic config.R.
+  config_incidence, migrate from monolithic config.R, or 地基/接套路（先读
+  pipeline-foundation）。
 ---
 
 # 新建 Pipeline Config 规范
 
 为 Medical Blocks 项目编写**按研究类型拆分**的配置文件（如 `configs/config_survival.R`），替代旧版巨型 `config.R` + 硬编码 `run_survival.R`。
 
-**必读**：`BLOCKS_USAGE_GUIDE.md`、`.cursor/skills/split-medical-block/SKILL.md`
+**必读**：`BLOCKS_USAGE_GUIDE.md`、`.cursor/skills/split-medical-block/SKILL.md`  
+**地基**：先读 `.cursor/skills/pipeline-foundation/SKILL.md`——只有发病/预后两块地基；新套路只加法后缀，禁止重挖清洗/Table1/VIF。
 
 ---
 

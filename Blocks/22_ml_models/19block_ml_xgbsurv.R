@@ -24,7 +24,12 @@
 ###############################################################################
 
 .mlxgbs19_source_helpers <- function(ctx) {
-  root <- ctx$config$project$root %||% getwd()
+  er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(er)) er <- ctx$config$project$root %||% getwd()
+  if (.Platform$OS.type != "windows" && grepl("^[A-Za-z]:/", er)) {
+    er <- paste0("/mnt/", tolower(substr(er, 1L, 1L)), substring(er, 3L))
+  }
+  root <- normalizePath(er, winslash = "/", mustWork = FALSE)
   path <- file.path(root, "R/ml_survival_model_helpers.R")
   if (file.exists(path)) source(path, local = FALSE)
 }
@@ -99,7 +104,7 @@
       )
       fold_c[fi] <- .mlsurv_cindex(va_f$.time, va_f$.event, pr)
     }
-    cv_rows[[gi]] <- .mlsurv_cv_cindex_rows(seq_len(fold_num), fold_c, "XGBSurv")
+    cv_rows[[gi]] <- .mlsurv_cv_cindex_rows(seq_len(fold_num), fold_c, "XGBoost-Cox")
     mc <- mean(fold_c, na.rm = TRUE)
     if (is.finite(mc) && mc > best_c) {
       best_c <- mc
@@ -134,7 +139,7 @@
           std_err = stats::sd(.data$.estimate, na.rm = TRUE) / sqrt(sum(is.finite(.data$.estimate))),
           .groups = "drop"
         ) %>%
-        dplyr::mutate(model = "XGBSurv")
+        dplyr::mutate(model = "XGBoost-Cox")
     }
   }
 
@@ -143,7 +148,7 @@
     risk = list(train = risk_tr, test = risk_te),
     cv5_cindex = cv5,
     hpbest_frame = data.frame(
-      Model = "XGBoost Survival (XGBSurv)",
+      Model = "XGBoost-Cox",
       Hyperparameter = hp_str,
       stringsAsFactors = FALSE
     ),
@@ -186,10 +191,21 @@ block_ml_xgbsurv <- function(ctx, ...) {
   )
   if (is.null(res_core)) return(ctx)
 
+  oriented <- .mlsurv_orient_risk(
+    prep$df_train$.time, prep$df_train$.event,
+    res_core$risk$train, res_core$risk$test
+  )
+  if (isTRUE(oriented$flipped)) {
+    cli::cli_alert_info(
+      "xgbsurv: 风险评分已翻转以对齐 Cox C-index 方向（train C≈{round(oriented$c_index_train, 3)}）。"
+    )
+  }
+  res_core$risk <- list(train = oriented$train, test = oriented$test)
+
   pe <- .mlsurv_predict_eval(
     prep$df_train$.time, prep$df_train$.event, res_core$risk,
     prep$df_train, prep$df_validation,
-    "XGBSurv", prep$pred_ref_col, prep$pred_ana_col,
+    "XGBoost-Cox", prep$pred_ref_col, prep$pred_ana_col,
     prep$ref_group, prep$ana_group
   )
   res <- c(res_core, pe)

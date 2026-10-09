@@ -35,19 +35,55 @@ ensure_ctx_results_list <- function(ctx, key) {
 # 各 ml_* 子块各自写入 Models/；按 tag 解析 evalresult_<tag>.RData 所在目录
 resolve_ml_models_dir_for_tag <- function(ctx, tag) {
   tag <- as.character(tag)[1L]
+  .remap_success_index_path <- function(p) {
+    p <- as.character(p %||% "")[1L]
+    if (!nzchar(p)) return("")
+    if (dir.exists(p) || file.exists(p)) return(p)
+    ## by_index/<IX>/… → by_index/【success】<IX>/…（finalize 改名后 ck 内绝对路径会失效）
+    p2 <- sub(
+      "/by_index/([^/【]+)/",
+      "/by_index/\u3010success\u3011\\1/",
+      p,
+      perl = TRUE
+    )
+    if (!identical(p2, p) && (dir.exists(p2) || file.exists(p2))) return(p2)
+    p3 <- sub(
+      "/by_index/\u3010success\u3011([^/]+)/",
+      "/by_index/\\1/",
+      p,
+      perl = TRUE
+    )
+    if (!identical(p3, p) && (dir.exists(p3) || file.exists(p3))) return(p3)
+    p
+  }
   dirs <- character(0)
   stored <- as.character(ctx$results[["ml_models_models_dir"]] %||% "")[1L]
-  if (nzchar(stored)) dirs <- c(dirs, stored)
+  if (nzchar(stored)) dirs <- c(dirs, .remap_success_index_path(stored))
   bd <- ctx$log$block_output_dirs[[paste0("ml_", tag)]] %||% ""
-  if (nzchar(bd)) dirs <- c(dirs, file.path(bd, "Models"))
+  if (nzchar(bd)) dirs <- c(dirs, file.path(.remap_success_index_path(bd), "Models"))
   bundle <- ctx$log$block_output_dirs[["ml_models_bundle"]] %||% ""
-  if (nzchar(bundle)) dirs <- c(dirs, file.path(bundle, "Models"))
+  if (nzchar(bundle)) dirs <- c(dirs, file.path(.remap_success_index_path(bundle), "Models"))
+  out_dir <- as.character(ctx$output_dir %||% "")[1L]
+  if (nzchar(out_dir) && dir.exists(out_dir) && nzchar(tag)) {
+    hits <- list.files(
+      out_dir,
+      pattern = paste0("^step[0-9]+_ml_", tag, "$"),
+      full.names = TRUE
+    )
+    if (length(hits)) dirs <- c(dirs, file.path(hits, "Models"))
+    hit2 <- file.path(out_dir, paste0("ml_", tag), "Models")
+    if (dir.exists(hit2)) dirs <- c(dirs, hit2)
+  }
   dirs <- unique(dirs[nzchar(dirs)])
   for (d in dirs) {
+    d <- .remap_success_index_path(d)
     path <- file.path(d, paste0("evalresult_", tag, ".RData"))
     if (file.exists(path)) return(d)
   }
-  if (length(dirs)) return(dirs[1L])
+  if (length(dirs)) {
+    d0 <- .remap_success_index_path(dirs[1L])
+    if (dir.exists(d0)) return(d0)
+  }
   file.path(ctx$output_dir, "Models")
 }
 
@@ -60,9 +96,51 @@ trim_index_quantile_for_n <- function(n, base_trim = 0.01, large_n = 10000L,
   if (n > large_n) large_trim else base_trim
 }
 
-# 发表级 P 值格式：极小值统一显示 < 0.001，其余保留 3 位小数（非科学计数法）
+# 发表级小数位（全项目统一入口；config$pub_digits / options 可覆盖）
+# 默认：效应量/描述/P/切点一律 3 位（避免中介 path β 等两位变成 0.00）
+# desc_trim：描述统计去尾随 0（90 不写 90.000）；est/p 仍固定位数
+.pipeline_pub_digits <- function() {
+  list(
+    est = as.integer(getOption("medical_blocks.pub_digits.est", 3L))[1L],
+    p = as.integer(getOption("medical_blocks.pub_digits.p", 3L))[1L],
+    desc = as.integer(getOption("medical_blocks.pub_digits.desc", 3L))[1L],
+    cutoff = as.integer(getOption("medical_blocks.pub_digits.cutoff", 3L))[1L],
+    # 整数（人数 / 事件数 / 计数）千分位：TRUE=1,234；FALSE=1234（全项目单一口径）
+    int_big_mark = isTRUE(getOption("medical_blocks.pub_digits.int_big_mark", TRUE)),
+    # 描述统计：最多 desc 位，默认去掉尾随 0（整数不写 .000）
+    desc_trim = isTRUE(getOption("medical_blocks.pub_digits.desc_trim", TRUE))
+  )
+}
+
+#' 从 config$pub_digits 注入全局 options（pipeline 启动时调用一次）
+pipeline_apply_pub_digits <- function(cfg = NULL) {
+  d <- if (is.list(cfg)) (cfg$pub_digits %||% list()) else list()
+  if (!is.null(d$est) && is.finite(suppressWarnings(as.integer(d$est)[1L]))) {
+    options(medical_blocks.pub_digits.est = as.integer(d$est)[1L])
+  }
+  if (!is.null(d$p) && is.finite(suppressWarnings(as.integer(d$p)[1L]))) {
+    options(medical_blocks.pub_digits.p = as.integer(d$p)[1L])
+  }
+  if (!is.null(d$desc) && is.finite(suppressWarnings(as.integer(d$desc)[1L]))) {
+    options(medical_blocks.pub_digits.desc = as.integer(d$desc)[1L])
+  }
+  if (!is.null(d$cutoff) && is.finite(suppressWarnings(as.integer(d$cutoff)[1L]))) {
+    options(medical_blocks.pub_digits.cutoff = as.integer(d$cutoff)[1L])
+  }
+  if (!is.null(d$int_big_mark)) {
+    options(medical_blocks.pub_digits.int_big_mark = isTRUE(d$int_big_mark))
+  }
+  if (!is.null(d$desc_trim)) {
+    options(medical_blocks.pub_digits.desc_trim = isTRUE(d$desc_trim))
+  }
+  invisible(.pipeline_pub_digits())
+}
+
+# 发表级 P 值格式：极小值统一显示 < 0.001，其余按 pub_digits$p（默认 3 位）
 # 用于 SCI 三线表与森林图，避免出现 7.3e-24 这类过长字符串。
-pub_format_p <- function(p, small_cut = 0.001) {
+pub_format_p <- function(p, small_cut = 0.001, digits = NULL) {
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 3L
   pn <- suppressWarnings(as.numeric(p))
   out <- character(length(pn))
   for (i in seq_along(pn)) {
@@ -70,15 +148,15 @@ pub_format_p <- function(p, small_cut = 0.001) {
     if (!is.finite(v)) { out[i] <- ""; next }
     if (v < small_cut) { out[i] <- paste0("< ", format(small_cut, scientific = FALSE)); next }
     if (v > 0.999) { out[i] <- ">0.999"; next }
-    out[i] <- formatC(round(v, 3), format = "f", digits = 3)
+    out[i] <- formatC(round(v, dig), format = "f", digits = dig)
   }
   out
 }
 
-# Cox/logistic 表单元格 P：p<0.001 → "<0.001"；其余 4 位小数；禁止把 9e-04 写成 P<0.0001
-pub_format_p_cell <- function(p) {
+# Cox/logistic 表单元格 P：与 pub_format_p 同口径（默认 3 位）；禁止 3/4 位混用
+pub_format_p_cell <- function(p, digits = NULL) {
   if (length(p) != 1L) {
-    return(vapply(p, pub_format_p_cell, character(1L), USE.NAMES = FALSE))
+    return(vapply(p, function(x) pub_format_p_cell(x, digits = digits), character(1L), USE.NAMES = FALSE))
   }
   if (is.null(p) || length(p) == 0L) return("")
   s <- trimws(as.character(p)[1L])
@@ -87,8 +165,10 @@ pub_format_p_cell <- function(p) {
   }
   pn <- suppressWarnings(as.numeric(s))
   if (!is.finite(pn)) return(s)
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 3L
   if (pn < 0.001) return("<0.001")
-  formatC(pn, format = "f", digits = 4)
+  formatC(pn, format = "f", digits = dig)
 }
 
 pub_fix_p_cells <- function(rt, cols = NULL) {
@@ -107,14 +187,76 @@ pub_fix_p_cells <- function(rt, cols = NULL) {
   rt
 }
 
-pub_format_est <- function(x, digits = 3L) {
+pub_format_est <- function(x, digits = NULL) {
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$est)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 2L
+  # 向量必须逐元素格式化：若只处理首元并返回长度 1，赋值进 data.frame
+  # 列时会整列回收成同一个数（Table S5 AUC 曾全表塌成 0.592）。
+  if (length(x) != 1L) {
+    return(vapply(x, function(xi) pub_format_est(xi, digits = dig),
+                  character(1L), USE.NAMES = FALSE))
+  }
   xn <- suppressWarnings(as.numeric(x))
   if (length(xn) != 1L || !is.finite(xn)) return(as.character(x)[1L])
-  formatC(xn, format = "f", digits = as.integer(digits)[1L])
+  formatC(xn, format = "f", digits = dig)
 }
 
-pub_format_ci <- function(lo, hi, digits = 3L) {
-  paste0("(", pub_format_est(lo, digits), ", ", pub_format_est(hi, digits), ")")
+pub_format_ci <- function(lo, hi, digits = NULL) {
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$est)[1L]
+  paste0("(", pub_format_est(lo, dig), ", ", pub_format_est(hi, dig), ")")
+}
+
+# ── 发表级整数格式（人数 / 事件数 / 计数）：全项目唯一入口 ─────────────────────
+#   口径由 config$pub_digits$int_big_mark 决定（默认 TRUE = 千分位逗号 "1,234"）。
+#   禁止在课题 / Block 里再手写 format(..., big.mark=",") 或 sprintf("%d") 出发表表，
+#   否则同表出现 "4,000" 与 "4000" 分叉（审稿必抓）。
+pub_format_int <- function(x, big_mark = NULL) {
+  use_bm <- isTRUE(big_mark %||% .pipeline_pub_digits()$int_big_mark)
+  v <- suppressWarnings(as.numeric(x))
+  out <- character(length(v))
+  for (i in seq_along(v)) {
+    if (!is.finite(v[i])) { out[i] <- ""; next }
+    iv <- as.integer(round(v[i]))
+    out[i] <- if (use_bm) format(iv, big.mark = ",", scientific = FALSE, trim = TRUE)
+              else format(iv, scientific = FALSE, trim = TRUE)
+  }
+  out
+}
+
+# 纯数字串补千分位（"1234" -> "1,234"；<=3 位原样）
+.pub_int_comma <- function(d) {
+  n <- nchar(d)
+  if (n <= 3L) return(d)
+  first_len <- ((n - 1) %% 3) + 1
+  pieces <- substring(d, 1, first_len)
+  pos <- first_len + 1
+  while (pos <= n) {
+    pieces <- c(pieces, substring(d, pos, pos + 2))
+    pos <- pos + 3
+  }
+  paste(pieces, collapse = ",")
+}
+
+# 渲染层千分位守卫：只对「计数上下文」单元格（含 %、/、或 N=/n= 标记）中的
+# 独立整数段（≥4 位、前后不挨 数字/. , -）补千分位；已带逗号的幂等跳过。
+# 避免误伤年份/年段（2006-2010）、小数（0.1234）、P 值等。
+# 用于 .prepare_df_for_tex，统一发表表 xlsx/tex 最终呈现；不改动数据层 CSV。
+.pub_group_count_ints <- function(x) {
+  x <- as.character(x)
+  ok <- !is.na(x) & nzchar(x)
+  if (!any(ok)) return(x)
+  ctx <- grepl("%", x, fixed = TRUE) |
+    grepl("/", x, fixed = TRUE) |
+    grepl("(?i)(^|[^A-Za-z])[Nn]\\s*=", x, perl = TRUE)
+  for (i in which(ok & ctx)) {
+    repeat {
+      m <- regexpr("(?<![-\\d.,])\\d{4,}(?![-\\d.,])", x[i], perl = TRUE)
+      if (m < 0L) break
+      d <- regmatches(x[i], m)
+      x[i] <- sub(d, .pub_int_comma(d), x[i], fixed = TRUE)
+    }
+  }
+  x
 }
 
 pub_hr_ci_p <- function(model, row = 1L) {
@@ -122,8 +264,8 @@ pub_hr_ci_p <- function(model, row = 1L) {
   ci <- suppressMessages(stats::confint(model))
   hr <- exp(stats::coef(model))[row]
   list(
-    hr = pub_format_est(hr, 3L),
-    ci = pub_format_ci(exp(ci[row, 1L]), exp(ci[row, 2L]), 3L),
+    hr = pub_format_est(hr),
+    ci = pub_format_ci(exp(ci[row, 1L]), exp(ci[row, 2L])),
     p = pub_format_p_cell(sm$coefficients[row, "Pr(>|z|)"])
   )
 }
@@ -138,7 +280,10 @@ pub_glm_group_n_cell <- function(n_event, n_group) {
   n_group <- suppressWarnings(as.integer(n_group)[1L])
   if (!is.finite(n_event) || n_event < 0L) n_event <- 0L
   if (!is.finite(n_group) || n_group <= 0L) return("")
-  sprintf("%d/%d (%.2f%%)", n_event, n_group, 100 * n_event / n_group)
+  paste0(
+    pub_format_int(n_event), "/", pub_format_int(n_group),
+    " (", fmt_num(100 * n_event / n_group), "%)"
+  )
 }
 
 pub_glm_group_n_cell_from_data <- function(data, outcome_col, group_col, level) {
@@ -213,16 +358,7 @@ pipeline_s1_missing_pct_row <- function(x_before, x_after, n_before, n_after) {
 
 pipeline_subgroup_forest_caption <- function(index_var, mode = "highest_vs_lowest") {
   ix <- as.character(index_var)[1L]
-  mode <- as.character(mode)[1L]
-  if (identical(mode, "highest_vs_lowest")) {
-    return(paste0(
-      "Subgroup Forest analyses of ", ix,
-      " (Q4 vs Q1 within each subgroup)"
-    ))
-  }
-  if (identical(mode, "median_split")) {
-    return(paste0("Subgroup Forest analyses of ", ix, " (High vs Low)"))
-  }
+  # 文件名/图题保持短名；Q4 vs Q1 / High vs Low 写进 image_information，不塞进括号
   paste0("Subgroup Forest analyses of ", ix)
 }
 
@@ -360,6 +496,146 @@ pipeline_cox_unit_scale <- function(var, x) {
   list(x = x, label = "per unit", scale = 1)
 }
 
+#' 连续变量极端值置 NA（不删行）
+#'
+#' config$extreme_to_na（亦可写在 univariate_*$extreme_to_na）:
+#'   enable, method=("percentile"|"iqr"), probs=c(0.01,0.99), iqr_factor=1.5,
+#'   min_unique=20, protect_vars, protect_demo=TRUE, vars=NULL（默认全体数值列）
+#' @return list(data, n_set, per_var)
+pipeline_extreme_values_to_na <- function(data, cfg = list(), uv_cfg = list()) {
+  if (is.null(data) || !is.data.frame(data) || !nrow(data)) {
+    return(list(data = data, n_set = 0L, per_var = integer(0)))
+  }
+  ex <- cfg$extreme_to_na %||% list()
+  if (!length(ex) && is.list(uv_cfg)) {
+    ex <- uv_cfg$extreme_to_na %||% list()
+  }
+  if (!isTRUE(ex$enable %||% FALSE)) {
+    return(list(data = data, n_set = 0L, per_var = integer(0)))
+  }
+  method <- tolower(trimws(as.character(ex$method %||% "percentile")[1L]))
+  if (!method %in% c("percentile", "iqr")) method <- "percentile"
+  probs <- suppressWarnings(as.numeric(ex$probs %||% c(0.01, 0.99)))
+  if (length(probs) < 2L || any(!is.finite(probs))) probs <- c(0.01, 0.99)
+  probs <- sort(probs[seq_len(2L)])
+  if (probs[1L] < 0) probs[1L] <- 0
+  if (probs[2L] > 1) probs[2L] <- 1
+  iqr_f <- suppressWarnings(as.numeric(ex$iqr_factor %||% 1.5)[1L])
+  if (!is.finite(iqr_f) || iqr_f <= 0) iqr_f <- 1.5
+  min_u <- suppressWarnings(as.integer(ex$min_unique %||% 20L)[1L])
+  if (!is.finite(min_u) || min_u < 5L) min_u <- 20L
+
+  protect <- unique(c(
+    as.character(ex$protect_vars %||% character(0)),
+    as.character((cfg$data %||% list())$id_column %||% character(0)),
+    "ID", "subject_id", "SEQN",
+    as.character((cfg$data %||% list())$outcome_column %||% character(0)),
+    as.character((cfg$incidence %||% list())$outcome_var %||% character(0)),
+    as.character((cfg$survival %||% list())$event_var %||% character(0)),
+    as.character((cfg$survival %||% list())$time_var %||% character(0)),
+    as.character((cfg$incidence %||% list())$index_var %||% character(0)),
+    as.character((cfg$survival %||% list())$index_var %||% character(0)),
+    as.character((cfg$competing_risk %||% list())$index_var %||% character(0))
+  ))
+  protect <- protect[nzchar(protect)]
+  if (!isFALSE(ex$protect_demo %||% TRUE)) {
+    demo_kw <- c(
+      "Age", "Gender", "Sex", "Race", "Ethnicity", "Education",
+      "Height", "Weight", "BMI"
+    )
+    protect <- unique(c(protect, intersect(demo_kw, names(data))))
+  }
+
+  cand <- as.character(ex$vars %||% character(0))
+  if (!length(cand) || !any(nzchar(cand))) {
+    cand <- names(data)
+  }
+  cand <- setdiff(unique(cand[nzchar(cand)]), protect)
+  cand <- cand[cand %in% names(data)]
+
+  n_set <- 0L
+  per_var <- integer(0)
+  for (v in cand) {
+    x <- data[[v]]
+    if (!(is.numeric(x) || is.integer(x))) next
+    x <- as.numeric(x)
+    ok <- is.finite(x)
+    if (sum(ok) < min_u) next
+    n_u <- length(unique(x[ok]))
+    if (n_u < min_u) next
+    # 近似二分类 / 低基数：不裁
+    if (n_u <= 5L) next
+    if (identical(method, "iqr")) {
+      q <- stats::quantile(x[ok], probs = c(0.25, 0.75), names = FALSE, na.rm = TRUE, type = 7)
+      iqr <- q[2L] - q[1L]
+      if (!is.finite(iqr) || iqr <= 0) next
+      lo <- q[1L] - iqr_f * iqr
+      hi <- q[2L] + iqr_f * iqr
+    } else {
+      q <- stats::quantile(x[ok], probs = probs, names = FALSE, na.rm = TRUE, type = 7)
+      lo <- q[1L]
+      hi <- q[2L]
+    }
+    if (!is.finite(lo) || !is.finite(hi) || hi < lo) next
+    bad <- ok & (x < lo | x > hi)
+    n_bad <- sum(bad, na.rm = TRUE)
+    if (!n_bad) next
+    x[bad] <- NA_real_
+    data[[v]] <- x
+    n_set <- n_set + as.integer(n_bad)
+    per_var[[v]] <- as.integer(n_bad)
+  }
+  list(data = data, n_set = n_set, per_var = per_var)
+}
+
+#' 对 ctx$data 各分析槽应用极端值置空；返回更新后的 ctx 与当前分析用 data
+pipeline_apply_extreme_to_na <- function(ctx, data = NULL, label = "extreme_to_na") {
+  cfg <- ctx$config %||% list()
+  uv_cfg <- cfg$univariate_prognosis %||% cfg$univariate_incidence_binary %||% list()
+  ex <- cfg$extreme_to_na %||% uv_cfg$extreme_to_na %||% list()
+  if (!isTRUE(ex$enable %||% FALSE)) {
+    return(list(ctx = ctx, data = data, n_set = 0L))
+  }
+  persist <- !isFALSE(ex$persist_to_imputed %||% TRUE)
+  total <- 0L
+  merged_pv <- integer(0)
+  if (isTRUE(persist)) {
+    for (slot in c("imputed", "cleaned", "train", "validation", "val", "test")) {
+      df <- ctx$data[[slot]]
+      if (is.null(df) || !is.data.frame(df) || !nrow(df)) next
+      res <- pipeline_extreme_values_to_na(df, cfg, uv_cfg)
+      if ((res$n_set %||% 0L) <= 0L) next
+      ctx$data[[slot]] <- res$data
+      total <- total + as.integer(res$n_set)
+      for (nm in names(res$per_var)) {
+        prev <- if (nm %in% names(merged_pv)) as.integer(merged_pv[[nm]]) else 0L
+        merged_pv[nm] <- prev + as.integer(res$per_var[[nm]])
+      }
+    }
+  }
+  if (!is.null(data) && is.data.frame(data)) {
+    res_d <- pipeline_extreme_values_to_na(data, cfg, uv_cfg)
+    data <- res_d$data
+    if (!isTRUE(persist)) {
+      total <- total + as.integer(res_d$n_set %||% 0L)
+      for (nm in names(res_d$per_var)) {
+        prev <- if (nm %in% names(merged_pv)) as.integer(merged_pv[[nm]]) else 0L
+        merged_pv[nm] <- prev + as.integer(res_d$per_var[[nm]])
+      }
+    }
+  } else if (isTRUE(persist)) {
+    data <- ctx$data$imputed %||% ctx$data$cleaned %||% data
+  }
+  if (total > 0L && requireNamespace("cli", quietly = TRUE)) {
+    top <- utils::head(sort(merged_pv, decreasing = TRUE), 8L)
+    cli::cli_alert_info(
+      "{label}: 极端值置 NA {total} 个单元格（不删行）; 例: {paste(sprintf('%s=%d', names(top), as.integer(top)), collapse=', ')}"
+    )
+  }
+  ctx$results$extreme_to_na <- list(n_set = total, per_var = merged_pv, persist = persist)
+  list(ctx = ctx, data = data, n_set = total)
+}
+
 # 批量发病 by_index 目录名：【success】<ix> / 【failed】<ix>
 incidence_batch_status_label <- function(status) {
   if (identical(as.character(status), "success")) "success" else "failed"
@@ -369,6 +645,19 @@ incidence_batch_output_dir_name <- function(ix, status = NULL) {
   ix <- as.character(ix)[1L]
   if (is.null(status)) return(ix)
   paste0("\u3010", incidence_batch_status_label(status), "\u3011", ix)
+}
+
+#' by_index 目录名（可与指标名 ix 不同，如 Preop_Cr【更改协变量版】）
+incidence_batch_index_dir_label <- function(ix, config = list()) {
+  ix <- as.character(ix)[1L]
+  bc <- config$incidence_batch %||% config$ml_batch %||% config$survival_batch %||% list()
+  lab_map <- bc$index_output_label_map %||% list()
+  if (!is.null(lab_map[[ix]]) && nzchar(as.character(lab_map[[ix]])[1L])) {
+    return(as.character(lab_map[[ix]])[1L])
+  }
+  suf <- as.character(bc$index_output_label_suffix %||% "")[1L]
+  if (nzchar(suf)) return(paste0(ix, suf))
+  ix
 }
 
 # Unix / Windows 绝对路径（G:/、C:/、/mnt/...）
@@ -529,7 +818,7 @@ pipeline_never_predictor_names <- function(cfg) {
   ))
 }
 
-# config 中 analysis_group/reference_group 为 "0"/"1" 占位符时，解析为疾病名 / No 疾病名
+# 0/1 占位标签：发病解析为疾病/非疾病，预后解析为死亡/存活展示名
 .pipeline_is_binary_code_label <- function(x) {
   x <- trimws(as.character(x)[1L])
   identical(x, "0") || identical(x, "1") || !nzchar(x)
@@ -537,6 +826,8 @@ pipeline_never_predictor_names <- function(cfg) {
 
 pipeline_resolve_outcome_display_labels <- function(cfg) {
   prj <- cfg$project %||% list()
+  study_type <- tolower(trimws(as.character(prj$study_type %||% "")[1L]))
+  is_prognosis <- identical(study_type, "prognosis")
   disease <- trimws(as.character(prj$disease %||% prj$disease_label %||% character(0))[1L])
   if (is.na(disease) || !nzchar(disease)) disease <- "Case"
 
@@ -547,17 +838,23 @@ pipeline_resolve_outcome_display_labels <- function(cfg) {
   if (is.na(ana_cfg)) ana_cfg <- ""
   if (is.na(ref_cfg)) ref_cfg <- ""
 
-  analysis_lbl <- if (.pipeline_is_binary_code_label(ana_cfg)) disease else ana_cfg
+  ref_alt <- ""
+  for (candidate in list(prj$reference_group_label, prj$control_group, prj$noncase_label)) {
+    if (is.null(candidate) || !length(candidate)) next
+    candidate <- trimws(as.character(candidate)[1L])
+    if (!is.na(candidate) && nzchar(candidate) && !.pipeline_is_binary_code_label(candidate)) {
+      ref_alt <- candidate
+      break
+    }
+  }
+
+  analysis_lbl <- if (.pipeline_is_binary_code_label(ana_cfg)) {
+    if (is_prognosis) "Non-survivor" else disease
+  } else ana_cfg
 
   reference_lbl <- if (.pipeline_is_binary_code_label(ref_cfg)) {
-    ref_alt_raw <- prj$reference_group_label %||% prj$control_group %||% prj$noncase_label
-    ref_alt <- if (!is.null(ref_alt_raw) && length(ref_alt_raw)) {
-      trimws(as.character(ref_alt_raw)[1L])
-    } else {
-      ""
-    }
-    if (is.na(ref_alt)) ref_alt <- ""
-    if (nzchar(ref_alt) && !.pipeline_is_binary_code_label(ref_alt)) ref_alt
+    if (nzchar(ref_alt)) ref_alt
+    else if (is_prognosis) "Survivor"
     else paste0("No ", disease)
   } else ref_cfg
 
@@ -576,6 +873,10 @@ pipeline_outcome_reference_label <- function(cfg) {
 #'
 #' 已是 0/1 数值（如 rcs_nhanes 写入的 nhanes_design_rcs$Disease_Group）则原样返回，
 #' 避免再与疾病名比较导致全 0（Table S-XX 连续 OR 被错写成 ~1.0）。
+#'
+#' 铁律：单因素 / logistic GLM·clogit 等在 `analysis_group="1"` 但列已是
+#' 疾病显示名（Diabetes / No Diabetes）时，**必须**调用本函数（或
+#' `pipeline_outcome_case_label` 取阳性名），禁止 `x == cfg$project$analysis_group`。
 pipeline_outcome_as_01 <- function(x, cfg = NULL, case_label = NULL) {
   if (is.null(x)) return(x)
   if (is.numeric(x) || is.integer(x) || is.logical(x)) {
@@ -588,6 +889,9 @@ pipeline_outcome_as_01 <- function(x, cfg = NULL, case_label = NULL) {
   ux_c <- unique(xc[!is.na(xc) & nzchar(xc)])
   if (length(ux_c) && all(ux_c %in% c("0", "1"))) {
     return(as.numeric(xc == "1"))
+  }
+  if (length(ux_c) && all(ux_c %in% c("Yes", "No"))) {
+    return(as.numeric(xc == "Yes"))
   }
   lbl <- case_label
   if (is.null(lbl) || !nzchar(as.character(lbl)[1L])) {
@@ -639,6 +943,8 @@ pipeline_relabel_binary_outcome_column <- function(data, cfg, col = NULL, extra_
     if (xc %in% c("0", lbl$reference) || (length(code_labels) && xc %in% code_labels && xc == "0")) {
       return(lbl$reference)
     }
+    if (xc %in% c("Yes", "yes", "Y", "y")) return(lbl$analysis)
+    if (xc %in% c("No", "no", "N", "n")) return(lbl$reference)
     xc
   }
 
@@ -646,9 +952,10 @@ pipeline_relabel_binary_outcome_column <- function(data, cfg, col = NULL, extra_
     x <- data[[cn]]
     vals <- stats::na.omit(unique(x))
     if (!length(vals)) next
-    char_vals <- as.character(vals)
+    char_vals <- trimws(as.character(vals))
     needs <- (is.numeric(x) || is.integer(x)) && all(vals %in% c(0, 1))
     needs <- needs || all(char_vals %in% c("0", "1"))
+    needs <- needs || all(char_vals %in% c("Yes", "No"))
     needs <- needs || (length(code_labels) && all(char_vals %in% code_labels))
     if (!needs) next
     new_x <- vapply(x, .to_case_lbl, character(1L))
@@ -673,6 +980,50 @@ pipeline_data_clean_rename_columns <- function(data, cfg) {
       cli::cli_alert_info("data_clean: 列重命名 {old_nm} → {new_nm}")
     }
     return(data)
+  }
+  data
+}
+
+#' 生理不可能值置 NA（插补前）。不删人。
+#'
+#' config$data_clean$implausible_ranges 示例:
+#'   list(
+#'     Height = list(min = 100, max = 250),
+#'     Weight = list(min = 20, max = 250),
+#'     BMI = list(min = 12, max = 60),
+#'     Total_Cholesterol = list(max = 20, only_if_median_below = 30)  # 仅 mmol/L
+#'   )
+pipeline_data_clean_apply_implausible_ranges <- function(data, cfg) {
+  if (is.null(data) || !is.data.frame(data)) return(data)
+  ranges <- (cfg$data_clean %||% list())$implausible_ranges
+  if (is.null(ranges) || !length(ranges)) return(data)
+  n_flag <- 0L
+  for (vn in names(ranges)) {
+    if (!vn %in% names(data)) next
+    spec <- ranges[[vn]]
+    if (!is.list(spec)) next
+    x <- suppressWarnings(as.numeric(data[[vn]]))
+    if (!any(is.finite(x))) next
+    med <- stats::median(x, na.rm = TRUE)
+    med_gate <- suppressWarnings(as.numeric(spec$only_if_median_below %||% NA_real_)[1L])
+    if (is.finite(med_gate) && is.finite(med) && med >= med_gate) next
+    lo <- suppressWarnings(as.numeric(spec$min %||% NA_real_)[1L])
+    hi <- suppressWarnings(as.numeric(spec$max %||% NA_real_)[1L])
+    bad <- is.finite(x) & (
+      (is.finite(lo) & x < lo) | (is.finite(hi) & x > hi)
+    )
+    n_bad <- sum(bad, na.rm = TRUE)
+    if (!n_bad) next
+    data[[vn]][bad] <- NA_real_
+    n_flag <- n_flag + n_bad
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info(
+        "data_clean: {vn} 生理不可能值置 NA n={n_bad} (min={lo}, max={hi})"
+      )
+    }
+  }
+  if (n_flag > 0L && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info("data_clean: implausible_ranges 共置 NA {n_flag} 个单元格，不删人")
   }
   data
 }
@@ -1253,6 +1604,39 @@ pipeline_display_no_underscore <- function(x) {
   gsub("_", " ", as.character(x), fixed = TRUE)
 }
 
+# 发表展示名：优先 label_map，否则去下划线（数据列名不变）
+# label_map 例：c(diameter_cm = "Diameter, cm", energy_j = "Energy, J")
+pipeline_display_label <- function(x, label_map = NULL) {
+  x <- as.character(x)
+  if (!length(x)) return(x)
+  out <- x
+  if (!is.null(label_map) && length(label_map)) {
+    lab <- as.character(label_map)
+    names(lab) <- names(label_map)
+    hit <- x %in% names(lab)
+    if (any(hit)) out[hit] <- unname(lab[x[hit]])
+  }
+  pipeline_display_no_underscore(out)
+}
+
+# 发表表 data.frame 清洗：Variable/feature 走字典；字符列与列名禁下划线
+pipeline_scrub_pub_df <- function(df, label_map = NULL) {
+  if (is.null(df) || !is.data.frame(df)) return(df)
+  df <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in intersect(c("Variable", "feature", "Characteristic", "covariate", "term"), names(df))) {
+    df[[cn]] <- pipeline_display_label(df[[cn]], label_map = label_map)
+  }
+  df <- pipeline_display_no_underscore(df)
+  names(df) <- pipeline_display_no_underscore(names(df))
+  df
+}
+
+# 脚注/说明文字禁下划线
+pipeline_scrub_pub_text <- function(x) {
+  if (is.null(x)) return(x)
+  pipeline_display_no_underscore(as.character(x))
+}
+
 # SHAP waterfall：优先阳性且概率>阈值；否则阳性中最高概率（由 capability layer 覆盖增强）
 pipeline_pick_shap_waterfall_row <- function(ctx, pred_prob, outcome01,
                                              prob_threshold = 0.75) {
@@ -1562,12 +1946,40 @@ pipeline_survey_weight_metadata_cols <- function() {
 
 pipeline_meta_exclude_cols <- function() {
   c(
-    "ID", "SEQN", "subject_id", "new_Weight", "new_weight",
+    "ID", "SEQN", "subject_id", "stay_id", "hadm_id", "tst_patient_id",
+    "icustay_id", "patientunitstayid", "Pt_ID", "Patient_ID",
+    "admit_time", "disch_time", "icu_intime", "icu_outtime",
+    "hosp_intime", "hosp_outtime", "charttime",
+    "new_Weight", "new_weight",
     "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTSA2YR", "WTSAF2YR", "WTSAF4YR",
-    "WTINT4YR", "WTMEC4YR",
-    "WTDRD1", "WTDR2D", "WTSOG2YR",
+    "WTINT4YR",
+    "WTDRD1", "WTDR2D", "WTSOG2YR", "WTSB2YR", "WTSC2YR", "WTSVOC2YR", "WTSVOC2Y",
     "SDMVPSU", "SDMVSTRA", "Source_File", "SDDSRVYR"
   )
+}
+
+#' NHANES 调查设计/权重列：不得出现在 Table1/S3/VIF 等展示表（保留 wt_col 供 svyglm）
+pipeline_nhanes_survey_design_exclude_cols <- function(var_names, cfg = NULL) {
+  var_names <- as.character(var_names)
+  nhanes_cfg <- if (!is.null(cfg)) (cfg$nhanes %||% list()) else list()
+  wt_col  <- as.character(nhanes_cfg$survey_weight  %||% "new_Weight")[1L]
+  psu_col <- as.character(nhanes_cfg$survey_cluster %||% "SDMVPSU")[1L]
+  str_col <- as.character(nhanes_cfg$survey_strata  %||% "SDMVSTRA")[1L]
+  extra_excl <- as.character(nhanes_cfg$exclude_cols %||% c(
+    "WTINT2YR", "WTMEC2YR", "WTINT4YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR",
+    "WTDRD1", "WTDR2D", "WTSOG2YR", "WTSA2YR", "WTSB2YR", "WTSC2YR", "WTSVOC2YR"
+  ))
+  excl <- unique(c(
+    wt_col, psu_col, str_col, extra_excl,
+    if (exists("pipeline_meta_exclude_cols", mode = "function")) {
+      pipeline_meta_exclude_cols()
+    } else {
+      character(0)
+    }
+  ))
+  auto_wt <- grep("^(WT[A-Z]|SDMV|Source_File)", var_names, value = TRUE, ignore.case = TRUE)
+  auto_wt <- setdiff(auto_wt, wt_col)
+  unique(c(intersect(var_names, excl), auto_wt))
 }
 
 #' 强制纳入协变量（默认仅 Age；Gender 须显式 force_sex=TRUE）
@@ -1584,7 +1996,90 @@ pipeline_force_include_covariates <- function(cfg) {
   if (isTRUE(pol$force_sex)) {
     out <- unique(c(out, "Gender", "Sex", "gender", "sex"))
   }
+  # 暴露公式成分不得强制进协变量（如 FIB4 含 Age：可 Table1/亚组，不可 Model1/2）
+  if (exists("pipeline_covariate_analysis_exclude_vars", mode = "function")) {
+    out <- setdiff(out, pipeline_covariate_analysis_exclude_vars(cfg))
+  }
   out
+}
+
+#' 插补后：对指标做协变量残差化（如 FIB4 ~ Age → FIB4_AgeResid）
+#'
+#' config$index$residualize = list(
+#'   enable = TRUE,
+#'   source = "FIB4",
+#'   adjust = "Age",          # 字符或字符向量
+#'   name   = "FIB4_AgeResid",
+#'   drop_source = FALSE      # TRUE 则删掉原始 source 列
+#' )
+pipeline_apply_index_residualize <- function(ctx, cfg = NULL) {
+  cfg <- cfg %||% ctx$config %||% list()
+  rs <- (cfg$index %||% list())$residualize %||% list()
+  if (isFALSE(rs$enable %||% FALSE)) return(ctx)
+  src <- as.character(rs$source %||% "")[1L]
+  adj <- unique(as.character(rs$adjust %||% "Age"))
+  adj <- adj[nzchar(adj)]
+  out_nm <- as.character(rs$name %||% paste0(src, "_AgeResid"))[1L]
+  if (!nzchar(src) || !nzchar(out_nm) || !length(adj)) {
+    cli::cli_alert_warning("index$residualize 配置不完整，跳过残差化")
+    return(ctx)
+  }
+  df <- ctx$data$imputed
+  if (!is.data.frame(df) || !nrow(df)) {
+    cli::cli_alert_warning("index$residualize: 无 imputed 数据，跳过")
+    return(ctx)
+  }
+  need <- c(src, adj)
+  miss <- setdiff(need, names(df))
+  if (length(miss)) {
+    stop(
+      "index$residualize 缺列: ", paste(miss, collapse = ", "),
+      "（须先算 source 指标且保留 adjust 列）",
+      call. = FALSE
+    )
+  }
+  y <- suppressWarnings(as.numeric(df[[src]]))
+  X <- df[, adj, drop = FALSE]
+  for (a in adj) X[[a]] <- suppressWarnings(as.numeric(X[[a]]))
+  ok <- is.finite(y) & complete.cases(X)
+  if (sum(ok) < 30L) {
+    stop(
+      "index$residualize: 可用于拟合的行太少 (n=", sum(ok), ")",
+      call. = FALSE
+    )
+  }
+  fit <- stats::lm(y ~ ., data = data.frame(y = y[ok], X[ok, , drop = FALSE]))
+  resid_all <- rep(NA_real_, nrow(df))
+  resid_all[ok] <- as.numeric(stats::residuals(fit))
+  digits <- as.integer((cfg$index %||% list())$digits %||% 4L)[1L]
+  if (is.finite(digits) && digits >= 0L) {
+    resid_all <- round(resid_all, digits)
+  }
+  df[[out_nm]] <- resid_all
+  if (isTRUE(rs$drop_source) && !identical(src, out_nm)) {
+    df[[src]] <- NULL
+  }
+  ctx$data$imputed <- df
+  # 同步其它常用槽，避免下游仍读旧 FIB4
+  for (slot in c("mapped", "cleaned")) {
+    if (!is.null(ctx$data[[slot]]) && is.data.frame(ctx$data[[slot]]) &&
+        nrow(ctx$data[[slot]]) == nrow(df)) {
+      ctx$data[[slot]][[out_nm]] <- resid_all
+      if (isTRUE(rs$drop_source) && !identical(src, out_nm) &&
+          src %in% names(ctx$data[[slot]])) {
+        ctx$data[[slot]][[src]] <- NULL
+      }
+    }
+  }
+  ctx$results$index_residualize <- list(
+    source = src, adjust = adj, name = out_nm,
+    n_fit = as.integer(sum(ok)),
+    r_squared = unname(summary(fit)$r.squared)
+  )
+  cli::cli_alert_success(
+    "指标残差化: {out_nm} = resid({src} ~ {paste(adj, collapse=' + ')})；拟合 n={sum(ok)}, R2={round(summary(fit)$r.squared, 3)}"
+  )
+  ctx
 }
 
 #' 年龄/性别候选消歧：各只保留 1 列（优先 Age / Gender）
@@ -1650,16 +2145,25 @@ pipeline_ensure_age_in_model1 <- function(M1, M2, data_cols, cfg = NULL) {
 #' 多因素 VIF 无人口学、回退单因素人口学时：已有（或可补）Age 则不再强加 Marital 等
 #'
 #' UV 回退只保留 Age（默认）；仅 force_sex=TRUE 时再保留 Gender/Sex。
+#' force_age=FALSE：不把单因素人口学全集塞进 Model1，只保留强制性别（若开启）。
 #' 例外：强加 Age 在 Model1（暴露+Age）中不显著时，恢复全部单因素人口学。
-#' 无 Age 列时保持原 UV 人口学全集（兜底 Model1 非空）。
+#' 无 Age 列且 force_age 开启时保持原 UV 人口学全集（兜底 Model1 非空）。
 pipeline_uv_demo_fallback_model1 <- function(uv_demos, data_cols, cfg = NULL,
                                             age_significant = NULL) {
   uv_demos <- unique(as.character(uv_demos %||% character(0)))
   uv_demos <- uv_demos[nzchar(uv_demos)]
   data_cols <- as.character(data_cols %||% character(0))
   pol <- (cfg %||% list())$covariate_policy %||% list()
+  .keep_forced_sex <- function(pool) {
+    if (!isTRUE(pol$force_sex)) return(character(0))
+    sex <- intersect(c("Gender", "Sex", "gender", "sex"), pool)
+    if (!length(sex)) return(character(0))
+    if ("Gender" %in% sex) "Gender" else sex[[1L]]
+  }
+  # 关闭年龄强制：Model1 不强塞 UV 人口学全集；性别仅当 force_sex=TRUE
   if (isFALSE(pol$force_age %||% TRUE)) {
-    return(list(M1 = uv_demos, dropped = character(0)))
+    keep <- .keep_forced_sex(uv_demos)
+    return(list(M1 = keep, dropped = setdiff(uv_demos, keep)))
   }
   age_pool <- unique(c(uv_demos, data_cols))
   age_cols <- intersect(c("Age", "Age_Years"), age_pool)
@@ -1671,12 +2175,8 @@ pipeline_uv_demo_fallback_model1 <- function(uv_demos, data_cols, cfg = NULL,
     return(list(M1 = uv_demos, dropped = character(0)))
   }
   keep <- age_cols
-  if (isTRUE(pol$force_sex)) {
-    sex <- intersect(c("Gender", "Sex", "gender", "sex"), uv_demos)
-    if (length(sex)) {
-      keep <- unique(c(keep, if ("Gender" %in% sex) "Gender" else sex[[1L]]))
-    }
-  }
+  sex_keep <- .keep_forced_sex(uv_demos)
+  if (length(sex_keep)) keep <- unique(c(keep, sex_keep))
   dropped <- setdiff(uv_demos, keep)
   list(M1 = keep, dropped = dropped)
 }
@@ -1852,6 +2352,18 @@ pipeline_mediation_resolve_path_covariates <- function(cfg, block_cfg, data_cols
   }
   covs <- if (identical(src, "config")) {
     as.character((block_cfg %||% list())$covariates %||% character(0))
+  } else if (identical(src, "model1")) {
+  # 中介路径仅调 Model1（人口学/基线），避免 ICU 严重度等阻断间接效应
+    if (!is.null(ctx)) {
+      unique(as.character(
+        ctx$results$Model1Factors %||%
+          ctx$results$model1_incidence %||%
+          ctx$results$cox_model1_covariates %||%
+          character(0)
+      ))
+    } else {
+      character(0)
+    }
   } else {
     # table2（默认）：与主文 Table 2 / S7 锁定多因素同套
     .pipeline_mediation_table2_covariates(ctx, cfg, data_cols)
@@ -1893,6 +2405,68 @@ pipeline_mediation_drop_mediators_from_covariates <- function(covariates, mediat
 pipeline_mediation_auto_covariate_search <- function(cfg, block_cfg = NULL) {
   if (!pipeline_mediation_path_use_covariates(cfg, block_cfg)) return(FALSE)
   isTRUE((block_cfg %||% list())$auto_covariate_search %||% FALSE)
+}
+
+#' 解析中介自动协变量搜索的候选池
+#'
+#' - 显式 `covariate_search_pool` 优先
+#' - `covariate_search_pool_source = "vif_screen"|"all"`：单因素 VIF screen 通过变量（更广）
+#' - 默认：`Model2Factors`（与 Table 2 锁定池一致）
+pipeline_mediation_covariate_search_pool <- function(ctx, cfg, block_cfg = NULL,
+                                                     default_pool = character(0)) {
+  bl <- block_cfg %||% list()
+  explicit <- as.character(bl$covariate_search_pool %||% character(0))
+  explicit <- explicit[nzchar(explicit)]
+  if (length(explicit)) return(unique(explicit))
+
+  src <- tolower(trimws(as.character(
+    bl$covariate_search_pool_source %||% "model2"
+  )[1L]))
+  if (src %in% c("vif_screen", "screen", "all", "all_screen")) {
+    pool <- as.character(
+      ctx$results$vif_screen_pass %||%
+        ctx$results$vif_screen_pass_weighted %||%
+        ctx$results$tb_screen %||%
+        ctx$results$tb1 %||%
+        character(0)
+    )
+    pool <- unique(pool[nzchar(pool)])
+    # 续跑时 ctx 可能丢 screen pass：从产出目录 VIF_check_screen*.csv 回填
+    if (!length(pool)) {
+      od <- as.character(ctx$output_dir %||% "")[1L]
+      roots <- unique(c(
+        od,
+        dirname(od),
+        file.path(dirname(dirname(od %||% ".")), "NHANES"),
+        file.path(dirname(dirname(od %||% ".")), "MIMIC")
+      ))
+      csvs <- unlist(lapply(roots, function(r) {
+        if (!nzchar(r) || !dir.exists(r)) return(character(0))
+        list.files(
+          r, pattern = "^VIF_check_screen.*\\.csv$",
+          recursive = TRUE, full.names = TRUE, ignore.case = TRUE
+        )
+      }), use.names = FALSE)
+      for (f in csvs) {
+        d <- tryCatch(utils::read.csv(f, stringsAsFactors = FALSE), error = function(e) NULL)
+        if (is.null(d) || !nrow(d)) next
+        col <- if ("Variable" %in% names(d)) "Variable" else if ("Variable_display" %in% names(d)) {
+          "Variable_display"
+        } else {
+          names(d)[1L]
+        }
+        vv <- as.character(d[[col]])
+        vv <- gsub(" ", "_", vv, fixed = TRUE)
+        pool <- unique(c(pool, vv[nzchar(vv)]))
+      }
+    }
+    if (length(pool)) return(pool)
+  }
+  pool <- as.character(default_pool %||% character(0))
+  if (!length(pool)) {
+    pool <- as.character(ctx$results$Model2Factors %||% character(0))
+  }
+  unique(pool[nzchar(pool)])
 }
 
 #' 中介血检候选须排除：暴露本身 + 公式组分 + 其它复合指标名 + 暴露衍生列
@@ -2092,6 +2666,22 @@ logistic_constrain_model_factors <- function(M1, M2, cfg, index_var = NULL) {
     unique(c(index_var))
   }
   if (nzchar(index_var)) excl <- unique(c(excl, index_var))
+  # 强制人口学（Gender 等）可进 Model；但暴露组分（Age∈FIB4 等）永远不可进协变量
+  force <- if (exists("pipeline_force_include_covariates", mode = "function")) {
+    pipeline_force_include_covariates(cfg)
+  } else {
+    character(0)
+  }
+  if (exists("pipeline_dedupe_force_demo_vars", mode = "function")) {
+    force <- pipeline_dedupe_force_demo_vars(force)
+  }
+  comp_block <- if (exists("pipeline_covariate_analysis_exclude_vars", mode = "function")) {
+    pipeline_covariate_analysis_exclude_vars(cfg)
+  } else {
+    character(0)
+  }
+  force <- setdiff(force, comp_block)
+  excl <- setdiff(excl, force)
 
   max_m2 <- as.integer(
     (cfg$logistic %||% list())$model2_max_covariates %||%
@@ -2144,6 +2734,76 @@ pipeline_index_as_numeric <- function(x) {
   if (n > 0L && (n_ok / n) >= 0.5) return(xn)
   if (is.factor(x)) return(suppressWarnings(as.numeric(x)))
   xn
+}
+
+# 分类暴露（Yes/No、factor 标签、0/1 码）：回归变量本身，禁止再当连续 / 再切分位。
+pipeline_index_is_categorical <- function(x, max_numeric_levels = 2L) {
+  if (is.null(x)) return(FALSE)
+  max_n <- as.integer(max_numeric_levels)[1L]
+  if (!is.finite(max_n) || max_n < 1L) max_n <- 2L
+  if (is.logical(x)) return(TRUE)
+  if (is.factor(x) || is.character(x)) {
+    xn <- suppressWarnings(as.numeric(as.character(x)))
+    n <- length(x)
+    n_ok <- if (n) sum(is.finite(xn) | is.na(x)) else 0L
+    if (n > 0L && (n_ok / n) >= 0.5) {
+      u <- unique(stats::na.omit(xn))
+      return(length(u) <= max_n)
+    }
+    return(TRUE)
+  }
+  if (is.numeric(x) && !is.factor(x)) {
+    u <- unique(stats::na.omit(as.numeric(x)))
+    if (!length(u)) return(FALSE)
+    return(length(u) <= max_n && all(abs(u - round(u)) < 1e-8))
+  }
+  FALSE
+}
+
+pipeline_ctx_index_is_categorical <- function(ctx, index_var = NULL) {
+  cfg <- (ctx$config %||% list())
+  ix <- as.character(
+    index_var %||%
+      (if (exists("pipeline_index_exposure_var", mode = "function")) {
+        pipeline_index_exposure_var(cfg)
+      } else {
+        character(0)
+      }) %||%
+      (cfg$logistic %||% list())$index_var %||%
+      (cfg$survival %||% list())$index_var %||%
+      ""
+  )[1L]
+  data <- ctx$data$imputed %||% ctx$data$train %||%
+    ctx$data$cleaned %||% ctx$data$mapped
+  if (!nzchar(ix) || is.null(data) || !is.data.frame(data) || !ix %in% names(data)) {
+    return(FALSE)
+  }
+  pipeline_index_is_categorical(data[[ix]])
+}
+
+# 分类暴露：group_var = 变量本身，关掉 continuous 行
+pipeline_apply_categorical_exposure <- function(bl_cfg, data, index_var) {
+  bl_cfg <- bl_cfg %||% list()
+  ix <- as.character(index_var %||% bl_cfg$index_var %||% "")[1L]
+  if (!nzchar(ix) || is.null(data) || !is.data.frame(data) || !ix %in% names(data)) {
+    return(bl_cfg)
+  }
+  if (!isTRUE(pipeline_index_is_categorical(data[[ix]]))) return(bl_cfg)
+  bl_cfg$include_continuous_row <- FALSE
+  gv <- as.character(bl_cfg$group_var %||% "")[1L]
+  if (!nzchar(gv)) bl_cfg$group_var <- ix
+  bl_cfg$categorical_exposure <- TRUE
+  bl_cfg
+}
+
+# 分类暴露不得再跑分位 / RCS（只留 binary / 原生水平）
+pipeline_categorical_exposure_should_skip_block <- function(block_name, ctx) {
+  if (!isTRUE(pipeline_ctx_index_is_categorical(ctx))) return(FALSE)
+  bn <- as.character(block_name %||% "")[1L]
+  grepl(
+    "quartile|tertile|quintile|sextile|_rcs$|rcs_incidence|rcs_prognosis|rcs_nhanes",
+    bn
+  )
 }
 
 # ── Table 1：离散数值（牙周炎 0–3、Yes/No 编码等）转 factor，避免 gtsummary ────────────────
@@ -2280,12 +2940,25 @@ suppressWarnings({
   if (file.exists(.sg_util_path)) source(.sg_util_path, local = FALSE)
 })
 
-# ── 判断是否 NHANES/ NHANCE 数据库 ───────────────────────────────────────────
-.is_nhanes_db <- function(cfg) {
+# ── 判断是否 KNHANES（韩国；须精确匹配，避免与 US NHANES 权重公式混淆）──────
+.is_knhanes_db <- function(cfg) {
   proj <- cfg$project %||% list()
   dt <- tolower(trimws(as.character(proj$database_type %||% "")))
   db <- tolower(trimws(as.character(proj$database %||% "")))
-  grepl("nhanes|nhance", dt) || grepl("nhanes|nhance", db)
+  identical(dt, "knhanes") || identical(db, "knhanes")
+}
+
+# ── 判断是否走复杂抽样加权块（US NHANES / NHANCE / KNHANES）────────────────
+# 注意：KNHANES 名字含 "nhanes"，但权重算法 ≠ CDC ÷K，须用 weight_builder 分派。
+.is_nhanes_db <- function(cfg) {
+  if (.is_knhanes_db(cfg)) return(TRUE)
+  proj <- cfg$project %||% list()
+  dt <- tolower(trimws(as.character(proj$database_type %||% "")))
+  db <- tolower(trimws(as.character(proj$database %||% "")))
+  # 精确/前缀：nhanes、nhance；排除仅子串误伤已由 .is_knhanes_db 先行处理
+  grepl("^(nhanes|nhance)", dt) || grepl("^(nhanes|nhance)", db) ||
+    identical(dt, "nhanes") || identical(db, "nhanes") ||
+    grepl("nhanes|nhance", dt) || grepl("nhanes|nhance", db)
 }
 
 # ── 判断是否自有数据（own）：发表表保留原始数据列序 ───────────────────────────
@@ -2399,6 +3072,15 @@ filter_redundant_nhanes_index_group_columns <- function(vars, cfg, data_column_n
   gsub("(\\\\|[][{}()+*^$?.|^-])", "\\\\\\1", s, perl = TRUE)
 }
 
+# MIMIC_IV / MIMIC IV 视为同一库名
+.pub_db_name_flex_re <- function(db) {
+  db <- trimws(as.character(db %||% "")[1L])
+  if (!nzchar(db)) return("")
+  parts <- strsplit(gsub("[ _]+", " ", db), " ", fixed = TRUE)[[1L]]
+  parts <- vapply(parts, .regex_escape_pcre, character(1L), USE.NAMES = FALSE)
+  paste(parts, collapse = "[ _]+")
+}
+
 # 去掉标题/文件名中与「Figure x-DB.」重复的库名（如正文里再写 " in NHANES"）
 .pub_strip_redundant_db_in_pub_string <- function(txt, db) {
   txt <- as.character(txt %||% "")[1L]
@@ -2428,6 +3110,7 @@ filter_redundant_nhanes_index_group_columns <- function(vars, cfg, data_column_n
 
   db_nm <- .get_db_name_for_naming(sanitize_for_file = sanitize_for_file)
   db_re <- .regex_escape_pcre(db_nm)
+  db_flex <- .pub_db_name_flex_re(db_nm)
 
   # 误用旧规则时可能出现「库名. Figure …」，去掉前缀以便重新插入 -库名
   core <- sub(paste0("^", db_re, "\\.\\s*"), "", core, ignore.case = TRUE)
@@ -2450,17 +3133,28 @@ filter_redundant_nhanes_index_group_columns <- function(vars, cfg, data_column_n
     stem <- substr(stem, 1L, em[1L] - 1L)
   }
 
+  # 折叠 Table 1-MIMIC IV-MIMIC IV. → Table 1-MIMIC IV.
+  if (nzchar(db_flex)) {
+    stem <- gsub(
+      paste0("-((?:", db_flex, "))(?:-\\1)+(?=\\.)"),
+      "-\\1",
+      stem,
+      ignore.case = TRUE,
+      perl = TRUE
+    )
+  }
+
   already <- nzchar(stem) && (
     grepl("Train\\s*\\(", stem, ignore.case = TRUE) ||
     grepl(
-      paste0("^(Figure|Fig|Table)\\s+.+?-", db_re, "\\."),
+      paste0("^(Figure|Fig|Table)\\s+.+?-", db_flex, "\\."),
       stem,
       ignore.case = TRUE,
       perl = TRUE
     ) ||
-      # 文件名已含任意 -库名. 时不再二次注入（避免 Table 2-MIMIC-UnknownDB）
+      # 文件名已含任意 -库名. 时不再二次注入（库名可含空格：MIMIC IV）
       grepl(
-        "^(Figure|Fig|Table)\\s+.+?-[A-Za-z][A-Za-z0-9_]*\\.",
+        "^(Figure|Fig|Table)\\s+.+?-[A-Za-z][A-Za-z0-9_]*(?:[ _][A-Za-z0-9_]+)*\\.",
         stem,
         ignore.case = TRUE,
         perl = TRUE
@@ -3185,19 +3879,29 @@ pub_prefix <- function(kind, id) {
 # 完整路径另有 .truncate_filepath_for_max_path（250）兜底 Windows MAX_PATH。
 pub_table_max_filename_n <- function() 150L
 
-# 去掉括号段（半角/全角）；保留末尾 Train/Validation 槽标签
+# 去掉括号段（半角/全角）；保留末尾 Train/Validation / training|validation set 槽标签
 pub_caption_strip_parentheses <- function(s, keep_slot = TRUE) {
   s <- as.character(s %||% "")[1L]
   if (!nzchar(s)) return(s)
   slot <- ""
-  if (isTRUE(keep_slot) &&
-      grepl("\\((Train|Validation)\\)\\s*$", s, ignore.case = TRUE, perl = TRUE)) {
-    m <- regmatches(
-      s,
-      regexpr("\\((Train|Validation)\\)\\s*$", s, ignore.case = TRUE, perl = TRUE)
+  if (isTRUE(keep_slot)) {
+    ## 优先保留 training / (internal|external) validation set（含可选 n=）
+    .slot_re <- paste0(
+      "\\(((?:internal|external)\\s+)?(training|validation)\\s+set",
+      "(?:,\\s*n\\s*=\\s*[0-9]+)?\\)\\s*$"
     )
-    slot <- paste0(" ", trimws(m))
-    s <- sub("\\s*\\((Train|Validation)\\)\\s*$", "", s, ignore.case = TRUE, perl = TRUE)
+    if (grepl(.slot_re, s, ignore.case = TRUE, perl = TRUE)) {
+      m <- regmatches(s, regexpr(.slot_re, s, ignore.case = TRUE, perl = TRUE))
+      slot <- paste0(" ", trimws(m))
+      s <- sub(paste0("\\s*", .slot_re), "", s, ignore.case = TRUE, perl = TRUE)
+    } else if (grepl("\\((Train|Validation)\\)\\s*$", s, ignore.case = TRUE, perl = TRUE)) {
+      m <- regmatches(
+        s,
+        regexpr("\\((Train|Validation)\\)\\s*$", s, ignore.case = TRUE, perl = TRUE)
+      )
+      slot <- paste0(" ", trimws(m))
+      s <- sub("\\s*\\((Train|Validation)\\)\\s*$", "", s, ignore.case = TRUE, perl = TRUE)
+    }
   }
   s <- gsub("\\([^)]*\\)", "", s)
   s <- gsub("（[^）]*）", "", s)
@@ -3244,12 +3948,16 @@ pub_fit_table_stem <- function(stem, ext = "xlsx", max_n = NULL,
 logistic_glm_pub_caption <- function(ix_disp, disease_disp = NULL,
                                      scheme = "quartile",
                                      is_rcs = FALSE,
-                                     unweighted = FALSE) {
+                                     unweighted = FALSE,
+                                     native_levels = FALSE) {
   ix_disp <- gsub("_", " ", trimws(as.character(ix_disp %||% "")[1L]))
   if (!nzchar(ix_disp)) ix_disp <- "index"
   scheme <- tolower(trimws(as.character(scheme %||% "quartile")[1L]))
   if (isTRUE(is_rcs)) {
     return(sprintf("Logistic regression of %s RCS cutoff", ix_disp))
+  }
+  if (isTRUE(native_levels) || identical(scheme, "categorical")) {
+    scheme <- ""
   }
   if (isTRUE(unweighted) && nzchar(scheme)) {
     return(sprintf(
@@ -3388,14 +4096,34 @@ pub_figure_filepath_at_slot <- function(ctx, fig_dir, figure_id, caption, ext = 
 resolve_plot_font_family <- function(preferred = "Times New Roman") {
   pref0 <- as.character(preferred %||% "Times New Roman")[1L]
   if (!nzchar(pref0)) pref0 <- "Times New Roman"
+  times_like <- tolower(pref0) %in% c("times new roman", "times", "serif", "nimbus roman")
+  # cairo 必须实测：仅 capabilities("cairo") 不够；缺字时会 PostScript/invalid font 写出空壳 PDF
   if (isTRUE(capabilities("cairo"))) {
-    # cairo 可直接用系统字体名；发表图统一 Times New Roman
-    if (tolower(pref0) %in% c("times new roman", "times", "serif", "nimbus roman")) {
-      return("Times New Roman")
+    cairo_cands <- if (times_like) {
+      c(
+        "Times New Roman", "Liberation Serif", "DejaVu Serif", "FreeSerif",
+        "Nimbus Roman", "serif"
+      )
+    } else {
+      c(pref0, "serif", "sans")
     }
-    return(pref0)
+    cairo_cands <- unique(cairo_cands[nzchar(cairo_cands)])
+    for (ff in cairo_cands) {
+      ok <- tryCatch({
+        tmp <- tempfile(fileext = ".pdf")
+        on.exit(unlink(tmp), add = TRUE)
+        suppressWarnings({
+          grDevices::cairo_pdf(tmp, width = 2, height = 2, family = ff)
+          grid::grid.text("Mg", gp = grid::gpar(fontfamily = ff, fontsize = 12))
+          grDevices::dev.off()
+        })
+        isTRUE(file.info(tmp)$size > 1500)
+      }, error = function(e) FALSE)
+      if (isTRUE(ok)) return(ff)
+    }
   }
   prefs <- unique(c(
+    if (times_like) "Times" else pref0,
     pref0,
     "Times New Roman", "Times", "Nimbus Roman", "serif"
   ))
@@ -3419,13 +4147,17 @@ resolve_plot_font_family <- function(preferred = "Times New Roman") {
       tmp <- tempfile(fileext = ".pdf")
       on.exit(unlink(tmp), add = TRUE)
       suppressWarnings({
-        grDevices::pdf(tmp, family = ff, width = 2, height = 2)
-        grid::grid.text("Mg", gp = grid::gpar(fontfamily = ff, fontsize = 12))
+        # 标准 pdf() 不认 "Times New Roman"（PostScript DB）→ 一律落到 Times/serif
+        ff_dev <- if (identical(ff, "Times New Roman")) "Times" else ff
+        grDevices::pdf(tmp, family = ff_dev, width = 2, height = 2)
+        grid::grid.text("Mg", gp = grid::gpar(fontfamily = ff_dev, fontsize = 12))
         grDevices::dev.off()
       })
       TRUE
     }, error = function(e) FALSE)
-    if (isTRUE(ok)) return(ff)
+    if (isTRUE(ok)) {
+      return(if (identical(ff, "Times New Roman")) "Times" else ff)
+    }
   }
   "serif"
 }
@@ -3492,21 +4224,15 @@ pipeline_pdf_device <- function(path, width, height, family = "Times New Roman")
   path <- as.character(path)[1L]
   family <- as.character(family %||% "Times New Roman")[1L]
   if (!nzchar(family)) family <- "Times New Roman"
-  if (isTRUE(capabilities("cairo"))) {
-    ff <- if (tolower(family) %in% c("times new roman", "times", "serif", "nimbus roman")) {
-      "Times New Roman"
-    } else {
-      family
-    }
-    grDevices::cairo_pdf(path, width = width, height = height, family = ff)
-    return(invisible(ff))
-  }
+  # 优先用已探测可用的 family（resolve_plot_font_family）；勿再强行改回 Times New Roman
   ff <- if (exists("resolve_plot_font_family", mode = "function")) {
     resolve_plot_font_family(family)
-  } else if (identical(family, "Times New Roman")) {
-    "Times"
   } else {
     family
+  }
+  if (isTRUE(capabilities("cairo"))) {
+    grDevices::cairo_pdf(path, width = width, height = height, family = ff)
+    return(invisible(ff))
   }
   if (identical(ff, "Times New Roman")) ff <- "Times"
   grDevices::pdf(path, width = width, height = height, family = ff)
@@ -4230,6 +4956,12 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
             body$row_type == "label"
         )[1L]
       }
+      if (is.na(hit)) {
+        .nk <- function(x) gsub("[^a-z0-9]+", "", tolower(as.character(x)))
+        hit <- which(
+          .nk(body$variable) == .nk(v) & body$row_type == "label"
+        )[1L]
+      }
       if (!is.na(hit)) {
         rid <- as.integer(hit) + 1L
         break
@@ -4258,10 +4990,12 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
     "Demographics" = c(
       "Age", "Gender", "Race",
       "Education", "Marital_Status", "Income", "PIR", "Language",
-      "Smoking", "Alcohol_drinking",
-      "Weight", "Height", "Waist_circumference",
-      # CHARLS 人口学 / 社会经济
-      "Residence", "Familysize", "Incometotal", "Family_per_capita_consumption",
+      "Smoking", "Smoke", "Alcohol_drinking", "Drinking",
+      "Weight", "Height", "Waist_circumference", "Waist",
+      # CHARLS / Single 人口学 / 社会经济
+      "Residence", "Residence_type", "Hukou",
+      "Familysize", "Household_size", "Household size", "Family_size",
+      "Incometotal", "Family_per_capita_consumption",
       # CHARLS 认知评分
       "Totalcognition", "Executive", "Memeory",
       "Micu_Code",
@@ -4273,8 +5007,10 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
     "Vital Signs" = c(
       # ELSA8 体格测量
       "Hip", "WaistHipRatio", "SittingHeight",
-      "HR", "PP", "RR", "SpO2", "Temperature",
+      "HR", "Pulse", "PP", "RR", "SpO2", "Temperature",
       "SBP", "DBP", "MAP",
+      "Systolic pressure", "Systolic_pressure",
+      "Diastolic pressure", "Diastolic_pressure",
       "NBPS", "NBPD", "NBPM",
       "ABPS", "ABPD", "ABPM"
     ),
@@ -4284,28 +5020,33 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
       # CBC
       "WBC", "RBC", "Hemoglobin", "Hematocrit", "PlateletCount", "Platelet_Count",
       "Neutrophil_Count", "NeutrophilCount", "Percentage_of_neutrophils",
-      "Lymphocytes", "Monocyte", "Eosinophil_Count", "Basophil_Count",
+      "Lymphocytes", "Monocyte", "Mononuclear_cell_count",
+      "mononuclear_cell_count", "Eosinophil_Count", "Basophil_Count",
       "RDW", "MCV", "MCH", "MCHC", "Mean_platelet_volume",
       # 肝酶 & 蛋白
-      "ALT", "AST", "LD", "CK", "CKMb",
-      "Albumin", "TotalProtein", "Globulin",
+      "ALT", "AST", "LD", "CK", "CKMb", "GGT",
+      "Albumin", "TotalProtein", "Globulin", "AG_ratio",
       "BilirubinTotal", "Bilirubin_Total", "BilirubinDirect", "Bilirubin_Direct",
       "BilirubinIndirect", "Bilirubin_Indirect",
+      "ALP", "TBA",
       # 肾功能 / eICU-MIMIC 别名
       "BUN", "Creatinine", "eGFR", "Uric_Acid", "UreaNitrogen",
       # 电解质
       "Sodium", "Potassium", "Chloride", "Bicarbonate",
       "Calcium", "CalciumTotal", "Magnesium", "Phosphate", "AnionGap",
       # 血糖 & 胰岛素
-      "Glucose", "HbA1c", "Insulin",
+      "Glucose", "SerumGlucose", "HbA1c", "Insulin",
+      "Fasting Glucose mg dL", "Fasting_Glucose",
       # 血脂
       "Total_Cholesterol", "Triglycerides", "LDL", "HDL",
+      "LpA", "ApoA", "ApoA1", "ApoB",
       # CHARLS 衍生指标
       "TyG", "TyG_BMI",
       # ELSA8
       "VitD", "IGF1",
       # 炎症
       "CRP", "HSCRP", "Procalcitonin", "Lactate",
+      "C reactive protein mg dL", "C_reactive_protein_mg_dL", "C-reactive protein",
       # 血气
       "PaO2", "FiO2", "PH", "PCO2", "PO2", "TotalCo2", "Free_Calcium",
       # 凝血 & 心肌标志物
@@ -4318,18 +5059,34 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
       "Thyroxine_free_T4", "Thyroxine_total_T4",
       "Triiodothyronine_T3_free", "Thyroxine_total_T3",
       # 尿液
-      "Urine_Creatinine", "Urine_Protein", "Albumin_Urine", "Albumin_Creatinine",
+      "Urine_Creatinine", "UrineCreatinine", "Urine_Protein", "Albumin_Urine",
+      "AlbuminUrine", "Albumin_Creatinine",
       "Urine_Glucose", "Urine_Osmolality", "Urine_Volume", "Urine_specific_gravity",
+      "Urine_Ketones", "Urine_Occult_Blood", "Urine_pH", "Urine_Sodium",
+      "Urine_Potassium", "Urine_Bilirubin", "Urine_Urobilinogen", "Urine_Iodine",
+      # 维生素 / 膳食营养（勿落入 Clinical Scores）
+      "Vitamin_A_dietary", "Vitamin_A_blood", "Vitamin_B1", "Vitamin_B2",
+      "Vitamin_C", "Vitamin_D", "Vitamin_D2", "Vitamin_D3", "Vitamin_D3_3epi",
+      "Vitamin_E", "Folate", "Beta_Carotene",
+      "Iron_dietary", "Calcium_dietary", "Phosphorus_dietary",
+      "Potassium_dietary", "Sodium_dietary", "Dietary_Fiber", "Total_Fat_dietary",
+      # 血脂别名（KNHANES 等）
+      "TG", "Cholesterol", "UreaNitrogen", "UricAcid",
       # NHANES 总钙（置于 Laboratory Tests 末行）
-      "Total_Calcium"
+      "Total_Calcium", "TotalCalcium"
     ),
 
-    # 4. 临床评分（严重度 / 器官衰竭 / 共病指数评分；勿放在 Laboratory）
+    # 4. 临床评分（ICU 严重度 / 器官衰竭 / 共病指数；复合暴露指标勿放此处）
     "Clinical Scores" = c(
       "APS", "APSIII", "SAPSII", "OASIS", "SIRS", "HHR", "ICP",
       "GCS", "SOFA", "APACHE",
       "CHARLSON", "Charlson", "CCI"
+      # 注：FIB4/APRI/NFS/HSI/FLI 等作课题暴露时由 table1_resolve_sections()
+      # 归入 Exposure，不再挂 Clinical Scores
     ),
+
+    # 4b. 暴露指标（当前 index；由 table1_resolve_sections 动态填入）
+    "Exposure" = character(0),
 
     # 5. 干预与住院过程
     "Interventions and Hospital Course" = c(
@@ -4350,6 +5107,10 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
       "Cancer", "Malignant_Tumor", "Dementia",
       "Hyperlipidemia", "Liver_cirrhosis", "Hepatitis",
       "Tuberculosis", "Pneumonia",
+      # NHANES 自报合并症（无下划线列名）
+      "Anginapectoris", "Heartattack", "Heartfailure",
+      "Coronaryheartdisease", "Chronicbronchitis", "Emphysema",
+      "Livercondition", "Arthritis",
       # 肾脏替代治疗（Table 1 归入共病相关）
       "CRRT", "CRRT_Day",
       # CHARLS 问卷合并症
@@ -4357,6 +5118,59 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
       "Stomach_Disease", "Psychiatric", "Amnesia", "Rheumatic_Diseases", "Asthma"
     )
   )
+}
+
+#' Table1 小节：默认 sections + 当前暴露归入 Exposure（勿挂 Clinical Scores）
+table1_resolve_sections <- function(cfg, bl_cfg = NULL) {
+  bl <- bl_cfg %||% cfg$baseline_binary %||% cfg$baseline_nhanes %||%
+    cfg$baseline_multiclass %||% cfg$baseline %||% list()
+  if (isTRUE(bl$table1_sections_disable_default) &&
+      length(bl$table1_sections %||% list()) > 0L) {
+    sec <- as.list(bl$table1_sections)
+  } else {
+    sec <- utils::modifyList(
+      as.list(.default_table1_sections()),
+      as.list(bl$table1_sections %||% list())
+    )
+  }
+  if (!length(sec)) sec <- .default_table1_sections()
+
+  ix <- character(0)
+  if (exists("pipeline_index_exposure_var", mode = "function")) {
+    ix <- as.character(pipeline_index_exposure_var(cfg) %||% character(0))
+  }
+  ix <- unique(c(
+    ix,
+    as.character((cfg$incidence %||% list())$index_var %||% character(0)),
+    as.character((cfg$logistic %||% list())$index_var %||% character(0)),
+    as.character((cfg$survival %||% list())$index_var %||% character(0))
+  ))
+  ix <- ix[nzchar(ix)]
+  if (exists("index_alias_names", mode = "function") && length(ix)) {
+    ix <- unique(c(ix, unlist(lapply(ix, index_alias_names), use.names = FALSE)))
+  }
+  if (length(ix)) {
+    for (nm in names(sec)) {
+      sec[[nm]] <- setdiff(as.character(sec[[nm]] %||% character(0)), ix)
+    }
+    # Exposure 放在 Clinical Scores 之前（若存在），否则追加
+    sec$Exposure <- unique(c(as.character(sec$Exposure %||% character(0)), ix))
+    nms <- names(sec)
+    if ("Clinical Scores" %in% nms && "Exposure" %in% nms) {
+      rest <- setdiff(nms, c("Clinical Scores", "Exposure"))
+      cs_idx <- match("Clinical Scores", nms)
+      before <- nms[seq_len(cs_idx - 1L)]
+      after <- setdiff(nms[seq(cs_idx, length(nms))], "Exposure")
+      ord <- unique(c(before, "Exposure", after))
+      sec <- sec[ord]
+    }
+  }
+  # 去掉空小节（Exposure 有内容则保留）
+  keep <- vapply(sec, function(v) {
+    length(as.character(v %||% character(0))[nzchar(as.character(v %||% character(0)))]) > 0L
+  }, logical(1L))
+  if ("Exposure" %in% names(sec) && length(sec$Exposure)) keep[["Exposure"]] <- TRUE
+  sec[keep]
 }
 
 # 单因素/发表表行序：先连续变量、再分类变量；组内按 table1_sections 统一排序（双库一致）。
@@ -4396,20 +5210,36 @@ sort_vars_by_table1_sections <- function(vars, cfg) {
     as.character((pred$index_vars %||% character(0))[1L])
   ))
   index_last <- index_last[nzchar(index_last)]
+  if (exists("index_alias_names", mode = "function")) {
+    index_last <- unique(c(
+      index_last,
+      unlist(lapply(index_last, index_alias_names), use.names = FALSE)
+    ))
+  }
   index_last <- intersect(index_last, vars)
 
   if (isTRUE(bl$table1_sections_disable_default) &&
       length(bl$table1_sections %||% list()) > 0L) {
     sec <- bl$table1_sections
   } else if (!isTRUE(bl$table1_sections_disable_default)) {
-    sec <- utils::modifyList(
-      as.list(.default_table1_sections()),
-      as.list(bl$table1_sections %||% list())
-    )
+    if (exists("table1_resolve_sections", mode = "function")) {
+      sec <- table1_resolve_sections(cfg, bl)
+    } else {
+      sec <- utils::modifyList(
+        as.list(.default_table1_sections()),
+        as.list(bl$table1_sections %||% list())
+      )
+    }
   } else {
     sec <- bl$table1_sections %||% .default_table1_sections()
   }
-  if (length(sec) == 0L) sec <- .default_table1_sections()
+  if (length(sec) == 0L) {
+    sec <- if (exists("table1_resolve_sections", mode = "function")) {
+      table1_resolve_sections(cfg, bl)
+    } else {
+      .default_table1_sections()
+    }
+  }
 
   others <- sort(setdiff(vars, index_last))
   # 随访时间：放在暴露指标正上方（末段）
@@ -4418,18 +5248,28 @@ sort_vars_by_table1_sections <- function(vars, cfg) {
     setdiff(vars, index_last)
   )
 
+  # 下划线 / 空格 / 连字符视为同一分隔，避免 CHARLS「C_reactive_protein_mg_dL」落在小节外
+  .norm_key <- function(x) {
+    x <- tolower(as.character(x))
+    gsub("[^a-z0-9]+", "", x)
+  }
   .exact_key <- function(v) {
     vl <- tolower(v)
+    vn <- .norm_key(v)
     for (si in seq_along(sec)) {
       sv <- unique(as.character(unlist(sec[[si]], use.names = FALSE)))
       sv <- sv[nzchar(sv)]
       pos <- match(vl, tolower(sv), nomatch = NA_integer_)
+      if (is.na(pos)) {
+        pos <- match(vn, .norm_key(sv), nomatch = NA_integer_)
+      }
       if (!is.na(pos)) return(si * 100000L + pos)
     }
     NA_real_
   }
   .prefix_key <- function(v) {
     vl <- tolower(v)
+    vn <- .norm_key(v)
     for (si in seq_along(sec)) {
       sv <- unique(as.character(unlist(sec[[si]], use.names = FALSE)))
       sv <- sv[nzchar(sv)]
@@ -4437,8 +5277,11 @@ sort_vars_by_table1_sections <- function(vars, cfg) {
         # 仅允许 pref 本身或 pref_xxx，避免 CK 误匹配 CKD
         if (!nzchar(pref)) next
         pl <- tolower(pref)
-        if (identical(vl, pl) || startsWith(vl, paste0(pl, "_"))) {
+        pn <- .norm_key(pref)
+        if (identical(vl, pl) || startsWith(vl, paste0(pl, "_")) ||
+            identical(vn, pn) || (nzchar(pn) && startsWith(vn, pn))) {
           pos2 <- match(pl, tolower(sv), nomatch = NA_integer_)
+          if (is.na(pos2)) pos2 <- match(pn, .norm_key(sv), nomatch = NA_integer_)
           if (!is.na(pos2)) return(si * 100000L + pos2)
         }
       }
@@ -4581,20 +5424,40 @@ table1_baseline_xlsx_footnotes <- function(
     has_normal_continuous = TRUE,
     has_skewed_continuous = TRUE,
     has_categorical = TRUE,
-    use_fisher_any = FALSE
+    use_fisher_any = FALSE,
+    weighted = FALSE
 ) {
   # 保留形参以兼容 block_baseline 调用；脚注文案固定为发表用两句
-  c(
+  # weighted=TRUE（tbl_svysummary + add_p）：连续=survey 加权 Wilcoxon 秩和
+  # （svy.wilcox.test），分类=survey 调整卡方（svy.chisq.test）——gtsummary 默认；
+  # 百分比亦为加权估计。禁止加权表写非加权 Wilcoxon/Pearson 脚注。
+  # weighted=FALSE（baseline_binary / 不加权敏感性基线）：禁止写 weighted mean/count。
+  desc <- if (isTRUE(weighted)) {
     paste0(
-      "Continuous variables are presented as mean (standard deviation) or median ",
-      "(interquartile range) depending on their distribution. ",
+      "Continuous variables are presented as weighted mean (standard error) or weighted ",
+      "median (interquartile range) depending on their distribution. ",
+      "Categorical variables are presented as weighted count (weighted percentage)."
+    )
+  } else {
+    paste0(
+      "Continuous variables are presented as mean (standard deviation) or ",
+      "median (interquartile range) depending on their distribution. ",
       "Categorical variables are presented as count (percentage)."
-    ),
+    )
+  }
+  test <- if (isTRUE(weighted)) {
+    paste0(
+      "Statistical comparisons were performed using survey-weighted Wilcoxon rank-sum tests ",
+      "and survey-adjusted chi-squared tests, accounting for the complex survey design ",
+      "(stratification, clustering, and sampling weights)."
+    )
+  } else {
     paste0(
       "Statistical comparisons were performed using the Wilcoxon rank-sum test ",
       "or Pearson's chi-squared test."
     )
-  )
+  }
+  c(desc, test)
 }
 
 # 与 Excel 完全相同的展示用 data.frame（列名首行 + 子标题插入 + 去下划线）
@@ -4603,7 +5466,8 @@ table1_build_display_df <- function(
     section_insert_rows = NULL,
     section_anchors = NULL,
     gtsummary_tbl = NULL,
-    center_first_col_values = character(0)
+    center_first_col_values = character(0),
+    strip_underscores = TRUE
 ) {
   tbl_df <- as.data.frame(tbl_df, stringsAsFactors = FALSE)
   tbl_with_header_row <- rbind(
@@ -4665,7 +5529,9 @@ table1_build_display_df <- function(
   tbl_df_new <- insert_section_titles(tbl_with_header_row, insert_map)
   tbl_df_new[1L, ] <- gsub("\\*", "", as.character(tbl_df_new[1L, ]))
   colnames(tbl_df_new) <- gsub("\\*\\*", "", colnames(tbl_df_new))
-  tbl_df_new <- .table1_strip_underscores_display(tbl_df_new)
+  if (isTRUE(strip_underscores)) {
+    tbl_df_new <- .table1_strip_underscores_display(tbl_df_new)
+  }
   tbl_df_new <- .table1_blank_na_cells(tbl_df_new)
 
   level_row_idx <- integer(0)
@@ -4864,6 +5730,28 @@ table1_booktabs_latex_document <- function(
 }
 
 # ── 通用 SCI 三线表 xlsx：tbl_df_new 第 1 行为表头（列名作为单元格），其后为表体 ──
+# openxlsx 在 CIFS/SMB 挂载上直接 overwrite=TRUE 可能无报错却保留旧工作簿。
+# 始终先写同目录临时文件，再替换目标，确保重跑真正覆盖旧表。
+.pub_xlsx_save_workbook_replace <- function(wb, filepath) {
+  fd <- dirname(filepath)
+  if (nzchar(fd) && !dir.exists(fd)) dir.create(fd, recursive = TRUE, showWarnings = FALSE)
+  tmp <- tempfile(pattern = ".xlsx_write_", tmpdir = fd, fileext = ".xlsx")
+  on.exit(if (file.exists(tmp)) unlink(tmp), add = TRUE)
+  openxlsx::saveWorkbook(wb, file = tmp, overwrite = TRUE)
+  if (file.exists(filepath) && !isTRUE(unlink(filepath) == 0L)) {
+    stop("Cannot replace existing xlsx: ", filepath, call. = FALSE)
+  }
+  ok <- file.rename(tmp, filepath)
+  if (!isTRUE(ok)) {
+    ok <- file.copy(tmp, filepath, overwrite = TRUE)
+    if (isTRUE(ok)) unlink(tmp)
+  }
+  if (!isTRUE(ok) || !file.exists(filepath)) {
+    stop("Failed to save xlsx: ", filepath, call. = FALSE)
+  }
+  invisible(filepath)
+}
+
 .sci_xlsx_write_three_line_workbook <- function(
     filepath,
     title,
@@ -5045,7 +5933,7 @@ table1_booktabs_latex_document <- function(
     abs_fp <- normalizePath(filepath, winslash = "\\", mustWork = FALSE)
     if (nchar(abs_fp) >= 260) save_fp <- paste0("\\\\?\\", abs_fp)
   }
-  openxlsx::saveWorkbook(wb, file = save_fp, overwrite = TRUE)
+  .pub_xlsx_save_workbook_replace(wb, save_fp)
   if (exists(".competing_xlsx_fix_drawings", mode = "function")) {
     try(.competing_xlsx_fix_drawings(filepath), silent = TRUE)
   }
@@ -5072,6 +5960,11 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
   if (!is.null(footnotes)) {
     footnotes <- as.character(unlist(footnotes, use.names = FALSE))
     footnotes <- footnotes[nzchar(trimws(footnotes))]
+    if (exists("pipeline_scrub_pub_text", mode = "function")) {
+      footnotes <- pipeline_scrub_pub_text(footnotes)
+    } else {
+      footnotes <- gsub("_", " ", footnotes, fixed = TRUE)
+    }
   }
   lr <- if (is.null(level_row_idx) || !length(level_row_idx)) {
     integer(0)
@@ -5230,7 +6123,7 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
     abs_fp <- normalizePath(filepath, winslash = "\\", mustWork = FALSE)
     if (nchar(abs_fp) >= 260) save_fp <- paste0("\\\\?\\", abs_fp)
   }
-  openxlsx::saveWorkbook(wb, file = save_fp, overwrite = TRUE)
+  .pub_xlsx_save_workbook_replace(wb, save_fp)
   if (exists(".competing_xlsx_fix_drawings", mode = "function")) {
     try(.competing_xlsx_fix_drawings(filepath), silent = TRUE)
   }
@@ -5457,6 +6350,15 @@ write_table1_xlsx_guan_style <- function(
     if (is.character(df[[cn]])) {
       df[[cn]] <- gsub("([0-9]{2})\\s+([0-9]{2})", "\\1-\\2", df[[cn]], perl = TRUE)
     }
+  }
+  # 发表级整数千分位守卫：把计数类整数（人数 / 事件数 / n(%) 中的 n）统一成 "1,234"。
+  # 只在「计数上下文」触发（同格含 %、/ 或 N=/n= 标记），避免误伤年份 / 年段（2006-2010）。
+  # 口径由 config$pub_digits$int_big_mark 决定（FALSE 时跳过，保持 1234）。
+  if (isTRUE(.pipeline_pub_digits()$int_big_mark)) {
+    for (cn in names(df)) {
+      if (is.character(df[[cn]])) df[[cn]] <- .pub_group_count_ints(df[[cn]])
+    }
+    names(df) <- .pub_group_count_ints(names(df))
   }
   first_col <- names(df)[1L]
   last_col <- names(df)[ncol(df)]
@@ -5794,6 +6696,19 @@ render_queued_tables <- function(ctx) {
   ctx
 }
 
+# plot_fn 只应 return 对象。ggsurvplot 默认 print(newpage=TRUE) 会先空一页。
+.print_queued_plot_object <- function(out) {
+  if (is.null(out)) return(invisible(NULL))
+  if (inherits(out, "ggsurvplot")) {
+    print(out, newpage = FALSE)
+    return(invisible(out))
+  }
+  if (inherits(out, c("ggplot", "patchwork", "gg", "gtable", "grob", "HeatmapList", "Heatmap"))) {
+    print(out)
+  }
+  invisible(out)
+}
+
 render_queued_figures <- function(ctx) {
   q <- ctx$results$figure_queue %||% list()
   if (length(q) == 0) {
@@ -5807,11 +6722,16 @@ render_queued_figures <- function(ctx) {
       "字体 '{pref}' 在当前 PDF 设备不可用，已使用 '{font_family}'（Times 系，接近新罗马）。"
     )
   }
-  # 有 cairo 时走 pipeline_pdf_device（cairo_pdf + Times New Roman）。
+  # 有 cairo 时走 pipeline_pdf_device（cairo_pdf + 已探测可用字体）。
   # 禁止对标准 pdf() 传 "Times New Roman"：Windows/Linux 都会 unknown family，图全部入队失败。
   pdf_dev <- tolower(trimws(ctx$config$plot$pdf_device %||% "auto"))
+  # 强制标准 pdf() 时，主题/par 必须用 PostScript 名（Times），不能留 Times New Roman
+  if (identical(pdf_dev, "pdf") && identical(font_family, "Times New Roman")) {
+    font_family <- "Times"
+    cli::cli_alert_info("plot$pdf_device=pdf：主题字体改用 Times（避免 PostScript DB 找不到 Times New Roman）。")
+  }
 
-  .with_plot_theme <- function(plot_fn) {
+  .with_plot_theme <- function(plot_fn, ff = font_family) {
     old_theme <- ggplot2::theme_get()
     old_par <- graphics::par(no.readonly = TRUE)
     on.exit({
@@ -5821,56 +6741,55 @@ render_queued_figures <- function(ctx) {
         try(graphics::par(old_par), silent = TRUE)
       }
     }, add = FALSE)
-    graphics::par(family = font_family)
+    # 标准 pdf 设备：par/theme 用 Times；cairo 可用系统字体名
+    ff_par <- if (!isTRUE(capabilities("cairo")) || identical(pdf_dev, "pdf")) {
+      if (identical(ff, "Times New Roman")) "Times" else ff
+    } else {
+      ff
+    }
+    graphics::par(family = ff_par)
     ggplot2::theme_set(
       ggplot2::theme_get() +
         ggplot2::theme(
-          text = ggplot2::element_text(family = font_family),
-          axis.text = ggplot2::element_text(family = font_family),
-          axis.title = ggplot2::element_text(family = font_family),
-          plot.title = ggplot2::element_text(family = font_family),
-          legend.text = ggplot2::element_text(family = font_family),
-          strip.text = ggplot2::element_text(family = font_family)
+          text = ggplot2::element_text(family = ff_par),
+          axis.text = ggplot2::element_text(family = ff_par),
+          axis.title = ggplot2::element_text(family = ff_par),
+          plot.title = ggplot2::element_text(family = ff_par),
+          legend.text = ggplot2::element_text(family = ff_par),
+          strip.text = ggplot2::element_text(family = ff_par)
         )
     )
     out <- plot_fn()
     # ggplot / patchwork 等需显式 print 才写入设备；否则会出现空 PDF（仅壳）。
     # 约定：plot_fn 只 return 对象，不要内部 print()——否则会打成两页。
     # 禁止在此处调用 grid::grid.ls()：它会初始化 grid，导致随后 print(ggplot) 变成 2 页。
-    if (inherits(out, c("ggplot", "patchwork", "gg", "gtable", "grob", "HeatmapList", "Heatmap"))) {
-      print(out)
-    }
+    .print_queued_plot_object(out)
     invisible(out)
   }
 
-  .open_pdf <- function(path, width, height) {
+  .open_pdf <- function(path, width, height, ff = font_family) {
     if (identical(pdf_dev, "pdf")) {
-      ff <- font_family
-      if (identical(ff, "Times New Roman")) ff <- "Times"
+      ff_dev <- if (identical(ff, "Times New Roman")) "Times" else ff
       grDevices::pdf(
-        path, width = width, height = height, family = ff,
+        path, width = width, height = height, family = ff_dev,
         useDingbats = FALSE, compress = TRUE
       )
     } else if (exists("pipeline_pdf_device", mode = "function")) {
-      pipeline_pdf_device(path, width = width, height = height, family = font_family)
+      pipeline_pdf_device(path, width = width, height = height, family = ff)
     } else if (identical(pdf_dev, "cairo_pdf") || isTRUE(capabilities("cairo"))) {
-      ff <- if (identical(font_family, "Times New Roman") && !isTRUE(capabilities("cairo"))) {
-        "Times"
-      } else {
-        font_family
-      }
       if (isTRUE(capabilities("cairo"))) {
         grDevices::cairo_pdf(path, width = width, height = height, family = ff)
       } else {
+        ff_dev <- if (identical(ff, "Times New Roman")) "Times" else ff
         grDevices::pdf(
-          path, width = width, height = height, family = ff,
+          path, width = width, height = height, family = ff_dev,
           useDingbats = FALSE, compress = TRUE
         )
       }
     } else {
-      ff <- if (identical(font_family, "Times New Roman")) "Times" else font_family
+      ff_dev <- if (identical(ff, "Times New Roman")) "Times" else ff
       grDevices::pdf(
-        path, width = width, height = height, family = ff,
+        path, width = width, height = height, family = ff_dev,
         useDingbats = FALSE, compress = TRUE
       )
     }
@@ -5892,24 +6811,73 @@ render_queued_figures <- function(ctx) {
       dir.create(out_path_dir, recursive = TRUE, showWarnings = FALSE)
     }
     ext <- tolower(tools::file_ext(filename))
-    tryCatch({
+
+    .patch_plot_font <- function(obj, ff) {
+      if (inherits(obj, c("ggplot", "gg"))) {
+        return(
+          obj + ggplot2::theme(
+            text = ggplot2::element_text(family = ff),
+            axis.text = ggplot2::element_text(family = ff),
+            axis.title = ggplot2::element_text(family = ff),
+            plot.title = ggplot2::element_text(family = ff),
+            legend.text = ggplot2::element_text(family = ff),
+            strip.text = ggplot2::element_text(family = ff)
+          )
+        )
+      }
+      obj
+    }
+
+    .render_once <- function(ff) {
       if (ext == "pdf") {
-        .open_pdf(out_path, it$width, it$height)
+        .open_pdf(out_path, it$width, it$height, ff)
       } else {
         grDevices::png(
           out_path, width = it$width * 100, height = it$height * 100, res = 100,
-          type = "cairo", family = font_family
+          type = "cairo", family = ff
         )
       }
       opened <- TRUE
       tryCatch({
-        .with_plot_theme(it$plot_fn)
+        old_theme <- ggplot2::theme_get()
+        old_par <- graphics::par(no.readonly = TRUE)
+        on.exit({
+          ggplot2::theme_set(old_theme)
+          if (grDevices::dev.cur() <= 1L) {
+            try(graphics::par(old_par), silent = TRUE)
+          }
+        }, add = FALSE)
+        ff_par <- if (!isTRUE(capabilities("cairo")) || identical(pdf_dev, "pdf")) {
+          if (identical(ff, "Times New Roman")) "Times" else ff
+        } else {
+          ff
+        }
+        graphics::par(family = ff_par)
+        ggplot2::theme_set(
+          ggplot2::theme_get() +
+            ggplot2::theme(
+              text = ggplot2::element_text(family = ff_par),
+              axis.text = ggplot2::element_text(family = ff_par),
+              axis.title = ggplot2::element_text(family = ff_par),
+              plot.title = ggplot2::element_text(family = ff_par),
+              legend.text = ggplot2::element_text(family = ff_par),
+              strip.text = ggplot2::element_text(family = ff_par)
+            )
+        )
+        out <- it$plot_fn()
+        out <- .patch_plot_font(out, ff_par)
+        .print_queued_plot_object(out)
         grDevices::dev.off()
         opened <- FALSE
+        invisible(TRUE)
       }, error = function(e) {
         if (isTRUE(opened)) try(grDevices::dev.off(), silent = TRUE)
         stop(e)
       })
+    }
+
+    tryCatch({
+      .render_once(font_family)
       cli::cli_alert_success("Figure saved: {.file {filename}}")
       mirror_pub_output_to_root(ctx, out_path)
 
@@ -5922,7 +6890,7 @@ render_queued_figures <- function(ctx) {
           svglite::svglite(svg_path, width = it$width, height = it$height)
           opened_svg <- TRUE
           tryCatch({
-            .with_plot_theme(it$plot_fn)
+            .with_plot_theme(it$plot_fn, font_family)
             grDevices::dev.off()
             opened_svg <- FALSE
           }, error = function(e) {
@@ -5934,7 +6902,29 @@ render_queued_figures <- function(ctx) {
       }
     }, error = function(e) {
       try(grDevices::dev.off(), silent = TRUE)
-      cli::cli_alert_warning("Figure failed ({filename}): {e$message}")
+      msg <- conditionMessage(e)
+      font_err <- grepl("invalid font|font family|font type|PostScript", msg, ignore.case = TRUE)
+      recovered <- FALSE
+      if (isTRUE(font_err) && identical(ext, "pdf")) {
+        for (fb in c("Liberation Serif", "DejaVu Serif", "serif", "Times", "sans")) {
+          if (identical(fb, font_family)) next
+          ok <- tryCatch({
+            .render_once(fb)
+            TRUE
+          }, error = function(e2) FALSE)
+          if (isTRUE(ok)) {
+            cli::cli_alert_warning(
+              "Figure saved with font fallback '{fb}' (was '{font_family}'): {.file {filename}}"
+            )
+            mirror_pub_output_to_root(ctx, out_path)
+            recovered <- TRUE
+            break
+          }
+        }
+      }
+      if (!isTRUE(recovered)) {
+        cli::cli_alert_warning("Figure failed ({filename}): {msg}")
+      }
     })
   }
   ctx$results$figure_queue <- list()
@@ -6169,23 +7159,91 @@ prediction_cleanup_cov_probe_dirs <- function(output_base, probe_tag = "_probe_l
 }
 
 
-# ── 全局数据展示规范 ──────────────────────────────────────────────────────────
-#   数值: 保留 2 位小数
-#   P 值: 保留 3 位小数，< 0.001 显示 "<0.001"
+# ── 全局数据展示规范（位数见 .pipeline_pub_digits / config$pub_digits）──────────
+#   描述统计: 最多 desc 位（默认 3），默认去尾随 0（90 不写 90.000）
+#   效应量(OR/HR/RR+CI): 固定 est 位（用 pub_format_est，不去尾随 0）
+#   P: 固定 p 位；切点: cutoff 位
 
-fmt_num <- function(x, digits = 2) {
-  if (length(x) == 0L) return(NA_character_)
-  formatC(round(as.numeric(x), digits), format = "f", digits = digits)
+#' 去掉小数尾随 0；整数不保留小数点（仅用于描述统计 fmt_num）
+.fmt_num_trim_trailing <- function(s) {
+  s <- as.character(s)
+  ok <- !is.na(s) & nzchar(s) & grepl("\\.", s, fixed = FALSE)
+  if (!any(ok)) return(s)
+  s[ok] <- sub("(\\.[0-9]*?)0+$", "\\1", s[ok])
+  s[ok] <- sub("\\.$", "", s[ok])
+  s
 }
 
-fmt_pval <- function(p, digits = 3) {
+fmt_num <- function(x, digits = NULL, trim = NULL) {
+  if (length(x) == 0L) return(NA_character_)
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$desc)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 2L
+  do_trim <- isTRUE(trim %||% .pipeline_pub_digits()$desc_trim)
+  s <- formatC(round(as.numeric(x), dig), format = "f", digits = dig)
+  if (do_trim) s <- .fmt_num_trim_trailing(s)
+  s
+}
+
+# 分位/切点标签：小量级指标（如 WPR≈0.03）自动加位数，避免「0.03 -< 0.03」
+fmt_num_cutoff <- function(x, digits = NULL) {
+  if (length(x) == 0L) return(NA_character_)
+  x1 <- suppressWarnings(as.numeric(x)[1L])
+  if (!is.finite(x1)) return(NA_character_)
+  if (is.null(digits)) {
+    ax <- abs(x1)
+    digits <- if (ax >= 1) 2L else if (ax >= 0.1) 3L else .pipeline_pub_digits()$cutoff
+  }
+  formatC(round(x1, as.integer(digits)[1L]), format = "f", digits = as.integer(digits)[1L])
+}
+
+fmt_pval <- function(p, digits = NULL) {
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 3L
   ifelse(is.na(p), NA_character_,
-         ifelse(p < 0.001, "<0.001", formatC(round(p, digits), format = "f", digits = digits)))
+         ifelse(p < 0.001, "<0.001", formatC(round(p, dig), format = "f", digits = dig)))
+}
+
+# 单因素 / 附表：OR|HR (lo-hi, p=…)；效应量走 est 位数，描述统计仍用 fmt_num
+# 完全分离 / Inf CI / 爆炸效应量与亚组森林一致，写成 NE，避免 1e22 或 0.000-Inf
+pub_est_ci_not_estimable <- function(est, lo = NA_real_, hi = NA_real_,
+                                     ne_est_gt = 500, ne_hi_gt = 1000) {
+  e <- suppressWarnings(as.numeric(est)[1L])
+  l <- suppressWarnings(as.numeric(lo)[1L])
+  h <- suppressWarnings(as.numeric(hi)[1L])
+  if (!is.finite(e) || e <= 0) return(TRUE)
+  if (e > ne_est_gt) return(TRUE)
+  if (!is.na(h) && (!is.finite(h) || h > ne_hi_gt)) return(TRUE)
+  if (!is.na(l) && !is.finite(l)) return(TRUE)
+  FALSE
+}
+
+pub_fmt_est_ci_p <- function(est, lo, hi, p) {
+  if (length(est) != 1L || is.na(est)) return("")
+  .fmt_p_inline <- function(p) {
+    if (length(p) != 1L || is.na(p)) return("")
+    if (p < 0.001) return("p<0.001")
+    paste0("p=", fmt_pval(p))
+  }
+  pt <- .fmt_p_inline(p)
+  if (isTRUE(pub_est_ci_not_estimable(est, lo, hi))) {
+    if (!nzchar(pt)) return("NE")
+    return(paste0("NE (", pt, ")"))
+  }
+  if (is.na(lo) || is.na(hi)) {
+    if (!nzchar(pt)) return(pub_format_est(est))
+    return(paste0(pub_format_est(est), " (", pt, ")"))
+  }
+  if (!nzchar(pt)) {
+    return(paste0(pub_format_est(est), " (", pub_format_est(lo), "-", pub_format_est(hi), ")"))
+  }
+  paste0(pub_format_est(est), " (", pub_format_est(lo), "-", pub_format_est(hi), ", ", pt, ")")
 }
 
 # ── RCS 曲线切点（OR=1 / slope=0），与 02block_rcs_incidence.R 逻辑一致 ─────────
-rcs_format_cutoff <- function(x, digits = 4L) {
-  formatC(as.numeric(x), digits = digits, format = "f")
+rcs_format_cutoff <- function(x, digits = NULL) {
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$cutoff)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 4L
+  formatC(as.numeric(x), digits = dig, format = "f")
 }
 
 rcs_find_roots_on_grid <- function(x, y, target = 0, tol = 1e-5) {
@@ -6344,6 +7402,70 @@ rcs_primary_cutoff <- function(cutoffs) {
     if (length(cutoffs$all)) return(cutoffs$all[1L])
   }
   NA_real_
+}
+
+# Table S-XX / logistic_*_rcs：默认只用 primary cutoff 二分（< cut vs >= cut）
+rcs_table_group_cutoffs <- function(cutoffs, primary = NULL, mode = c("primary", "all")) {
+  mode <- tolower(as.character(mode)[1L])
+  if (!mode %in% c("primary", "all")) mode <- "primary"
+  all_cuts <- if (is.list(cutoffs)) {
+    as.numeric(cutoffs$all %||% numeric(0))
+  } else {
+    as.numeric(cutoffs %||% numeric(0))
+  }
+  all_cuts <- sort(unique(all_cuts[is.finite(all_cuts)]))
+  if (identical(mode, "all")) return(all_cuts)
+  pc <- suppressWarnings(as.numeric(primary)[1L])
+  if (!is.finite(pc)) {
+    pc <- if (is.list(cutoffs)) rcs_primary_cutoff(cutoffs) else NA_real_
+  }
+  if (is.finite(pc)) return(pc)
+  all_cuts
+}
+
+rcs_primary_from_ctx <- function(ctx) {
+  .as_num1 <- function(x) {
+    if (is.null(x)) return(NA_real_)
+    # save_result("rcs_cutoff", cutoff_detail) 曾把 data.frame 盖掉标量；兼容旧检查点
+    if (is.data.frame(x)) {
+      if ("cutoff" %in% names(x)) {
+        if ("type" %in% names(x) && any(x$type == "peak_or", na.rm = TRUE)) {
+          return(suppressWarnings(as.numeric(x$cutoff[x$type == "peak_or"][1L])))
+        }
+        return(suppressWarnings(as.numeric(x$cutoff[1L])))
+      }
+      return(NA_real_)
+    }
+    if (is.list(x) && !is.atomic(x)) {
+      return(suppressWarnings(as.numeric(unlist(x, use.names = FALSE)[1L])))
+    }
+    suppressWarnings(as.numeric(x)[1L])
+  }
+  pc <- .as_num1(ctx$results$rcs_cutoff)
+  if (!is.finite(pc)) pc <- .as_num1(ctx$results$rcs_group_cutoffs_used)
+  if (!is.finite(pc)) pc <- .as_num1(ctx$results$cutoff_value)
+  if (!is.finite(pc)) pc <- .as_num1(ctx$results$nhanes_rcs_primary_cutoff)
+  pc
+}
+
+rcs_table_exposure_cutoff_labels <- function(raw_levels, primary_cutoff) {
+  cutoffs <- stats::setNames(rep("", length(raw_levels)), raw_levels)
+  pc <- suppressWarnings(as.numeric(primary_cutoff)[1L])
+  if (!is.finite(pc) || length(raw_levels) < 2L) return(cutoffs)
+  cutoffs[[raw_levels[[1L]]]] <- paste0("< ", fmt_num_cutoff(pc))
+  cutoffs[[raw_levels[[length(raw_levels)]]]] <- paste0("\u2265 ", fmt_num_cutoff(pc))
+  cutoffs
+}
+
+logistic_rcs_prepare_cutoffs <- function(raw_levels, ctx) {
+  out <- rcs_table_exposure_cutoff_labels(raw_levels, rcs_primary_from_ctx(ctx))
+  attr(out, "is_rcs_group") <- TRUE
+  out
+}
+
+logistic_glm_format_p <- function(p, is_rcs_group = FALSE) {
+  # 与 pub_format_p_cell / fmt_pval 同口径（默认 3 位）；禁止再写 round(p, 4)
+  if (exists("pub_format_p_cell", mode = "function")) pub_format_p_cell(p) else fmt_pval(p)
 }
 
 rcs_ggrcs_strip_histogram_layers <- function(plot_obj) {
@@ -6525,11 +7647,11 @@ fmt_continuous <- function(x, is_normal = TRUE) {
   }
 }
 
-# 分类变量描述："n (xx.xx%)"
+# 分类变量描述："n (xx.xx%)"（计数走 pub_format_int 千分位统一口径）
 fmt_categorical <- function(x) {
   n   <- sum(!is.na(x))
   tbl <- table(x)
-  paste0(names(tbl), ": ", tbl, " (", fmt_num(tbl / n * 100), "%)", collapse = "; ")
+  paste0(names(tbl), ": ", pub_format_int(as.integer(tbl)), " (", fmt_num(tbl / n * 100), "%)", collapse = "; ")
 }
 
 # 连续变量正态性（与 baseline_nhanes / baseline_binary 一致）
@@ -6619,7 +7741,7 @@ fmt_categorical_level_svy <- function(design, var, level) {
     n <- sum(as.character(x) == as.character(level), na.rm = TRUE)
     n_tot <- sum(!is.na(x))
     pct <- if (n_tot > 0) n / n_tot * 100 else 0
-    return(paste0(n, " (", fmt_num(pct), "%)"))
+    return(paste0(pub_format_int(n), " (", fmt_num(pct), "%)"))
   }
   x <- design$variables[[var]]
   level <- as.character(level)
@@ -6629,7 +7751,7 @@ fmt_categorical_level_svy <- function(design, var, level) {
     `.cat_hit` = as.integer(as.character(design$variables[[var]]) == level)
   )
   pct <- as.numeric(survey::svymean(~`.cat_hit`, design2, na.rm = TRUE)) * 100
-  paste0(n_unw, " (", fmt_num(pct), "%)")
+  paste0(pub_format_int(n_unw), " (", fmt_num(pct), "%)")
 }
 
 # ── 协变量子集枚举：按子集大小递增，供 Logistic/Cox 自动组合搜索 ─────────────
@@ -7038,4 +8160,12 @@ local({
   )
   path_pfp <- cand_pfp[file.exists(cand_pfp)][1L]
   if (!is.na(path_pfp) && nzchar(path_pfp)) source(path_pfp, local = FALSE)
+
+  cand_uv <- c(
+    if (!is.null(rdir)) file.path(rdir, "univariate_or_helpers.R"),
+    file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), "R", "univariate_or_helpers.R"),
+    file.path("R", "univariate_or_helpers.R")
+  )
+  path_uv <- cand_uv[file.exists(cand_uv)][1L]
+  if (!is.na(path_uv) && nzchar(path_uv)) source(path_uv, local = FALSE)
 })

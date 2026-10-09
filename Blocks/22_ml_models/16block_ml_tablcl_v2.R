@@ -285,6 +285,66 @@
   )
 }
 
+# 2026-09-01 修复：外部脚本返回的类别方向指标（sens/spec/f_meas 等）事件类不可靠
+# （曾按第一水平=阴性类计算，reticulate 路径又跳过对调 → sens/spec 互换、F1 为阴性类）。
+# 与其他模型完全一致地在 R 侧重算：训练集 ROC 取 Youden 最优截断并应用到 train/test，
+# conf_mat %>% summary(event_level=<阳性类水平序号>)；roc_auc/pr_auc 保留外部原值。
+.mltc16_rebuild_eval_from_predictions <- function(eval_ml, final_predictions,
+                                                  ref_g, ana_g) {
+  if (!requireNamespace("yardstick", quietly = TRUE) ||
+      !requireNamespace("dplyr", quietly = TRUE) ||
+      !is.data.frame(final_predictions) || !nrow(final_predictions)) {
+    return(eval_ml)
+  }
+  fp <- final_predictions
+  grp <- as.character(fp$Group)
+  lv  <- sort(unique(grp[!is.na(grp) & nzchar(grp)]))
+  if (length(lv) != 2L) return(eval_ml)
+  ref_g1 <- as.character(ref_g)[1L]
+  ana_g1 <- as.character(ana_g)[1L]
+  if (!all(c(ref_g1, ana_g1) %in% lv)) return(eval_ml)
+  ev_ana <- if (identical(lv[2L], ana_g1)) "second" else "first"
+  ref_col <- intersect(c(paste0(".pred_", ref_g1), ref_g1), names(fp))[1L]
+  if (is.na(ref_col)) return(eval_ml)
+  ds <- tolower(as.character(fp$dataset))
+  sel_train <- grepl("train", ds)
+  sel_test  <- grepl("valid|test", ds)
+  if (!any(sel_train) || !any(sel_test)) return(eval_ml)
+  .mk <- function(sel) data.frame(
+    Group = factor(grp[sel], levels = lv),
+    p_ref = suppressWarnings(as.numeric(fp[[ref_col]][sel])),
+    stringsAsFactors = FALSE
+  )
+  dtr <- .mk(sel_train); dte <- .mk(sel_test)
+  ## 2026-09-02 fix: 事件必须是 ref 类（p_ref 预测 ref；规则 p_ref>=thr→ref）。
+  ## 此前硬编码 "first"：当分析组按字母序排第一（如 Hypothermia < Non-hypothermia）
+  ## 时 ROC 方向反了 → 全部 J<=0 → 阈值 -Inf → sens=0/spec=1 退化（study 08）。
+  ## Youden J 对方向对称，thr 择优不受影响；.cm 的 ev_ana 报告口径不变。
+  ev_ref <- if (identical(lv[1L], ref_g1)) "first" else "second"
+  roc_tr <- as.data.frame(yardstick::roc_curve(dtr, Group, p_ref, event_level = ev_ref))
+  roc_tr$.yueden <- roc_tr$sensitivity + roc_tr$specificity - 1
+  best <- dplyr::slice_max(roc_tr, .yueden, n = 1L, with_ties = FALSE)
+  thr <- best$.threshold[1L]
+  if (length(thr) != 1L || is.na(thr)) return(eval_ml)
+  .cm <- function(d2, ds_lab) {
+    d2$.pred_class <- factor(ifelse(d2$p_ref >= thr, ref_g1, ana_g1), levels = lv)
+    res <- summary(
+      yardstick::conf_mat(d2, truth = Group, estimate = .pred_class),
+      event_level = ev_ana
+    )
+    res$dataset <- ds_lab
+    res
+  }
+  rebuilt <- dplyr::bind_rows(.cm(dtr, "train"), .cm(dte, "test"))
+  keep_metrics <- c("roc_auc", "pr_auc")
+  kept <- eval_ml[tolower(as.character(eval_ml$.metric)) %in% keep_metrics, , drop = FALSE]
+  if ("model" %in% names(kept)) rebuilt$model <- kept$model[1L]
+  out <- dplyr::bind_rows(kept, rebuilt)
+  out <- out[, intersect(names(eval_ml), names(out)), drop = FALSE]
+  if (!nrow(out)) return(eval_ml)
+  out
+}
+
 .mltc16_run_excel_ml_bundle <- function(
     xlsx_path, ref_g, ana_g, pred_ref_col, pred_ana_col,
     sheet_stem, model_label, long_model_name,
@@ -337,6 +397,19 @@
     eval_best_cv5_ml_spec$.metric <- "sens"
     eval_best_cv5_ml_sens$.metric <- "spec"
   }
+
+  # 2026-09-01: 类别方向指标一律在 R 侧按统一方法学重算（见函数头注释）
+  eval_ml <- tryCatch(
+    .mltc16_rebuild_eval_from_predictions(
+      eval_ml, final_predictions_ml, ref_g, ana_g
+    ),
+    error = function(e) {
+      cli::cli_alert_warning(
+        "{model_label}: eval 指标重算失败，保留外部指标: {conditionMessage(e)}"
+      )
+      eval_ml
+    }
+  )
 
   paras <- openxlsx::read.xlsx(xlsx_path, sheet = "paras")[, -1L]
   hp_str <- gsub(":", "=", as.character(paras[2L, 2L]))

@@ -9,9 +9,11 @@
 # 预测模型规范：
 #   1) 先 train_validation 划分（cross_db 为 passthrough 已有 train/test）
 #   2) 再 imputation fit_on=train（MICE 仅用训练估计，ignore 应用到验证）
-#   3) 不挂 trim_index_extreme
+#   3) index 后硬排除疾病变量 + 当前指标组成变量（Albumin/AnionGap 等）
+#   4) 不挂 trim_index_extreme（极端值由 extreme_to_na 置空，不删人）
 ._ml_head <- c(
-  "data_clean", "column_mapping", "dual_db_column_harmonize", "index",
+  "ml_id_deduplicate", "data_clean", "column_mapping", "dual_db_column_harmonize", "index",
+  "analysis_exclusion",
   "train_validation",
   "imputation"
 )
@@ -21,7 +23,7 @@
 
 pipeline_shared_nhanes <- list(
   name = paste0("ml_dual_batch_shared_", .primary_slot),
-  blocks = c("data_clean", "column_mapping", "dual_db_column_harmonize", "index"),
+  blocks = c("ml_id_deduplicate", "data_clean", "column_mapping", "dual_db_column_harmonize", "index"),
   logistic_gate = list(enable = FALSE),
   render_tables_after = character(0),
   render_figures_after = character(0),
@@ -31,7 +33,7 @@ pipeline_shared_nhanes <- list(
 
 pipeline_shared_regular <- list(
   name = paste0("ml_dual_batch_shared_", .secondary_slot),
-  blocks = c("data_clean", "column_mapping", "dual_db_column_harmonize", "index"),
+  blocks = c("ml_id_deduplicate", "data_clean", "column_mapping", "dual_db_column_harmonize", "index"),
   logistic_gate = list(enable = FALSE),
   render_tables_after = character(0),
   render_figures_after = character(0),
@@ -68,7 +70,7 @@ pipeline_regular_primary_ml_batch <- list(
     ml_dual_primary_ml_stat_upstream_blocks(config),
     ml_dual_primary_ml_tail_blocks(config)
   ),
-  logistic_gate = list(enable = FALSE),
+  logistic_gate = list(enable = TRUE),
   render_tables_after = c(
     "train_validation", "imputation", "baseline_binary", "simple_ROC", "boxplot",
     "univariate_incidence_binary", "ml_vif_train_test",
@@ -93,20 +95,26 @@ pipeline_regular_primary_ml_batch <- list(
 pipeline_mimic_ml_batch <- list(
   name = "ml_dual_batch_secondary_ml",
   blocks = c(
-    "data_clean", "column_mapping", "dual_db_column_harmonize", "index",
-    "train_validation",
-    "imputation",
-    "ml_inherit_primary_features",
-    "ml_models_bundle", "performance_ml",
-    "supplementary_ml", "shap",
-    "attrition_flowchart"
+    ._ml_head,
+    ._ml_baseline_incidence,
+    ml_dual_secondary_ml_symmetric_blocks(config)
   ),
   logistic_gate = list(enable = FALSE),
+  # 外验不跑 UV/VIF/FS；特征来自主库 inherit
+  # ml_eval_external / 自训尾由 split_mode 的 enable 开关二选一
   render_tables_after = c(
-    "train_validation", "imputation", "ml_inherit_primary_features",
-    "ml_models_bundle", "performance_ml"
+    "train_validation", "imputation", "baseline_binary", "simple_ROC", "boxplot",
+    "ml_inherit_primary_features",
+    "ml_assoc_covariate_resolve", "ml_assoc_bundle",
+    "ml_eval_external", "ml_models_bundle", "performance_ml",
+    ml_dual_primary_ml_subgroup_render_blocks(config)
   ),
-  render_figures_after = c("performance_ml", "shap"),
+  render_figures_after = c(
+    "simple_ROC", "boxplot",
+    "ml_assoc_bundle",
+    "performance_ml", "shap",
+    ml_dual_primary_ml_subgroup_render_blocks(config)
+  ),
   dual_db = list(enable = TRUE),
   checkpoint = list(enable = TRUE, dir = NULL)
 )

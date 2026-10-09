@@ -81,10 +81,15 @@
   )
   km_data <- km_data[!is.na(km_data$survival_time) & km_data$survival_time > 0, , drop = FALSE]
 
-  # 与 Fig2B.R 一致：ng==2 且 Class1 为多数类时交换 Class1/Class2 标签
+  # imputed$trajectory_class 已是展示编号时不再 majority-swap（否则双库对反）
   class_num0 <- suppressWarnings(as.integer(gsub("\\D+", "", as.character(km_data$class))))
-  swap_map   <- if (exists("trajectory_class_swap_map", mode = "function"))
-    trajectory_class_swap_map(class_num0) else stats::setNames(sort(unique(class_num0)), sort(unique(class_num0)))
+  swap_map   <- if (exists("trajectory_resolve_class_map", mode = "function")) {
+    trajectory_resolve_class_map(class_num0, ctx$config, Index, source = "aligned")
+  } else if (exists("trajectory_class_swap_map", mode = "function")) {
+    trajectory_class_swap_map(class_num0)
+  } else {
+    stats::setNames(sort(unique(class_num0)), sort(unique(class_num0)))
+  }
   class_num  <- if (exists("trajectory_apply_class_swap", mode = "function"))
     trajectory_apply_class_swap(class_num0, swap_map) else class_num0
   km_data$class <- factor(class_num, levels = sort(unique(class_num)),
@@ -210,7 +215,7 @@ block_trajectory_km_class <- function(ctx, ...) {
 
     if (!is.null(res$plot)) {
       fn <- paste0("Figure_KM_TrajectoryClass", suffix, ".pdf")
-      ctx <- save_figure(ctx, fn, (function(pp) function() print(pp))(res$plot), width = 8, height = 6)
+      ctx <- save_figure(ctx, fn, local({ pp <- res$plot; function() pp }), width = 8, height = 6)
     }
   }
 

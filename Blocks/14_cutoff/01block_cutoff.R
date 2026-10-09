@@ -78,23 +78,34 @@ block_cutoff <- function(ctx, ...) {
   }
 
   outcome_col  <- cfg$data$outcome_column %||% "Disease"
-  disease_lbl  <- proj_cfg$analysis_group %||% proj_cfg$disease %||% "Case"
-  normal_lbl   <- proj_cfg$reference_group %||% "Control"
+  if (exists("pipeline_resolve_outcome_display_labels", mode = "function")) {
+    lbl <- pipeline_resolve_outcome_display_labels(cfg)
+    disease_lbl <- lbl$analysis
+    normal_lbl <- lbl$reference
+  } else {
+    disease_lbl <- proj_cfg$analysis_group %||% proj_cfg$disease %||% "Case"
+    normal_lbl  <- proj_cfg$reference_group %||% "Control"
+  }
   db_name      <- proj_cfg$database %||% "NHANES"
 
   if (!outcome_col %in% names(data)) stop("block_cutoff: 结局列 '", outcome_col, "' 不在数据中。")
 
   # ── Youden 截断值（基于原始指标 ROC）─────────────────────────────────────
-  y <- data[[outcome_col]]
   x <- data[[index_var]]
-  ok <- !is.na(x) & !is.na(y) & y %in% c(disease_lbl, normal_lbl)
+  y_raw <- data[[outcome_col]]
+  y_num <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    pipeline_outcome_as_01(y_raw, cfg)
+  } else {
+    suppressWarnings(as.numeric(y_raw))
+  }
+  ok <- !is.na(x) & !is.na(y_num) & y_num %in% c(0, 1)
   if (sum(ok) < 20L) stop("block_cutoff: 有效样本不足 20 行，请检查数据与标签。")
 
   roc_raw <- tryCatch(
     pROC::roc(
-      response  = y[ok],
+      response  = y_num[ok],
       predictor = x[ok],
-      levels    = c(normal_lbl, disease_lbl),
+      levels    = c(0, 1),
       direction = "<",
       quiet     = TRUE
     ),
@@ -103,9 +114,9 @@ block_cutoff <- function(ctx, ...) {
   if (is.null(roc_raw)) {
     roc_raw <- tryCatch(
       pROC::roc(
-        response  = y[ok],
+        response  = y_num[ok],
         predictor = x[ok],
-        levels    = c(normal_lbl, disease_lbl),
+        levels    = c(0, 1),
         direction = ">",
         quiet     = TRUE
       ),

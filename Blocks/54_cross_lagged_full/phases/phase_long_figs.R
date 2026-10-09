@@ -44,6 +44,7 @@ study_root <- "/mnt/g/02block_result/16_Hip fracture/cross-laged_40595747"
 sims <- 200L
 only_dbs <- NULL
 change_only <- FALSE
+.scheme_override <- NULL
 rescreen_med_covars <- FALSE
 # 纵向/交叉滞后默认三库；Pooled 仅主文 logistic 阶段保留（加 --with-pooled 才跑）
 run_pooled_long <- FALSE
@@ -57,6 +58,8 @@ while (i <= length(args)) {
     only_dbs <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
   } else if (args[[i]] %in% c("--change-only", "--only-change")) {
     change_only <- TRUE; i <- i + 1L
+  } else if (args[[i]] == "--scheme" && i < length(args)) {
+    .scheme_override <- tolower(trimws(args[[i + 1L]])); i <- i + 2L
   } else if (args[[i]] %in% c("--rescreen-mediation-covars", "--rescreen-med-covars")) {
     rescreen_med_covars <- TRUE; i <- i + 1L
   } else if (args[[i]] %in% c("--with-pooled", "--pooled")) {
@@ -121,6 +124,12 @@ if (file.exists(acc)) {
   }
 }
 if (!nzchar(.lock_scheme)) .lock_scheme <- "tertile"
+if (!is.null(.scheme_override) && .scheme_override %in% c("binary", "tertile", "quartile", "quintile")) {
+  cli::cli_alert_warning(
+    "本轮 --scheme={(.scheme_override)} 覆盖 meta 分位 {(.lock_scheme)}；不改 study_meta / 主文闸门"
+  )
+  .lock_scheme <- .scheme_override
+}
 cli::cli_alert_info(
   "Change/long: scheme={(.lock_scheme)}; M2={paste(.lock_m2, collapse='+')}"
 )
@@ -202,6 +211,30 @@ panel <- list(
 if (file.exists(.study_panel)) {
   sys.source(.study_panel, envir = environment())
   cli::cli_alert_info("已加载课题纵向 panel: { .study_panel }")
+}
+.circ_exp_lab <- "Frailty Index"
+.circ_med_lab <- "Depression"
+.circ_out_lab <- "Hip fracture"
+if (exists(".circadian_index_var", inherits = TRUE)) {
+  .circ_exp_lab <- as.character(
+    if (exists(".circadian_exposure_label", inherits = TRUE) &&
+        nzchar(as.character(.circadian_exposure_label)[1L])) {
+      .circadian_exposure_label
+    } else {
+      .circadian_index_var
+    }
+  )[1L]
+  .circ_med_lab <- as.character(.circadian_mediator_label %||% "Frailty Index")[1L]
+  .circ_out_lab <- as.character(.circadian_outcome_label %||% "Circadian disorder")[1L]
+}
+.change_leisure <- exists(".circadian_index_var", inherits = TRUE) &&
+  identical(as.character(.circadian_index_var)[1L], "Leisure_score")
+.change_mean_lab <- if (isTRUE(.change_leisure)) paste("Mean", .circ_exp_lab) else "Mean FI"
+.change_chg_lab <- if (isTRUE(.change_leisure)) paste(.circ_exp_lab, "change") else "FI change"
+.change_stem <- if (isTRUE(.change_leisure)) {
+  "Table_Change_Leisure_activity_score_mean_and_change"
+} else {
+  "Table_Change_FI_mean_and_change"
 }
 
 load_ck <- function(db) {
@@ -345,7 +378,13 @@ for (db in dbs) {
         medition_dir = file.path(data_root, "medition"),
         require_baseline_free = TRUE,
         carry_vars = if (exists(".circadian_carry_vars", inherits = TRUE)) .circadian_carry_vars else character(0),
-        panel = panel
+        rebuild_circadian_conditions = if (exists(".circadian_rebuild_conditions", inherits = TRUE)) {
+          isTRUE(.circadian_rebuild_conditions)
+        } else {
+          TRUE
+        },
+        panel = panel,
+        require_complete_fi = !isTRUE(.change_leisure)
       )
     )
   )
@@ -449,9 +488,9 @@ for (db in dbs) {
         exposure = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
         mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
-        exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) "ePWV" else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) "Frailty Index" else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian disorder" else "Hip fracture"
+        exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
+        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
+        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
       ),
       cross_lagged_forest_or = list(),
       cross_lagged_network = if (exists(".circadian_node_stems", inherits = TRUE)) {
@@ -470,7 +509,12 @@ for (db in dbs) {
       cross_lagged_fig1_group = list(year_col = "Year"),
       cross_lagged_change_logistic = list(
         scheme = .lock_scheme,
-        covariates = m2
+        covariates = m2,
+        fi_t1 = paste0("T1_", if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
+        fi_t2 = paste0("T2_", if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
+        mean_section = .change_mean_lab,
+        change_section = .change_chg_lab,
+        file_stem = .change_stem
       ),
       mediation_longitudinal = list(
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
@@ -482,9 +526,9 @@ for (db in dbs) {
         path_use_covariates = TRUE,
         covariates = setdiff(as.character(m2), c("Age", "SBP", "DBP", "MBP")),
         covariates_by_db = .med_lock$covariates_by_db %||% NULL,
-        treat_label = if (exists(".circadian_index_var", inherits = TRUE)) "ePWV" else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) "Frailty Index" else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian disorder" else "Hip fracture"
+        treat_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
+        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
+        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
       )
     )
   )
@@ -585,9 +629,9 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
         exposure = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
         mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
-        exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) "ePWV" else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) "Frailty Index" else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian disorder" else "Hip fracture"
+        exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
+        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
+        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
       ),
       cross_lagged_change_logistic = list(
         scheme = .lock_scheme,
@@ -603,9 +647,9 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
         path_use_covariates = TRUE,
         covariates = setdiff(as.character(m2p), c("Age", "SBP", "DBP", "MBP")),
         covariates_by_db = .med_lock$covariates_by_db %||% NULL,
-        treat_label = if (exists(".circadian_index_var", inherits = TRUE)) "ePWV" else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) "Frailty Index" else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian disorder" else "Hip fracture"
+        treat_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
+        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
+        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
       )
     )
   )
@@ -657,15 +701,24 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
 s5_rds <- file.path(
   study_root,
   paste0("phase3_long_", .s5_merge_cohorts),
-  "Tables", "Table_Change_FI_mean_and_change_pub.rds"
+  "Tables", paste0(.change_stem, "_pub.rds")
 )
-s5_out <- file.path(study_root, "summary_result", "table",
-                    "Table S5. Change analysis Mean FI and FI change.xlsx")
+s5_out <- file.path(
+  study_root, "summary_result", "table",
+  if (isTRUE(.change_leisure)) {
+    "Table S5. Change analysis of Leisure activity score.xlsx"
+  } else {
+    "Table S5. Change analysis Mean FI and FI change.xlsx"
+  }
+)
 if (any(file.exists(s5_rds))) {
   tryCatch({
     dir.create(dirname(s5_out), recursive = TRUE, showWarnings = FALSE)
     res_s5 <- cross_lagged_change_build_table_s5(
-      s5_rds, s5_out, cohorts = .s5_merge_cohorts
+      s5_rds, s5_out, cohorts = .s5_merge_cohorts,
+      title = if (isTRUE(.change_leisure)) {
+        "Table S5. Change analysis of Leisure activity score"
+      } else "Table S5. Change analysis Mean FI and FI change"
     )
     cli::cli_alert_success(
       "Table S5 已生成: scheme={res_s5$scheme}; cohorts={paste(res_s5$cohorts, collapse=', ')}"
@@ -728,7 +781,12 @@ for (db in c("CHARLS", "ELSA", "HRS")) {
         scheme = .lock_scheme,
         covariates = .lock_m2,
         design = "two_wave",
-        output_suffix = "_twowave"
+        output_suffix = "_twowave",
+        fi_t1 = paste0("T1_", if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
+        fi_t2 = paste0("T2_", if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
+        mean_section = .change_mean_lab,
+        change_section = .change_chg_lab,
+        file_stem = .change_stem
       )
     )
   )
@@ -777,17 +835,25 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs) &&
 s51_rds <- file.path(
   study_root,
   paste0("phase3_long_", .s5_merge_cohorts),
-  "Tables", "Table_Change_FI_mean_and_change_twowave_pub.rds"
+  "Tables", paste0(.change_stem, "_twowave_pub.rds")
 )
-s51_out <- file.path(study_root, "summary_result", "table",
-                     "Table S5.1. Change analysis Mean FI and FI change.xlsx")
+s51_out <- file.path(
+  study_root, "summary_result", "table",
+  if (isTRUE(.change_leisure)) {
+    "Table S5.1. Change analysis of Leisure activity score.xlsx"
+  } else {
+    "Table S5.1. Change analysis Mean FI and FI change.xlsx"
+  }
+)
 if (any(file.exists(s51_rds))) {
   tryCatch({
     dir.create(dirname(s51_out), recursive = TRUE, showWarnings = FALSE)
     res_s51 <- cross_lagged_change_build_table_s5(
       s51_rds, s51_out,
       cohorts = .s5_merge_cohorts,
-      title = "Table S5.1. Change analysis Mean FI and FI change"
+      title = if (isTRUE(.change_leisure)) {
+        "Table S5.1. Change analysis of Leisure activity score"
+      } else "Table S5.1. Change analysis Mean FI and FI change"
     )
     cli::cli_alert_success(
       "Table S5.1 已生成: cohorts={paste(res_s51$cohorts, collapse=', ')}"

@@ -1,15 +1,23 @@
 ---
 name: adversarial-lit-reading
-description: One-click adversarial literature reading. Drives TWO models automatically — the Cursor agent acts as AI-A (reader/reviser/judge) while GLM 5.1 API acts as AI-B (critic) — to produce evidence-bound decision trees, attacks, revisions, a 10-pt Judge score, and JSONL training data. Use when the user says "一键对抗阅读 / adversarial reading / 对 paper_X 的 Q_n 跑对抗".
+description: >-
+  One-click adversarial literature reading (Q1–Q8). Cursor=AI-A/Judge, GLM 5.1=AI-B.
+  Produces evidence-bound trees, attacks, revisions, 10-pt JSONL. Use when the user says
+  一键对抗阅读 / adversarial reading / Q1–Q8, or when pipeline-foundation / 文献接套路 /
+  地基提示词 requires Phase 1 before writing config (mandatory gate on the paper-to-routine path).
 ---
 
 # Adversarial Literature Reading（一键对抗阅读）
+
+> **接套路位置**：`pipeline-foundation` 标准路径的 Phase 0–1（PDF 切块 → 本 skill）。  
+> 未完成本 skill 不得写分析决策树以外的项目 config / 开跑。见 `.cursor/skills/pipeline-foundation/SKILL.md`。
 
 ## CWD 约定
 所有命令与路径一律**以项目根为基准**（带 adversarial_lit_reading/ 前缀）。执行前确认当前目录是项目根，不要 cd 进 adversarial_lit_reading。
 
 ## 目标
-一句话把一篇论文×一个问题跑成可复核、可训练的对抗记录，全程不手动复制粘贴。
+一句话把一篇论文×一个问题跑成可复核、可训练的对抗记录，全程不手动复制粘贴。  
+在「文献 → 地基套路」流程里：本步产出 **喂给** `Decisiontree/decision_tree_<routine>.md`，不是互相替代。
 
 ## 角色分工（铁律）
 - AI-A（建树/修正/Judge）= **你自己**（执行本 Skill 的 Cursor 智能体）。

@@ -57,6 +57,21 @@
     stop("缺少 pipeline_quantile_group_factor（请加载 pipeline_capability_layer.R）", call. = FALSE)
   }
   d <- data
+  # Surv() 需要 0/1 事件；因子结局（如 No…/…Recurrence）会触发 multi-state 报错
+  if (exists(".mlsurv_coerce_event01", mode = "function")) {
+    d[[event_var]] <- .mlsurv_coerce_event01(d[[event_var]])
+  } else if (is.factor(d[[event_var]]) || is.character(d[[event_var]])) {
+    xc <- trimws(as.character(d[[event_var]]))
+    d[[event_var]] <- if (all(xc[!is.na(xc)] %in% c("0", "1"))) {
+      suppressWarnings(as.integer(xc))
+    } else if (is.factor(d[[event_var]]) && nlevels(d[[event_var]]) == 2L) {
+      as.integer(as.integer(d[[event_var]]) == 2L)
+    } else {
+      as.integer(grepl("(?i)recurr|relaps|death|dead|event|case|yes", xc))
+    }
+  } else {
+    d[[event_var]] <- suppressWarnings(as.integer(d[[event_var]]))
+  }
   gfac <- pipeline_quantile_group_factor(d[[index_var]], method = method, breaks = breaks)
   group_labels <- levels(gfac)
   d$Group <- gfac
@@ -90,7 +105,7 @@
     sm <- summary(m); ci <- suppressMessages(confint(m))
     list(hr = round(exp(coef(m))[row], 3),
          ci = paste0("(", round(exp(ci[row, 1]), 3), ",", round(exp(ci[row, 2]), 3), ")"),
-         p = round(sm$coefficients[row, "Pr(>|z|)"], 4))
+         p = pub_format_p_cell(sm$coefficients[row, "Pr(>|z|)"]))
   }
   n_total <- nrow(dt); cnt <- table(dt$Group)
   .pct <- function(lv) paste0(as.numeric(cnt[lv]), "(", round(as.numeric(cnt[lv]) / n_total * 100, 2), "%)")
@@ -106,9 +121,9 @@
     c(lv, cutoffs[lv], .pct(lv), r$hr, r$ci, r$p, r2$hr, r2$ci, r2$p, r3$hr, r3$ci, r3$p)
   })
   Line_trend <- c("p for trend", rep("", 4L),
-                  round(summary(mt1)$coefficients[1, "Pr(>|z|)"], 4), "", "",
-                  round(summary(mt2)$coefficients[1, "Pr(>|z|)"], 4), "", "",
-                  round(summary(mt3)$coefficients[1, "Pr(>|z|)"], 4))
+                  pub_format_p_cell(summary(mt1)$coefficients[1, "Pr(>|z|)"]), "", "",
+                  pub_format_p_cell(summary(mt2)$coefficients[1, "Pr(>|z|)"]), "", "",
+                  pub_format_p_cell(summary(mt3)$coefficients[1, "Pr(>|z|)"]))
   mat <- do.call(rbind, c(list(Line3, Line4, Line5, Line_ref), lines_nonref, list(Line_trend)))
   colnames(mat) <- c("V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", "V11", "V12")
   as.data.frame(mat, stringsAsFactors = FALSE)
@@ -199,8 +214,26 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
 
   cont_feats <- feats[vapply(feats, function(v) {
     x <- data[[v]]
-    is.numeric(x) && length(unique(stats::na.omit(x))) > 4L
+    # 真连续：水平数须 > discrete_max（默认 5）；分期/等级等低基数勿做分位 Cox
+    nlev <- length(unique(stats::na.omit(x)))
+    disc_max <- as.integer(bl$discrete_max_levels %||% cfg$cox_ml_continuous_batch$discrete_max_levels %||% 5L)[1L]
+    if (!is.finite(disc_max) || disc_max < 2L) disc_max <- 5L
+    is.numeric(x) && !is.factor(x) && nlev > disc_max
   }, logical(1L))]
+  exclude_feats <- unique(c(
+    as.character(bl$exclude_features %||% character(0)),
+    as.character(cfg$force_factor_vars %||% character(0))
+  ))
+  exclude_feats <- exclude_feats[nzchar(exclude_feats)]
+  if (length(exclude_feats)) {
+    dropped <- intersect(cont_feats, exclude_feats)
+    cont_feats <- setdiff(cont_feats, exclude_feats)
+    if (length(dropped)) {
+      cli::cli_alert_info(
+        "cox_ml_continuous_batch: 已排除分类/指定变量: {paste(dropped, collapse = ', ')}"
+      )
+    }
+  }
   if (!length(cont_feats)) {
     cli::cli_alert_warning("cox_ml_continuous_batch: ML 特征中无连续变量，跳过。")
     return(ctx)

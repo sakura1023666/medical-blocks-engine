@@ -1,169 +1,78 @@
-# Task 1 Report: 列审阅 + 键与结局核对
+# Task 1 Report: 文献切块 + 对抗阅读（门控）
 
-**Status**: DONE  
-**Date**: 2026-08-26  
-**Worker**: Task 1 subagent  
-**Commits**: none (skipped per plan)
-
----
-
-## 1. 执行摘要
-
-已完成 SLE→AKI 两阶段套路的 baseline 列审阅、键字段核对与 dabiao 交叉验证。Windows Rscript 审计脚本按 brief verbatim 执行，生成 `_column_review_raw.txt` 与 `_key_audit.txt`；按 `review-raw-covariate-columns` SKILL 写出 `_column_review.md`（104 列全覆盖 + dabiao 额外 2 列说明 + `disease_vars` 候选名单）。
+**Status:** DONE  
+**Date:** 2026-10-09  
+**Paper:** Jin et al. 2026 *Breast Cancer Research and Treatment* — PMRT × IPW/STEPP（`用药模型三分.pdf`）  
+**paper_id:** `yaoyong_moxing_sanfen`  
+**Commits:** none（工作区非 git 仓库）
 
 ---
 
-## 2. 审计命令与产物
+## 地基判定（门控一句话）
 
-### 2.1 Rscript 审计（brief Step 1）
+**地基 = 预后 + IPW；暴露映射：放疗 → 阿替普酶；结局映射：OS → 28 天死亡。**
 
-```bash
-"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" -e '...'
-```
-
-**输出**: `wrote audits`（exit 0）
-
-### 2.2 产物路径（均已存在）
-
-| 文件 | 路径 | 状态 |
-|------|------|------|
-| 原始列名 | `G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/data/_column_review_raw.txt` | ✅ 104 行 |
-| 键审计 | `G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/data/_key_audit.txt` | ✅ |
-| 列审阅 | `G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/data/_column_review.md` | ✅ |
-
-WSL 等价路径：`/mnt/g/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/data/`
+目标迁移：PE 队列；暴露=alteplase yes/no；结局=28-day mortality；双库 MIMIC+eICU。  
+**等用户点头后再开 Task 3 写 config。**
 
 ---
 
-## 3. 键字段结论
-
-### 3.1 脚本输出（`_key_audit.txt`）
-
-```
-baseline nrow= 65366
-SLE nrow= 271  ARF nrow= 15536
-baseline has ID= TRUE
-SLE cols= subject_id,stay_id,hadm_id
-prog cols= subject_id,stay_id,hadm_id,admit_time,icu_intime,...
-SLE in baseline by ID= 271
-ARF in baseline by ID= 15536
-```
-
-### 3.2 扩展核对（补充 R 审计）
-
-| 检查项 | 结果 |
-|--------|------|
-| baseline `ID` 唯一性 | 65366 行，65366 唯一，无重复 |
-| SLE `subject_id` / `stay_id` 唯一性 | 271 行，均无重复 |
-| SLE ↔ baseline | 271/271 `subject_id ∈ baseline$ID` |
-| ARF ↔ baseline | 15536/15536 |
-| SLE ↔ ARF 交集 | 110 例（SLE 队列中 AKI 阳性） |
-| 预后表 n | 65366 = baseline n；65366 唯一 `subject_id` |
-| SLE ↔ 预后 | 271/271 `subject_id` 与 `stay_id` 均可并 |
-| `ID` 类型 | integer；与 SLE `subject_id` 数值一致 |
-
-**结论**：
-
-- **主并键**：`baseline$ID` ↔ `SLE.csv$subject_id` ↔ `ARF.csv$subject_id` ↔ `mimic预后数据-all.csv$subject_id`
-- **ICU 层键**：`stay_id` / `hadm_id` 三表齐全，预后并表可用 `stay_id`
-- baseline **无** `subject_id` 列名，仅有 `ID`（实现 `ip_cohort_sle_aki` 时需显式映射）
-
----
-
-## 4. dabiao 交叉核对
-
-**文件**：`data/mimic/D04_dabiao(1).RData`（brief 未列入脚本，按 global constraints「dabiao 仅核对」补查）
+## Step 1: PDF chunks
 
 | 项 | 值 |
-|----|-----|
-| dabiao n | 271（= SLE.csv） |
-| ID 与 SLE 双向包含 | 100% 一一对应 |
-| 较 baseline 多列 | `DN`（numeric 0/1）、`Diabetes`（factor） |
-| `Acute_Renal_Failure` | No=161, Yes=110 |
-| `DN` | 0=161, 1=110（与 ARF 结局一致） |
-| `CKD` | Yes=44 |
-| `CRRT` | Yes=26 |
-
-**人数差异**：spec 要求「dabiao 271 vs 现场筛入以筛入为准」——当前 SLE.csv 与 dabiao 均为 271，无差异。
+|---|---|
+| 输入 | `adversarial_lit_reading/papers/用药模型三分.pdf` |
+| 输出 | `adversarial_lit_reading/chunks/yaoyong_moxing_sanfen.md` |
+| 页数 / 字符 | 10 页 / ~35,493 字符 |
+| 说明 | 任务简报中的 `--pdf/--out-dir` 与脚本实际 CLI 不一致（`pdf_to_chunks.py` 仅支持扫描 `papers/*.pdf` + 可选 `paper_NNN`）。为避免重编号全库 PDF，对本文件用同脚本 `extract_pages` 逻辑单独落盘稳定 id `yaoyong_moxing_sanfen`（排序号本为 paper_033）。 |
 
 ---
 
-## 5. 列审阅摘要
+## Step 2: 对抗流水线（Q4 / Q5 / Q8）
 
-### 5.1 规模
+每问：AI-A 建树 → `glm_call.py` 真实攻击 → 修正 → Judge JSONL → `validate_jsonl.py`。
 
-- baseline：**104 列**，均在 `_column_review.md` 逐行列出
-- dabiao 额外 2 列（`DN`, `Diabetes`）单独说明
+| QID | A round1 | B attack（provenance） | A revised | labels JSONL | validate | score / 桶 |
+|---|---|---|---|---|---|---|
+| Q4 | `rounds/A_tree_round1_yaoyong_moxing_sanfen_Q4.md` | `B_attack_tree_…_Q4.md`（`glm_call provenance` 首行 OK；model=`deepseek-v4-flash-0731` via Anthropic） | `A_tree_round2_revised_…_Q4.md` | `labels/yaoyong_moxing_sanfen_Q4_training.jsonl` | **PASS** | 10 → train |
+| Q5 | `…_Q5.md` | `…_Q5.md` provenance OK | `…_Q5.md` | `…_Q5_training.jsonl` | **PASS** | 10 → train |
+| Q8 | `…_Q8.md` | `…_Q8.md` provenance OK | `…_Q8.md` | `…_Q8_training.jsonl` | **PASS** | 10 → train |
 
-### 5.2 `disease_vars` 候选（14 项，供 Task 2 config）
+- 三条亦已追加至 `adversarial_lit_reading/labels/training.jsonl`。
+- **未伪造** `B_*.md`；首次沙箱网络 403 后以 `full_network` 重试成功。
+- Q1–Q3 / Q6–Q7 **未跑**（任务最低要求为 Q4/Q5/Q8）。
 
-```r
-.disease_exclusion_vars <- c(
-  "Acute_Renal_Failure", "CRRT", "CRRT_Day", "CKD",
-  "Creatinine", "UreaNitrogen",
-  "UrineProtein", "UrineGlucose", "AlbuminUrine", "AlbuminCreatinine",
-  "UrineCreatinine", "UrineVolume",
-  "SOFA", "CHARLSON", "DN"
-)
+### 对抗摘要（要点）
+
+- **Q4（变量/建模）：** 原文叙述为「Table 全部潜在混杂 → PS logistic → IPW」；未见 DAG/VIF/RCS/LASSO 报告（absence≠proof）。高优先修正：勿把「未见」当「未做」；Methods eleven vs Results nine selected；Fig.3 imputed vs 主分析排除缺失。
+- **Q5（假设/缺失/加权）：** IPW=处理权重非 survey；加权 SMD&lt;0.1 支持平衡；未报告 PH/极端权重诊断。高优先修正：Fig.3 插补是亚组 fallback，非与完整病例「矛盾」。
+- **Q8（迁移）：** IPW/SMD/敏感性双轨仅**条件性复用**；须先过暴露时间窗/immortal time、28d logistic vs Cox、双库 PS 策略。STEPP 五年绝对 OS 与肿瘤变量不适用原样；溶栓剂量/时机缺失升格高危。
+
+---
+
+## Step 3: 门控自检命令结果
+
+```text
+Q4 PASS ✓  train(>=8)=1
+Q5 PASS ✓  train(>=8)=1
+Q8 PASS ✓  train(>=8)=1
+B_*.md provenance headers: all present
 ```
 
-### 5.3 分类统计
+---
 
-| 类别 | 列数 | 代表 |
-|------|------|------|
-| 排除（disease/outcome/ID） | 18 | ID, Acute_Renal_Failure, CKD, CRRT*, 尿检*, Creatinine, UreaNitrogen, SOFA, CHARLSON |
-| 保留（协变量候选） | 87 | 人口学、生命体征、CBC、通用生化/血脂/肝酶/凝血、合并症诊断（除 CKD/ARF） |
-| SLE 专属列 | 0 | 队列由 SLE.csv 外部定义 |
+## Concerns
 
-### 5.4 关键排除理由
-
-- **结局泄漏**：`Acute_Renal_Failure`、`CRRT`/`CRRT_Day`、`DN`
-- **AKI 病理标志物**：肌酐、BUN、尿检全套、尿量
-- **纳排准则**：`CKD`（基线 ESRD/CKD 排除，不作协变量）
-- **边界排除**：`SOFA`（含肾分项）、`CHARLSON`（含肾病权重）
-- **保留澄清**：血清 `Albumin` ≠ `AlbuminUrine`；`T1DM`/`T2DM` 作合并症保留
+1. `pdf_to_chunks.py` CLI 与任务简报不一致；本任务用稳定自定义 `paper_id`，未重跑全库切块以免打乱既有 `paper_*` 映射。
+2. `glm_call` 经 Anthropic 兼容端点，provenance 中 model 为 `deepseek-v4-flash-0731`（非字面 glm-5.1）；metadata 仍按 skill 记 `critic_model="GLM 5.1"` 通道调用。
+3. 全文 chunk 未含 Supplementary；Q4/Q5 对补料中可能存在的诊断/插补细节标为未知。
+4. 未跑完整 Q1–Q8；若用户要全覆盖可续跑。
 
 ---
 
-## 6. 预后结局列（Stage2，不进协变量）
+## 产出路径清单
 
-来自 `mimic预后数据-all.csv`：
-
-- 死亡：`is_dead`, `dead_time`, `is_hosp_dead`, `is_icu_dead`
-- 28 天：`death_within_hosp_28days`, `death_within_icu_28days`
-- 生存时间：`hosp_survival_day`, `icu_survival_day`
-- 时间戳/位置：`admit_time`, `icu_intime`, `disch_time`, `icu_outtime`, `admission_location`, `discharge_location`, `hosp_day`, `icu_day`
-
-全库 28 天院内死亡 8583 例；ICU 28 天死亡 8838 例（Stage2 需按 spec 规则 C 构造 `futime`/`fustatus`）。
-
----
-
-## 7. 下游 Task 接口
-
-| 产出 | 消费方 |
-|------|--------|
-| `disease_vars` 候选 14 项 | Task 2 `config_sle_aki_inc_prog_batch.R` → `analysis_exclusion$disease_vars` |
-| 键结论 `ID`= `subject_id` | Task 3 `ip_cohort_sle_aki` 合并逻辑 |
-| AKI 110/271 | attrition / 发病率 sanity check |
-| dabiao=271 | Figure 1 脚注交叉核对 |
-
----
-
-## 8. Concerns / 待后续确认
-
-1. **AKI 时间窗**：baseline `Acute_Renal_Failure` 为 ICU 期二分类，无精确 `aki_time`；Stage2 规则 C 回退 `icu_intime` 需在 config 脚注（spec §4.4 已预期）。
-2. **SOFA / CHARLSON 边界排除**：已保守列入 `disease_vars`；若文献 force 集需 SOFA，Task 2 可讨论是否移出 disease_vars 改作分层/敏感性。
-3. **dabiao `Diabetes` vs baseline `T1DM`/`T2DM`**：column_mapping 应映射到 T2DM/T1DM，勿双计。
-4. **无 git commit**：按 global constraints 跳过。
-
----
-
-## 9. 自检清单
-
-- [x] brief Rscript 已运行，`wrote audits`
-- [x] `_column_review_raw.txt` 存在（104 列）
-- [x] `_key_audit.txt` 存在
-- [x] `_column_review.md` 全列覆盖 + disease_vars 候选
-- [x] SKILL 格式：`列名 | 保留/排除 | 理由`
-- [x] 未 git commit
-- [x] 本 report 已写入 `.superpowers/sdd/task-1-report.md`
+- Chunk: `adversarial_lit_reading/chunks/yaoyong_moxing_sanfen.md`
+- Rounds A/B: `adversarial_lit_reading/rounds/A_tree_*_yaoyong_moxing_sanfen_Q{4,5,8}.md`, `B_attack_tree_yaoyong_moxing_sanfen_Q{4,5,8}.md`
+- Labels: `adversarial_lit_reading/labels/yaoyong_moxing_sanfen_Q{4,5,8}_training.jsonl`
+- 本报告: `.superpowers/sdd/task-1-report.md`

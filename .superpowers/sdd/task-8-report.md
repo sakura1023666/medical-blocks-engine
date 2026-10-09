@@ -1,41 +1,40 @@
-# Task 8 Report — Runner + Worker batch（NLR 冒烟）
+# Task 8 Report — 研究区双 config（QCT / DXA Panel）
 
-**日期**: 2026-08-26  
-**状态**: ✅ 完成（NLR 全链 success）
+**Status:** Complete  
+**Date:** 2026-09-22  
+**Commits:** none
 
-## 验证命令
+## Deliverables
 
-```bash
-Rscript run/sle_aki_inc_prog/run_sle_aki_inc_prog_batch.R \
-  --config "G:/02block_result/29_SLE/inincidence_prognosis_39003396_42304330/config_sle_aki_inc_prog_batch.R" \
-  --only-index NLR --workers 1 --no-skip
-```
+| Path | Note |
+|------|------|
+| `/mnt/g/02block_result/10_osteoporosis/personalized/config_osteo_fracture_qct.R` | Panel A + 核 B + CART |
+| `/mnt/g/02block_result/10_osteoporosis/personalized/config_osteo_fracture_dxa.R` | Panel B 短链（至 `simple_ROC`） |
+| `R/pipeline_runner.R` | 增补三新 block → 源文件映射（引擎可发现，config 无需额外 source） |
 
-## 关键结果
+## Config 要点
 
-| 项 | 值 |
-|----|-----|
-| 结局标签 | `AKI` / `No AKI`（data_clean 分布 110 / 160） |
-| Stage0 队列 | SLE∩baseline n=270，AKI=110 |
-| Stage1 分析 n | 90（NLR 非缺失 + 极端值修剪后） |
-| Stage2 AKI 亚队列 | n=49，28d 事件=11 |
-| Worker 耗时 | 264.6s（全链含共享层 ~7min） |
-| 产出目录 | `by_index/【success】NLR/` |
+- 共同：`study_type=incidence`，`outcome_column=Disease`，`analysis_group=Fracture`，`reference_group=No_Fracture`，`id_column=SampleID`
+- 数据：`data/harmonized/D01_osteo_personalized.RData` → `dabiao`
+- `index_var`：QCT=`QCT_vBMD`；DXA=`DXA_T_min`
+- `output_dir`：`by_index/QCT_vBMD` / `by_index/DXA_T_min`
+- `analysis_exclusion$disease_vars`：Task2 名单；QCT 用 `protect_vars` 保核 B/CART 列
+- 锁协变量：`Age, BMI, bCTX, P1NP, VitD_25OH, PTH`（不含另一骨密度轴）
+- 全部 `pause_enable=FALSE`
+- CART（仅 QCT）：`outcome=need_QCT`；叶标签「首选 DXA / 必须 QCT」
 
-## 本轮修复
+## Dry-run（source config，无全量拟合）
 
-1. **km_strata 分层注入** — `ip_two_stage_patch_km_strata_for_index()`（含 `degrade_done` 等 Cox 降级分支）
-2. **Stage2 index_var 注入** — `ip_two_stage_patch_stage2_blocks_for_index()` + 续跑时 `ctx$config` 同步
-3. **segmented_cox anchor** — `cox_highest_group_model2_hr` 为空向量时 `is.finite()` 报错；四块 segmented 均已防护
+入口无 `--dry-run`，改为 source + 打印 `pipeline$blocks` + 校验 `pipeline_block_sources`。
 
-## 已知 Minor（非阻塞）
+**QCT（20 blocks）：**  
+`data_clean → … → simple_ROC → rcs_incidence → subgroup_incidence → dxa_qct_agreement → diagnostic_vs_fracture → modality_discordance_profile → cart_decision_path → attrition_flowchart`  
+未映射 block：`NONE`
 
-- `python3` 缺失 → PDF 栅格化警告（图仍落盘）
-- code 包 MANIFEST 可能 26/31 block（共享层块未全镜像，待 Task 10 统一）
-- Cox 闸门全降级（crude_ns）时仍继续 KM/RCS/亚组（worker 已设 `degrade_done`）
-- 旧 Figure 编号镜像可能有历史残留（全量 batch 前建议清根目录 Figures）
+**DXA（13 blocks）：**  
+止于 `simple_ROC`；无核 B 三块 / cart。未映射：`NONE`
 
-## 下一步
+## 未做
 
-- Task 9: 飞书挂接 `29_SLE`
-- Task 10: 6 指标全量 `--workers auto` + Blocks_catalog 72_* 登记
+- 全量拟合 / Task 10 开跑（需用户授权）
+- git commit

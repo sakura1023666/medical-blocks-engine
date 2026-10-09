@@ -66,7 +66,7 @@ config <- list(
   column_mapping = list(enable = TRUE, database_type = "NHANES"),
 
   imputation = list(
-    missing_col_threshold = 0.3, method = "cart", m = 2L, max_iter = 3L,
+    missing_col_threshold = 0.3, method = "cart", m = 5L, max_iter = 3L,
     seed = 1234L, complete_action = 1L, export_missing_fig = FALSE, export_table_s1 = FALSE
   ),
 

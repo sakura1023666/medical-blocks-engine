@@ -18,10 +18,22 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     return(ctx)
   }
 
-  common_path <- file.path(getwd(), "Blocks/20_mediation/00mediation_common.R")
+  .engine_root <- function() {
+    candidates <- unique(c(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+      as.character(ctx$config$project$root %||% ""),
+      getwd()
+    ))
+    for (r in candidates) {
+      if (nzchar(r) && file.exists(file.path(r, "Blocks/20_mediation/00mediation_common.R")))
+        return(r)
+    }
+    getwd()
+  }
+  common_path <- file.path(.engine_root(), "Blocks/20_mediation/00mediation_common.R")
   if (file.exists(common_path)) source(common_path, local = FALSE)
 
-  lcfg_path <- file.path(getwd(), "Blocks/11_logistic/00logistic_nhanes_weighted_common.R")
+  lcfg_path <- file.path(.engine_root(), "Blocks/11_logistic/00logistic_nhanes_weighted_common.R")
   if (file.exists(lcfg_path) && !exists(".lnw00_resolve_models", mode = "function")) {
     source(lcfg_path, local = FALSE)
   }
@@ -167,27 +179,31 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
   }
 
   if (is.null(mediators) || !length(mediators)) {
-    lab_pool <- bl_cfg$lab_indicator_vars
-    if (is.null(lab_pool) || !length(lab_pool)) {
-      lab_pool <- .default_laboratory_test_vars()
-    }
-    # 共病 / 人体测量等非血检中介候选（课题可配 mediator_extra_vars）
-    extra_med <- as.character(bl_cfg$mediator_extra_vars %||% character(0))
-    extra_med <- extra_med[nzchar(extra_med)]
-    lab_pool <- unique(c(as.character(lab_pool), extra_med))
-    lab_pool <- unique(as.character(lab_pool))
-    lab_pool <- intersect(lab_pool, names(design$variables))
-    lab_pool <- setdiff(lab_pool, exposure)
-    # 相关性仅筛候选：排除 Model1/Model2 协变量（如 HDL 已在调整集中则不再作候选）
-    cov_excl <- unique(c(M1_vars, M2_vars, exposure, outcome_col, outcome, "Disease_Group"))
-    # 排除复合指标公式组分（LCI→TC/TG/LDL/HDL 等），避免中介与暴露定义重叠
-    if (exists("pipeline_mediation_lab_exclude_vars", mode = "function")) {
-      cov_excl <- unique(c(cov_excl, pipeline_mediation_lab_exclude_vars(cfg)))
-    }
-    # 疾病泄漏变量不作中介（与 analysis_exclusion$disease_vars 对齐）
-    dis_excl <- as.character((cfg$analysis_exclusion %||% list())$disease_vars %||% character(0))
-    if (length(dis_excl)) cov_excl <- unique(c(cov_excl, dis_excl))
-    lab_pool <- setdiff(lab_pool, cov_excl)
+    lab_pool <- .mi02_resolve_lab_indicator_pool(
+      cfg, bl_cfg, names(design$variables), exposure
+    )
+  # 相关性仅筛候选：排除暴露/结局/疾病泄漏/指标组分。
+  # 双库发病：不因已在 Model1/Model2 而剔除（与 CHARLS mediation_incidence 对齐；
+  # 作中介时路径模型会 setdiff 掉该变量）。单库仍排除 M1/M2，避免与调整集重复。
+  cov_excl_base <- unique(c(exposure, outcome_col, outcome, "Disease_Group"))
+  if (exists("pipeline_mediation_lab_exclude_vars", mode = "function")) {
+    cov_excl_base <- unique(c(cov_excl_base, pipeline_mediation_lab_exclude_vars(cfg)))
+  }
+  dis_excl <- as.character((cfg$analysis_exclusion %||% list())$disease_vars %||% character(0))
+  if (length(dis_excl)) cov_excl_base <- unique(c(cov_excl_base, dis_excl))
+  dual_allow_m2_med <- isTRUE((cfg$dual_db %||% list())$enable) &&
+    isTRUE(bl_cfg$allow_model2_as_mediator %||% TRUE)
+  cov_excl <- if (dual_allow_m2_med) {
+    cov_excl_base
+  } else {
+    unique(c(M1_vars, M2_vars, cov_excl_base))
+  }
+  lab_pool <- setdiff(lab_pool, cov_excl)
+  if (dual_allow_m2_med) {
+    cli::cli_alert_info(
+      "mediation_nhanes_weighted: 双库允许 Model1/2 变量进入中介候选（与 CHARLS 对齐）"
+    )
+  }
 
     # 二分共病（factor/character/logical）转 0/1 数值，便于 svyglm 路径
     .mnw01_coerce_binary_num <- function(des, vars) {
@@ -214,6 +230,14 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     lab_pool <- lab_pool[vapply(lab_pool, function(v) {
       is.numeric(design$variables[[v]])
     }, logical(1L))]
+    pin_lm <- .mi02_resolve_best_mediator_name(cfg, bl_cfg)
+    if (nzchar(pin_lm) && pin_lm %in% names(design$variables) &&
+        is.numeric(design$variables[[pin_lm]]) && !pin_lm %in% lab_pool) {
+      lab_pool <- unique(c(pin_lm, lab_pool))
+      cli::cli_alert_info(
+        "mediation_nhanes_weighted: LM 关联表强制纳入 best_mediator={pin_lm}"
+      )
+    }
 
     if (!length(lab_pool)) {
       cli::cli_alert_warning("mediation_nhanes_weighted: 排除协变量后无可用中介候选，跳过。")
@@ -330,14 +354,39 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     )
   }
 
-  # 配置锁定 best_mediator 时：LM 筛空也不跳过，强制纳入
+  # 配置 / 双库 preferred 锁定 best_mediator：LM 筛空也不跳过，强制纳入
   pin_med0 <- as.character(bl_cfg$best_mediator %||% "")[1L]
+  if ((!nzchar(pin_med0) || is.na(pin_med0)) &&
+      isTRUE((cfg$dual_db %||% list())$enable) &&
+      isTRUE(bl_cfg$dual_db_lock_best_mediator %||% TRUE) &&
+      exists("dual_db_load_preferred_mediator", mode = "function")) {
+    root_pin <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
+    pin_med0 <- as.character(dual_db_load_preferred_mediator(root_pin, cfg) %||% "")[1L]
+    if (nzchar(pin_med0)) {
+      bl_cfg$best_mediator <- pin_med0
+      if (is.null(cfg$mediation_nhanes_weighted)) cfg$mediation_nhanes_weighted <- list()
+      cfg$mediation_nhanes_weighted$best_mediator <- pin_med0
+      cli::cli_alert_info(
+        "mediation_nhanes_weighted: 双库 preferred_mediator={pin_med0}"
+      )
+    }
+  }
   if (!length(mediators) && nzchar(pin_med0) &&
       pin_med0 %in% names(design$variables) &&
       is.numeric(design$variables[[pin_med0]])) {
     mediators <- pin_med0
     cli::cli_alert_info(
       "mediation_nhanes_weighted: LM 未筛出中介，改用配置 best_mediator={pin_med0}"
+    )
+  }
+  # 锁定 best_mediator：LM 筛出的其它候选仍保留，但 best 必须进中介表（路径图用 best）
+  if (nzchar(pin_med0) && isTRUE(bl_cfg$force_include_best_mediator %||% TRUE) &&
+      pin_med0 %in% names(design$variables) &&
+      is.numeric(design$variables[[pin_med0]]) &&
+      !pin_med0 %in% mediators) {
+    mediators <- unique(c(pin_med0, mediators))
+    cli::cli_alert_info(
+      "mediation_nhanes_weighted: 强制纳入 best_mediator={pin_med0}（LM 候选 {length(mediators)-1L} 个）"
     )
   }
 
@@ -529,9 +578,18 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
   search_b <- as.integer(bl_cfg$covariate_search_bootstrap_iter %||% min(50L, bootstrap_iter))[1L]
 
   if (auto_cov_search && length(mediators) > 0L) {
-    pool_search <- bl_cfg$covariate_search_pool %||% M2_vars
+    pool_search <- if (exists("pipeline_mediation_covariate_search_pool", mode = "function")) {
+      pipeline_mediation_covariate_search_pool(
+        ctx, cfg, bl_cfg, default_pool = M2_vars
+      )
+    } else {
+      bl_cfg$covariate_search_pool %||% M2_vars
+    }
     pool_search <- setdiff(unique(as.character(pool_search)), c(exposure, outcome, mediators))
     pool_search <- intersect(pool_search, names(design$variables))
+    cli::cli_alert_info(
+      "自动协变量搜索：候选池 {length(pool_search)} 个 — {paste(head(pool_search, 12L), collapse = ', ')}{if (length(pool_search) > 12L) '…' else ''}"
+    )
     # 路径协变量里的二分因子也转 0/1，避免 svyglm 哑变量名对不上
     design <- {
       .coerce <- function(des, vars) {
@@ -555,14 +613,28 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     if (!is.finite(max_k) || max_k < 1L) max_k <- 3L
     max_k <- min(max_k, length(pool_search))
 
+    focus_med <- as.character(bl_cfg$covariate_search_focus_mediator %||%
+      bl_cfg$best_mediator %||% "")[1L]
+    search_mediators <- if (nzchar(focus_med) && focus_med %in% mediators) {
+      focus_med
+    } else {
+      mediators
+    }
+    lock_best <- isTRUE(bl_cfg$lock_best_mediator %||% nzchar(bl_cfg$best_mediator %||% ""))
+
     .try_adj <- function(adj_vec) {
       adj_vec <- setdiff(unique(as.character(adj_vec)), c(exposure, outcome, mediators))
-      for (m in mediators) {
+      match_export <- isTRUE(bl_cfg$covariate_search_match_export %||% TRUE)
+      for (m in search_mediators) {
         row1 <- .mnw01_run_single(m, design, search_b, setdiff(adj_vec, m), standardize_mediator)
-        # 三条路：Path a / Path b / Indirect 均显著（与用户“三路径显著”一致）
-        if (.mi02_mediation_paths_significant(row1, path_alpha)) {
-          return(list(ok = TRUE, adj = setdiff(adj_vec, m), hit = m))
+        ok_path <- .mi02_mediation_paths_significant(row1, path_alpha)
+        if (!ok_path) next
+        if (match_export) {
+          ok_exp <- isTRUE(.mi02_mediation_proportion_significant(row1, path_alpha)) &&
+            isTRUE(.mi02_mediation_direct_significant(row1, path_alpha))
+          if (!ok_exp) next
         }
+        return(list(ok = TRUE, adj = setdiff(adj_vec, m), hit = m))
       }
       list(ok = FALSE, adj = NULL, hit = NA_character_)
     }
@@ -592,21 +664,30 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     }
     if (!is.null(found)) {
       covariates <- found$adj
+      hit_lab <- if (isTRUE(bl_cfg$covariate_search_match_export %||% TRUE)) {
+        "Proportion+Direct+path"
+      } else {
+        "Path a/b/Indirect"
+      }
       cli::cli_alert_success(
-        "自动协变量搜索：中介 [{found$hit}] Path a/b/Indirect 均 p<{path_alpha}，调整集 {length(covariates)} 个: {paste(covariates, collapse = ', ')}"
+        "自动协变量搜索：中介 [{found$hit}] {hit_lab} 均 p<{path_alpha}，调整集 {length(covariates)} 个: {paste(covariates, collapse = ', ')}"
       )
       ctx$results$mediation_nhanes_auto_covariates <- covariates
       ctx$results$mediation_nhanes_auto_covariate_hit_mediator <- found$hit
-      # 门控/路径图优先用搜到的命中中介，避免被 Prop% 更高但路径不稳的候选抢走
-      if (is.null(cfg$mediation_nhanes_weighted)) cfg$mediation_nhanes_weighted <- list()
-      cfg$mediation_nhanes_weighted$best_mediator <- found$hit
-      bl_cfg$best_mediator <- found$hit
-      # 命中中介置前，减少后续全量 bootstrap 时被 Prop% 更高者覆盖
-      mediators <- unique(c(found$hit, mediators))
+      pin_hit <- as.character(bl_cfg$best_mediator %||% "")[1L]
+      if (!lock_best || !nzchar(pin_hit)) {
+        if (is.null(cfg$mediation_nhanes_weighted)) cfg$mediation_nhanes_weighted <- list()
+        cfg$mediation_nhanes_weighted$best_mediator <- found$hit
+        bl_cfg$best_mediator <- found$hit
+        # 导出门控对齐搜索命中时，终表优先只跑命中中介，避免其它失败行污染 best
+        mediators <- found$hit
+      } else {
+        mediators <- unique(c(pin_hit, mediators))
+      }
       ctx$config <- cfg
     } else {
       cli::cli_alert_warning(
-        "自动协变量搜索：在至多 {max_k} 个协变量内未找到 a/b/Indirect 均显著的调整集；沿用 config 协变量"
+        "自动协变量搜索：在至多 {max_k} 个协变量内未找到满足导出门控的调整集；沿用 config 协变量"
       )
     }
   }
@@ -626,8 +707,17 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
   final_table <- dplyr::bind_rows(results_list)
   final_table <- final_table[order(-final_table$Prop_Med_num, na.last = TRUE), ]
 
-  # 路径图指定中介置顶，保证表首行与 Figure S3 同一中介
-  pin_med <- as.character((cfg$mediation_nhanes_weighted %||% list())$best_mediator %||% "")[1L]
+  # 路径图指定中介置顶，保证表首行与 Figure S3 同一中介（config → preferred → 已写入 bl_cfg）
+  pin_med <- as.character(
+    (cfg$mediation_nhanes_weighted %||% list())$best_mediator %||%
+      bl_cfg$best_mediator %||% ""
+  )[1L]
+  if ((!nzchar(pin_med) || is.na(pin_med)) &&
+      isTRUE((cfg$dual_db %||% list())$enable) &&
+      exists("dual_db_load_preferred_mediator", mode = "function")) {
+    root_pin2 <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
+    pin_med <- as.character(dual_db_load_preferred_mediator(root_pin2, cfg) %||% "")[1L]
+  }
   if (nzchar(pin_med) && pin_med %in% final_table$Mediator) {
     final_table <- rbind(
       final_table[final_table$Mediator == pin_med, , drop = FALSE],

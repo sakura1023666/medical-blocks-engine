@@ -216,18 +216,21 @@
       block = bn, source_rel = if (is.na(rel)) as.character(src) else rel, status = st,
       stringsAsFactors = FALSE
     )
-    # 同目录公共文件（mediation / logistic common 等）
+    # 同目录公共文件（mediation / logistic common 等）+ 本课题辅助脚本
+    # （如 07*_mr.R、09nafld_ext_*.R 被 06* source 引用；非 register_block 文件）
     if (!is.na(rel) && file.exists(src)) {
-      sibs <- list.files(dirname(src), pattern = "^00", full.names = TRUE)
+      sibs <- list.files(dirname(src), pattern = "^[0-9]{2}[a-zA-Z_]*.*\\.[Rr]$|^00", full.names = TRUE)
       sibs <- sibs[
         grepl("\\.[Rr]$", sibs) &
-          grepl("common|shared|logistic|mediation", basename(sibs), ignore.case = TRUE)
+          (grepl("common|shared|logistic|mediation", basename(sibs), ignore.case = TRUE) |
+           grepl("^0[6-9][a-zA-Z_0-9]*\\.R$", basename(sibs), ignore.case = TRUE) &
+           !grepl("^0[6-9]block_", basename(sibs), ignore.case = TRUE))
       ]
       for (sp in sibs) {
         sp_n <- normalizePath(sp, winslash = "/", mustWork = FALSE)
         already <- normalizePath(copied_files, winslash = "/", mustWork = FALSE)
         if (sp_n %in% already) next
-        .copy_one(sp, paste0(bn, "+common"))
+        .copy_one(sp, paste0(bn, "+aux"))
       }
     }
   }
@@ -298,14 +301,10 @@ index_code_bundle_validate <- function(code_dir, min_block_files = 1L) {
     if (file.exists(used_path)) {
       bl <- trimws(readLines(used_path, warn = FALSE))
       bl <- bl[nzchar(bl) & !startsWith(bl, "#")]
-      if (length(bl) && n_r < length(bl)) {
-        issues <- c(
-          issues,
-          sprintf(
-            "blocks_used.txt 列 %d 个 block，但仅镜像 %d 个 .R 文件",
-            length(bl), n_r
-          )
-        )
+      ## 多 block 常映射同一 .R（如 multicollinearity_screen/final），
+      ## 禁止用「名单长度 > 文件数」误报；只要求有镜像且 used 非空时有文件。
+      if (length(bl) && n_r < 1L) {
+        issues <- c(issues, "blocks_used.txt 非空但 blocks/ 无 .R 镜像")
       }
     }
   }
@@ -405,7 +404,10 @@ index_code_bundle_finalize <- function(root, config, ix, db_seq, index_root = NU
     forest_ticks_at = suppressWarnings(as.numeric(sg$forest_ticks_at %||% numeric(0))),
     forest_xlim_max = suppressWarnings(as.numeric(sg$forest_xlim_max %||% 80)[1L]),
     forest_base_size = suppressWarnings(as.numeric(sg$forest_base_size %||% 9)[1L]),
-    forest_x_trans = as.character(sg$forest_x_trans %||% "log")[1L]
+    forest_x_trans = as.character(sg$forest_x_trans %||% "log")[1L],
+    forest_n_source = as.character(sg$forest_n_source %||% "full_stratum")[1L],
+    continuous_index_mode = as.character(sg$continuous_index_mode %||% "highest_vs_lowest")[1L],
+    adjust_covariates = as.character(sg$adjust_covariates %||% character(0))
   )
   # checkpoint 实际用过的亚组优先
   for (db in db_seq) {
@@ -419,6 +421,17 @@ index_code_bundle_finalize <- function(root, config, ix, db_seq, index_root = NU
       obj <- tryCatch(readRDS(p), error = function(e) NULL)
       res <- obj$ctx$results %||% list()
       used <- as.character(res$subgroup_vars_used %||% character(0))
+      used <- unique(used[nzchar(used)])
+      cfg_req <- unique(as.character(
+        sg$required_subgroup_vars %||% sg$locked_subgroup_vars %||% character(0)
+      ))
+      cfg_req <- cfg_req[nzchar(cfg_req)]
+      # 勿把 min_n 过滤后的短名单写进 overrides（否则下次重跑永久丢失 Age 等）
+      if (length(cfg_req) && length(used) &&
+          all(used %in% cfg_req) && length(used) < length(cfg_req)) {
+        out$vars <- cfg_req
+        break
+      }
       if (length(used)) {
         out$vars <- used
         break
@@ -479,7 +492,12 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
   forest <- .index_code_bundle_forest_settings(project_root, ix, config, db_seq)
   is_prog <- exists("incidence_batch_is_prognosis_config", mode = "function") &&
     isTRUE(incidence_batch_is_prognosis_config(config))
-  worker_rel <- if (is_prog) {
+  is_ml <- !is.null(config$ml_batch) ||
+    isTRUE((config$shiny_ml_app %||% list())$enable) ||
+    grepl("ml_", as.character(config$project$name %||% "")[1L], ignore.case = TRUE)
+  worker_rel <- if (isTRUE(is_ml)) {
+    "run/ml/run_ml_dual_batch_worker.R"
+  } else if (is_prog) {
     "run/survival/run_survival_dual_batch_worker.R"
   } else {
     "run/incidence/run_incidence_dual_batch_worker.R"
@@ -527,8 +545,10 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
   writeLines(used_blks, file.path(code_dir, "blocks_used.txt"))
   .index_code_bundle_copy_block_sources(code_dir, engine_root, used_blks)
 
-  # paths.R — 课题 config 优先 survival / incidence，再回落 config.R
+  # paths.R — 课题 config 优先 survival / incidence / dual_batch，再回落 config.R
   study_cfg_candidates <- c(
+    "config_survival_dual_batch.R",
+    "config_incidence_dual_batch.R",
     "config_survival.R",
     "config_incidence.R",
     "config.R"
@@ -541,8 +561,15 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
       break
     }
   }
-  if (!nzchar(study_cfg %||% "")) {
-    study_cfg <- file.path(project_root, if (is_prog) "config_survival.R" else "config.R")
+  if (!nzchar(as.character(study_cfg %||% "")[1L]) ||
+      identical(as.character(study_cfg)[1L], "NA")) {
+    study_cfg <- file.path(project_root, if (is_prog) "config_survival.R" else "config_incidence_dual_batch.R")
+    if (!file.exists(study_cfg)) {
+      study_cfg <- file.path(project_root, if (is_prog) "config_survival.R" else "config.R")
+    }
+    if (file.exists(study_cfg)) {
+      study_cfg <- normalizePath(study_cfg, winslash = "/", mustWork = FALSE)
+    }
   }
   writeLines(c(
     "# 自动生成：路径常量（一般不必改）",
@@ -628,6 +655,9 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
         '"log"'
       }
     ),
+    sprintf("force_forest_n_source <- %s", .index_code_bundle_quote_chr(forest$forest_n_source %||% "full_stratum")),
+    sprintf("force_continuous_index_mode <- %s", .index_code_bundle_quote_chr(forest$continuous_index_mode %||% "highest_vs_lowest")),
+    sprintf("force_subgroup_adjust_covariates <- %s", .index_code_bundle_quote_chr(forest$adjust_covariates %||% character(0))),
     "# 重跑森林图: Rscript run.R --blocks subgroup_prognosis",
     "# -------------------------------------------------------------------------",
     "",
@@ -645,7 +675,7 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
     "  if (is.null(config$analysis_models)) config$analysis_models <- list()",
     "  if (length(m1)) config$analysis_models$model1_factors <- m1",
     "  if (length(m2)) config$analysis_models$model2_factors <- m2",
-    "  for (nm in c('cox_quartile','cox_tertile','cox_binary',",
+    "  for (nm in c('rcs_prognosis','rcs_incidence','cox_quartile','cox_tertile','cox_binary',",
     "               'logistic_quartile_glm','logistic_tertile_glm','logistic_binary_glm',",
     "               'logistic_quartile_nhanes_weighted','logistic_tertile_nhanes_weighted',",
     "               'logistic_binary_nhanes_weighted')) {",
@@ -721,6 +751,13 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
     "      config[[nm]]$forest_base_size <- as.numeric(force_forest_base_size)[1L]",
     "    xt <- as.character(force_forest_x_trans %||% '')[1L]",
     "    if (nzchar(xt)) config[[nm]]$forest_x_trans <- xt",
+    "    ns <- as.character(force_forest_n_source %||% '')[1L]",
+    "    if (nzchar(ns)) config[[nm]]$forest_n_source <- ns",
+    "    cim <- as.character(force_continuous_index_mode %||% '')[1L]",
+    "    if (nzchar(cim)) config[[nm]]$continuous_index_mode <- cim",
+    "    adj <- as.character(force_subgroup_adjust_covariates %||% character(0))",
+    "    adj <- adj[nzchar(trimws(adj))]",
+    "    if (length(adj)) config[[nm]]$adjust_covariates <- adj",
     "  }",
     "  invisible(config)",
     "}"
@@ -858,6 +895,7 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
     "    stop('本机找不到课题 config: ', CODE_BUNDLE_STUDY_CONFIG)",
     "}",
     "Sys.setenv(MEDICAL_BLOCKS_ROOT = CODE_BUNDLE_ENGINE_ROOT)",
+    "Sys.setenv(INCIDENCE_BATCH_ROOT = CODE_BUNDLE_PROJECT_ROOT)",
     "",
     "# --blocks 无 --from 时：自动从前一 block 加载 checkpoint（避免 No data）",
     "if (length(opts$blocks) && (is.null(opts$from) || !nzchar(as.character(opts$from)[1L]))) {",
@@ -1087,4 +1125,654 @@ index_code_bundle_write <- function(index_root, project_root, ix, config,
     cli::cli_alert_success("已生成指标 code 包: {.file {code_dir}}")
   }
   invisible(TRUE)
+}
+
+# =============================================================================
+#  单库平链（all-vars ML / 单流水线）code 包
+#  落盘：<study_root>/code/（无 by_index）
+# =============================================================================
+
+.index_code_bundle_should_write_single <- function(config, pipeline = NULL) {
+  cb <- (config %||% list())$code_bundle %||% list()
+  if (identical(cb$enable, FALSE)) return(FALSE)
+  dual <- (config %||% list())$dual_db %||% list()
+  if (isTRUE(dual$enable)) return(FALSE)
+  cur <- as.character(dual$current_db %||% "")[1L]
+  if (nzchar(cur)) return(FALSE)
+  # dual-batch worker 注入的指标批处理：交给 index_code_bundle_finalize
+  if (!is.null((config$survival_batch %||% list())$index) ||
+      !is.null((config$incidence_batch %||% list())$index) ||
+      !is.null((config$ml_batch %||% list())$index)) {
+    return(FALSE)
+  }
+  if (isTRUE(cb$enable)) return(TRUE)
+  blks <- as.character((pipeline %||% list())$blocks %||% character(0))
+  if (!length(blks)) {
+    blks <- as.character((config$pipeline %||% list())$blocks %||% character(0))
+  }
+  has_ml <- any(grepl(
+    "^(ml_|feature_selection|shap$|performance_ml|shiny_ml|train_validation|cox_ml_)",
+    blks
+  ))
+  isTRUE((config$project %||% list())$use_step_prefixed_block_dirs) || has_ml
+}
+
+.index_code_bundle_used_blocks_flat <- function(study_root, pipeline_blks = character(0)) {
+  used <- character(0)
+  .add <- function(x) {
+    x <- as.character(x %||% character(0))
+    x <- gsub("\\.rds$", "", x)
+    x <- gsub("^step\\d+_", "", x)
+    x <- x[nzchar(x)]
+    x <- x[!grepl("^(harmonization|preferred_mediator|obj)$", x, ignore.case = TRUE)]
+    used <<- c(used, x)
+  }
+  study_root <- normalizePath(as.character(study_root)[1L], winslash = "/", mustWork = FALSE)
+  if (dir.exists(study_root)) {
+    dirs <- list.dirs(study_root, full.names = FALSE, recursive = FALSE)
+    .add(dirs[grepl("^step\\d+_", dirs)])
+  }
+  ck <- file.path(study_root, "checkpoints")
+  if (dir.exists(ck)) {
+    .add(list.files(ck, pattern = "\\.rds$", full.names = FALSE))
+  }
+  used <- unique(used)
+  pipe <- as.character(pipeline_blks %||% character(0))
+  pipe <- pipe[nzchar(pipe)]
+  if (length(used)) {
+    ordered <- intersect(pipe, used)
+    extra <- setdiff(used, ordered)
+    # 子模型 step（ml_xgbsurv 等）可能不在 pipeline 名单但实际有目录
+    return(c(ordered, sort(extra)))
+  }
+  pipe
+}
+
+.index_code_bundle_locked_covs_flat <- function(study_root, config) {
+  out <- list(
+    model1 = character(0), model2 = character(0),
+    cox_final = character(0), mediation_covs = character(0),
+    best_mediator = NA_character_,
+    path_use_covariates = FALSE,
+    ml_features = character(0)
+  )
+  # 课题 config 优先（RCS / Cox 连续特征关联表）
+  rcs <- (config %||% list())$rcs_prognosis %||% list()
+  if (length(as.character(rcs$model1_factors %||% character(0)))) {
+    out$model1 <- as.character(rcs$model1_factors)
+  }
+  if (length(as.character(rcs$model2_factors %||% character(0)))) {
+    out$model2 <- as.character(rcs$model2_factors)
+  }
+  ck <- file.path(study_root, "checkpoints")
+  for (bn in c(
+    "cox_ml_continuous_batch.rds", "rcs_prognosis.rds",
+    "subgroup_prognosis.rds", "ml_feature_selection_bundle.rds",
+    "multicollinearity_screen.rds"
+  )) {
+    p <- file.path(ck, bn)
+    if (!file.exists(p)) next
+    obj <- tryCatch(readRDS(p), error = function(e) NULL)
+    res <- obj$ctx$results %||% list()
+    if (!length(out$ml_features)) {
+      out$ml_features <- as.character(
+        res$feature_selection_final %||%
+          res$ml_feature_names %||%
+          res$cox_ml_continuous_batch_features %||%
+          character(0)
+      )
+    }
+    # 仅当 config 未钉死 Model1/2 时，用 checkpoint
+    if (!length(out$model1)) {
+      out$model1 <- as.character(
+        res$cox_ml_continuous_model1 %||% res$Model1Factors %||% character(0)
+      )
+    }
+    if (!length(out$model2)) {
+      out$model2 <- as.character(
+        res$Model2Factors %||% character(0)
+      )
+    }
+  }
+  out$model1 <- unique(out$model1[nzchar(out$model1)])
+  out$model2 <- unique(out$model2[nzchar(out$model2)])
+  out$ml_features <- unique(out$ml_features[nzchar(out$ml_features)])
+  out
+}
+
+.index_code_bundle_forest_settings_flat <- function(study_root, config) {
+  out <- .index_code_bundle_forest_settings(study_root, "NA", config, db_seq = character(0))
+  # 平链 subgroup ck
+  for (bn in c("subgroup_prognosis.rds", "subgroup_incidence.rds")) {
+    p <- file.path(study_root, "checkpoints", bn)
+    if (!file.exists(p)) next
+    obj <- tryCatch(readRDS(p), error = function(e) NULL)
+    res <- obj$ctx$results %||% list()
+    used <- as.character(res$subgroup_vars_used %||% character(0))
+    if (length(used)) {
+      out$vars <- unique(used[nzchar(used)])
+      break
+    }
+  }
+  # config 锁定优先于「跑过的全部分类」膨胀名单（all-vars 亚组常很宽）
+  sg <- utils::modifyList(
+    config$subgroup %||% list(),
+    config$subgroup_prognosis %||% list()
+  )
+  lock <- as.character(
+    sg$locked_subgroup_vars %||% sg$required_subgroup_vars %||% character(0)
+  )
+  lock <- lock[nzchar(lock)]
+  if (length(lock) && isTRUE(sg$restrict_to_required %||% FALSE)) {
+    out$vars <- lock
+  } else if (length(lock) && !length(out$vars)) {
+    out$vars <- lock
+  } else if (length(lock)) {
+    # 预填 required；用户可在 overrides 扩成全跑过名单
+    out$vars <- lock
+  }
+  if (is.finite(suppressWarnings(as.numeric(sg$age_cutoff)[1L]))) {
+    out$age_cutoff <- as.numeric(sg$age_cutoff)[1L]
+  }
+  if (is.finite(suppressWarnings(as.numeric(sg$min_n)[1L]))) {
+    out$min_n <- as.numeric(sg$min_n)[1L]
+  }
+  fx <- suppressWarnings(as.numeric(sg$forest_xlim %||% numeric(0)))
+  if (length(fx) >= 2L && all(is.finite(fx))) out$forest_xlim <- fx[1:2]
+  if (is.finite(suppressWarnings(as.numeric(sg$forest_xlim_max)[1L]))) {
+    out$forest_xlim_max <- as.numeric(sg$forest_xlim_max)[1L]
+  }
+  out$forbid <- unique(as.character(
+    sg$forbid_subgroup_vars %||% sg$exclude_subgroup_vars %||% out$forbid
+  ))
+  out$forbid <- out$forbid[nzchar(out$forbid)]
+  out
+}
+
+#' 单库平链 code 包写出（all-vars ML / 单流水线）
+#' @param study_root 课题根（含 config.R / checkpoints / stepNN_*）
+index_code_bundle_write_single_pipeline <- function(study_root, config,
+                                                   engine_root = NULL,
+                                                   pipeline = NULL,
+                                                   ix = NULL) {
+  study_root <- normalizePath(as.character(study_root)[1L], winslash = "/", mustWork = FALSE)
+  if (!nzchar(study_root) || !dir.exists(study_root)) return(invisible(FALSE))
+  if (grepl("sensitivity|\\.sensitivity_staging", study_root, ignore.case = TRUE)) {
+    return(invisible(FALSE))
+  }
+  engine_root <- as.character(
+    engine_root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "") %||% ""
+  )[1L]
+  if (!nzchar(engine_root)) engine_root <- study_root
+  engine_root <- normalizePath(engine_root, winslash = "/", mustWork = FALSE)
+
+  ix <- as.character(
+    ix %||%
+      (config$code_bundle %||% list())$index_label %||%
+      (config$project %||% list())$disease_code %||%
+      (config$project %||% list())$name %||%
+      "all_vars"
+  )[1L]
+  if (!nzchar(ix)) ix <- "all_vars"
+
+  blks <- as.character(
+    (pipeline %||% list())$blocks %||%
+      (config$pipeline %||% list())$blocks %||%
+      character(0)
+  )
+  if (!length(blks)) {
+    # 从 step 目录反推
+    dirs <- list.dirs(study_root, full.names = FALSE, recursive = FALSE)
+    blks <- gsub("^step\\d+_", "", dirs[grepl("^step\\d+_", dirs)])
+    blks <- unique(blks[nzchar(blks)])
+  }
+
+  code_dir <- file.path(study_root, "code")
+  dir.create(code_dir, recursive = TRUE, showWarnings = FALSE)
+
+  covs <- .index_code_bundle_locked_covs_flat(study_root, config)
+  forest <- .index_code_bundle_forest_settings_flat(study_root, config)
+  used_blks <- .index_code_bundle_used_blocks_flat(study_root, blks)
+
+  writeLines(blks, file.path(code_dir, "blocks_menu.txt"))
+  writeLines(used_blks, file.path(code_dir, "blocks_used.txt"))
+  .index_code_bundle_copy_block_sources(code_dir, engine_root, used_blks)
+
+  study_cfg <- file.path(study_root, "config.R")
+  if (!file.exists(study_cfg)) {
+    for (bn in c("config_ml.R", "config_survival.R", "config_incidence.R")) {
+      p <- file.path(study_root, bn)
+      if (file.exists(p)) { study_cfg <- p; break }
+    }
+  }
+  if (file.exists(study_cfg)) {
+    study_cfg <- normalizePath(study_cfg, winslash = "/", mustWork = FALSE)
+  }
+  entry <- file.path(study_root, "run_ml.R")
+  if (!file.exists(entry)) entry <- file.path(study_root, "run.R")
+  if (file.exists(entry)) {
+    entry <- normalizePath(entry, winslash = "/", mustWork = FALSE)
+  } else {
+    entry <- file.path(engine_root, "R", "pipeline_runner.R")
+  }
+
+  writeLines(c(
+    "# 自动生成：路径常量（一般不必改）",
+    sprintf("CODE_BUNDLE_INDEX <- %s", .index_code_bundle_quote_chr(ix)),
+    sprintf("CODE_BUNDLE_PROJECT_ROOT <- %s", .index_code_bundle_quote_chr(study_root)),
+    sprintf("CODE_BUNDLE_ENGINE_ROOT <- %s", .index_code_bundle_quote_chr(engine_root)),
+    sprintf("CODE_BUNDLE_INDEX_ROOT <- %s", .index_code_bundle_quote_chr(study_root)),
+    sprintf("CODE_BUNDLE_STUDY_CONFIG <- %s", .index_code_bundle_quote_chr(study_cfg)),
+    sprintf("CODE_BUNDLE_ENTRY <- %s", .index_code_bundle_quote_chr(entry)),
+    "CODE_BUNDLE_IS_PROGNOSIS <- TRUE",
+    "CODE_BUNDLE_SINGLE_PIPELINE <- TRUE"
+  ), file.path(code_dir, "paths.R"))
+
+  m2_use <- if (length(covs$model2)) covs$model2 else covs$model1
+  ov <- c(
+    "# =============================================================================",
+    sprintf("#  %s — 协变量 / 森林图 / ML 特征覆盖（只改本文件）", ix),
+    "#  改完后用 run.R 单步重跑。默认从 checkpoint 续跑，勿轻易 --from imputation。",
+    "# =============================================================================",
+    "",
+    "apply_overrides_to_config <- TRUE",
+    "patch_checkpoint_covariates <- TRUE",
+    "",
+    "# --- 用户可改区：关联表 / RCS 协变量 ---------------------------------------",
+    sprintf("force_model1_factors <- %s", .index_code_bundle_quote_chr(covs$model1)),
+    sprintf("force_model2_factors <- %s", .index_code_bundle_quote_chr(m2_use)),
+    sprintf("force_ml_features <- %s", .index_code_bundle_quote_chr(covs$ml_features)),
+    'force_best_mediator <- ""',
+    "force_mediation_covariates <- character(0)",
+    "force_mediation_path_use_covariates <- FALSE",
+    "",
+    "# --- 用户可改区：森林图（Figure 亚组）--------------------------------------",
+    sprintf("force_subgroup_vars <- %s", .index_code_bundle_quote_chr(forest$vars)),
+    sprintf("force_forbid_subgroup_vars <- %s", .index_code_bundle_quote_chr(forest$forbid)),
+    sprintf("force_age_cutoff <- %s", .index_code_bundle_quote_scalar(forest$age_cutoff, "45")),
+    sprintf("force_subgroup_min_n <- %s", .index_code_bundle_quote_scalar(forest$min_n, "10")),
+    sprintf("force_forest_xlim <- %s", .index_code_bundle_quote_num(forest$forest_xlim)),
+    "force_forest_ticks_at <- NULL  # 自动刻度；可改成 c(0.5, 1, 2, 4)",
+    sprintf("force_forest_xlim_max <- %s", .index_code_bundle_quote_scalar(forest$forest_xlim_max, "10")),
+    sprintf("force_forest_base_size <- %s", .index_code_bundle_quote_scalar(forest$forest_base_size, "9")),
+    sprintf(
+      "force_forest_x_trans <- %s",
+      if (nzchar(as.character(forest$forest_x_trans %||% "")[1L])) {
+        .index_code_bundle_quote_chr(forest$forest_x_trans)
+      } else {
+        '"log"'
+      }
+    ),
+    sprintf("force_forest_n_source <- %s", .index_code_bundle_quote_chr(forest$forest_n_source %||% "full_stratum")),
+    sprintf("force_continuous_index_mode <- %s", .index_code_bundle_quote_chr(forest$continuous_index_mode %||% "highest_vs_lowest")),
+    sprintf("force_subgroup_adjust_covariates <- %s", .index_code_bundle_quote_chr(forest$adjust_covariates %||% character(0))),
+    "# 重跑森林图: Rscript run.R --blocks subgroup_prognosis",
+    "# -------------------------------------------------------------------------",
+    "",
+    "if (!exists('%||%', mode = 'function')) {",
+    "  `%||%` <- function(x, y) if (is.null(x)) y else x",
+    "}",
+    "",
+    "code_bundle_apply <- function(config) {",
+    "  if (!isTRUE(apply_overrides_to_config)) return(config)",
+    "  m1 <- as.character(force_model1_factors %||% character(0))",
+    "  m2 <- as.character(force_model2_factors %||% character(0))",
+    "  m1 <- m1[nzchar(m1)]; m2 <- m2[nzchar(m2)]",
+    "  if (!length(m2) && length(m1)) m2 <- m1",
+    "  if (is.null(config$analysis_models)) config$analysis_models <- list()",
+    "  if (length(m1)) config$analysis_models$model1_factors <- m1",
+    "  if (length(m2)) config$analysis_models$model2_factors <- m2",
+    "  for (nm in c('rcs_prognosis','rcs_incidence','cox_ml_continuous_batch',",
+    "               'cox_quartile','cox_tertile','cox_binary')) {",
+    "    if (is.null(config[[nm]])) next",
+    "    if (length(m1)) config[[nm]]$model1_factors <- m1",
+    "    if (length(m2)) config[[nm]]$model2_factors <- m2",
+    "  }",
+    "  mf <- as.character(force_ml_features %||% character(0))",
+    "  mf <- mf[nzchar(mf)]",
+    "  if (length(mf)) {",
+    "    if (is.null(config$feature_selection)) config$feature_selection <- list()",
+    "    config$feature_selection$force_final_features <- mf",
+    "  }",
+    "  sg_vars <- as.character(force_subgroup_vars %||% character(0))",
+    "  sg_vars <- sg_vars[nzchar(sg_vars)]",
+    "  forbid <- as.character(force_forbid_subgroup_vars %||% character(0))",
+    "  forbid <- forbid[nzchar(forbid)]",
+    "  fx <- suppressWarnings(as.numeric(force_forest_xlim %||% numeric(0)))",
+    "  fx <- fx[is.finite(fx)]",
+    "  ft <- if (exists('force_forest_ticks_at')) {",
+    "    suppressWarnings(as.numeric(force_forest_ticks_at))",
+    "  } else numeric(0)",
+    "  ft <- ft[is.finite(ft)]",
+    "  for (nm in c('subgroup','subgroup_prognosis','subgroup_incidence')) {",
+    "    if (is.null(config[[nm]])) config[[nm]] <- list()",
+    "    if (length(sg_vars)) {",
+    "      config[[nm]]$required_subgroup_vars <- sg_vars",
+    "      config[[nm]]$locked_subgroup_vars <- sg_vars",
+    "      config[[nm]]$vars <- sg_vars",
+    "    }",
+    "    if (length(forbid)) config[[nm]]$forbid_subgroup_vars <- forbid",
+    "    if (exists('force_age_cutoff') && is.finite(suppressWarnings(as.numeric(force_age_cutoff)[1L])))",
+    "      config[[nm]]$age_cutoff <- as.numeric(force_age_cutoff)[1L]",
+    "    if (exists('force_subgroup_min_n') && is.finite(suppressWarnings(as.numeric(force_subgroup_min_n)[1L])))",
+    "      config[[nm]]$min_n <- as.numeric(force_subgroup_min_n)[1L]",
+    "    if (length(fx) >= 2L) config[[nm]]$forest_xlim <- fx[1:2]",
+    "    if (length(ft) >= 2L) config[[nm]]$forest_ticks_at <- ft",
+    "    if (exists('force_forest_xlim_max') && is.finite(suppressWarnings(as.numeric(force_forest_xlim_max)[1L])))",
+    "      config[[nm]]$forest_xlim_max <- as.numeric(force_forest_xlim_max)[1L]",
+    "    if (exists('force_forest_base_size') && is.finite(suppressWarnings(as.numeric(force_forest_base_size)[1L])))",
+    "      config[[nm]]$forest_base_size <- as.numeric(force_forest_base_size)[1L]",
+    "    xt <- as.character(force_forest_x_trans %||% '')[1L]",
+    "    if (nzchar(xt)) config[[nm]]$forest_x_trans <- xt",
+    "    ns <- as.character(force_forest_n_source %||% '')[1L]",
+    "    if (nzchar(ns)) config[[nm]]$forest_n_source <- ns",
+    "    cim <- as.character(force_continuous_index_mode %||% '')[1L]",
+    "    if (nzchar(cim)) config[[nm]]$continuous_index_mode <- cim",
+    "    adj <- as.character(force_subgroup_adjust_covariates %||% character(0))",
+    "    adj <- adj[nzchar(trimws(adj))]",
+    "    if (length(adj)) config[[nm]]$adjust_covariates <- adj",
+    "  }",
+    "  invisible(config)",
+    "}"
+  )
+  writeLines(ov, file.path(code_dir, "00_config_overrides.R"))
+
+  run_r <- c(
+    "#!/usr/bin/env Rscript",
+    "# 单库平链（all-vars ML）可改协变量 / 单步重跑入口",
+    "# 用法:",
+    "#   Rscript run.R --blocks subgroup_prognosis",
+    "#   Rscript run.R --blocks rcs_prognosis,subgroup_prognosis",
+    "#   Rscript run.R --from ml_feature_selection_bundle --to performance_ml",
+    "#   Rscript run.R --blocks subgroup_prognosis --out D:/rerun_forest_v1",
+    "#   Rscript run.R --dry-run --blocks shap",
+    "# 警告: 不要轻易 --from imputation（会改分析人数）",
+    "",
+    "args <- commandArgs(trailingOnly = TRUE)",
+    "opts <- list(from = NULL, to = NULL, blocks = NULL, out = NULL,",
+    "             patch_ck = TRUE, dry_run = FALSE)",
+    "i <- 1L",
+    "while (i <= length(args)) {",
+    "  a <- args[[i]]",
+    "  if (a == '--from' && i < length(args)) { opts$from <- args[[i+1L]]; i <- i+2L",
+    "  } else if (a == '--to' && i < length(args)) { opts$to <- args[[i+1L]]; i <- i+2L",
+    "  } else if ((a == '--blocks' || a == '--only') && i < length(args)) {",
+    "    opts$blocks <- trimws(strsplit(args[[i+1L]], ',', fixed = TRUE)[[1L]]); i <- i+2L",
+    "  } else if ((a == '--out' || a == '--outdir') && i < length(args)) {",
+    "    opts$out <- args[[i+1L]]; i <- i+2L",
+    "  } else if (a == '--no-patch-ck') { opts$patch_ck <- FALSE; i <- i+1L",
+    "  } else if (a == '--dry-run') { opts$dry_run <- TRUE; i <- i+1L",
+    "  } else { i <- i+1L }",
+    "}",
+    "",
+    "code_dir <- tryCatch({",
+    "  ca <- commandArgs(trailingOnly = FALSE)",
+    "  f <- grep('^--file=', ca, value = TRUE)",
+    "  if (length(f)) dirname(normalizePath(sub('^--file=', '', f[1L]), winslash = '/'))",
+    "  else normalizePath(getwd(), winslash = '/')",
+    "}, error = function(e) normalizePath(getwd(), winslash = '/'))",
+    "",
+    "source(file.path(code_dir, 'paths.R'), local = FALSE)",
+    "source(file.path(code_dir, '00_config_overrides.R'), local = FALSE)",
+    "",
+    "if (.Platform$OS.type != 'windows') {",
+    "  .cb_nix <- function(p) {",
+    "    p <- gsub('\\\\\\\\', '/', as.character(p)[1L])",
+    "    if (grepl('^[A-Za-z]:/', p)) {",
+    "      drv <- tolower(substr(p, 1L, 1L))",
+    "      rest <- substring(p, 4L)",
+    "      return(paste0('/mnt/', drv, '/', rest))",
+    "    }",
+    "    p",
+    "  }",
+    "  CODE_BUNDLE_PROJECT_ROOT <<- .cb_nix(CODE_BUNDLE_PROJECT_ROOT)",
+    "  CODE_BUNDLE_ENGINE_ROOT <<- .cb_nix(CODE_BUNDLE_ENGINE_ROOT)",
+    "  CODE_BUNDLE_INDEX_ROOT <<- .cb_nix(CODE_BUNDLE_INDEX_ROOT)",
+    "  CODE_BUNDLE_STUDY_CONFIG <<- .cb_nix(CODE_BUNDLE_STUDY_CONFIG)",
+    "  CODE_BUNDLE_ENTRY <<- .cb_nix(CODE_BUNDLE_ENTRY)",
+    "}",
+    "if (.Platform$OS.type == 'windows') {",
+    "  .cb_win <- function(p) {",
+    "    p <- gsub('\\\\\\\\', '/', as.character(p)[1L])",
+    "    if (grepl('^/mnt/[A-Za-z]/', p)) {",
+    "      drv <- toupper(substr(p, 6L, 6L))",
+    "      rest <- substring(p, 8L)",
+    "      return(paste0(drv, ':/', rest))",
+    "    }",
+    "    p",
+    "  }",
+    "  CODE_BUNDLE_PROJECT_ROOT <<- .cb_win(CODE_BUNDLE_PROJECT_ROOT)",
+    "  CODE_BUNDLE_ENGINE_ROOT <<- .cb_win(CODE_BUNDLE_ENGINE_ROOT)",
+    "  CODE_BUNDLE_INDEX_ROOT <<- .cb_win(CODE_BUNDLE_INDEX_ROOT)",
+    "  CODE_BUNDLE_STUDY_CONFIG <<- .cb_win(CODE_BUNDLE_STUDY_CONFIG)",
+    "  CODE_BUNDLE_ENTRY <<- .cb_win(CODE_BUNDLE_ENTRY)",
+    "}",
+    "Sys.setenv(MEDICAL_BLOCKS_ROOT = CODE_BUNDLE_ENGINE_ROOT)",
+    "",
+    "# --blocks 无 --from：自动从前一 block 加载 checkpoint",
+    "if (length(opts$blocks) && (is.null(opts$from) || !nzchar(as.character(opts$from)[1L]))) {",
+    "  menu_p <- file.path(code_dir, 'blocks_menu.txt')",
+    "  if (file.exists(menu_p)) {",
+    "    menu <- trimws(readLines(menu_p, warn = FALSE))",
+    "    menu <- menu[nzchar(menu) & !startsWith(menu, '#')]",
+    "    first <- as.character(opts$blocks[[1L]])[1L]",
+    "    idx <- match(first, menu)",
+    "    if (!is.na(idx) && idx > 1L) {",
+    "      opts$from <- menu[[idx - 1L]]",
+    "      message('自动 --from ', opts$from, '（加载 ck 后再跑 ', first, '）')",
+    "    }",
+    "  }",
+    "}",
+    "",
+    "tmp_cfg <- file.path(",
+    "  CODE_BUNDLE_PROJECT_ROOT,",
+    "  paste0('._code_bundle_', CODE_BUNDLE_INDEX, '_cfg.R')",
+    ")",
+    "writeLines(c(",
+    "  sprintf('source(%s, local = FALSE)', deparse(CODE_BUNDLE_STUDY_CONFIG)),",
+    "  sprintf('source(%s, local = FALSE)', deparse(file.path(code_dir, '00_config_overrides.R'))),",
+    "  'if (exists(\"code_bundle_apply\", mode = \"function\")) config <- code_bundle_apply(config)',",
+    "  '.out <- Sys.getenv(\"MEDICAL_BLOCKS_RERUN_OUT\", unset = \"\")',",
+    "  'if (nzchar(.out)) {',",
+    "  '  config$project$output_dir <- .out',",
+    "  '  if (exists(\"pipeline\") && is.list(pipeline)) {',",
+    "  '    if (is.null(pipeline$checkpoint)) pipeline$checkpoint <- list()',",
+    "  '    pipeline$checkpoint$enable <- FALSE',",
+    "  '  }',",
+    "  '}'",
+    "), tmp_cfg)",
+    "on.exit(unlink(tmp_cfg), add = TRUE)",
+    "",
+    "if (!is.null(opts$out) && nzchar(as.character(opts$out)[1L])) {",
+    "  out_dir <- as.character(opts$out)[1L]",
+    "  if (!grepl('^[A-Za-z]:|^\\\\\\\\|^/', out_dir) && !grepl('^//', out_dir)) {",
+    "    out_dir <- file.path(code_dir, out_dir)",
+    "  }",
+    "  out_dir <- gsub('\\\\\\\\', '/', out_dir)",
+    "  if (.Platform$OS.type != 'windows' && grepl('^[A-Za-z]:/', out_dir)) {",
+    "    out_dir <- paste0('/mnt/', tolower(substr(out_dir, 1L, 1L)), '/', substring(out_dir, 4L))",
+    "  }",
+    "  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)",
+    "  out_dir <- normalizePath(out_dir, winslash = '/', mustWork = FALSE)",
+    "  Sys.setenv(MEDICAL_BLOCKS_RERUN_OUT = out_dir)",
+    "  opts$patch_ck <- FALSE",
+    "  message('输出目录(--out): ', out_dir, '（不覆盖主结果；已关闭 patch ck）')",
+    "} else {",
+    "  Sys.unsetenv('MEDICAL_BLOCKS_RERUN_OUT')",
+    "}",
+    "",
+    "cmd <- c(CODE_BUNDLE_ENTRY, '--config', tmp_cfg)",
+    "if (!is.null(opts$from) && nzchar(opts$from)) cmd <- c(cmd, '--from', opts$from)",
+    "if (!is.null(opts$to) && nzchar(opts$to)) cmd <- c(cmd, '--to', opts$to)",
+    "if (!is.null(opts$blocks) && length(opts$blocks)) {",
+    "  cmd <- c(cmd, '--only', paste(opts$blocks, collapse = ','))",
+    "}",
+    "message('Rscript ', paste(shQuote(cmd), collapse = ' '))",
+    "if (isTRUE(opts$dry_run)) quit(save = 'no', status = 0)",
+    "",
+    "if (isTRUE(opts$patch_ck) && isTRUE(patch_checkpoint_covariates) &&",
+    "    exists('force_model1_factors') && exists('force_model2_factors')) {",
+    "  m1 <- as.character(force_model1_factors); m2 <- as.character(force_model2_factors)",
+    "  m1 <- m1[nzchar(m1)]; m2 <- m2[nzchar(m2)]",
+    "  ck_dir <- file.path(CODE_BUNDLE_PROJECT_ROOT, 'checkpoints')",
+    "  if (dir.exists(ck_dir) && (length(m1) || length(m2))) {",
+    "    for (fn in list.files(ck_dir, pattern = '\\\\.rds$', full.names = TRUE)) {",
+    "      bn <- basename(fn)",
+    "      if (!grepl('cox_ml|rcs_|subgroup_|multicollinearity|covariate', bn, ignore.case = TRUE)) next",
+    "      obj <- tryCatch(readRDS(fn), error = function(e) NULL)",
+    "      if (is.null(obj) || is.null(obj$ctx) || is.null(obj$ctx$results)) next",
+    "      if (length(m1)) obj$ctx$results$Model1Factors <- m1",
+    "      if (length(m2)) obj$ctx$results$Model2Factors <- m2",
+    "      tryCatch(saveRDS(obj, fn), error = function(e) NULL)",
+    "    }",
+    "    message('已 patch checkpoint Model1/Model2（可用 --no-patch-ck 关闭）')",
+    "  }",
+    "}",
+    "",
+    "status <- system(paste(shQuote(c('Rscript', cmd)), collapse = ' '))",
+    "quit(save = 'no', status = if (is.na(status)) 1L else as.integer(status))"
+  )
+  run_path <- file.path(code_dir, "run.R")
+  writeLines(run_r, run_path)
+  tryCatch(Sys.chmod(run_path, mode = "0755"), error = function(e) NULL)
+
+  study_disp <- gsub("/", "\\\\", study_root)
+  op_doc <- c(
+    sprintf("# %s — 单步重跑操作说明（单库平链 / all-vars ML）", ix),
+    "",
+    "## 模板",
+    "",
+    "```powershell",
+    sprintf("cd \"%s\\\\code\"", study_disp),
+    "$env:MEDICAL_BLOCKS_ROOT = \"E:/01block/01Block-new-Final\"",
+    "Rscript ./run.R --blocks <要跑的块>",
+    "```",
+    "",
+    "指定输出目录（**不覆盖**主结果）：",
+    "",
+    "```powershell",
+    "Rscript ./run.R --blocks <要跑的块> --out \"<你的目录>\"",
+    "```",
+    "",
+    "## 例子",
+    "",
+    "```powershell",
+    sprintf("cd \"G:/02block_result/35_EMs/ml_40395549/code\""),
+    "$env:MEDICAL_BLOCKS_ROOT = \"E:/01block/01Block-new-Final\"",
+    "Rscript ./run.R --blocks subgroup_prognosis",
+    "Rscript ./run.R --blocks subgroup_prognosis --out \"G:/02block_result/35_EMs/reruns/forest_v1\"",
+    "Rscript ./run.R --dry-run --blocks shap",
+    "```",
+    "",
+    "## 参数说明",
+    "",
+    "| 参数 | 含义 |",
+    "|---|---|",
+    "| `--blocks <名>` | 只跑列出的 block（逗号分隔；内部映射为 `--only`） |",
+    "| `--from A --to B` | 从 A 之后跑到 B（含） |",
+    "| `--out <目录>` | 结果写到该目录，**不覆盖**主结果；并默认不 patch 主 ck |",
+    "| `--no-patch-ck` | 禁止改主分析 checkpoint 里的 Model1/2 |",
+    "| `--dry-run` | 只打印命令不执行 |",
+    "",
+    "## 结果在哪",
+    "",
+    "- **不加 `--out`**：写入课题根 `Figures` / `Tables` / `stepNN_*`",
+    "- **加了 `--out`**：新表/新图写到指定目录，主结果不动；本次不写 checkpoint",
+    "",
+    "## 改什么文件",
+    "",
+    "- 只改 `00_config_overrides.R`（协变量 / 森林图 / ML 特征）",
+    "- 一般不改 `paths.R`",
+    "- **本课题用过的 Block 源码**在 `blocks/`（见 `blocks/MANIFEST.md`、`blocks_used.txt`）；对照用，重跑仍走引擎",
+    "",
+    "## 本课题实际用过的 block",
+    "",
+    paste(used_blks, collapse = "\n"),
+    "",
+    "## pipeline 全名单（可 `--blocks` 重跑）",
+    "",
+    paste(blks, collapse = "\n"),
+    "",
+    "## 常用对照",
+    "",
+    "| 想做的事 |命令 |",
+    "|---|---|",
+    "| 亚组森林图 | `subgroup_prognosis` |",
+    "| RCS | `rcs_prognosis` |",
+    "| KM | `km_continuous_router` |",
+    "| Cox 连续特征关联 | `cox_ml_continuous_batch` |",
+    "| ML 训练 / 性能 / SHAP | `ml_models_bundle` / `performance_ml` / `shap` |",
+    "| Shiny | `shiny_ml_app` |",
+    "",
+    "## 不要随便跑（会改人数 N）",
+    "",
+    "- `imputation`",
+    "- `train_validation`（会重划训练/验证）",
+    "",
+    sprintf("生成时间: %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"))
+  )
+  writeLines(op_doc, file.path(code_dir, "操作说明.md"))
+  writeLines(op_doc, file.path(code_dir, "README.md"))
+  writeLines(c(
+    "# Block 速查",
+    "",
+    "完整操作见 `操作说明.md` / `README.md`。",
+    "",
+    paste(paste0("- `", used_blks, "`"), collapse = "\n")
+  ), file.path(code_dir, "blocks_cheatsheet.md"))
+
+  val <- index_code_bundle_validate(code_dir)
+  if (!isTRUE(val$ok)) {
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_warning(
+        "单库 code 包校验未通过: {paste(val$issues, collapse = '; ')}"
+      )
+    }
+    return(invisible(FALSE))
+  }
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success("已生成单库平链 code 包: {.file {code_dir}}")
+  }
+  invisible(TRUE)
+}
+
+#' 单库平链收尾写 code 包（run_pipeline 挂点）
+index_code_bundle_finalize_single_pipeline <- function(study_root, config,
+                                                      pipeline = NULL,
+                                                      engine_root = NULL) {
+  if (!.index_code_bundle_should_write_single(config, pipeline)) {
+    return(invisible(FALSE))
+  }
+  study_root <- normalizePath(as.character(study_root)[1L], winslash = "/", mustWork = FALSE)
+  if (grepl("sensitivity|\\.sensitivity_staging", study_root, ignore.case = TRUE)) {
+    return(invisible(FALSE))
+  }
+  tryCatch({
+    eng <- as.character(
+      engine_root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "") %||% study_root
+    )[1L]
+    cb_src <- file.path(eng, "R", "index_code_bundle.R")
+    if (!file.exists(cb_src)) cb_src <- file.path(study_root, "R", "index_code_bundle.R")
+    if (file.exists(cb_src) && !exists("index_code_bundle_write_single_pipeline", mode = "function")) {
+      source(cb_src, local = FALSE)
+    }
+    ok <- index_code_bundle_write_single_pipeline(
+      study_root = study_root,
+      config = config,
+      engine_root = eng,
+      pipeline = pipeline
+    )
+    if (!isTRUE(ok)) {
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning("单库 code 包生成失败")
+      }
+      return(invisible(FALSE))
+    }
+    invisible(TRUE)
+  }, error = function(e) {
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_warning("单库 code 包生成异常: {e$message}")
+    }
+    invisible(FALSE)
+  })
 }

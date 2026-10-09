@@ -1,0 +1,29 @@
+---
+description: 写 ML dual/预后 config 前必须双库列名统一、仅复合指标、PubMed 双组合查新
+alwaysApply: true
+---
+
+# 写 ML config 前：列名统一 · 仅复合指标 · PubMed 双组合查新
+
+凡 **ML dual batch / 预后 ML / 双库外验 ML** 写或改 `config.R` / `.study` **之前**必须完成下列门控。发病/预后 dual-batch 统计课题若批量扫复合指标，同样适用「仅复合指标 + 查新」精神。
+
+## 铁律
+
+1. **双库先统一列名**：`column_mapping` → `dual_db_column_harmonize`；落盘对齐词典（标准名 | 主库有 | 次库有）。未统一不得定指标池、不得写 `index_combos`、不得开 full workers。
+2. **暴露只能是复合指标库真公式指标**：来源 `configs/indices/composite_index_vars.R` + `Blocks/00_index/01block_index.R`。禁止 dabiao 原始单列（Glucose/SOFA/Creatinine 等）当主暴露；禁止透传「组成=自身」条目（如 `HDL`/`LDL`）进配对池。
+3. **多指标课题默认「双复合组合」job**：`index_mode=combo_loop`，每 job 一对 `(A,B)`（如 `NLR_RAR`）；禁止用 `single_loop` 把单个复合指标当成「组合假设」交差。
+4. **写 config 前 PubMed 查新**：疾病 × 双复合指标联合；近 15 年；数据集不参与去重。落盘 `reports/pubmed_novelty_*`；**用户确认 TopN 后**才写 `.study` / `index_combos`。
+5. **双库不可算轴禁止进池**：本库对缺关键成分则整指标剔除。ICU 双库常见：**HbA1c 轴**（`SHR`/`HGI`/`HbA1c_HDL_C`/`eGDR`）在无 HbA1c 的外验库上禁止进入主分析组合。
+6. **列审阅**：`skills/review-raw-covariate-columns/SKILL.md` → `Data/_column_review.md` + `analysis_exclusion$disease_vars`。
+
+## 顺序
+
+列名对齐词典 → 列审阅 → 双库可算复合指标 Pool → PubMed 锁组合 → **用户确认** → 写 config → `--shared-only` → workers。
+
+## 反例
+
+- 未统一列名就配对 / 开跑
+- `index_vars` 写原始实验室列或 SOFA 当「指标」
+- 先写死 10 对再查重
+- 把 HbA1c 依赖指标塞进无 HbA1c 的外验双库主分析
+- 用 `multi_combined` 合成一次代替多个独立双组合假设

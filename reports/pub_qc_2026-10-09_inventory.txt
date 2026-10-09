@@ -1,0 +1,7 @@
+root: /mnt/e/01block/01Block-new-Final
+success_only: True
+success_units (0):
+failed_units_skipped: 0 (not reviewed)
+figure_dirs: 0
+tables_listed: 0 (cap 200)
+existing_pub_qc_md: True

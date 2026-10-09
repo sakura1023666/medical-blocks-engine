@@ -383,9 +383,9 @@ dual_db_db_type <- function(cfg, db_name) {
   )[1L])
 }
 
-# 该角色是否走 NHANES 加权流水线（db_type == "nhanes"）
+# 该角色是否走复杂抽样加权流水线（US NHANES 或 KNHANES）
 dual_db_is_weighted <- function(cfg, db_name) {
-  identical(dual_db_db_type(cfg, db_name), "nhanes")
+  dual_db_db_type(cfg, db_name) %in% c("nhanes", "knhanes")
 }
 
 dual_db_resolve_col_alias <- function(wish, cols, aliases = list()) {
@@ -452,18 +452,28 @@ dual_db_logistic_covariates_cache_path <- function(root, cfg) {
   file.path(dual_db_harmonization_dir(root, cfg), "logistic_covariates.rds")
 }
 
-dual_db_save_logistic_covariates <- function(root, cfg, m1, m2, scheme = NA_character_, branch = NA_character_) {
+dual_db_save_logistic_covariates <- function(
+    root, cfg, m1, m2, scheme = NA_character_, branch = NA_character_,
+    db_name = NULL) {
   dir <- dual_db_harmonization_dir(root, cfg)
   if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
-  payload <- list(
-    model1_nhanes = as.character(m1),
-    model2_nhanes = as.character(m2),
-    model1_mimic = as.character(m1),
-    model2_mimic = as.character(m2),
-    scheme = as.character(scheme)[1L],
-    branch = as.character(branch)[1L],
-    saved_at = Sys.time()
-  )
+  prev <- dual_db_load_logistic_covariates(root, cfg) %||% list()
+  payload <- prev
+  payload$scheme <- as.character(scheme)[1L]
+  payload$branch <- as.character(branch)[1L]
+  payload$saved_at <- Sys.time()
+  m1 <- as.character(m1)
+  m2 <- as.character(m2)
+  slot <- as.character(db_name %||% "")[1L]
+  if (nzchar(slot) && slot %in% c("nhanes", "mimic")) {
+    payload[[paste0("model1_", slot)]] <- m1
+    payload[[paste0("model2_", slot)]] <- m2
+  } else {
+    payload$model1_nhanes <- m1
+    payload$model2_nhanes <- m2
+    payload$model1_mimic <- m1
+    payload$model2_mimic <- m2
+  }
   saveRDS(payload, dual_db_logistic_covariates_cache_path(root, cfg))
   invisible(payload)
 }
@@ -474,7 +484,8 @@ dual_db_load_logistic_covariates <- function(root, cfg) {
   readRDS(path)
 }
 
-dual_db_read_logistic_state_from_checkpoint <- function(root, cfg, db_name = "nhanes") {
+dual_db_read_logistic_state_from_checkpoint <- function(root, cfg, db_name = "nhanes",
+                                                         scheme_hint = NULL) {
   ck_dir <- dual_db_checkpoint_dir(root, cfg, db_name)
   if (!dir.exists(ck_dir)) return(NULL)
   blocks <- if (dual_db_is_weighted(cfg, db_name)) {
@@ -507,13 +518,28 @@ dual_db_read_logistic_state_from_checkpoint <- function(root, cfg, db_name = "nh
       (!is.null(r$logistic_table2) && grepl("^extend_", branch))
     candidates[[length(candidates) + 1L]] <- list(
       block = blk, scheme = scheme, branch = branch,
-      m1 = as.character(r$nhanes_logistic_M1 %||% r$logistic_model1_factors %||% character(0)),
-      m2 = as.character(r$nhanes_logistic_M2 %||% r$logistic_model2_factors %||% character(0)),
+      m1 = as.character(
+        r$logistic_model1_factors %||%
+          r$nhanes_logistic_M1 %||%
+          r$Model1Factors %||%
+          character(0)
+      ),
+      m2 = as.character(
+        r$logistic_model2_factors %||%
+          r$nhanes_logistic_M2 %||%
+          r$Model2Factors %||%
+          character(0)
+      ),
       is_main = is_main,
       detail = r$logistic_gate_detail %||% NULL
     )
   }
   if (!length(candidates)) return(NULL)
+  scheme_hint <- as.character(scheme_hint %||% "")[1L]
+  if (nzchar(scheme_hint)) {
+    hit <- Filter(function(x) identical(x$scheme, scheme_hint), candidates)
+    if (length(hit)) return(hit[[1L]])
+  }
   main <- Filter(function(x) isTRUE(x$is_main) && nzchar(x$scheme), candidates)
   if (length(main)) {
     pref <- main[[which.max(vapply(main, function(x) {
@@ -538,10 +564,15 @@ dual_db_read_logistic_natural_branch <- function(root, cfg, db_name = "nhanes") 
     c(
       "logistic_quartile_nhanes_weighted",
       "logistic_tertile_nhanes_weighted",
-      "logistic_binary_nhanes_weighted"
+      "logistic_binary_nhanes_weighted",
+      # ML 发病：logistic 常嵌在 ml_assoc_bundle，无独立 logistic_*.rds
+      "ml_assoc_bundle"
     )
   } else {
-    c("logistic_quartile_glm", "logistic_tertile_glm", "logistic_binary_glm")
+    c(
+      "logistic_quartile_glm", "logistic_tertile_glm", "logistic_binary_glm",
+      "ml_assoc_bundle"
+    )
   }
   last <- NULL
   for (blk in blocks) {
@@ -551,10 +582,25 @@ dual_db_read_logistic_natural_branch <- function(root, cfg, db_name = "nhanes") 
     if (is.null(obj$ctx)) next
     r <- obj$ctx$results
     branch <- as.character(r$logistic_natural_branch %||% r$logistic_branch %||% "")[1L]
-    if (!grepl("^extend_", branch)) next
+    # ML 末档失败时 branch 可能为 NA，但 grouping_scheme / Table2 仍落在 binary
+    if (!grepl("^extend_", branch)) {
+      scheme_fb <- as.character(
+        r$logistic_natural_scheme %||%
+          r$nhanes_logistic_selected_scheme %||%
+          r$logistic_grouping_scheme %||% ""
+      )[1L]
+      if (nzchar(scheme_fb) && scheme_fb %in% c("quartile", "tertile", "binary", "quintile")) {
+        branch <- paste0("extend_", scheme_fb)
+      } else {
+        next
+      }
+    }
     scheme <- as.character(r$logistic_natural_scheme %||% "")[1L]
     if (!nzchar(scheme) && exists("logistic_gate_scheme_from_branch", mode = "function")) {
       scheme <- logistic_gate_scheme_from_branch(branch)
+    }
+    if (!nzchar(scheme) || is.na(scheme)) {
+      scheme <- sub("^extend_", "", branch)
     }
     last <- list(branch = branch, scheme = scheme, detail = r$logistic_gate_detail %||% NULL, block = blk)
   }
@@ -885,22 +931,41 @@ dual_db_reserved_cols <- function(cfg, db_cfg) {
   )[1L]
   extra <- c("ID", "Group", "Disease", "Disease_Group", "Source_File")
   wt <- character(0)
-  if (tolower(as.character(db_cfg$db_type %||% "")) == "nhanes") {
-    if (!exists("nhanes_survey_weight_source_cols", mode = "function")) {
-      wt_path <- file.path(
-        (cfg$project$root %||% getwd()), "R", "nhanes_survey_weight.R"
-      )
-      if (file.exists(wt_path)) source(wt_path, local = FALSE)
-    }
-    wt <- if (exists("nhanes_survey_weight_source_cols", mode = "function")) {
-      nhanes_survey_weight_source_cols(cfg)
+  db_type <- tolower(as.character(db_cfg$db_type %||% ""))
+  if (db_type %in% c("nhanes", "knhanes")) {
+    if (identical(db_type, "knhanes")) {
+      if (!exists("knhanes_survey_weight_source_cols", mode = "function")) {
+        wt_path <- file.path(
+          (cfg$project$root %||% getwd()), "R", "knhanes_survey_weight.R"
+        )
+        if (!file.exists(wt_path)) {
+          eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+          if (nzchar(eng)) wt_path <- file.path(eng, "R", "knhanes_survey_weight.R")
+        }
+        if (file.exists(wt_path)) source(wt_path, local = FALSE)
+      }
+      wt <- if (exists("knhanes_survey_weight_source_cols", mode = "function")) {
+        knhanes_survey_weight_source_cols(cfg)
+      } else {
+        c("W_pooled", "PSU", "STRATA", "wt_itvex", "wt_tot", "psu", "kstrata", "cycle")
+      }
     } else {
-      c(
-        (cfg$nhanes %||% list())$survey_weight %||% "new_Weight",
-        (cfg$nhanes %||% list())$survey_cluster %||% "SDMVPSU",
-        (cfg$nhanes %||% list())$survey_strata %||% "SDMVSTRA",
-        "Source_File", "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR"
-      )
+      if (!exists("nhanes_survey_weight_source_cols", mode = "function")) {
+        wt_path <- file.path(
+          (cfg$project$root %||% getwd()), "R", "nhanes_survey_weight.R"
+        )
+        if (file.exists(wt_path)) source(wt_path, local = FALSE)
+      }
+      wt <- if (exists("nhanes_survey_weight_source_cols", mode = "function")) {
+        nhanes_survey_weight_source_cols(cfg)
+      } else {
+        c(
+          (cfg$nhanes %||% list())$survey_weight %||% "new_Weight",
+          (cfg$nhanes %||% list())$survey_cluster %||% "SDMVPSU",
+          (cfg$nhanes %||% list())$survey_strata %||% "SDMVSTRA",
+          "Source_File", "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR"
+        )
+      }
     }
   }
   unique(c(id_col, outcome, index_var, extra, wt))
@@ -951,9 +1016,16 @@ dual_db_make_bmi_group <- function(bmi, levels = c("< 25", "25-30", "\u2265 30")
 
 dual_db_load_mapped_frame <- function(root, db_cfg, cfg) {
   map_src <- file.path(root, "Blocks/01_column_mappings/01block_column_mapping.R")
+  if (!file.exists(map_src)) {
+    eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+    if (nzchar(eng)) {
+      map_src <- file.path(eng, "Blocks/01_column_mappings/01block_column_mapping.R")
+    }
+  }
   if (file.exists(map_src)) source(map_src, local = FALSE)
   env <- new.env()
-  rpath <- file.path(root, db_cfg$rawdata_path)
+  rpath <- as.character(db_cfg$rawdata_path)[1L]
+  if (!is_absolute_path(rpath)) rpath <- file.path(root, rpath)
   if (!file.exists(rpath)) {
     stop("双库对齐：数据文件不存在: ", rpath, call. = FALSE)
   }
@@ -965,7 +1037,11 @@ dual_db_load_mapped_frame <- function(root, db_cfg, cfg) {
   d <- get(obj, envir = env)
   if (!is.data.frame(d)) stop("双库对齐：", obj, " 不是 data.frame", call. = FALSE)
   if (exists("auto_map_column_names", mode = "function")) {
-    d <- auto_map_column_names(d, db_cfg$column_mapping_type %||% "Unknown")
+    skip_rn <- as.character((cfg$column_mapping %||% list())$skip_rename %||% character(0))
+    d <- auto_map_column_names(
+      d, db_cfg$column_mapping_type %||% "Unknown",
+      skip_rename = skip_rn
+    )
   }
   if (exists("pipeline_apply_ventilation_after_map", mode = "function")) {
     d <- pipeline_apply_ventilation_after_map(d)
@@ -981,7 +1057,8 @@ dual_db_compute_gate_a <- function(root, cfg) {
   harm <- cfg$dual_db$harmonization %||% list()
   demo_kw <- as.character(harm$demo_keywords %||% c(
     "Age", "Gender", "Sex", "Race", "Education", "PIR",
-    "Smoke", "Marital", "Insurance", "Language", "Income"
+    "Smoke", "Marital", "Insurance", "Language", "Income",
+    "Residence", "Hukou", "Familysize", "Family"
   ))
 
   d1 <- dual_db_load_mapped_frame(root, p, cfg)
@@ -1055,6 +1132,40 @@ dual_db_compute_gate_a <- function(root, cfg) {
 
   keep_nhanes <- unique(c(res1, demo1, col_order))
   keep_mimic <- unique(c(res2, demo2, col_order))
+  # 默认不对齐次库独有列进 Table 1（双库发病 Table1 须同变量池）。
+  # 仅当 keep_secondary_only_table1_cols=TRUE 时才保留 Hukou/Residence/HR/CRP 等。
+  if (isTRUE(harm$keep_secondary_only_table1_cols %||% FALSE) &&
+      exists(".default_table1_sections", mode = "function")) {
+    secs <- .default_table1_sections()
+    t1_display <- unique(c(
+      as.character(secs[["Demographics"]] %||% character(0)),
+      as.character(secs[["Vital Signs"]] %||% character(0)),
+      "CRP", "HSCRP", "HR", "Pulse", "Residence", "Hukou", "Familysize"
+    ))
+    extra_mimic <- intersect(only_mimic, t1_display)
+    if (length(extra_mimic)) {
+      keep_mimic <- unique(c(keep_mimic, extra_mimic))
+      cli::cli_alert_info(
+        "闸门 A：次库 Table 1 独有列保留 {length(extra_mimic)} 个 — {paste(extra_mimic, collapse = ', ')}"
+      )
+    }
+  } else {
+    # 硬删：NHANES 主库时次库独有展示列（Residence/HR/CRP/认知等）勿进次库 Table1。
+    # 若该列已在双库 common（col_order）中——例如 CHARLS×ELSA 共有 Memeory——不得剔除，
+    # 否则主库 ML 可用、次库被掏空 → dev_internal_ext 冻结外验缺列失败。
+    secondary_only_t1 <- c(
+      "Residence", "Hukou", "Familysize", "HR", "Pulse", "CRP", "HSCRP",
+      "Family_per_capita_consumption", "Memeory", "Totalcognition",
+      "Executive", "Incometotal"
+    )
+    dropped_t1 <- setdiff(intersect(keep_mimic, secondary_only_t1), col_order)
+    if (length(dropped_t1)) {
+      keep_mimic <- setdiff(keep_mimic, dropped_t1)
+      cli::cli_alert_info(
+        "闸门 A：次库 Table 1 独有列已丢弃（对齐双库）— {paste(dropped_t1, collapse = ', ')}"
+      )
+    }
+  }
   if (exists("pipeline_ventilation_keep_alias", mode = "function")) {
     keep_nhanes <- pipeline_ventilation_keep_alias(keep_nhanes, cols1)
     keep_mimic <- pipeline_ventilation_keep_alias(keep_mimic, cols2)
@@ -1361,7 +1472,10 @@ dual_db_resolve_gate_b_covariate_source <- function(root, cfg) {
   cli::cli_alert_info(
     "闸门 B(auto)：两库多因素 VIF final 临床交集为空/不可用 → 两边一起退回单因素 VIF screen（禁止混用）"
   )
-  "vif_screen"
+  # 属性：发表表对齐时省略 S5（多因素全池）与 S6（VIF final），后续附表顺延
+  out <- "vif_screen"
+  attr(out, "omit_multivariate_and_vif_final_tables") <- TRUE
+  out
 }
 
 #' 探测指定来源下两库临床协变量交集是否非空（不写盘）
@@ -1499,6 +1613,10 @@ dual_db_read_factors_for_gate_b <- function(root, cfg, db_name, apply_max = FALS
   }
   ck_dir <- dual_db_checkpoint_dir(root, cfg, db_name)
   alias <- file.path(ck_dir, paste0(blk, ".rds"))
+  if (!file.exists(alias) && identical(blk, "multicollinearity_screen")) {
+    alt <- file.path(ck_dir, "ml_vif_train_test.rds")
+    if (file.exists(alt)) alias <- alt
+  }
   if (!file.exists(alias)) return(NULL)
   obj <- tryCatch(readRDS(alias), error = function(e) NULL)
   if (is.null(obj) || is.null(obj$ctx)) return(NULL)
@@ -1517,6 +1635,42 @@ dual_db_checkpoint_dir <- function(root, cfg, db_name) {
   base <- (cfg$dual_db %||% list())$checkpoint_base %||% "checkpoints/D04_Hematocrit_OA_dual"
   if (!is_absolute_path(base)) base <- file.path(root, base)
   dual_db_resolve_slot_dir(base, cfg, db_name)
+}
+
+#' 指标根下的分库输出目录（禁止嵌套在当前库 output_dir 下）
+dual_db_index_db_output_dir <- function(root, cfg, db_name) {
+  slot <- dual_db_slot_path_name(cfg, db_name)
+  out <- as.character(cfg$project$output_dir %||% "")[1L]
+  slot_names <- unique(c(
+    dual_db_slot_path_name(cfg, "nhanes"),
+    dual_db_slot_path_name(cfg, "mimic"),
+    "NHANES", "CHARLS", "MIMIC", "eICU", "ELSA", "Hosp"
+  ))
+  slot_names <- slot_names[nzchar(as.character(slot_names))]
+  ix_root <- out
+  if (nzchar(out) && basename(out) %in% slot_names) {
+    ix_root <- dirname(out)
+  } else if (exists("incidence_batch_index_output_root", mode = "function")) {
+    ix <- as.character(
+      (cfg$incidence %||% list())$index_var %||%
+        cfg$project$exposure_var %||%
+        cfg$project$index_var %||%
+        basename(out)
+    )[1L]
+    if (nzchar(ix) && !identical(ix, ".") && !identical(ix, "by_index")) {
+      cand <- tryCatch(
+        incidence_batch_index_output_root(cfg, ix),
+        error = function(e) NULL
+      )
+      if (!is.null(cand) && nzchar(as.character(cand)[1L])) {
+        cand <- as.character(cand)[1L]
+        if (!is_absolute_path(cand)) cand <- file.path(root, cand)
+        ix_root <- cand
+      }
+    }
+  }
+  if (!nzchar(ix_root)) ix_root <- file.path(root, "by_index")
+  file.path(ix_root, slot)
 }
 
 dual_db_read_factors_from_checkpoint <- function(root, cfg, db_name, vif_block) {
@@ -1646,6 +1800,14 @@ dual_db_apply_gate_b_to_ctx <- function(ctx, db_name, gate_b) {
   ctx$results$Model2Factors <- m2
   ctx$results$dual_db_covariate_harmonized <- TRUE
   ctx$results$dual_db_common_model_factors <- gate_b$common_model_factors
+  # 同步 assoc 键，防止后续 ml_assoc_covariate_resolve 用 UV 铁律盖掉 Gate B
+  ctx$results$assoc_model1_factors <- m1
+  ctx$results$assoc_model2_factors <- m2
+  ctx$results$assoc_model2_extras <- setdiff(m2, m1)
+  ctx$results$assoc_covariate_note <- sprintf(
+    "Gate B 写入 Model1=%s; Model2=%s",
+    paste(m1, collapse = "+"), paste(m2, collapse = "+")
+  )
   tryCatch(
     dual_db_rewrite_locked_covariate_artifacts(ctx, m1, m2),
     error = function(e) {
@@ -1733,11 +1895,19 @@ dual_db_preset_gate_b <- function(cfg) {
   m1m <- as.character(harm$harmonized_model1_mimic %||% character(0))
   m2m <- as.character(harm$harmonized_model2_mimic %||% character(0))
   if (!length(m1n) || !length(m2n) || !length(m1m) || !length(m2m)) return(NULL)
-  if (!length(setdiff(m2n, m1n)) || !length(setdiff(m2m, m1m))) {
+  # lock_covariates_preset 显式锁定时允许 M2=M1（如严规则下双库 VIF 交集为空）
+  if (!isTRUE(harm$lock_covariates_preset) &&
+      (!length(setdiff(m2n, m1n)) || !length(setdiff(m2m, m1m)))) {
     cli::cli_alert_warning(
       "闸门 B 预设跳过：harmonized Model2 与 Model1 相同，请走 VIF 决策树对齐。"
     )
     return(NULL)
+  }
+  if (isTRUE(harm$lock_covariates_preset) &&
+      (!length(setdiff(m2n, m1n)) || !length(setdiff(m2m, m1m)))) {
+    cli::cli_alert_info(
+      "闸门 B 预设锁：Model2=Model1（{paste(unique(c(m2n, m2m)), collapse = '+')}），允许 M2=M1"
+    )
   }
   cmf <- as.character(harm$common_model_factors %||% character(0))
   if (!length(cmf)) {
@@ -1798,9 +1968,11 @@ dual_db_repair_gate_b_m2_gt_m1 <- function(gate_b, cfg, root = NULL) {
 dual_db_gate_b_assert_aligned <- function(gate_b, cfg) {
   harm <- cfg$dual_db$harmonization %||% list()
   require_clinical <- isTRUE(harm$require_same_clinical_cols %||% TRUE)
+  lock_preset <- isTRUE(harm$lock_covariates_preset)
   if (require_clinical) {
     cmf <- as.character(gate_b$common_model_factors %||% character(0))
-    if (!length(cmf) && isTRUE(harm$stop_on_empty_common_clinical %||% TRUE)) {
+    if (!length(cmf) && isTRUE(harm$stop_on_empty_common_clinical %||% TRUE) &&
+        !isTRUE(lock_preset)) {
       stop(
         "GATE_B_EMPTY_COMMON: 对齐后 common_model_factors 为空，已停止。",
         call. = FALSE
@@ -1810,6 +1982,12 @@ dual_db_gate_b_assert_aligned <- function(gate_b, cfg) {
       m1 <- as.character(gate_b[[paste0("harmonized_model1_", db)]] %||% character(0))
       m2 <- as.character(gate_b[[paste0("harmonized_model2_", db)]] %||% character(0))
       if (!length(setdiff(m2, m1))) {
+        if (isTRUE(lock_preset)) {
+          cli::cli_alert_info(
+            "闸门 B 预设锁允许 {toupper(db)} Model2=Model1: {paste(m1, collapse = ', ')}"
+          )
+          next
+        }
         stop(
           "GATE_B_M2_EQ_M1: ", toupper(db),
           " Model2 与 Model1 相同（", paste(m1, collapse = ", "), "），已停止。",
@@ -1867,12 +2045,37 @@ dual_db_finalize_gate_b <- function(root, cfg, gate_b, src_label = "闸门 B") {
 dual_db_try_sync_gate_b <- function(root, cfg, db_name, m1, m2) {
   preset <- dual_db_preset_gate_b(cfg)
   if (!is.null(preset)) {
+    # lock 预设时仍探测 S6 临床交集：空则发表表省略 S5/S6（与 auto 回退 S4 同口径）
+    omit_s56 <- FALSE
+    if (exists("dual_db_probe_gate_b_clinical_intersection", mode = "function")) {
+      probe_lock <- tryCatch(
+        dual_db_probe_gate_b_clinical_intersection(root, cfg, source = "vif_final"),
+        error = function(e) NULL
+      )
+      if (!is.null(probe_lock) && !isTRUE(probe_lock$ok)) {
+        omit_s56 <- identical(
+          as.character(probe_lock$reason %||% "")[1L], "empty_clinical_intersection"
+        ) || identical(dual_db_harmonization_covariate_source(cfg), "vif_screen")
+      } else if (identical(dual_db_harmonization_covariate_source(cfg), "vif_screen")) {
+        omit_s56 <- TRUE
+      }
+    } else if (identical(dual_db_harmonization_covariate_source(cfg), "vif_screen")) {
+      omit_s56 <- TRUE
+    }
+    preset$omit_multivariate_and_vif_final_tables <- isTRUE(omit_s56)
+    if (isTRUE(omit_s56)) {
+      cli::cli_alert_info(
+        "闸门 B（config 预设）：S6 临床交集空/已用 vif_screen → 发表表将省略多因素(S5)与 VIF final(S6)"
+      )
+    }
     return(dual_db_finalize_gate_b(root, cfg, preset, "闸门 B（config 预设）"))
   }
 
   harm <- cfg$dual_db$harmonization %||% list()
   demo_kw <- as.character(harm$demo_keywords %||% character(0))
-  cov_src <- dual_db_resolve_gate_b_covariate_source(root, cfg)
+  cov_src_raw <- dual_db_resolve_gate_b_covariate_source(root, cfg)
+  omit_mv_final <- isTRUE(attr(cov_src_raw, "omit_multivariate_and_vif_final_tables"))
+  cov_src <- as.character(cov_src_raw)[1L]
 
   # vif_screen：始终从两库 screen 检查点读全量池再交集（忽略 pending / 传入的已截断 Model2）
   if (identical(cov_src, "vif_screen")) {
@@ -1903,6 +2106,12 @@ dual_db_try_sync_gate_b <- function(root, cfg, db_name, m1, m2) {
       index_exclude = index_excl
     )
     gate_b$covariate_source_used <- "vif_screen"
+    gate_b$omit_multivariate_and_vif_final_tables <- omit_mv_final
+    if (isTRUE(omit_mv_final)) {
+      cli::cli_alert_info(
+        "闸门 B：S6 临床交集空已回退 S4 → 发表表将省略多因素(S5)与 VIF final(S6)，后续附表顺延编号"
+      )
+    }
     return(dual_db_finalize_gate_b(root, cfg, gate_b, "闸门 B（单因素 VIF screen）"))
   }
 
@@ -1951,11 +2160,343 @@ dual_db_try_sync_gate_b <- function(root, cfg, db_name, m1, m2) {
   }
 
   gate_b$covariate_source_used <- cov_src
+  gate_b$omit_multivariate_and_vif_final_tables <- FALSE
   dual_db_finalize_gate_b(
     root, cfg, gate_b,
     if (identical(cov_src, "vif_screen")) "闸门 B（单因素 VIF screen）"
     else "闸门 B（多因素 VIF final）"
   )
+}
+
+#' logistic 初筛（含闸门救援）后读取各库 Model1/2
+dual_db_read_logistic_screen_covariates <- function(root, cfg, db_name, scheme_hint = NULL) {
+  st <- dual_db_read_logistic_state_from_checkpoint(root, cfg, db_name, scheme_hint = scheme_hint)
+  if (is.null(st)) return(NULL)
+  m1 <- unique(as.character(st$m1[nzchar(st$m1)]))
+  m2 <- unique(as.character(st$m2[nzchar(st$m2)]))
+  if (!length(m1) || !length(m2)) return(NULL)
+  list(m1 = m1, m2 = m2, scheme = st$scheme, branch = st$branch)
+}
+
+#' 两库 logistic 救援/初筛完成后，用各库 Model1/2 重算 Gate B（临床取交集）
+dual_db_resync_gate_b_after_logistic <- function(root, cfg, scheme_hint = NULL) {
+  dual <- cfg$dual_db %||% list()
+  if (!isTRUE(dual$enable)) return(NULL)
+  if (exists("locked_mv_n_databases", mode = "function") &&
+      locked_mv_n_databases(cfg) < 2L) {
+    return(NULL)
+  }
+  if (!is.null(dual_db_preset_gate_b(cfg))) return(NULL)
+
+  primary <- dual_db_slot_primary()
+  secondary <- dual_db_slot_secondary()
+  uni <- dual_db_load_logistic_branch(root, cfg)
+  scheme_hint <- as.character(scheme_hint %||% uni$scheme %||% "")[1L]
+  st_n <- dual_db_read_logistic_screen_covariates(root, cfg, primary, scheme_hint = scheme_hint)
+  st_m <- dual_db_read_logistic_screen_covariates(root, cfg, secondary, scheme_hint = scheme_hint)
+  if (is.null(st_n) || is.null(st_m)) return(NULL)
+
+  harm <- dual$harmonization %||% list()
+  demo_kw <- as.character(harm$demo_keywords %||% character(0))
+  index_excl <- if (exists("pipeline_index_exclude_vars", mode = "function")) {
+    pipeline_index_exclude_vars(cfg)
+  } else {
+    character(0)
+  }
+  gate_b <- dual_db_compute_gate_b(
+    m1_nhanes = st_n$m1, m2_nhanes = st_n$m2,
+    m1_mimic = st_m$m1, m2_mimic = st_m$m2,
+    demo_keywords = demo_kw,
+    common_col_order = harm$common_non_demo_cols,
+    require_same = isTRUE(harm$require_same_clinical_cols),
+    require_same_demo = isTRUE(harm$require_same_demo_cols %||% TRUE),
+    index_exclude = index_excl
+  )
+  gate_b$covariate_source_used <- "logistic_screen"
+  gate_b$gate_b_after_logistic_rescue <- TRUE
+  dual_db_finalize_gate_b(
+    root, cfg, gate_b,
+    "闸门 B（logistic 救援后双库协变量对齐）"
+  )
+}
+
+dual_db_ensure_logistic_table2_helpers <- function(cfg, db_name, scheme) {
+  eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(eng)) eng <- normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+  scheme <- as.character(scheme)[1L]
+  common <- file.path(eng, "Blocks/11_logistic/00logistic_nhanes_weighted_common.R")
+  if (file.exists(common)) suppressWarnings(source(common, local = FALSE))
+  if (dual_db_is_weighted(cfg, db_name)) {
+    nhanes_blk <- switch(scheme,
+      quartile = "13block_logistic_quartile_nhanes_weighted.R",
+      tertile  = "14block_logistic_tertile_nhanes_weighted.R",
+      binary   = "15block_logistic_binary_nhanes_weighted.R",
+      NULL
+    )
+    if (!is.null(nhanes_blk)) {
+      p <- file.path(eng, "Blocks/11_logistic", nhanes_blk)
+      if (file.exists(p)) suppressWarnings(source(p, local = FALSE))
+    }
+    return(invisible(TRUE))
+  }
+  glm_blk <- switch(scheme,
+    quartile = "01block_logistic_quartile_glm.R",
+    tertile  = "05block_logistic_tertile_glm.R",
+    binary   = "04block_logistic_binary_glm.R",
+    NULL
+  )
+  if (!is.null(glm_blk)) {
+    p <- file.path(eng, "Blocks/11_logistic", glm_blk)
+    if (file.exists(p)) suppressWarnings(source(p, local = FALSE))
+  }
+  # tertile block 用 .lqg05_*；rebuild 统一走 .lqg01_* 接口 → 补别名
+  # 同时 source 四分位块以复用 .lqg01_Tb_ModelGroup3_OR（若尚未加载）
+  if (identical(scheme, "tertile")) {
+    q_p <- file.path(eng, "Blocks/11_logistic/01block_logistic_quartile_glm.R")
+    if (file.exists(q_p) && !exists(".lqg01_Tb_ModelGroup3_OR", mode = "function")) {
+      suppressWarnings(source(q_p, local = FALSE))
+    }
+    if (!exists(".lqg01_assign_tertile_groups", mode = "function") &&
+        exists(".lqg05_tertile_from_cfg", mode = "function")) {
+      .lqg01_assign_tertile_groups <<- function(x, bl_cfg = list()) {
+        r <- .lqg05_tertile_from_cfg(x, bl_cfg = bl_cfg)
+        list(
+          Group = r$group,
+          Num = as.numeric(r$group),
+          raw_levels = as.character(r$levels),
+          cutoffs = r$cutoffs
+        )
+      }
+    }
+  }
+  invisible(TRUE)
+}
+
+dual_db_logistic_block_for_scheme <- function(cfg, db_name, scheme) {
+  scheme <- as.character(scheme)[1L]
+  if (dual_db_is_weighted(cfg, db_name)) {
+    switch(scheme,
+      quartile = "logistic_quartile_nhanes_weighted",
+      tertile  = "logistic_tertile_nhanes_weighted",
+      binary   = "logistic_binary_nhanes_weighted",
+      NULL
+    )
+  } else {
+    switch(scheme,
+      quartile = "logistic_quartile_glm",
+      tertile  = "logistic_tertile_glm",
+      binary   = "logistic_binary_glm",
+      NULL
+    )
+  }
+}
+
+#' Gate B 对齐后按统一分位重算 Table 2（不重新搜协变量）
+dual_db_rebuild_logistic_table2_for_db <- function(root, cfg, db_name, gate_b, scheme) {
+  scheme <- as.character(scheme)[1L]
+  dual_db_ensure_logistic_table2_helpers(cfg, db_name, scheme)
+  blk <- dual_db_logistic_block_for_scheme(cfg, db_name, scheme)
+  if (is.null(blk)) return(invisible(FALSE))
+
+  ck_dir <- dual_db_checkpoint_dir(root, cfg, db_name)
+  alias <- file.path(ck_dir, paste0(blk, ".rds"))
+  if (!file.exists(alias)) return(invisible(FALSE))
+  obj <- tryCatch(readRDS(alias), error = function(e) NULL)
+  if (is.null(obj) || is.null(obj$ctx)) return(invisible(FALSE))
+
+  ctx <- obj$ctx
+  ctx <- dual_db_apply_gate_b_to_ctx(ctx, db_name, gate_b)
+  out_db <- dual_db_index_db_output_dir(root, cfg, db_name)
+  # 导出库标签必须与 peer 一致，避免当前 worker 的 database=CHARLS 污染 NHANES 文件名/内容镜像
+  if (is.null(ctx$config$project)) ctx$config$project <- list()
+  ctx$config$project$database <- dual_db_slot_path_name(cfg, db_name)
+  ctx$config$project$output_dir <- out_db
+  ctx$output_dir <- out_db
+  ctx$output_dir_tables <- file.path(out_db, "Tables")
+  ctx$output_dir_figures <- file.path(out_db, "Figures")
+  if (!dir.exists(ctx$output_dir_tables)) dir.create(ctx$output_dir_tables, recursive = TRUE)
+  M1 <- as.character(ctx$results$Model1Factors)
+  M2 <- as.character(ctx$results$Model2Factors)
+  bl_cfg <- ctx$config[[blk]] %||% list()
+  cfg_local <- ctx$config
+  index_var <- as.character(
+    bl_cfg$index_var %||% (cfg_local$incidence %||% list())$index_var %||% "BMI"
+  )[1L]
+  outcome_col <- cfg_local$data$outcome_column %||% "Disease_Group"
+  disease_lbl <- (cfg_local$project %||% list())$analysis_group %||%
+    (cfg_local$project %||% list())$disease %||% "Case"
+  ix_label <- if (exists("pipeline_index_display_name", mode = "function")) {
+    pipeline_index_display_name(cfg_local, index_var)
+  } else {
+    index_var
+  }
+  include_cont <- isTRUE(bl_cfg$include_continuous_row %||% TRUE)
+
+  tb <- NULL
+  if (dual_db_is_weighted(cfg, db_name)) {
+    design <- ctx$results$nhanes_design
+    if (is.null(design)) return(invisible(FALSE))
+    grp <- NULL
+    if (identical(scheme, "quartile") && exists(".lqq09_apply_quartile", mode = "function")) {
+      grp <- .lqq09_apply_quartile(design, index_var)
+      if (exists(".lqq09_build_table", mode = "function")) {
+        tb <- .lqq09_build_table(
+          grp$design, outcome_col, disease_lbl, index_var, M1, M2,
+          grp$cutoffs, grp$raw_levels, include_cont, ix_label
+        )
+      }
+    } else if (identical(scheme, "tertile") &&
+               exists(".lqt09_apply_tertile", mode = "function") &&
+               exists(".lqt09_build_table", mode = "function")) {
+      grp <- .lqt09_apply_tertile(design, index_var)
+      tb <- .lqt09_build_table(
+        grp$design, outcome_col, disease_lbl, index_var, M1, M2,
+        grp$cutoffs, grp$raw_levels, include_cont
+      )
+    } else if (identical(scheme, "binary") &&
+               exists(".lqb09_apply_binary", mode = "function") &&
+               exists(".lqb09_build_table", mode = "function")) {
+      grp <- .lqb09_apply_binary(design, index_var)
+      tb <- .lqb09_build_table(
+        grp$design, outcome_col, disease_lbl, index_var, M1, M2,
+        grp$cutoffs, grp$raw_levels, include_cont
+      )
+    }
+  } else {
+    data <- ctx$data$imputed %||% ctx$data$cleaned
+    if (is.null(data) || !is.data.frame(data)) return(invisible(FALSE))
+    data2 <- data
+    if (exists("pipeline_index_as_numeric", mode = "function")) {
+      data2[[index_var]] <- pipeline_index_as_numeric(data2[[index_var]])
+    }
+    group_var_name <- bl_cfg$group_var
+    predefined <- !is.null(group_var_name) && nzchar(group_var_name) &&
+      group_var_name %in% names(data2)
+    if (predefined) {
+      raw_levels <- bl_cfg$group_levels %||% sort(unique(as.character(data2[[group_var_name]])))
+      raw_levels <- as.character(raw_levels[nzchar(raw_levels)])
+      data2$Group <- factor(as.character(data2[[group_var_name]]), levels = raw_levels)
+      data2$Num <- as.numeric(data2$Group)
+      cutoffs <- setNames(rep("", length(raw_levels)), raw_levels)
+    } else if (identical(scheme, "quartile") && exists(".lqg01_assign_quartile_groups", mode = "function")) {
+      qg <- .lqg01_assign_quartile_groups(data2[[index_var]])
+      data2$Group <- qg$Group
+      data2$Num <- qg$Num
+      raw_levels <- qg$raw_levels
+      cutoffs <- qg$cutoffs
+    } else if (identical(scheme, "tertile") && exists(".lqg01_assign_tertile_groups", mode = "function")) {
+      qg <- .lqg01_assign_tertile_groups(data2[[index_var]])
+      data2$Group <- qg$Group
+      data2$Num <- qg$Num
+      raw_levels <- qg$raw_levels
+      cutoffs <- qg$cutoffs
+    } else if (identical(scheme, "binary") && exists(".lqg01_assign_binary_groups", mode = "function")) {
+      qg <- .lqg01_assign_binary_groups(data2[[index_var]])
+      data2$Group <- qg$Group
+      data2$Num <- qg$Num
+      raw_levels <- qg$raw_levels
+      cutoffs <- qg$cutoffs
+    } else {
+      return(invisible(FALSE))
+    }
+    data2[[outcome_col]] <- as.character(data2[[outcome_col]])
+    data2[[outcome_col]] <- ifelse(data2[[outcome_col]] == disease_lbl, 1L, 0L)
+    excl <- c(outcome_col, index_var, "Group", "Num", if (predefined) group_var_name)
+    CrudeFactors <- intersect(
+      as.character(bl_cfg$crude_factors %||% cfg_local$logistic_covariates$crude_factors %||% character(0)),
+      names(data2)
+    )
+    if (exists(".lqg01_Tb_ModelGroup3_OR", mode = "function")) {
+      tb <- .lqg01_Tb_ModelGroup3_OR(
+        outcome_col, index_var, "Group", "Num",
+        data2, M1, M2, cutoffs, raw_levels, include_cont,
+        index_label = ix_label, CrudeFactors = CrudeFactors
+      )
+    }
+  }
+
+  if (is.null(tb)) {
+    cli::cli_alert_warning(
+      "双库协变量对齐后重导 Table 2 [{toupper(db_name)}] 失败（未生成表体）"
+    )
+    return(invisible(FALSE))
+  }
+
+  ctx$results$logistic_table2 <- tb
+  ctx$results$logistic_model1_factors <- M1
+  ctx$results$logistic_model2_factors <- M2
+  ctx$results$nhanes_logistic_M1 <- M1
+  ctx$results$nhanes_logistic_M2 <- M2
+  ctx$results$logistic_grouping_scheme <- scheme
+  ctx$results$nhanes_logistic_selected_scheme <- scheme
+  ctx$results$nhanes_logistic_grouping_scheme <- scheme
+  if (dual_db_is_weighted(cfg, db_name)) {
+    ctx$results[[paste0("logistic_table2_", scheme, "_nhanes")]] <- tb
+    ctx$results$logistic_table2_weighted <- tb
+    ctx$results$logistic_table2_nhanes <- tb
+    ctx$results$nhanes_logistic_table2 <- tb
+  }
+
+  obj$ctx <- ctx
+  saveRDS(obj, alias)
+  step_alias <- list.files(ck_dir, pattern = paste0("_", blk, "\\.rds$"), full.names = TRUE)
+  for (sf in step_alias) {
+    tryCatch({
+      o2 <- readRDS(sf)
+      if (!is.null(o2$ctx)) {
+        o2$ctx <- ctx
+        saveRDS(o2, sf)
+      }
+    }, error = function(e) NULL)
+  }
+
+  cap <- if (dual_db_is_weighted(cfg, db_name)) {
+    paste0(
+      "Weighted logistic regression of ", index_var, " and ", disease_lbl,
+      " (NHANES ", scheme, ", svyglm) [dual-DB unified]"
+    )
+  } else {
+    # 标题必须用疾病显示名（disease_lbl），禁止写原始 outcome 列名（如 DN）
+    paste0(
+      "Logistic regression analysis of ", index_var, " and ", disease_lbl,
+      " - ", scheme, " (GLM) [dual-DB unified]"
+    )
+  }
+  ft <- NULL
+  if (exists(".lnw00_table_footnotes", mode = "function")) {
+    ft <- .lnw00_table_footnotes(M1, M2, character(0), FALSE)
+  } else if (exists("logistic_glm_table_footnotes", mode = "function")) {
+    ft <- logistic_glm_table_footnotes(M1, M2, character(0), FALSE)
+  }
+  if (exists(".lnw00_export_table2", mode = "function")) {
+    if (exists(".pub_state", inherits = TRUE)) {
+      # get() 在对象不存在时会直接报错，不能靠 %||% 兜底
+      old_mt <- as.integer(get0("main_table", envir = .pub_state, inherits = FALSE, ifnotfound = 0L))
+      on.exit(assign("main_table", old_mt, envir = .pub_state), add = TRUE)
+      assign("main_table", 1L, envir = .pub_state)
+    }
+    db_disp <- dual_db_slot_path_name(cfg, db_name)
+    old_opt <- getOption("pipeline.database_name")
+    on.exit(options(pipeline.database_name = old_opt), add = TRUE)
+    options(pipeline.database_name = db_disp)
+    .lnw00_export_table2(ctx, cfg_local, bl_cfg, tb, cap, as_main = TRUE, table_footnotes = ft)
+    # 离线重导须立刻 flush，否则队列项随进程结束丢失
+    if (exists("render_queued_tables", mode = "function")) {
+      tryCatch(
+        render_queued_tables(list(
+          output_dir = ctx$output_dir,
+          output_dir_tables = ctx$output_dir_tables,
+          config = ctx$config
+        )),
+        error = function(e) cli::cli_alert_warning("重导 Table2 flush 失败: {e$message}")
+      )
+    }
+  }
+
+  cli::cli_alert_success(
+    "双库协变量对齐后重导 Table 2 [{toupper(db_name)}]: Model2={paste(M2, collapse = ', ')}"
+  )
+  invisible(TRUE)
 }
 
 dual_db_force_gate_b_sync <- function(root, cfg) {
@@ -2028,6 +2569,10 @@ mirror_dual_db_aggregate <- function(root, cfg, out_root = NULL,
   dbs <- unique(as.character(dbs[nzchar(as.character(dbs))]))
   n_copied <- 0L
   prefix_db <- isTRUE((cfg$dual_db %||% list())$mirror_aggregate_prefix_db)
+  .agg_known_db_tags <- unique(toupper(c(
+    vapply(dbs, function(d) dual_db_slot_path_name(cfg, d), character(1)),
+    "NHANES", "CHARLS", "MIMIC", "EICU", "ELSA", "HOSP"
+  )))
   .agg_copy_one <- function(f, kind, db) {
     if (file.info(f)$isdir) return(invisible(FALSE))
     bn <- basename(f)
@@ -2041,6 +2586,21 @@ mirror_dual_db_aggregate <- function(root, cfg, out_root = NULL,
     # ROC 数值表留在 step 子目录，不进发表 Tables
     if (kind == "Tables" && grepl("ROC", bn, ignore.case = TRUE)) {
       return(invisible(FALSE))
+    }
+    # 文件名库标签须与源库一致，防止 CHARLS 内容进 NHANES 表（或反向）后污染汇总
+    if (kind == "Tables" && grepl("^Table\\s+", bn, ignore.case = TRUE)) {
+      slot <- toupper(dual_db_slot_path_name(cfg, db))
+      m <- regexec("^Table\\s+[A-Za-z0-9.-]+-([A-Za-z0-9]+)\\.", bn, perl = TRUE)
+      hit <- regmatches(bn, m)[[1L]]
+      if (length(hit) >= 2L) {
+        tag <- toupper(hit[[2L]])
+        if (tag %in% .agg_known_db_tags && !identical(tag, slot)) {
+          cli::cli_alert_warning(
+            "跳过串库表（源={slot} 文件标签={tag}）: {bn}"
+          )
+          return(invisible(FALSE))
+        }
+      }
     }
     dest <- if (kind == "Tables") parent_tables else parent_figures
     dest_name <- if (prefix_db) paste0(dual_db_slot_path_name(cfg, db), "_", bn) else bn

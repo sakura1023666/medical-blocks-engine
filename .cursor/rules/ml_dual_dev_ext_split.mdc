@@ -1,0 +1,57 @@
+# 发病 ML 双库划分铁律（对齐 12_AKI / AF）
+
+凡 **发病预测 ML 双库**（`routine=ml` / `ml_dual_batch`），发表口径必须与 AKI `【success】AF` 一致。
+
+## 铁律
+
+1. **双 regular 库（非 NHANES）默认 `split_mode = "dev_internal_ext"`**  
+   - 人多库 = 开发：训练 / 内部验证（约 7:3）  
+   - 人少库 = **整库外验**；冻结主库特征 + 模型，**不重训**  
+   - 发表图：`pub_figure_scheme = ml_dual_dev_ext` → Fig3–6 三面板（train | internal | external）
+
+2. **禁止**在 CHARLS×ELSA / MIMIC×eICU 这类双 regular 课题上静默用 `per_db_internal`（两库各自训练 → 旧 Fig3 combined 2×4、无 Table5 外验、表号错位）。
+
+3. **NHANES×次库** 仍可用 `per_db_internal`（加权主库自训）；若课题要外验冻结，须显式写 `dev_internal_ext` 并注释依据。
+
+4. **写 config 必查**：`.study$split_mode`（或 `config$ml_batch$split_mode`）与金标准 AF 一致；引擎 builder 已对双 regular 默认 `dev_internal_ext`（`configs/study_interface/ml_dual_batch_build.R`）。
+
+5. **改口径 = 清指标重跑**：换 `split_mode` 后必须删 `by_index/【success】<INDEX>` 与 `checkpoints/by_index/<INDEX>`，`--only-index … --no-skip`；禁止在旧 `per_db_internal` 产物上改名冒充外验三面板。
+
+6. **Gate A 不得掏空双库共有列**：`secondary_only_t1`（Residence/Memeory/CRP…）只删**非 common** 的次库独有展示列。CHARLS×ELSA 共有 `Memeory` 时禁止从次库剔除，否则主库选进特征、外验缺列、`ml_eval_external` 全军覆没。
+
+7. **亚组必须尊重课题 `required_subgroup_vars`**：`incidence_batch_patch_config_for_index` 禁止用 `base_subgroup_vars` 默认名单（常含 `Race`、无 `Age`）覆盖课题显式设定。CHARLS×ELSA 无 Race，默认名单会踢掉 Age、乱入 Race。森林图 Age 用 `age_cutoff` 二分类 `Age_Group`（见 `age_subgroup_binary`）。
+
+8. **Fig2 = LASSO A/B 合成图，禁止再留重复 S1**：dev_ext 下 `incidence_batch_ml_collect_fs_figure` 把 S2A+S2B 用 `pub_figure_combine_ab_pdfs`（PyMuPDF 矢量，A 上 B 下）合成到 **Figure 2. Feature selection LASSO.pdf**，并删除同名 Figure S1 LASSO。RCS 不进主图号（`ml_dual_dev_ext` 下 role=drop）。
+
+9. **Fig1 纳排图**：双栏标题只用库名（勿拼指标名当「文件名」）；Exclude 框加宽、两行横排、**横向虚线箭头**从主列指向 Exclude（`attrition_draw_pdf`）；每步写清排除原因（step_id 语义映射），缺 `exclude_label` 时勿写「Exclude: Excluded」；底部分叉双框宽须 `ow ≤ cx-gapf/2-0.02`（旧 ow=0.28 把粉色病例框左缘裁出画布）；主框标签去掉「; excluded N」冗余。
+
+10. **dev_ext 主表编号连续 1→5**：`ml_dual_dev_ext_compose_pub` 必须同时写 Table 3（主库训练）/ Table 4（主库内验）/ Table 5（次库外验）三张 ML performance wide，勿只出 Table 5。
+
+11. **附表 train/val/ext 按库判定**：`ml_dual_pub_table_curate` 的插补/VIF 表在 dev_ext 下须用 `.ml_ptc_dev_ext_force_ext`——**次库（外验）强制 external**，勿被通用 "(validation set)" 误判为 internal。主库保留 training + internal validation 两张。
+
+12. **暴露指标应自然过 LASSO，勿只靠强制并入**：`force_composite_features=TRUE` 会把没过线的暴露硬塞进 ML（审稿质疑「暴露靠强制进入、AUC 是否虚高」）。若暴露频次接近阈值（如 sdLDL_C=813/1000），应调 `config$feature_selection_lasso$lasso_frequency_cutoff_n`（如 900→800）让暴露**自然入选**，日志应无「复合指标…已强制并入」。写 config 时先查 `Lasso_feature_frequency.csv` 暴露频次再定阈值。
+
+## 检查清单
+
+- [ ] `.study$split_mode`（双 regular）= `dev_internal_ext`
+- [ ] 加载后 `pub_figure_scheme` = `ml_dual_dev_ext`
+- [ ] 次库流水线走 `ml_eval_external`（非整库自训 `ml_models_bundle`）
+- [ ] 主库 `feature_selection_final` ⊆ 次库列名（无 Memeory 等被 Gate A 误删）
+- [ ] 日志 `Subgroup variables:` 含 `Age_Group`、无 `Race`（除非课题真有 Race）
+- [ ] 根 Figures：Fig1 Flow（标题仅库名）；Fig2 LASSO A/B（无重复 S1 LASSO）；Fig3–6 三集；Fig7 SHAP；Fig8 亚组双库拼图；四目录齐全
+- [ ] 根 Tables：Table 1→5 连续；双库 Table1/2；**Table3 训练 / Table4 内验 / Table5 外验**
+- [ ] 附表 S1/S3：主库 training+internal、次库 **external**（勿把外验标成 internal）
+- [ ] 日志无「复合指标…已强制并入」（暴露已自然过 LASSO 阈值）
+- [ ] Fig1 底部分叉双框完整在画布内（粉色病例框不裁切）
+
+## 反例（禁止）
+
+- 双 CHARLS/ELSA 跑成 `per_db_internal`，根目录却出现 RCS 当 Fig2、combined 2×4 当 Fig3
+- 只改文件名 / 手工拼图，不重跑外验冻结
+- 课题后半段把 `split_mode` 写回 `per_db_internal` 覆盖 builder
+- Gate A 把双库共有 `Memeory` 从次库删掉，外验报 `new_data`/`缺列` 失败
+- 亚组森林丢 Age、乱入队列根本没有的 Race（默认名单覆盖课题设定）
+- Fig2 LASSO 与 Figure S1 LASSO 内容重复；或 LASSO 用 `gs`/`pdfunite` 多页糊成非 A/B 版式
+- 纳排图标题写「CHARLS - sdLDL_C」、Exclude 竖排挤成多行
+- dev_ext 根表从 Table 2 直接跳到 Table 5（缺 3/4）
+- 外验库（ELSA/eICU）的插补/VIF 附表被标成 internal validation set

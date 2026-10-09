@@ -1,0 +1,39 @@
+---
+description: 预后敏感性轻量路径必须含 28 天 landmark（防 S13 与 Table1 结局错位）
+alwaysApply: true
+---
+
+# 预后敏感性 landmark 铁律（全项目复用）
+
+凡 **预后 dual-batch / survival_batch** 的敏感性轻量路径（含 `SA_complete_case`、排除合并症、年龄分层等），必须与主文同一结局时间窗。
+
+## 已踩坑（HSI 2026-10）
+
+- 主文 Table 1：`prognosis_outcome_landmark` → **28 天全因死亡**，`futime≤28`
+- 旧敏感性轻量只跑 `baseline_binary` + `cox_*`，从 **未截尾** mapped/cleaned 起步
+- 结果：S13 人数≠Table1（complete-case 本可不同），且 **死亡数/Survivor 按院内全 LOS 计**，审稿必抓
+
+## 铁律
+
+1. 预后轻量 blocks **必须**为：
+   `prognosis_outcome_landmark` → `baseline_binary` → `cox_{quartile|tertile|binary}`
+2. **禁止**省略或后置 landmark；`incidence_sensitivity_light_blocks("prognosis", …)` 与 worker trim 后均硬检。
+3. 出表前抽检：`futime` 最大值不得超过 `landmark_days`（默认 28）；超限停止出表。
+4. Methods 须区分：
+   - 主分析 = **插补后**队列 + 28 天 landmark
+   - `SA_complete_case` = **未插补完整病例**子集 + **同一** 28 天 landmark（人数可少，结局口径不可变）
+5. 改轻量路径 / 敏感性 suite 后必跑：`tests/test_incidence_sensitivity_light.R`
+
+## 实现入口
+
+- `R/incidence_sensitivity_suite.R`
+  - `incidence_sensitivity_light_blocks`
+  - `incidence_sensitivity_assert_prognosis_light_blocks`
+  - `incidence_sensitivity_assert_landmark_futime`
+- Worker：`run/survival/run_survival_dual_batch_worker.R`（`.sensitivity_light`）
+
+## 反例（禁止）
+
+- 预后轻量 `c("baseline_binary", "cox_quartile")` 无 landmark
+- complete-case 用院内死亡解释「与 Table1 人数不同」却不提结局窗口已变
+- 只改某一课题 worker、不改引擎公共 `light_blocks`

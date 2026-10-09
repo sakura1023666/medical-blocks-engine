@@ -12,7 +12,7 @@
 #  train_validation = list(
 #    enable             = TRUE,
 #    passthrough        = FALSE,   # TRUE 或 mode="passthrough"：不重切，沿用 ctx$data$train/test
-#    mode               = NULL,    # "passthrough" 等价于 passthrough=TRUE（跨库 cross_db）
+#    mode               = NULL,    # "passthrough" | "external_all"（次库整库外验，不划分）
 #    train_ratio        = 0.7,     # 训练占比；(0,1)
 #    stratify           = TRUE,    # 按结局分层 initial_split
 #    base_seed          = NULL,  # NULL → splitting$seed 或 imputation$seed
@@ -357,6 +357,23 @@ block_train_validation <- function(ctx, ...) {
   if (isFALSE(tv$enable %||% TRUE)) {
     cli::cli_alert_info("config$train_validation$enable=FALSE，跳过 train_validation。")
     return(ctx)
+  }
+
+  ## 外验库整库不划分：train/test 均为全集（MICE 拟合用 train；ML 只评 test）
+  if (identical(tv$mode, "external_all") || isTRUE(tv$external_all)) {
+    data <- ctx$data$imputed %||% ctx$data$cleaned
+    if (is.null(data) || !is.data.frame(data) || nrow(data) < 1L) {
+      stop("train_validation external_all: 需要非空 cleaned/imputed。", call. = FALSE)
+    }
+    ctx$data$train <- data
+    ctx$data$test <- data
+    ctx$results$train_validation_external_all <- TRUE
+    tv$passthrough <- TRUE
+    tv$mode <- "passthrough"
+    ctx$config$train_validation <- tv
+    cli::cli_alert_info(
+      "train_validation external_all: 不划分，整库 n={nrow(data)} 作为外验集。"
+    )
   }
 
   passthrough <- isTRUE(tv$passthrough) || identical(tv$mode, "passthrough")

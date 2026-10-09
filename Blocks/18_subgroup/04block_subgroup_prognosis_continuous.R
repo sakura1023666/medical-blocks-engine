@@ -88,7 +88,15 @@ block_subgroup_prognosis_continuous <- function(ctx, ...) {
   time_col <- surv$time_var %||% surv$time_column %||% "futime"
   status_col <- surv$event_var %||% surv$status_column %||% surv$event_column %||% "fustatus"
 
-  index_var <- surv$index_var %||% log_idx
+  index_var <- as.character(
+    cfg$prediction$index_vars %||%
+      cfg$ml_batch$index_vars %||%
+      surv$index_var %||%
+      log_idx
+  )
+  index_var <- index_var[nzchar(trimws(index_var))]
+  if (!length(index_var)) stop("index_var is required", call. = FALSE)
+  index_var <- index_var[[1L]]
   disease_col <- cfg$data$outcome_column %||% "fustatus"
 
   analysis_grp <- cfg$project$analysis_group %||% cfg$project$disease

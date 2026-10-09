@@ -24,10 +24,13 @@
 #    export_table_s1        = TRUE,   # 是否导出插补前后 Table S1
 #    table_s1_title         = NULL,
 #    table_s1_filename      = NULL,
-#    fit_on                 = "all"   # "all"=全样本 MICE；"train"=仅 train 估计 MICE，
-#                                     # 须先有 ctx$data$train/test（train_validation 或 cross_db）；
-#                                     # validation 用 mice(ignore=TRUE) 由同一模型填入（不泄漏）；
-#                                     # 失败则回退 train 列中位数/众数填 test
+#    table_s1_exclude_vars  = NULL,   # 额外排除列；引擎默认再排除 fustatus /
+#                                     # survival$event_var / data$outcome_column（结局不作 S1 行）
+#    fit_on                 = "all"   # TST 必须 "train"：仅 train 估计 MICE；
+#                                     # 须先有 ctx$data$train/test（或 tst_split 物化：test=val∪test）；
+#                                     # validation/test 用 mice(ignore=TRUE) 由同一模型填入（不泄漏）；
+#                                     # 失败则回退 train 列中位数/众数填 test；
+#                                     # 禁止对 val/test 各自重新 mice()；complete_action 取第几套写入 imputed
 #    # 另见全局 config$analysis_var_policy：生成表/图前删除任一层级 n<20 的分类列
 #  ),
 #
@@ -346,34 +349,381 @@
   data_imp
 }
 
-.imp01_run_mice <- function(data_mice, method, m, max_iter, seed, complete_action,
-                              ignore = NULL) {
-  cli::cli_h2("Running MICE (method={method}, m={m}, maxit={max_iter}, seed={seed})")
-  mice_args <- list(
-    data            = data_mice,
-    m               = m,
-    seed            = seed,
-    method          = method,
-    maxit           = max_iter,
-    printFlag       = FALSE
-  )
-  # mice≥3.12: ignore=TRUE 的行不参与插补模型估计，但仍被填入（train→test）
-  if (!is.null(ignore)) {
-    ignore <- as.logical(ignore)
-    if (length(ignore) != nrow(data_mice)) {
-      stop("mice ignore 长度须 = nrow(data)", call. = FALSE)
+
+# 数值稳定 PMM：在观测子集上剔除近常值 / QR 秩亏列后再走标准 PMM donor 匹配。
+# mice::estimice 在 diag(X'X)=0 时即使用 ridge 仍会 solve 失败；本方法保持 PMM 算法，
+# 仅做设计矩阵局部剪枝，并在极端情况下用 ginv 完成回归系数抽样。
+.imp01_pmm_clean_x <- function(x, ry, tol = 1e-8) {
+  x <- as.matrix(x)
+  storage.mode(x) <- "double"
+  x[!is.finite(x)] <- 0
+  if (!any(ry) || ncol(x) < 1L) return(x[, FALSE, drop = FALSE])
+  xr <- x[ry, , drop = FALSE]
+  keep <- vapply(seq_len(ncol(xr)), function(j) {
+    z <- xr[, j]
+    z <- z[is.finite(z)]
+    length(z) >= 2L && is.finite(stats::sd(z)) && stats::sd(z) > tol
+  }, logical(1L))
+  if (!any(keep)) return(x[, FALSE, drop = FALSE])
+  x <- x[, keep, drop = FALSE]
+  xr <- x[ry, , drop = FALSE]
+  if (ncol(xr) >= 2L) {
+    q <- qr(xr, tol = tol)
+    rnk <- q$rank
+    if (is.finite(rnk) && rnk >= 1L && rnk < ncol(xr)) {
+      x <- x[, sort(q$pivot[seq_len(rnk)]), drop = FALSE]
     }
-    mice_args$ignore <- ignore
-    n_fit <- sum(!ignore, na.rm = TRUE)
-    n_apply <- sum(ignore, na.rm = TRUE)
-    cli::cli_alert_info(
-      "MICE ignore: fit on {n_fit} rows; apply-to {n_apply} held-out rows (no validation leakage)"
+  }
+  x
+}
+
+.imp01_pmm_norm_draw <- function(y, ry, x, ridge = 1e-05) {
+  # x 已含截距列；返回 list(coef, beta, sigma) 对齐 mice::.norm.draw
+  xobs <- x[ry, , drop = FALSE]
+  yobs <- as.numeric(y[ry])
+  n <- nrow(xobs)
+  p <- ncol(xobs)
+  df <- max(n - p, 1L)
+  xtx <- crossprod(xobs)
+  d <- diag(xtx)
+  pen <- as.numeric(ridge) * d
+  pen[!is.finite(pen) | d < 1e-12] <- max(as.numeric(ridge), 1e-3)
+  A <- xtx + diag(pen, nrow = p)
+  v <- tryCatch(
+    solve(A),
+    error = function(e) {
+      if (requireNamespace("MASS", quietly = TRUE)) MASS::ginv(A) else {
+        # 对角兜底
+        diag(1 / pmax(diag(A), 1e-8), nrow = p)
+      }
+    }
+  )
+  coef <- as.vector(v %*% crossprod(xobs, yobs))
+  resid <- yobs - as.vector(xobs %*% coef)
+  rss <- sum(resid^2)
+  sigma <- sqrt(rss / stats::rchisq(1L, df))
+  # chol(v) 可能因半正定失败 → 用对称化 + 对角抖动
+  v2 <- (v + t(v)) / 2
+  ev <- tryCatch(eigen(v2, symmetric = TRUE), error = function(e) NULL)
+  if (is.null(ev)) {
+    beta <- coef
+  } else {
+    lam <- pmax(ev$values, 0)
+    R <- ev$vectors %*% diag(sqrt(lam), nrow = length(lam))
+    beta <- coef + as.vector(R %*% stats::rnorm(p)) * sigma
+  }
+  list(coef = coef, beta = beta, sigma = sigma)
+}
+
+mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype = 1L,
+                                   ridge = 1e-05, ...) {
+  if (is.null(wy)) wy <- !ry
+  x <- .imp01_pmm_clean_x(x, ry)
+  if (ncol(x) < 1L || sum(ry) < 2L) {
+    return(sample(y[ry], size = sum(wy), replace = TRUE))
+  }
+  x <- cbind(1, x)
+  ynum <- y
+  if (is.factor(y)) ynum <- as.integer(y)
+  parm <- tryCatch(
+    .imp01_pmm_norm_draw(ynum, ry, x, ridge = max(as.numeric(ridge), 1e-3)),
+    error = function(e) NULL
+  )
+  if (is.null(parm)) {
+    return(sample(y[ry], size = sum(wy), replace = TRUE))
+  }
+  if (as.integer(matchtype) == 0L) {
+    yhatobs <- as.vector(x[ry, , drop = FALSE] %*% parm$coef)
+    yhatmis <- as.vector(x[wy, , drop = FALSE] %*% parm$coef)
+  } else if (as.integer(matchtype) == 2L) {
+    yhatobs <- as.vector(x[ry, , drop = FALSE] %*% parm$beta)
+    yhatmis <- as.vector(x[wy, , drop = FALSE] %*% parm$beta)
+  } else {
+    yhatobs <- as.vector(x[ry, , drop = FALSE] %*% parm$coef)
+    yhatmis <- as.vector(x[wy, , drop = FALSE] %*% parm$beta)
+  }
+  if (any(!is.finite(yhatobs)) || any(!is.finite(yhatmis))) {
+    return(sample(y[ry], size = sum(wy), replace = TRUE))
+  }
+  idx <- mice::matchindex(yhatobs, yhatmis, donors)
+  y[ry][idx]
+}
+
+.imp01_prune_mice_collinearity <- function(data_mice,
+                                           cor_threshold = 0.95,
+                                           min_complete = 30L) {
+  # Drop near-constant / highly collinear numeric predictors that break PMM .norm.draw.
+  if (!is.data.frame(data_mice) || ncol(data_mice) < 2L) {
+    return(list(data_mice = data_mice, dropped = character(0)))
+  }
+  dropped <- character(0)
+  keep <- vapply(names(data_mice), function(cn) {
+    x <- data_mice[[cn]]
+    if (is.factor(x) || is.character(x)) {
+      u <- unique(as.character(x[!is.na(x)]))
+      return(length(u) >= 2L)
+    }
+    if (!is.numeric(x)) return(TRUE)
+    v <- x[is.finite(x)]
+    if (length(v) < as.integer(min_complete)) return(FALSE)
+    stats::sd(v) > 0
+  }, logical(1L))
+  if (any(!keep)) {
+    drop1 <- names(data_mice)[!keep]
+    dropped <- c(dropped, drop1)
+    cli::cli_alert_warning(
+      "PMM 预检剔除近常值/低有效样本列 {length(drop1)}: {paste(utils::head(drop1, 8), collapse = ', ')}{if (length(drop1) > 8) '...' else ''}"
+    )
+    data_mice <- data_mice[, keep, drop = FALSE]
+  }
+  num_cols <- names(data_mice)[vapply(data_mice, is.numeric, logical(1L))]
+  if (length(num_cols) >= 2L) {
+    mat <- as.matrix(data_mice[, num_cols, drop = FALSE])
+    cm <- suppressWarnings(stats::cor(mat, use = "pairwise.complete.obs"))
+    cm[!is.finite(cm)] <- 0
+    n_miss <- colSums(!is.finite(mat))
+    drop2 <- character(0)
+    for (i in seq_len(ncol(cm) - 1L)) {
+      if (num_cols[i] %in% drop2) next
+      for (j in (i + 1L):ncol(cm)) {
+        if (num_cols[j] %in% drop2) next
+        if (abs(cm[i, j]) >= as.numeric(cor_threshold)) {
+          loser <- if (n_miss[i] <= n_miss[j]) num_cols[j] else num_cols[i]
+          drop2 <- c(drop2, loser)
+        }
+      }
+    }
+    drop2 <- unique(drop2)
+    if (length(drop2)) {
+      dropped <- c(dropped, drop2)
+      cli::cli_alert_warning(
+        "PMM 预检剔除高相关(|r|>={cor_threshold})列 {length(drop2)}: {paste(utils::head(drop2, 8), collapse = ', ')}{if (length(drop2) > 8) '...' else ''}"
+      )
+      data_mice <- data_mice[, setdiff(names(data_mice), drop2), drop = FALSE]
+      num_cols <- setdiff(num_cols, drop2)
+    }
+    if (length(num_cols) >= 2L) {
+      mat2 <- as.matrix(data_mice[, num_cols, drop = FALSE])
+      cc <- stats::complete.cases(mat2)
+      if (sum(cc) >= max(30L, length(num_cols) + 5L)) {
+        sc <- scale(mat2[cc, , drop = FALSE])
+        sc[!is.finite(sc)] <- 0
+        q <- qr(sc, tol = 1e-8)
+        rnk <- q$rank
+        if (is.finite(rnk) && rnk < length(num_cols)) {
+          dep <- num_cols[q$pivot[seq.int(rnk + 1L, length(num_cols))]]
+          dropped <- c(dropped, dep)
+          cli::cli_alert_warning(
+            "PMM 预检 QR 秩亏剔除 {length(dep)} 列: {paste(utils::head(dep, 8), collapse = ', ')}{if (length(dep) > 8) '...' else ''}"
+          )
+          data_mice <- data_mice[, setdiff(names(data_mice), dep), drop = FALSE]
+        }
+      }
+    }
+  }
+  list(data_mice = data_mice, dropped = unique(dropped))
+}
+
+.imp01_run_mice <- function(data_mice, method, m, max_iter, seed, complete_action,
+                              ignore = NULL, ridge = 1e-2, cor_threshold = 0.95,
+                              allow_cart_fallback = FALSE) {
+  method_req <- as.character(method %||% "pmm")[1L]
+  method <- method_req
+  # 配置写 pmm 时改走数值稳定 PMM（算法仍为 predictive mean matching）
+  if (identical(tolower(method), "pmm")) {
+    if (!exists("mice.impute.pmm_stable", mode = "function", inherits = TRUE)) {
+      stop("mice.impute.pmm_stable 未加载（检查 Blocks/03_imputation/01block_imputation.R）", call. = FALSE)
+    }
+    method <- "pmm_stable"
+    cli::cli_alert_info("MICE method=pmm → pmm_stable（局部设计矩阵剪枝 + ginv，保持 PMM donor 匹配）")
+  }
+  ridge <- as.numeric(ridge %||% 1e-2)[1L]
+  if (!is.finite(ridge) || ridge < 0) ridge <- 1e-2
+  cor_threshold <- as.numeric(cor_threshold %||% 0.95)[1L]
+
+  dropped_hold <- NULL
+  if (tolower(method_req) %in% c("pmm", "norm", "norm.nob", "norm.boot", "norm.predict") ||
+      identical(method, "pmm_stable")) {
+    for (thr in unique(c(cor_threshold, 0.95, 0.90, 0.85))) {
+      pruned <- .imp01_prune_mice_collinearity(data_mice, cor_threshold = thr)
+      if (length(pruned$dropped)) {
+        hold_cols <- intersect(pruned$dropped, names(data_mice))
+        if (length(hold_cols)) {
+          add <- data_mice[, hold_cols, drop = FALSE]
+          if (is.null(dropped_hold)) dropped_hold <- add
+          else for (cn in names(add)) if (!cn %in% names(dropped_hold)) dropped_hold[[cn]] <- add[[cn]]
+        }
+      }
+      data_mice <- pruned$data_mice
+    }
+  }
+
+  # 数值列 z-score，降低极端尺度导致的条件数爆炸（插补后还原）
+  scale_center <- NULL
+  scale_sd <- NULL
+  num_scale <- names(data_mice)[vapply(data_mice, is.numeric, logical(1L))]
+  if (length(num_scale)) {
+    scale_center <- vapply(num_scale, function(cn) {
+      v <- data_mice[[cn]]; v <- v[is.finite(v)]
+      if (!length(v)) 0 else as.numeric(stats::median(v))
+    }, numeric(1L))
+    scale_sd <- vapply(num_scale, function(cn) {
+      v <- data_mice[[cn]]; v <- v[is.finite(v)]
+      if (length(v) < 2L) 1 else {
+        s <- stats::sd(v); if (!is.finite(s) || s < 1e-12) 1 else s
+      }
+    }, numeric(1L))
+    for (cn in num_scale) {
+      data_mice[[cn]] <- (data_mice[[cn]] - scale_center[[cn]]) / scale_sd[[cn]]
+    }
+    cli::cli_alert_info("MICE 前对 {length(num_scale)} 个数值列做中位数/SD 标准化（完成后还原）")
+  }
+
+  pred <- NULL
+  if (ncol(data_mice) >= 2L) {
+    pred <- tryCatch(
+      mice::quickpred(data_mice, mincor = 0.1, minpuc = 0.25),
+      error = function(e) NULL
+    )
+    if (!is.null(pred)) {
+      for (i in seq_len(nrow(pred))) {
+        idx <- which(pred[i, ] != 0)
+        if (length(idx) > 12L) pred[i, idx[-seq_len(12L)]] <- 0
+      }
+      cli::cli_alert_info(
+        "MICE quickpred: 平均每变量 {round(mean(rowSums(pred)), 1)} 个预测变量（已封顶 ≤12）"
+      )
+    }
+  }
+
+  run_once <- function(meth, ridge_val, pred_mat = pred) {
+    cli::cli_h2(
+      "Running MICE (method={meth}, m={m}, maxit={max_iter}, seed={seed}, ridge={ridge_val})"
+    )
+    mice_args <- list(
+      data = data_mice, m = m, seed = seed, method = meth,
+      maxit = max_iter, ridge = ridge_val, printFlag = FALSE,
+      remove.collinear = TRUE, remove.constant = TRUE
+    )
+    if (!is.null(pred_mat)) mice_args$predictorMatrix <- pred_mat
+    if (!is.null(ignore)) {
+      ignore <- as.logical(ignore)
+      if (length(ignore) != nrow(data_mice)) stop("mice ignore 长度须 = nrow(data)", call. = FALSE)
+      mice_args$ignore <- ignore
+      cli::cli_alert_info(
+        "MICE ignore: fit on {sum(!ignore, na.rm = TRUE)} rows; apply-to {sum(ignore, na.rm = TRUE)} held-out rows"
+      )
+    }
+    do.call(mice::mice, mice_args)
+  }
+
+  rid_try <- unique(c(ridge, 1e-2, 5e-2, 1e-1, 0.5, 1.0))
+  rid_try <- rid_try[is.finite(rid_try) & rid_try > 0]
+  imp <- NULL
+  last_err <- NULL
+  for (rv in rid_try) {
+    imp <- tryCatch(
+      run_once(method, rv, pred),
+      error = function(e) {
+        last_err <<- e
+        cli::cli_alert_warning("MICE {method} 失败（ridge={rv}）: {conditionMessage(e)}；继续重试")
+        NULL
+      }
+    )
+    if (!is.null(imp)) break
+  }
+  if (is.null(imp) && !is.null(pred)) {
+    pred2 <- pred
+    for (i in seq_len(nrow(pred2))) {
+      idx <- which(pred2[i, ] != 0)
+      if (length(idx) > 5L) pred2[i, idx[-seq_len(5L)]] <- 0
+    }
+    cli::cli_alert_warning("PMM 仍失败：收紧 predictorMatrix 至每变量 ≤5 个预测变量后重试")
+    for (rv in c(0.1, 0.5, 1.0)) {
+      imp <- tryCatch(
+        run_once(method, rv, pred2),
+        error = function(e) {
+          last_err <<- e
+          cli::cli_alert_warning("MICE {method} 失败（ridge={rv}, ≤5 pred）: {conditionMessage(e)}")
+          NULL
+        }
+      )
+      if (!is.null(imp)) break
+    }
+  }
+  if (is.null(imp) && isTRUE(allow_cart_fallback) &&
+      !tolower(method) %in% c("cart") && !identical(tolower(method_req), "cart")) {
+    cli::cli_alert_warning("PMM 仍失败；config 允许 cart 回退（m={m}）")
+    imp <- tryCatch(run_once("cart", max(ridge, 1e-3), pred), error = function(e) { last_err <<- e; NULL })
+  }
+  if (is.null(imp)) {
+    stop(
+      "MICE PMM 失败（pmm_stable + 共线剪枝 + ridge + quickpred 仍失败）: ",
+      if (!is.null(last_err)) conditionMessage(last_err) else "unknown",
+      call. = FALSE
     )
   }
-  imp <- do.call(mice::mice, mice_args)
   data_imp <- mice::complete(imp, action = complete_action)
+  if (!is.null(dropped_hold) && ncol(dropped_hold) > 0L && nrow(dropped_hold) == nrow(data_imp)) {
+    # 共线预检剔出的列：用已完成主集作预测子，再跑一轮 PMM（仍文献级 PMM，非 cart/中位数）
+    stage2 <- dropped_hold
+    # stage2 与 data_imp 同尺度：若主集已标准化，hold 列也需同样标准化
+    if (!is.null(scale_center) && !is.null(scale_sd)) {
+      for (cn in intersect(names(stage2), names(scale_center))) {
+        if (is.numeric(stage2[[cn]])) {
+          stage2[[cn]] <- (stage2[[cn]] - scale_center[[cn]]) / scale_sd[[cn]]
+        }
+      }
+    }
+    pred_cols <- names(data_imp)
+    s2_df <- cbind(stage2, data_imp[, pred_cols, drop = FALSE])
+    s2_method <- rep("", ncol(s2_df))
+    names(s2_method) <- names(s2_df)
+    s2_method[names(stage2)] <- if (exists("mice.impute.pmm_stable", mode = "function", inherits = TRUE)) {
+      "pmm_stable"
+    } else {
+      "pmm"
+    }
+    s2_pred <- matrix(0L, nrow = ncol(s2_df), ncol = ncol(s2_df),
+                      dimnames = list(names(s2_df), names(s2_df)))
+    for (cn in names(stage2)) {
+      s2_pred[cn, pred_cols] <- 1L
+      s2_pred[cn, cn] <- 0L
+    }
+    cli::cli_alert_info(
+      "共线预检列二阶段 PMM: {paste(names(stage2), collapse = ', ')}（预测子=主集完成列）"
+    )
+    s2_imp <- tryCatch(
+      mice::mice(
+        s2_df, m = 1L, maxit = max(3L, as.integer(max_iter)), seed = seed,
+        method = s2_method, predictorMatrix = s2_pred,
+        ridge = max(ridge, 1e-2), printFlag = FALSE,
+        remove.collinear = TRUE, remove.constant = TRUE
+      ),
+      error = function(e) {
+        cli::cli_alert_warning("二阶段 PMM 失败: {conditionMessage(e)}；该列稍后中位数兜底")
+        NULL
+      }
+    )
+    if (!is.null(s2_imp)) {
+      s2_done <- mice::complete(s2_imp, action = 1L)
+      for (cn in names(stage2)) data_imp[[cn]] <- s2_done[[cn]]
+    } else {
+      for (cn in names(stage2)) data_imp[[cn]] <- stage2[[cn]]
+    }
+  }
+  if (!is.null(scale_center) && !is.null(scale_sd)) {
+    for (cn in intersect(names(scale_center), names(data_imp))) {
+      if (is.numeric(data_imp[[cn]])) {
+        data_imp[[cn]] <- data_imp[[cn]] * scale_sd[[cn]] + scale_center[[cn]]
+      }
+    }
+  }
   data_imp <- .imp01_residual_median_mode_fill(data_imp)
-  cli::cli_alert_success("Imputation complete. Remaining NA: {sum(is.na(data_imp))}")
+  meth_used <- unique(as.character(imp$method[nzchar(as.character(imp$method))]))
+  cli::cli_alert_success(
+    "Imputation complete (requested={method_req}, used={paste(meth_used, collapse=',')}). Remaining NA: {sum(is.na(data_imp))}"
+  )
   list(data_imp = data_imp, imp = imp)
 }
 
@@ -415,14 +765,58 @@
   out[, names(train_imp), drop = FALSE]
 }
 
+#' 若尚无 train/test 宽表，但已有 tst_split ID，则从队列物化（test = val∪test）
+.imp01_materialize_from_tst_split <- function(ctx, cfg) {
+  need_train <- is.null(ctx$data$train) || !is.data.frame(ctx$data$train) || nrow(ctx$data$train) < 1L
+  need_test <- is.null(ctx$data$test) || !is.data.frame(ctx$data$test)
+  if (!need_train && !need_test) return(ctx)
+  sp <- ctx$data$tst_split
+  if (is.null(sp) || is.null(sp$train)) {
+    stop(
+      "fit_on='train' 需要 ctx$data$train/test，或先跑 tst_split 写出 ID 划分",
+      call. = FALSE
+    )
+  }
+  base <- ctx$data$tst_cohort %||% ctx$data$mapped %||% ctx$data$cleaned
+  if (is.null(base) || !is.data.frame(base) || nrow(base) < 1L) {
+    stop("fit_on='train' 无法从 tst_cohort/mapped/cleaned 物化 train/test", call. = FALSE)
+  }
+  id_col <- if ("tst_patient_id" %in% names(base)) {
+    "tst_patient_id"
+  } else {
+    as.character(cfg$data$id_column %||% "stay_id")[1L]
+  }
+  if (!id_col %in% names(base)) {
+    stop("fit_on='train' 物化失败：宽表无 ID 列 ", id_col, call. = FALSE)
+  }
+  pid <- as.character(base[[id_col]])
+  train_ids <- as.character(sp$train)
+  hold_ids <- unique(c(as.character(sp$val %||% character(0)), as.character(sp$test %||% character(0))))
+  if (!length(hold_ids) && length(sp$test)) hold_ids <- as.character(sp$test)
+  ctx$data$train <- base[pid %in% train_ids, , drop = FALSE]
+  ctx$data$test <- base[pid %in% hold_ids, , drop = FALSE]
+  if ("tst_patient_id" %in% names(base) == FALSE && id_col != "tst_patient_id") {
+    # keep as-is
+  }
+  ctx$results$mi_holdout <- "val_union_test"
+  cli::cli_alert_info(
+    "imputation: materialized train={nrow(ctx$data$train)} holdout(val∪test)={nrow(ctx$data$test)} from tst_split"
+  )
+  ctx
+}
+
 .imp01_fit_on_train <- function(ctx, cfg, imp_cfg, finalize_fn) {
+  ctx <- .imp01_materialize_from_tst_split(ctx, cfg)
   train_raw <- ctx$data$train
   test_raw <- ctx$data$test
   if (is.null(train_raw) || !is.data.frame(train_raw) || nrow(train_raw) < 1L) {
-    stop("fit_on='train' 需要非空 ctx$data$train（由 train_validation 或 cross_db assign 预先写入）", call. = FALSE)
+    stop(
+      "fit_on='train' 需要非空 ctx$data$train（tst_split 物化 / train_validation / cross_db）",
+      call. = FALSE
+    )
   }
   if (is.null(test_raw) || !is.data.frame(test_raw)) {
-    stop("fit_on='train' 需要 ctx$data$test", call. = FALSE)
+    stop("fit_on='train' 需要 ctx$data$test（holdout = val∪test 或 validation）", call. = FALSE)
   }
 
   cli::cli_h2(
@@ -437,6 +831,9 @@
   max_iter <- as.integer(imp_cfg$max_iter %||% 5L)
   seed <- as.integer(imp_cfg$seed %||% 1234L)
   complete_action <- as.integer(imp_cfg$complete_action %||% 1L)
+  mice_ridge <- as.numeric(imp_cfg$ridge %||% 1e-2)[1L]
+  mice_cor_drop <- as.numeric(imp_cfg$cor_drop_threshold %||% 0.95)[1L]
+  allow_cart_fb <- isTRUE(imp_cfg$allow_cart_fallback %||% FALSE)
   id_cols_present <- .imp01_detect_id_cols(train_raw, cfg)
 
   train_raw <- pipeline_ensure_outcome_group_column(train_raw, cfg)
@@ -506,7 +903,9 @@
     mice_ok <- FALSE
     tryCatch({
       mice_res <- .imp01_run_mice(
-        stacked, method, m, max_iter, seed, complete_action, ignore = ignore
+        stacked, method, m, max_iter, seed, complete_action,
+        ignore = ignore, ridge = mice_ridge, cor_threshold = mice_cor_drop,
+        allow_cart_fallback = allow_cart_fb
       )
       filled <- mice_res$data_imp
       train_mice_c <- filled[seq_len(n_tr), , drop = FALSE]
@@ -543,7 +942,11 @@
       )
     })
     if (!isTRUE(mice_ok)) {
-      mice_res <- .imp01_run_mice(train_mice, method, m, max_iter, seed, complete_action)
+      mice_res <- .imp01_run_mice(
+        train_mice, method, m, max_iter, seed, complete_action,
+        ridge = mice_ridge, cor_threshold = mice_cor_drop,
+        allow_cart_fallback = allow_cart_fb
+      )
       train_imp <- .imp01_reattach_mice_extras(
         mice_res$data_imp,
         train_prep$id_for_attach,
@@ -574,8 +977,19 @@
     train_imp <- .imp01_residual_median_mode_fill(train_imp)
   }
 
-  n_train <- nrow(train_imp)
-  pooled <- rbind(train_imp, test_imp)
+  ext_all <- isTRUE(ctx$results$train_validation_external_all)
+  if (ext_all) {
+    ## 次库整库外验：train/test 是同一批人，禁止 rbind 翻倍
+    test_imp <- train_imp
+    pooled <- train_imp
+    n_train <- nrow(train_imp)
+    cli::cli_alert_info(
+      "imputation external_all: 整库一次插补 n={n_train}，出一张全集 S1，不出第二张验证集 S1b。"
+    )
+  } else {
+    n_train <- nrow(train_imp)
+    pooled <- rbind(train_imp, test_imp)
+  }
 
   tables_dir <- file.path(ctx$output_dir, "Tables")
   if (!dir.exists(tables_dir)) dir.create(tables_dir, recursive = TRUE)
@@ -587,16 +1001,29 @@
       paste0("Validation/test rows: ", nrow(test_imp)),
       "Order: train/test assignment BEFORE multiple imputation.",
       "Train: MICE (mice::mice) estimated on training rows only.",
-      "Validation: imputed by the same MICE run via mice(ignore=TRUE) for held-out rows",
-      "  (held-out cases do not contribute to imputation model parameters).",
+      "Holdout (val∪test or validation): imputed by the SAME MICE run via mice(ignore=TRUE).",
+      "  Held-out cases do NOT contribute to imputation model parameters.",
+      "NOT correct: fitting a separate mice() on val or on test.",
       "Fallback if ignore path fails: train-only MICE + train-column median/mode for test NA.",
       "Outcome labels are never imputed from covariates; required_non_na rows filtered in both sets.",
-      paste0("Table S1 before/after MI: train rows only (n=", nrow(train_imp), ")."),
       paste0(
-        "Table S1b (optional): validation rows before/after MI (n=", nrow(test_imp),
+        if (ext_all) {
+          paste0("Table S1 before/after MI: full external set (n=", nrow(train_imp), ").")
+        } else {
+          paste0(
+            "Table S1 before/after MI: training rows only (n=", nrow(train_imp),
+            "); complete_action=", complete_action, " of m=", m, "."
+          )
+        }
+      ),
+      paste0(
+        "Table S1b (optional): holdout rows before/after MI (n=", nrow(test_imp),
         ") when export_table_s1_validation=TRUE."
       ),
-      paste0("MICE method=", method, ", m=", m, ", maxit=", max_iter, ", seed=", seed),
+      paste0(
+        "MICE method=", method, ", m=", m, ", maxit=", max_iter,
+        ", seed=", seed, ", complete_action=", complete_action
+      ),
       paste0("Generated: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
     ),
     note_path
@@ -607,7 +1034,43 @@
     pooled, imp_obj = imp_obj, data_before_mi = data_before_mi,
     table_s1_after = train_imp
   )
-  if (!is.null(out$data$imputed) && nrow(out$data$imputed) >= n_train + nrow(test_imp)) {
+  if (is.null(out$results$data_before_mi) && is.data.frame(data_before_mi)) {
+    out$results$data_before_mi <- data_before_mi
+  }
+  if (ext_all) {
+    out$data$train <- train_imp
+    out$data$test <- train_imp
+    need_s1 <- !isFALSE(imp_cfg$export_table_s1 %||% TRUE) &&
+      !isTRUE(out$results$table_s1_exported)
+    if (need_s1 && exists(".imp01_build_table_s1", mode = "function")) {
+      before <- out$results$data_before_mi %||% data_before_mi
+      after <- out$data$imputed %||% train_imp
+      if (is.data.frame(before) && is.data.frame(after) &&
+          nrow(before) > 0L && nrow(after) > 0L) {
+        common <- intersect(names(before), names(after))
+        if (length(common) >= 2L) {
+          cfg_s1 <- cfg
+          cfg_s1$imputation <- imp_cfg
+          cfg_s1$imputation$table_s1_title <- imp_cfg$table_s1_title %||%
+            "Baseline characteristics before and after imputation (external validation set)"
+          outcome_col_s1 <- cfg$data$outcome_column %||% "Disease"
+          out <- tryCatch(
+            .imp01_build_table_s1(
+              out, cfg_s1, before[, common, drop = FALSE], after[, common, drop = FALSE],
+              table_strata = (cfg$survival$event_var %||% outcome_col_s1),
+              analysis_grp = pipeline_resolve_outcome_display_labels(cfg)$analysis,
+              reference_grp = pipeline_resolve_outcome_display_labels(cfg)$reference,
+              imp_cfg = cfg_s1$imputation
+            ),
+            error = function(e) {
+              cli::cli_alert_warning("external_all Table S1 failed: {conditionMessage(e)}")
+              out
+            }
+          )
+        }
+      }
+    }
+  } else if (!is.null(out$data$imputed) && nrow(out$data$imputed) >= n_train + nrow(test_imp)) {
     out$data$train <- out$data$imputed[seq_len(n_train), , drop = FALSE]
     out$data$test <- out$data$imputed[n_train + seq_len(nrow(test_imp)), , drop = FALSE]
   } else {
@@ -615,15 +1078,24 @@
     out$data$test <- test_imp
   }
 
-  ## 验证集插补前后补充表（与训练集 Table S1 对称）
-  export_s1_val <- isTRUE(imp_cfg$export_table_s1_validation %||% TRUE)
+  ## 验证集插补前后补充表（与训练集 Table S1 对称）；整库外验不出第二张
+  export_s1_val <- isTRUE(imp_cfg$export_table_s1_validation %||% TRUE) && !ext_all
   if (export_s1_val && exists(".imp01_build_table_s1", mode = "function")) {
     ## test_work = 插补前验证集（已与 train 列对齐、筛行）
     if (is.data.frame(test_work) && nrow(test_work) == nrow(test_imp) && nrow(test_imp) > 0L) {
       cfg2 <- cfg
+      .val_lab <- if (identical(
+        as.character((cfg$ml_batch %||% list())$split_mode %||%
+                       (cfg$incidence_batch %||% list())$split_mode %||% "")[1L],
+        "dev_internal_ext"
+      )) {
+        "internal validation set"
+      } else {
+        "validation set"
+      }
       cfg2$imputation$table_s1_title <- sprintf(
-        "Baseline characteristics before and after imputation (validation set, n=%d)",
-        nrow(test_imp)
+        "Baseline characteristics before and after imputation (%s, n=%d)",
+        .val_lab, nrow(test_imp)
       )
       was_exported <- isTRUE(out$results$table_s1_exported)
       out$results$table_s1_exported <- FALSE
@@ -679,7 +1151,7 @@ block_imputation <- function(ctx, ...) {
     }
     primary_id <- if (length(id_cols_present)) .imp01_primary_id_col(id_cols_present, cfg) else NULL
     var_ranges <- imp_cfg$var_ranges %||% NULL
-    export_s1 <- isTRUE(imp_cfg$export_table_s1 %||% TRUE)
+    export_s1 <- !isFALSE(imp_cfg$export_table_s1 %||% TRUE)
 
     .imp01_finalize <- function(data_imputed, imp_obj = NULL, data_before_mi = NULL,
                                 table_s1_after = NULL) {
@@ -709,6 +1181,10 @@ block_imputation <- function(ctx, ...) {
         }
       }
       ctx$data$imputed <- data_imputed
+      if (exists("pipeline_apply_index_residualize", mode = "function")) {
+        ctx <- pipeline_apply_index_residualize(ctx, cfg)
+        data_imputed <- ctx$data$imputed
+      }
       if (!is.null(imp_obj)) {
         ctx$results$mice_model <- imp_obj
         id_primary <- as.character(
@@ -729,12 +1205,20 @@ block_imputation <- function(ctx, ...) {
           cli::cli_alert_info("mice_row_ids locked for Rubin pool (n={length(ids_vec)})")
         }
       }
+      if (!is.null(data_before_mi) && is.data.frame(data_before_mi)) {
+        ctx$results$data_before_mi <- data_before_mi
+      }
       if (isTRUE(export_s1) && !is.null(data_before_mi)) {
         s1_after <- table_s1_after %||% data_imputed
-        ctx$results$data_before_mi <- data_before_mi
-        ctx <- .imp01_build_table_s1(
-          ctx, cfg, data_before_mi, s1_after,
-          table_strata, analysis_grp, reference_grp, imp_cfg
+        ctx <- tryCatch(
+          .imp01_build_table_s1(
+            ctx, cfg, data_before_mi, s1_after,
+            table_strata, analysis_grp, reference_grp, imp_cfg
+          ),
+          error = function(e) {
+            cli::cli_alert_warning("Table S1 skipped: {conditionMessage(e)}")
+            ctx
+          }
         )
       }
       data_save <- .imp01_prepare_for_save(data_imputed, id_cols_present, primary_id)
@@ -818,6 +1302,9 @@ block_imputation <- function(ctx, ...) {
   max_iter       <- as.integer(imp_cfg$max_iter %||% 5L)
   seed           <- as.integer(imp_cfg$seed %||% 1234L)
   complete_action <- as.integer(imp_cfg$complete_action %||% 1L)
+  mice_ridge     <- as.numeric(imp_cfg$ridge %||% 1e-2)[1L]
+  mice_cor_drop  <- as.numeric(imp_cfg$cor_drop_threshold %||% 0.95)[1L]
+  allow_cart_fb  <- isTRUE(imp_cfg$allow_cart_fallback %||% FALSE)
   required_non_na <- imp_cfg$required_non_na_cols %||% NULL
   var_ranges     <- imp_cfg$var_ranges %||% NULL
   export_fig     <- isTRUE(imp_cfg$export_missing_fig %||% FALSE)
@@ -850,6 +1337,16 @@ block_imputation <- function(ctx, ...) {
     }
 
     ctx$data$imputed <- data_imputed
+    if (exists("pipeline_apply_index_residualize", mode = "function")) {
+      ctx <- pipeline_apply_index_residualize(ctx, cfg)
+      data_imputed <- ctx$data$imputed
+    }
+    # TST 等：插补后同步队列，供后续 timeseries 静态广播 / landmark 使用
+    if (!is.null(ctx$data$tst_cohort) && is.data.frame(ctx$data$tst_cohort)) {
+      ctx$data$tst_cohort <- data_imputed
+      ctx$data$cleaned <- data_imputed
+      cli::cli_alert_info("imputation: 已同步 tst_cohort/cleaned ← imputed（n={nrow(data_imputed)}）")
+    }
     if (!is.null(imp_obj)) {
       ctx$results$mice_model <- imp_obj
       # 与 mids 行序锁定的 ID，供 Rubin 对齐；trim 不得改写此向量
@@ -1122,46 +1619,13 @@ block_imputation <- function(ctx, ...) {
     }
   }
 
-  cli::cli_h2("Running MICE (method={method}, m={m}, maxit={max_iter}, seed={seed})")
-  imp <- mice::mice(
-    data            = data_mice,
-    m               = m,
-    seed            = seed,
-    method          = method,
-    maxit           = max_iter,
-    printFlag       = FALSE
+  mice_res <- .imp01_run_mice(
+    data_mice, method, m, max_iter, seed, complete_action,
+    ridge = mice_ridge, cor_threshold = mice_cor_drop,
+    allow_cart_fallback = allow_cart_fb
   )
-  data_imp <- mice::complete(imp, action = complete_action)
-
-  # MICE 会因共线性跳过部分列（method 置空），留下极少量残留 NA（例如多个肌酐列之一）。
-  # 兜底填补：数值列用中位数、分类列用众数，保证分析样本对所有变量完整（避免下游 complete.cases 掉人）。
-  n_resid <- sum(is.na(data_imp))
-  if (n_resid > 0L) {
-    resid_cols <- names(data_imp)[vapply(data_imp, function(x) any(is.na(x)), logical(1L))]
-    for (cn in resid_cols) {
-      x <- data_imp[[cn]]
-      if (is.numeric(x)) {
-        fillv <- stats::median(x, na.rm = TRUE)
-        if (is.finite(fillv)) data_imp[[cn]][is.na(x)] <- fillv
-      } else {
-        tab <- sort(table(x[!is.na(x)]), decreasing = TRUE)
-        if (length(tab)) {
-          mode_v <- names(tab)[1L]
-          if (is.factor(x)) {
-            data_imp[[cn]] <- as.character(x)
-            data_imp[[cn]][is.na(data_imp[[cn]])] <- mode_v
-            data_imp[[cn]] <- factor(data_imp[[cn]], levels = levels(x))
-          } else {
-            data_imp[[cn]][is.na(x)] <- mode_v
-          }
-        }
-      }
-    }
-    cli::cli_alert_info(
-      "MICE 后残留 NA {n_resid} 个（共线性跳过列），已用中位数/众数兜底填补: {paste(resid_cols, collapse = ', ')}"
-    )
-  }
-  cli::cli_alert_success("Imputation complete. Remaining NA: {sum(is.na(data_imp))}")
+  imp <- mice_res$imp
+  data_imp <- mice_res$data_imp
 
   if (!is.null(id_for_attach) && nrow(id_for_attach) == nrow(data_imp)) {
     for (nm in names(id_for_attach)) data_imp[[nm]] <- id_for_attach[[nm]]
@@ -1179,6 +1643,12 @@ block_imputation <- function(ctx, ...) {
 .imp01_build_table_s1 <- function(ctx, cfg, data_before, data_imputed,
                                     table_strata, analysis_grp, reference_grp, imp_cfg) {
   cli::cli_h2("Generating Table S1 (before vs after imputation)")
+
+  # 旁路/重跑时未必经过 run_block；保证发表命名库名不是 UnknownDB
+  db_nm <- cfg$project$database %||% cfg$project$database_type %||% NULL
+  if (!is.null(db_nm) && nzchar(trimws(as.character(db_nm)[1L]))) {
+    options(pipeline.database_name = trimws(as.character(db_nm)[1L]))
+  }
 
   id_s1 <- unique(c(
     as.character(cfg$data$id_column %||% character(0)),
@@ -1199,10 +1669,18 @@ block_imputation <- function(ctx, ...) {
     "new_weight", "new_Weight", "WTINT2YR", "WTMEC2YR", "WTINT4YR", "WTMEC4YR",
     "WTSAF2YR", "WTSAF4YR", "WTSA2YR",
     "WTDRD1", "WTDR2D", "WTSOG2YR",
-    "SDMVSTRA", "SDMVPSU"
+    "SDMVSTRA", "SDMVPSU",
+    # 结局状态不作 Before/After MI 行（预后 fustatus 与主文 28 天截尾后 Table1 易对不上）
+    "fustatus"
   )
+  s1_excl_outcome <- unique(c(
+    as.character((cfg$survival %||% list())$event_var %||% character(0)),
+    as.character((cfg$data %||% list())$outcome_column %||% character(0)),
+    as.character(table_strata %||% character(0))
+  ))
+  s1_excl_outcome <- s1_excl_outcome[nzchar(s1_excl_outcome)]
   s1_excl_cfg <- as.character(imp_cfg$table_s1_exclude_vars %||% character(0))
-  s1_exclude <- unique(c(s1_excl_baseline, s1_excl_extra, s1_excl_cfg))
+  s1_exclude <- unique(c(s1_excl_baseline, s1_excl_extra, s1_excl_outcome, s1_excl_cfg))
   s1_exclude <- intersect(s1_exclude, names(data_imputed))
   if (length(s1_exclude)) {
     cli::cli_alert_info("Table S1 排除变量: {paste(s1_exclude, collapse = ', ')}")
@@ -1281,7 +1759,7 @@ block_imputation <- function(ctx, ...) {
     function(x) is.factor(x) || is.character(x),
     logical(1)
   )]
-  cat_cols <- setdiff(cat_cols, c(id_s1, s1_exclude))
+  cat_cols <- setdiff(cat_cols, c(id_s1, s1_exclude, table_strata))
 
   if (exists("environment_patch_table1_sections", mode = "function")) {
     cfg <- environment_patch_table1_sections(cfg, data_imputed)
@@ -1301,6 +1779,10 @@ block_imputation <- function(ctx, ...) {
   if (exists("order_vars_like_table1", mode = "function")) {
     s1_vars <- order_vars_like_table1(s1_vars, ctx, cfg, data_imputed)
   }
+  # 排序/对齐后再次剔除结局状态（避免 Table1 对齐逻辑把 fustatus 加回）
+  s1_vars <- setdiff(s1_vars, unique(c(s1_exclude, table_strata, "fustatus")))
+  cat_cols <- setdiff(cat_cols, unique(c(s1_exclude, table_strata, "fustatus")))
+  num_cols <- setdiff(num_cols, unique(c(s1_exclude, table_strata, "fustatus")))
   sections <- (cfg$baseline_nhanes %||% cfg$baseline %||% list())$table1_sections
 
   rows <- list()
@@ -1358,11 +1840,12 @@ block_imputation <- function(ctx, ...) {
       next
     }
     p <- tryCatch({
+      # 列联表：行=分类水平，列=Before/After（Race 等可有 >2 行，勿按 2×2 误丢 P）
       tbl <- table(
         c(as.character(x_before), as.character(x_after)),
         c(rep("Before", length(x_before)), rep("After", length(x_after)))
       )
-      if (ncol(tbl) > max_cat_levels || nrow(tbl) > 2L) {
+      if (ncol(tbl) != 2L || nrow(tbl) < 1L || nrow(tbl) > max_cat_levels) {
         NA_real_
       } else if (any(tbl < 5, na.rm = TRUE)) {
         stats::fisher.test(tbl, simulate.p.value = TRUE, B = 2000L)$p.value
@@ -1431,9 +1914,29 @@ block_imputation <- function(ctx, ...) {
   }
   tex_df <- tab_s1[, setdiff(names(tab_s1), c(".is_cat_row", ".is_section_row")), drop = FALSE]
 
-  cap_s1 <- imp_cfg$table_s1_title %||%
-    "Baseline characteristics before and after imputation"
+  # 发病/预后全队列插补：默认不加 (training set)；仅 fit_on=train 且确有验证集时标注
+  # 整库外验 train/test 是同一批人，不得写成 training set
+  .s1_ext_all <- isTRUE((ctx$results %||% list())$train_validation_external_all)
+  .s1_has_split <- !isTRUE(.s1_ext_all) &&
+    !is.null(ctx$data$train) && is.data.frame(ctx$data$train) &&
+    nrow(ctx$data$train) > 0L &&
+    ((!is.null(ctx$data$test) && is.data.frame(ctx$data$test) && nrow(ctx$data$test) > 0L) ||
+       (!is.null(ctx$data$validation) && is.data.frame(ctx$data$validation) &&
+          nrow(ctx$data$validation) > 0L))
+  .s1_fit_train <- identical(
+    tolower(as.character(imp_cfg$fit_on %||% "all")[1L]), "train"
+  ) && !isTRUE(.s1_ext_all)
+  cap_s1 <- imp_cfg$table_s1_title %||% (
+    if (isTRUE(.s1_ext_all)) {
+      "Baseline characteristics before and after imputation (external validation set)"
+    } else if (isTRUE(.s1_fit_train) && isTRUE(.s1_has_split)) {
+      "Baseline characteristics before and after imputation (training set)"
+    } else {
+      "Baseline characteristics before and after imputation"
+    }
+  )
   cap_s1 <- sub("^Table S\\d+\\.\\s*", "", cap_s1)
+  rm(.s1_has_split, .s1_fit_train, .s1_ext_all)
   paths_s1 <- pub_paths(ctx, ctx$output_dir_tables, "supp_table", cap_s1, "xlsx")
   export_sci_table(tex_df, paths_s1$filepath, title = paths_s1$title, excel_level_row_idx = excel_level_row_idx)
   cli::cli_alert_success("Table S1 queued (export_sci_table)")

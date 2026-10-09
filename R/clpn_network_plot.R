@@ -83,19 +83,21 @@ clpn_plot_publication <- function(adj, stems, outfile, title = "",
   node_names <- full
 
   glev <- c(
-    "Outcome", "Circadian", "Depression", "Index",
+    "Outcome", "Circadian", "Depression", "Mood", "Index",
     "Comorbidity", "ADL", "IADL", "Mobility", "Sensory", "Lipid", "Other"
   )
   glev <- glev[glev %in% unique(groups_lab)]
   groups_fac <- factor(groups_lab, levels = glev)
+  # 自杀 CLPM 三组必须分色：结局粉 / 抑郁蓝 / 焦虑(心情)绿（对齐参考图 DN/中介/指标分色）
   pal_map <- c(
     Outcome = "#F6B7C6",
     Circadian = "#F6B7C6",
-    Depression = "#F6B7C6",
+    Depression = "#A8C5E2",
+    Mood = "#82B181",
     Index = "#F0A780",
-    Comorbidity = "#A8C5E2",
-    ADL = "#82B181",
-    IADL = "#B8A9C9",
+    Comorbidity = "#B8A9C9",
+    ADL = "#E6C38C",
+    IADL = "#9DD6C5",
     Mobility = "#F0A780",
     Sensory = "#E6C38C",
     Lipid = "#9DD6C5",

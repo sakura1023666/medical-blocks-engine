@@ -39,8 +39,38 @@ def _auc_rank(y: np.ndarray, scores: np.ndarray) -> float:
     return float(wins / (len(pos) * len(neg)))
 
 
-def load_model_for_eval(model_path: str, arch: str, n_days: int, n_hours: int, n_features: int):
-    model = build_model(arch, n_days, n_hours, n_features).to(device)
+def load_model_for_eval(model_path: str, arch: str, n_days: int, n_hours: int, n_features: int,
+                        **override):
+    """Load weights; arch hyperparams from sibling *.meta.json when present."""
+    p = Path(model_path)
+    # 训练落盘为 model_b.meta.json；旧逻辑误找 model_b.pth.meta.json → 回退 d_model=128 与权重不匹配
+    candidates = [
+        Path(str(p) + ".meta.json"),          # model_b.pth.meta.json（兼容）
+        p.with_name(p.stem + ".meta.json"),   # model_b.meta.json（训练实际写出）
+        p.parent / f"model_{arch}.meta.json",
+    ]
+    meta_path = next((c for c in candidates if c.exists()), candidates[0])
+    kw = {}
+    if meta_path.exists():
+        try:
+            kw = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            kw = {}
+    build_kw = {
+        "d_model": int(kw.get("d_model", 128)),
+        "heads": int(kw.get("heads", 4)),
+        "N": int(kw.get("n_layers", kw.get("N", 2))),
+        "dropout": float(kw.get("dropout", 0.3)),
+        "fusion": bool(kw.get("fusion", True)) if str(arch).lower() in ("b", "a1") else False,
+        "rich_tabular": bool(kw.get("rich_tabular", True)) if str(arch).lower() in ("b", "a1") else False,
+        "tab_dim": int(kw.get("tab_dim", 128)),
+    }
+    build_kw.update({k: v for k, v in override.items() if v is not None})
+    if str(arch).lower() == "a2":
+        build_kw.pop("fusion", None)
+        build_kw.pop("rich_tabular", None)
+        build_kw.pop("tab_dim", None)
+    model = build_model(arch, n_days, n_hours, n_features, **build_kw).to(device)
     state = torch.load(model_path, map_location=device)
     model.load_state_dict(state)
     model.eval()
@@ -54,7 +84,12 @@ def score_all_cutoffs(model, loader: DataLoader, D: int) -> dict:
             x, dm = x.to(device), dm.to(device)
             for c in range(1, D + 1):
                 out = model(x, dm, c)
-                scores[c].append(np.exp(out[:, 1].cpu().numpy()))
+                # 模型输出 logits；兼容旧版 log_softmax（行和≈0 且全负）
+                if out.min() < 0 and torch.allclose(out.exp().sum(dim=1), torch.ones(out.size(0), device=out.device), atol=1e-3):
+                    prob = out.exp()[:, 1]
+                else:
+                    prob = torch.softmax(out, dim=1)[:, 1]
+                scores[c].append(prob.cpu().numpy())
     return {c: np.concatenate(v) if v else np.array([]) for c, v in scores.items()}
 
 

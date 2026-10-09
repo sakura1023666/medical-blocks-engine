@@ -54,6 +54,27 @@ stopifnot(!file.exists(file.path(fig_sr, "Figure 2-eICU. RCS plot.pdf")))
 stopifnot(!file.exists(file.path(fig_sr, "Figure 2-MIMIC. RCS plot.pdf")))
 stopifnot(!file.exists(file.path(fig_sr, "Figure 2-HRS. RCS plot.pdf")))
 stopifnot(!dir.exists(file.path(ix2, "Figures")))
-unlink(ix2, recursive = TRUE)
+unlink(ix, recursive = TRUE)
+
+# 标题不一致时按角色拼图（NHANES Weighted RCS vs MIMIC RCS plot）
+ix3 <- tempfile("ix_role_")
+figs3 <- file.path(ix3, "Figures")
+dir.create(figs3, recursive = TRUE)
+make_min_pdf(file.path(figs3, "Figure 2-NHANES. Weighted RCS of SOSM and Uterine fibroids.pdf"))
+make_min_pdf(file.path(figs3, "Figure 2-MIMIC. RCS plot between SOSM and Uterine fibroids.pdf"))
+cfg3 <- list(
+  project = list(study_type = "incidence", exposure_var = "SOSM", outcome_label = "Uterine fibroids"),
+  dual_db = list(
+    combine_figures = list(enable = TRUE, remove_singles = TRUE, dpi = 72L),
+    primary = list(name = "NHANES"),
+    secondary = list(name = "MIMIC")
+  )
+)
+source(file.path(root, "R/incidence_dual_batch_runner.R"), local = FALSE)
+dual_db_combine_paired_figures(ix3, cfg3)
+stopifnot(file.exists(file.path(figs3, "Figure 2. RCS of SOSM and Uterine fibroids.pdf")))
+stopifnot(!file.exists(file.path(figs3, "Figure 2-NHANES. Weighted RCS of SOSM and Uterine fibroids.pdf")))
+stopifnot(!file.exists(file.path(figs3, "Figure 2-MIMIC. RCS plot between SOSM and Uterine fibroids.pdf")))
+unlink(ix3, recursive = TRUE)
 
 cat("test_dual_db_combine_n_panel: OK\n")

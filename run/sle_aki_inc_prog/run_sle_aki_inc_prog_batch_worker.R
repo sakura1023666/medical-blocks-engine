@@ -154,10 +154,10 @@ config_ix <- config
   incidence_batch_write_status(output_ix, fields)
 }
 
-cli::cli_h1(
-  "Worker two-stage: index={ix}{msg}",
-  msg = if (light) " [sensitivity light]" else ""
-)
+cli::cli_h1(paste0(
+  "Worker two-stage: index=", ix,
+  if (light) " [sensitivity light]" else ""
+))
 
 config_ix <- incidence_batch_patch_config_for_index(config, ix, root = root)
 config_ix <- ip_two_stage_patch_km_strata_for_index(config_ix, ix)
@@ -335,10 +335,10 @@ if (!light && identical(plan$from_phase, "shared")) {
 ctx <- NULL
 tryCatch({
   if (isTRUE(plan$run_stage1)) {
-    cli::cli_h2(
-      "[{ix}] Stage1 发病{msg}",
-      msg = if (light) "（敏感性轻量：Table1 + Logistic）" else ""
-    )
+    cli::cli_h2(paste0(
+      "[", ix, "] Stage1 发病",
+      if (light) "（敏感性轻量：Table1 + Logistic）" else ""
+    ))
     ctx0 <- if (is.null(plan$stage1_from)) .load_ctx() else NULL
     pipe_s1 <- pipeline_stage1
     if (light) {
@@ -381,9 +381,13 @@ tryCatch({
       pipe_s1, plan$stage1_from, plan$stage1_to, ctx0, config_ix
     )
     if (!light) ctx <- ip_two_stage_snapshot_stage1_covariates(ctx)
+    if (!light) ctx <- ip_two_stage_snapshot_stage1_subgroup(ctx, config_ix)
   } else {
     ctx <- .load_ctx()
-    if (!is.null(ctx)) ctx <- ip_two_stage_snapshot_stage1_covariates(ctx)
+    if (!is.null(ctx)) {
+      ctx <- ip_two_stage_snapshot_stage1_covariates(ctx)
+      ctx <- ip_two_stage_snapshot_stage1_subgroup(ctx, config_ix)
+    }
   }
 
   if (isTRUE(plan$run_bridge)) {
@@ -411,38 +415,90 @@ tryCatch({
       if (is.null(config_ix[[nm]]$covariate_search) || !is.list(config_ix[[nm]]$covariate_search)) {
         config_ix[[nm]]$covariate_search <- list()
       }
+      config_ix[[nm]]$covariate_search$enable <- FALSE
       config_ix[[nm]]$covariate_search$on_search_fail <- "degrade"
       if (identical(nm, "cox_binary") &&
           !nzchar(as.character(config_ix[[nm]]$degrade_branch %||% "")[1L])) {
         config_ix[[nm]]$degrade_branch <- "degrade_done"
       }
     }
-    # 小样本 28d：末档 binary 关闭协变量搜索+闸门，强制用锁定协变量导出主文 Table 4
     if (!is.null(config_ix$cox_binary) && is.list(config_ix$cox_binary)) {
       config_ix$cox_binary$gate_enable <- FALSE
       config_ix$cox_binary$require_both_models_sig <- FALSE
       config_ix$cox_binary$stop_if_crude_highest_ns <- FALSE
-      if (is.null(config_ix$cox_binary$covariate_search) ||
-          !is.list(config_ix$cox_binary$covariate_search)) {
-        config_ix$cox_binary$covariate_search <- list()
-      }
-      config_ix$cox_binary$covariate_search$enable <- FALSE
     }
     sw <- ip_two_stage_switch_to_prognosis(config_ix, ctx)
     config_ix <- sw$config
     ctx <- sw$ctx
-    if (!is.null(ctx)) {
-      ctx <- ip_two_stage_apply_covariate_union(ctx, config_ix, "before_stage2")
-      config_ix$univariate_prognosis$required_predictors <-
-        ctx$config$univariate_prognosis$required_predictors
-      config_ix$multivariate_prognosis$required_predictors <-
-        ctx$config$multivariate_prognosis$required_predictors
-      ctx$config <- config_ix
+    if (length(ctx$results$locked_subgroup_vars %||% character(0))) {
+      lk <- as.character(ctx$results$locked_subgroup_vars)
+      config_ix$subgroup$locked_subgroup_vars <- lk
+      config_ix$subgroup_prognosis$locked_subgroup_vars <- lk
     }
-    ctx <- .run_phase(
-      pipeline_stage2, plan$stage2_from, plan$stage2_to, ctx, config_ix
-    )
-    ctx <- ip_two_stage_apply_covariate_union(ctx, config_ix, "after_stage2")
+
+    pipe_s2 <- ip_two_stage_trim_stage2_pipeline(config_ix, pipeline_stage2)
+    reuse_m12 <- ip_two_stage_reuse_stage1_covariates(config_ix)
+
+    if (reuse_m12) {
+      prep <- ip_two_stage_prepare_stage2_locked_covariates(config_ix, ctx)
+      config_ix <- prep$config
+      ctx <- prep$ctx
+      ctx <- .run_phase(
+        pipe_s2, plan$stage2_from, plan$stage2_to, ctx, config_ix
+      )
+    } else {
+      if (!is.null(ctx)) {
+        ctx <- ip_two_stage_apply_covariate_union(ctx, config_ix, "before_stage2")
+        config_ix$univariate_prognosis$required_predictors <-
+          ctx$config$univariate_prognosis$required_predictors
+        config_ix$multivariate_prognosis$required_predictors <-
+          ctx$config$multivariate_prognosis$required_predictors
+        ctx$config <- config_ix
+      }
+      bl2 <- as.character(pipe_s2$blocks %||% character(0))
+      i_lock <- which(bl2 %in% c(
+        "cox_quartile", "cox_tertile", "cox_binary", "rcs_prognosis"
+      ))[1L]
+      if (is.finite(i_lock) && i_lock > 1L) {
+        pipe_pre <- pipe_s2
+        pipe_pre$blocks <- bl2[seq_len(i_lock - 1L)]
+        pipe_post <- pipe_s2
+        pipe_post$blocks <- bl2[seq.int(i_lock, length(bl2))]
+        to_pre <- if (!is.null(plan$stage2_to) &&
+                      as.character(plan$stage2_to)[1L] %in% pipe_pre$blocks) {
+          plan$stage2_to
+        } else {
+          tail(pipe_pre$blocks, 1L)
+        }
+        from_pre <- if (!is.null(plan$stage2_from) &&
+                        as.character(plan$stage2_from)[1L] %in% pipe_pre$blocks) {
+          plan$stage2_from
+        } else {
+          NULL
+        }
+        from_b <- as.character(plan$stage2_from %||% "")[1L]
+        skip_pre <- nzchar(from_b) && from_b %in% pipe_post$blocks
+        if (!skip_pre) {
+          ctx <- .run_phase(pipe_pre, from_pre, to_pre, ctx, config_ix)
+        }
+        ctx <- ip_two_stage_apply_covariate_union(ctx, config_ix, "after_stage2")
+        config_ix <- ip_two_stage_lock_cox_rcs_covariates(config_ix, ctx)
+        ctx$config <- config_ix
+        to_b <- as.character(plan$stage2_to %||% "")[1L]
+        skip_post <- nzchar(to_b) && to_b %in% pipe_pre$blocks &&
+          !(to_b %in% pipe_post$blocks)
+        if (!skip_post) {
+          from_post <- if (nzchar(from_b) && from_b %in% pipe_post$blocks) from_b else NULL
+          to_post <- if (nzchar(to_b) && to_b %in% pipe_post$blocks) to_b else NULL
+          ctx <- .run_phase(pipe_post, from_post, to_post, ctx, config_ix)
+        }
+      } else {
+        ctx <- .run_phase(
+          pipe_s2, plan$stage2_from, plan$stage2_to, ctx, config_ix
+        )
+      }
+      ctx <- ip_two_stage_apply_covariate_union(ctx, config_ix, "after_stage2")
+    }
   }
 
   ip_two_stage_finalize_index_outputs(root, config_ix, ix, ctx)
@@ -457,10 +513,11 @@ tryCatch({
     }
   )
   .write_status("success", extra = extra)
-  cli::cli_alert_success(
-    "[{ix}] {what}完成",
-    what = if (light) "敏感性轻量路径" else "两阶段"
-  )
+  cli::cli_alert_success(paste0(
+    "[", ix, "] ",
+    if (light) "敏感性轻量路径" else "两阶段",
+    "完成"
+  ))
   quit(save = "no", status = 0)
 
 }, error = function(e) {

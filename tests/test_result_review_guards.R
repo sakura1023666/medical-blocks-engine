@@ -11,8 +11,9 @@ stopifnot(!grepl("0\\.0001", p_sci))
 stopifnot(grepl("0\\.001", p_sci))
 p_chr <- pub_format_p_cell("9e-04")
 stopifnot(!grepl("0\\.0001", p_chr))
-stopifnot(identical(pub_format_p_cell(0.0495), "0.0495"))
-stopifnot(identical(pub_format_p_cell(0.0085), "0.0085"))
+# 与引擎 pub_digits$p=3 对齐（勿再期望 4 位小数）
+stopifnot(identical(pub_format_p_cell(0.0495), "0.050"))
+stopifnot(identical(pub_format_p_cell(0.0085), "0.009"))
 stopifnot(identical(pub_format_p_cell(1e-12), "<0.001"))
 
 # 旧 cox_quartile 格式化：round(p,4) 把 0.00087 打成 "9e-04" 再误标 P<0.0001
@@ -120,10 +121,11 @@ ctx_short <- list(results = list(
 adj_s <- pipeline_mediation_lm_adjustors(ctx_short)
 stopifnot(length(adj_s$m2) >= 1L)
 
-# ── B2: 亚组森林图默认 caption 须写明 Q4 vs Q1 ────────────────────────────
+# ── B2: 亚组森林图默认 caption 用短名（不含括号说明）──────────────────────
 stopifnot(exists("pipeline_subgroup_forest_caption", mode = "function"))
 cap <- pipeline_subgroup_forest_caption("BAR", mode = "highest_vs_lowest")
-stopifnot(grepl("Q4 vs Q1|highest vs lowest|highest versus lowest", cap, ignore.case = TRUE))
+stopifnot(identical(cap, "Subgroup Forest analyses of BAR"))
+stopifnot(!grepl("\\(", cap))
 
 # ── segmented Cox：cox_index_breaks 必须是 3 个内部切点，不能是 min/max 五元组
 ctx_br <- list(results = list())
@@ -435,21 +437,21 @@ stopifnot(identical(as.integer(n_purge), 1L))
 stopifnot(!file.exists(file.path(td_agg, "Table S9.tex")))
 unlink(td_agg, recursive = TRUE)
 
-# ── 汇总 Figures：分库单图硬清扫（只留拼图）────────────────────────────────
+# ── 汇总 Figures：分库单图硬清扫（只留拼图；S 附图故意保留，测主文 Figure）──
 source(file.path(root, "R/dual_db_combine_figures.R"), local = FALSE)
 stopifnot(exists("dual_db_purge_single_db_figures", mode = "function"))
 fd <- tempfile("agg_figs_")
 dir.create(fd)
-file.create(file.path(fd, "Figure S3. Mediation path diagram.pdf"))
-file.create(file.path(fd, "Figure S3-eICU. Mediation path diagram.pdf"))
-file.create(file.path(fd, "Figure S3-MIMIC. Mediation path diagram.pdf"))
+file.create(file.path(fd, "Figure 3. Mediation path diagram.pdf"))
+file.create(file.path(fd, "Figure 3-eICU. Mediation path diagram.pdf"))
+file.create(file.path(fd, "Figure 3-MIMIC. Mediation path diagram.pdf"))
 file.create(file.path(fd, "Figure 4. Subgroup Forest.pdf"))
 purged <- dual_db_purge_single_db_figures(fd)
 stopifnot(length(purged) == 2L)
-stopifnot(file.exists(file.path(fd, "Figure S3. Mediation path diagram.pdf")))
+stopifnot(file.exists(file.path(fd, "Figure 3. Mediation path diagram.pdf")))
 stopifnot(file.exists(file.path(fd, "Figure 4. Subgroup Forest.pdf")))
-stopifnot(!file.exists(file.path(fd, "Figure S3-eICU. Mediation path diagram.pdf")))
-stopifnot(!file.exists(file.path(fd, "Figure S3-MIMIC. Mediation path diagram.pdf")))
+stopifnot(!file.exists(file.path(fd, "Figure 3-eICU. Mediation path diagram.pdf")))
+stopifnot(!file.exists(file.path(fd, "Figure 3-MIMIC. Mediation path diagram.pdf")))
 unlink(fd, recursive = TRUE)
 
 # 单库/未拼成对：不得清掉汇总 Figures 里的 -MIMIC 单图
@@ -511,12 +513,18 @@ stopifnot(dir.exists(file.path(fd_exp, "tiff")))
 stopifnot(dir.exists(file.path(fd_exp, "image_information")))
 unlink(fd_exp, recursive = TRUE)
 
-# finalize 顺序：curate 之后调用 export_pub_figures
-stopifnot(grepl("incidence_batch_curate_index_pub_outputs", runner_txt))
-stopifnot(grepl("export_pub_figures\\(figs_dir", runner_txt))
-curate_pos <- regexpr("incidence_batch_curate_index_pub_outputs", runner_txt)[1L]
-export_pos <- regexpr("export_pub_figures\\(figs_dir", runner_txt)[1L]
-stopifnot(curate_pos > 0L, export_pos > 0L, export_pos > curate_pos)
+# finalize 调用 curate；四目录导出在 curate 函数体内（非文件中更早的其它 export 调用）
+stopifnot(grepl("incidence_batch_curate_index_pub_outputs\\(index_root, config, db_seq\\)", runner_txt))
+curate_def <- regexpr(
+  "incidence_batch_curate_index_pub_outputs\\s*<-\\s*function",
+  runner_txt
+)[1L]
+stopifnot(curate_def > 0L)
+export_in_curate <- regexpr(
+  "export_pub_figures\\(figs_dir",
+  substring(runner_txt, curate_def)
+)[1L]
+stopifnot(export_in_curate > 0L)
 
 # run_pipeline 收口：pub_renumber 之后 export；dual 分库 worker 跳过
 pipe_txt <- paste(

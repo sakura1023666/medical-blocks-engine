@@ -61,6 +61,22 @@
 
 #' 从文件名解析库标签与配对键
 #' @return NULL 或 list(db=, key=, layout_hint=)
+.dual_db_normalize_pair_key <- function(key) {
+  key <- as.character(key %||% "")[1L]
+  if (!nzchar(key)) return(key)
+  # 发病双库：去掉 Weighted 前缀，统一 RCS / 亚组标题，便于 NHANES↔CHARLS 成对
+  key <- sub("Weighted\\s+RCS\\s+of\\s+", "RCS of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("RCS\\s+plot\\s+between\\s+", "RCS of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Weighted\\s+Subgroup\\s+(Forest\\s+)?(analyses\\s+)?of\\s+",
+             "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Subgroup\\s+Forest\\s+analyses\\s+of\\s+",
+             "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Subgroup\\s+of\\s+", "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  # "RCS of X and Diabetic Nephropathy" vs "RCS of X and DN"
+  key <- gsub("Diabetic\\s+Nephropathy", "DN", key, ignore.case = TRUE, perl = TRUE)
+  key
+}
+
 .dual_db_parse_paired_figure_bn <- function(bn, db_names) {
   bn <- as.character(bn %||% "")[1L]
   if (!nzchar(bn) || !grepl("\\.pdf$", bn, ignore.case = TRUE)) return(NULL)
@@ -85,7 +101,7 @@
         sub(re_dash, "\\1\\2", stem, ignore.case = TRUE, perl = TRUE),
         ".pdf"
       )
-      return(list(db = db, key = key, mode = "dash"))
+      return(list(db = db, key = .dual_db_normalize_pair_key(key), mode = "dash"))
     }
     # Figure N. DB. Caption（ML curate）
     re_dot <- paste0(
@@ -98,7 +114,7 @@
         sub(re_dot, "\\1. \\2", stem, ignore.case = TRUE, perl = TRUE),
         ".pdf"
       )
-      return(list(db = db, key = key, mode = "dot"))
+      return(list(db = db, key = .dual_db_normalize_pair_key(key), mode = "dot"))
     }
   }
   NULL
@@ -106,6 +122,89 @@
 
 .dual_db_regex_escape <- function(x) {
   gsub("([][{}()+*^$|\\\\.?])", "\\\\\\1", as.character(x %||% "")[1L], perl = TRUE)
+}
+
+.dual_db_figure_role_fn <- function(config) {
+  scheme <- tryCatch(
+    if (exists("incidence_batch_pub_figure_scheme", mode = "function")) {
+      incidence_batch_pub_figure_scheme(config)
+    } else {
+      as.character((config$ml_batch %||% config$incidence_batch %||% list())$pub_figure_scheme %||% "")[1L]
+    },
+    error = function(e) ""
+  )
+  if (scheme %in% c("ml_dual_standard", "ml_dual_dev_ext", "ml_with_correlation") &&
+      exists("incidence_batch_ml_pub_figure_role", mode = "function")) {
+    return(function(bn) incidence_batch_ml_pub_figure_role(bn, config))
+  }
+  st <- tolower(as.character((config$project %||% list())$study_type %||% "")[1L])
+  if (identical(st, "incidence") &&
+      exists("incidence_batch_incidence_figure_role", mode = "function")) {
+    return(incidence_batch_incidence_figure_role)
+  }
+  if (exists("incidence_batch_prognosis_figure_role", mode = "function")) {
+    return(incidence_batch_prognosis_figure_role)
+  }
+  function(bn) "other"
+}
+
+.dual_db_role_combined_basename <- function(role, config, ix_hint = NULL) {
+  role <- as.character(role %||% "")[1L]
+  if (!nzchar(role) || role %in% c("other", "drop", "fig1")) return(NULL)
+  ix <- as.character(
+    config$project$exposure_var %||%
+      config$project$index_var %||%
+      (config$incidence %||% list())$index_var %||%
+      ix_hint %||%
+      "Index"
+  )[1L]
+  outcome <- as.character(
+    config$data$outcome_column %||%
+      (config$incidence %||% list())$outcome_var %||%
+      config$project$outcome %||%
+      "Outcome"
+  )[1L]
+  st <- tolower(as.character((config$project %||% list())$study_type %||% "")[1L])
+  is_inc <- identical(st, "incidence")
+  outcome_label <- as.character(
+    if (is_inc) {
+      config$project$disease %||%
+        config$project$outcome_label %||%
+        config$project$disease_label %||%
+        outcome
+    } else {
+      config$project$outcome_label %||%
+        config$project$disease_label %||%
+        outcome
+    }
+  )[1L]
+  if (is_inc) {
+    switch(
+      role,
+      fig2_rcs = sprintf("Figure 2. RCS of %s and %s.pdf", ix, outcome_label),
+      fig3_km = sprintf("Figure 3. Kaplan-Meier curves of %s.pdf", ix),
+      fig3_subgroup = sprintf("Figure 3. Subgroup analyses of %s.pdf", ix),
+      fig4_subgroup = sprintf("Figure 4. Subgroup Forest analyses of %s.pdf", ix),
+      fig5_subgroup = sprintf("Figure 5. Subgroup analyses of %s.pdf", ix),
+      fig8_subgroup = sprintf("Figure 8. Subgroup analyses of %s.pdf", ix),
+      s1_boxplot = sprintf("Figure S1. Boxplot %s by %s.pdf", ix, outcome_label),
+      s2_mediation = sprintf("Figure S3. Mediation path diagram of %s and %s.pdf", ix, outcome_label),
+      s3_roc = sprintf("Figure S2. ROC Multivariable %s.pdf", ix),
+      NULL
+    )
+  } else {
+    switch(
+      role,
+      fig2_rcs = sprintf("Figure 2. RCS of %s and %s.pdf", ix, outcome_label),
+      fig3_km = sprintf("Figure 3. Kaplan-Meier curves of %s.pdf", ix),
+      fig3_subgroup = sprintf("Figure 3. Subgroup analyses of %s.pdf", ix),
+      fig4_subgroup = sprintf("Figure 4. Subgroup Forest analyses of %s.pdf", ix),
+      s1_boxplot = sprintf("Figure S1. Boxplot %s by DN.pdf", ix),
+      s2_mediation = sprintf("Figure S2. Mediation path diagram of %s and %s.pdf", ix, outcome_label),
+      s3_roc = sprintf("Figure S3. ROC Multivariable %s.pdf", ix),
+      NULL
+    )
+  }
 }
 
 .dual_db_layout_for_key <- function(key, layout_by_role = NULL) {
@@ -124,13 +223,33 @@
     }
   }
   # 全局默认（后续所有 dual 项目）：
-  # - RCS：上下（竖着）
+  # - RCS / ML 表现 2×4 / SHAP：上下（竖着）
   # - KM / 亚组森林：左右（横着）
   if (grepl("\\bRCS\\b|Restricted\\s*Cubic", key, ignore.case = TRUE)) {
     return("stack")
   }
+  if (grepl("ML\\s*performance|combined\\s*2x4", key, ignore.case = TRUE)) {
+    return("stack")
+  }
+  if (grepl("\\bSHAP\\b", key, ignore.case = TRUE)) {
+    return("stack")
+  }
+  # 轨迹课题 KM（by trajectory class）：竖拼；一般预后 KM / 亚组森林仍左右
+  if (grepl(
+    "Kaplan.?Meier.*trajectory|survival by trajectory|TrajectoryClass|\\bKM\\b.*[Tt]rajectory",
+    key, ignore.case = TRUE
+  )) {
+    return("stack")
+  }
   if (grepl("Subgroup\\s*Forest|Kaplan-?Meier|\\bKM\\b", key, ignore.case = TRUE)) {
     return("side")
+  }
+  # 轨迹 Fig2 / Fig3 / 个体动态预测：默认上下竖拼（与单库宽高比一致）
+  if (grepl(
+    "Trajectory|latent\\s*classes|Dynpred|Dynamic\\s*prediction|Individual\\s*dynamic",
+    key, ignore.case = TRUE
+  )) {
+    return("stack")
   }
   "side"
 }
@@ -250,11 +369,49 @@
   }
 }
 
+.dual_db_find_python <- function() {
+  cands <- character(0)
+  # 优先 Anaconda / 真实解释器，避开 WindowsApps 占位 python3.exe
+  if (.Platform$OS.type == "windows") {
+    cands <- c(
+      "C:/ProgramData/anaconda3/python.exe",
+      "C:/ProgramData/Anaconda3/python.exe",
+      "C:/ProgramData/Miniconda3/python.exe",
+      "C:/Users/Administrator/anaconda3/python.exe",
+      "C:/Users/Administrator/AppData/Local/Programs/Python/Python312/python.exe",
+      "C:/Users/Administrator/AppData/Local/Programs/Python/Python311/python.exe"
+    )
+  }
+  w <- Sys.which("python")
+  w3 <- Sys.which("python3")
+  if (nzchar(w)) cands <- c(cands, w)
+  if (nzchar(w3)) cands <- c(cands, w3)
+  cands <- unique(cands[nzchar(as.character(cands))])
+  # 跳过 Windows Store 占位符
+  cands <- cands[!grepl("WindowsApps", cands, ignore.case = TRUE)]
+  for (py in cands) {
+    if (!file.exists(py)) next
+    chk_cmd <- if (.Platform$OS.type == "windows") {
+      paste(shQuote(c(py, "-c", "import pypdf"), type = "cmd"), collapse = " ")
+    } else {
+      paste(shQuote(c(py, "-c", "import pypdf"), type = "sh"), collapse = " ")
+    }
+    st <- tryCatch(
+      system(chk_cmd, intern = TRUE),
+      error = function(e) e
+    )
+    code <- attr(st, "status")
+    if (is.null(code) || identical(as.integer(code)[1L], 0L)) return(normalizePath(py, winslash = "/", mustWork = FALSE))
+  }
+  # 回退：仍返回首个存在的 python（让调用方报清缺失模块）
+  for (py in cands) if (file.exists(py)) return(normalizePath(py, winslash = "/", mustWork = FALSE))
+  ""
+}
+
 .dual_db_compose_pair_pdf_vector <- function(path_a, path_b, out_path, layout = "side",
                                              label_a = "A.", label_b = "B.",
                                              label_cex = 1.15) {
-  py <- Sys.which("python3")
-  if (!nzchar(py)) py <- Sys.which("python")
+  py <- .dual_db_find_python()
   if (!nzchar(py)) stop("python3 不可用，无法矢量拼图", call. = FALSE)
 
   script <- NULL
@@ -541,8 +698,7 @@
   if (length(labels) != length(paths)) {
     stop("labels 数量须与 paths 一致", call. = FALSE)
   }
-  py <- Sys.which("python3")
-  if (!nzchar(py)) py <- Sys.which("python")
+  py <- .dual_db_find_python()
   if (!nzchar(py)) stop("python3 不可用，无法矢量拼图", call. = FALSE)
 
   script <- .dual_db_find_compose_script("dual_db_compose_n_panel.py")
@@ -754,6 +910,8 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
 
   db_names <- if (length(cfg$databases)) cfg$databases else unique(c(cfg$primary, cfg$secondary, cfg$tertiary))
   db_names <- db_names[nzchar(db_names)]
+  ## MIMIC_IV ↔ MIMIC IV：文件名空格与配置下划线必须都能配对
+  db_names <- unique(c(db_names, gsub("_", " ", db_names, fixed = TRUE), gsub(" ", "_", db_names, fixed = TRUE)))
   # 也收集文件名中出现的库标签（防配置名与文件不完全一致）
   per_db_pat <- .dual_db_per_db_tag_pattern(db_names)
   for (bn in basename(pdfs)) {
@@ -764,12 +922,20 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
   }
 
   buckets <- list()
+  role_buckets <- list()
+  role_fn <- .dual_db_figure_role_fn(config)
+  ix_hint <- sub("^【[^】]+】", "", basename(index_root))
   for (fp in pdfs) {
     parsed <- .dual_db_parse_paired_figure_bn(basename(fp), db_names)
     if (is.null(parsed)) next
     key <- parsed$key
     if (is.null(buckets[[key]])) buckets[[key]] <- list()
     buckets[[key]][[parsed$db]] <- fp
+    role <- role_fn(basename(fp))
+    if (!is.na(role) && nzchar(role) && !role %in% c("other", "drop", "fig1")) {
+      if (is.null(role_buckets[[role]])) role_buckets[[role]] <- list()
+      role_buckets[[role]][[parsed$db]] <- fp
+    }
   }
 
   order_dbs <- cfg$databases
@@ -781,41 +947,44 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
 
   combined <- character(0)
   skipped <- character(0)
+  combined_sources <- character(0)
 
-  for (key in names(buckets)) {
-    pair <- buckets[[key]]
+  .combine_pair_bucket <- function(pair, key, layout_key = key) {
     dbs_have <- names(pair)
     if (length(dbs_have) < 2L) {
-      skipped <- c(skipped, key)
-      cli::cli_alert_warning("多库拼图缺配对，保留单图: {key}（仅有 {paste(dbs_have, collapse = ', ')}）")
-      next
+      skipped <<- c(skipped, key)
+      cli::cli_alert_warning(
+        "多库拼图缺配对，保留单图: {key}（仅有 {paste(dbs_have, collapse = ', ')}）"
+      )
+      return(invisible(FALSE))
     }
-    # 若汇总目录已有同角色无库标签拼图，跳过（按角色而非图号，避免 KM 占住 Fig2 后 RCS 被跳过）
-    role_fn <- if (exists("incidence_batch_prognosis_figure_role", mode = "function")) {
-      incidence_batch_prognosis_figure_role
-    } else {
-      NULL
-    }
-    role <- if (is.function(role_fn)) role_fn(key) else NA_character_
+    role <- role_fn(key)
     if (!is.na(role) && nzchar(role) && !role %in% c("other", "drop")) {
       agg_pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
-      agg_pdfs <- agg_pdfs[!grepl(.dual_db_per_db_tag_pattern(db_names), basename(agg_pdfs), ignore.case = TRUE, perl = TRUE)]
+      agg_pdfs <- agg_pdfs[!grepl(.dual_db_per_db_tag_pattern(db_names), basename(agg_pdfs),
+                                  ignore.case = TRUE, perl = TRUE)]
       same_role <- agg_pdfs[vapply(basename(agg_pdfs), function(bn) {
         identical(role_fn(bn), role)
       }, logical(1L))]
       same_role <- same_role[basename(same_role) != key]
-      if (length(same_role)) {
+      split_same_role <- agg_pdfs[grepl(.dual_db_per_db_tag_pattern(db_names), basename(agg_pdfs),
+                                        ignore.case = TRUE, perl = TRUE)]
+      split_same_role <- split_same_role[vapply(basename(split_same_role), function(bn) {
+        identical(role_fn(bn), role)
+      }, logical(1L))]
+      if (length(same_role) && !length(split_same_role)) {
         cli::cli_alert_info("已有多库合成图 {basename(same_role[[1L]])}，跳过再拼 {key}")
-        if (isTRUE(cfg$remove_singles)) {
-          victims <- unlist(pair, use.names = FALSE)
-          unlink(victims)
-          deleted <- c(deleted, basename(victims))
-        }
-        skipped <- c(skipped, key)
-        next
+        skipped <<- c(skipped, key)
+        return(invisible(FALSE))
+      }
+      if (length(same_role) && length(split_same_role)) {
+        unlink(same_role)
+        deleted <<- unique(c(deleted, basename(same_role)))
+        cli::cli_alert_info(
+          "分库底稿仍在，删除旧合成图并重拼: {basename(same_role[[1L]])}"
+        )
       }
     }
-    # 若配置名与文件标签大小写不同，做模糊匹配
     resolve <- function(want) {
       if (!is.null(pair[[want]])) return(list(db = want, path = pair[[want]]))
       hit <- dbs_have[tolower(dbs_have) == tolower(want)]
@@ -825,14 +994,13 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
     paths <- lapply(order_dbs, resolve)
     paths <- Filter(Negate(is.null), paths)
     if (length(paths) < 2L) {
-      # 配置顺序未命中时，按 pair 内现有顺序拼
       paths <- lapply(dbs_have, function(db) list(db = db, path = pair[[db]]))
     }
     if (length(paths) < 2L) {
-      skipped <- c(skipped, key)
-      next
+      skipped <<- c(skipped, key)
+      return(invisible(FALSE))
     }
-    layout <- .dual_db_layout_for_key(key, cfg$layout_by_role)
+    layout <- .dual_db_layout_for_key(layout_key, cfg$layout_by_role)
     out_path <- file.path(figs, key)
     labels <- vapply(seq_along(paths), function(i) {
       .dual_db_panel_label(LETTERS[[i]], paths[[i]]$db, cfg$label_format)
@@ -858,19 +1026,40 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
       FALSE
     })
     if (!isTRUE(ok) || !file.exists(out_path)) {
-      skipped <- c(skipped, key)
-      next
+      skipped <<- c(skipped, key)
+      return(invisible(FALSE))
     }
-    combined <- c(combined, key)
+    combined <<- c(combined, key)
+    combined_sources <<- unique(c(combined_sources, pdf_paths))
     if (isTRUE(cfg$remove_singles)) {
       victims <- unique(pdf_paths)
       victims <- victims[normalizePath(victims, winslash = "/", mustWork = FALSE) !=
         normalizePath(out_path, winslash = "/", mustWork = FALSE)]
       if (length(victims)) {
         unlink(victims)
-        deleted <- c(deleted, basename(victims))
+        deleted <<- unique(c(deleted, basename(victims)))
       }
     }
+    invisible(TRUE)
+  }
+
+  for (key in names(buckets)) {
+    .combine_pair_bucket(buckets[[key]], key)
+  }
+
+  # 标题不一致时分库 RCS/亚组等按角色再拼（如 NHANES「Weighted RCS」vs MIMIC「RCS plot」）
+  for (role in names(role_buckets)) {
+    pair <- role_buckets[[role]]
+    if (length(pair) < 2L) next
+    out_bn <- .dual_db_role_combined_basename(role, config, ix_hint = ix_hint)
+    if (is.null(out_bn) || !nzchar(out_bn)) next
+    if (out_bn %in% combined) next
+    out_path <- file.path(figs, out_bn)
+    if (file.exists(out_path)) {
+      combined <- c(combined, out_bn)
+      next
+    }
+    .combine_pair_bucket(pair, out_bn, layout_key = out_bn)
   }
 
   if (length(combined)) {
@@ -879,9 +1068,9 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
       "多库拼图完成: {length(combined)} 张（layout=auto; order={db_msg}）"
     )
   }
-  # 仅当真的拼出了多库图，才清汇总目录里的分库底稿。
-  if (isTRUE(cfg$remove_singles) && length(combined) > 0L) {
-    purged <- dual_db_purge_single_db_figures(figs, tags = db_names)
+  # 只删已成功拼进合成图的底稿；未配对的 RCS/森林等保留在汇总目录
+  if (isTRUE(cfg$remove_singles) && length(combined_sources) > 0L) {
+    purged <- dual_db_purge_single_db_figures(figs, tags = db_names, only_files = combined_sources)
     if (length(purged)) deleted <- unique(c(deleted, purged))
   } else if (isTRUE(cfg$remove_singles) && !length(combined)) {
     cli::cli_alert_info("未拼成多库图，汇总 Figures 保留分库单图")
@@ -892,19 +1081,79 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
 #' 汇总 Figures 目录：删除带库标签的单库 PDF（保留无标签拼图）
 #' @param figs_dir by_index/<ix>/Figures
 #' @param tags 库标签；默认常见双库名
+#' @param only_files 可选；仅删除这些路径（已成功拼图的分库底稿）
 #' @return 已删文件 basename 向量
 dual_db_purge_single_db_figures <- function(figs_dir,
-                                            tags = c("eICU", "MIMIC", "NHANES", "eicu", "mimic", "nhanes")) {
+                                            tags = c("eICU", "MIMIC", "NHANES", "eicu", "mimic", "nhanes"),
+                                            only_files = NULL) {
   if (!dir.exists(figs_dir)) return(character(0))
   tags <- unique(as.character(tags))
   tags <- tags[nzchar(tags)]
   if (!length(tags)) return(character(0))
+  if (!is.null(only_files)) {
+    victims <- normalizePath(as.character(only_files), winslash = "/", mustWork = FALSE)
+    victims <- victims[file.exists(victims)]
+    if (!length(victims)) return(character(0))
+    unlink(victims)
+    cli::cli_alert_info("汇总 Figures 已清除已拼图分库底稿 {length(victims)} 个")
+    return(basename(victims))
+  }
   alt <- paste(vapply(tags, .dual_db_regex_escape, character(1L)), collapse = "|")
   # Figure 4-eICU. ... / Figure S3-MIMIC. ...
   pat <- paste0("^Figure .+-(", alt, ")\\.")
   victims <- list.files(figs_dir, pattern = pat, full.names = TRUE, ignore.case = TRUE)
   if (!length(victims)) return(character(0))
+  # 附表图（如 Figure S1 韦恩）未拼成对时仍须保留进汇总 export
+  victims <- victims[!grepl("^Figure\\s+S", basename(victims), ignore.case = TRUE, perl = TRUE)]
+  if (!length(victims)) return(character(0))
   unlink(victims)
   cli::cli_alert_info("汇总 Figures 已清除分库单图 {length(victims)} 个")
   basename(victims)
+}
+
+#' 汇总 Figures 四目录：删除「已有对应汇总拼图」的分库图（pdf/png/tiff/md 全删）
+#'
+#' 仅当某张分库图（-NHANES./-CHARLS. 等）存在对应的无标签汇总图时才删除该分库图，
+#' 避免误删尚未拼成汇总图的分库单图（如标题不一致未配对的 RCS/亚组）。
+#' 挂在 finalize 末尾、export_pub_figures 之后调用，兜底 combine 的 remove_singles。
+#' @param figs_dir by_index/<ix>/Figures
+#' @param db_names 库标签向量
+#' @return 已删文件 basename 向量
+dual_db_purge_redundant_split_figures <- function(figs_dir,
+                                                   db_names = c("NHANES", "CHARLS", "MIMIC", "eICU")) {
+  if (!dir.exists(figs_dir)) return(character(0))
+  db_names <- unique(as.character(db_names))
+  db_names <- db_names[nzchar(db_names)]
+  if (!length(db_names)) return(character(0))
+  tag_alt <- paste(vapply(db_names, .dual_db_regex_escape, character(1L)), collapse = "|")
+  split_pat <- paste0("-(", tag_alt, ")\\.")
+
+  subs <- list(pdf = "pdf", png = "png", tiff = "tiff", md = "image_information")
+  exts <- list(pdf = ".pdf", png = ".png", tiff = ".tiff", md = ".md")
+  purged <- character(0)
+  for (kind in names(subs)) {
+    d <- file.path(figs_dir, subs[[kind]])
+    if (!dir.exists(d)) next
+    ext <- exts[[kind]]
+    files <- list.files(d, pattern = paste0("\\", ext, "$"), full.names = TRUE, ignore.case = TRUE)
+    for (f in files) {
+      bn <- basename(f)
+      if (!grepl(split_pat, bn, ignore.case = TRUE, perl = TRUE)) next
+      agg_bn <- sub(split_pat, ".", bn, ignore.case = TRUE, perl = TRUE)
+      # 对应无标签汇总图是否存在于任一四目录
+      agg_stem <- sub(paste0("\\", ext, "$"), "", agg_bn, ignore.case = TRUE)
+      agg_exists <- any(vapply(c("pdf", "png", "tiff"), function(k) {
+        file.exists(file.path(figs_dir, subs[[k]], paste0(agg_stem, exts[[k]])))
+      }, logical(1L)))
+      if (!agg_exists) next
+      unlink(f)
+      purged <- c(purged, bn)
+    }
+  }
+  if (length(purged)) {
+    cli::cli_alert_info(
+      "汇总 Figures 已清除冗余分库图（已有汇总拼图）{length(purged)} 个: {paste(utils::head(unique(purged), 8), collapse=', ')}{if (length(purged) > 8) ' …' else ''}"
+    )
+  }
+  invisible(purged)
 }

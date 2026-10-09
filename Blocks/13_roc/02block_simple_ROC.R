@@ -121,6 +121,19 @@
   intersect(unique(covs), data_cols)
 }
 
+#' index → 数值预测向量：常规 as.numeric；二水平 factor/字符（如 No/Yes）
+#' 全 NA 时按字典序映射 0/1（与 subgroup 块分类暴露处理一致）
+.sroc_index_numeric <- function(x) {
+  pred <- suppressWarnings(as.numeric(as.character(x)))
+  if (all(is.na(pred))) {
+    lv <- unique(na.omit(as.character(x)))
+    if (length(lv) == 2L) {
+      pred <- ifelse(as.character(x) == lv[2L], 1, 0)
+    }
+  }
+  pred
+}
+
 .sroc_prepare_model_frame <- function(data_imp, index_var, outcome_var, analysis_grp, covariates) {
   y_raw <- data_imp[[outcome_var]]
   if (is.character(y_raw) || is.factor(y_raw)) {
@@ -128,7 +141,7 @@
   } else {
     y_num <- as.numeric(y_raw)
   }
-  pred <- suppressWarnings(as.numeric(as.character(data_imp[[index_var]])))
+  pred <- .sroc_index_numeric(data_imp[[index_var]])
   cols <- unique(c(index_var, covariates))
   df <- data_imp[, cols, drop = FALSE]
   df$.y <- y_num
@@ -150,6 +163,24 @@
     }
   }
   df
+}
+
+.sroc_drop_degenerate_predictors <- function(df, vars) {
+  if (exists("pipeline_drop_degenerate_covariates", mode = "function")) {
+    return(pipeline_drop_degenerate_covariates(df, vars))
+  }
+  keep <- character(0)
+  for (cn in vars) {
+    if (!cn %in% names(df)) next
+    x <- df[[cn]]
+    if (is.factor(x) || is.character(x) || is.logical(x)) {
+      if (length(unique(na.omit(as.character(x)))) >= 2L) keep <- c(keep, cn)
+    } else {
+      xv <- suppressWarnings(as.numeric(x))
+      if (length(unique(na.omit(xv))) >= 2L) keep <- c(keep, cn)
+    }
+  }
+  keep
 }
 
 .sroc_fit_predict <- function(mdf, index_var, model_covariates, r_cfg) {
@@ -227,14 +258,28 @@
     pred <- as.numeric(stats::predict(fit, dtrain))
     return(list(predictor = pred, engine = "xgboost", fit = fit))
   }
+  dfx <- .sroc_coerce_predictors(mdf, c(index_var, model_covariates))
+  usable <- .sroc_drop_degenerate_predictors(dfx, model_covariates)
+  dropped <- setdiff(model_covariates, usable)
+  if (length(dropped)) {
+    cli::cli_alert_warning(
+      "simple_ROC (glm): 跳过单水平/常数协变量 ({length(dropped)}): ",
+      paste(utils::head(dropped, 12L), collapse = ", "),
+      if (length(dropped) > 12L) ", ..." else ""
+    )
+  }
+  model_covariates <- usable
+  fml <- stats::as.formula(
+    paste(".y ~", paste(c(index_var, model_covariates), collapse = " + "))
+  )
   fit <- tryCatch(
-    stats::glm(fml, data = mdf, family = stats::binomial),
+    stats::glm(fml, data = dfx, family = stats::binomial),
     error = function(e) {
       stop("simple_ROC (glm): 拟合失败 — ", conditionMessage(e), call. = FALSE)
     }
   )
   list(
-    predictor = as.numeric(stats::predict(fit, type = "response")),
+    predictor = as.numeric(stats::predict(fit, newdata = dfx, type = "response")),
     engine = "glm",
     fit = fit
   )
@@ -338,7 +383,7 @@ block_simple_ROC <- function(ctx, ...) {
       cli::cli_alert_info("Outcome column '{outcome_var}' (numeric event)")
     }
   } else {
-    predictor <- suppressWarnings(as.numeric(as.character(data_imp[[index_var]])))
+    predictor <- .sroc_index_numeric(data_imp[[index_var]])
     y_raw     <- data_imp[[outcome_var]]
     if (is.character(y_raw) || is.factor(y_raw)) {
       y_num <- ifelse(as.character(y_raw) == as.character(analysis_grp), 1L, 0L)
@@ -412,7 +457,7 @@ block_simple_ROC <- function(ctx, ...) {
     scale_x_continuous("1 - Specificity", breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     scale_y_continuous("Sensitivity", breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     annotate(
-      "text", x = 1, y = 0.2, label = lbl, hjust = 1,
+      "text", x = 1, y = 0.35, label = lbl, hjust = 1,
       size = 4.2, color = "#C6524A", fontface = "bold", family = ff
     ) +
     labs(title = title_str) +

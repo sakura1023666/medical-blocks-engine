@@ -63,9 +63,11 @@ trajectory_paper_main_figure_specs <- function(db_lab, index_name = "NLR",
 
   list(
     list(
-      key = "fig1_placeholder",
+      key = "flowchart",
       dest = sprintf("Figure 1-%s. Flowchart of patient selection.pdf", db_lab),
-      placeholder = TRUE
+      src_pat = "^Figure 1\\..*(Flowchart|Inclusion exclusion).*\\.pdf$",
+      prefer = "Figure 1. Flowchart.pdf",
+      placeholder_if_missing = TRUE
     ),
     list(
       key = "trajectory",
@@ -150,10 +152,40 @@ trajectory_curate_figures_dir <- function(fig_dir, db_lab, index_name = "NLR",
                         ignore.case = TRUE, recursive = TRUE)
   all_pdf <- all_pdf[!grepl("/_raw/", all_pdf, fixed = TRUE)]
   raw_pdf <- list.files(raw_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
-  pool_pdf <- unique(c(all_pdf, raw_pdf))
+  # S1 底稿常落在 step*_imputation/Figures（Figures 目录之外）→ 并入候选池
+  step_pdf <- character(0)
+  unit_root <- dirname(fig_dir)
+  if (dir.exists(unit_root)) {
+    hit_miss <- list.files(unit_root, pattern = "^Figure Missing Value Overview\\.pdf$",
+                           recursive = TRUE, full.names = TRUE, ignore.case = TRUE)
+    step_pdf <- hit_miss[!grepl("/_raw/", hit_miss)]
+  }
+  pool_pdf <- unique(c(all_pdf, raw_pdf, step_pdf))
+
+  # 单库镜像命名兼容：允许 "… D2-MIMIC.pdf" 这类带库标签的图按无标签名匹配
+  db_tag <- gsub("[]\\[^$.*+?(){}|]", "\\\\\\0", db_lab)
+  .virt <- function(f) {
+    bn <- basename(f)
+    gsub(sprintf("-%s(?=\\.pdf$)", db_tag), "", bn, ignore.case = TRUE, perl = TRUE)
+  }
 
   curated <- character(0)
   used_src <- character(0)
+
+  # 文件名改号后同步：以虚拟名匹配 spec.prefer / src_pat。
+  # 图标题常把指标名里的 "_" 渲染成空格（如 BUN_Cr → "BUN Cr"），故两者等价。
+  .norm_und <- function(x) gsub("[_ ]", " ", x)
+  .pick_figure_src <- function(files, spec) {
+    if (isTRUE(spec$placeholder)) return(NA_character_)
+    if (!is.null(spec$prefer)) {
+      hit <- files[.norm_und(.virt(files)) == .norm_und(spec$prefer)]
+      if (length(hit)) return(hit[1L])
+    }
+    pat <- gsub("_", "[_ ]", spec$src_pat)
+    hits <- files[grepl(pat, .virt(files), perl = TRUE)]
+    if (!length(hits)) return(NA_character_)
+    hits[which.max(file.info(hits)$mtime)]
+  }
 
   for (spec in trajectory_paper_main_figure_specs(db_lab, index_name, optimal_ng)) {
     dest <- file.path(fig_dir, spec$dest)
@@ -163,6 +195,11 @@ trajectory_curate_figures_dir <- function(fig_dir, db_lab, index_name = "NLR",
       next
     }
     src <- .pick_figure_src(pool_pdf, spec)
+    if (is.na(src) && isTRUE(spec$placeholder_if_missing)) {
+      trajectory_write_figure1_placeholder(dest, db_lab, disease)
+      curated <- c(curated, dest)
+      next
+    }
     if (is.na(src)) next
     file.copy(src, dest, overwrite = TRUE)
     curated <- c(curated, dest)
@@ -194,6 +231,27 @@ trajectory_curate_figures_dir <- function(fig_dir, db_lab, index_name = "NLR",
                optimal_ng = optimal_ng))
 }
 
+#' 文件名改号后同步 A1 表内标题（如错号 Table 2 HR → Table 3）
+trajectory_sync_xlsx_a1_from_filename <- function(path) {
+  path <- as.character(path)[1L]
+  if (!file.exists(path) || !requireNamespace("openxlsx", quietly = TRUE)) {
+    return(invisible(FALSE))
+  }
+  new_title <- tools::file_path_sans_ext(basename(path))
+  ok <- tryCatch({
+    cur <- as.character(
+      openxlsx::read.xlsx(path, colNames = FALSE, rows = 1L, cols = 1L)[1, 1]
+    )
+    if (identical(trimws(cur %||% ""), new_title)) return(TRUE)
+    wb <- openxlsx::loadWorkbook(path)
+    sh <- openxlsx::sheets(wb)[1L]
+    openxlsx::writeData(wb, sh, new_title, startCol = 1L, startRow = 1L, colNames = FALSE)
+    openxlsx::saveWorkbook(wb, path, overwrite = TRUE)
+    TRUE
+  }, error = function(e) FALSE)
+  invisible(isTRUE(ok))
+}
+
 trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR",
                                              disease = "ischemic stroke") {
   arch_dir <- file.path(tab_dir, "_archive")
@@ -209,6 +267,21 @@ trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR"
     fa[!dir.exists(fa)]
   } else character(0)
 
+  # step*/Tables：正式名对不上时从 step 捞回（不归档 step 源文件）
+  unit_root <- dirname(tab_dir)
+  files_steps <- character(0)
+  if (dir.exists(unit_root)) {
+    step_dirs <- list.files(unit_root, pattern = "^step\\d+", full.names = TRUE)
+    step_dirs <- step_dirs[dir.exists(file.path(step_dirs, "Tables"))]
+    for (st in step_dirs) {
+      files_steps <- c(
+        files_steps,
+        list.files(file.path(st, "Tables"), full.names = TRUE, recursive = FALSE)
+      )
+    }
+    files_steps <- files_steps[!dir.exists(files_steps)]
+  }
+
   pick_newest <- function(pat, pool) {
     if (!length(pool)) return(NA_character_)
     bn <- basename(pool)
@@ -218,27 +291,59 @@ trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR"
     if (all(is.na(mt))) return(hits[1L])
     hits[which.max(mt)]
   }
-  # 根目录优先；仅当根目录无匹配时才回退 _archive（避免旧错号表盖掉新表）
+  # 根目录优先；再 _archive；最后 step*/Tables
   pick_prefer_main <- function(pat) {
     src <- pick_newest(pat, files_main)
     if (!is.na(src)) return(src)
-    pick_newest(pat, files_arch)
+    src <- pick_newest(pat, files_arch)
+    if (!is.na(src)) return(src)
+    pick_newest(pat, files_steps)
   }
   pick_exact_dest <- function(dest_bn) {
     hit <- files_main[basename(files_main) == dest_bn]
     if (length(hit)) return(hit[1L])
     hit <- files_arch[basename(files_arch) == dest_bn]
     if (length(hit)) return(hit[1L])
+    hit <- files_steps[basename(files_steps) == dest_bn]
+    if (length(hit)) return(hit[1L])
     NA_character_
+  }
+  .copy_to_dest <- function(src, dest) {
+    same <- tryCatch(
+      identical(normalizePath(src, mustWork = FALSE),
+                normalizePath(dest, mustWork = FALSE)),
+      error = function(e) FALSE
+    )
+    if (isTRUE(same)) return(TRUE)
+    ok <- isTRUE(tryCatch(file.copy(src, dest, overwrite = TRUE), error = function(e) FALSE))
+    if ((!ok || !file.exists(dest)) && file.exists(src)) {
+      sz <- suppressWarnings(as.integer(file.info(src)$size)[1L])
+      if (!is.finite(sz) || sz < 0L) sz <- 0L
+      raw <- tryCatch(readBin(src, what = "raw", n = sz), error = function(e) NULL)
+      if (!is.null(raw) && length(raw)) {
+        tryCatch({
+          writeBin(raw, dest)
+          ok <- file.exists(dest) && isTRUE(file.info(dest)$size > 0)
+        }, error = function(e) ok <<- FALSE)
+      }
+    }
+    if (!isTRUE(ok) || !file.exists(dest)) {
+      cli::cli_alert_warning("发表表拷贝失败: {basename(src)} -> {basename(dest)}")
+      return(FALSE)
+    }
+    TRUE
   }
 
   db_esc <- gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", db_lab, perl = TRUE)
   dis_esc <- gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", disease, perl = TRUE)
 
+  # disease 仅作 Table1 正式文件名；匹配时放宽（feishu 标签常带 Trajectory 后缀）
   specs <- list(
     list(dest = sprintf("Table 1-%s. Baseline characteristics of %s.xlsx", db_lab, disease),
          src_pats = c(sprintf("^Table 1-%s\\..*Baseline characteristics of %s", db_esc, dis_esc),
-                      sprintf("^Table [0-9]+-%s\\..*Baseline characteristics of %s", db_esc, dis_esc))),
+                      sprintf("^Table 1-%s\\..*Baseline characteristics", db_esc),
+                      sprintf("^Table [0-9]+-%s\\..*Baseline characteristics of %s", db_esc, dis_esc),
+                      sprintf("^Table [0-9]+-%s\\..*Baseline characteristics of ", db_esc))),
     list(dest = sprintf("Table 2-%s. Metrics for determining the optimal number of classes.xlsx", db_lab),
          src_pats = c(sprintf("^Table 2-%s\\..*optimal number of classes", db_esc),
                       sprintf("^Table 2-%s\\..*Metrics for determining", db_esc),
@@ -248,9 +353,15 @@ trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR"
                       sprintf("^Table2_%s_model_comparison", index_name))),
     list(dest = sprintf("Table 3-%s. Time-dependent HR for trajectory classes.xlsx", db_lab),
          src_pats = c(sprintf("^Table 3-%s\\..*Time-dependent HR", db_esc),
-                      sprintf("^Table 3-%s\\..*trajectory classes", db_esc))),
+                      sprintf("^Table 3-%s\\..*trajectory classes", db_esc),
+                      # 历史错号：HR 曾落成 Table 2-*/Table3 *
+                      sprintf("^Table 2-%s\\..*Time-dependent HR", db_esc),
+                      sprintf("^Table3[_ ]%s", index_name),
+                      sprintf("^Table3_%s_", index_name))),
     list(dest = sprintf("Table S1-%s. Baseline characteristics of patients before and after multiple imputation.xlsx", db_lab),
-         src_pats = c(sprintf("^Table S1-%s\\..*before and after multiple imputation", db_esc))),
+         src_pats = c(sprintf("^Table S1-%s\\..*before and after multiple imputation", db_esc),
+                      sprintf("^Table S1-%s\\..*before and after imputation", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*before and after (multiple )?imputation", db_esc))),
     list(dest = sprintf("Table S2-%s. Normality test results for continuous variables.xlsx", db_lab),
          src_pats = c(sprintf("^Table S2-%s\\. Normality test results for continuous variables\\.xlsx$", db_esc),
                       sprintf("^Table S8-%s\\. Normality test results for continuous variables \\(n=", db_esc),
@@ -258,17 +369,23 @@ trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR"
     list(dest = sprintf("Table S3-%s. Univariate Regression Analysis.xlsx", db_lab),
          src_pats = c(sprintf("^Table S[0-9]+-%s\\..*Univariate Regression", db_esc))),
     list(dest = sprintf("Table S4-%s. Multicollinearity Analysis (VIF, univariate screen).xlsx", db_lab),
-         src_pats = c(sprintf("^Table S[0-9]+-%s\\..*univariate screen", db_esc))),
+         src_pats = c(sprintf("^Table S[0-9]+-%s\\..*univariate screen", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*VIF screen", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*Multicollinearity Analysis VIF screen", db_esc))),
     list(dest = sprintf("Table S5-%s. Multivariable Regression Analysis.xlsx", db_lab),
          src_pats = c(sprintf("^Table S[0-9]+-%s\\..*Multivariable Regression", db_esc))),
     list(dest = sprintf("Table S6-%s. Multicollinearity Analysis (VIF, multivariate final).xlsx", db_lab),
-         src_pats = c(sprintf("^Table S[0-9]+-%s\\..*multivariate final", db_esc))),
+         src_pats = c(sprintf("^Table S[0-9]+-%s\\..*multivariate final", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*VIF final", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*Multicollinearity Analysis VIF final", db_esc))),
     list(dest = sprintf("Table S7-%s. Baseline characteristics by trajectory class (%s).xlsx", db_lab, index_name),
          src_pats = c("^Table_S5_Baseline_By_Class_",
                       sprintf("^Table S7-%s\\..*Baseline characteristics by trajectory class", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*Baseline characteristics by trajectory class", db_esc),
                       sprintf("^Table S5\\..*latent classes of %s", index_name))),
     list(dest = sprintf("Table S8-%s. Posterior classification table.xlsx", db_lab),
-         src_pats = c(sprintf("^Table S8-%s\\..*Posterior classification", db_esc)))
+         src_pats = c(sprintf("^Table S8-%s\\..*Posterior classification", db_esc),
+                      sprintf("^Table S[0-9]+-%s\\..*Posterior classification", db_esc)))
   )
 
   xlsx_all <- c(files_main, files_arch)
@@ -289,10 +406,12 @@ trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR"
     if (is.na(src)) next
     dest <- file.path(tab_dir, sp$dest)
     if (grepl("\\.xlsx$", src, ignore.case = TRUE)) {
-      if (!identical(normalizePath(src, mustWork = FALSE), normalizePath(dest, mustWork = FALSE))) {
-        file.copy(src, dest, overwrite = TRUE)
+      if (.copy_to_dest(src, dest) && file.exists(dest)) {
+        if (!identical(basename(src), basename(dest))) {
+          trajectory_sync_xlsx_a1_from_filename(dest)
+        }
+        keep <- c(keep, dest)
       }
-      keep <- c(keep, dest)
     } else if (grepl("\\.csv$", src, ignore.case = TRUE) && grepl("Table 2", sp$dest)) {
       keep <- c(keep, src)
     }
@@ -311,9 +430,9 @@ trajectory_pick_canonical_tables <- function(tab_dir, db_lab, index_name = "NLR"
       next
     }
     src <- files_arch[basename(files_arch) == bn]
+    if (!length(src)) src <- files_steps[basename(files_steps) == bn]
     if (length(src) && file.exists(src[1L])) {
-      file.copy(src[1L], dest, overwrite = TRUE)
-      keep <- c(keep, dest)
+      if (.copy_to_dest(src[1L], dest) && file.exists(dest)) keep <- c(keep, dest)
     }
   }
   keep <- unique(keep[file.exists(keep)])
@@ -327,6 +446,14 @@ trajectory_curate_tables_dir <- function(tab_dir, db_lab, index_name = "NLR",
   dir.create(arch_dir, recursive = TRUE, showWarnings = FALSE)
 
   picked <- trajectory_pick_canonical_tables(tab_dir, db_lab, index_name, disease)
+  # Table 2 / S8 若不在根目录，从 JLCM RData 补写（不编造 IC / 后验概率）
+  if (exists("trajectory_rebuild_jlcm_pub_tables", mode = "function")) {
+    tryCatch(
+      trajectory_rebuild_jlcm_pub_tables(dirname(tab_dir), index_name, db_lab),
+      error = function(e) cli::cli_alert_warning("JLCM 发表表补写失败: {e$message}")
+    )
+    picked <- trajectory_pick_canonical_tables(tab_dir, db_lab, index_name, disease)
+  }
   archived <- character(0)
   keep_bn <- unique(c(basename(picked$keep), picked$whitelist %||% character(0)))
   for (f in picked$archive) {
@@ -345,7 +472,8 @@ trajectory_curate_tables_dir <- function(tab_dir, db_lab, index_name = "NLR",
 
   junk_pats <- c(
     "UnknownDB",
-    "^Table3_", "^Table2_",
+    "^Table3_", "^Table3 ",
+    "^Table2_",
     "^Table_Piecewise_", "^Table_KM_", "^Table_Weibull_",
     "^Table Index Summary", "^Table_Trajectory_Chisq",
     "^Table_Trajectory_IC_JLCM",
@@ -354,6 +482,7 @@ trajectory_curate_tables_dir <- function(tab_dir, db_lab, index_name = "NLR",
     "^Table S9-", "^Table S10-", "^Table S11-", "^Table S12-",
     "Normality test results for continuous variables \\(n=",
     "^Table 2-.*Baseline characteristics",  # 与 Table1 重复的错号基线表
+    "^Table 2-.*Time-dependent HR",  # 错号：HR 应为 Table 3（已拷到正式名后归档）
     "^Table S3-.*before and after multiple imputation",  # 错号插补表
     "^Table S7-.*multivariate final",  # 与正式 S6 重复
     "^Table S5-.*univariate screen",   # 与正式 S4 重复
@@ -393,6 +522,40 @@ trajectory_curate_pub_outputs <- function(base_dir, index_name = "NLR",
     opt_ng <- trajectory_read_optimal_ng(root, index_name)
     if (is.finite(opt_ng)) {
       cli::cli_alert_info("[{toupper(db)}] 发表整理使用最优 ng={opt_ng}")
+    }
+    # 把 step*_attrition_flowchart 的真实纳排图拷进 Figures，避免 Fig1 落成占位符
+    # 优先 step*_attrition_flowchart；禁止用已是 PLACEHOLDER 的小文件当源
+    fig_dir <- file.path(root, "Figures")
+    dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+    dest_fc <- file.path(fig_dir, "Figure 1. Flowchart.pdf")
+    step_fc <- list.files(
+      root, pattern = "Figure 1\\..*Flowchart.*\\.(pdf|PDF)$",
+      recursive = TRUE, full.names = TRUE
+    )
+    step_fc <- step_fc[grepl("attrition_flowchart", step_fc, fixed = TRUE)]
+    step_fc <- step_fc[!grepl("/_raw/", step_fc)]
+    src_fc <- if (length(step_fc)) {
+      step_fc[which.max(file.info(step_fc)$size)]
+    } else {
+      fc_hits <- list.files(
+        root, pattern = "Figure 1\\..*\\.(pdf|PDF)$", recursive = TRUE, full.names = TRUE
+      )
+      fc_hits <- fc_hits[!grepl(paste0("Figure 1-", db_lab), basename(fc_hits), fixed = TRUE)]
+      fc_hits <- fc_hits[grepl("Flowchart|Inclusion exclusion", basename(fc_hits), ignore.case = TRUE)]
+      # 丢掉明显占位图（通常 <10KB）
+      if (length(fc_hits)) {
+        sz <- file.info(fc_hits)$size
+        fc_hits <- fc_hits[is.finite(sz) & sz >= 10000]
+      }
+      if (length(fc_hits)) fc_hits[which.max(file.info(fc_hits)$size)] else NA_character_
+    }
+    if (!is.na(src_fc) && file.exists(src_fc)) {
+      same <- tryCatch(
+        identical(normalizePath(src_fc, winslash = "/", mustWork = FALSE),
+                  normalizePath(dest_fc, winslash = "/", mustWork = FALSE)),
+        error = function(e) FALSE
+      )
+      if (!isTRUE(same)) file.copy(src_fc, dest_fc, overwrite = TRUE)
     }
     fig_res <- trajectory_curate_figures_dir(
       file.path(root, "Figures"), db_lab, index_name, disease, optimal_ng = opt_ng

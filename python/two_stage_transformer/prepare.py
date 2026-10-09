@@ -3,6 +3,8 @@
 方案 A（日级对齐增强）:
   - expand_hours=True: 将每日快照广播到 24 个相同小时槽（对齐原文 24×F 形状；
     【场景迁移】非真小时采样）。
+  - expand_hours=False + 真小时行（同日多 hour∈[0,H)）: 写入对应小时槽
+    （对齐原文 24×F nearest/小时网格；eICU 小时长表路径）。
   - sliding_window=True: ICU 住院 > window_days 时，按天滑动窗口生成多样本
     （对齐原文 >5 天 sliding window；窗口内日历日映射到 Day1..D）。
   - 患者级先划分再扩窗，避免同一患者窗口泄漏到 train/test 两侧。
@@ -15,6 +17,65 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+
+def _csv_has_true_hours(
+    df: pd.DataFrame,
+    day_col: str,
+    hour_col: str,
+    n_hours: int,
+) -> bool:
+    """True when any patient-day has multiple rows with hour in [0, n_hours)."""
+    if hour_col not in df.columns or day_col not in df.columns:
+        return False
+    h = pd.to_numeric(df[hour_col], errors="coerce")
+    in_day = h.notna() & (h >= 0) & (h < n_hours)
+    if not bool(in_day.any()):
+        return False
+    sub = df.loc[in_day, [day_col]].copy()
+    sub["_h"] = h[in_day].astype(int)
+    # group by all id-like columns present besides day — caller passes full df rows
+    # Use index of patient already filtered externally; here check per day counts via group keys
+    # Rebuild with patient if present
+    keys = [c for c in df.columns if c not in {hour_col} and c == day_col]
+    # simpler: any day with >1 distinct hour in range
+    gcols = [day_col]
+    for cand in ("patient", "tst_patient_id", "stay_id", "patientunitstayid"):
+        if cand in df.columns:
+            gcols = [cand, day_col]
+            break
+    cnt = (
+        df.loc[in_day]
+        .assign(_h=h[in_day].astype(int))
+        .groupby(gcols, sort=False)["_h"]
+        .nunique()
+    )
+    return bool((cnt > 1).any())
+
+
+def _coerce_binary_label(v) -> int:
+    """Map 0/1, Yes/No, and display labels ('Disease' / 'No Disease') to {0,1}."""
+    if v is None or (isinstance(v, float) and np.isnan(v)) or pd.isna(v):
+        raise ValueError("missing label")
+    if isinstance(v, (bool, np.bool_)):
+        return int(v)
+    if isinstance(v, (int, np.integer)):
+        return int(v)
+    if isinstance(v, (float, np.floating)):
+        if float(v) in (0.0, 1.0):
+            return int(v)
+    s = str(v).strip()
+    sl = s.lower()
+    if s in {"1"} or sl in {"yes", "y", "true", "dead", "death", "expired"}:
+        return 1
+    if s in {"0"} or sl in {"no", "n", "false", "alive"}:
+        return 0
+    if sl.startswith("no "):
+        return 0
+    # remaining non-empty display label → event
+    if s:
+        return 1
+    raise ValueError(f"cannot coerce label: {v!r}")
 
 
 def _patient_day_table(
@@ -44,7 +105,53 @@ def _patient_day_table(
             row = s2.iloc[-1]
             day_map[int(d)] = row[feat_cols].fillna(0).values.astype(np.float32)
         feat[p] = day_map
-        y[p] = int(sub[label_col].iloc[0])
+        y[p] = _coerce_binary_label(sub[label_col].iloc[0])
+        if los_col in sub.columns:
+            lv = sub[los_col].iloc[0]
+            los[p] = int(lv) if pd.notna(lv) else max(day_map.keys() or [1])
+        else:
+            los[p] = max(day_map.keys() or [1])
+        if apache_col in sub.columns and pd.notna(sub[apache_col].iloc[0]):
+            apache[p] = float(sub[apache_col].iloc[0])
+    return patients, feat, y, los, apache
+
+
+def _patient_day_hour_table(
+    df: pd.DataFrame,
+    patient_col: str,
+    day_col: str,
+    hour_col: str,
+    label_col: str,
+    los_col: str,
+    apache_col: str,
+    feat_cols: list[str],
+    max_calendar_day: int,
+    n_hours: int,
+) -> tuple[list, dict, dict, dict, dict]:
+    """Build per-patient day -> (H, F) hour matrices (hour in [0, H))."""
+    df = df.copy()
+    df[day_col] = pd.to_numeric(df[day_col], errors="coerce").astype("Int64")
+    df[hour_col] = pd.to_numeric(df[hour_col], errors="coerce")
+    df = df[df[day_col].notna() & (df[day_col] >= 1) & (df[day_col] <= max_calendar_day)]
+    df = df[df[hour_col].notna() & (df[hour_col] >= 0) & (df[hour_col] < n_hours)]
+    df[day_col] = df[day_col].astype(int)
+    df[hour_col] = df[hour_col].astype(int)
+    patients = sorted(df[patient_col].unique().tolist())
+    feat: dict = {}
+    y: dict = {}
+    los: dict = {}
+    apache: dict = {}
+    F = len(feat_cols)
+    for p, sub in df.groupby(patient_col, sort=False):
+        day_map: dict = {}
+        for d, s2 in sub.groupby(day_col, sort=True):
+            mat = np.zeros((n_hours, F), dtype=np.float32)
+            for h, s3 in s2.groupby(hour_col, sort=True):
+                row = s3.iloc[-1]
+                mat[int(h), :] = row[feat_cols].fillna(0).values.astype(np.float32)
+            day_map[int(d)] = mat
+        feat[p] = day_map
+        y[p] = _coerce_binary_label(sub[label_col].iloc[0])
         if los_col in sub.columns:
             lv = sub[los_col].iloc[0]
             los[p] = int(lv) if pd.notna(lv) else max(day_map.keys() or [1])
@@ -66,6 +173,7 @@ def _expand_windows(
     n_hours: int,
     sliding_window: bool,
     expand_hours: bool,
+    true_hourly: bool = False,
 ) -> dict:
     """Materialize (possibly multi-window) tensors X/y/day_mask/[apache]."""
     D, H, F = n_days, n_hours, len(feat_cols)
@@ -91,16 +199,25 @@ def _expand_windows(
                 if cal_d > cal_max:
                     break
                 m[i] = 1.0
-                if cal_d in day_map:
-                    vec = day_map[cal_d]
-                else:
-                    # 窗口内缺日：保持 0（前向填充已在 R 侧尽量完成）
-                    vec = np.zeros((F,), dtype=np.float32)
-                if expand_hours:
-                    x[i, :, :] = vec[None, :]
+                if cal_d not in day_map:
+                    continue
+                vec = day_map[cal_d]
+                if true_hourly and not expand_hours:
+                    # vec is (H, F)
+                    x[i, :, :] = vec
+                elif expand_hours:
+                    if getattr(vec, "ndim", 1) == 2:
+                        # accidental hourly mat: mean over hours then broadcast
+                        day_vec = vec.mean(axis=0)
+                    else:
+                        day_vec = vec
+                    x[i, :, :] = day_vec[None, :]
                 else:
                     # 兼容旧 CSV hour=day*24：写入最后一个小时槽
-                    x[i, H - 1, :] = vec
+                    if getattr(vec, "ndim", 1) == 2:
+                        x[i, :, :] = vec
+                    else:
+                        x[i, H - 1, :] = vec
             Xs.append(x)
             ys.append(y[p])
             masks.append(m)
@@ -122,6 +239,17 @@ def _expand_windows(
     return out
 
 
+def _read_id_list(path: str | Path, col: str = "patient") -> set[str]:
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(f"patient id file not found: {p}")
+    df = pd.read_csv(p)
+    if col not in df.columns:
+        # allow first column
+        col = df.columns[0]
+    return {str(x) for x in df[col].tolist() if pd.notna(x) and str(x).strip() != ""}
+
+
 def long_csv_to_npz(
     csv_path: str,
     out_path: str,
@@ -136,22 +264,45 @@ def long_csv_to_npz(
     sliding_window: bool = True,
     expand_hours: bool = True,
     max_calendar_day: int = 30,
+    patient_ids: set[str] | None = None,
+    landmark_hours: int | None = None,
 ) -> dict:
     df = pd.read_csv(csv_path)
+    if patient_ids is not None:
+        before = df[patient_col].nunique() if patient_col in df.columns else 0
+        df = df[df[patient_col].astype(str).isin(patient_ids)].copy()
+        after = df[patient_col].nunique() if patient_col in df.columns else 0
+        print(f"[prepare] eligible filter: patients {before} → {after} (landmark={landmark_hours})")
+        if after == 0:
+            raise ValueError("patient_ids filter removed all patients")
     meta_cols = {patient_col, day_col, hour_col, label_col, los_col, apache_col}
     feat_cols = [c for c in df.columns if c not in meta_cols]
     D, H, F = n_days, n_hours, len(feat_cols)
+    true_hourly = (not expand_hours) and _csv_has_true_hours(df, day_col, hour_col, n_hours)
     print(
         f"[prepare] 特征 F={F} | D={D} H={H} | sliding={sliding_window} "
-        f"expand_hours={expand_hours} max_cal_day={max_calendar_day}"
+        f"expand_hours={expand_hours} true_hourly={true_hourly} max_cal_day={max_calendar_day}"
+        f" | landmark_h={landmark_hours}"
     )
     print(f"[prepare] 特征列示例: {feat_cols[:8]}{'...' if F > 8 else ''}")
 
-    patients, feat, y, los, apache = _patient_day_table(
-        df, patient_col, day_col, label_col, los_col, apache_col, feat_cols, max_calendar_day
-    )
+    if true_hourly:
+        patients, feat, y, los, apache = _patient_day_hour_table(
+            df, patient_col, day_col, hour_col, label_col, los_col, apache_col,
+            feat_cols, max_calendar_day, n_hours,
+        )
+    else:
+        if not expand_hours:
+            print(
+                "[prepare] WARN: expand_hours=False 但未检测到真小时行；"
+                "回退日快照→末小时槽（兼容 hour=day*24）"
+            )
+        patients, feat, y, los, apache = _patient_day_table(
+            df, patient_col, day_col, label_col, los_col, apache_col, feat_cols, max_calendar_day
+        )
     packed = _expand_windows(
-        patients, feat, y, los, apache, feat_cols, D, H, sliding_window, expand_hours
+        patients, feat, y, los, apache, feat_cols, D, H, sliding_window, expand_hours,
+        true_hourly=true_hourly,
     )
 
     out_path = Path(out_path)
@@ -170,6 +321,8 @@ def long_csv_to_npz(
         "F": F,
         "sliding_window": bool(sliding_window),
         "expand_hours": bool(expand_hours),
+        "true_hourly": bool(true_hourly),
+        "landmark_hours": int(landmark_hours) if landmark_hours is not None else None,
         "mortality_rate": float(y_arr.mean()) if n else 0.0,
         "median_los": int(np.median(list(los.values()))) if los else 0,
         "windows_per_patient_mean": float(n / max(n_patients, 1)),
@@ -180,6 +333,54 @@ def long_csv_to_npz(
         f"窗/人≈{summary['windows_per_patient_mean']:.2f}"
     )
     return summary
+
+
+def split_npz_from_id_files(
+    in_path: str,
+    out_dir: str,
+    split_ids_dir: str,
+) -> dict:
+    """按共享层 train/val/test_ids.csv（patient 列）划分窗口样本。"""
+    d = np.load(in_path, allow_pickle=True)
+    X, y = d["X"], d["y"]
+    if "patient_id" not in d:
+        raise ValueError("split_ids_dir 需要 full.npz 含 patient_id")
+    pids = np.asarray(d["patient_id"]).astype(str)
+    id_dir = Path(split_ids_dir)
+    train_ids = _read_id_list(id_dir / "train_ids.csv")
+    val_ids = _read_id_list(id_dir / "val_ids.csv")
+    test_ids = _read_id_list(id_dir / "test_ids.csv")
+
+    def mask_for(chosen: set[str]):
+        return np.array([p in chosen for p in pids], dtype=bool)
+
+    train_idx = np.where(mask_for(train_ids))[0]
+    val_idx = np.where(mask_for(val_ids))[0]
+    test_idx = np.where(mask_for(test_ids))[0]
+    if len(train_idx) == 0 or len(val_idx) == 0 or len(test_idx) == 0:
+        raise ValueError(
+            f"split_ids 与 eligible 交集为空: train={len(train_idx)} val={len(val_idx)} test={len(test_idx)}"
+        )
+
+    optional = [k for k in ["day_mask", "apache", "patient_id", "window_start_day"] if k in d]
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def pack(sel):
+        packed = {"X": X[sel], "y": y[sel]}
+        for k in optional:
+            packed[k] = d[k][sel]
+        if "feature_names" in d:
+            packed["feature_names"] = d["feature_names"]
+        return packed
+
+    counts = {}
+    for name, sel in [("train", train_idx), ("val", val_idx), ("test", test_idx)]:
+        np.savez_compressed(out_dir / f"{name}.npz", **pack(sel))
+        counts[name] = {"n": int(len(sel)), "n_pos": int(y[sel].sum())}
+        print(f"[prepare/split_ids] {name}: {len(sel)} (正例 {int(y[sel].sum())})")
+    print(f"[prepare/split_ids] OK from {id_dir}")
+    return counts
 
 
 def split_npz(
@@ -257,23 +458,37 @@ def prepare(
     sliding_window: bool = True,
     expand_hours: bool = True,
     max_calendar_day: int = 30,
+    patient_ids_file: Optional[str] = None,
+    split_ids_dir: Optional[str] = None,
+    landmark_hours: Optional[int] = None,
 ) -> dict:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     if not csv_path:
         raise ValueError("tst_prepare 需要 --data-path 指向 R 导出的长表 CSV")
+    patient_ids = _read_id_list(patient_ids_file) if patient_ids_file else None
     full_path = out_dir / "full.npz"
     prep_summary = long_csv_to_npz(
         csv_path, full_path, patient_col, day_col, hour_col, label_col, los_col,
         apache_col, n_days, n_hours, sliding_window, expand_hours, max_calendar_day,
+        patient_ids=patient_ids, landmark_hours=landmark_hours,
     )
-    split_counts = split_npz(full_path, out_dir, seed=seed)
+    if split_ids_dir:
+        split_counts = split_npz_from_id_files(full_path, out_dir, split_ids_dir)
+        split_mode = "shared_ids"
+    else:
+        split_counts = split_npz(full_path, out_dir, seed=seed)
+        split_mode = "random_seed"
     meta = {
         "prepare": prep_summary,
         "split": split_counts,
         "seed": seed,
         "sliding_window": sliding_window,
         "expand_hours": expand_hours,
+        "landmark_hours": landmark_hours,
+        "split_mode": split_mode,
+        "split_ids_dir": split_ids_dir,
+        "patient_ids_file": patient_ids_file,
     }
     (out_dir / "prepare_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return meta

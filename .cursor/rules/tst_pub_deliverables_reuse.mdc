@@ -1,0 +1,75 @@
+# TST / 两阶段 Transformer 发表交付复用铁律
+
+本对话沉淀的修复必须落在**引擎正式路径**，禁止依赖 `run/**/_tmp_*` 一次性脚本。新课题直接复用下列入口。
+
+## 正式入口（全项目复用）
+
+| 能力 | 路径 | 说明 |
+|------|------|------|
+| 汇总图表 | `Blocks/71_two_stage_transformer_stroke/scripts/build_summary_results.py` | `tst_summary_results` block 调用；SCI 命名、无下划线、S1/S2/S3、Table2 Day1–5 |
+| 发表图四目录 | `R/pub_figure_export.R` ← `12block_tst_summary_results.R` | `summary_results/Figures/{pdf,png,tiff,image_information}`，与预后一致 |
+| 插补 Table S1（分析队列对齐） | `.../scripts/rebuild_imputation_table_s1.R` | 时序删人后再出 S1；汇总阶段自动调用 |
+| Figure 1 CONSORT | `.../scripts/draw_fig1_consort.py` | 有 `--project-root` 时读本课题 flowchart；禁止静默套 AKI 默认人数 |
+| Table 2 Day1–5 | `.../scripts/rebuild_table2_yang_layout.py` | S6 不齐时从 L{lm}_B 模型重算；对照分列先建 map |
+| Figure 2（vs APSIII/SAPSII） | `.../scripts/redraw_fig3_sapsii.py` | ROC+CM+柱图；配对 n 与 test n 脚注；星号显著性 |
+| Figure S6 + Table 3 | `.../scripts/redraw_fig_s6_comparison.py` | Day5 bootstrap mean±SD；**重导后自动重写 Table 3** |
+| Fig2 / Fig S6 显著性 | `.../scripts/pub_pvalue_stars.py` | 柱图统一 `*`/`**`/`***`，**禁止**图上写 `P=0.xxx` |
+| eICU 外验 | `.../scripts/prepare_eicu_external_and_eval.py` | 主分析 MIMIC → Figure S7 |
+| 特征展示名 | `.../scripts/feature_display_names.py` | SHAP/表内禁止下划线 |
+| 插补多分类 P 值 | `Blocks/03_imputation/01block_imputation.R` | Race/Marital 等 >2 水平不再丢 P |
+| 时序裁剪同步 imputed | `Blocks/71_.../02block_tst_timeseries.R` | Table1 与分析队列 N 一致 |
+| SHAP 展示名 | `python/two_stage_transformer/shap_plot.py` | 从 `Blocks/.../scripts` 导入 |
+
+## 表注铁律（Table 2 / 3 / S2）
+
+1. **Table 2、Table 3**：表注**只许一条**  
+   `ᵃ F1-score, harmonic mean of precision and recall.`  
+   禁止追加 bootstrap / CV / Mann–Whitney / n_boot / 场景迁移等第二段说明（方法写进 Methods，不进表注）。
+2. **Table S2**：**不要脚注**（无 Features 计数、队列 N、场景迁移等脚注行）。
+3. 生成入口须遵守：`rebuild_table2_yang_layout.py`、`write_yang_table3_xlsx` / `build_summary_results.py`、`run_cv_baselines_rebuild_pub.py`。
+4. **Table S1**：题名用 **analysis cohort**（可注明 MICE fitted on training split only）；**禁止**把全队列误标 `(training set)` 却实际是全量；**禁止**结局列进入 S1。
+5. **Table 2 Day5 ≡ Table 3 Transformer**：同一 test 患者级 bootstrap（默认 n_boot=400, seed=42）；禁止 Table2 用 `seed+day` 导致 Acc/F1 与 Table3/S6 错位。
+6. **Figure S7**：定稿为纯 Transformer、Day5；图注 **AUC 与 Acc 分列**（禁止 Acc 冒充 AUC）；CSV/JSON/PDF 三者 CM 与 AUC 必须一致；禁止残留 SOFA blend 旧 JSON；外验 **不重训** 且 `min_age` 与主库一致。
+7. **流水线顺序**：`tst_cohort → tst_split → imputation(fit_on=train) → tst_timeseries → …`（见 `tst_methods_leakage_denom_gate`）。
+
+## 表图同口径铁律（防审校打回）
+
+1. **Figure S6 ≡ Table 3**：同一套 Day5 患者级 bootstrap mean (SD)（默认 n_boot=400）。禁止柱高用单次点估计、表用 bootstrap 均值（或反过来）。`redraw_fig_s6_comparison.py` 结束必须触发 Table 3 重写。
+2. **重导 S6 必带 Table 3**：只换 PDF、不重写 xlsx = 禁止（旧表会残留如 AUC 0.842 vs 图 0.823）。
+3. **Figure 2 样本量两口径写清**：
+   - `test n` = 划分人数（如 515）
+   - 面板 `n` = 与对照评分（APSIII/SAPSII）**配对可得**人数（如 507）；CM 格子之和必须 = 面板 n
+   - 图题/脚注必须同时出现两个 n；Methods 禁止只写 515 却让审稿人用 CM 反算出 507
+4. **Day-k AUC 标签**：按该日面板真实 AUC；禁止把 Day-2 数字说成 Day-1。推荐图上 **三位小数**（避免 0.795→两位变成 0.79/0.80 争议）。
+5. **柱图显著性**：只用 `*`/`**`/`***`，禁止 `P = 0.007` 这种易与他指标撞车的三位显示。
+6. **交付路径唯一**：以课题 `summary_results/Figures|Tables` 为准；口头“已重导”必须落盘覆盖同一文件名。
+
+## 禁止
+
+- 新增 `run/**/_tmp_*` 作为正式交付依赖
+- 用 openpyxl 重写 `export_sci_table` 产出的 Table1（会毁掉三线表样式）
+- 旁路调用 `export_sci_table` 却不设 `options(pipeline.database_name)`（会变成 UnknownDB）
+- 图/表可见文字保留下划线（`static_Age`、`heart_rate` 等）
+- Comparison of Models 柱图写 `P = 0.007` 等数值（必须用 `*` / `**` / `***`）
+- 只更新 Figure S6 PDF、不更新 Table 3
+- Figure 2 CM 合计 ≠ 图内标注 n，或 Methods 写 test n 却不解释配对缺失
+
+## 新课题检查清单
+
+- [ ] pipeline 含 `tst_summary_results`（或跑完后执行 `build_summary_results.py --project-root ...`）
+- [ ] `config$project$database` 已设（MIMIC/eICU/…）
+- [ ] 若 `export_table_s1=FALSE`，依赖汇总阶段的 `rebuild_imputation_table_s1.R`
+- [ ] Figure 1：从本课题 flowchart 出人数（非他病默认）
+- [ ] Fig2 / Fig S6 柱图显著性为星号，脚注含 `* P<0.05, ** P<0.01, *** P<0.001`
+- [ ] Figure 2：脚注含 test n 与 paired n；CM 之和 = paired n
+- [ ] Figure S6 与 Table 3：Transformer 等模型 AUC mean(SD) **逐格一致**
+- [ ] 核对 Day-1 ROC 标签 = Day-1 真实 AUC（非 Day-2）
+- [ ] Table 2 / Table 3：表注仅 `ᵃ F1-score, harmonic mean of precision and recall.`（无第二段）
+- [ ] Table S2：无脚注；动态 + 静态分节；未入模候选（如 BMI/Albumin）不写进最终清单
+- [ ] 无残留 `run/**/_tmp_push085*` / `_tmp_build_*` 依赖
+
+## 反例（本课题曾踩坑）
+
+- 回答写「Fig2 Day-1≈0.81」实际是 Day-2；Day-1 为 0.795
+- Methods 写 test 515，Fig2 CM 合计 507，未写 APSIII 缺失 8 人
+- Figure S6 已重导（0.823），Table 3 仍为旧 0.842 / 排序错位

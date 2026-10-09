@@ -64,22 +64,24 @@
 }
 
 .cb01_Tb_ModelGroup2_HR <- function(time_var, event_var, ContinuousName, FactorName, Data,
-                                     Model1Factors, Model2Factors, DeathCause, Factors,
-                                     ref_level, high_level) {
+                                   Model1Factors, Model2Factors, DeathCause, Factors,
+                                   ref_level, high_level, include_continuous = TRUE) {
   surv_lhs <- paste0("Surv(", time_var, ", ", event_var, ")")
   rhs_c <- function(vars) paste(c(vars), collapse = " + ")
-
-  fml_Continuous_c01 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(ContinuousName)))
-  fml_Continuous_c02 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model1Factors))))
-  fml_Continuous_c03 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model2Factors))))
 
   fml_Factors_f01 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(FactorName)))
   fml_Factors_f02 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(FactorName, Model1Factors))))
   fml_Factors_f03 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(FactorName, Model2Factors))))
 
-  model_Continuous_c01 <- coxph(fml_Continuous_c01, data = Data)
-  model_Continuous_c02 <- coxph(fml_Continuous_c02, data = Data)
-  model_Continuous_c03 <- coxph(fml_Continuous_c03, data = Data)
+  model_Continuous_c01 <- model_Continuous_c02 <- model_Continuous_c03 <- NULL
+  if (isTRUE(include_continuous)) {
+    fml_Continuous_c01 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(ContinuousName)))
+    fml_Continuous_c02 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model1Factors))))
+    fml_Continuous_c03 <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model2Factors))))
+    model_Continuous_c01 <- coxph(fml_Continuous_c01, data = Data)
+    model_Continuous_c02 <- coxph(fml_Continuous_c02, data = Data)
+    model_Continuous_c03 <- coxph(fml_Continuous_c03, data = Data)
+  }
 
   model_Factors_c01 <- coxph(fml_Factors_f01, data = Data)
   model_Factors_c02 <- coxph(fml_Factors_f02, data = Data)
@@ -91,38 +93,43 @@
     hr <- round(exp(coef(m))[row], 3)
     ci <- suppressMessages(confint(m))
     ci_str <- paste0("(", round(exp(ci[row, 1]), 3), ",", round(exp(ci[row, 2]), 3), ")")
-    p <- round(sm$coefficients[row, "Pr(>|z|)"], 4)
+    p <- pub_format_p_cell(sm$coefficients[row, "Pr(>|z|)"])
     list(hr = hr, ci = ci_str, p = p)
   }
-
-  c1 <- .hr_ci_p(model_Continuous_c01)
-  c2 <- .hr_ci_p(model_Continuous_c02)
-  c3 <- .hr_ci_p(model_Continuous_c03)
 
   Line1 <- c("", "", "", "Crude Model", "", "", "Model1", "", "", "Model2", "")
   Line2 <- c("Characteristic", "N (%)", "HR", "95%CI", "P-value",
              "HR", "95%CI", "P-value", "HR", "95%CI", "P-value")
   Line3 <- c(DeathCause, rep("", 10L))
-  Line4 <- c(
-    paste0(Factors, " continuous"), "",
-    c1$hr, c1$ci, c1$p, c2$hr, c2$ci, c2$p, c3$hr, c3$ci, c3$p
-  )
+  Line4 <- NULL
+  if (isTRUE(include_continuous)) {
+    c1 <- .hr_ci_p(model_Continuous_c01)
+    c2 <- .hr_ci_p(model_Continuous_c02)
+    c3 <- .hr_ci_p(model_Continuous_c03)
+    Line4 <- c(
+      paste0(Factors, " continuous"), "",
+      c1$hr, c1$ci, c1$p, c2$hr, c2$ci, c2$p, c3$hr, c3$ci, c3$p
+    )
+  }
   Line5 <- c(paste0(Factors, " category"), rep("", 10L))
 
   cnt <- table(Data[[FactorName]])
   pct_ref <- round(100 * as.numeric(cnt[ref_level]) / nrow(Data), 2)
-  Line6 <- c(paste0("Lower ", Factors), pct_ref, rep(c("Ref", "", ""), 3L))
+  ref_lab <- if (isTRUE(include_continuous)) paste0("Lower ", Factors) else paste0(ref_level, " (Ref)")
+  Line6 <- c(ref_lab, pct_ref, rep(c("Ref", "", ""), 3L))
 
   f1 <- .hr_ci_p(model_Factors_c01)
   f2 <- .hr_ci_p(model_Factors_c02)
   f3 <- .hr_ci_p(model_Factors_c03)
   pct_hi <- round(100 * as.numeric(cnt[high_level]) / nrow(Data), 2)
+  hi_lab <- if (isTRUE(include_continuous)) paste0("Higher ", Factors) else as.character(high_level)
   Line7 <- c(
-    paste0("Higher ", Factors), pct_hi,
+    hi_lab, pct_hi,
     f1$hr, f1$ci, f1$p, f2$hr, f2$ci, f2$p, f3$hr, f3$ci, f3$p
   )
 
-  rt <- rbind(Line1, Line2, Line3, Line4, Line5, Line6, Line7)
+  parts <- c(list(Line1, Line2, Line3), if (!is.null(Line4)) list(Line4), list(Line5, Line6, Line7))
+  rt <- do.call(rbind, parts)
   rownames(rt) <- NULL
   list(
     table = rt,
@@ -196,6 +203,9 @@ block_cox_binary <- function(ctx, ...) {
   }
   data2[[event_var]] <- as.numeric(data2[[event_var]])
 
+  if (exists("pipeline_apply_categorical_exposure", mode = "function")) {
+    bl_cfg <- pipeline_apply_categorical_exposure(bl_cfg, data2, index_var)
+  }
   group_var_name <- bl_cfg$group_var
   predefined <- !is.null(group_var_name) && nzchar(group_var_name) && group_var_name %in% names(data2)
 
@@ -293,7 +303,7 @@ block_cox_binary <- function(ctx, ...) {
                  HR = round(exp(sm[,"coef"]),3),
                  CI_lower = round(exp(sm[,"coef"] - 1.96*sm[,"se(coef)"]),3),
                  CI_upper = round(exp(sm[,"coef"] + 1.96*sm[,"se(coef)"]),3),
-                 P = round(sm[,"Pr(>|z|)"],4), stringsAsFactors = FALSE)
+                 P = pub_format_p_cell(sm[,"Pr(>|z|)"]), stringsAsFactors = FALSE)
     }
     rt_crude <- get_hr(m_crude); rt_adj <- get_hr(m_adj)
     rt_out   <- if (!is.null(rt_crude) && !is.null(rt_adj)) {
@@ -414,7 +424,9 @@ block_cox_binary <- function(ctx, ...) {
       ContinuousName = "Num", FactorName = "Group", Data = dt,
       Model1Factors = Model1Factors, Model2Factors = Model2Factors,
       DeathCause = index_var, Factors = index_var,
-      ref_level = levels_use[1], high_level = levels_use[2]
+      ref_level = levels_use[1], high_level = levels_use[2],
+      include_continuous = isTRUE(bl_cfg$include_continuous_row %||% TRUE) &&
+        !isTRUE(bl_cfg$categorical_exposure)
     ),
     error = function(e) {
       if (.cb01_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {

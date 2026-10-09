@@ -120,6 +120,13 @@ trajectory_batch_patch_config_for_index <- function(config, ix) {
 
   cfg <- config
   cfg$survival$index_var <- ix
+  # Shared trajectory setup may allow analysis_exclusion to run without an
+  # active index. A unit worker always has one, so re-enable transitive
+  # component exclusion before UV/VIF/Cox/JLCM covariate selection.
+  if (is.null(cfg$analysis_exclusion)) cfg$analysis_exclusion <- list()
+  cfg$analysis_exclusion$allow_no_index <- FALSE
+  cfg$analysis_exclusion$index_var <- ix
+  cfg$analysis_exclusion$current_index_vars <- ix
   if (is.null(cfg$prediction)) cfg$prediction <- list()
   cfg$prediction$index_vars <- c(ix)
   cfg$incidence <- cfg$incidence %||% list()
@@ -136,6 +143,25 @@ trajectory_batch_patch_config_for_index <- function(config, ix) {
   )) {
     if (!is.null(cfg[[blk]])) cfg[[blk]]$index_vars <- c(ix)
   }
+
+  # Batch scan: block-level "PAUSE_FOR_USER_DECISION" on empty / all-negative
+  # results is meant for interactive single-index runs. In a full-index sweep a
+  # given trajectory may legitimately be non-informative; aborting the worker
+  # then loses the code bundle and downstream figures and mislabels it failed.
+  # Disable those pauses for batch workers only (engine defaults untouched).
+  .pause_keys <- c(
+    "pause_enable", "pause_on_no_output", "pause_on_missing_survival",
+    "pause_on_all_negative", "pause_on_min_sig_vars", "pause_enable_if_index_ns",
+    "pause_on_no_output_after", "pause_on_all_ns"
+  )
+  for (blk in ls(cfg)[grepl("^trajectory", ls(cfg))]) {
+    node <- cfg[[blk]]
+    if (is.list(node)) {
+      # Set unconditionally: block helpers default missing pause keys to TRUE.
+      for (k in .pause_keys) node[[k]] <- FALSE
+      cfg[[blk]] <- node
+    }
+  }
   if (!is.null(cfg$trajectory)) cfg$trajectory$index_vars <- c(ix)
   else {
     cfg$trajectory <- list(
@@ -144,6 +170,7 @@ trajectory_batch_patch_config_for_index <- function(config, ix) {
       use_optimal_class_ng = cfg$trajectory_chisq$use_optimal_class_ng %||% TRUE,
       outcome_vars = cfg$trajectory_chisq$outcome_vars %||% c("survival_28d"),
       p_threshold = cfg$trajectory_chisq$p_threshold %||% 1.0,
+      pause_on_all_ns = cfg$trajectory_chisq$pause_on_all_ns %||% TRUE,
       cycle = cfg$trajectory_dynpred$cycle %||% 28L,
       jlcm = cfg$trajectory_dynpred$jlcm %||% list(prefer_ng = NULL)
     )

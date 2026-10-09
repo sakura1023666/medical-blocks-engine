@@ -34,7 +34,7 @@
     ),
     xgb = list(
       suffix = "xgb", blocks = c("tst_train_eval"),
-      python_mode = "tst_baselines", model = "xgb"
+      python_mode = "tst_baselines", model = "xgboost"
     ),
     mlp = list(
       suffix = "mlp", blocks = c("tst_train_eval"),
@@ -184,9 +184,11 @@ source(file.path(getwd(), "R", "study_batch_runner.R"), local = FALSE)
     parallel_workers = "auto",
     skip_existing   = TRUE,
     worker_script   = "run/two_stage_transformer_stroke/run_two_stage_transformer_stroke_worker.R",
-    shared_ck_alias = "tst_split",
+    # A2 顺序：split → imputation → timeseries → landmark；workers 必须拿末段共享态
+    # （含 hourly_long_path）。旧默认 tst_split 会在 timeseries 之前截断，训练全挂。
+    shared_ck_alias = as.character(ts$shared_ck_alias %||% "tst_landmark")[1L],
     shared_ck_base  = file.path(output_base, "checkpoints", "_shared", "main"),
-    rename_on_finish = TRUE,
+    rename_on_finish = isTRUE(ts$rename_unit_on_finish %||% TRUE),
     finalize_blocks = finalize_blocks,
     max_workers     = ts$max_workers %||% 4L,
     ram_per_worker_gb = ts$ram_per_worker_gb %||% 4.0
@@ -399,6 +401,15 @@ tst_stroke_run_task_parallel <- function(root, config, pipeline_shared, units, w
 
   config <- .tst_stroke_inject_study_batch(config, all_units, config_path = config_path)
   sb <- config$study_batch
+
+  # A2 铁律：tst_split → imputation(fit_on=train)；禁止划分前全量 MICE
+  common_r <- file.path(root, "Blocks/71_two_stage_transformer_stroke/00tst_common.R")
+  if (file.exists(common_r)) {
+    sys.source(common_r, envir = environment())
+  }
+  if (exists(".tst71_assert_shared_mi_split_order", mode = "function")) {
+    .tst71_assert_shared_mi_split_order(pipeline_shared, config)
+  }
 
   if (length(units) == 0L) {
     if (.tst_stroke_units_need_shared(character(0))) {

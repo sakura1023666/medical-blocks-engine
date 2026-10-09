@@ -76,7 +76,12 @@ def run_baselines(
     sd[sd < 1e-8] = 1.0
     X_tr_s, X_va_s, X_te_s = (X_tr - mu) / sd, (X_va - mu) / sd, (X_te - mu) / sd
 
-    model_list = [m.strip().lower() for m in models.split(",") if m.strip()]
+    _BASELINE_ALIASES = {"xgb": "xgboost", "gbdt": "xgboost", "gbm": "xgboost"}
+    model_list = [
+        _BASELINE_ALIASES.get(m.strip().lower(), m.strip().lower())
+        for m in models.split(",")
+        if m.strip()
+    ]
     rows: list[dict] = []
 
     if "logistic" in model_list:

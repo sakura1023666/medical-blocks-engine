@@ -28,8 +28,14 @@ block_km_continuous_router <- function(ctx, ...) {
       character(0)
   )
   vars <- unique(vars[nzchar(vars)])
+  exclude_vars <- unique(c(
+    as.character(bl$exclude_vars %||% character(0)),
+    as.character(cfg$force_factor_vars %||% character(0))
+  ))
+  exclude_vars <- exclude_vars[nzchar(exclude_vars)]
+  if (length(exclude_vars)) vars <- setdiff(vars, exclude_vars)
   vars <- vars[vapply(vars, function(v) {
-    v %in% names(data) && is.numeric(data[[v]]) &&
+    v %in% names(data) && is.numeric(data[[v]]) && !is.factor(data[[v]]) &&
       length(unique(stats::na.omit(data[[v]]))) > 4L
   }, logical(1L))]
 

@@ -1,0 +1,30 @@
+# 发病+预后两阶段：Stage2 沿用 Stage1 协变量（全项目复用）
+
+凡 **Stage1 发病 + Stage2 预后** 单指标两阶段 worker（如 `ip_two_stage` / `run_sle_aki_inc_prog`）必须遵守。
+
+## 铁律
+
+1. **Stage2 禁止再跑预后协变量筛选**：不得包含 `univariate_prognosis`、`multicollinearity_screen`、`multivariate_prognosis`、`multicollinearity_final`、`multivariate_prognosis_harmonized`、`simple_ROC`（除非 `reuse_stage1_covariates=FALSE` 且课题书面例外）。
+2. **Stage2 分析块**（Cox/RCS/KM/亚组/分段 Cox）的 Model1/Model2 **必须**来自 Stage1 快照 `model1_incidence` / `model2_incidence`，经 `ip_two_stage_prepare_stage2_locked_covariates()` 写入 block config。
+3. **config 开关**：`ip_two_stage$reuse_stage1_covariates = TRUE`（默认）；`ip_two_stage_batch$reuse_stage1_covariates` 与之对齐。
+4. **Stage2 仍保留** `baseline_binary`（AKI 子队列、按 28 天死亡分层的 Table1），与发病 Table1 区分。
+5. **禁止** Stage2 MV 结果覆盖 Cox/RCS 的 `model1_factors` / `model2_factors`。
+
+## 实现入口
+
+- `R/ip_two_stage_batch_runner.R`：`ip_two_stage_trim_stage2_pipeline` / `ip_two_stage_prepare_stage2_locked_covariates`
+- Worker：`run/sle_aki_inc_prog/run_sle_aki_inc_prog_batch_worker.R` Stage2 分支
+- 模板：`configs/templates/config_sle_aki_inc_prog_batch.template.R` → `.blocks_stage2`
+
+## 新课题检查清单
+
+- [ ] `pipeline_stage2$blocks` 无预后 UV/MV/ROC
+- [ ] `reuse_stage1_covariates=TRUE`
+- [ ] 日志含「Stage2 沿用发病锁定协变量（已跳过预后 UV/MV）」
+- [ ] Cox/RCS Model2 与发病 Table2 logistic Model2 一致（或为其 Stage2 队列可用列交集）
+
+## 反例（禁止）
+
+- Stage2 再筛一套 PP/GCS/T2DM 进预后 RCS
+- 先跑预后 MV 再「碰运气」lock 回发病名单
+- 主文 Cox 与发病 logistic 协变量名单不一致却无脚注说明

@@ -319,10 +319,9 @@
   if (!all(c(t1, t2) %in% names(wide)))
     stop("two_wave: 缺 ", t1, "/", t2, call. = FALSE)
   d <- as.data.frame(wide)
-  d$mean_Index <- if ("mean_Index" %in% names(d)) as.numeric(d$mean_Index) else
-    rowMeans(cbind(as.numeric(d[[t1]]), as.numeric(d[[t2]])), na.rm = TRUE)
-  d$Index_change <- if ("Index_change" %in% names(d)) as.numeric(d$Index_change) else
-    as.numeric(d[[t2]]) - as.numeric(d[[t1]])
+  # 始终按指定暴露列重算，避免宽表里预存的 FI mean/change 盖住 Leisure_score
+  d$mean_Index <- rowMeans(cbind(as.numeric(d[[t1]]), as.numeric(d[[t2]])), na.rm = TRUE)
+  d$Index_change <- as.numeric(d[[t2]]) - as.numeric(d[[t1]])
   if (y01 %in% names(d)) {
     d$T2_outcome <- as.integer(d[[y01]] == 1L)
   } else if (y_col %in% names(d)) {
@@ -506,19 +505,21 @@ block_cross_lagged_change_logistic <- function(ctx, ...) {
     }
   }
 
+  mean_lab <- as.character(bl$mean_section %||% "Mean FI")[1L]
+  chg_lab <- as.character(bl$change_section %||% "FI change")[1L]
   rows <- list()
   fit_m <- .fit_one(c("Index_mean_q", cov_use_m))
   tab_m <- if (!is.null(fit_m)) .cross_lagged_change_extract(fit_m) else NULL
   if (!is.null(tab_m) && nrow(tab_m)) {
     tab_m <- tab_m[grepl("Index_mean_q", tab_m$term), , drop = FALSE]
-    if (nrow(tab_m)) rows[[length(rows) + 1L]] <- cbind(analysis = "Mean_FI", tab_m)
+    if (nrow(tab_m)) rows[[length(rows) + 1L]] <- cbind(analysis = mean_lab, tab_m)
   }
 
   fit_c <- .fit_one(c("Index_change_q", cov_use_c))
   tab_c <- if (!is.null(fit_c)) .cross_lagged_change_extract(fit_c) else NULL
   if (!is.null(tab_c) && nrow(tab_c)) {
     tab_c <- tab_c[grepl("Index_change_q", tab_c$term), , drop = FALSE]
-    if (nrow(tab_c)) rows[[length(rows) + 1L]] <- cbind(analysis = "FI_change", tab_c)
+    if (nrow(tab_c)) rows[[length(rows) + 1L]] <- cbind(analysis = chg_lab, tab_c)
   }
 
   tab <- if (length(rows)) do.call(rbind, rows) else data.frame()
@@ -526,8 +527,8 @@ block_cross_lagged_change_logistic <- function(ctx, ...) {
   metric_lab <- metric
 
   pub <- rbind(
-    .cross_lagged_change_pub_rows(tab_m, "Index_mean_q", nq, "Mean FI"),
-    .cross_lagged_change_pub_rows(tab_c, "Index_change_q", nq, "FI change")
+    .cross_lagged_change_pub_rows(tab_m, "Index_mean_q", nq, mean_lab),
+    .cross_lagged_change_pub_rows(tab_c, "Index_change_q", nq, chg_lab)
   )
   names(pub) <- c("Variables", paste0(metric_lab, " (95% CI)"), "P-value")
 
@@ -536,13 +537,19 @@ block_cross_lagged_change_logistic <- function(ctx, ...) {
   # output_suffix：""=主结果(Table S5)；"_twowave"=全库两年敏感性(Table S5.1)
   suf <- as.character(bl$output_suffix %||% "")[1L]
   if (is.na(suf)) suf <- ""
-  stem <- paste0("Table_Change_FI_mean_and_change", suf)
+  stem_base <- as.character(bl$file_stem %||% "Table_Change_FI_mean_and_change")[1L]
+  stem <- paste0(stem_base, suf)
   csv_path <- file.path(out_dir, paste0(stem, ".csv"))
   utils::write.csv(tab, csv_path, row.names = FALSE)
   xlsx_path <- file.path(out_dir, paste0(stem, ".xlsx"))
   pub_path <- file.path(out_dir, paste0(stem, "_pub.xlsx"))
   rds_path <- file.path(out_dir, paste0(stem, "_pub.rds"))
-  meta_path <- file.path(out_dir, paste0("Table_Change_FI_meta", suf, ".csv"))
+  meta_base <- sub("_mean_and_change$", "_meta", stem_base)
+  meta_path <- file.path(out_dir, paste0(meta_base, suf, ".csv"))
+  if (!identical(stem_base, "Table_Change_FI_mean_and_change")) {
+    old_fi <- list.files(out_dir, pattern = "^Table_Change_FI_", full.names = TRUE)
+    if (length(old_fi)) unlink(old_fi)
+  }
 
   if (requireNamespace("openxlsx", quietly = TRUE) && nrow(tab))
     openxlsx::write.xlsx(tab, xlsx_path)
@@ -582,11 +589,11 @@ block_cross_lagged_change_logistic <- function(ctx, ...) {
     level_idx <- which(tbl_df_new[[1L]] %in% q_labs)
     .sci_xlsx_write_three_line_workbook(
       pub_path,
-      title = sprintf("Table. Change analysis Mean FI and FI change (%s)", db),
+      title = sprintf("Table. Change analysis %s and %s (%s)", mean_lab, chg_lab, db),
       tbl_df_new = tbl_df_new,
       sheet = "Table",
       footnotes = note,
-      insert_map = c("Mean FI" = 1L, "FI change" = 1L),
+      insert_map = setNames(c(1L, 1L), c(mean_lab, chg_lab)),
       level_row_idx = level_idx
     )
   } else if (requireNamespace("openxlsx", quietly = TRUE)) {
@@ -716,8 +723,9 @@ cross_lagged_change_build_table_s5 <- function(
     est <- est[seq_len(n_body)]
     pv <- pv[seq_len(n_body)]
     is_sec <- vars_body %in% c(
-      "Mean FI", "FI change", "Mean Leisure Activities", "Leisure Activities Change"
-    )
+      "Mean FI", "FI change", "Mean Leisure Activities", "Leisure Activities Change",
+      "Mean Leisure activity score", "Leisure activity score change"
+    ) | grepl("^(Mean |.* change$)", vars_body)
     est[is_sec] <- ""
     pv[is_sec] <- ""
     n_txt <- {
@@ -812,7 +820,11 @@ cross_lagged_change_build_table_s5 <- function(
         textDecoration = "bold"
       )
       for (i in seq_along(vars)) {
-        if (vars[[i]] %in% c("N", "Events", "Mean FI", "FI change")) {
+        if (vars[[i]] %in% c(
+          "N", "Events", "Mean FI", "FI change",
+          "Mean Leisure Activities", "Leisure Activities Change",
+          "Mean Leisure activity score", "Leisure activity score change"
+        )) {
           openxlsx::addStyle(
             wb, sheet = sh, style = bold,
             rows = r0 + i - 1L, cols = 1L, gridExpand = FALSE, stack = TRUE

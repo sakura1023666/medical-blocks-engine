@@ -538,8 +538,13 @@ block_rcs_iptw_weighted <- function(ctx, ...) {
   ctx$results$rcs_iptw_model3_factors <- M3_vars
 
   if (!exists(".pub_figure_rcs_panel_vline_cutoffs", mode = "function")) {
-    pf_r <- file.path(ctx$config$project$root %||% getwd(), "R/pub_figure_export.R")
-    if (file.exists(pf_r)) source(pf_r, local = FALSE)
+    pf_cands <- c(
+      file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), "R/pub_figure_export.R"),
+      file.path(ctx$config$project$root %||% "", "R/pub_figure_export.R"),
+      file.path(getwd(), "R/pub_figure_export.R")
+    )
+    pf_cands <- pf_cands[nzchar(pf_cands) & file.exists(pf_cands)]
+    if (length(pf_cands)) source(pf_cands[[1L]], local = FALSE)
   }
   .riw04_panel_stats <- function(res, cuts = numeric(0)) {
     cuts <- as.numeric(cuts)
@@ -571,7 +576,12 @@ block_rcs_iptw_weighted <- function(ctx, ...) {
   ctx$results$cutoff_value <- primary_cutoff
   ctx$results$cutoff_variable <- index_var
 
-  grp_info <- rcs_cutoff_factor(design$variables[[index_var]], cut_use$all, index_var)
+  ri_cfg <- cfg$rcs_iptw %||% list()
+  group_mode <- tolower(as.character(ri_cfg$group_cutoffs %||% "primary")[1L])
+  group_cuts <- rcs_table_group_cutoffs(cut_use, primary = primary_cutoff, mode = group_mode)
+  grp_info <- rcs_cutoff_factor(design$variables[[index_var]], group_cuts, index_var)
+  ctx$results$rcs_group_cutoffs_mode <- group_mode
+  ctx$results$rcs_group_cutoffs_used <- group_cuts
   ctx$results$rcs_iptw_group_col <- grp_info$col_name
   ctx$results$rcs_iptw_group_labels <- grp_info$labels
   ctx$results$rcs_cutoff_group_col <- grp_info$col_name

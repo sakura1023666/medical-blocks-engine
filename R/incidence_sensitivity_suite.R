@@ -5,18 +5,185 @@
 #        Yes/No 场景 + 年龄分层（规格默认）；未插补完整病例仅当
 #        sensitivity_suite$complete_case 显式 TRUE 才生成。
 #        Yes/No 与年龄在主分析插补后 checkpoint 上删人。
-#        只重跑 Table 1 / Table 2，产物打 【success】/【failed】。
+#        只重跑 Table 1 / Table 2；成功须两库最高分位 Crude 均显著
+#        （complete_case 不另强制 Model2；其余场景另须两库 Model2 显著）。
+#
+#  默认：sensitivity_suite$enable 缺省/NULL → TRUE（须显式 FALSE 才关）。
 #
 #  机制：
 #    1. scenarios_for_index：categorical_vars + imputed（Yes/No、年龄）；
 #       complete_case 读 mapped/cleaned（sensitivity_suite$complete_case，默认 FALSE）
 #    2. 拷主分析 index_ck_base/ix/<db> → 敏感性 ck，滤人，删单水平协变量
 #    3. 临时 config 注入 .sensitivity_light（Task 6 worker 挂钩）
-#    4. 派发 worker；敏感性表号接主 Tables 最大 S 号顺延（基线=max+1，关联=max+2）；Model2 p 判定 NS
+#    4. 派发 worker；敏感性表号接主 Tables 最大 S 号顺延（基线=max+1，关联=max+2）；
+#       成功闸门：两库最高分位 Crude 均显著；非 complete_case 另要求两库 Model2 主对比显著
 #       无主附表时兜底 S12/S13（历史默认）
 #
 #  依赖：utils.R, incidence_dual_batch_runner.R, incidence_subgroup_fallback.R
 ###############################################################################
+
+#' 敏感性是否开启：缺省/NULL → TRUE；仅显式 FALSE 关闭
+incidence_sensitivity_suite_enabled <- function(config = NULL) {
+  sens <- (config$incidence_batch %||% list())$sensitivity_suite %||% list()
+  if (!length(sens) || is.null(sens$enable)) {
+    sens <- (config$survival_batch %||% list())$sensitivity_suite %||% list()
+  }
+  if (!length(sens) || is.null(sens$enable)) return(TRUE)
+  !isFALSE(sens$enable)
+}
+
+#' 单库 NHANES/KNHANES：物化 by_index/【success】<ix> + 敏感性所需轻量 checkpoint
+#'
+#' 不拷贝整份平铺 ck（可数十 GB）；只镜像 imputation/index 等必需 rds。
+incidence_materialize_nhanes_success_index <- function(config, pipeline = NULL,
+                                                       study_root = NULL,
+                                                       config_path = NULL) {
+  ix <- as.character(
+    (config$incidence %||% list())$index_var %||%
+      (config$index %||% list())$only %||% "INDEX"
+  )[1L]
+  out_base <- as.character(
+    (config$incidence_batch %||% list())$output_base %||%
+      study_root %||%
+      (config$project %||% list())$output_dir %||%
+      (config$project %||% list())$root %||%
+      getwd()
+  )[1L]
+  if (!nzchar(ix) || !nzchar(out_base) || !dir.exists(out_base)) {
+    stop("incidence_materialize_nhanes_success_index: 缺 index_var 或 output_base", call. = FALSE)
+  }
+  ck_flat <- as.character((pipeline$checkpoint %||% list())$dir %||% "")[1L]
+  if (!nzchar(ck_flat)) {
+    db_tag <- toupper(as.character(
+      (config$project %||% list())$database %||%
+        (config$project %||% list())$database_type %||% "KNHANES"
+    )[1L])
+    ck_flat <- file.path(out_base, "checkpoints", paste0(ix, "_", db_tag))
+  }
+  db_slot <- "nhanes"
+  ix_ck <- file.path(out_base, "checkpoints", "_by_index", ix, db_slot)
+  dir.create(ix_ck, recursive = TRUE, showWarnings = FALSE)
+  if (dir.exists(ck_flat)) {
+    want <- c(
+      "imputation.rds", "index.rds",
+      "step05_imputation.rds", "step03_index.rds"
+    )
+    for (bn in want) {
+      src <- file.path(ck_flat, bn)
+      if (file.exists(src)) {
+        file.copy(src, file.path(ix_ck, bn), overwrite = TRUE)
+      }
+    }
+    # 兜底：若无 imputation.rds 别名，从 step05 复制
+    if (!file.exists(file.path(ix_ck, "imputation.rds"))) {
+      alt <- file.path(ck_flat, "step05_imputation.rds")
+      if (file.exists(alt)) {
+        file.copy(alt, file.path(ix_ck, "imputation.rds"), overwrite = TRUE)
+        file.copy(alt, file.path(ix_ck, "index.rds"), overwrite = TRUE)
+      }
+    }
+    if (!file.exists(file.path(ix_ck, "index.rds")) &&
+        file.exists(file.path(ix_ck, "imputation.rds"))) {
+      file.copy(
+        file.path(ix_ck, "imputation.rds"),
+        file.path(ix_ck, "index.rds"),
+        overwrite = TRUE
+      )
+    }
+  }
+
+  success_dir <- file.path(out_base, "by_index", paste0("\u3010success\u3011", ix))
+  dir.create(success_dir, recursive = TRUE, showWarnings = FALSE)
+  for (sub in c("Tables", "Figures", "code")) {
+    src <- file.path(out_base, sub)
+    dst <- file.path(success_dir, sub)
+    if (dir.exists(src)) {
+      if (dir.exists(dst)) unlink(dst, recursive = TRUE)
+      file.copy(src, success_dir, recursive = TRUE)
+    }
+  }
+
+  db_disp <- "NHANES"
+  if (exists("dual_db_slot_path_name", mode = "function")) {
+    db_disp <- tryCatch(
+      dual_db_slot_path_name(config, "nhanes"),
+      error = function(e) {
+        as.character((config$project %||% list())$database %||% "NHANES")[1L]
+      }
+    )
+  } else {
+    db_disp <- as.character((config$project %||% list())$database %||% "NHANES")[1L]
+  }
+  nh_dir <- file.path(success_dir, db_disp)
+  dir.create(nh_dir, recursive = TRUE, showWarnings = FALSE)
+  step_dirs <- list.files(
+    out_base, pattern = "^step[0-9]+_baseline_", full.names = TRUE
+  )
+  for (sd in step_dirs) {
+    file.copy(sd, nh_dir, recursive = TRUE, overwrite = TRUE)
+  }
+  for (fn in c("categorical_vars.txt", "continuous_vars.txt",
+               "Model1Factors.txt", "Model2Factors.txt")) {
+    hits <- list.files(out_base, pattern = paste0("^", fn, "$"),
+                       recursive = TRUE, full.names = TRUE)
+    hits <- hits[!grepl("sensitivity|by_index|\\.sensitivity", hits, ignore.case = TRUE)]
+    if (!length(hits)) next
+    # Model factors：优先 final / logistic 步
+    if (grepl("^Model", fn)) {
+      prefer <- grepl("multicollinearity_nhanes_final|logistic_quartile", hits)
+      if (any(prefer)) hits <- c(hits[prefer], hits[!prefer])
+    }
+    file.copy(hits[[1L]], file.path(nh_dir, fn), overwrite = TRUE)
+    file.copy(hits[[1L]], file.path(success_dir, "Tables", fn), overwrite = TRUE)
+  }
+
+  st_path <- file.path(success_dir, "_batch_status.json")
+  writeLines(
+    sprintf(
+      paste0(
+        '{"status":"success","index":"%s","database":"%s","db_slot":"%s",',
+        '"config_path":"%s"}'
+      ),
+      ix, db_disp, db_slot,
+      gsub("\\\\", "/", as.character(config_path %||% "")[1L])
+    ),
+    st_path
+  )
+
+  # 从 Table2 脚注 / Model*.txt 写锁定协变量，供敏感性 complete_case
+  if (exists("incidence_sensitivity_load_main_covariates", mode = "function")) {
+    mc <- tryCatch(
+      incidence_sensitivity_load_main_covariates(success_dir, ix),
+      error = function(e) list(m1 = character(0), m2 = character(0))
+    )
+    if (!length(mc$m1) && !length(mc$m2)) {
+      mc <- tryCatch(
+        incidence_sensitivity_load_main_covariates(out_base, ix),
+        error = function(e) list(m1 = character(0), m2 = character(0))
+      )
+    }
+    if (length(mc$m1) || length(mc$m2)) {
+      utils::write.csv(
+        data.frame(
+          Model1 = paste(mc$m1, collapse = "|"),
+          Model2 = paste(mc$m2, collapse = "|")
+        ),
+        file.path(success_dir, "Tables", "Model_factors_locked.csv"),
+        row.names = FALSE
+      )
+    }
+  }
+
+  cli::cli_alert_success(
+    "已物化 by_index/\u3010success\u3011{ix}（Tables/Figures + 轻量 ck）"
+  )
+  invisible(list(
+    index = ix,
+    success_dir = success_dir,
+    index_ck = ix_ck,
+    output_base = out_base
+  ))
+}
 
 incidence_sensitivity_yes_tokens <- function() {
   c("Yes", "yes", "YES", "1", "TRUE", "True", "true", "Y", "y")
@@ -291,12 +458,19 @@ incidence_sensitivity_age_scenarios <- function(age_cutoff, data_by_db, min_n = 
 .incidence_sensitivity_table1_search_bases <- function(parent_dir, db_dir_name) {
   parent_dir <- as.character(parent_dir %||% "")[1L]
   db_dir_name <- as.character(db_dir_name %||% "")[1L]
+  # 单库 NHANES/KNHANES：step*/categorical_vars 常在课题根，不在 by_index/【success】下
+  study_root <- character(0)
+  if (nzchar(parent_dir) && grepl("by_index", parent_dir, fixed = TRUE)) {
+    up <- dirname(parent_dir)
+    if (identical(basename(up), "by_index")) study_root <- dirname(up)
+  }
   unique(c(
     if (nzchar(db_dir_name)) file.path(parent_dir, db_dir_name) else character(0),
     if (nzchar(db_dir_name)) file.path(parent_dir, tolower(db_dir_name)) else character(0),
     if (nzchar(db_dir_name)) file.path(parent_dir, toupper(db_dir_name)) else character(0),
     # 单库两阶段：Tables/step* 在指标根下，无 MIMIC 子目录
-    parent_dir
+    parent_dir,
+    study_root
   ))
 }
 
@@ -482,13 +656,24 @@ incidence_sensitivity_resolve_pub_s_nums <- function(parent_dir = NULL,
 
 incidence_sensitivity_judge_status <- function(ok_t1, ok_t2, p_primary, p_secondary,
                                                sig_cutoff = 0.05,
-                                               require_sig = TRUE) {
+                                               require_sig = TRUE,
+                                               p_crude_primary = NA_real_,
+                                               p_crude_secondary = NA_real_,
+                                               require_crude_highest_sig = TRUE) {
   tables_ok <- isTRUE(ok_t1) && isTRUE(ok_t2)
+  if (!tables_ok) return("failed")
+  # 最高分位 Crude：任一库不显著（或缺失）→ failed（含 complete_case）
+  if (isTRUE(require_crude_highest_sig)) {
+    pc1 <- suppressWarnings(as.numeric(p_crude_primary)[1L])
+    pc2 <- suppressWarnings(as.numeric(p_crude_secondary)[1L])
+    crude_ok <- is.finite(pc1) && is.finite(pc2) &&
+      pc1 < sig_cutoff && pc2 < sig_cutoff
+    if (!crude_ok) return("failed")
+  }
   p1 <- suppressWarnings(as.numeric(p_primary)[1L])
   p2 <- suppressWarnings(as.numeric(p_secondary)[1L])
   sig_ok <- is.finite(p1) && is.finite(p2) &&
     p1 < sig_cutoff && p2 < sig_cutoff
-  if (!tables_ok) return("failed")
   if (!isTRUE(require_sig) || sig_ok) "success" else "failed"
 }
 
@@ -501,6 +686,86 @@ incidence_sensitivity_resolve <- function(config) {
 .incidence_sensitivity_ck_has_imputed <- function(obj) {
   is.list(obj) && is.list(obj$ctx) && is.list(obj$ctx$data) &&
     !is.null(obj$ctx$data$imputed)
+}
+
+.incidence_sensitivity_dir_has_imputed <- function(dir) {
+  dir <- as.character(dir %||% "")[1L]
+  if (!nzchar(dir) || !dir.exists(dir)) return(FALSE)
+  rds <- list.files(dir, pattern = "\\.rds$", full.names = TRUE)
+  if (!length(rds)) return(FALSE)
+  keys <- vapply(rds, function(p) {
+    nm <- tools::file_path_sans_ext(basename(p))
+    nm <- sub("^step[0-9]+_", "", nm)
+    sub("^[0-9]+_", "", nm)
+  }, character(1))
+  for (want in c("imputation", "index")) {
+    hits <- rds[keys == want]
+    if (!length(hits)) next
+    obj <- tryCatch(readRDS(hits[[1L]]), error = function(e) NULL)
+    if (.incidence_sensitivity_ck_has_imputed(obj)) return(TRUE)
+  }
+  FALSE
+}
+
+#' 两阶段等：per-index 在 Stage2 后可能丢掉 imputed；回退到 checkpoints/_shared
+.incidence_sensitivity_resolve_imputed_src <- function(main_ck_base, ix, db) {
+  db <- as.character(db %||% "")[1L]
+  per_cands <- unique(c(
+    file.path(main_ck_base, ix, db),
+    file.path(main_ck_base, ix, tolower(db)),
+    file.path(main_ck_base, ix, toupper(db)),
+    # 单库入口常镜像为内部槽位名 nhanes
+    file.path(main_ck_base, ix, "nhanes"),
+    file.path(main_ck_base, ix, "NHANES"),
+    file.path(main_ck_base, ix, "knhanes"),
+    file.path(main_ck_base, ix, "KNHANES")
+  ))
+  for (per in per_cands) {
+    if (.incidence_sensitivity_dir_has_imputed(per)) {
+      return(list(dir = per, from_shared = FALSE))
+    }
+  }
+  ck_root <- dirname(as.character(main_ck_base)[1L])
+  cands <- unique(c(
+    file.path(ck_root, "_shared", db),
+    file.path(ck_root, "_shared", tolower(db)),
+    file.path(ck_root, "_shared", toupper(db)),
+    file.path(ck_root, "_shared", "nhanes"),
+    file.path(ck_root, "_shared", "NHANES"),
+    file.path(ck_root, "_shared", "mimic"),
+    file.path(ck_root, "_shared", "MIMIC"),
+    file.path(ck_root, "_shared")
+  ))
+  for (d in cands) {
+    if (.incidence_sensitivity_dir_has_imputed(d)) {
+      return(list(dir = d, from_shared = TRUE))
+    }
+  }
+  list(dir = per_cands[[1L]], from_shared = FALSE)
+}
+
+# 保留旧入口名（config/config_path 可选，忽略）
+.incidence_sensitivity_shared_ck_for_db <- function(config, config_path, db) {
+  bc <- utils::modifyList(
+    config$incidence_batch %||% list(),
+    config$ip_two_stage_batch %||% list()
+  )
+  shared_base <- .incidence_sensitivity_abs_ck(
+    bc$shared_ck_base %||% "checkpoints/_shared", config_path
+  )
+  db <- as.character(db %||% "")[1L]
+  cands <- unique(c(
+    file.path(shared_base, db),
+    file.path(shared_base, tolower(db)),
+    file.path(shared_base, toupper(db)),
+    file.path(shared_base, "mimic"),
+    file.path(shared_base, "MIMIC"),
+    shared_base
+  ))
+  for (d in cands) {
+    if (.incidence_sensitivity_dir_has_imputed(d)) return(d)
+  }
+  NULL
 }
 
 incidence_sensitivity_copy_imputed_ck <- function(src_dir, dest_dir) {
@@ -551,7 +816,8 @@ incidence_sensitivity_copy_imputed_ck <- function(src_dir, dest_dir) {
     file.copy(p, file.path(dest_dir, basename(p)), overwrite = TRUE)
   }
 
-  if (!is.null(imp_src)) {
+  if (!is.null(imp_src) && has_imputed &&
+      .incidence_sensitivity_ck_has_imputed(tryCatch(readRDS(imp_src), error = function(e) NULL))) {
     file.copy(imp_src, file.path(dest_dir, "index.rds"), overwrite = TRUE)
   } else {
     idx_hits <- rds_files[block_keys == "index"]
@@ -572,7 +838,15 @@ incidence_sensitivity_light_blocks <- function(study_type, weighted, scheme) {
   scheme <- as.character(scheme)[1L]
   if (!scheme %in% c("quartile", "tertile", "binary")) scheme <- "quartile"
   if (identical(as.character(study_type)[1L], "prognosis")) {
-    return(c("baseline_binary", paste0("cox_", scheme)))
+    # 必须含 landmark：complete_case / 其它轻量敏感性从 mapped/cleaned（未行政截尾）起步，
+    # 若只跑 baseline+cox，Table S13 会按院内死亡/全 LOS 计，与主文 28 天分母错位。
+    blocks <- c(
+      "prognosis_outcome_landmark",
+      "baseline_binary",
+      paste0("cox_", scheme)
+    )
+    incidence_sensitivity_assert_prognosis_light_blocks(blocks)
+    return(blocks)
   }
   if (isTRUE(weighted)) {
     return(c(
@@ -590,9 +864,69 @@ incidence_sensitivity_light_blocks <- function(study_type, weighted, scheme) {
   )
 }
 
+#' 预后轻量敏感性硬门：含 cox_* 的截断管线必须先跑 prognosis_outcome_landmark
+#' （发病 logistic 轻量不含 cox_，本函数直接放行）
+incidence_sensitivity_assert_prognosis_light_blocks <- function(blocks) {
+  blocks <- as.character(blocks %||% character(0))
+  if (!any(startsWith(blocks, "cox_"))) return(invisible(TRUE))
+  if (!length(blocks)) {
+    stop("预后敏感性轻量路径：pipeline$blocks 为空", call. = FALSE)
+  }
+  if (!("prognosis_outcome_landmark" %in% blocks)) {
+    stop(
+      "预后敏感性轻量路径禁止省略 prognosis_outcome_landmark：",
+      "否则 complete_case 等场景会按院内死亡/全 LOS 出表，与主文 28 天 landmark 分母错位。",
+      " blocks=", paste(blocks, collapse = ","),
+      call. = FALSE
+    )
+  }
+  i_lm <- match("prognosis_outcome_landmark", blocks)
+  i_base <- match("baseline_binary", blocks)
+  i_cox <- which(startsWith(blocks, "cox_"))
+  if (!is.na(i_base) && i_lm > i_base) {
+    stop(
+      "prognosis_outcome_landmark 必须在 baseline_binary 之前（现顺序: ",
+      paste(blocks, collapse = " → "), "）",
+      call. = FALSE
+    )
+  }
+  if (length(i_cox) && i_lm > min(i_cox)) {
+    stop(
+      "prognosis_outcome_landmark 必须在 cox_* 之前（现顺序: ",
+      paste(blocks, collapse = " → "), "）",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+#' 出表后抽检：futime 不得超过 landmark_days（默认 28）；超限视为未跑 landmark
+incidence_sensitivity_assert_landmark_futime <- function(df, config = NULL,
+                                                          landmark_days = NULL) {
+  if (!is.data.frame(df) || !nrow(df)) return(invisible(TRUE))
+  if (!("futime" %in% names(df))) return(invisible(TRUE))
+  po <- (config %||% list())$prognosis_outcome %||% list()
+  lm <- as.integer(landmark_days %||% po$landmark_days %||% 28L)[1L]
+  if (!is.finite(lm) || lm <= 0L) lm <- 28L
+  ft <- suppressWarnings(as.numeric(df$futime))
+  ft <- ft[is.finite(ft)]
+  if (!length(ft)) return(invisible(TRUE))
+  mx <- max(ft)
+  if (is.finite(mx) && mx > lm + 1e-6) {
+    stop(
+      "敏感性预后数据 futime 最大值=", round(mx, 3),
+      " > landmark_days=", lm,
+      "：疑似未跑 prognosis_outcome_landmark（院内全 LOS 口径）。禁止出表。",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
 incidence_sensitivity_trim_pipeline <- function(pipeline, keep_blocks) {
   keep <- as.character(keep_blocks)
   pipeline$blocks <- intersect(as.character(pipeline$blocks %||% character(0)), keep)
+  incidence_sensitivity_assert_prognosis_light_blocks(pipeline$blocks)
   if (!is.null(pipeline$render_tables_after)) {
     pipeline$render_tables_after <- intersect(pipeline$render_tables_after, pipeline$blocks)
   }
@@ -664,20 +998,24 @@ incidence_sensitivity_drop_constant_from_config <- function(config, df) {
 }
 
 # ── 主分析插补后数据（场景发现用，禁止 shared 未插补表）──────────────────
-incidence_sensitivity_load_imputed <- function(main_ck_base, ix, db_path_name) {
-  p <- file.path(main_ck_base, ix, db_path_name, "imputation.rds")
-  if (!file.exists(p)) p <- file.path(main_ck_base, ix, db_path_name, "index.rds")
+incidence_sensitivity_load_imputed <- function(main_ck_base, ix, db_path_name,
+                                               config = NULL, config_path = NULL) {
+  resolved <- .incidence_sensitivity_resolve_imputed_src(main_ck_base, ix, db_path_name)
+  src_dir <- resolved$dir
+  p <- file.path(src_dir, "imputation.rds")
+  if (!file.exists(p)) p <- file.path(src_dir, "index.rds")
   if (!file.exists(p)) {
-    hits <- list.files(
-      file.path(main_ck_base, ix, db_path_name),
-      pattern = "imputation\\.rds$", full.names = TRUE
-    )
+    hits <- list.files(src_dir, pattern = "imputation\\.rds$", full.names = TRUE)
     if (length(hits)) p <- hits[[1L]]
   }
   obj <- readRDS(p)
   df <- obj$ctx$data$imputed %||% incidence_batch_ctx_data(obj$ctx)
   if (exists("pipeline_normalize_yes_no_factors", mode = "function"))
     df <- pipeline_normalize_yes_no_factors(df)
+  # 共享层全指标：剔掉当前指标 NA（与主分析 per-index 一致）
+  if (isTRUE(resolved$from_shared) && is.data.frame(df) && ix %in% names(df)) {
+    df <- df[!is.na(df[[ix]]), , drop = FALSE]
+  }
   df
 }
 
@@ -750,7 +1088,8 @@ incidence_sensitivity_scenarios_for_index <- function(config, parent_dir, main_c
   any(grepl(skip_re, cells, ignore.case = TRUE, perl = TRUE))
 }
 
-incidence_sensitivity_model2_primary_p <- function(ctx) {
+.incidence_sensitivity_table2_highest_p <- function(ctx, which = c("model2", "crude")) {
+  which <- match.arg(which)
   if (is.null(ctx) || !is.list(ctx)) return(NA_real_)
   r <- ctx$results %||% list()
   tbl <- r$logistic_table2 %||% r$nhanes_logistic_table2 %||%
@@ -759,13 +1098,26 @@ incidence_sensitivity_model2_primary_p <- function(ctx) {
   if (is.null(tbl)) return(NA_real_)
   tbl <- as.data.frame(tbl, stringsAsFactors = FALSE)
   if (!nrow(tbl) || !ncol(tbl)) return(NA_real_)
-  p_col <- if (ncol(tbl) >= 12L) 12L else ncol(tbl)
+  # SCI 三线表：Crude P=第6列，Model2 P=第12列；主对比=最高分位（末行非 skip）
+  p_col <- if (identical(which, "crude")) {
+    if (ncol(tbl) >= 6L) 6L else return(NA_real_)
+  } else {
+    if (ncol(tbl) >= 12L) 12L else ncol(tbl)
+  }
   keep <- vapply(seq_len(nrow(tbl)), function(i) {
     !isTRUE(.incidence_sensitivity_is_skip_contrast_row(tbl[i, , drop = TRUE]))
   }, logical(1L))
   if (!any(keep)) return(NA_real_)
   i <- max(which(keep))
   .incidence_sensitivity_parse_p(tbl[[p_col]][i])
+}
+
+incidence_sensitivity_model2_primary_p <- function(ctx) {
+  .incidence_sensitivity_table2_highest_p(ctx, "model2")
+}
+
+incidence_sensitivity_crude_highest_p <- function(ctx) {
+  .incidence_sensitivity_table2_highest_p(ctx, "crude")
 }
 
 incidence_sensitivity_rename_pub_tables <- function(tables_dir, db_tag, zh_desc,
@@ -907,12 +1259,19 @@ incidence_sensitivity_sync_combined_tables <- function(src_ix_dir, db_names) {
   src_ix_dir <- as.character(src_ix_dir %||% "")[1L]
   dest <- file.path(src_ix_dir, "Tables")
   if (!nzchar(src_ix_dir) || !dir.exists(src_ix_dir)) return(invisible(character(0)))
+  db_names <- as.character(db_names %||% character(0))
+  any_db_tables <- any(vapply(db_names, function(db) {
+    dir.exists(file.path(src_ix_dir, db, "Tables"))
+  }, logical(1L)))
+  # 单库扁平布局：表已在 src/Tables 完成 rename，禁止清空后从空的 db/Tables 回拷
+  if (!any_db_tables) return(invisible(character(0)))
+
   dir.create(dest, recursive = TRUE, showWarnings = FALSE)
   old <- list.files(dest, full.names = TRUE)
   old <- old[!dir.exists(old)]
   if (length(old)) unlink(old)
   copied <- character(0)
-  for (db in as.character(db_names %||% character(0))) {
+  for (db in db_names) {
     td <- file.path(src_ix_dir, db, "Tables")
     if (!dir.exists(td)) next
     hits <- list.files(td, full.names = TRUE)
@@ -1115,7 +1474,12 @@ incidence_sensitivity_parse_table2_footnotes <- function(text) {
     pattern = "^Table 2[- ].*\\.(tex|xlsx)$",
     recursive = TRUE, full.names = TRUE, ignore.case = TRUE
   )
-  hits <- hits[!grepl("sensitivity|\\.sensitivity_staging|archived|【archived】", hits)]
+  # 排除敏感性/归档，以及指标目录内嵌套的旧亚组 fallback
+  # （…/【success】ANLR/【success】Age_65/…），勿误伤父级 【success】ANLR 自身。
+  hits <- hits[!grepl(
+    "sensitivity|\\.sensitivity_staging|archived|【archived】|/【success】[^/]+/【(success|failed)】|/【failed】[^/]+/",
+    hits
+  )]
   hits <- hits[file.exists(hits)]
   if (!length(hits)) return(list(m1 = character(0), m2 = character(0)))
   assoc <- hits[.incidence_sensitivity_is_assoc_table2(hits)]
@@ -1127,6 +1491,9 @@ incidence_sensitivity_parse_table2_footnotes <- function(text) {
     if (grepl("Cox|Logistic", bn, ignore.case = TRUE)) s <- s + 40L
     if (grepl("\\.tex$", p, ignore.case = TRUE)) s <- s + 20L
     if (grepl("cox_quartile|logistic_quartile", p, ignore.case = TRUE)) s <- s + 10L
+    # 优先指标根 / 分库 Tables，弱化 step*_cox 副本
+    if (grepl("/Tables/Table 2", p, fixed = TRUE) &&
+        !grepl("step[0-9]+_", p)) s <- s + 30L
     s
   }
   hits <- hits[order(vapply(hits, score, integer(1L)), decreasing = TRUE)]
@@ -1160,7 +1527,10 @@ incidence_sensitivity_parse_table2_footnotes <- function(text) {
     unique(ln)
   }
   .exclude_sa <- function(paths) {
-    paths[!grepl("sensitivity|\\.sensitivity_staging|archived|【archived】", paths)]
+    paths[!grepl(
+      "sensitivity|\\.sensitivity_staging|archived|【archived】|/【success】[^/]+/【(success|failed)】|/【failed】[^/]+/",
+      paths
+    )]
   }
   fc_hits <- .exclude_sa(list.files(
     parent_dir, pattern = "^FinalCovariates_.*\\.txt$",
@@ -1215,8 +1585,21 @@ incidence_sensitivity_load_main_covariates <- .incidence_sensitivity_load_main_c
 .incidence_sensitivity_db_names <- function(config) {
   db_mode <- tolower(as.character(
     (config$incidence_batch %||% list())$db_mode %||%
-      (config$survival_batch %||% list())$db_mode %||% "both"
+      (config$survival_batch %||% list())$db_mode %||% ""
   )[1L])
+  # 单库课题（dual_db 关 / 无 secondary 路径）默认 nhanes_only，避免去拷不存在的 MIMIC。
+  # 禁止用 project$database_type=="nhanes" 判定：双库课题主库也常标 nhanes。
+  if (!nzchar(db_mode) || identical(db_mode, "both")) {
+    dual <- config$dual_db %||% list()
+    dual_off <- isFALSE(dual$enable %||% TRUE)
+    sec <- dual$secondary %||% list()
+    has_sec <- nzchar(as.character(sec$rawdata_path %||% "")[1L]) ||
+      nzchar(as.character(sec$path %||% "")[1L]) ||
+      nzchar(as.character(sec$database %||% "")[1L]) ||
+      nzchar(as.character(sec$name %||% "")[1L])
+    if (dual_off || !isTRUE(has_sec)) db_mode <- "nhanes_only"
+    else db_mode <- "both"
+  }
   if (exists("dual_db_slot_path_name", mode = "function")) {
     if (db_mode %in% c("nhanes", "nhanes_only", "primary")) {
       return(dual_db_slot_path_name(config, "nhanes"))
@@ -1265,7 +1648,19 @@ incidence_sensitivity_write_config <- function(base_config_path, staging_run,
     paste0("c(", paste(vapply(x, .q, character(1)), collapse = ", "), ")")
   }
   base_abs <- normalizePath(base_config_path, winslash = "/", mustWork = FALSE)
+  # study_root：优先用已 source 的 output 路径；生成临时 config 时 dirname(base) 可能是 /tmp
   study_root <- dirname(base_abs)
+  # 若 base 在课题根外（如 /tmp overlay），从文件正文猜 .batch_project_root / output
+  if (!dir.exists(file.path(study_root, "by_index")) &&
+      !dir.exists(file.path(study_root, "checkpoints"))) {
+    raw <- tryCatch(readLines(base_abs, warn = FALSE, encoding = "UTF-8"), error = function(e) character(0))
+    m <- regexec('\\.batch_project_root\\s*<-\\s*["\']([^"\']+)["\']', raw, perl = TRUE)
+    mm <- Filter(function(x) length(x) >= 2L, regmatches(raw, m))
+    if (length(mm)) {
+      cand <- mm[[1L]][2L]
+      if (dir.exists(cand)) study_root <- cand
+    }
+  }
   study_ck <- file.path(study_root, "checkpoints")
   shared_ck <- file.path(study_ck, "_shared")
   # 相对 ck 路径按研究根绝对化（避免 worker cwd=引擎根时落错盘）
@@ -1296,6 +1691,11 @@ incidence_sensitivity_write_config <- function(base_config_path, staging_run,
     paste0(".local_base <- ", base_q),
     "source(.local_base)",
     paste0(".study_root <- ", sr_q),
+    # 单库课题常只有 pipeline：给 dual-batch worker 挂上加权流水线别名
+    "if (!exists('pipeline_nhanes_batch', inherits = FALSE) && exists('pipeline', inherits = FALSE))",
+    "  pipeline_nhanes_batch <- pipeline",
+    "if (!exists('pipeline_regular_batch', inherits = FALSE) && exists('pipeline', inherits = FALSE))",
+    "  pipeline_regular_batch <- pipeline",
     "config$project$output_dir <- .study_root",
     paste0("config$dual_db$checkpoint_base <- ", ckroot_q),
     paste0("config$dual_db$harmonization_dir <- ", harm_q),
@@ -1328,11 +1728,21 @@ incidence_sensitivity_write_config <- function(base_config_path, staging_run,
     "}",
     "if (!is.null(config$dual_db$primary$rawdata_path)) {",
     "  .p <- config$dual_db$primary$rawdata_path",
-    "  config$dual_db$primary$rawdata_path <- file.path(.study_root, 'Data', basename(dirname(.p)), basename(.p))",
+    "  if (!isTRUE(file.exists(.p))) {",
+    "    .cand <- file.path(.study_root, 'data', basename(dirname(.p)), basename(.p))",
+    "    .cand2 <- file.path(.study_root, 'Data', basename(dirname(.p)), basename(.p))",
+    "    if (isTRUE(file.exists(.cand))) config$dual_db$primary$rawdata_path <- .cand",
+    "    else if (isTRUE(file.exists(.cand2))) config$dual_db$primary$rawdata_path <- .cand2",
+    "  }",
     "}",
     "if (!is.null(config$dual_db$secondary$rawdata_path)) {",
     "  .p <- config$dual_db$secondary$rawdata_path",
-    "  config$dual_db$secondary$rawdata_path <- file.path(.study_root, 'Data', basename(dirname(.p)), basename(.p))",
+    "  if (!isTRUE(file.exists(.p))) {",
+    "    .cand <- file.path(.study_root, 'data', basename(dirname(.p)), basename(.p))",
+    "    .cand2 <- file.path(.study_root, 'Data', basename(dirname(.p)), basename(.p))",
+    "    if (isTRUE(file.exists(.cand))) config$dual_db$secondary$rawdata_path <- .cand",
+    "    else if (isTRUE(file.exists(.cand2))) config$dual_db$secondary$rawdata_path <- .cand2",
+    "  }",
     "}",
     "if (!is.null(config$survival_batch)) {",
     "  config$survival_batch <- utils::modifyList(config$survival_batch, config$incidence_batch)",
@@ -1351,6 +1761,9 @@ incidence_sensitivity_write_config <- function(base_config_path, staging_run,
     "# ── 敏感性：锁主分析 Table 2 脚注协变量（禁止用 VIF Model2Factors 长名单过度调整）──",
     paste0(".m1 <- ", .qv(m1)),
     paste0(".m2 <- ", .qv(m2)),
+    "if (is.null(config$dual_db) || !is.list(config$dual_db)) config$dual_db <- list()",
+    "if (is.null(config$dual_db$harmonization) || !is.list(config$dual_db$harmonization))",
+    "  config$dual_db$harmonization <- list()",
     "config$dual_db$harmonization$lock_covariates_preset <- TRUE",
     "config$dual_db$harmonization$covariate_source <- 'vif_final'",
     "config$dual_db$harmonization$sync_after_vif_final <- FALSE",
@@ -1453,13 +1866,22 @@ incidence_sensitivity_run_one <- function(root, config, config_path, ix, sg,
     cc_vars <- incidence_sensitivity_complete_case_vars(config, ix, mc0$m1, mc0$m2)
   }
   for (db in db_names) {
-    src_ck <- file.path(ix_ck_base, ix, db)
+    resolved <- .incidence_sensitivity_resolve_imputed_src(ix_ck_base, ix, db)
+    src_ck <- resolved$dir
     dest_ck <- file.path(sens_ck_base, ix, db)
     ok <- tryCatch({
       if (cc_mode) {
         incidence_sensitivity_copy_unimputed_cc_ck(src_ck, dest_ck, cc_vars)
       } else {
         incidence_sensitivity_copy_imputed_ck(src_ck, dest_ck)
+      }
+      # 从共享层拷贝时按指标剔 NA
+      if (isTRUE(resolved$from_shared) &&
+          exists("incidence_batch_apply_filter_and_trim", mode = "function")) {
+        idx_p0 <- file.path(dest_ck, "index.rds")
+        if (file.exists(idx_p0)) {
+          incidence_batch_apply_filter_and_trim(idx_p0, ix, 0)
+        }
       }
       TRUE
     }, error = function(e) {
@@ -1593,13 +2015,25 @@ incidence_sensitivity_run_one <- function(root, config, config_path, ix, sg,
   incidence_sensitivity_sync_combined_tables(src, db_names)
   incidence_sensitivity_keep_pub_tables(file.path(src, "Tables"))
 
-  .p_for_db <- function(db) {
+  .ctx_for_db <- function(db) {
     ctx <- .incidence_sensitivity_latest_ctx(file.path(sens_ck_base, ix, db))
     if (is.null(ctx)) ctx <- .incidence_sensitivity_latest_ctx(file.path(src, db))
-    incidence_sensitivity_model2_primary_p(ctx %||% list())
+    ctx %||% list()
+  }
+  .p_for_db <- function(db) {
+    incidence_sensitivity_model2_primary_p(.ctx_for_db(db))
+  }
+  .p_crude_for_db <- function(db) {
+    incidence_sensitivity_crude_highest_p(.ctx_for_db(db))
   }
   p_primary <- if (length(db_names)) .p_for_db(db_names[[1L]]) else NA_real_
   p_secondary <- if (length(db_names) >= 2L) .p_for_db(db_names[[2L]]) else p_primary
+  p_crude_primary <- if (length(db_names)) .p_crude_for_db(db_names[[1L]]) else NA_real_
+  p_crude_secondary <- if (length(db_names) >= 2L) {
+    .p_crude_for_db(db_names[[2L]])
+  } else {
+    p_crude_primary
+  }
 
   .has_s <- function(root_dir, s_num) {
     pat <- sprintf("Table S%d", as.integer(s_num)[1L])
@@ -1618,16 +2052,18 @@ incidence_sensitivity_run_one <- function(root, config, config_path, ix, sg,
   }
   ok_t1 <- isTRUE(dir.exists(src)) && .has_s(src, s_nums$baseline)
   ok_t2 <- isTRUE(dir.exists(src)) && .has_s(src, s_nums$association)
-  # 完整病例：表齐即成功（p 仍写入汇总）；其余场景仍要求两库 Model2 主对比均显著
+  # 完整病例：不强制 Model2；所有场景均要求两库最高分位 Crude 显著
   require_sig <- !isTRUE(incidence_sensitivity_is_complete_case(sg))
   status <- incidence_sensitivity_judge_status(
-    ok_t1, ok_t2, p_primary, p_secondary, require_sig = require_sig
+    ok_t1, ok_t2, p_primary, p_secondary, require_sig = require_sig,
+    p_crude_primary = p_crude_primary, p_crude_secondary = p_crude_secondary,
+    require_crude_highest_sig = TRUE
   )
   if (status == "success") {
     cli::cli_alert_success("[{ix}/{sg$label}] 敏感性分析成功")
   } else {
     cli::cli_alert_danger(
-      "[{ix}/{sg$label}] 敏感性分析失败 (t1={ok_t1}, t2={ok_t2}, p1={p_primary}, p2={p_secondary}, rc={rc})"
+      "[{ix}/{sg$label}] 敏感性分析失败 (t1={ok_t1}, t2={ok_t2}, p1={p_primary}, p2={p_secondary}, crude1={p_crude_primary}, crude2={p_crude_secondary}, rc={rc})"
     )
     cli::cli_alert_info("  详见日志: {.file {log_path}}")
   }
@@ -1747,8 +2183,13 @@ incidence_sensitivity_for_index <- function(root, config, config_path, ix,
     sg$ns <- ns
     db_mode_run <- tolower(as.character(
       (config$incidence_batch %||% list())$db_mode %||%
-        (config$survival_batch %||% list())$db_mode %||% "both"
+        (config$survival_batch %||% list())$db_mode %||% ""
     )[1L])
+    if (!nzchar(db_mode_run) || identical(db_mode_run, "both")) {
+      # 与 .incidence_sensitivity_db_names 对齐：单库勿派 both
+      if (length(db_names) <= 1L) db_mode_run <- "nhanes"
+      else db_mode_run <- "both"
+    }
     if (db_mode_run %in% c("nhanes", "nhanes_only", "primary")) {
       db_mode_run <- "nhanes"
     } else if (db_mode_run %in% c("mimic", "mimic_only", "regular", "secondary")) {
@@ -1865,13 +2306,9 @@ incidence_sensitivity_pass <- function(root, config, indices = NULL,
                                        config_path = NULL, only_index = NULL,
                                        worker_script = "run/incidence/run_incidence_dual_batch_worker.R",
                                        force = FALSE, only_labels = NULL) {
-  sens <- (config$incidence_batch %||% list())$sensitivity_suite %||% list()
-  if (!isTRUE(sens$enable)) {
-    sens <- (config$survival_batch %||% list())$sensitivity_suite %||% list()
-    if (!isTRUE(sens$enable)) {
-      cli::cli_alert_info("sensitivity_suite$enable 未开启，跳过敏感性分析")
-      return(invisible(NULL))
-    }
+  if (!incidence_sensitivity_suite_enabled(config)) {
+    cli::cli_alert_info("sensitivity_suite$enable=FALSE，跳过敏感性分析")
+    return(invisible(NULL))
   }
   if (is.null(config_path) || !nzchar(config_path)) {
     config_path <- file.path(root, "configs/config_incidence_dual_batch.R")

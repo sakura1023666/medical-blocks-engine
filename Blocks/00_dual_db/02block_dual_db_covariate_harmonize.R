@@ -8,6 +8,14 @@ block_dual_db_covariate_harmonize <- function(ctx) {
   dual <- cfg$dual_db %||% list()
   if (!isTRUE(dual$enable)) return(ctx)
 
+  ## 外验已继承主库训练集 M1/M2：禁止再对齐成 Age-only
+  if (identical(ctx$results$assoc_covariates_inherited_from, "primary")) {
+    cli::cli_alert_info(
+      "闸门 B：外验已继承主库训练集协变量（M1={paste(ctx$results$assoc_model1_factors %||% character(0), collapse = ', ')}），跳过重对齐。"
+    )
+    return(ctx)
+  }
+
   harm <- dual$harmonization %||% list()
   if (!isTRUE(harm$sync_after_vif_final)) return(ctx)
 

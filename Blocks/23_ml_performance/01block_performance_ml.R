@@ -1,6 +1,6 @@
 ###############################################################################
 #  performance_ml — ML 模型综合表现（平行线图、多模型 ROC、校准、DCA、
-#        CV 箱线图、训练/验证集性能宽表、可选总览拼图）
+#        CV 箱线图、训练/验证集性能宽表、可选总览拼图、可选 bootstrap CI 表）
 #
 #  register_block: "performance_ml"
 #  典型流水线: train_validation → ml_models → performance_ml（勿与父块重复 source）
@@ -9,17 +9,24 @@
 #  require_results = ctx$results$ml_eval_all, ctx$results$ml_models
 #  require_data = ctx$data$train / test（ROC/校准/DCA）；Models/evalresult_<tag>.RData
 #  发病: ROC/校准/DCA 真值为 Group；预后: survival$event_var，train/test 须与 imputed 对齐
+#  bootstrap_ci_table: 另需 ctx$results$ml_predictions_all（含 .time/.event/dataset）
 #
 #  # ── 配置 config$performance_ml ───────────────────────────────────────────
 #  performance_ml = list(
 #    enable = TRUE,
 #    parallel_lines = TRUE, summary_tables = TRUE, cv_boxplot = TRUE,
-#    roc_calibration_dca = TRUE, combined_panel = TRUE, ...
+#    roc_calibration_dca = TRUE, combined_panel = TRUE,
+#    # 可选发表表（默认关）：Train+Val TD-AUC / C-Index / Brier + 95%CI
+#    bootstrap_ci_table = FALSE, bootstrap_B = 1000L, bootstrap_seed = 42L,
+#    ...
 #  ),
 #
 #  # ── 产出 ─────────────────────────────────────────────────────────────────
-#  平行线图、CV 箱线图、Table 4 宽表、多模型 ROC/校准/DCA PDF；combined_panel 时 2×4 总览
+#  平行线图、CV 箱线图、训练/验证宽表（AUC/Acc/Sens/Spec/F1/Kappa/MCC）、
+#  多模型 ROC/校准/DCA PDF；combined_panel 时 2×4 总览
+#  bootstrap_ci_table=TRUE → 补充表「Bootstrap performance (train and validation)」
 #  源: Blocks/23_ml_performance/01block_performance_ml.R
+#  helper: R/ml_bootstrap_pub_tables.R
 ###############################################################################
 
 # 本 block 全部图形统一 Times New Roman（新罗马）
@@ -41,7 +48,15 @@
     dt = "DT", rf = "RF", xgboost = "XGBoost", enet = "ENet", rsvm = "RSVM",
     mlp = "MLP", logistic = "Logistic", lightgbm = "LightGBM", knn = "KNN",
     tabpfn = "TabPFN", adaboost = "AdaBoost", catboost = "CatBoost",
-    tablcl_v2 = "TablCL_v2", rsf = "RSF", xgbsurv = "XGBSurv"
+    tablcl_v2 = "TablCL_v2",
+    rsf = "Random survival forest",
+    xgbsurv = "XGBoost-Cox",
+    coxboost = "CoxBoost",
+    gbmsurv = "GBM-Cox",
+    ridge_cox = "Ridge-Cox",
+    enet_cox = "ElasticNet-Cox",
+    survivalsvm = "SurvivalSVM",
+    mboost_cox = "mboost-Cox"
   )
   tg <- tolower(as.character(tag)[1L])
   v <- unname(m[tg])
@@ -49,6 +64,16 @@
 }
 
 .pm_match_rows <- function(d_tv, part) {
+  # train/test 常在特征选择或缺失补救后附加预测专用列，而这些列不一定回写
+  # imputed。只要保留了拆分前的唯一行名，应优先用它恢复事件真值，不能因
+  # 列集合不完全相同而误判为无法对齐。
+  rn_all <- rownames(d_tv)
+  rn_part <- rownames(part)
+  if (!is.null(rn_all) && !is.null(rn_part) &&
+      !anyDuplicated(rn_all) && !anyDuplicated(rn_part) &&
+      all(rn_part %in% rn_all)) {
+    return(match(rn_part, rn_all))
+  }
   cols <- names(part)
   if (!length(cols)) return(integer(0))
   if (!all(cols %in% names(d_tv))) {
@@ -149,13 +174,13 @@
 }
 
 .pm_parallel_metric_plot <- function(eval_df, display_order, colors, title, font_family, split_key,
-                                    base_size = 9) {
+                                    base_size = 9, y_limits = NULL) {
   sk <- tolower(split_key)
   eval_df <- eval_df[tolower(as.character(eval_df$dataset)) == sk, , drop = FALSE]
   eval_df <- eval_df[as.character(eval_df$model) %in% display_order, , drop = FALSE]
   eval_df$model <- factor(as.character(eval_df$model), levels = display_order)
   eval_df <- eval_df[is.finite(eval_df$.estimate) & !is.na(eval_df$model), , drop = FALSE]
-  ggplot2::ggplot(eval_df, ggplot2::aes(x = .data$.metric, y = .data$.estimate, color = .data$model)) +
+  p <- ggplot2::ggplot(eval_df, ggplot2::aes(x = .data$.metric, y = .data$.estimate, color = .data$model)) +
     ggplot2::geom_point() +
     ggplot2::geom_line(ggplot2::aes(group = .data$model)) +
     ggplot2::scale_color_manual(values = stats::setNames(colors[seq_along(display_order)], display_order)) +
@@ -167,26 +192,84 @@
       legend.box = "vertical"
     ) +
     ggplot2::scale_x_discrete(name = "Model metric") +
-    ggplot2::labs(title = title, x = NULL, y = "Estimate") %>%
-    .pm_coord_clip_off()
+    ggplot2::labs(title = title, x = NULL, y = "Estimate")
+  if (!is.null(y_limits) && length(y_limits) == 2L &&
+      all(is.finite(as.numeric(y_limits)))) {
+    p + ggplot2::coord_cartesian(ylim = as.numeric(y_limits), clip = "off")
+  } else {
+    .pm_coord_clip_off(p)
+  }
 }
 
-.pm_eval_wide_table <- function(eval_all, dataset_key, digits = 3L) {
+.pm_norm_win_path <- function(p) {
+  p <- gsub("\\\\", "/", as.character(p %||% ""))
+  if (grepl("^[A-Za-z]:", p)) {
+    drive <- tolower(substr(p, 1L, 1L))
+    p <- sub("^[A-Za-z]:", paste0("/mnt/", drive), p)
+  }
+  normalizePath(p, winslash = "/", mustWork = FALSE)
+}
+
+.pm_eval_split_events <- function(ctx, dataset_key, ana_group, ref_group) {
+  key <- tolower(as.character(dataset_key)[1L])
+  tags <- names(ctx$results$ml_models %||% list())
+  if (!length(tags)) return(list(events = NA_integer_, total = NA_integer_))
+  for (tg in tags) {
+    models_dir <- .pm_resolve_models_dir_for_tag(ctx, tg)
+    L <- .pm_load_evalresult(models_dir, tg)
+    if (is.null(L)) {
+      roots <- unique(c(
+        ctx$output_dir,
+        ctx$root_output_dir,
+        dirname(models_dir %||% "."),
+        file.path(ctx$root_output_dir %||% ".", "MIMIC_IV")
+      ))
+      roots <- unique(vapply(roots, .pm_norm_win_path, character(1L)))
+      hits <- unlist(lapply(roots, function(r) {
+        if (!dir.exists(r)) return(character(0))
+        list.files(
+          r, pattern = paste0("evalresult_", tg, "\\.RData$"),
+          recursive = TRUE, full.names = TRUE
+        )
+      }))
+      if (length(hits)) {
+        L <- .pm_load_evalresult(dirname(hits[[1L]]), tg)
+      }
+    }
+    if (is.null(L)) next
+    pr <- if (identical(key, "train")) L$predtrain else L$predtest
+    if (is.null(pr) || !nrow(pr) || !"Group" %in% names(pr)) next
+    grp <- trimws(as.character(pr$Group))
+    ev <- sum(grp == trimws(as.character(ana_group)[1L]), na.rm = TRUE)
+    return(list(events = as.integer(ev), total = as.integer(nrow(pr))))
+  }
+  list(events = NA_integer_, total = NA_integer_)
+}
+
+.pm_eval_wide_table <- function(eval_all, dataset_key, digits = 3L, events_row = NULL) {
   key <- tolower(dataset_key)
   ev <- eval_all[tolower(as.character(eval_all$dataset)) == key,
                  c(".metric", ".estimate", "model"), drop = FALSE]
-  ev <- ev[ev$.metric %in% c("roc_auc", "accuracy", "sens", "spec", "f_meas"), , drop = FALSE]
+  ## 主文宽表：AUC + Youden 下 accuracy/sens/spec/F1 + Kappa/MCC
+  keep_m <- c("roc_auc", "accuracy", "sens", "spec", "f_meas", "kap", "mcc")
+  ev <- ev[ev$.metric %in% keep_m, , drop = FALSE]
   if (!nrow(ev)) return(NULL)
   out <- ev %>%
     dplyr::rename(metric = .metric, estimate = .estimate) %>%
     tidyr::pivot_wider(names_from = metric, values_from = estimate, values_fn = mean) %>%
     dplyr::select(
-      dplyr::any_of(c("model", "roc_auc", "accuracy", "sens", "spec", "f_meas"))
+      dplyr::any_of(c("model", "roc_auc", "accuracy", "sens", "spec", "f_meas", "kap", "mcc"))
     )
+  dig <- as.integer(digits)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 3L
+  fmt_est <- function(x) {
+    x <- suppressWarnings(as.numeric(x))
+    ifelse(is.finite(x), sprintf(paste0("%.", dig, "f"), x), NA_character_)
+  }
   num_cols <- vapply(out, is.numeric, logical(1L))
   if (any(num_cols)) {
     for (cn in names(out)[num_cols]) {
-      out[[cn]] <- round(out[[cn]], digits = as.integer(digits)[1L])
+      out[[cn]] <- fmt_est(out[[cn]])
     }
   }
   cn <- names(out)
@@ -194,6 +277,8 @@
   cn[cn == "sens"] <- "Sensitivity"
   cn[cn == "spec"] <- "Specificity"
   cn[cn == "f_meas"] <- "F1"
+  cn[cn == "kap"] <- "Kappa"
+  cn[cn == "mcc"] <- "MCC"
   names(out) <- cn
   if ("model" %in% names(out)) {
     out$Model <- pipeline_display_no_underscore(out$model)
@@ -201,6 +286,19 @@
   }
   if ("Model" %in% names(out)) {
     out <- out[, c("Model", setdiff(names(out), "Model")), drop = FALSE]
+  }
+  if (!is.null(events_row) && is.list(events_row)) {
+    ev_n <- events_row$events
+    tot_n <- events_row$total
+    if (length(ev_n) && length(tot_n) && is.finite(ev_n) && is.finite(tot_n)) {
+      out_chr <- dplyr::mutate(out, dplyr::across(dplyr::everything(), as.character))
+      ev_df <- out_chr[1L, , drop = FALSE]
+      ev_df[1L, ] <- NA_character_
+      ev_df[[1L]] <- "Events (Case/Total)"
+      val_col <- if ("AUC" %in% names(ev_df)) "AUC" else names(ev_df)[2L]
+      ev_df[[val_col]] <- sprintf("%d/%d", as.integer(ev_n), as.integer(tot_n))
+      out <- dplyr::bind_rows(ev_df, out_chr)
+    }
   }
   out
 }
@@ -213,12 +311,22 @@
     disp <- .pm_display_from_tag(tg)
     for (piece in list(L$cv5_auc, L$cv5_spec, L$cv5_sens)) {
       if (is.null(piece) || !nrow(piece)) next
-      df <- piece[, intersect(names(piece), c(".metric", ".estimate", "model")), drop = FALSE]
-      if (!ncol(df)) next
-      names(df)[names(df) == ".metric"] <- "metric"
-      names(df)[names(df) == ".estimate"] <- "value"
-      if (!"model" %in% names(df)) df$model <- disp
+      df <- as.data.frame(piece, stringsAsFactors = FALSE)
+      if (".estimate" %in% names(df)) {
+        names(df)[names(df) == ".estimate"] <- "value"
+      } else if ("estimate" %in% names(df) && !"value" %in% names(df)) {
+        names(df)[names(df) == "estimate"] <- "value"
+      }
+      if (".metric" %in% names(df)) names(df)[names(df) == ".metric"] <- "metric"
+      if (!all(c("metric", "value") %in% names(df))) next
+      df <- df[, intersect(names(df), c("metric", "value", "model")), drop = FALSE]
       df$model <- disp
+      df$value <- suppressWarnings(as.numeric(df$value))
+      df <- df[is.finite(df$value), , drop = FALSE]
+      # 箱线图仅 ROC/Sens/Spec；生存 C-index 不进此图
+      keep_m <- tolower(as.character(df$metric)) %in% c("roc_auc", "auc", "sens", "spec", "sensitivity", "specificity")
+      df <- df[keep_m, , drop = FALSE]
+      if (!nrow(df)) next
       rows[[length(rows) + 1L]] <- df
     }
   }
@@ -475,6 +583,160 @@
   p
 }
 
+#' 从 time 列 / 列名推断校准-DCA 时间窗（写 config 前也应人工核对）
+#'
+#' 规则（优先）：
+#' 1. 列名含 28d / 30d / 90d / 180d / 365d → 对应天数
+#' 2. 列名含 month / 月 → 按月；否则默认天
+#' 3. 数值：P95/max 贴近常见行政截尾（28/30/90/180/365）则取该截尾
+#' 4. 否则取近似「常见随访点」：天→28/90/180/365；月→12/36/60
+.pm_infer_surv_horizon <- function(time_vec, time_var = NULL, unit_hint = "auto") {
+  tv <- as.character(time_var %||% "")[1L]
+  tvl <- tolower(tv)
+  unit <- tolower(trimws(as.character(unit_hint %||% "auto")[1L]))
+  if (identical(unit, "auto")) {
+    if (grepl("month|permth|_mo\\b|月", tvl)) {
+      unit <- "month"
+    } else {
+      unit <- "day"
+    }
+  }
+
+  ## 列名硬编码截尾
+  m <- regmatches(tvl, regexpr("(?i)\\b(28|30|90|180|365)\\s*d\\b", tvl, perl = TRUE))
+  if (length(m) && nzchar(m)) {
+    h <- suppressWarnings(as.integer(gsub("[^0-9]", "", m))[1L])
+    if (is.finite(h)) {
+      return(list(horizon = h, unit = "day", source = paste0("colname:", tv)))
+    }
+  }
+  if (grepl("28", tvl) && grepl("day|d\\b|futime|surv", tvl)) {
+    ## survival_time_28d / surv_time_28d / competing_time_28d
+    if (grepl("28d|28_d|_28", tvl)) {
+      return(list(horizon = 28L, unit = "day", source = paste0("colname:", tv)))
+    }
+  }
+
+  x <- suppressWarnings(as.numeric(time_vec))
+  x <- x[is.finite(x) & x > 0]
+  if (!length(x)) {
+    return(list(
+      horizon = if (identical(unit, "month")) 60L else 28L,
+      unit = unit,
+      source = "fallback_empty"
+    ))
+  }
+  p95 <- as.numeric(stats::quantile(x, 0.95, names = FALSE, na.rm = TRUE))
+  xmax <- max(x, na.rm = TRUE)
+
+  .near <- function(target, tol) {
+    abs(p95 - target) <= tol || abs(xmax - target) <= tol
+  }
+
+  if (identical(unit, "month")) {
+    cands <- c(6, 12, 24, 36, 48, 60)
+    hit <- cands[vapply(cands, function(t) .near(t, pmax(1, 0.08 * t)), logical(1))]
+    if (length(hit)) {
+      h <- hit[[which.min(abs(hit - p95))]]
+      return(list(horizon = as.integer(h), unit = "month", source = "data_p95"))
+    }
+    h <- cands[[which.min(abs(cands - p95))]]
+    return(list(horizon = as.integer(h), unit = "month", source = "data_nearest"))
+  }
+
+  ## day
+  cands <- c(7, 14, 28, 30, 90, 180, 365)
+  hit <- cands[vapply(cands, function(t) .near(t, pmax(1, 0.1 * t)), logical(1))]
+  if (length(hit)) {
+    h <- hit[[which.min(abs(hit - p95))]]
+    return(list(horizon = as.integer(h), unit = "day", source = "data_p95"))
+  }
+  h <- cands[[which.min(abs(cands - p95))]]
+  list(horizon = as.integer(h), unit = "day", source = "data_nearest")
+}
+
+.pm_horizon_axis_label <- function(horizon, unit) {
+  h <- suppressWarnings(as.numeric(horizon)[1L])
+  u <- tolower(as.character(unit %||% "day")[1L])
+  if (!is.finite(h)) return("Predicted mortality risk")
+  if (identical(u, "month")) {
+    paste0("Predicted ", h, "-month mortality risk")
+  } else if (h >= 365 && abs(h - 365) < 5) {
+    "Predicted 1-year mortality risk"
+  } else {
+    paste0("Predicted ", h, "-day mortality risk")
+  }
+}
+
+#' 预后文献风格：每模型一格校准曲线 + 合并 DCA 已由 .pm_dca_plot 负责
+.pm_calibration_facet_plot <- function(pred_wide, display_order, colors, title, font_family,
+                                       base_size = 9, xlab = "Predicted mortality risk",
+                                       ylab = "Observed mortality risk") {
+  if (!requireNamespace("PredictABEL", quietly = TRUE)) return(NULL)
+  calall <- data.frame()
+  pred_cols <- intersect(display_order, names(pred_wide))
+  .to_unit <- function(x) {
+    x <- suppressWarnings(as.numeric(x))
+    x[!is.finite(x)] <- NA_real_
+    xx <- x[is.finite(x)]
+    if (length(xx) && max(xx) > 1.5) x / 100 else x
+  }
+  null_pdf <- tempfile(fileext = ".pdf")
+  grDevices::pdf(null_pdf)
+  on.exit({
+    try(grDevices::dev.off(), silent = TRUE)
+    unlink(null_pdf)
+  }, add = TRUE)
+  for (nm in pred_cols) {
+    cal <- tryCatch(
+      PredictABEL::plotCalibration(
+        data = as.data.frame(pred_wide),
+        cOutcome = 1L,
+        predRisk = as.numeric(pred_wide[[nm]])
+      ),
+      error = function(e) NULL
+    )
+    if (is.null(cal)) next
+    caldf <- as.data.frame(cal$Table_HLtest, stringsAsFactors = FALSE)
+    if (!all(c("meanpred", "meanobs") %in% names(caldf))) next
+    caldf$meanpred <- .to_unit(caldf$meanpred)
+    caldf$meanobs <- .to_unit(caldf$meanobs)
+    ## 粗 SE：按 HL 行 n 近似
+    n_row <- suppressWarnings(as.numeric(caldf$n))
+    if (!length(n_row) || all(!is.finite(n_row))) n_row <- rep(NA_real_, nrow(caldf))
+    se <- ifelse(is.finite(n_row) & n_row > 0,
+                 sqrt(pmax(caldf$meanobs * (1 - caldf$meanobs) / n_row, 0)),
+                 NA_real_)
+    caldf$ymin <- pmax(0, caldf$meanobs - 1.96 * se)
+    caldf$ymax <- pmin(1, caldf$meanobs + 1.96 * se)
+    caldf$model <- nm
+    calall <- rbind(calall, caldf)
+  }
+  try(grDevices::dev.off(), silent = TRUE)
+  if (!nrow(calall)) return(NULL)
+
+  calall$model <- factor(calall$model, levels = intersect(display_order, unique(calall$model)))
+  xmax <- max(c(calall$meanpred, calall$meanobs, 0.01), na.rm = TRUE)
+  xmax <- min(1, max(0.2, ceiling(xmax * 10) / 10))
+
+  ggplot2::ggplot(calall, ggplot2::aes(x = .data$meanpred, y = .data$meanobs)) +
+    ggplot2::geom_abline(intercept = 0, slope = 1, linetype = 2, colour = "grey50") +
+    ggplot2::geom_line(colour = "#2C7FB8", linewidth = 0.6) +
+    ggplot2::geom_point(colour = "#2C7FB8", size = 1.6) +
+    ggplot2::geom_errorbar(
+      ggplot2::aes(ymin = .data$ymin, ymax = .data$ymax),
+      width = 0.01, colour = "#2C7FB8", na.rm = TRUE, linewidth = 0.35
+    ) +
+    ggplot2::facet_wrap(~model, nrow = 2) +
+    ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, xmax), expand = FALSE) +
+    ggplot2::labs(title = title, x = xlab, y = ylab) +
+    ggplot2::theme_bw(base_size = base_size, base_family = font_family) +
+    ggplot2::theme(
+      strip.text = ggplot2::element_text(face = "bold", family = font_family),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+}
+
 # ── 概率校准：在训练集上拟合，返回对训练/验证集校准后的 pred_wide ─────────────
 # method: "platt"（逻辑回归）或 "isotonic"（保序回归）
 .pm_calibrate_wide <- function(wide_tr, wide_te, method = "platt") {
@@ -512,19 +774,28 @@
   list(tr = cal_tr, te = cal_te)
 }
 
-# ── DCA 自动阈值：上限 = min(3×事件率, max预测概率95分位, 0.5) ───────────────
+# ── DCA 自动阈值 ────────────────────────────────────────────────────────────
+# 低事件率：上限 = min(3×事件率, p95, 0.5)（发病课题常用）
+# 高事件率（≥45%）：treat-all 在阈值接近患病率前几乎不降；若仍封顶 0.5，
+#   曲线会挤在图顶、下半空白。此时把轴拉到患病率附近（不超过 p95 / 0.99）。
 .pm_dca_auto_thresholds <- function(pred_wide, step = 0.01) {
   y    <- as.integer(pred_wide$Outcome)
   ev_rate <- mean(y, na.rm = TRUE)
+  if (!is.finite(ev_rate)) ev_rate <- 0.3
   pred_cols <- setdiff(names(pred_wide), "Outcome")
   if (!length(pred_cols)) return(seq(0, 0.3, by = step))
-  p95 <- quantile(
+  p95 <- as.numeric(stats::quantile(
     unlist(pred_wide[, pred_cols, drop = FALSE]),
     probs = 0.95, na.rm = TRUE
-  )
-  upper <- min(max(3 * ev_rate, 0.05), p95, 0.5)
-  upper <- ceiling(upper / step) * step   # 对齐步长
-  seq(0, upper, by = step)
+  ))
+  if (!is.finite(p95) || p95 <= 0) p95 <- 0.5
+  high_prev <- isTRUE(ev_rate >= 0.45)
+  span <- if (high_prev) max(ev_rate + 0.10, 0.60) else max(3 * ev_rate, 0.05)
+  cap <- if (high_prev) 0.99 else 0.5
+  upper <- min(span, p95, cap)
+  upper <- max(upper, step)
+  upper <- ceiling(upper / step) * step
+  seq(0, min(upper, 1), by = step)
 }
 
 .pm_dca_auto_xlim <- function(tmp, ymin, ymax, step = 0.01) {
@@ -546,7 +817,8 @@
   if (!length(pred_cols)) return(NULL)
   # 自动计算阈值区间
   thr <- thresholds %||% .pm_dca_auto_thresholds(pred_wide)
-  rhs <- paste(pred_cols, collapse = " + ")
+  ## 模型显示名含空格/连字符时必须反引号，否则 str2lang 失败
+  rhs <- paste(sprintf("`%s`", pred_cols), collapse = " + ")
   fml <- stats::as.formula(paste0("Outcome ~ ", rhs))
   dca_df <- pred_wide
   dca_obj <- tryCatch(
@@ -786,6 +1058,38 @@ block_performance_ml <- function(ctx, ...) {
   for (tg in tags) {
     models_dir <- .pm_resolve_models_dir_for_tag(ctx, tg)
     L <- .pm_load_evalresult(models_dir, tg)
+    if (is.null(L)) {
+      extra_roots <- character(0)
+      if (exists("dual_db_slot_path_name", mode = "function") && !is.null(ctx$config)) {
+        extra_roots <- tryCatch(
+          c(
+            file.path(ctx$root_output_dir %||% ".", dual_db_slot_path_name(ctx$config, "nhanes")),
+            file.path(ctx$root_output_dir %||% ".", dual_db_slot_path_name(ctx$config, "mimic"))
+          ),
+          error = function(e) character(0)
+        )
+      }
+      roots <- unique(c(
+        ctx$output_dir,
+        ctx$root_output_dir,
+        dirname(models_dir %||% "."),
+        extra_roots
+      ))
+      roots <- unique(vapply(roots[!is.na(roots) & nzchar(as.character(roots))], .pm_norm_win_path, character(1L)))
+      hits <- unlist(lapply(roots, function(r) {
+        if (!nzchar(r) || !dir.exists(r)) return(character(0))
+        list.files(
+          r, pattern = paste0("evalresult_", tg, "\\.RData$"),
+          recursive = TRUE, full.names = TRUE
+        )
+      }))
+      # 优先 step*_ml_<tag>/Models，避开 Shiny 副本
+      if (length(hits)) {
+        prefer <- hits[grepl(paste0("ml_", tg, "/Models"), hits, ignore.case = TRUE)]
+        if (length(prefer)) hits <- prefer
+        L <- .pm_load_evalresult(dirname(hits[[1L]]), tg)
+      }
+    }
     if (!is.null(L)) loaded[[tg]] <- L
   }
   if (!length(loaded)) {
@@ -828,8 +1132,24 @@ block_performance_ml <- function(ctx, ...) {
   if (isTRUE(pm$summary_tables %||% TRUE)) {
     tbl_dir <- ctx$output_dir_tables %||% file.path(ctx$output_dir, "Tables")
     if (!dir.exists(tbl_dir)) dir.create(tbl_dir, recursive = TRUE)
-    wt_tr <- .pm_eval_wide_table(ctx$results$ml_eval_all, "train", digits = as.integer(pm$table_digits %||% 3L)[1L])
-    wt_va <- .pm_eval_wide_table(ctx$results$ml_eval_all, "test", digits = as.integer(pm$table_digits %||% 3L)[1L])
+    wt_tr <- .pm_eval_wide_table(
+      ctx$results$ml_eval_all, "train",
+      digits = as.integer(pm$table_digits %||% 3L)[1L],
+      events_row = if (isTRUE(pm$wide_table_events %||% TRUE)) {
+        .pm_eval_split_events(ctx, "train", ana_group, ref_group)
+      } else {
+        NULL
+      }
+    )
+    wt_va <- .pm_eval_wide_table(
+      ctx$results$ml_eval_all, "test",
+      digits = as.integer(pm$table_digits %||% 3L)[1L],
+      events_row = if (isTRUE(pm$wide_table_events %||% TRUE)) {
+        .pm_eval_split_events(ctx, "test", ana_group, ref_group)
+      } else {
+        NULL
+      }
+    )
     if (!is.null(wt_tr)) {
       tr_pub <- pub_pair(
         ctx, tbl_dir, "main_table",
@@ -968,6 +1288,27 @@ block_performance_ml <- function(ctx, ...) {
     w_tr <- .wide_calib_dca("train", tr)
     w_te <- .wide_calib_dca("test", te)
 
+    ## 事件率 >50% 时，校准/DCA 按「少数类风险」展示（1-Outcome / 1-pred），
+    ## 避免高患病率队列（如 CHARLS 肌少症≈95%）出现 NB≈1、校准挤在右上角的「看起来反了」图面。
+    ## ROC（A/B）仍用原事件类，不受影响。
+    .pm_flip_wide_minority_risk <- function(wide, split_lab = "") {
+      if (is.null(wide) || !is.data.frame(wide) || !nrow(wide) || !"Outcome" %in% names(wide)) {
+        return(wide)
+      }
+      prev <- mean(as.numeric(wide$Outcome), na.rm = TRUE)
+      if (!is.finite(prev) || prev <= 0.5) return(wide)
+      wide$Outcome <- 1 - as.numeric(wide$Outcome)
+      for (nm in setdiff(names(wide), "Outcome")) {
+        wide[[nm]] <- 1 - as.numeric(wide[[nm]])
+      }
+      cli::cli_alert_info(
+        "block_performance_ml: {split_lab} 事件率={round(prev, 3)} > 0.5，校准/DCA 改为少数类风险（1-p）。"
+      )
+      wide
+    }
+    w_tr <- .pm_flip_wide_minority_risk(w_tr, "train")
+    w_te <- .pm_flip_wide_minority_risk(w_te, "test")
+
     # ── 概率校准（Platt + Isotonic）：在训练集上拟合，分别应用到训练/验证集 ──
     if (!identical(cal_method, "none") && !is.null(w_tr)) {
       cli::cli_alert_info("概率校准（{cal_method}）：在训练集上拟合，应用于训练/验证集...")
@@ -1079,6 +1420,80 @@ block_performance_ml <- function(ctx, ...) {
         }
       }
     }
+
+    ## 预后文献图：A 分面校准 + B 合并 DCA（验证集优先）
+    if (prognosis && isTRUE(pm$prognosis_facet_calibration %||% TRUE)) {
+      time_var <- cfg$survival$time_var %||% NULL
+      time_vec <- NULL
+      for (slot in c("test", "train", "imputed", "cleaned")) {
+        dd <- ctx$data[[slot]]
+        if (is.data.frame(dd) && !is.null(time_var) && time_var %in% names(dd)) {
+          time_vec <- dd[[time_var]]
+          break
+        }
+      }
+      hz_cfg <- pm$surv_horizon
+      if (is.null(hz_cfg) || identical(hz_cfg, "auto") ||
+          (is.numeric(hz_cfg) && !is.finite(hz_cfg[1L]))) {
+        inf <- .pm_infer_surv_horizon(
+          time_vec, time_var = time_var,
+          unit_hint = pm$surv_horizon_unit %||% "auto"
+        )
+        horizon <- inf$horizon
+        hz_unit <- inf$unit
+        cli::cli_alert_info(
+          "performance_ml: surv_horizon 自动推断为 {horizon} {hz_unit}（来源={inf$source}；写 config 时可显式覆盖）"
+        )
+      } else {
+        horizon <- suppressWarnings(as.numeric(hz_cfg)[1L])
+        hz_unit <- tolower(trimws(as.character(pm$surv_horizon_unit %||% "auto")[1L]))
+        if (identical(hz_unit, "auto")) {
+          hz_unit <- .pm_infer_surv_horizon(time_vec, time_var, "auto")$unit
+        }
+      }
+      xlab <- .pm_horizon_axis_label(horizon, hz_unit)
+      w_facet <- w_te_cal %||% w_te %||% w_tr_cal %||% w_tr
+      if (!is.null(w_facet)) {
+        p_facet <- .pm_calibration_facet_plot(
+          w_facet, display_order, colors,
+          title = "A",
+          font_family = font_family,
+          base_size = plot_base,
+          xlab = xlab,
+          ylab = "Observed mortality risk"
+        )
+        if (!is.null(p_facet)) {
+          n_mod <- max(1L, length(intersect(display_order, names(w_facet))))
+          nrow_f <- if (n_mod <= 3L) 1L else 2L
+          ctx <- save_figure(
+            ctx, "Figure. Prognosis calibration faceted.pdf",
+            function() p_facet,
+            width = 10, height = if (nrow_f == 1L) 3.8 else 6.5
+          )
+        }
+      }
+    }
+    if (prognosis && isTRUE(pm$prognosis_combined_dca %||% TRUE)) {
+      w_dca <- w_te_cal %||% w_te %||% w_tr_cal %||% w_tr
+      if (!is.null(w_dca)) {
+        p_dca_prog <- .pm_dca_plot(
+          w_dca, display_order, font_family,
+          y_max = if (isTRUE(pm$combined_dca_auto_ylim %||% TRUE)) NULL else pm$dca_y_max,
+          y_min = as.numeric(pm$dca_y_min %||% -0.03),
+          title = "B",
+          thresholds = dca_thr,
+          base_size = plot_base,
+          auto_xlim = TRUE
+        )
+        if (!is.null(p_dca_prog)) {
+          ctx <- save_figure(
+            ctx, "Figure. Prognosis DCA combined.pdf",
+            function() p_dca_prog,
+            width = 7, height = 5.5
+          )
+        }
+      }
+    }
   }
 
   ## ── 2×4 总览拼图（与 C11 相同：A–H，cowplot）────────────────────────────
@@ -1128,7 +1543,70 @@ block_performance_ml <- function(ctx, ...) {
     }
   }
 
+  ## ── 可选：Train+Val bootstrap 表现表（默认关）────────────────────────────
+  if (isTRUE(pm$bootstrap_ci_table %||% FALSE)) {
+    root <- cfg$project$root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
+    boot_src <- file.path(root, "R/ml_bootstrap_pub_tables.R")
+    if (!file.exists(boot_src)) {
+      cli::cli_alert_warning(
+        "bootstrap_ci_table=TRUE 但未找到 {boot_src}，跳过 bootstrap 表现表。"
+      )
+    } else {
+      source(boot_src, local = FALSE)
+      preds <- ctx$results$ml_predictions_all %||% list()
+      if (!length(preds)) {
+        cli::cli_alert_warning(
+          "bootstrap_ci_table=TRUE 但 ctx$results$ml_predictions_all 为空，跳过。"
+        )
+      } else {
+        disp_map <- stats::setNames(
+          vapply(names(preds), .pm_display_from_tag, character(1L)),
+          names(preds)
+        )
+        hz <- as.numeric(pm$surv_horizon %||% 48)[1L]
+        if (!is.finite(hz) || hz <= 0) hz <- 48
+        B <- as.integer(pm$bootstrap_B %||% 1000L)[1L]
+        seed <- as.integer(pm$bootstrap_seed %||% 42L)[1L]
+        cli::cli_alert_info(
+          "performance_ml bootstrap CI 表：horizon={hz}, B={B}, models={length(preds)}…"
+        )
+        tab_raw <- tryCatch(
+          mlboot_build_performance_table(
+            preds, display_names = disp_map, horizon = hz, B = B, seed = seed,
+            model_order = display_order
+          ),
+          error = function(e) {
+            cli::cli_alert_warning("bootstrap 表现表失败: {conditionMessage(e)}")
+            NULL
+          }
+        )
+        sci <- mlboot_performance_sci_df(tab_raw)
+        if (!is.null(sci) && nrow(sci)) {
+          tbl_dir <- ctx$output_dir_tables %||% file.path(ctx$output_dir, "Tables")
+          if (!dir.exists(tbl_dir)) dir.create(tbl_dir, recursive = TRUE)
+          boot_pub <- pub_paths(
+            ctx, tbl_dir, "supp_table",
+            "Bootstrap performance metrics (training and validation sets)",
+            "xlsx"
+          )
+          export_sci_table(sci, boot_pub$filepath, title = boot_pub$title)
+          ctx <- save_result(
+            ctx, "performance_ml_bootstrap_ci", tab_raw,
+            "Table_performance_bootstrap_ci.csv"
+          )
+          ctx$results$performance_ml_bootstrap_ci_sci <- sci
+          cli::cli_alert_success(
+            "bootstrap 表现表已导出（{sum(tab_raw$Dataset == 'Validation set')} 个验证集模型行）。"
+          )
+        } else {
+          cli::cli_alert_warning("bootstrap 表现表无有效行，未导出。")
+        }
+      }
+    }
+  }
+
   ctx <- render_queued_figures(ctx)
+  ctx <- render_queued_tables(ctx)
 
   ctx$results$performance_ml_done <- TRUE
   cli::cli_alert_success("block_performance_ml 完成（study_type={study_type}）。")
@@ -1138,5 +1616,5 @@ block_performance_ml <- function(ctx, ...) {
 register_block(
   "performance_ml",
   block_performance_ml,
-  "ML 综合表现：平行线图、多模型 ROC/校准/DCA、CV 箱线图、性能宽表（发病/预后）"
+  "ML 综合表现：平行线图、多模型 ROC/校准/DCA、CV 箱线图、性能宽表、可选 bootstrap CI 表（发病/预后）"
 )

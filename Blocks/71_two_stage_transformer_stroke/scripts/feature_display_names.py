@@ -48,8 +48,11 @@ def load_dict_names(path: Path) -> dict[str, str]:
 
 
 def pretty_display(standard: str) -> str:
-    """Platelet_Count / CalciumTotal → 可读标签。"""
-    s = standard.replace("_", " ")
+    """Platelet_Count / static_Age / CalciumTotal → 可读标签（无下划线）。"""
+    s = str(standard).strip()
+    if s.lower().startswith("static_"):
+        s = s[7:]
+    s = s.replace("_", " ")
     # CamelCase split for AnionGap, CalciumTotal
     out = []
     for i, ch in enumerate(s):

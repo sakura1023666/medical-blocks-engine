@@ -1,0 +1,50 @@
+# 轨迹预后发表复用铁律（全项目）
+
+凡 **轨迹 / JLCM / dual-db trajectory prognosis** 发表返工必须遵守。
+本对话（GPR + AP WPR dual）沉淀的能力已进引擎，**禁止**再在 `run/trajectory_prognosis/` 根目录堆 `fix_*` / `repair_*` / `align_*课题*`。
+
+## 铁律
+
+1. **唯一收口**：`R/trajectory_pub_finalize.R` → `trajectory_batch_finalize_index_outputs()`；CLI `run/trajectory_prognosis/finalize_trajectory_pub.R`。
+2. **双库表行对齐 / UV HR 解析 / 无 Missing 图白名单 / 根目录只留主库 Table3**：`R/trajectory_dual_pub_harmonize.R`，由 `config$trajectory_pub` 开关启用。
+3. **类别标签**：默认 `skip_class_swap=TRUE`，与 Table S5/S6/KM/Table3 同一原始 JLCM 编号；禁止图侧 majority-swap、表侧不 swap。
+4. **发表 xlsx**：只外科改（`pub_xlsx_*`），禁止 `write.xlsx` 整表覆盖冲掉三线样式。
+5. **发表图**：`export_pub_figures` / `pub_figure_ensure_formats` 四目录；拼图用 `dual_db_combine_paired_figures`。
+6. **一次性脚本**：仅允许进 `run/trajectory_prognosis/_archive_oneoff/`，并在该目录 README 写明已融入的引擎入口。
+
+## config 模板
+
+```r
+config$trajectory_pub <- list(
+  enable = TRUE,
+  drop_missing_overview = TRUE,          # 无 Missing overview，KM 起编 S1
+  skip_class_swap = TRUE,
+  shared_piecewise_cut = list(
+    enable = TRUE, mode = "min_best",
+    root_keep_db = "mimic"               # 可选：根 Table3 只留主库
+  ),
+  align_dual_tables = list(
+    enable = TRUE,
+    kinds = c("table1", "s1", "s2", "s3", "s5"),
+    keep_vars = NULL                     # NULL=两库交集；或显式字符向量
+  ),
+  figure_extra = character(0),           # 如三类轨迹 / 死亡率柱图
+  export_formats = TRUE,
+  enforce_13_figures = TRUE,
+  fix_tables = TRUE
+)
+```
+
+## 反例（禁止）
+
+- 为某病再写 `run/trajectory_prognosis/fix_xxx_dual_pub_consistency.R` 当长期入口
+- Fig2 majority-swap 与 S5/S8 Class 标签对反
+- 根目录同时留 MIMIC+eICU 两份 Table3 却正文只报主库
+- 解析 S9 时把 median (IQR) 当成 HR
+
+## 入口
+
+- `R/trajectory_pub_finalize.R`
+- `R/trajectory_dual_pub_harmonize.R`
+- `run/trajectory_prognosis/finalize_trajectory_pub.R`
+- 设计：`docs/superpowers/specs/2026-09-28-trajectory-dual-pub-harmonize-design.md`

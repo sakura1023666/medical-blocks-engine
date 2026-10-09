@@ -23,7 +23,9 @@
 | IPW 糖尿病卒中 | `decision_tree_ipw_diabetes_stroke.md` |
 | Markov 认知 CLHLS | `decision_tree_markov_cognitive_clhls.md` |
 | 用药方案文本 | `decision_tree_medication_regimen_text_soft.md` |
+| 胆结石碎石成功列线图（发病+列线图后缀） | `decision_tree_gallstone_nomogram.md` |
 | ML 双库批量 | `decision_tree_ml_dual_batch.md` |
+| ML 双库预后 + 外验（AKI 28 天死亡 · 静指标；文献对齐） | `decision_tree_ml_dual_prognosis_aki_dev_ext.md` |
 | 多模态 TBI | `decision_tree_multimodal_tbi.md` |
 | 多重共病可加 | `decision_tree_multimorbidity_additive.md` |
 | 网络温度青少年 | `decision_tree_network_temperature_adolescent.md` |
@@ -35,5 +37,6 @@
 | 轨迹预后 PLT | `decision_tree_trajectory_prognosis_plt.md` |
 | Transformer AKI 单库 | `decision_tree_transformer_aki_single.md` |
 | 两阶段 Transformer 卒中 | `decision_tree_two_stage_transformer_stroke.md` |
+| PA–Mobility 联合表型 × 认知衰老（CHARLS+NHANES） | `decision_tree_pa_mobility_cognitive.md` |
 
 已删除的重复件（勿再加回）：`…dkd_environment…`、`…osteo_voc…fuben`、`…competing_risk_stroke_diabetes`、`…competing_risk_chf`。

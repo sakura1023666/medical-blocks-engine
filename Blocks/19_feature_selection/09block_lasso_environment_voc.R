@@ -51,6 +51,8 @@
 #      ctx$results$lasso_cv_list       — 每次迭代选出的特征列表
 #  文件: Figures/Figure_Lasso_A_Barplot.pdf
 #        Figures/Figure_Lasso_B_Heatmap.pdf
+#        Tables/Table S7. Association between Environmental Toxicants and <disease>.xlsx
+#          （有单因素预筛则写 OR/CI/P；univariate_enable=FALSE 时写 LASSO 入选频次，禁止空表让汇总误拷 VIF）
 ###############################################################################
 
 # ── 辅助函数 ────────────────────────────────────────────────────────────────
@@ -1271,33 +1273,64 @@ block_lasso_environment_voc <- function(ctx, ...) {
     "lasso_environment_voc: 频次阈值={height}，筛出 {length(select_vocs_lasso)} 个特征: {paste(select_vocs_lasso, collapse=', ')}"
   )
 
-  # ── 单因素显著表（P<cutoff）──────────────────────────────────────────────
-  uni_export <- ctx$results$univariate_env_table
-  if (!is.null(uni_export) && nrow(uni_export)) {
-    tbl_dir <- ctx$output_dir_tables %||% file.path(ctx$output_dir %||% ".", "Tables")
-    if (!dir.exists(tbl_dir)) dir.create(tbl_dir, recursive = TRUE)
-    tbl_path <- file.path(tbl_dir, as.character(bl_cfg$table_filename %||% "Table_Lasso_Univariate_Screen.xlsx"))
-    tryCatch({
-      if (requireNamespace("openxlsx", quietly = TRUE)) {
-        wb <- openxlsx::createWorkbook()
-        openxlsx::addWorksheet(wb, "Sheet1")
-        openxlsx::writeData(wb, "Sheet1", uni_export, startRow = 1L)
-        openxlsx::saveWorkbook(wb, tbl_path, overwrite = TRUE)
-      } else {
-        utils::write.csv(uni_export, sub("\\.xlsx$", ".csv", tbl_path), row.names = FALSE)
-      }
-      cli::cli_alert_success("单因素表已保存: {basename(tbl_path)}")
-    }, error = function(e) {
-      cli::cli_alert_warning("LASSO 单因素表导出失败: {e$message}")
-    })
-  }
-
   # ── 图形（对齐 VOC 最终：Figure 2A=heatmap, Figure 2B=barplot）────────────
   label_map <- if (exists("environment_resolve_label_map", mode = "function")) {
     environment_resolve_label_map(cfg, bl_cfg$fig_label_mapping)
   } else {
     bl_cfg$fig_label_mapping
   }
+
+  # ── 关联/入选表（必须落盘，避免 Results_Summary 把 Table S7*.xlsx 误配成 VIF）──
+  disease_nm <- as.character(cfg$project$disease %||% "Disease")[1L]
+  disease_lbl <- gsub("_", " ", disease_nm, fixed = TRUE)
+  default_tbl <- paste0(
+    "Table S7. Association between Environmental Toxicants and ", disease_nm, ".xlsx"
+  )
+  tbl_dir <- ctx$output_dir_tables %||% file.path(ctx$output_dir %||% ".", "Tables")
+  if (!dir.exists(tbl_dir)) dir.create(tbl_dir, recursive = TRUE)
+  tbl_path <- file.path(tbl_dir, as.character(bl_cfg$table_filename %||% default_tbl))
+  tbl_title <- paste0(
+    "Table S7. Association between Environmental Toxicants and ", disease_lbl
+  )
+  uni_export <- ctx$results$univariate_env_table
+  assoc_df <- if (!is.null(uni_export) && is.data.frame(uni_export) && nrow(uni_export)) {
+    uni_export
+  } else if (length(gene_sum)) {
+    feat <- names(gene_sum)
+    lab <- if (exists("environment_display_label", mode = "function")) {
+      environment_display_label(feat, label_map)
+    } else {
+      feat
+    }
+    data.frame(
+      Environmental_Feature = as.character(lab),
+      Code = as.character(feat),
+      LASSO_frequency = as.integer(unname(gene_sum)),
+      Frequency_cutoff = as.integer(height),
+      Selected = ifelse(feat %in% select_vocs_lasso, "Yes", "No"),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    NULL
+  }
+  if (!is.null(assoc_df) && nrow(assoc_df)) {
+    ctx$results$lasso_association_table <- assoc_df
+    tryCatch({
+      if (requireNamespace("openxlsx", quietly = TRUE)) {
+        wb <- openxlsx::createWorkbook()
+        openxlsx::addWorksheet(wb, "Table")
+        openxlsx::writeData(wb, "Table", tbl_title, startRow = 1L, colNames = FALSE)
+        openxlsx::writeData(wb, "Table", assoc_df, startRow = 2L)
+        openxlsx::saveWorkbook(wb, tbl_path, overwrite = TRUE)
+      } else {
+        utils::write.csv(assoc_df, sub("\\.xlsx$", ".csv", tbl_path), row.names = FALSE)
+      }
+      cli::cli_alert_success("LASSO 关联/入选表已保存: {basename(tbl_path)}")
+    }, error = function(e) {
+      cli::cli_alert_warning("LASSO 关联表导出失败: {e$message}")
+    })
+  }
+
   top_n_pat <- as.integer(bl_cfg$fig_top_patterns %||% 6L)
 
   output_dir_figures <- file.path(ctx$output_dir %||% ".", "Figures")
