@@ -48,10 +48,37 @@ gh pr create --base main --head nightly --title "Nightly absorb YYYY-MM-DD"
 
 5006 / 34 等主机仍用 **rsync**（排除 `.git`）。GitHub 负责版本与协作，**不替代**现有部署路径。
 
-## 首次登录（新机器）
+## 首次登录 / 建私有仓（本机网络口径）
+
+实测：WSL 访问 **`github.com:443` 常超时**，但 **`api.github.com`** 与 **`ssh.github.com:443`** 可用。因此：
+
+- `gh` API / 建仓：用 **PAT**（走 api.github.com）
+- `git push/pull`：用 **SSH（443 端口）**（本机已配置 `~/.ssh/config` → `ssh.github.com:443`）
+- 公钥已落盘：[`docs/dev/github_ssh_pubkey.txt`](github_ssh_pubkey.txt)
+
+### 推荐一步到位（PAT）
+
+1. 在能打开 GitHub 的浏览器创建 classic PAT（**repo** + **admin:public_key**）  
+2. 本机执行：
 
 ```bash
-export PATH="/root/.local/bin:$PATH"   # 若 gh 装在用户目录
-gh auth login   # HTTPS + 浏览器/设备码
-gh auth status
+umask 077
+printf '%s' 'ghp_你的token' > /mnt/e/01block/01Block-new-Final/.gh_token
+export PATH="/root/.local/bin:$PATH"
+bash /mnt/e/01block/01Block-new-Final/scripts/git_setup_remote.sh
+```
+
+脚本会：`gh auth` → 上传 SSH 公钥 → 建 private `medical-blocks-engine` → SSH 推送 `main` + `nightly`。
+
+### 手工备用（无 PAT）
+
+1. 网页添加 SSH key（粘贴 `github_ssh_pubkey.txt`）  
+2. 网页新建 **private** 空仓 `medical-blocks-engine`（不要勾选 README）  
+3. 本机：
+
+```bash
+cd /mnt/e/01block/01Block-new-Final
+git remote add origin git@github.com:<你的用户名>/medical-blocks-engine.git
+git push -u origin main
+git checkout -b nightly && git push -u origin nightly && git checkout main
 ```

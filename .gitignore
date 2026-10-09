@@ -5,6 +5,8 @@
 .env.feishu
 .env.glm
 engine.env
+.gh_token
+.github_token
 
 # R / IDE
 .Rhistory

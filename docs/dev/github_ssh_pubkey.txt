@@ -1,0 +1,5 @@
+# WSL host SSH public key for medical-blocks-engine
+# Add at: https://github.com/settings/ssh/new
+# Title suggestion: 01block-wsl-medical-blocks
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOyKL7rTItPUjfueySK/fFNwk/h0bFH7v7ZhGE8CsEYZ 01block-medical-blocks-engine
