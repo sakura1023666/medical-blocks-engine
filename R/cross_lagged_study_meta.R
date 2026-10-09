@@ -253,10 +253,14 @@ cross_lagged_fig3_lock <- function(meta) {
       base_vars <- setdiff(base_vars, c("Hypertension", "Diabetes", "T2DM"))
     }
     if (isTRUE(include_age)) base_vars <- c("Age_Group", base_vars)
+    # Leisure 已换成三分类吸烟；其它 circadian 课题仍把 Former 记为缺失
+    keep_former <- identical(idx, "Leisure_score")
+    smoke_levels <- if (isTRUE(keep_former)) c("Never", "Former", "Current") else c("Never", "Current")
     return(list(
       vars = base_vars,
       age_cutoff = age_cut,
       use_age_group = isTRUE(include_age),
+      keep_smoking_former = keep_former,
       index_var = idx,
       analysis_group = as.character(meta$analysis_group %||% "Circadian_Disorder")[1L],
       reference_group = as.character(meta$reference_group %||% "No_Disorder")[1L],
@@ -266,7 +270,7 @@ cross_lagged_fig3_lock <- function(meta) {
         Gender = c("Female", "Male"),
         Education = c("Below High school", "Above High school"),
         Marital_Status = c("Unmarried", "Married"),
-        Smoking = c("Never", "Current"),
+        Smoking = smoke_levels,
         Hypertension = c("No", "Yes"),
         Diabetes = c("No", "Yes")
       ),
@@ -275,7 +279,8 @@ cross_lagged_fig3_lock <- function(meta) {
         if (isTRUE(include_age)) "Age_Group 65y (Leisure exposure);" else "Age omitted (ePWV component);",
         "Cancer omitted (NHANES has no column);",
         "NHANES Education/Smoking attached from D04 by ID;",
-        "Former smokers set to missing so Smoking is Never/Current like CHARLS/ELSA"
+        if (isTRUE(keep_former)) "Smoking kept as Never/Former/Current" else
+          "Former smokers set to missing so Smoking is Never/Current"
       )
     ))
   }
@@ -362,12 +367,18 @@ cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
   }
   if ("Smoking" %in% names(data)) {
     x <- trimws(as.character(data$Smoking))
-    # 与 CHARLS/ELSA 二元 Never/Current 对齐：Former 不并入任一侧，记为缺失
-    x[x %in% c("Former", "Ever", "Past", "Ex-smoker", "Ex smoker")] <- NA_character_
+    keep_former <- isTRUE(lock$keep_smoking_former)
+    if (isTRUE(keep_former)) {
+      x[x %in% c("Ever", "Past", "Ex-smoker", "Ex smoker")] <- "Former"
+    } else {
+      # 旧二分类课题：Former 不并入任一侧，记为缺失
+      x[x %in% c("Former", "Ever", "Past", "Ex-smoker", "Ex smoker")] <- NA_character_
+    }
     x[x %in% c("No")] <- "Never"
     x[x %in% c("Yes")] <- "Current"
     x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
-    data$Smoking <- factor(x, levels = c("Never", "Current"))
+    smoke_lv <- if (isTRUE(keep_former)) c("Never", "Former", "Current") else c("Never", "Current")
+    data$Smoking <- factor(x, levels = smoke_lv)
   }
   for (vn in intersect(
     c("Alcohol_drinking", "Hypertension", "Diabetes", "T2DM", "Cancer",

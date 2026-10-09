@@ -81,7 +81,6 @@ fi
 
 if [[ -z "$(git status --porcelain)" ]]; then
   log "skip: clean"
-  # return to main for interactive work if it exists
   git checkout main >/dev/null 2>&1 || true
   exit 0
 fi

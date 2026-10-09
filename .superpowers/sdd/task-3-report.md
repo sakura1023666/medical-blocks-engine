@@ -1,72 +1,47 @@
-# Task 3 Report — `00osteo_dxa_qct_common.R`
+# Task 3 Report: 暴露 Block + 注册 + 决策树（PE×alteplase IPW）
 
-**Date:** 2026-09-22  
-**Engine root:** `/mnt/e/01block/01Block-new-Final`
+**Status:** `DONE`  
+**Date:** 2026-10-09  
+**Commits:** none  
+
+## Summary
+
+新增 `ipw_alteplase_exposure`（默认 `prefer_precomputed=TRUE`：校验宽表 `Alteplase∈{0,1}`，确保 28d 结局列），已挂 `pipeline_runner` 与 Blocks catalog；决策树含 mermaid + 用户确认清单，**未写 Task 4 config**。
 
 ## Deliverables
 
-| Item | Path |
+| 产物 | 路径 |
 |------|------|
-| Common helpers | `Blocks/75_osteo_dxa_qct/00osteo_dxa_qct_common.R` |
-| Tests | `tests/test_osteo_dxa_qct_blocks.R` |
+| 暴露块 | `Blocks/69_ipw_diabetes_stroke_full/10block_ipw_alteplase_exposure.R` |
+| 注册 | `R/pipeline_runner.R` → `ipw_alteplase_exposure` |
+| 决策树 | `Decisiontree/decision_tree_ipw_pe_alteplase.md` |
+| Catalog | `python3 scripts/update_blocks_catalog.py` → `docs/Blocks_catalog.md`（含新块） |
 
-## TDD
+未写项目 config / 未开 Task 4。
 
-### RED (Step 1 — test before implementation)
+## Locked decisions reflected
 
-Command:
+- Foundation: 预后 + IPW；放疗→阿替普酶；OS→28d  
+- Exposure MAIN: 处方 OR 输液（precomputed）；可选 rx-only 敏感性记在决策树，默认不开  
+- disease_vars 草案: `Ddimer`, `Fibrinogen`, `TT`；protect: Alteplase / surv_* / composite_risk  
+- 路径 1 + remirror 双栏；STEPP=`composite_risk`；Fig1–5/S1–S4 + Table1/S1–S4 + Sens 清单齐全  
 
-```bash
-cd /mnt/e/01block/01Block-new-Final && Rscript tests/test_osteo_dxa_qct_blocks.R
-```
+## Test summary
 
-Output:
+| Check | Result |
+|-------|--------|
+| `register_block("ipw_alteplase_exposure")` | OK |
+| `pipeline_runner.R` map 含 `ipw_alteplase_exposure` | FOUND |
+| `update_blocks_catalog.py` | exit 0；481 blocks |
+| Smoke MIMIC baseline | n=1621, n_exposed=428, n_event=336；surv_* OK |
+| Smoke eICU baseline | n=1721, n_exposed=109, n_event=175；surv_* OK |
 
-```
-Error: file.exists(common_path) is not TRUE
-Execution halted
-EXIT:1
-```
+## Gate for Task 4
 
-Cause: `Blocks/75_osteo_dxa_qct/00osteo_dxa_qct_common.R` did not exist yet; test intentionally `stopifnot(file.exists(common_path))` before `source`.
+Controller 须向用户展示 `Decisiontree/decision_tree_ipw_pe_alteplase.md` 的 mermaid + §0 确认清单；**用户确认后**再写项目 config。
 
-### GREEN (Step 2–3 — implement helpers, re-run)
+## Concerns
 
-Command:
-
-```bash
-cd /mnt/e/01block/01Block-new-Final && Rscript tests/test_osteo_dxa_qct_blocks.R
-```
-
-Output:
-
-```
-helper OK
-EXIT:0
-```
-
-## Functions implemented
-
-| Function | Role |
-|----------|------|
-| `.osteo75_pick_col` | First matching column name from `candidates` in `data`; stops if none |
-| `.osteo75_cohen_kappa` | Binary κ via observed/expected agreement (`list(kappa=, n=)`); no `irr` dependency |
-| `.osteo75_make_strata` | Named list `Nathan`, `AAC`, `BMI`, `Age` from `_bin` columns or raw `Nathan`/`BMI`/`Age`/`AAC` |
-| `.osteo75_diag_metrics` | Single-row `data.frame`: sens, spec, ppv, npv, n, n_pos |
-| `.osteo75_auc_continuous` | `pROC::roc` + `ci.auc`; default `direction="<"`; returns `list(auc=, ci_lo=, ci_hi=)` |
-
-## Test assertions (beyond brief minimum)
-
-- κ on 6×6 known table: `n == 6`, finite κ (reference κ ≈ 0.333 for brief vectors).
-- `diag_metrics`: sens = 2/3, spec = 1.
-- `pick_col`: resolves `QCT_vBMD` when listed second among candidates.
-- `make_strata`: four named strata, length 4 on mini frame.
-- AUC: exercised when `requireNamespace("pROC")` is TRUE (environment has pROC; no skip note).
-
-## Git
-
-No commit (per task instruction).
-
-## Next
-
-Task 4: `01block_dxa_qct_agreement.R` consuming these helpers.
+1. MIMIC 输液列名 CONCERN（Task 2）仍待用户终审；主分析并集已写入树。  
+2. eICU 17 例出院状态缺失 → 事件 NA：完整病例/剔除口径留 Task 4。  
+3. 决策树尚未用户签字（本 Task 故意停在确认门控）。  

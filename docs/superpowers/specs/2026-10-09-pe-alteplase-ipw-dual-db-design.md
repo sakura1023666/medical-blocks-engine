@@ -25,7 +25,7 @@
 | 维度 | 原文（Jin 2026） | 卒中参考课题 | 本课题（PE） |
 |------|------------------|--------------|--------------|
 | 队列 | NCDB 乳腺癌 | MIMIC 缺血性卒中 | MIMIC + eICU **肺栓塞** |
-| 暴露 | 放疗 vs 未放疗 | `Diabetes_HbA1c`（HbA1c≥6.5） | `Alteplase`（处方∪输液任一阳性） |
+| 暴露 | 放疗 vs 未放疗 | `Diabetes_HbA1c`（HbA1c≥6.5） | ``Alteplase`（**仅处方**；敏感性可∪输液） |
 | PS / IPW | 基线混杂 → IPW | 单因素(P&lt;0.10)→VIF→Model2 | **同左**（双库各自筛） |
 | 主分析 | 加权 KM + IPW-Cox | 同左 | 同左 |
 | STEPP | 5 年 OS × composite risk | 28 天生存 × `composite_risk` | **同左**；双库各自拟合 LP |

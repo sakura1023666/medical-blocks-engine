@@ -36,6 +36,7 @@ gh pr create --base main --fill
 ## 夜间快照
 
 - 时间：每天 01:00 `Asia/Shanghai`
+- 范围：全仓可跟踪文件（尊重 `.gitignore`）
 - 有改动 → push `nightly` + tag `nightly-YYYY-MM-DD`
 - 无改动 → `skip: clean`
 - 不自动开 PR；需要时：
@@ -58,7 +59,8 @@ gh pr create --base main --head nightly --title "Nightly absorb YYYY-MM-DD"
 
 ### 推荐一步到位（PAT）
 
-1. 在能打开 GitHub 的浏览器创建 classic PAT（**repo** + **admin:public_key**）  
+1. 在能打开 GitHub 的浏览器创建 classic PAT（勾选 **repo** + **admin:public_key** + **read:org**）  
+   若 token 曾出现在聊天/截图里：先到 GitHub → Settings → Developer settings → tokens 里 **Delete** 作废，再新建。  
 2. 本机执行：
 
 ```bash

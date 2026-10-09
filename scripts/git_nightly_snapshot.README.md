@@ -4,7 +4,7 @@
 
 ## 行为
 
-- 有可跟踪改动 → `commit` + `push origin nightly` + 移动当日 tag
+- 工作区有可跟踪改动（尊重 `.gitignore`）→ `commit` + `push origin nightly` + 移动当日 tag
 - 工作区干净 → 日志写 `skip: clean`，退出 0
 - **不** push `main`，**不** 自动开 PR
 - 发现 `.env` / `engine.env` / `*.pem` 等敏感路径 → 拒绝提交

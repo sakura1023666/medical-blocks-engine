@@ -1,35 +1,48 @@
-### Task 4: 新建 Block `dxa_qct_agreement`
+### Task 4: 模板 + 项目 config + runner
 
 **Files:**
-- Create: `Blocks/75_osteo_dxa_qct/01block_dxa_qct_agreement.R`
-- Modify: `tests/test_osteo_dxa_qct_blocks.R`
+- Create: `configs/templates/config_ipw_pe_alteplase_dual_batch.template.R`
+- Create: `run/ipw_pe_alteplase/run_ipw_pe_alteplase_batch.R`
+- Create: `run/ipw_pe_alteplase/run_ipw_pe_alteplase_batch_worker.R`
+- Create: `G:/02block_result/47_PE/Medication_regimen_model_alteplase_ipw/config_ipw_pe_alteplase_MIMIC.R`
+- Create: `.../config_ipw_pe_alteplase_eICU.R`
 
 **Interfaces:**
-- Consumes: `ctx$data$imputed %||% ctx$data$cleaned`；列 `QCT_cat`, `DXA_cat_min`, `QCT_vBMD`, `DXA_T_min`
-- Config: `config$dxa_qct_agreement = list(enable=TRUE, qct_cat=, dxa_cat=, qct_continuous=, dxa_continuous=, op_level=2L, bland_zscore=TRUE)`
-- Produces: Table「DXA-QCT agreement」xlsx；Figure「Figure 3. DXA vs QCT agreement」；`ctx$results$dxa_qct_agreement`
-- register_block: `"dxa_qct_agreement"`
+- Consumes: Task 2 宽表路径；Task 3 block 名  
+- Produces: 可 `--shared-only` / `--only-unit main` 的两套 config
 
-- [ ] **Step 1: 扩展单测 — 合成 data 上 κ 与 n**
+- [ ] **Step 1: 以卒中 `config_ipw_diabetes_stroke_batch.R` 为底复制模板**
+
+必改字段：
 
 ```r
-# stub register_block if needed
-if (!exists("register_block", mode = "function"))
-  register_block <- function(...) invisible(NULL)
-# 构造 6 行 mini ctx 调用内部函数（导出 .dqa75_compute）
+project$disease <- "pe_ipw_alteplase"
+project$database <- "MIMIC"  # eICU 配置改为 "eICU"
+# index$enable <- FALSE
+# ipw_alteplase$...（不用 ipw_diabetes HbA1c）
+# iptw_balance$exposure_var <- "Alteplase"
+# exposure_level_labels <- list(`0`="No alteplase", `1`="Alteplase")
+# stepp_prognosis$index_var <- "composite_risk"
+# stepp_prognosis$by_group$stratum_var <- "Alteplase"
+# analysis_exclusion$disease_vars <- <from column review>
+# analysis_exclusion$allow_no_index <- TRUE
+# subgroup age_cutoff <- 65L  # 注释依据
 ```
 
-- [ ] **Step 2: 实现 block**
+pipeline_unit blocks：把 `ipw_diabetes_exposure` 换成 `ipw_alteplase_exposure`，其余保持卒中定稿顺序。
 
-文件头注释按引擎规范；`block_dxa_qct_agreement <- function(ctx, ...) { ...; ctx }`；末尾 `register_block(...)`。
+- [ ] **Step 2: runner/worker 从 `run/ipw_diabetes_stroke/` 复制并改默认 config 路径与日志前缀**
 
-图：左面板 2×2 或三分类马赛克/热力交叉；右面板 Bland–Altman（`bland_zscore=TRUE` 时对 vBMD 与 T-score 分别 z 化后画差 vs 均）。
+- [ ] **Step 3: dry-run**
 
-表：κ（二分类 OP）、三分类一致率、n。
+```bash
+"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" \
+  run/ipw_pe_alteplase/run_ipw_pe_alteplase_batch.R \
+  --config "G:/02block_result/47_PE/Medication_regimen_model_alteplase_ipw/config_ipw_pe_alteplase_MIMIC.R" \
+  --shared-only --dry-run
+```
 
-- [ ] **Step 3: Run 单测**
-
-Expected: PASS；无依赖完整 pipeline。
+Expected: 打印 shared blocks，无缺文件报错。（若无 `--dry-run`，则 `source(config)` 能成功 `exists("pipeline_unit")`。）
 
 ---
 

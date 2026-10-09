@@ -39,6 +39,7 @@ args <- commandArgs(trailingOnly = TRUE)
 study_root <- NULL
 only_dbs <- NULL
 .sg_scheme <- NULL
+.want_pooled <- FALSE
 i <- 1L
 while (i <= length(args)) {
   if (args[[i]] == "--study-root" && i < length(args)) {
@@ -47,6 +48,8 @@ while (i <= length(args)) {
     only_dbs <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
   } else if (args[[i]] == "--scheme" && i < length(args)) {
     .sg_scheme <- tolower(trimws(args[[i + 1L]])); i <- i + 2L
+  } else if (args[[i]] == "--pooled") {
+    .want_pooled <- TRUE; i <- i + 1L
   } else i <- i + 1L
 }
 if (is.null(study_root) || !nzchar(study_root))
@@ -74,8 +77,8 @@ options(warn = 1, cli.hyperlink = FALSE)
 if (is.null(only_dbs) || !length(only_dbs)) {
   only_dbs <- as.character(.meta$cohorts_xs %||% c("CHARLS", "ELSA", "HRS"))
 }
-only_dbs <- setdiff(only_dbs, "Pooled")
-if (!length(only_dbs)) only_dbs <- as.character(.meta$cohorts_xs)
+if (any(toupper(only_dbs) == "POOLED")) .want_pooled <- TRUE
+only_dbs <- only_dbs[!toupper(only_dbs) %in% "POOLED"]
 
 .lock_read_factors <- function(path, which = "Model2") {
   if (!file.exists(path)) return(character(0))
@@ -156,6 +159,8 @@ for (db in only_dbs) {
   )
   config$subgroup$continuous_index_mode <- "highest_vs_lowest"
   config$subgroup$forest_n_source <- "full_stratum"
+  config$subgroup$figure_number <- 3L
+  options(pipeline.database_name = db)
   if (!is.null(.sg_scheme) && .sg_scheme %in% c("tertile", "quartile", "binary")) {
     if (is.null(config$logistic_quartile_glm)) config$logistic_quartile_glm <- list()
     config$logistic_quartile_glm$scheme <- .sg_scheme
@@ -207,30 +212,123 @@ for (db in only_dbs) {
     )
   }
 
-  fig_pat <- paste0("Subgroup Forest analyses of ", .index, "\\.pdf$")
+  fig_pat <- paste0(
+    "Subgroup Forest analyses of ",
+    gsub("_", "[ _]", .index, fixed = TRUE),
+    "\\.pdf$"
+  )
   hits <- list.files(
     file.path(out_dir, "Figures"),
     pattern = fig_pat,
     full.names = TRUE, ignore.case = TRUE
   )
-  hits_new <- hits[!grepl(paste0("^Figure 3-", db, "\\."), basename(hits))]
-  if (!length(hits_new)) hits_new <- hits
-  fig_src <- if (length(hits_new)) {
-    hits_new[order(file.info(hits_new)$mtime, decreasing = TRUE)][[1L]]
+  fig_src <- if (length(hits)) {
+    hits[order(file.info(hits)$mtime, decreasing = TRUE)][[1L]]
   } else NA_character_
-  dest_name <- paste0("Figure 3-", db, ". Subgroup Forest analyses of ", .index, ".pdf")
-  dest_phase <- file.path(out_dir, "Figures", dest_name)
-  dest_sum <- file.path(study_root, "summary_result", "figure", dest_name)
   if (isTRUE(file.exists(fig_src))) {
+    dest_sum <- file.path(study_root, "summary_result", "figure", basename(fig_src))
     dir.create(dirname(dest_sum), recursive = TRUE, showWarnings = FALSE)
-    if (!identical(normalizePath(fig_src, winslash = "/", mustWork = FALSE),
-                   normalizePath(dest_phase, winslash = "/", mustWork = FALSE))) {
-      file.copy(fig_src, dest_phase, overwrite = TRUE)
-    }
     file.copy(fig_src, dest_sum, overwrite = TRUE)
-    cli::cli_alert_success("copied {basename(fig_src)} → {dest_name}")
+    stale <- hits[basename(hits) != basename(fig_src)]
+    if (length(stale)) unlink(stale)
+    cli::cli_alert_success("subgroup forest: {basename(fig_src)}")
   } else {
     cli::cli_alert_warning("未找到 Subgroup Forest PDF for {db}")
+  }
+}
+
+if (isTRUE(.want_pooled)) {
+  cli::cli_h1("Subgroup harmonized re-run: Pooled")
+  cohorts <- as.character(.meta$cohorts_xs %||% c("CHARLS", "ELSA"))
+  cohorts <- cohorts[!toupper(cohorts) %in% "POOLED"]
+  country_map <- c(CHARLS = "China", ELSA = "UK", HRS = "America", NHANES = "America")
+  hname <- as.character(.meta$pooled_index %||% paste0(.index, "_harmonized"))[1L]
+  if (!nzchar(hname)) hname <- paste0(.index, "_harmonized")
+  parts <- list()
+  for (db in cohorts) {
+    ck_path <- file.path(cross_lagged_phase1_dir(study_root, db), "checkpoints", "multicollinearity_final.rds")
+    if (!file.exists(ck_path)) stop("Pooled 亚组缺少检查点: ", ck_path)
+    ck <- readRDS(ck_path)
+    if (!is.null(ck$ctx)) ck <- ck$ctx
+    d <- as.data.frame(ck$data$imputed %||% ck$data$cleaned)
+    d <- cross_lagged_attach_harmonize_fig3(d, study_root, db, .sg)
+    if (!.index %in% names(d)) stop(db, " 缺少暴露 ", .index)
+    x <- suppressWarnings(as.numeric(d[[.index]]))
+    ok <- is.finite(x)
+    d[[hname]] <- NA_real_
+    if (any(ok)) {
+      r <- rank(x[ok], ties.method = "average")
+      d[[hname]][ok] <- 100 * r / sum(ok)
+    }
+    d$Country <- unname(country_map[[db]])
+    d$Cohort <- db
+    if ("ID" %in% names(d)) d$ID <- paste0(db, "_", as.character(d$ID))
+    parts[[db]] <- d
+  }
+  keep <- Reduce(intersect, lapply(parts, names))
+  pooled <- do.call(rbind, lapply(parts, function(d) d[, keep, drop = FALSE]))
+  rownames(pooled) <- NULL
+  pooled$Country <- factor(pooled$Country, levels = unique(unname(country_map[cohorts])))
+  .sg_pool <- .SG_LOCK
+  if ("Country" %in% names(pooled)) .sg_pool <- unique(c(.sg_pool, "Country"))
+  out_dir <- file.path(study_root, "phase3_post_Pooled")
+  config <- list(
+    project = list(
+      output_dir = out_dir,
+      database = "Pooled",
+      analysis_group = .sg$analysis_group,
+      reference_group = .sg$reference_group
+    ),
+    logistic = list(index_var = hname),
+    incidence = list(index_var = hname, outcome_var = .sg$outcome_column),
+    data = list(outcome_column = .sg$outcome_column),
+    subgroup = list(
+      var_source = "required",
+      required_subgroup_vars = .sg_pool,
+      age_cutoff = .SG_AGE_CUT,
+      min_n = 20L,
+      continuous_subgroup_vars = character(0),
+      level_order = utils::modifyList(
+        .sg$level_order %||% list(),
+        list(Country = levels(pooled$Country))
+      ),
+      continuous_index_mode = "highest_vs_lowest",
+      forest_n_source = "full_stratum",
+      figure_number = 3L
+    )
+  )
+  if (!is.null(.sg_scheme) && .sg_scheme %in% c("tertile", "quartile", "binary")) {
+    config$logistic_quartile_glm <- list(scheme = .sg_scheme)
+    cli::cli_alert_info("Pooled 亚组暴露分位: {(.sg_scheme)}；暴露为库内百分位 {hname}")
+  }
+  options(pipeline.database_name = "Pooled")
+  ctx <- list(
+    data = list(imputed = pooled, cleaned = pooled),
+    results = list(categorical_vars = .sg_pool),
+    config = config,
+    log = list(),
+    root_output_dir = out_dir,
+    output_dir = out_dir,
+    output_dir_figures = file.path(out_dir, "Figures"),
+    output_dir_tables = file.path(out_dir, "Tables")
+  )
+  dir.create(ctx$output_dir_figures, recursive = TRUE, showWarnings = FALSE)
+  dir.create(ctx$output_dir_tables, recursive = TRUE, showWarnings = FALSE)
+  ctx <- block_subgroup_incidence(ctx)
+  fig_pat <- paste0(
+    "Subgroup Forest analyses of ",
+    gsub("_", "[ _]", hname, fixed = TRUE),
+    "\\.pdf$"
+  )
+  hits <- list.files(ctx$output_dir_figures, pattern = fig_pat, full.names = TRUE, ignore.case = TRUE)
+  fig_src <- if (length(hits)) hits[order(file.info(hits)$mtime, decreasing = TRUE)][[1L]] else NA_character_
+  if (isTRUE(file.exists(fig_src))) {
+    dest_sum <- file.path(study_root, "summary_result", "figure", basename(fig_src))
+    dir.create(dirname(dest_sum), recursive = TRUE, showWarnings = FALSE)
+    file.copy(fig_src, dest_sum, overwrite = TRUE)
+    cli::cli_alert_success("Pooled subgroup forest: {basename(fig_src)} N={nrow(pooled)}")
+  } else {
+    cli::cli_alert_warning("未找到 Pooled Subgroup Forest PDF")
   }
 }
 
@@ -238,7 +336,7 @@ txt <- c(
   paste0("time=", format(Sys.time(), "%F %T")),
   paste0("figure=Figure 3 Subgroup Forest analyses of ", .index),
   paste0("kind=", .meta$kind %||% "unknown"),
-  paste0("cohorts=", paste(only_dbs, collapse = ","), " (no Pooled)"),
+  paste0("cohorts=", paste(c(only_dbs, if (isTRUE(.want_pooled)) "Pooled"), collapse = ",")),
   "var_source=required",
   paste0("locked_vars=", paste(.SG_LOCK, collapse = "+")),
   paste0("age_cutoff=", .SG_AGE_CUT, if (isTRUE(.sg$use_age_group)) " (Age_Group on)" else " (Age_Group off)"),
@@ -249,15 +347,17 @@ dir.create(file.path(study_root, "summary_result", "table"), recursive = TRUE, s
 dir.create(file.path(study_root, "phase2_Pooled"), recursive = TRUE, showWarnings = FALSE)
 writeLines(txt, file.path(study_root, "phase2_Pooled", "Figure3_subgroup_var_lock.txt"))
 writeLines(txt, file.path(study_root, "summary_result", "table", "Figure3_subgroup_var_lock.txt"))
-unlink(file.path(
-  study_root, "summary_result", "figure",
-  paste0("Figure 3-Pooled. Subgroup Forest analyses of ", .index, ".pdf")
-))
+if (!isTRUE(.want_pooled)) {
+  unlink(file.path(
+    study_root, "summary_result", "figure",
+    paste0("Figure 3-Pooled. Subgroup Forest analyses of ", .index, ".pdf")
+  ))
+}
 unlink(file.path(
   study_root, "summary_result", "figure",
   "Figure 3-Pooled. Subgroup Forest analyses of FI.pdf"
 ))
 cli::cli_alert_success(
-  "三库亚组 Fig3 锁定重跑完成（无 Pooled；vars={paste(.SG_LOCK, collapse='+')}）"
+  "亚组 Fig3 重跑完成（vars={paste(.SG_LOCK, collapse='+')}{if (isTRUE(.want_pooled)) '；含 Pooled' else ''}）"
 )
 source(file.path(root, "Blocks/54_cross_lagged_full/phases/auto_collect_summary.inc.R"), local = FALSE)
