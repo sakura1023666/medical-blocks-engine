@@ -20,11 +20,14 @@ TZ=Asia/Shanghai
 
 ## WSL 保活
 
-WSL 未启动时 cron 不会跑。Windows「任务计划程序」建议加一条 **用户登录时**：
+本机 cron 服务：`service cron status`（应 Active）。  
+crontab 已挂：`0 1 * * * …/scripts/git_nightly_snapshot.sh`（`TZ=Asia/Shanghai`）。
 
-```bat
-wsl -u root -- service cron start
-```
+Windows「任务计划程序」建议加一条 **用户登录时**，程序填：
+
+`E:\01block\01Block-new-Final\scripts\wsl_start_cron.bat`
+
+（内容为 `wsl -u root -- service cron start`。）
 
 笔记本睡眠导致漏跑可接受：开机后等下一个 01:00。
 
