@@ -215,30 +215,69 @@ def _cluster_vertical(rects: list[fitz.Rect], seed: fitz.Rect, gap: float = 10.0
     return cluster
 
 
+def _cluster_figure_panels(rects: list[fitz.Rect], seed: fitz.Rect, gap: float = 24.0) -> list[fitz.Rect]:
+    """多面板图：并排子图无水平重叠，只按与当前并集的纵向邻接扩簇。"""
+    cluster = [seed]
+    changed = True
+    while changed:
+        changed = False
+        box = _union(cluster)
+        if box is None:
+            break
+        for rect in rects:
+            if any(rect == item for item in cluster):
+                continue
+            if rect.y0 <= box.y1 + gap and rect.y1 >= box.y0 - gap:
+                cluster.append(rect)
+                changed = True
+    return cluster
+
+
+def _page_pad(page: fitz.Page) -> tuple[float, float, float, float]:
+    """页面可用内边距（过严会裁掉贴边的图/续表表头）。"""
+    return 28.0, 24.0, 28.0, 24.0  # left, right, top, bottom
+
+
 def _figure_clip(page: fitz.Page, caption: dict) -> fitz.Rect:
     cap = caption["rect"]
     x0, x1 = _content_margins(page)
+    left, right, top, bottom = _page_pad(page)
+    # 图注上方全部候选图块（多面板常跨整页高度，勿用「距图注 <80pt」截断）
     images = [
         rect
         for rect in _image_rects(page)
-        if rect.y1 <= cap.y0 + 8 and cap.y0 - rect.y1 < 80 and rect.height > 40
+        if rect.y1 <= cap.y0 + 8 and rect.y0 < cap.y0 and rect.height > 40
     ]
     if images:
-        graphic = min(images, key=lambda rect: cap.y0 - rect.y1)
-        box = fitz.Rect(graphic)
+        seed = min(images, key=lambda rect: cap.y0 - rect.y1)
+        # 只保留与图注邻近子图纵向连通的一簇，避免吃到上一图残留
+        near = [rect for rect in images if cap.y0 - rect.y1 < 120]
+        if not near:
+            near = [seed]
+        seed = min(near, key=lambda rect: cap.y0 - rect.y1)
+        box = _union(_cluster_figure_panels(images, seed, gap=28))
     else:
-        drawings = [rect for rect in _drawing_rects(page) if rect.y1 <= cap.y0 + 6 and cap.y0 - rect.y1 < 40]
+        drawings = [
+            rect
+            for rect in _drawing_rects(page)
+            if rect.y1 <= cap.y0 + 6 and rect.y0 < cap.y0
+        ]
         if drawings:
-            seed = min(drawings, key=lambda rect: cap.y0 - rect.y1)
-            box = _union(_cluster_vertical(drawings, seed, gap=14))
+            near = [rect for rect in drawings if cap.y0 - rect.y1 < 80]
+            seed = min(near or drawings, key=lambda rect: cap.y0 - rect.y1)
+            box = _union(_cluster_figure_panels(drawings, seed, gap=18))
         else:
-            box = fitz.Rect(x0, max(70, cap.y0 - 220), x1, cap.y0)
-    box.x0 = min(box.x0, x0)
-    box.x1 = max(box.x1, x1) if box.width > 360 else max(box.x1, box.x0 + 40)
+            box = fitz.Rect(x0, max(top, cap.y0 - 220), x1, cap.y0)
+    if box is None:
+        box = fitz.Rect(x0, max(top, cap.y0 - 220), x1, cap.y0)
+    # 外扩贴边像素；勿把已更宽的图块强行收进 content_margins（会裁右侧图例）
+    box.x0 = max(left, min(box.x0, x0) - 6)
+    box.x1 = min(page.rect.width - right, max(box.x1, box.x0 + 40) + 6)
     if box.width > 360:
-        box.x0, box.x1 = x0, x1
-    box.y0 = max(68, box.y0 - 4)
-    box.y1 = min(page.rect.height - 30, max(box.y1, cap.y0 - 2) + 2)
+        box.x0 = min(box.x0, x0)
+        box.x1 = max(box.x1, x1)
+    box.y0 = max(top, box.y0 - 6)
+    box.y1 = min(page.rect.height - bottom, max(box.y1, cap.y0 - 2) + 2)
     # 图注留在 Word 标题里；截图收到图注上沿，避免标题重复一大段。
     if cap.y0 - box.y1 < 30:
         box.y1 = min(box.y1, cap.y0 - 2)
@@ -299,10 +338,12 @@ def _table_clip(page: fitz.Page, caption: dict) -> tuple[fitz.Rect, str]:
         box.x0 = min(box.x0, rect.x0)
         box.x1 = max(box.x1, rect.x1)
         y_cursor = rect.y1
-    box.x0 = max(40, box.x0 - 4)
-    box.x1 = min(page.rect.width - 36, box.x1 + 4)
-    box.y1 = min(page.rect.height - 28, box.y1 + 3)
-    box.y0 = max(68, box.y0)
+    left, right, top, bottom = _page_pad(page)
+    box.x0 = max(left, box.x0 - 4)
+    box.x1 = min(page.rect.width - right, box.x1 + 4)
+    box.y1 = min(page.rect.height - bottom, box.y1 + 3)
+    # 续表表头常贴页眉下沿；y0≥68 会裁掉 Variables/列名行
+    box.y0 = max(top, box.y0 - 2)
     return box, heading
 
 
@@ -362,13 +403,18 @@ def apply_chinese_titles(items: list[dict], zh_map: dict[str, str]) -> None:
         if not zh:
             missing.append(key)
             zh = item["heading"]
+        heading_l = (item.get("heading") or "").lower()
+        continued = "continued" in heading_l or "续" in (item.get("heading") or "")
         item["zh"] = zh
-        item["display"] = f"{key}，{zh}"
+        # 「Table 1（续），中文题」——跨页续表与首段区分，避免后处理按同名误删
+        label = f"{key}（续）" if continued else key
+        item["display"] = f"{label}，{zh}"
+        item["continued"] = bool(continued)
     if missing:
         print("[export_paper_figures_docx] 以下标题没有中文，已暂时沿用英文：", ", ".join(missing))
 
 
-def _render(page: fitz.Page, clip: fitz.Rect, dest: Path, zoom: float = 2.4) -> None:
+def _render(page: fitz.Page, clip: fitz.Rect, dest: Path, zoom: float = 3.0) -> None:
     matrix = fitz.Matrix(zoom, zoom)
     pix = page.get_pixmap(matrix=matrix, clip=clip, alpha=False)
     pix.save(dest.as_posix())
@@ -404,9 +450,14 @@ def items_from_docx(path: Path, png_dir: Path) -> list[dict]:
     font_bold = ImageFont.truetype(font_path, 18)
     document = DocxDocument(path.as_posix())
     items = []
+    seen_nums: set[str] = set()
     for index, table in enumerate(document.tables, start=1):
         rows = [_row_texts(row) for row in table.rows]
         if not rows:
+            continue
+        # 跳过几乎空的尾表（补充 DOCX 常见误嵌空 table → 重复 Table S6）
+        nonempty = sum(1 for row in rows for cell in row if cell.strip())
+        if nonempty < 2 or len(rows) < 2:
             continue
         caption = _docx_caption_before_table(document, table._tbl)
         match = re.match(r"^(Table|Figure|Fig\.?)\s+(S?\d+[A-Za-z]?)\b", caption, re.IGNORECASE)
@@ -415,6 +466,9 @@ def items_from_docx(path: Path, png_dir: Path) -> list[dict]:
             num = match.group(2)
         else:
             kind, num = "table", f"S{index}"
+        if num in seen_nums:
+            continue
+        seen_nums.add(num)
         png = png_dir / f"{path.stem}_{num}.png"
         _draw_table_png(rows, png, font, font_bold)
         items.append(

@@ -256,7 +256,7 @@ ml_lit_write_methods <- function(out_dir, config = NULL, methods_lines = NULL) {
     "",
     "## Machine learning",
     "",
-    "Candidate predictors excluded the exposure indices. Feature selection (Boruta) and five models (logistic regression, decision tree, random forest, XGBoost, LightGBM) were trained on MIMIC-IV only. Frozen model assets were applied to eICU without refit (provenance no_refit). Performance tables (Table S10–S15) and Figure 8 report train / internal / external metrics as labelled.",
+    "Candidate predictors included the exposure indices when configured (composite indices forced into the Boruta / model feature pool). Feature selection (Boruta) and five models (logistic regression, decision tree, random forest, XGBoost, LightGBM) were trained on MIMIC-IV only. Frozen model assets were applied to eICU without refit (provenance no_refit). Performance tables (Table S10–S15) and Figure 8 report train / internal / external metrics as labelled.",
     "",
     "## Software",
     "",

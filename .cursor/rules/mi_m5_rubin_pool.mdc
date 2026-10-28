@@ -10,10 +10,11 @@ alwaysApply: true
 ## 铁律
 
 1. **`m = 5`**（或更大）；禁止为图省事写 `m = 1` 却在 Methods 写多重插补。
-2. **`rubin_pool = TRUE`**：推断回归（Cox / logistic / Fine–Gray 等）在 **每一套** imputed 上拟合，再按 **Rubin 规则**合并 HR/OR、CI、P。
-3. **`complete_action = 1`** 只服务**操作层**（Table1/S1、trim、Boruta/SHAP、KM/RCS 画图、轨迹输入）。**禁止**用 complete#1 的 Cox/logistic 点估计交差，还写成「多重插补」。
+2. **`rubin_pool = TRUE`**：推断回归（Cox / logistic / Fine–Gray / **NHANES 加权 svyglm** 等）在 **每一套** imputed 上拟合，再按 **Rubin 规则**合并 HR/OR、CI、P。
+3. **`complete_action = 1`** 只服务**操作层**（Table1/S1、trim、Boruta/SHAP、KM/RCS 画图、轨迹输入）。**禁止**用 complete#1 的 Cox/logistic/**加权 logistic** 点估计交差，还写成「多重插补」。
 4. 插补块必须保留 `ctx$results$mice_model`（mids）与 `mice_row_ids`，供 `mi_complete_aligned` 对齐。
-5. 推断回归必须走 `mi_coxph` / 等价；**禁止**剥掉 `id_column` 导致 Rubin 0/5 回退 complete#1 仍交差。
+5. 推断回归必须走 `mi_coxph` / `mi_glm_binomial` / **加权等价 `mi_svyglm`（每套重建 svydesign）**；**禁止**剥掉 `id_column` 导致 Rubin 0/5 回退 complete#1 仍交差。
+6. **NHANES 加权主表不豁免**（用户 2026-10-28）：新发病/双库课题 Table 2 等加权 logistic **必须** m 套 `svyglm` + Rubin；禁止再以「survey 设计不好套 Rubin」默认 complete#1。
 
 ## 实现入口
 
@@ -24,6 +25,7 @@ alwaysApply: true
 | 多因素预后 | `Blocks/07_multivariate/01block_multivariate_prognosis.R` |
 | 分位 Cox | `Blocks/10_cox/03block_cox_quartile.R` |
 | ML 连续特征 Cox | `Blocks/10_cox/08block_cox_ml_continuous_batch.R`（`dt` 须带 ID） |
+| NHANES 加权 logistic | `Blocks/11_logistic/*nhanes_weighted*`（**待挂**每套 svydesign→svyglm→Rubin；未落地前新课题不得假装已 Rubin） |
 | Methods 文案 | `R/ml_index_summary_results.R` |
 
 `run_pipeline` 启动时规范化 config。复用地图：`docs/reuse/2026-10-27-npc-ml-rubin-os-attrition-reuse-map.md`。
@@ -33,17 +35,20 @@ alwaysApply: true
 - `imputation$method = "none"`：不做 MI。
 - **深度模型训练**（TST / 部分 ML）：网络训练可用操作层单套；若同课题另有 Cox/logistic 发表表，那些表仍须 Rubin。
 - 用户书面要求关闭 Rubin：仅单课题、且 Methods 不得写多重插补推断。
+- **祖父条款（仅此一件）**：`22_depression/incidence_cute_ran`【success】HHR 等已交付指标 — NHANES 加权主表仍为 complete#1 + `svyglm`；Methods 须分写「加权=complete#1；CHARLS/未加权敏感性=Rubin」，**不重跑**。此后新课题不适用本条。
 
 ## 新课题检查
 
 - [ ] config：`m = 5L`，`rubin_pool = TRUE`，`complete_action = 1L`
-- [ ] 日志出现 Rubin / `mi_pool=rubin`；或 Cox 脚注含 Rubin's rules
+- [ ] 日志出现 Rubin / `mi_pool=rubin`；或 Cox/logistic 脚注含 Rubin's rules
+- [ ] **若有 NHANES 加权 Table 2**：确为 m 套 svyglm 再 Rubin（非仅 complete#1 design）
 - [ ] 无「Rubin 失败（0/5），回退单套 complete」仍当主推断交差（先查 ID 是否被剥）
-- [ ] 无「m=5 且 The analysis uses the first completed dataset」作为 **Cox/logistic 主推断**脚注（操作层描述可以提 first completed）
+- [ ] 无「m=5 且 The analysis uses the first completed dataset」作为 **Cox/logistic / 加权 logistic 主推断**脚注（操作层描述可以提 first completed）
 
 ## 反例（禁止）
 
 - Table S6 / Methods 写 MICE m=5，Table 3 Cox 却只拟合 complete#1
+- Methods 写 Rubin，NHANES 加权 Table 2 实际只有 complete#1 `svyglm`
 - 模板默认 `rubin_pool` 缺失或 FALSE
 - 新 Block 直接 `coxph(…, data = ctx$data$imputed)` 且不经 `mi_coxph` / 等价 Rubin 循环
 - UV/ML Cox 剥 ID 后静默回退 complete#1，脚注仍写 Rubin's rules

@@ -49,6 +49,8 @@ pv2_methods <- file.path(engine, "R/pub_prognosis_v2_methods.R")
 if (file.exists(pv2_methods)) source(pv2_methods, local = FALSE)
 ml_sum <- file.path(engine, "R/ml_index_summary_results.R")
 if (file.exists(ml_sum)) source(ml_sum, local = FALSE)
+ckm_pub <- file.path(engine, "R/cum_egdr_kmeans_pub.R")
+if (file.exists(ckm_pub)) source(ckm_pub, local = FALSE)
 
 dir <- get_opt("--dir", "")
 proj <- get_opt("--project", "")
@@ -185,6 +187,11 @@ if (grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE)) {
 
 is_pv2 <- grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE)
 is_ml <- grepl("^ml$|machine.?learn|ml_single|ml_dual", study_type, ignore.case = TRUE)
+is_ckm <- grepl(
+  "cum.?egdr|elsa.?osteo|ckm.?stroke|kmeans.?ckm|cum_egdr_kmeans",
+  study_type,
+  ignore.case = TRUE
+)
 methods_lines <- if (grepl("cross.?lag|clpn", study_type) &&
                      exists("cross_lagged_methods_statistical_lines", mode = "function")) {
   cross_lagged_methods_statistical_lines(config)
@@ -196,6 +203,22 @@ methods_lines <- if (grepl("cross.?lag|clpn", study_type) &&
   pub_prognosis_v2_methods_lines(config)
 } else if (is_ml && exists("ml_index_methods_statistical_lines", mode = "function")) {
   ml_index_methods_statistical_lines(config)
+} else if (isTRUE(is_ckm) && exists("ckm_stroke_elsa_methods_statistical_lines", mode = "function")) {
+  ckm_stroke_elsa_methods_statistical_lines(
+    index_lab = exposure,
+    n_analytic = suppressWarnings(as.integer(.env_int("CKM_N_ANALYTIC", NA_integer_))),
+    model3_covars = strsplit(
+      .env_chr("CKM_MODEL3", "Age, Gender, Marital, Dyslipidemia, Hypertension"),
+      ",\\s*"
+    )[[1]],
+    unit_delta = {
+      ud <- Sys.getenv("CKM_UNIT_DELTA", unset = "")
+      if (nzchar(ud)) suppressWarnings(as.numeric(ud)[1L]) else NULL
+    },
+    min_age = .env_int("CKM_MIN_AGE", 50L),
+    database = if (length(dbs)) dbs[[1]] else "ELSA",
+    outcome_lab = outcome
+  )
 } else if (exists("pub_default_methods_lines", mode = "function")) {
   pub_default_methods_lines(config)
 } else {

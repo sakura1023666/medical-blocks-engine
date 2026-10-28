@@ -442,6 +442,14 @@ mi_ml$config$feature_selection$enable <- TRUE
 mi_ml$config$feature_selection$restrict_to_train <- TRUE
 mi_ml$config$feature_selection$target_n_features_min <- 5L
 mi_ml$config$feature_selection$target_n_features_max <- 25L
+## 双暴露强制进冻结 ML 候选与最终特征（Boruta 未确认也保留）
+mi_ml$config$prediction$index_vars <- c(INDEX_A, INDEX_B)
+mi_ml$config$feature_selection$composite_features <- c(INDEX_A, INDEX_B)
+mi_ml$config$feature_selection$include_composite_in_ml <- TRUE
+mi_ml$config$feature_selection$force_composite_features <- TRUE
+mi_ml$config$ml$include_composite_index <- TRUE
+## 冻结五模型必须纳入暴露：关掉 venn_center 短路（否则 pipeline_ml_include_composite_index=FALSE）
+mi_ml$config$ml$use_venn_center_features <- FALSE
 mi_ml$config$feature_selection_boruta <- list(
   enable = TRUE, seed = 42L, boruta_max_runs = 50L, pause_enable = FALSE)
 mi_ml$config$ml_logistic$cv_folds <- 5L

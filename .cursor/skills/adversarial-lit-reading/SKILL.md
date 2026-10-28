@@ -40,7 +40,7 @@ paper_id（如 paper_001）、qid（Q1~Q8）、question（若缺，按 qid 从 `
 6. **（可选）Block 抽取**：仅当用户要求。以 `prompts/Block_Extractor.md` 为指令，读 Judge JSONL+CHUNK+Blocks/+prompt/pipeline_config_wizard_prompt.txt+Data/mimic/D04_dabiao.RData，写 `rounds/block_gap_<PAPER>_<QID>.md`（**仅新 type** 才新建 configs/templates/*.template.R + 根 run_<type>.R；已有 config/template/run_*.R 一律不覆盖，需改动先 diff + 用户确认）。不碰 Blocks/、R/；缺失 block 只登记；展示终版决策树。
 7. **图表 Word（该 PDF 只出一次）**：本篇第一份修正决策树（`A_tree_round2_revised_*.md`）落盘后，把原文图和表截进 Word。同一 PDF 已有 `*_图表.docx` 则跳过，除非用户要求重出。
    顺序必须是先全部图、再全部表。正文图和补充图放在一起，正文表和补充表放在一起。补充 PDF，或补充 DOCX 里的图/表，用 `--extra` 传入，不能漏。
-   标题写成 `序号. Figure 1，中文图题` / `序号. Table 1，中文表题`（补充为 `Figure S1`、`Table S1`）。中文图题写入 `--zh-json`，按英文图题译成一句中文，不要留英文标题。
+   标题写成 `序号. Figure 1，中文图题` / `序号. Table 1，中文表题`（补充为 `Figure S1`、`Table S1`）。图题写入 `--zh-json`：以中文叙述为主；**专有方法名若无通行准确中文则保留英文**（如 `临床 nomogram`，勿写「诺模图」；SHAP / ROC / DCA / LASSO 等亦然），不要整句硬译成生僻或易误导的中文。
    `python3 adversarial_lit_reading/scripts/export_paper_figures_docx.py "<PDF路径>" --extra "<补充文件>" --zh-json "<中文标题.json>"`
    默认写到 PDF 同目录，文件名加 `_图表.docx`。聊天里给出该 docx 的绝对路径。
 

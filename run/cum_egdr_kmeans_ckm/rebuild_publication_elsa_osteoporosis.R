@@ -283,8 +283,15 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   )
 
   message("  Table 2 / S1 / S3 / S4...")
+  .ud <- ckm_stroke_cont_unit_delta(ix_lab)
+  .ud_lab <- ckm_stroke_unit_delta_label(.ud)
+  .cum_sd <- stats::sd(as.numeric(data$cum_eGDR), na.rm = TRUE)
+  if (!isTRUE(all.equal(.ud, 1))) {
+    data$cum_eGDR_udelta <- as.numeric(data$cum_eGDR) / .ud
+  }
   t2b <- ckm_stroke_build_table2_assoc(
-    data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = ix_lab
+    data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = ix_lab,
+    unit_delta = .ud
   )
   ckm_stroke_export_assoc_xlsx(
     t2b,
@@ -312,6 +319,14 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
         sprintf("Tertile cuts of cumulative %s: %.3f and %.3f.", ix_lab, tert_cuts[1], tert_cuts[2]),
         "Incident osteoporosis = Wave 8 DN equal to 1 (osteoporosis_ELSA_w8.csv). The risk set requires Wave 6 DN equal to 0. Wave 4 DN is not an exclusion flag. Item-level hedibos/hedbwos strings are not in the analysis files.",
         sprintf("Cumulative %s = ((%s_W4 + %s_W6)/2) \u00d7 4 (ELSA wave span).", ix_lab, ix_lab, ix_lab),
+        if (!isTRUE(all.equal(.ud, 1))) {
+          sprintf(
+            "Continuous cumulative %s OR is per %s increase (analytic SD of cumulative %s = %.3f).",
+            ix_lab, .ud_lab, ix_lab, .cum_sd
+          )
+        } else {
+          sprintf("Continuous cumulative %s OR is per 1-unit increase.", ix_lab)
+        },
         sprintf(
           "Analytic N = %s. Model 3 complete-case N = %s (events = %s) for adjusted estimates.",
           format(n_all, big.mark = ","), format(.m3_n, big.mark = ","), format(.m3_ev, big.mark = ",")
@@ -321,7 +336,8 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     }
   )
   s1b <- ckm_stroke_build_table_s1_cox(
-    data, models, outcome = outcome, cmap = cmap, index_lab = ix_lab
+    data, models, outcome = outcome, cmap = cmap, index_lab = ix_lab,
+    unit_delta = .ud
   )
   ckm_stroke_export_assoc_xlsx(
     s1b,
@@ -343,6 +359,14 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       paste0("Reference: Class 2 (", ref_disp, "); Tertile T1."),
       class_disp$footnote,
       sprintf("Tertile cuts of cumulative %s: %.3f and %.3f.", ix_lab, tert_cuts[1], tert_cuts[2]),
+      if (!isTRUE(all.equal(.ud, 1))) {
+        sprintf(
+          "Continuous cumulative %s HR is per %s increase (analytic SD of cumulative %s = %.3f).",
+          ix_lab, .ud_lab, ix_lab, .cum_sd
+        )
+      } else {
+        sprintf("Continuous cumulative %s HR is per 1-unit increase.", ix_lab)
+      },
       "k-means: unstandardized Wave 4 and Wave 6 values; nstart=25; seed=2026; iter.max=100; k from the elbow plot with a visual cap of 4.",
       ckm_stroke_software_footnote()
     )
@@ -364,7 +388,9 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
 
   message("  MICE Rubin pool for S3/S4...")
   .mice_need <- unique(c(
-    outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "eGDR_tertile", models$Model3
+    outcome, "futime", "status", "eGDR_Class", "cum_eGDR",
+    if (!isTRUE(all.equal(.ud, 1))) "cum_eGDR_udelta" else NULL,
+    "eGDR_tertile", models$Model3
   ))
   .mice_need <- intersect(.mice_need, names(data))
   .mice_md <- data[, .mice_need, drop = FALSE]
@@ -373,7 +399,8 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   .mice_md$T_num <- as.integer(.mice_md$eGDR_tertile)
   .mice_impute <- setdiff(
     names(.mice_md),
-    c(outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "eGDR_tertile", "T_num")
+    c(outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "cum_eGDR_udelta",
+      "eGDR_tertile", "T_num")
   )
   .mice_prep <- ckm_stroke_prepare_mice(.mice_md, .mice_impute, m = 5L, maxit = 5L, seed = 2026L)
   if (is.null(.mice_prep)) {
@@ -405,6 +432,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   )
   s3b <- ckm_stroke_build_table_s1_cox(
     data, models, outcome = outcome, cmap = cmap, index_lab = ix_lab,
+    unit_delta = .ud,
     row_fit = .mice_row(TRUE), trend_p = .mice_trend(TRUE)
   )
   ckm_stroke_assert_mice_not_shell(s1b$df, s3b$df)
@@ -415,6 +443,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   )
   s4b <- ckm_stroke_build_table2_assoc(
     data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = ix_lab,
+    unit_delta = .ud,
     row_fit = .mice_row(FALSE), trend_p = .mice_trend(FALSE)
   )
   ckm_stroke_assert_mice_not_shell(t2b$df, s4b$df)
@@ -644,22 +673,26 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   s2_rows <- ckm_stroke_forest_free_stats(
     data, "cum_eGDR", TRUE,
     file.path(fig_dir, sprintf("Figure S2. Cumulative %s subgroup HR.pdf", ix_lab)),
-    title = sprintf("Fig. S2  Subgroup analysis (Cox, per 1-unit cum-%s)", ix_lab),
+    title = sprintf("Fig. S2  Subgroup analysis (Cox, per %s cum-%s)", .ud_lab, ix_lab),
     outcome = outcome,
     expo_lab = paste("cumulative", ix_lab),
+    index_lab = ix_lab,
     model3 = model3_forest,
     scale = "unit",
+    unit_delta = .ud,
     mice_keep = unique(c(outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "eGDR_tertile", model3_forest)),
     mice_impute = model3_forest
   )
   s3_rows <- ckm_stroke_forest_free_stats(
     data, "cum_eGDR", FALSE,
     file.path(fig_dir, sprintf("Figure S3. Cumulative %s subgroup OR.pdf", ix_lab)),
-    title = sprintf("Fig. S3  Subgroup analysis (Logistic, per 1-unit cum-%s)", ix_lab),
+    title = sprintf("Fig. S3  Subgroup analysis (Logistic, per %s cum-%s)", .ud_lab, ix_lab),
     outcome = outcome,
     expo_lab = paste("cumulative", ix_lab),
+    index_lab = ix_lab,
     model3 = model3_forest,
     scale = "unit",
+    unit_delta = .ud,
     mice_keep = unique(c(outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "eGDR_tertile", model3_forest)),
     mice_impute = model3_forest
   )
@@ -839,38 +872,47 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     config = config_stub, purge = FALSE
   )
 
-  # ---- code bundle in summary_results ----
-  message("  code/ ...")
+  # ---- code bundle：写到同级 workspace，不进交付根白名单 ----
+  message("  code/ (archive side) ...")
+  .code_arch <- file.path(
+    dirname(sr),
+    paste0(basename(sr), "_delivery_workspace"),
+    paste0("code_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+  )
   if (dir.exists(pp$unit_code)) {
-    if (dir.exists(pp$code)) unlink(pp$code, recursive = TRUE)
-    .copy_dir_contents(pp$unit_code, pp$code)
+    dir.create(.code_arch, recursive = TRUE, showWarnings = FALSE)
+    .copy_dir_contents(pp$unit_code, .code_arch)
   } else {
     warning("unit code missing for ", index, ": ", pp$unit_code)
   }
 
-  writeLines(c(
-    sprintf("# %s — trajectory clusters and cumulative exposure with incident osteoporosis", ix_lab),
-    "",
-    "Association analysis (k-means, logistic, Cox, restricted cubic splines). Not a predictive model.",
-    sprintf("Generated: %s via run/cum_egdr_kmeans_ckm/rebuild_publication_elsa_osteoporosis.R",
-            format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
-    sprintf("Analytic N = %s.", format(n_all, big.mark = ",")),
-    "",
-    "## Keep — Tables/ + Figures/ (pdf · png · tiff · image_information) + code/",
-    "Layout aligned with CKM `46_CKM/.../【success】eGDR/summary_results`.",
-    "",
-    sprintf("Junk archived: %s", if (length(moved)) paste(moved, collapse = ", ") else "(none)"),
-    "",
-    "## Class mapping",
-    class_disp$footnote,
-    "",
-    "## Note",
-    "Figure 3 / S1 panels: Overall | BMI < 30 | Age >= 60 (RCS, 3 knots; inclusion age at least 50)."
-  ), file.path(sr, "README.md"))
+  # 交付面：Methods md + 软件版本 txt + 白名单修剪（Figures/Tables/Methods/软件/中期）
+  message("  finalize delivery whitelist...")
+  .fin <- ckm_stroke_finalize_summary_delivery(
+    summary_root = sr,
+    index_lab = ix_lab,
+    n_analytic = n_all,
+    model3_covars = covars,
+    unit_delta = .ud,
+    min_age = 50L,
+    database = "ELSA",
+    outcome_lab = "incident osteoporosis",
+    software_extra = c(
+      class_disp$footnote,
+      "Figure 3 / S1 panels: Overall | BMI < 30 | Age >= 60 (RCS, 3 knots).",
+      sprintf("Junk archived before prune: %s",
+              if (length(moved)) paste(moved, collapse = ", ") else "(none)")
+    ),
+    prune = TRUE
+  )
 
-  message("  DONE ", index,
-          " | Tables: ", paste(list.files(tab_dir, pattern = "\\.xlsx$"), collapse = " | "),
-          " | code=", dir.exists(pp$code))
+  message(
+    "  DONE ", index,
+    " | Tables: ", paste(list.files(tab_dir, pattern = "\\.xlsx$"), collapse = " | "),
+    " | methods=", file.exists(.fin$methods),
+    " | software=", file.exists(.fin$software),
+    " | pruned=", length(.fin$moved %||% character(0))
+  )
   invisible(TRUE)
 }
 

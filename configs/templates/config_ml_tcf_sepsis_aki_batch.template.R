@@ -72,7 +72,8 @@ config <- list(
   ),
   imputation = list(
     enable = TRUE,
-    method = "pmm",
+    ## 对齐 Wang2025：正文 Logistic MI / 公开代码 IterativeImputer(LinearRegression)
+    method = "logistic_mi",
     m = 5L,
     maxit = 10L,
     seed = 42L,

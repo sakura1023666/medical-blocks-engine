@@ -134,21 +134,25 @@ suppressPackageStartupMessages({
   gridExtra::grid.arrange(pS1a, pS1b, pS1c, ncol = 3)
   dev.off()
 
-  # S2 / S3 forests
+  # S2 / S3 forests（ABSI 默认 per 0.1；其余 per 1）
+  .ud <- ckm_stroke_cont_unit_delta(index)
+  .ud_lab <- ckm_stroke_unit_delta_label(.ud)
   s2 <- ckm_stroke_forest_free_stats(
     data, "cum_eGDR", TRUE,
     file.path(.fig, sprintf("Figure S2. Cumulative %s subgroup HR.pdf", index)),
-    title = sprintf("Fig. S2  Subgroup analysis (Cox, per 1-unit cum-%s)", index),
+    title = sprintf("Fig. S2  Subgroup analysis (Cox, per %s cum-%s)", .ud_lab, index),
     index_lab = index,
     scale = "unit",
+    unit_delta = .ud,
     outcome = outcome, expo_lab = sprintf("cumulative %s", index), model3 = covars
   )
   s3 <- ckm_stroke_forest_free_stats(
     data, "cum_eGDR", FALSE,
     file.path(.fig, sprintf("Figure S3. Cumulative %s subgroup OR.pdf", index)),
-    title = sprintf("Fig. S3  Subgroup analysis (Logistic, per 1-unit cum-%s)", index),
+    title = sprintf("Fig. S3  Subgroup analysis (Logistic, per %s cum-%s)", .ud_lab, index),
     index_lab = index,
     scale = "unit",
+    unit_delta = .ud,
     outcome = outcome, expo_lab = sprintf("cumulative %s", index), model3 = covars
   )
   .internal <- file.path(dirname(.tab), "_internal")
@@ -185,19 +189,27 @@ suppressPackageStartupMessages({
   writeLines(c(
     sprintf("# Figure S2. Cumulative %s subgroup HR", index), "",
     "## 图面说明",
-    "亚组森林（Cox，每增加 1 个单位）。Overall 为分析集。Smoke/Drink 水平为 Never/Ever。",
+    sprintf("亚组森林（Cox，每增加 %s）。Overall 为分析集。Smoke/Drink 水平为 Never/Ever。", .ud_lab),
+    "图上 Overall HR 在全分析集拟合；Model3 协变量缺失时用 mice(m=5)+Rubin。Table S1 Model3 连续行为完整病例，点估计可不同，但 unit_delta 相同。",
     "",
     "## 分析上下文",
-    sprintf("Model3=%s。Overall n 为 Model3 完整病例。ELSA。", paste(covars, collapse = "+"))
+    sprintf(
+      "Model3=%s。Overall n=分析集；与 Table2/S1 连续项同 unit_delta（per %s）。ELSA。",
+      paste(covars, collapse = "+"), .ud_lab
+    )
   ), file.path(imd, sprintf("Figure S2. Cumulative %s subgroup HR.md", index)))
 
   writeLines(c(
     sprintf("# Figure S3. Cumulative %s subgroup OR", index), "",
     "## 图面说明",
-    "亚组森林（Logistic，每增加 1 个单位）。口径与 Fig S2 和插补后的 Model 3 连续项对齐。",
+    sprintf("亚组森林（Logistic，每增加 %s）。口径与 Fig S2 同 unit_delta。", .ud_lab),
+    "图上 Overall OR 在全分析集拟合；Model3 协变量缺失时用 mice(m=5)+Rubin。Table 2 Model3 连续行为完整病例，点估计可不同，但 unit_delta 相同。",
     "",
     "## 分析上下文",
-    sprintf("Model3=%s。与 Table2 连续行（per 1-unit）量纲不同。ELSA。", paste(covars, collapse = "+"))
+    sprintf(
+      "Model3=%s。与 Table2 连续行（per %s）同量纲。ELSA。",
+      paste(covars, collapse = "+"), .ud_lab
+    )
   ), file.path(imd, sprintf("Figure S3. Cumulative %s subgroup OR.md", index)))
 
   # Table2 footnote surgical: RCS note + CC n（若表存在）
@@ -251,6 +263,23 @@ suppressPackageStartupMessages({
       message("  Table2 footnotes updated")
     }, error = function(e) message("  Table2 footnote skip: ", conditionMessage(e)))
   }
+
+  # 每次 redraw 后重写 Methods/软件版本并修剪交付白名单
+  message("  finalize delivery whitelist...")
+  tryCatch(
+    ckm_stroke_finalize_summary_delivery(
+      summary_root = .sr,
+      index_lab = index,
+      n_analytic = n_analytic,
+      model3_covars = covars,
+      unit_delta = .ud,
+      min_age = 50L,
+      database = "ELSA",
+      outcome_lab = "incident osteoporosis",
+      prune = TRUE
+    ),
+    error = function(e) message("  finalize skip: ", conditionMessage(e))
+  )
 
   invisible(TRUE)
 }

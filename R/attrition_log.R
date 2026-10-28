@@ -1484,10 +1484,14 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
   mid_after <- if (has_mid) as.integer(mid_fork$after)[1L] else NA_integer_
   if (has_mid && (mid_after < 1L || mid_after >= n_box)) has_mid <- FALSE
   w <- 7.6
-  # 少步数时勿再强制 8.2 寸底：否则 2 步+分叉会留下大片底部空白画布
-  need_h <- 1.35 * n_box + if (has_fork) 2.35 else 1.2 + if (has_mid) 1.8 else 0 +
-    if (length(footnote)) 0.7 else 0
-  h <- max(4.6, need_h)
+  # 画布高度按内容估算，避免少步数时底部大片空白（勿再强制 4.6/8.2 寸底）
+  need_h <- 0.50 +
+    1.12 * n_box +
+    0.90 * max(n_box - 1L, 0L) +
+    if (has_fork) 1.55 else 0.18 +
+    if (has_mid) 1.50 else 0 +
+    if (length(footnote)) 0.55 else 0.08
+  h <- max(2.4, need_h)
   opened <- tryCatch({
     .attrition_pdf_device(pdf_path, w, h, ff)
     TRUE
@@ -1513,16 +1517,15 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
 
   y_top <- 0.93
   y_foot <- if (length(footnote)) 0.04 + 0.028 * length(footnote) else 0.03
-  # 按步数收紧竖直占用，避免少框时 span 过大、内容堆在上半、底下空白
+  # 按步数自上而下收紧：有无分叉都按 pack 落底，避免少框时把 span 拉满整页
   n_gap <- n_box - 1L + if (has_mid) 1L else 0L
   mid_slot <- if (has_mid) 0.20 else 0
   pack_npc <- n_box * 0.105 + max(n_gap, 0L) * 0.078 +
     if (has_fork) 0.22 else 0.04 + mid_slot
-  y_fork_top <- if (has_fork) {
-    max(0.10, min(0.20, y_top - pack_npc - 0.02))
-  } else {
-    y_foot + 0.02
-  }
+  y_fork_top <- max(
+    if (length(footnote)) y_foot + 0.02 else 0.04,
+    min(if (has_fork) 0.18 else 0.12, y_top - pack_npc - 0.02)
+  )
   span <- max(0.22, y_top - y_fork_top - 0.02 - mid_slot)
   # 主框略收矮、间隙加大：Exclude 框须完整放进间隙内（旧版 eh=0.12 > gap=0.048 会压住主框）
   box_h <- min(0.11, span / (n_box + max(n_gap, 1L) * 0.85))

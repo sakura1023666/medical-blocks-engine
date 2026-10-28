@@ -8,18 +8,40 @@
 #  位置：feature_selection_entropy_stepwise 之后、ml_models_bundle 之前
 ###############################################################################
 
+## 因子/字符/逻辑 → 数值（禁止 as.matrix+storage.mode 把 Female/Yes 变成 NA）
+.mltcf25_df_to_numeric_matrix <- function(df) {
+  cols <- lapply(df, function(x) {
+    if (is.logical(x)) return(as.numeric(x))
+    if (is.factor(x)) return(as.numeric(x))
+    if (is.character(x)) {
+      xf <- factor(x)
+      return(as.numeric(xf))
+    }
+    as.numeric(x)
+  })
+  m <- do.call(cbind, cols)
+  colnames(m) <- names(df)
+  storage.mode(m) <- "double"
+  m
+}
+
 .mltcf25_minmax_fit_transform <- function(X_train, X_test) {
+  if (is.data.frame(X_train)) X_train <- .mltcf25_df_to_numeric_matrix(X_train)
+  if (is.data.frame(X_test)) X_test <- .mltcf25_df_to_numeric_matrix(X_test)
   X_train <- as.matrix(X_train)
   X_test <- as.matrix(X_test)
   storage.mode(X_train) <- "double"
   storage.mode(X_test) <- "double"
   med <- apply(X_train, 2L, stats::median, na.rm = TRUE)
   for (j in seq_len(ncol(X_train))) {
+    if (!is.finite(med[[j]])) med[[j]] <- 0
     if (anyNA(X_train[, j])) X_train[is.na(X_train[, j]), j] <- med[[j]]
     if (anyNA(X_test[, j])) X_test[is.na(X_test[, j]), j] <- med[[j]]
   }
   mn <- apply(X_train, 2L, min, na.rm = TRUE)
   mx <- apply(X_train, 2L, max, na.rm = TRUE)
+  mn[!is.finite(mn)] <- 0
+  mx[!is.finite(mx)] <- 1
   den <- pmax(mx - mn, 1e-12)
   Xtr_s <- sweep(sweep(X_train, 2L, mn, `-`), 2L, den, `/`)
   Xte_s <- sweep(sweep(X_test, 2L, mn, `-`), 2L, den, `/`)
@@ -75,12 +97,18 @@ block_ml_tcf_balance_scale <- function(ctx, ...) {
     stop("ml_tcf_balance_scale: 训练集缺列: ", paste(miss, collapse = ", "), call. = FALSE)
   }
 
+  y_chr <- tolower(as.character(tr[[outcome_col]]))
   y_tr <- as.integer(
-    as.character(tr[[outcome_col]]) == ana | as.character(tr[[outcome_col]]) == "1"
+    as.character(tr[[outcome_col]]) == ana |
+      as.character(tr[[outcome_col]]) == "1" |
+      y_chr %in% c("non-survivor", "nonsurvivor", "dead", "death", "expired", "yes")
   )
   X_tr <- tr[, feats, drop = FALSE]
   X_te <- te[, feats, drop = FALSE]
   scaled <- .mltcf25_minmax_fit_transform(X_tr, X_te)
+  if (anyNA(scaled$train) || anyNA(scaled$test)) {
+    stop("ml_tcf_balance_scale: MinMax 后仍有 NA（检查特征是否可数值化）", call. = FALSE)
+  }
 
   k <- as.integer(cfg$k_neighbors %||% 20L)[1L]
   seed <- as.integer(cfg$seed %||% ctx$config$splitting$seed %||% 42L)[1L]

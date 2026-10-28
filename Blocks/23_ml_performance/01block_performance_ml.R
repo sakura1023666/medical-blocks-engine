@@ -423,6 +423,16 @@
   }
   idx <- .pm_match_rows(d_tv, part_df)
   if (anyNA(idx) || length(idx) != n) {
+    ## TCF/SMOTE 扩增后训练集含合成行，无法回对齐 imputed；若预测表已有 Group 则回退
+    if ("Group" %in% names(part_df)) {
+      cli::cli_alert_warning(
+        "block_performance_ml（预后）: 预测表与 imputed 行对齐失败（常见于 SMOTE）；回退用预测表 Group 作真值。"
+      )
+      y <- as.integer(
+        trimws(as.character(part_df$Group)) == trimws(as.character(ana_group)[1L])
+      )
+      return(list(truth01 = y, ok = !is.na(y)))
+    }
     stop(
       "block_performance_ml（预后）: 无法将预测表与 imputed 行对齐；请确认 train/test 与插补数据一致。",
       call. = FALSE

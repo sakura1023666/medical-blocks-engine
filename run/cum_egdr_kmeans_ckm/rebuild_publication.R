@@ -311,22 +311,26 @@ writeLines(c(
 moved <- ckm_stroke_clean_summary_junk(tab_dir, fig_dir, sr)
 ckm_stroke_kill_fig2_splits(fig_dir)
 
-writeLines(c(
-  "# summary_results — eGDR (Wang 2026 layout)",
-  "",
-  sprintf("Generated: %s via run/cum_egdr_kmeans_ckm/rebuild_publication.R", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
-  sprintf("Analytic N = %s (paper N = 5,248).", format(n_all, big.mark = ",")),
-  "",
-  "## Keep — Tables/ + Figures/ (pdf · png · tiff · image_information)",
-  "See Blocks/76 README and run/cum_egdr_kmeans_ckm/README.md.",
-  "",
-  sprintf("Junk archived: %s", if (length(moved)) paste(moved, collapse = ", ") else "(none)"),
-  "",
-  "## Class mapping",
-  class_disp$footnote
-), file.path(sr, "README.md"))
+message("Finalize delivery whitelist...")
+.fin <- ckm_stroke_finalize_summary_delivery(
+  summary_root = sr,
+  index_lab = "eGDR",
+  n_analytic = n_all,
+  model3_covars = if (exists("covars")) covars else c("Age", "Gender"),
+  unit_delta = ckm_stroke_cont_unit_delta("eGDR"),
+  min_age = 45L,
+  database = "CHARLS",
+  outcome_lab = "incident stroke",
+  software_extra = c(
+    class_disp$footnote,
+    sprintf("Junk archived before prune: %s",
+            if (length(moved)) paste(moved, collapse = ", ") else "(none)")
+  ),
+  prune = TRUE
+)
 
 message("DONE")
-message("Tables: ", paste(list.files(tab_dir), collapse = " | "))
+message("Tables: ", paste(list.files(tab_dir, pattern = "\\.xlsx$"), collapse = " | "))
+message("methods=", file.exists(.fin$methods), " software=", file.exists(.fin$software))
 message("Moved junk: ", paste(moved, collapse = " | "))
 message("Class n: ", paste(sprintf("%s=%s", names(n_by_class), n_by_class), collapse = ", "))

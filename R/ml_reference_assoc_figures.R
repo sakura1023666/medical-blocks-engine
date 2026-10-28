@@ -1025,7 +1025,9 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
                                     provenance, outcome_cfg, covariates,
                                     cutoff = c(4L, 10L), alpha = 0.05,
                                     joint_lock = NULL,
-                                    out_pdf = NULL) {
+                                    out_pdf = NULL,
+                                    force_landmark_day = NULL,
+                                    force_landmark_stratum = "Overall") {
   covs <- intersect(covariates, names(train_aug))
   covs <- setdiff(covs, c(.ref_ia(), .ref_ib(), "SOFA", "JointGroup",
                           "Joint_score", "Group", "ID"))
@@ -1036,6 +1038,16 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     covariates = covs, outcome_cfg = outcome_cfg,
     provenance = provenance, max_day = 28
   ), alpha = alpha)
+  ## 课题可硬锁 landmark 日（如 Methods 指定 day 3）；仍保留 scan 供脚注对照
+  fd <- suppressWarnings(as.numeric(force_landmark_day)[1L])
+  if (is.finite(fd) && fd > 0 && fd < 28) {
+    layer <- as.character(force_landmark_stratum %||% "Overall")[1L]
+    if (!nzchar(layer)) layer <- "Overall"
+    locked_spec$landmark_times <- stats::setNames(fd, layer)
+    locked_spec$strata <- layer
+    locked_spec$forced_landmark <- TRUE
+    locked_spec$forced_landmark_day <- fd
+  }
 
   fit_rows <- function(db_name, d) {
     d <- data.frame(d)
@@ -2067,7 +2079,9 @@ ref_assoc_ph_table <- function(database, data, sosm_lock, wpr_lock,
 
 ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
                               grid_n = 50L, quiet = FALSE,
-                              indices = c("SOSM", "WPR")) {
+                              indices = c("SOSM", "WPR"),
+                              force_landmark_day = NULL,
+                              force_landmark_stratum = "Overall") {
   .ref_assoc_set_indices(indices)
   ia <- .ref_ia(); ib <- .ref_ib(); ilab <- .ref_ilab()
   .ref_assoc_require(c(
@@ -2228,12 +2242,23 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   if (!length(fig5_covs)) {
     fig5_covs <- intersect(c("Age", "Gender", "Sex"), names(train_aug))
   }
+  ## landmark 硬锁：显式参数 > config$ml_literature_extras$force_landmark_day
+  extras <- mimic$config$ml_literature_extras %||% list()
+  fd_cfg <- suppressWarnings(as.numeric(
+    force_landmark_day %||% extras$force_landmark_day %||% extras$fig5_landmark_day
+  )[1L])
+  fs_cfg <- as.character(
+    force_landmark_stratum %||% extras$force_landmark_stratum %||%
+      extras$fig5_landmark_stratum %||% "Overall"
+  )[1L]
   fig5 <- ref_assoc_fig5_landmark(
     train_aug = train_aug, mimic_analysis = mimic$analysis,
     eicu_analysis = eicu$analysis, provenance = provenance,
     outcome_cfg = mimic$config, covariates = fig5_covs, cutoff = cutoff,
     joint_lock = joint_lock,
-    out_pdf = file.path(fig_dir, "Figure 5. Landmark before after Cox.pdf")
+    out_pdf = file.path(fig_dir, "Figure 5. Landmark before after Cox.pdf"),
+    force_landmark_day = if (is.finite(fd_cfg)) fd_cfg else NULL,
+    force_landmark_stratum = fs_cfg
   )
   notes <- c(notes, sprintf("Fig5 not_estimable segments: %d",
                             sum(fig5$results$status != "estimable")))

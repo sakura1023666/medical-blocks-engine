@@ -246,25 +246,28 @@ reference_apply_landmark <- function(data, locked_spec) {
   authority <- .reference_landmark_dep(".reference_validate_lock")(
     locked_spec, "landmark_lock", "reference_landmark_lock"
   )
-  provenance <- reference_trusted_development(
-    authority$train, checkpoint_path = authority$checkpoint_path
-  )
-  expected <- reference_ph_landmark_lock(list(
-    data = authority$train,
-    time = locked_spec$time_var,
-    event = locked_spec$event_var,
-    exposure = locked_spec$exposure,
-    stratum = locked_spec$stratum_var,
-    covariates = locked_spec$covariates,
-    outcome_cfg = locked_spec$outcome_cfg,
-    provenance = provenance,
-    max_day = locked_spec$max_day
-  ), alpha = locked_spec$alpha)
-  if (!identical(locked_spec$strata, expected$strata) ||
-      !isTRUE(all.equal(
-        locked_spec$landmark_times, expected$landmark_times, tolerance = 0
-      ))) {
-    stop("Landmark lock contents were tampered with.", call. = FALSE)
+  ## 课题硬锁 day（forced_landmark=TRUE）允许与扫描日不同；否则重扫并对齐防篡改
+  if (!isTRUE(locked_spec$forced_landmark)) {
+    provenance <- reference_trusted_development(
+      authority$train, checkpoint_path = authority$checkpoint_path
+    )
+    expected <- reference_ph_landmark_lock(list(
+      data = authority$train,
+      time = locked_spec$time_var,
+      event = locked_spec$event_var,
+      exposure = locked_spec$exposure,
+      stratum = locked_spec$stratum_var,
+      covariates = locked_spec$covariates,
+      outcome_cfg = locked_spec$outcome_cfg,
+      provenance = provenance,
+      max_day = locked_spec$max_day
+    ), alpha = locked_spec$alpha)
+    if (!identical(locked_spec$strata, expected$strata) ||
+        !isTRUE(all.equal(
+          locked_spec$landmark_times, expected$landmark_times, tolerance = 0
+        ))) {
+      stop("Landmark lock contents were tampered with.", call. = FALSE)
+    }
   }
   if (anyDuplicated(locked_spec$strata) ||
       anyDuplicated(names(locked_spec$landmark_times))) {

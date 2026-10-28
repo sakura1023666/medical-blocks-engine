@@ -16,6 +16,7 @@ alwaysApply: true
 | logistic 前列对齐（防 undefined columns） | `Blocks/76/.../05block_logistic_cum_index_bundle.R` |
 | Table2/S1 用 `index_lab`（禁止写死 eGDR） | `R/cum_egdr_kmeans_pub.R` → `ckm_stroke_build_table2_assoc(..., index_lab=)` |
 | Methods 软件版本 txt + 表脚注 | `ckm_stroke_write_software_versions` / `ckm_stroke_software_footnote` |
+| 交付收口（Methods md + 软件 txt + 白名单） | `ckm_stroke_finalize_summary_delivery`；`finalize_delivery_root.R --study-type cum_egdr_kmeans` |
 | Table1 章节加粗 | `ckm_stroke_style_table1_xlsx` |
 | RCS：P/Ref 在 subtitle+caption（防 collision FAIL） | `ckm_stroke_rcs_one_panel` |
 | 森林 Never/Ever、CI en-dash | `ckm_stroke_forest_free_stats` |
@@ -37,6 +38,7 @@ alwaysApply: true
    - **MICE 表禁止壳**：Table S3/S4 走 `ckm_stroke_fit_mice_assoc()`。协变量无缺失则函数返回 NULL、不出表。`ckm_stroke_assert_mice_not_shell` 拒绝空单元格和与完整病例逐格相同的 Model 2/3。`ckm_stroke_export_assoc_xlsx` 拒绝脚注里的 mirror complete-case / missingness near-zero。
    - **类别名跟轨迹走**：`ckm_stroke_class_display_labels()`。|均值变化| < 类间 Wave4 极差的 25% 时，禁止写成 Rapid decrease。内部因子水平可以仍叫 `Rapid_decrease`，脚注和图例必须用展示名。
    - **连续亚组森林默认每 1 单位**：`ckm_stroke_forest_free_stats` 的 `scale` 默认 `unit`。`scale="sd"` 必须显式 `allow_per_sd=TRUE`。标题写 1-SD 而估计是每 1 单位时直接停止。`expo_lab` 默认跟 `index_lab`，写了 eGDR 而指标不是 eGDR 时停止。Model 3 有缺失协变量且未传 `mice_keep` 时自动插补，Overall n 用分析集。分层变量本身不插补。
+   - **ABSI 例外**：`ckm_stroke_cont_unit_delta("ABSI")=0.1`；Table2/S1/S3/S4 连续行与 Fig S2/S3 一律 **per 0.1**（量纲 ~0.8、cum SD~0.2，per-1 会把 OR/HR 抬到两位数且森林全箭头）。其它指标仍 per 1。
    - **无序类别不做 P for trend**。三分位趋势留在 Table 2。参照类 0 事件的整层删掉。NE 的 P 经 `ckm_stroke_p_for_estimate_cell` 写成破折号。
    - **OR/HR 三位小数**。两位会把不同模型收成同一字符串。未舍入的连续项系数写 `_internal/*_continuous_full_precision.csv`。
    - **图 1 不印参与者 ID**；人数千分位用逗号，不用空格。
@@ -44,18 +46,21 @@ alwaysApply: true
 
 1. **暴露名跟指标走**：`index_lab` 传入 Table2/S1 构建；禁止表内残留他指标的 `eGDR` 字样（eGDR 课题除外）。
 2. **年龄门控写 config**：`data_clean$age_filter = "Age >= 50"`（或课题界值）；本流水线无 `data_clean` block，靠 ingest 落实。
-3. **发表定稿走 rebuild**：workers 产出是草稿；定稿 Tables/Figures/软件版本以 rebuild / redraw 为准。
+3. **发表定稿走 rebuild**：workers 产出是草稿；定稿 Tables/Figures/Methods/软件版本以 rebuild / redraw 末尾 `ckm_stroke_finalize_summary_delivery` 为准。
 4. **Fig3 默认口径**：RCS 3 knots；面板 Overall \| BMI&lt;30 \| Age≥60；S1 可用访视月 futime。
 5. **tmp / 课题 scripts 热修用完归档**；可复用逻辑必须回写 `R/` / `Blocks/76/` / `run/cum_egdr_kmeans_ckm/`。
+6. **`summary_results` 交付白名单（全项目同口径）**：根目录只留 `Figures/`、`Tables/`、`Methods_statistical_analysis.md`、`Methods_software_versions.txt`、`*中期*.pdf`。`code/`、`README`、`_internal`、`reports` 等 prune 到同级 `*_delivery_workspace/`。禁止再交「仅 Figures+Tables」半成品。
 
 ## 新课题检查
 
 - [ ] config 写明 `age_filter`（需要时）与注释依据
 - [ ] rebuild 后 Table2 Variable 列为本指标名，非误标 eGDR
-- [ ] `Tables/Methods_software_versions.txt` 存在；Table2 脚注含 Software 行
+- [ ] 交付根有 `Methods_statistical_analysis.md` + `Methods_software_versions.txt`；Table2 脚注含 Software 行
+- [ ] 交付根无 README/code/_internal/reports（已 prune）
 - [ ] Fig3/S1 collision 无 `FIX BEFORE DELIVERY`（P/Ref 在区外）
 - [ ] 发表 Tables 无 `Flowchart_attrition.csv` / `*_forest_rows.csv`（应在 `_internal`）
 - [ ] 未复活 `_archive/` 或 `tmp/` 一次性脚本
+- [ ] Nature P0 清零后出中期 PDF，再 prune 一次
 
 ## 反例（禁止）
 

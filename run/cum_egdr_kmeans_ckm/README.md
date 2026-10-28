@@ -36,6 +36,7 @@ Rscript run/cum_egdr_kmeans_ckm/redraw_elsa_fig3_s123_all_success.R --index WWI,
 | uv_vif 前列对齐 | `Blocks/76/.../05block_logistic_cum_index_bundle.R` |
 | Table2/S1 指标名（非写死 eGDR） | `R/cum_egdr_kmeans_pub.R` → `ckm_stroke_build_table2_assoc(..., index_lab=)` |
 | Methods 软件版本 | `ckm_stroke_write_software_versions` / `ckm_stroke_software_footnote` |
+| 交付收口（Methods md + 软件 txt + 白名单） | `ckm_stroke_finalize_summary_delivery`（rebuild/redraw 末尾自动）；全项目 `finalize_delivery_root.R` |
 | Table1 章节加粗 | `ckm_stroke_style_table1_xlsx` |
 | RCS P/Ref 区外标注（防 collision） | `ckm_stroke_rcs_one_panel`（subtitle + caption） |
 | 森林 Never/Ever、en-dash | `ckm_stroke_forest_free_stats` |
@@ -58,3 +59,8 @@ Rscript run/cum_egdr_kmeans_ckm/redraw_elsa_fig3_s123_all_success.R --index WWI,
 - `redraw_wwi_figures.R`（已被 `redraw_elsa_fig3_s123_all_success.R` 替代）
 
 **禁止**再在 `tmp/` 或课题 `scripts/` 堆一次性 hotfix；可复用改动必须回写上表入口。
+
+## 交付白名单（强制）
+
+`summary_results/` 根目录只留：`Figures/`、`Tables/`、`Methods_statistical_analysis.md`、`Methods_software_versions.txt`、`*中期*.pdf`。  
+Nature P0 清零后出中期，再 `Rscript run/pub/finalize_delivery_root.R --dir <summary_results> --prune-only`。

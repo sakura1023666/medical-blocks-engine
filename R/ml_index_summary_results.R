@@ -131,13 +131,21 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
       " The analytic sample followed the study inclusion flowchart (Figure 1). ",
       "Unweighted participant counts are reported alongside weighted percentages where labelled."
     )
+    outcome_def <- trimws(as.character(
+      (config$methods %||% list())$outcome_definition %||%
+        (config$pub %||% list())$outcome_definition %||% ""
+    )[1L])
     exposure_line <- paste0(
       "The primary exposure was ", exposure,
       " (composite index as defined in the study configuration). ",
       "The exposure entered models as a continuous variable and as quantiles with cut-points ",
       "aligned to the main regression table; the lowest quantile was the reference. ",
       "Tests for trend used the numeric quantile score. ",
-      "The binary outcome was ", disease, "."
+      if (nzchar(outcome_def)) {
+        outcome_def
+      } else {
+        paste0("The binary outcome was ", disease, ".")
+      }
     )
     assoc_line <- paste0(
       if (is_nhanes) {

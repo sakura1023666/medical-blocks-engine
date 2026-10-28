@@ -161,6 +161,26 @@ ml_frozen_default_methods <- function() {
     ))
   }
   cand <- setdiff(cand, never)
+  ## 暴露复合指标进 ML 候选。冻结路径：force/include 显式开时忽略 use_venn_center 短路
+  fs <- cfg$feature_selection %||% list()
+  force_comp <- isTRUE(fs$force_composite_features %||% FALSE) ||
+    isTRUE(fs$include_composite_in_ml %||% FALSE) ||
+    isTRUE((cfg$ml %||% list())$include_composite_index %||% FALSE)
+  include_comp <- force_comp || (
+    exists("pipeline_ml_include_composite_index", mode = "function") &&
+      isTRUE(pipeline_ml_include_composite_index(cfg))
+  )
+  if (isTRUE(include_comp)) {
+    tags <- if (exists("pipeline_ml_composite_feature_tags", mode = "function")) {
+      pipeline_ml_composite_feature_tags(cfg)
+    } else {
+      unique(c(
+        as.character(fs$composite_features %||% character(0)),
+        as.character((cfg$prediction %||% list())$index_vars %||% character(0))
+      ))
+    }
+    cand <- unique(c(cand, intersect(tags, names(data_ref))))
+  }
   cand <- intersect(unique(cand[nzchar(cand)]), names(data_ref))
   cand
 }
@@ -290,10 +310,21 @@ ml_fit_stratum_bundle <- function(
          call. = FALSE)
   }
 
-  work_root <- file.path(
-    if (is.null(assets_root)) tempdir() else as.character(assets_root)[1L],
-    paste0(".work_frozen_", key)
-  )
+  ## lightgbm 等在 SMB/UNC 工作区常 "cannot open the connection"；训练落本地 temp
+  assets_root_chr <- if (is.null(assets_root)) {
+    tempdir()
+  } else {
+    as.character(assets_root)[1L]
+  }
+  use_local_work <- grepl("^(/mnt/[a-z]/|[A-Za-z]:/|\\\\\\\\|//)", assets_root_chr) &&
+    !grepl("^/tmp|^/var/tmp|^/home", assets_root_chr)
+  work_parent <- if (isTRUE(use_local_work)) {
+    file.path(tempdir(), "ml_frozen_work")
+  } else {
+    assets_root_chr
+  }
+  dir.create(work_parent, recursive = TRUE, showWarnings = FALSE)
+  work_root <- file.path(work_parent, paste0(".work_frozen_", key))
   unlink(work_root, recursive = TRUE)
   dir.create(work_root, recursive = TRUE, showWarnings = FALSE)
   on.exit(unlink(work_root, recursive = TRUE), add = TRUE)
@@ -345,6 +376,32 @@ ml_fit_stratum_bundle <- function(
     cli::cli_alert_info("ml_frozen: 层 {key} feature_selection$enable=FALSE，本层用候选全集 {length(cand)} 特征。")
   }
   feats <- unique(as.character(feats))
+  ## 暴露复合指标强制进最终特征（Boruta 未确认也保留）
+  fs_child <- child$config$feature_selection %||% list()
+  force_comp <- isTRUE(fs_child$force_composite_features %||% FALSE) ||
+    isTRUE(fs_child$include_composite_in_ml %||% FALSE) ||
+    isTRUE((child$config$ml %||% list())$include_composite_index %||% FALSE)
+  if (isTRUE(force_comp)) {
+    tags <- if (exists("pipeline_ml_composite_feature_tags", mode = "function")) {
+      pipeline_ml_composite_feature_tags(child$config)
+    } else {
+      unique(c(
+        as.character(fs_child$composite_features %||% character(0)),
+        as.character((child$config$prediction %||% list())$index_vars %||% character(0))
+      ))
+    }
+    data_cols <- names(child$data$train %||% child$data$imputed %||% list())
+    forced <- intersect(tags, data_cols)
+    if (length(forced)) {
+      miss <- setdiff(forced, feats)
+      feats <- unique(c(forced, feats))
+      if (length(miss)) {
+        cli::cli_alert_info(
+          "ml_frozen: 层 {key} 强制保留暴露特征: {paste(miss, collapse = ', ')}"
+        )
+      }
+    }
+  }
   # ml_rf 引擎网格固定 mtry<=10（Blocks/22 不改）；本层特征不足 10 列时用
   # 候选全集补齐到 10（仍限定在本层候选域内，Boruta 结果优先保留）。
   if ("rf" %in% methods && length(feats) < 10L) {

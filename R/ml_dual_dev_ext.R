@@ -196,15 +196,42 @@ ml_dual_dev_ext_scale_for_tag <- function(tag) {
 }
 
 #' 按主库训练集重建 recipes（dummy + 可选标准化），bake 外验新数据
+## 把外验列对齐到主库训练列类型（TCF SMOTE 后多为数值；禁止再 step_dummy 拆列名）
+.ml_dual_dev_ext_align_types <- function(train, newdata, cols) {
+  nd <- newdata
+  for (cn in cols) {
+    if (!cn %in% names(train) || !cn %in% names(nd)) next
+    trv <- train[[cn]]
+    ndv <- nd[[cn]]
+    if (is.numeric(trv) || is.integer(trv)) {
+      if (is.logical(ndv)) {
+        nd[[cn]] <- as.numeric(ndv)
+      } else if (is.factor(ndv)) {
+        nd[[cn]] <- as.numeric(ndv)
+      } else if (is.character(ndv)) {
+        nd[[cn]] <- as.numeric(factor(ndv))
+      } else {
+        nd[[cn]] <- suppressWarnings(as.numeric(ndv))
+      }
+      if (anyNA(nd[[cn]]) && !all(is.na(ndv))) {
+        ## 字符水平对不上时，按字母序因子再转一次
+        nd[[cn]] <- as.numeric(factor(as.character(ndv)))
+      }
+    } else if (is.factor(trv)) {
+      nd[[cn]] <- factor(as.character(ndv), levels = levels(trv))
+    } else if (is.character(trv)) {
+      nd[[cn]] <- as.character(ndv)
+    }
+  }
+  nd
+}
+
 ml_dual_dev_ext_bake_newdata <- function(train, newdata, feats, scale_type = "none") {
   if (is.null(train) || !is.data.frame(train) || !nrow(train)) {
     stop("bake: 需要非空主库训练集", call. = FALSE)
   }
   if (is.null(newdata) || !is.data.frame(newdata) || !nrow(newdata)) {
     stop("bake: 需要非空新数据", call. = FALSE)
-  }
-  if (!requireNamespace("recipes", quietly = TRUE)) {
-    stop("bake: 需要 recipes 包", call. = FALSE)
   }
   keep <- unique(c(as.character(feats), "Group"))
   keep <- keep[nzchar(keep)]
@@ -217,7 +244,44 @@ ml_dual_dev_ext_bake_newdata <- function(train, newdata, feats, scale_type = "no
     stop("bake: 新数据缺列: ", paste(miss_nd, collapse = ", "), call. = FALSE)
   }
   tr <- train[, keep, drop = FALSE]
-  nd <- newdata[, keep, drop = FALSE]
+  nd <- .ml_dual_dev_ext_align_types(train, newdata, keep)
+  nd <- nd[, keep, drop = FALSE]
+
+  feat_only <- setdiff(keep, "Group")
+  all_num <- length(feat_only) > 0L && all(vapply(feat_only, function(f) {
+    is.numeric(tr[[f]]) || is.integer(tr[[f]])
+  }, logical(1)))
+
+  ## TCF MinMax+SMOTE 后训练集已是数值：只对齐类型，避免 step_dummy 把 Gender→Gender_X
+  if (isTRUE(all_num)) {
+    for (f in feat_only) {
+      if (anyNA(nd[[f]])) {
+        med <- stats::median(as.numeric(tr[[f]]), na.rm = TRUE)
+        if (!is.finite(med)) med <- 0
+        nd[[f]][is.na(nd[[f]])] <- med
+      }
+    }
+    if (identical(scale_type, "center_scale")) {
+      for (f in feat_only) {
+        mu <- mean(as.numeric(tr[[f]]), na.rm = TRUE)
+        sdv <- stats::sd(as.numeric(tr[[f]]), na.rm = TRUE)
+        if (!is.finite(sdv) || sdv < 1e-12) sdv <- 1
+        nd[[f]] <- (as.numeric(nd[[f]]) - mu) / sdv
+      }
+    } else if (identical(scale_type, "range")) {
+      for (f in feat_only) {
+        mn <- min(as.numeric(tr[[f]]), na.rm = TRUE)
+        mx <- max(as.numeric(tr[[f]]), na.rm = TRUE)
+        den <- max(mx - mn, 1e-12)
+        nd[[f]] <- (as.numeric(nd[[f]]) - mn) / den
+      }
+    }
+    return(nd)
+  }
+
+  if (!requireNamespace("recipes", quietly = TRUE)) {
+    stop("bake: 需要 recipes 包", call. = FALSE)
+  }
   for (cn in names(tr)) {
     if (is.factor(tr[[cn]])) {
       nd[[cn]] <- factor(as.character(nd[[cn]]), levels = levels(tr[[cn]]))
@@ -266,10 +330,18 @@ ml_dual_dev_ext_primary_train_candidates <- function(ctx, pri_dir) {
     (identical(basename(ck_base), ix) ||
        grepl(paste0("(^|[/\\\\])by_index[/\\\\]", ix, "$"), ck_base))
   cands <- c(
+    ## TCF：优先用 MinMax+SMOTE 后的数值化 train（与冻结模型列一致）
+    if (nzchar(ck_base)) {
+      file.path(ck_base, pri_slot, "step11_ml_tcf_balance_scale.rds")
+    } else NA_character_,
+    if (nzchar(ck_base)) file.path(ck_base, pri_slot, "ml_tcf_balance_scale.rds") else NA_character_,
     ## ML worker：checkpoint_base = checkpoints/by_index/<ix>
     if (nzchar(ck_base)) file.path(ck_base, pri_slot, "imputation.rds") else NA_character_,
     if (nzchar(ck_base)) file.path(ck_base, pri_slot, "ml_models_bundle.rds") else NA_character_,
     ## 若 checkpoint_base 仍是课题 checkpoints 根
+    if (nzchar(ck_base) && nzchar(ix) && !isTRUE(ck_is_index_dir)) {
+      file.path(ck_base, "by_index", ix, pri_slot, "ml_tcf_balance_scale.rds")
+    } else NA_character_,
     if (nzchar(ck_base) && nzchar(ix) && !isTRUE(ck_is_index_dir)) {
       file.path(ck_base, "by_index", ix, pri_slot, "imputation.rds")
     } else NA_character_,

@@ -632,11 +632,14 @@ ckm_stroke_build_table2_assoc <- function(
     tert_col = "eGDR_tertile",
     cmap = ckm_stroke_class_map_paper(),
     index_lab = "eGDR",
+    unit_delta = NULL,
     row_fit = NULL,
     trend_p = NULL) {
   .ckm_pub_ensure_literature()
   index_lab <- as.character(index_lab %||% "eGDR")[1L]
   if (!nzchar(index_lab)) index_lab <- "eGDR"
+  unit_delta <- if (is.null(unit_delta)) ckm_stroke_cont_unit_delta(index_lab) else as.numeric(unit_delta)[1L]
+  if (!is.finite(unit_delta) || unit_delta <= 0) unit_delta <- 1
   est_lab <- if (is_hr) "HR (95% CI)" else "OR (95% CI)"
   n_all <- nrow(data)
 
@@ -649,8 +652,15 @@ ckm_stroke_build_table2_assoc <- function(
   }
   class_fits <- list()
   for (mn in .model_names) class_fits[[mn]] <- .one_fit(d0, class_col, models[[mn]])
+  # Continuous contrast: divide by unit_delta so coefficient = per unit_delta increase
+  cont_use <- cont_col
+  d_cont <- data
+  if (!isTRUE(all.equal(unit_delta, 1))) {
+    cont_use <- paste0(cont_col, "_udelta")
+    d_cont[[cont_use]] <- as.numeric(d_cont[[cont_col]]) / unit_delta
+  }
   cont_fits <- list()
-  for (mn in .model_names) cont_fits[[mn]] <- .one_fit(data, cont_col, models[[mn]])
+  for (mn in .model_names) cont_fits[[mn]] <- .one_fit(d_cont, cont_use, models[[mn]])
   dtert <- data
   dtert[[tert_col]] <- stats::relevel(factor(dtert[[tert_col]]), ref = "T1")
   tert_fits <- list()
@@ -713,8 +723,13 @@ ckm_stroke_build_table2_assoc <- function(
     }
   }
   rows[[length(rows) + 1L]] <- {
-    cells <- .model_cells(cont_fits, paste0("^", cont_col, "$"))
-    mk_row(sprintf("Cumulative %s", index_lab), n_all, ckm_stroke_events_cell(data[[outcome]]), cells)
+    cells <- .model_cells(cont_fits, paste0("^", cont_use, "$"))
+    cont_lab <- if (isTRUE(all.equal(unit_delta, 1))) {
+      sprintf("Cumulative %s", index_lab)
+    } else {
+      sprintf("Cumulative %s (per %.3g)", index_lab, unit_delta)
+    }
+    mk_row(cont_lab, n_all, ckm_stroke_events_cell(data[[outcome]]), cells)
   }
   rows[[length(rows) + 1L]] <- sec(sprintf("Tertiles of cumulative %s", index_lab))
   for (tv in c("T1", "T2", "T3")) {
@@ -750,7 +765,10 @@ ckm_stroke_build_table2_assoc <- function(
   rownames(out) <- NULL
   names(out) <- c("Variable", "Total number", "Events, n (%)",
                   "M1e", "M1p", "M2e", "M2p", "M3e", "M3p")
-  list(df = out, est_lab = est_lab, cont_fits = cont_fits)
+  list(
+    df = out, est_lab = est_lab, cont_fits = cont_fits,
+    unit_delta = unit_delta, cont_col_used = cont_use
+  )
 }
 
 ckm_stroke_build_table_s1_cox <- function(...) {
@@ -848,14 +866,36 @@ ckm_stroke_assert_mice_footnote <- function(title, footnotes) {
   invisible(TRUE)
 }
 
-ckm_stroke_assert_forest_scale <- function(scale, title = NULL, allow_per_sd = FALSE) {
+#' Continuous contrast step for cumulative exposure (OR/HR per unit_delta)
+#'
+#' ABSI wave values ~0.8 and cum SD ~0.2, so per-1-unit OR is clinically
+#' unrealistic; default per 0.1. Other indices stay per 1.
+ckm_stroke_cont_unit_delta <- function(index_lab) {
+  ix <- toupper(trimws(as.character(index_lab %||% "")[1L]))
+  if (identical(ix, "ABSI")) 0.1 else 1
+}
+
+ckm_stroke_unit_delta_label <- function(unit_delta) {
+  ud <- as.numeric(unit_delta)[1L]
+  if (!is.finite(ud) || ud <= 0) ud <- 1
+  if (isTRUE(all.equal(ud, 1))) "1-unit" else sprintf("%.3g-unit", ud)
+}
+
+ckm_stroke_assert_forest_scale <- function(scale, title = NULL, allow_per_sd = FALSE,
+                                           unit_delta = 1) {
   scale <- as.character(scale)[1L]
   if (identical(scale, "sd") && !isTRUE(allow_per_sd)) {
-    stop("Subgroup forest scale is per 1-SD. Table 2/S1 are per 1-unit. Use scale='unit', or allow_per_sd=TRUE only for a historical figure.", call. = FALSE)
+    stop("Subgroup forest scale is per 1-SD. Table 2/S1 continuous rows use unit_delta. Use scale='unit', or allow_per_sd=TRUE only for a historical figure.", call. = FALSE)
   }
   title <- paste(as.character(title %||% ""), collapse = " ")
   if (nzchar(title) && grepl("1-SD|per-SD|per SD", title) && identical(scale, "unit")) {
-    stop("Forest title says per 1-SD but the estimate is per 1-unit.", call. = FALSE)
+    stop("Forest title says per 1-SD but the estimate is per unit_delta.", call. = FALSE)
+  }
+  ud <- as.numeric(unit_delta)[1L]
+  if (identical(scale, "unit") && is.finite(ud) && !isTRUE(all.equal(ud, 1)) &&
+      nzchar(title) && grepl("per 1-unit|per-1-unit|1-unit cum", title, ignore.case = TRUE) &&
+      !grepl("0\\.1", title)) {
+    stop("Forest title says per 1-unit but unit_delta=", ud, ". Align the title.", call. = FALSE)
   }
   invisible(TRUE)
 }
@@ -1171,6 +1211,9 @@ ckm_stroke_fig2_abc <- function(
     out <- d[c(idx, idx[1L]), , drop = FALSE]
     out
   }))
+  # 长标签（Class 1: Intermediate stable）放右侧会挤掉 B/C 绘图区；
+  # B/C 不画独立图例，整图底部共用一条紧凑横排图例。
+  .leg_labels <- cluster_labels
   pB <- ggplot2::ggplot(sc, ggplot2::aes(x, y, color = Cluster, fill = Cluster, shape = Cluster)) +
     ggplot2::geom_polygon(
       data = hulls,
@@ -1178,9 +1221,9 @@ ckm_stroke_fig2_abc <- function(
       alpha = 0.18, linewidth = 0.55, show.legend = FALSE
     ) +
     ggplot2::geom_point(size = 1.05, alpha = 0.65, stroke = 0.2) +
-    ggplot2::scale_color_manual(values = cmap$colors, labels = cluster_labels) +
-    ggplot2::scale_fill_manual(values = cmap$colors, labels = cluster_labels) +
-    ggplot2::scale_shape_manual(values = cmap$shapes, labels = cluster_labels) +
+    ggplot2::scale_color_manual(values = cmap$colors, labels = .leg_labels) +
+    ggplot2::scale_fill_manual(values = cmap$colors, labels = .leg_labels) +
+    ggplot2::scale_shape_manual(values = cmap$shapes, labels = .leg_labels) +
     ggplot2::coord_cartesian(
       xlim = range(sc$x, na.rm = TRUE),
       ylim = range(sc$y, na.rm = TRUE),
@@ -1189,7 +1232,7 @@ ckm_stroke_fig2_abc <- function(
     ggplot2::labs(title = "B", x = xlab_b, y = ylab_b,
                   color = "Cluster", shape = "Cluster") +
     ckm_stroke_theme_paper(10) +
-    ggplot2::theme(legend.position = "right") +
+    ggplot2::theme(legend.position = "none") +
     ggplot2::guides(fill = "none")
 
   agg <- do.call(rbind, lapply(cmap$order_paper, function(cl) {
@@ -1212,23 +1255,73 @@ ckm_stroke_fig2_abc <- function(
       width = 0.22, linewidth = 0.85, show.legend = FALSE
     ) +
     ggplot2::geom_point(size = 2.6) +
-    ggplot2::scale_color_manual(values = cmap$colors, labels = cluster_labels) +
-    ggplot2::scale_shape_manual(values = cmap$shapes, labels = cluster_labels) +
+    ggplot2::scale_color_manual(values = cmap$colors, labels = .leg_labels) +
+    ggplot2::scale_shape_manual(values = cmap$shapes, labels = .leg_labels) +
     ggplot2::scale_x_continuous(breaks = year_labs) +
     ggplot2::coord_cartesian(
       ylim = range(c(agg$Mean - agg$SE, agg$Mean + agg$SE), na.rm = TRUE) + c(-0.35, 0.35)
     ) +
     ggplot2::labs(title = "C", x = xlab_c, y = ylab_c, color = "Cluster", shape = "Cluster") +
     ckm_stroke_theme_paper(10) +
-    ggplot2::theme(legend.position = "right")
+    ggplot2::theme(legend.position = "none")
+
+  .extract_legend <- function(p) {
+    g <- ggplot2::ggplotGrob(p)
+    # ggplot2 ≥3.5 常同时有 guide-box-right/left/bottom/...；空槽是 zeroGrob，
+    # 不能取第一个 ^guide-box（往往是空的 right）。
+    prefer <- c("guide-box-bottom", "guide-box", "guide-box-right", "guide-box-inside")
+    for (nm in prefer) {
+      idx <- which(g$layout$name == nm)
+      if (!length(idx)) next
+      gr <- g$grobs[[idx[[1L]]]]
+      if (!inherits(gr, "zeroGrob") && !is.null(gr)) return(gr)
+    }
+    idx <- grep("^guide-box", g$layout$name)
+    for (i in idx) {
+      gr <- g$grobs[[i]]
+      if (!inherits(gr, "zeroGrob") && !is.null(gr)) return(gr)
+    }
+    NULL
+  }
+  p_leg_src <- pC +
+    ggplot2::theme(
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      legend.title = ggplot2::element_text(size = 8, face = "bold"),
+      legend.text = ggplot2::element_text(size = 7),
+      legend.key.size = grid::unit(0.35, "cm"),
+      legend.key.height = grid::unit(0.32, "cm"),
+      legend.key.width = grid::unit(0.4, "cm"),
+      legend.spacing.x = grid::unit(0.2, "cm"),
+      legend.margin = ggplot2::margin(t = 1, r = 0, b = 0, l = 0),
+      legend.box.margin = ggplot2::margin(0, 0, 0, 0)
+    ) +
+    ggplot2::guides(
+      colour = ggplot2::guide_legend(
+        nrow = 1, title.position = "left",
+        override.aes = list(size = 2.2, alpha = 1, linewidth = 1)
+      ),
+      shape = ggplot2::guide_legend(nrow = 1, title.position = "left")
+    )
+  .leg <- .extract_legend(p_leg_src)
 
   if (!is.null(outfile) && nzchar(outfile)) {
     dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
-    grDevices::pdf(outfile, width = width, height = height, useDingbats = FALSE)
-    gridExtra::grid.arrange(pA, pB, pC, ncol = 3, widths = c(1, 1.15, 1.1))
+    # 底部图例需要略增高；B 无右侧图例后可加大中栏绘图宽
+    .h <- if (is.null(.leg)) height else max(as.numeric(height), 4.35)
+    .panels <- gridExtra::arrangeGrob(pA, pB, pC, ncol = 3, widths = c(1, 1.35, 1.2))
+    .g <- if (!is.null(.leg)) {
+      gridExtra::arrangeGrob(.panels, .leg, ncol = 1, heights = c(1, 0.16))
+    } else {
+      .panels
+    }
+    # 只用 grid.draw，避免 grid.arrange 在已打开的 pdf() 上再开一页空白页
+    grDevices::pdf(outfile, width = width, height = .h, useDingbats = FALSE, onefile = TRUE)
+    grid::grid.newpage()
+    grid::grid.draw(.g)
     grDevices::dev.off()
   }
-  invisible(list(A = pA, B = pB, C = pC, elbow = el_df, traj = agg))
+  invisible(list(A = pA, B = pB, C = pC, elbow = el_df, traj = agg, legend = .leg))
 }
 
 # -----------------------------------------------------------------------------
@@ -1479,6 +1572,7 @@ ckm_stroke_forest_free_stats <- function(
                "eGFR", "Dyslipidemia", "Diabetes"),
     scale = c("unit", "sd"),
     allow_per_sd = FALSE,
+    unit_delta = NULL,
     mice_keep = NULL,
     mice_impute = NULL,
     mice_m = 5L,
@@ -1500,7 +1594,15 @@ ckm_stroke_forest_free_stats <- function(
   }
 
   scale <- match.arg(scale)
-  ckm_stroke_assert_forest_scale(scale, title, allow_per_sd = allow_per_sd)
+  unit_delta <- if (is.null(unit_delta)) {
+    ckm_stroke_cont_unit_delta(index_lab)
+  } else {
+    as.numeric(unit_delta)[1L]
+  }
+  if (!is.finite(unit_delta) || unit_delta <= 0) unit_delta <- 1
+  ckm_stroke_assert_forest_scale(
+    scale, title, allow_per_sd = allow_per_sd, unit_delta = unit_delta
+  )
   if (is.null(expo_lab) || !nzchar(as.character(expo_lab)[1L])) {
     expo_lab <- if (!is.null(index_lab) && nzchar(as.character(index_lab)[1L])) {
       paste("cumulative", as.character(index_lab)[1L])
@@ -1515,7 +1617,12 @@ ckm_stroke_forest_free_stats <- function(
   x <- as.numeric(data[[expo_raw]])
   sd_x <- stats::sd(x, na.rm = TRUE)
   if (identical(scale, "unit")) {
-    expo <- expo_raw
+    if (isTRUE(all.equal(unit_delta, 1))) {
+      expo <- expo_raw
+    } else {
+      data$cum_eGDR_udelta <- x / unit_delta
+      expo <- "cum_eGDR_udelta"
+    }
   } else {
     data$cum_eGDR_z <- as.numeric(scale(x))
     expo <- "cum_eGDR_z"
@@ -1526,10 +1633,14 @@ ckm_stroke_forest_free_stats <- function(
     if (length(miss)) {
       mice_impute <- miss
       mice_keep <- intersect(
-        c(outcome, "futime", "status", "eGDR_Class", expo_raw, "eGDR_tertile", models3),
+        c(outcome, "futime", "status", "eGDR_Class", expo_raw, expo, "eGDR_tertile", models3),
         names(data)
       )
     }
+  }
+  if (!is.null(mice_keep) && length(mice_keep) && identical(scale, "unit") &&
+      !identical(expo, expo_raw) && expo %in% names(data)) {
+    mice_keep <- unique(c(as.character(mice_keep), expo))
   }
   imp <- NULL
   imp_labs <- character(0)
@@ -1721,16 +1832,31 @@ ckm_stroke_forest_free_stats <- function(
   hi <- as.numeric(plot_df$Upper)
   bad <- !(is.finite(est) & is.finite(lo) & is.finite(hi) & est > 0 & lo > 0 & hi > 0)
   est[bad] <- lo[bad] <- hi[bad] <- NA_real_
+  # 自适应 log 轴：WWI 等 per-unit ~1 时仍落在窄轴；ABSI 等小量纲指数
+  # per-unit OR/HR 常为 5–30+，旧硬封顶 xlim=4 会使全部 CI 落在轴外→全是箭头。
   xlim <- c(0.15, 1.8)
   finite_lo <- lo[is.finite(lo) & lo > 0]
   finite_hi <- hi[is.finite(hi) & hi > 0]
-  if (length(finite_lo)) xlim[1] <- max(0.08, min(as.numeric(stats::quantile(finite_lo, 0.05)) * 0.9, 0.3))
-  if (length(finite_hi)) xlim[2] <- min(4, max(1.3, as.numeric(stats::quantile(finite_hi, 0.95)) * 1.1))
+  finite_est <- est[is.finite(est) & est > 0]
+  if (length(finite_lo)) {
+    xlim[1] <- max(0.05, min(as.numeric(stats::quantile(finite_lo, 0.05)) * 0.85, 0.5))
+  }
+  if (length(finite_hi) || length(finite_est)) {
+    hi_q <- if (length(finite_hi)) {
+      as.numeric(stats::quantile(finite_hi, 0.90, names = FALSE)) * 1.15
+    } else {
+      1.8
+    }
+    est_cap <- if (length(finite_est)) max(finite_est) * 1.4 else 1.3
+    xlim[2] <- max(1.3, hi_q, est_cap)
+    # 软顶：极端稀疏层（如 Diabetes Yes 上界上千）仍可出箭头，主效应须可见
+    xlim[2] <- min(xlim[2], 100)
+  }
   if (!(is.finite(xlim[1]) && xlim[1] > 0 && is.finite(xlim[2]) && xlim[2] > xlim[1])) xlim <- c(0.2, 2)
   lo_draw <- pmax(lo, xlim[1] * 0.999); hi_draw <- pmin(hi, xlim[2] * 1.001)
   lo_draw[!is.finite(lo)] <- NA_real_; hi_draw[!is.finite(hi)] <- NA_real_
-  # 稀疏刻度，避免 log 轴上 1 / 1.5 / 2 挤叠
-  ticks_cand <- c(0.25, 0.5, 1, 2, 3, 4)
+  # 稀疏刻度；宽轴时补 5/10/20/50/100，避免只剩 0.25–4
+  ticks_cand <- c(0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100)
   ticks <- ticks_cand[ticks_cand >= xlim[1] * 0.98 & ticks_cand <= xlim[2] * 1.02]
   if (!any(abs(ticks - 1) < 1e-8)) ticks <- sort(unique(c(ticks, 1)))
   if (length(ticks) < 2L) ticks <- sort(unique(c(xlim[1], 1, xlim[2])))
@@ -1779,11 +1905,12 @@ ckm_stroke_forest_free_stats <- function(
   }
   if (!is.null(p$layout) && "clip" %in% names(p$layout)) p$layout$clip[] <- "off"
 
+  ud_lab <- ckm_stroke_unit_delta_label(unit_delta)
   if (!is.null(imp)) {
     sd_note <- c(
       sprintf(
-        "Per 1-unit increase in %s, the same scale as Tables 2 and S1. Overall n = %s (%s events) is the analytic cohort.",
-        as.character(expo_lab)[1L], format(n_tot, big.mark = ","), format(n_evt, big.mark = ",")
+        "Per %s increase in %s, the same scale as Tables 2 and S1. Overall n = %s (%s events) is the analytic cohort.",
+        ud_lab, as.character(expo_lab)[1L], format(n_tot, big.mark = ","), format(n_evt, big.mark = ",")
       ),
       sprintf(
         "Missing Model 3 covariates (%s) are imputed (mice, m=%d, seed=%d). Interaction P is the pooled Wald test. Observed stratum levels can sum to less than Overall.",
@@ -1792,13 +1919,13 @@ ckm_stroke_forest_free_stats <- function(
     )
   } else if (identical(scale, "unit")) {
     sd_note <- sprintf(
-      "Per 1-unit increase in %s, the same scale as the regression tables. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
-      as.character(expo_lab)[1L]
+      "Per %s increase in %s, the same scale as the regression tables. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
+      ud_lab, as.character(expo_lab)[1L]
     )
   } else {
     sd_note <- sprintf(
-      "Exposure: per 1-SD increase in %s (SD = %.3f). Continuous OR/HR in tables is per 1-unit. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
-      as.character(expo_lab)[1L], sd_x
+      "Exposure: per 1-SD increase in %s (SD = %.3f). Continuous OR/HR in tables uses unit_delta=%s. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
+      as.character(expo_lab)[1L], sd_x, format(unit_delta, trim = TRUE)
     )
   }
   fig_w <- 10.2
@@ -1822,7 +1949,14 @@ ckm_stroke_forest_free_stats <- function(
   }
   grDevices::dev.off()
   attr(plot_df, "sd") <- sd_x
-  attr(plot_df, "exposure_scale") <- "per_1_SD"
+  attr(plot_df, "unit_delta") <- unit_delta
+  attr(plot_df, "exposure_scale") <- if (identical(scale, "sd")) {
+    "per_1_SD"
+  } else if (isTRUE(all.equal(unit_delta, 1))) {
+    "per_1_unit"
+  } else {
+    paste0("per_", format(unit_delta, trim = TRUE), "_unit")
+  }
   invisible(plot_df)
 }
 
@@ -1871,4 +2005,198 @@ ckm_stroke_kill_fig2_splits <- function(fig_dir) {
     }
   }
   invisible(TRUE)
+}
+
+# -----------------------------------------------------------------------------
+# Delivery finalize — Methods md + software txt + whitelist prune
+# -----------------------------------------------------------------------------
+
+#' ELSA / CKM 累积暴露×k-means 课题 Methods 正文行
+#'
+#' @param index_lab 指标展示名（如 ABSI / WWI）
+#' @param n_analytic 分析集人数
+#' @param model3_covars Model 3 协变量字符向量
+#' @param unit_delta 连续项步长（ABSI 默认 0.1）
+#' @param min_age 纳入年龄下界
+#' @param database 数据库名
+#' @param outcome_lab 结局展示名
+ckm_stroke_elsa_methods_statistical_lines <- function(
+    index_lab = "ABSI",
+    n_analytic = NA_integer_,
+    model3_covars = c("Age", "Gender", "Marital", "Dyslipidemia", "Hypertension"),
+    unit_delta = NULL,
+    min_age = 50L,
+    database = "ELSA",
+    outcome_lab = "incident osteoporosis") {
+  ix <- as.character(index_lab %||% "index")[1L]
+  ud <- if (is.null(unit_delta)) ckm_stroke_cont_unit_delta(ix) else as.numeric(unit_delta)[1L]
+  if (!is.finite(ud) || ud <= 0) ud <- 1
+  ud_lab <- ckm_stroke_unit_delta_label(ud)
+  cov_txt <- paste(as.character(model3_covars %||% character(0)), collapse = ", ")
+  n_txt <- if (is.finite(as.numeric(n_analytic)[1L])) {
+    format(as.integer(n_analytic)[1L], big.mark = ",")
+  } else {
+    "the analytic sample"
+  }
+  db <- as.character(database %||% "ELSA")[1L]
+  is_elsa <- grepl("ELSA", db, ignore.case = TRUE)
+  cohort_para <- if (is_elsa) {
+    sprintf(
+      "Adults aged at least %s years at Wave 4 were eligible. Participants required Wave 6 and Wave 8 interviews. Incident osteoporosis was defined as Wave 8 DN = 1 among participants with Wave 6 DN = 0; Wave 4 DN was not used as an exclusion flag. The final analytic sample for %s comprised N = %s after requiring complete two-wave exposure values.",
+      as.integer(min_age)[1L], ix, n_txt
+    )
+  } else {
+    sprintf(
+      "Adults aged at least %s years were eligible in %s. The final analytic sample for %s comprised N = %s after applying the study inclusion criteria and requiring complete two-wave exposure values used for cumulative exposure and k-means classes.",
+      as.integer(min_age)[1L], db, ix, n_txt
+    )
+  }
+  exposure_para <- if (is_elsa) {
+    sprintf(
+      "Wave-specific %s used the standard anthropometric definition available in the harmonised files. Cumulative exposure was ((%s Wave 4 + %s Wave 6)/2) × 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 4 and Wave 6 values (nstart = 25, seed = 2026, iter.max = 100); k was chosen from the elbow plot with a visual cap of 4. Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 4 mean range.",
+      ix, ix, ix, ud_lab
+    )
+  } else {
+    sprintf(
+      "Wave-specific %s used the study anthropometric definition. Cumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); k was chosen from the elbow plot with a visual cap of 4. Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
+      ix, ud_lab
+    )
+  }
+  outcome_para <- if (is_elsa) {
+    sprintf(
+      "The primary outcome was binary %s. Logistic models estimated odds ratios. Cox models used a fixed Wave 6 to Wave 8 interval (4 years) as an interval check of the same binary outcome; Figure S1 used interview-month follow-up between Wave 6 and Wave 8.",
+      outcome_lab
+    )
+  } else {
+    sprintf(
+      "The primary outcome was binary %s. Logistic models estimated odds ratios. Cox models used the study follow-up definition; Figure S1 (when present) used the time scale documented in the figure legend.",
+      outcome_lab
+    )
+  }
+  c(
+    "# Statistical analysis",
+    "",
+    "## Study design and cohort",
+    sprintf(
+      "This was an observational association analysis of cumulative %s exposure and k-means trajectory classes with %s in %s. It is not a predictive modelling study and not an artificial-intelligence analysis.",
+      ix, outcome_lab, db
+    ),
+    cohort_para,
+    "",
+    "## Exposure",
+    exposure_para,
+    "",
+    "## Outcome and follow-up",
+    outcome_para,
+    "",
+    "## Regression models",
+    "Model 1 was unadjusted. Model 2 adjusted for the study demographic core (typically Age and Gender, plus Marital when used). Model 3 candidates forced Age, excluded exposure-component variables, retained univariate associations at P < 0.05, then removed terms with VIF ≥ 4. Model 3 is not fully adjusted.",
+    sprintf("Locked Model 3 covariates for this index: %s.", cov_txt),
+    "Odds ratios and hazard ratios are reported to three decimal places with 95% confidence intervals. Tertile P for trend used the ordinal tertile score. Unordered trajectory classes did not receive a P for trend.",
+    "",
+    "## Restricted cubic splines and subgroups",
+    "Restricted cubic splines used three knots (rms). Figure 3 (logistic OR) and Figure S1 (Cox HR), when exported, show Overall and pre-specified strata under Model 3. P for overall and P for non-linearity are shown on each panel; the RCS overall test may differ from the Table 2 linear continuous P because the functional forms differ.",
+    sprintf(
+      "Subgroup forests (Figures S2–S3), when exported, report per-%s contrasts on the full analytic sample. When Model 3 covariates were incomplete, mice (m = 5) with Rubin's rules was used for those covariates; stratification variables themselves were not imputed. Table 2 / Table S1 Model 3 continuous rows remain complete-case estimates and may therefore differ numerically from the forest Overall row while sharing the same unit_delta.",
+      ud_lab
+    ),
+    "",
+    "## Missing data",
+    "Primary Table 1 / Table 2 / Table S1 association estimates used complete cases for the variables in each model. Multiple-imputation sensitivity tables (when exported) used mice with m = 5 and Rubin's rules and were not copies of the complete-case tables.",
+    "",
+    "## Software",
+    "Analyses were performed in R. Package versions are listed in Methods_software_versions.txt beside this file."
+  )
+}
+
+#' 写 Methods md + 软件版本 txt，并按全项目白名单修剪 summary_results
+#'
+#' 交付根只留 Figures/ Tables/ Methods_statistical_analysis.md /
+#' Methods_software_versions.txt / *中期*.pdf。
+ckm_stroke_finalize_summary_delivery <- function(
+    summary_root,
+    index_lab = "ABSI",
+    n_analytic = NA_integer_,
+    model3_covars = c("Age", "Gender", "Marital", "Dyslipidemia", "Hypertension"),
+    unit_delta = NULL,
+    min_age = 50L,
+    database = "ELSA",
+    outcome_lab = "incident osteoporosis",
+    software_extra = character(0),
+    prune = TRUE) {
+  sr <- as.character(summary_root %||% "")[1L]
+  if (!nzchar(sr) || !dir.exists(sr)) {
+    stop("ckm_stroke_finalize_summary_delivery: summary_root missing: ", sr, call. = FALSE)
+  }
+  if (!exists("pub_prune_delivery_root", mode = "function")) {
+    pr <- file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."), "R/pub_delivery_prune.R")
+    if (file.exists(pr)) source(pr, local = FALSE)
+  }
+  if (exists("pub_delivery_normalize_fig_tab_dirs", mode = "function")) {
+    pub_delivery_normalize_fig_tab_dirs(sr)
+  }
+  if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
+    pub_delivery_clean_tables_xlsx_only(sr)
+  }
+  lines <- ckm_stroke_elsa_methods_statistical_lines(
+    index_lab = index_lab,
+    n_analytic = n_analytic,
+    model3_covars = model3_covars,
+    unit_delta = unit_delta,
+    min_age = min_age,
+    database = database,
+    outcome_lab = outcome_lab
+  )
+  md_path <- file.path(sr, "Methods_statistical_analysis.md")
+  writeLines(lines, md_path, useBytes = TRUE)
+  soft_extra <- unique(c(
+    sprintf(
+      "Study title: association of trajectory clusters and cumulative %s with %s (logistic, Cox, RCS). Not a predictive or AI analysis.",
+      index_lab, outcome_lab
+    ),
+    sprintf("Inclusion: baseline age at least %s years.", as.integer(min_age)[1L]),
+    sprintf("Analytic N = %s (%s).", format(as.integer(n_analytic)[1L], big.mark = ","), database),
+    sprintf(
+      "Continuous exposure reported per %s (ckm_stroke_cont_unit_delta).",
+      ckm_stroke_unit_delta_label(
+        if (is.null(unit_delta)) ckm_stroke_cont_unit_delta(index_lab) else unit_delta
+      )
+    ),
+    "Model 3: univariate P<0.05 then VIF<4; Age forced; exposure components excluded; not fully adjusted.",
+    "Subgroup forests may use mice(m=5)+Rubin for incomplete Model 3 covariates; Table2/S1 Model3 remain complete-case.",
+    as.character(software_extra %||% character(0))
+  ))
+  soft_path <- ckm_stroke_write_software_versions(sr, extra = soft_extra)
+  # Tables 旁保留一份副本供脚注引用（prune 会把 Tables 内非 xlsx 移走前先写根目录）
+  tab_dir <- file.path(sr, "Tables")
+  if (dir.exists(tab_dir) && file.exists(soft_path)) {
+    file.copy(soft_path, file.path(tab_dir, "Methods_software_versions.txt"), overwrite = TRUE)
+  }
+  fig_dir <- file.path(sr, "Figures")
+  if (dir.exists(fig_dir) && exists("pub_figure_ensure_formats", mode = "function")) {
+    try(
+      pub_figure_ensure_formats(
+        fig_dir,
+        meta = list(study = "ELSA_cum_kmeans", index = index_lab),
+        config = list(pub_figures = list(dpi = 600L, formats_dir = TRUE)),
+        purge = FALSE
+      ),
+      silent = TRUE
+    )
+  }
+  moved <- character(0)
+  if (isTRUE(prune) && exists("pub_prune_delivery_root", mode = "function")) {
+    # Tables 内 txt 不在白名单根级规则内，但 clean_tables 会移走非 xlsx——先清再 prune
+    if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
+      pub_delivery_clean_tables_xlsx_only(sr)
+    }
+    res <- pub_prune_delivery_root(sr)
+    moved <- res$moved %||% character(0)
+  }
+  invisible(list(
+    summary_root = normalizePath(sr, winslash = "/", mustWork = FALSE),
+    methods = md_path,
+    software = soft_path,
+    moved = moved
+  ))
 }

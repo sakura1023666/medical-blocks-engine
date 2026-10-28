@@ -178,6 +178,90 @@ cutoff <- NULL  # overall-only
   wide
 }
 
+## 有序编码 1..k 的 Cox trend（P for trend）
+.fit_ordinal_trend <- function(d, group_vals, covs, time = "futime", event = "fustatus") {
+  dd <- data.frame(d)
+  dd$.__g <- suppressWarnings(as.integer(group_vals))
+  dd$.__tm <- suppressWarnings(as.numeric(dd[[time]]))
+  dd$.__ev <- suppressWarnings(as.integer(dd[[event]]))
+  covs <- intersect(as.character(covs %||% character(0)), names(dd))
+  keep <- is.finite(dd$.__g) & is.finite(dd$.__tm) & dd$.__tm > 0 & !is.na(dd$.__ev)
+  dd <- dd[keep, , drop = FALSE]
+  if (nrow(dd) < 40L || sum(dd$.__ev == 1L) < 5L ||
+      length(unique(dd$.__g)) < 2L) {
+    return(list(hr_ci = "NE", p_cell = "", p = NA_real_))
+  }
+  rhs <- paste(c(".__g", covs), collapse = " + ")
+  fml <- stats::as.formula(sprintf("survival::Surv(.__tm, .__ev) ~ %s", rhs))
+  fit <- tryCatch(survival::coxph(fml, data = dd), error = function(e) NULL)
+  if (is.null(fit) || anyNA(stats::coef(fit))) {
+    return(list(hr_ci = "NE", p_cell = "", p = NA_real_))
+  }
+  sm <- summary(fit)$coefficients
+  rn <- rownames(sm)
+  hit <- grep("\\.\\.__g$|^\\.__g$", rn)
+  if (!length(hit)) hit <- which(rn == ".__g")
+  if (!length(hit)) return(list(hr_ci = "NE", p_cell = "", p = NA_real_))
+  i <- hit[[1L]]
+  hr <- exp(sm[i, "coef"])
+  se <- sm[i, "se(coef)"]
+  p <- sm[i, "Pr(>|z|)"]
+  lo <- exp(sm[i, "coef"] - 1.96 * se)
+  hi <- exp(sm[i, "coef"] + 1.96 * se)
+  list(
+    hr_ci = sprintf("%.3f (%.3f, %.3f)", hr, lo, hi),
+    p_cell = pub_format_p_cell(p),
+    p = as.numeric(p)
+  )
+}
+
+.append_table2_trend <- function(wide, d, joint_lock, models) {
+  jt <- reference_apply_joint_tertiles(d, joint_lock)
+  gnum <- as.integer(jt$group)
+  trend_row <- data.frame(
+    Group = "P for trend",
+    `Model 1 HR (95% CI)` = "", `Model 1 P` = "",
+    `Model 2 HR (95% CI)` = "", `Model 2 P` = "",
+    `Model 3 HR (95% CI)` = "", `Model 3 P` = "",
+    check.names = FALSE, stringsAsFactors = FALSE
+  )
+  for (mn in c("Model1", "Model2", "Model3")) {
+    tr <- .fit_ordinal_trend(d, gnum, models[[mn]])
+    trend_row[[paste0(gsub("Model", "Model ", mn), " HR (95% CI)")]] <- tr$hr_ci
+    trend_row[[paste0(gsub("Model", "Model ", mn), " P")]] <- tr$p_cell
+  }
+  rbind(wide, trend_row)
+}
+
+.append_s4_trend_rows <- function(s4_df, d, sosm_lock, wpr_lock, train_aug, models) {
+  ia_loc <- .ref_ia(); ib_loc <- .ref_ib()
+  rows <- list()
+  for (ix in c(ia_loc, ib_loc)) {
+    lock <- if (identical(ix, ia_loc)) sosm_lock else wpr_lock
+    ## tertile 1/2/3 from development-frozen cutpoints
+    tfac <- .ref_assoc_tertile3(d, ix, lock, train_aug)
+    tnum <- suppressWarnings(as.integer(tfac))
+    for (mn in c("Model1", "Model2", "Model3")) {
+      tr <- .fit_ordinal_trend(d, tnum, models[[mn]])
+      rows[[length(rows) + 1L]] <- data.frame(
+        database = "MIMIC IV", stratum = "Overall", index = ix,
+        coding = "tertile", model = mn, group = "P for trend",
+        hr_ci = tr$hr_ci, p_cell = tr$p_cell, p = tr$p,
+        n = nrow(d),
+        events = sum(suppressWarnings(as.integer(d$fustatus)) == 1L, na.rm = TRUE),
+        status = if (nzchar(tr$hr_ci) && !identical(tr$hr_ci, "NE")) {
+          "estimable"
+        } else {
+          "not_estimable"
+        },
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  keep <- intersect(names(s4_df), names(rows[[1L]]))
+  rbind(s4_df[, keep, drop = FALSE], do.call(rbind, rows)[, keep, drop = FALSE])
+}
+
 cov_foot <- paste0(
   "Model 1: unadjusted. Model 2: age and sex. Model 3: age, sex, and univariate-significant ",
   "clinical covariates with VIF < 5 (", paste(m3_locked, collapse = ", "),
@@ -187,7 +271,12 @@ cov_foot <- paste0(
 
 # ---- Table 2 ----
 t2 <- .fit_joint_long(dat)
-t2_w <- .wide_table2(t2)
+models_locked <- list(
+  Model1 = character(0),
+  Model2 = intersect(m2_locked, names(dat)),
+  Model3 = intersect(m3_locked, names(dat))
+)
+t2_w <- .append_table2_trend(.wide_table2(t2), dat, joint_lock, models_locked)
 n_lab <- sprintf(
   "N (events) = %s (%s).",
   format(t2$n[[1]], big.mark = ","), format(t2$events[[1]], big.mark = ",")
@@ -199,6 +288,7 @@ t2_title <- sprintf(
 t2_notes <- c(
   cov_foot,
   "Group1 is the low/low reference (each index high = upper tertile frozen on the MIMIC-IV development set).",
+  "P for trend: ordinal coding of joint groups (1–4) in the same Cox model.",
   n_lab,
   "Outcome: 28-day all-cause mortality."
 )
@@ -207,6 +297,7 @@ t2_notes <- c(
 s4 <- ref_assoc_index_cox_table(
   "MIMIC_IV", dat, sosm_lock, wpr_lock, train_aug, ctx2, cutoff, ctx2$config
 )
+s4 <- .append_s4_trend_rows(s4, dat, sosm_lock, wpr_lock, train_aug, models_locked)
 # force Model3 rows already from models; re-check Group not needed
 s4_title <- sprintf(
   "Table S4. Cox associations of %s and %s (continuous and tertiles) with 28-day all-cause mortality, overall cohort.",
@@ -220,6 +311,7 @@ names(s4_export) <- c(
 s4_notes <- c(
   cov_foot,
   "Overall cohort. Continuous = per 1 unit; tertiles use development-frozen cutpoints.",
+  "P for trend: ordinal coding of tertiles (1–3) in the same Cox model.",
   "Outcome: 28-day all-cause mortality."
 )
 

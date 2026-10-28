@@ -524,13 +524,43 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
   list(data_mice = data_mice, dropped = unique(dropped))
 }
 
+.imp01_expand_mice_method <- function(data_mice, method_token) {
+  ## Wang 2025 / NPJ-codes：IterativeImputer(LinearRegression)；正文写作 Logistic MI。
+  ## 引擎映射：连续 → norm（贝叶斯线性回归 MI），二分类 → logreg，多分类 → polyreg。
+  tok <- tolower(as.character(method_token %||% "pmm")[1L])
+  if (!tok %in% c("norm", "lr_mi", "linear", "linear_mi", "logistic_mi", "logreg_mi")) {
+    return(NULL)
+  }
+  meth <- vapply(names(data_mice), function(nm) {
+    x <- data_mice[[nm]]
+    if (is.numeric(x) && !is.factor(x)) return("norm")
+    if (is.logical(x)) return("logreg")
+    if (is.factor(x) || is.character(x)) {
+      nlev <- length(unique(stats::na.omit(as.character(x))))
+      if (nlev <= 2L) return("logreg")
+      return("polyreg")
+    }
+    "pmm"
+  }, character(1L))
+  names(meth) <- names(data_mice)
+  attr(meth, "tcf_alias") <- tok
+  meth
+}
+
 .imp01_run_mice <- function(data_mice, method, m, max_iter, seed, complete_action,
                               ignore = NULL, ridge = 1e-2, cor_threshold = 0.95,
                               allow_cart_fallback = FALSE) {
   method_req <- as.character(method %||% "pmm")[1L]
   method <- method_req
+  meth_vec <- .imp01_expand_mice_method(data_mice, method_req)
+  if (!is.null(meth_vec)) {
+    method <- meth_vec
+    cli::cli_alert_info(
+      "MICE method={method_req} → 分类型展开（norm/logreg/polyreg；对齐 Wang2025 线性回归 MI / 正文 Logistic MI）: numeric={sum(meth_vec=='norm')}, binary={sum(meth_vec=='logreg')}, multi={sum(meth_vec=='polyreg')}"
+    )
+  }
   # 配置写 pmm 时改走数值稳定 PMM（算法仍为 predictive mean matching）
-  if (identical(tolower(method), "pmm")) {
+  if (is.character(method) && length(method) == 1L && identical(tolower(method), "pmm")) {
     if (!exists("mice.impute.pmm_stable", mode = "function", inherits = TRUE)) {
       stop("mice.impute.pmm_stable 未加载（检查 Blocks/03_imputation/01block_imputation.R）", call. = FALSE)
     }
@@ -542,8 +572,10 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
   cor_threshold <- as.numeric(cor_threshold %||% 0.95)[1L]
 
   dropped_hold <- NULL
-  if (tolower(method_req) %in% c("pmm", "norm", "norm.nob", "norm.boot", "norm.predict") ||
-      identical(method, "pmm_stable")) {
+  if (tolower(method_req) %in% c("pmm", "norm", "norm.nob", "norm.boot", "norm.predict",
+                                  "lr_mi", "linear", "linear_mi", "logistic_mi", "logreg_mi") ||
+      identical(method, "pmm_stable") ||
+      (is.character(method) && any(method %in% c("norm", "norm.predict", "pmm_stable")))) {
     for (thr in unique(c(cor_threshold, 0.95, 0.90, 0.85))) {
       pruned <- .imp01_prune_mice_collinearity(data_mice, cor_threshold = thr)
       if (length(pruned$dropped)) {
@@ -555,6 +587,24 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
         }
       }
       data_mice <- pruned$data_mice
+    }
+  }
+
+  ## 共线剪枝会删列：method 向量必须与当前 data_mice 列对齐（否则 mice: Length of method differs）
+  if (is.character(method) && length(method) > 1L) {
+    re <- .imp01_expand_mice_method(data_mice, method_req)
+    if (!is.null(re)) {
+      method <- re
+    } else {
+      method <- method[intersect(names(method), names(data_mice))]
+      method <- method[names(data_mice)]
+    }
+    if (length(method) != ncol(data_mice)) {
+      stop(
+        "MICE method 向量长度(", length(method), ") != ncol(data_mice)(", ncol(data_mice),
+        ")；requested=", method_req,
+        call. = FALSE
+      )
     }
   }
 
@@ -597,8 +647,13 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
   }
 
   run_once <- function(meth, ridge_val, pred_mat = pred) {
+    meth_lab <- if (length(meth) > 1L) {
+      paste0("vector[", paste(names(sort(table(meth), decreasing = TRUE)), collapse = "/"), "]")
+    } else {
+      as.character(meth)[1L]
+    }
     cli::cli_h2(
-      "Running MICE (method={meth}, m={m}, maxit={max_iter}, seed={seed}, ridge={ridge_val})"
+      "Running MICE (method={meth_lab}, m={m}, maxit={max_iter}, seed={seed}, ridge={ridge_val})"
     )
     mice_args <- list(
       data = data_mice, m = m, seed = seed, method = meth,
@@ -652,13 +707,14 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
     }
   }
   if (is.null(imp) && isTRUE(allow_cart_fallback) &&
-      !tolower(method) %in% c("cart") && !identical(tolower(method_req), "cart")) {
-    cli::cli_alert_warning("PMM 仍失败；config 允许 cart 回退（m={m}）")
+      !(is.character(method) && length(method) == 1L && tolower(method) %in% c("cart")) &&
+      !identical(tolower(method_req), "cart")) {
+    cli::cli_alert_warning("MICE 仍失败；config 允许 cart 回退（m={m}）")
     imp <- tryCatch(run_once("cart", max(ridge, 1e-3), pred), error = function(e) { last_err <<- e; NULL })
   }
   if (is.null(imp)) {
     stop(
-      "MICE PMM 失败（pmm_stable + 共线剪枝 + ridge + quickpred 仍失败）: ",
+      "MICE 失败（共线剪枝 + ridge + quickpred 仍失败；requested=", method_req, "）: ",
       if (!is.null(last_err)) conditionMessage(last_err) else "unknown",
       call. = FALSE
     )
