@@ -40,7 +40,7 @@
   "CRI_I",        # Total_Cholesterol / HDL
   "CRI_II",       # LDL / HDL
   "LCI",          # TG * TC * LDL / (HDL^4)
-  "CHG",          # log(Total_Cholesterol * Glucose / (HDL/2))
+  "CHG",          # log(Total_Cholesterol * Glucose / (2 * HDL))
   # 糖代谢
   "SHR",          # Glucose / (28.7 * HbA1c - 46.7)
   "HGI",          # HbA1c - (0.01 * Glucose + 5.04)
@@ -56,6 +56,9 @@
   "log2LAR",      # log2(LD / Albumin)
   # 肾功能
   "CAR",          # Creatinine / Albumin
+  "SAR",          # 预计算：第一次肌酐 / 基线肌酐（宽表列，非单次 Creatinine 重算）
+  "CrCV",         # 预计算：肌酐标准差 / 肌酐均值
+  "GV",           # 预计算：血糖标准差 / 血糖均值
   "UA_CR",        # UA/CR = Uric_Acid(mg/dL) / Creatinine(mg/dL)
   "BUN_Cr",       # BUN / Creatinine
   # 血液学

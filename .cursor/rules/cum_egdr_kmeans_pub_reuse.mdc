@@ -33,6 +33,15 @@ alwaysApply: true
 
 ## 铁律
 
+0. **发表口径（ELSA WWI 2026-10 审计，下次禁止再犯）**
+   - **MICE 表禁止壳**：Table S3/S4 走 `ckm_stroke_fit_mice_assoc()`。协变量无缺失则函数返回 NULL、不出表。`ckm_stroke_assert_mice_not_shell` 拒绝空单元格和与完整病例逐格相同的 Model 2/3。`ckm_stroke_export_assoc_xlsx` 拒绝脚注里的 mirror complete-case / missingness near-zero。
+   - **类别名跟轨迹走**：`ckm_stroke_class_display_labels()`。|均值变化| < 类间 Wave4 极差的 25% 时，禁止写成 Rapid decrease。内部因子水平可以仍叫 `Rapid_decrease`，脚注和图例必须用展示名。
+   - **连续亚组森林默认每 1 单位**：`ckm_stroke_forest_free_stats` 的 `scale` 默认 `unit`。`scale="sd"` 必须显式 `allow_per_sd=TRUE`。标题写 1-SD 而估计是每 1 单位时直接停止。`expo_lab` 默认跟 `index_lab`，写了 eGDR 而指标不是 eGDR 时停止。Model 3 有缺失协变量且未传 `mice_keep` 时自动插补，Overall n 用分析集。分层变量本身不插补。
+   - **无序类别不做 P for trend**。三分位趋势留在 Table 2。参照类 0 事件的整层删掉。NE 的 P 经 `ckm_stroke_p_for_estimate_cell` 写成破折号。
+   - **OR/HR 三位小数**。两位会把不同模型收成同一字符串。未舍入的连续项系数写 `_internal/*_continuous_full_precision.csv`。
+   - **图 1 不印参与者 ID**；人数千分位用逗号，不用空格。
+   - **结局、调整集、k-means 参数写进脚注**：布尔定义、单因素界值、VIF 界值、成分变量不入模、且不得写 fully adjusted。题名写关联分析，不写人工智能预测。
+
 1. **暴露名跟指标走**：`index_lab` 传入 Table2/S1 构建；禁止表内残留他指标的 `eGDR` 字样（eGDR 课题除外）。
 2. **年龄门控写 config**：`data_clean$age_filter = "Age >= 50"`（或课题界值）；本流水线无 `data_clean` block，靠 ingest 落实。
 3. **发表定稿走 rebuild**：workers 产出是草稿；定稿 Tables/Figures/软件版本以 rebuild / redraw 为准。

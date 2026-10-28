@@ -1128,9 +1128,19 @@ block_imputation <- function(ctx, ...) {
     library(ggplot2)
   })
 
-  cfg      <- ctx$config
+  cfg <- ctx$config
+  if (exists("mi_rubin_normalize_config", mode = "function")) {
+    cfg <- mi_rubin_normalize_config(cfg)
+    ctx$config <- cfg
+  }
   imp_cfg  <- cfg$imputation %||% list()
   fit_on   <- imp_cfg$fit_on %||% "all"
+  if (!identical(tolower(as.character(imp_cfg$method %||% "cart")[1L]), "none") &&
+      isTRUE(imp_cfg$rubin_pool %||% TRUE)) {
+    cli::cli_alert_info(
+      "MICE m={as.integer(imp_cfg$m %||% 5L)}；操作层 complete#{as.integer(imp_cfg$complete_action %||% 1L)}；推断回归须 Rubin 合并"
+    )
+  }
 
   if (identical(fit_on, "train")) {
     outcome_col <- cfg$data$outcome_column %||% "Disease"

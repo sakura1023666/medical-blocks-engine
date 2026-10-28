@@ -215,6 +215,25 @@ if (file.exists(.study_panel)) {
 .circ_exp_lab <- "Frailty Index"
 .circ_med_lab <- "Depression"
 .circ_out_lab <- "Hip fracture"
+.ev_ag <- "Hip_Fracture"
+.ev_rg <- "No_Fracture"
+.cl_meta <- tryCatch(cross_lagged_study_meta(study_root), error = function(e) NULL)
+if (!is.null(.cl_meta)) {
+  .ev_ag <- as.character(.cl_meta$analysis_group %||% .ev_ag)[1L]
+  .ev_rg <- as.character(.cl_meta$reference_group %||% .ev_rg)[1L]
+  if (!is.null(.cl_meta$labels$outcome_label) &&
+      nzchar(as.character(.cl_meta$labels$outcome_label)[1L])) {
+    .circ_out_lab <- as.character(.cl_meta$labels$outcome_label)[1L]
+  }
+  if (!is.null(.cl_meta$labels$mediator_label) &&
+      nzchar(as.character(.cl_meta$labels$mediator_label)[1L])) {
+    .circ_med_lab <- as.character(.cl_meta$labels$mediator_label)[1L]
+  }
+  if (!is.null(.cl_meta$labels$exposure_label) &&
+      nzchar(as.character(.cl_meta$labels$exposure_label)[1L])) {
+    .circ_exp_lab <- as.character(.cl_meta$labels$exposure_label)[1L]
+  }
+}
 if (exists(".circadian_index_var", inherits = TRUE)) {
   .circ_exp_lab <- as.character(
     if (exists(".circadian_exposure_label", inherits = TRUE) &&
@@ -226,6 +245,8 @@ if (exists(".circadian_index_var", inherits = TRUE)) {
   )[1L]
   .circ_med_lab <- as.character(.circadian_mediator_label %||% "Frailty Index")[1L]
   .circ_out_lab <- as.character(.circadian_outcome_label %||% "Circadian disorder")[1L]
+  .ev_ag <- "Circadian_Disorder"
+  .ev_rg <- "No_Disorder"
 }
 .change_leisure <- exists(".circadian_index_var", inherits = TRUE) &&
   identical(as.character(.circadian_index_var)[1L], "Leisure_score")
@@ -353,16 +374,17 @@ for (db in dbs) {
       project = list(
         database = db,
         output_dir = out_dir,
-        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
-        reference_group = if (exists(".circadian_index_var", inherits = TRUE)) "No_Disorder" else "No_Fracture"
+        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
+        reference_group = if (exists(".circadian_index_var", inherits = TRUE)) "No_Disorder" else .ev_rg
       ),
       data = list(outcome_column = "Disease_Group", id_column = "ID"),
       incidence = list(index_var = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
       mediation_longitudinal = list(
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
-        mediator = "FI",
+        # 昼夜：中介=FI；虚弱常规/抑郁×高血压：中介=中间波抑郁连续分
+        mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
         outcome = "Disease_Group",
-        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
+        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         sims = sims,
         seed = 40595747L
       ),
@@ -478,8 +500,8 @@ for (db in dbs) {
       project = list(
         database = db,
         output_dir = out_dir,
-        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
-        reference_group = if (exists(".circadian_index_var", inherits = TRUE)) "No_Disorder" else "No_Fracture"
+        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
+        reference_group = if (exists(".circadian_index_var", inherits = TRUE)) "No_Disorder" else .ev_rg
       ),
       data = list(outcome_column = "Disease_Group", id_column = "ID"),
       incidence = list(index_var = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
@@ -487,10 +509,10 @@ for (db in dbs) {
         model1 = m1, model2 = m2,
         exposure = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
         mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
-        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
+        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
+        mediator_label = .circ_med_lab,
+        outcome_label = .circ_out_lab
       ),
       cross_lagged_forest_or = list(),
       cross_lagged_network = if (exists(".circadian_node_stems", inherits = TRUE)) {
@@ -503,7 +525,7 @@ for (db in dbs) {
         max_nodes = 8L
         )
       } else {
-        list(fi_items_only = TRUE, include_outcome = TRUE, include_lipids = TRUE)
+        list(fi_items_only = TRUE, include_outcome = TRUE, include_lipids = FALSE)
       },
       cross_lagged_country_year_bar = list(year_col = "Year", country_col = "Country"),
       cross_lagged_fig1_group = list(year_col = "Year"),
@@ -520,15 +542,15 @@ for (db in dbs) {
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
         mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
         outcome = "Disease_Group",
-        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
+        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         sims = sims, seed = 40595747L,
         diagram_enable = TRUE,
         path_use_covariates = TRUE,
         covariates = setdiff(as.character(m2), c("Age", "SBP", "DBP", "MBP")),
         covariates_by_db = .med_lock$covariates_by_db %||% NULL,
-        treat_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
+        treat_label = .circ_exp_lab,
+        mediator_label = .circ_med_lab,
+        outcome_label = .circ_out_lab
       )
     )
   )
@@ -604,8 +626,8 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
     config = list(
       project = list(
         database = "Pooled", output_dir = out_dir,
-        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
-        reference_group = if (exists(".circadian_index_var", inherits = TRUE)) "No_Disorder" else "No_Fracture"
+        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
+        reference_group = if (exists(".circadian_index_var", inherits = TRUE)) "No_Disorder" else .ev_rg
       ),
       data = list(outcome_column = "Disease_Group"),
       incidence = list(index_var = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
@@ -628,10 +650,10 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
         model2 = m2p,
         exposure = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
         mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
-        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
-        exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
+        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
+        exposure_label = .circ_exp_lab,
+        mediator_label = .circ_med_lab,
+        outcome_label = .circ_out_lab
       ),
       cross_lagged_change_logistic = list(
         scheme = .lock_scheme,
@@ -641,15 +663,15 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
         mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
         outcome = "Disease_Group",
-        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture",
+        outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         sims = sims, seed = 40595747L,
         diagram_enable = TRUE,
         path_use_covariates = TRUE,
         covariates = setdiff(as.character(m2p), c("Age", "SBP", "DBP", "MBP")),
         covariates_by_db = .med_lock$covariates_by_db %||% NULL,
-        treat_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
-        mediator_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_med_lab else "Depression",
-        outcome_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_out_lab else "Hip fracture"
+        treat_label = .circ_exp_lab,
+        mediator_label = .circ_med_lab,
+        outcome_label = .circ_out_lab
       )
     )
   )
@@ -682,17 +704,70 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
     }
   }
 
-  # pooled flowchart PDF
+  # pooled flowchart PDF：各队列 final N 主列（发病 CONSORT 风格；汇总主文 Fig1 仍用分库三拼）
   pdf_path <- file.path(out_dir, "Figures/Figure 1-Pooled. Longitudinal inclusion exclusion flowchart.pdf")
-  grDevices::pdf(pdf_path, width = 8.5, height = 8)
-  graphics::plot.new()
-  graphics::title("Pooled — attrition by cohort")
   if (!is.null(flow_rows) && nrow(flow_rows)) {
-    txt <- apply(flow_rows, 1, function(r)
-      sprintf("%s: final N=%s, events=%s, drop_no_FU=%s", r["cohort"], r["n_final"], r["n_event"], r["n_drop_no_followup"]))
-    graphics::text(0.05, seq(0.85, 0.4, length.out = length(txt)), labels = txt, adj = 0, cex = 1.1)
+    if (!exists("attrition_draw_pdf", mode = "function")) {
+      .al <- file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd()), "R/attrition_log.R")
+      if (!file.exists(.al)) .al <- file.path(getwd(), "R/attrition_log.R")
+      if (file.exists(.al)) source(.al, local = FALSE)
+    }
+    draw_p <- data.frame(
+      step = paste0(flow_rows$cohort, " analytic sample"),
+      n = as.integer(flow_rows$n_final),
+      exclude_label = NA_character_,
+      step_id = paste0("cohort_", flow_rows$cohort),
+      stringsAsFactors = FALSE
+    )
+    # 非递减纳排链：只展示各队列终局 N，禁止假 Exclude
+    ok_p <- FALSE
+    if (exists("attrition_draw_pdf", mode = "function") && nrow(draw_p) >= 1L) {
+      # 用单队列合计一条最终框 + 脚注分队列，避免假递减
+      n_sum <- sum(as.integer(flow_rows$n_final), na.rm = TRUE)
+      n_ev <- sum(as.integer(flow_rows$n_event), na.rm = TRUE)
+      rows1 <- data.frame(
+        step = "Pooled analytic sample (CHARLS + ELSA + HRS)",
+        n = as.integer(n_sum),
+        exclude_label = NA_character_,
+        step_id = "analytic_pooled",
+        stringsAsFactors = FALSE
+      )
+      fn <- apply(flow_rows, 1L, function(r) {
+        sprintf(
+          "%s: N=%s (events=%s; drop no FU=%s)",
+          r[["cohort"]],
+          format(as.integer(r[["n_final"]]), big.mark = ","),
+          format(as.integer(r[["n_event"]]), big.mark = ","),
+          format(as.integer(r[["n_drop_no_followup"]]), big.mark = ",")
+        )
+      })
+      ok_p <- isTRUE(tryCatch(
+        attrition_draw_pdf(
+          rows1,
+          "Figure 1. Pooled — Inclusion / Exclusion",
+          pdf_path,
+          footnote = fn,
+          fork = list(
+            left_label = "Event",
+            left_n = as.integer(n_ev),
+            right_label = "No event",
+            right_n = as.integer(max(0L, n_sum - n_ev))
+          )
+        ),
+        error = function(e) FALSE
+      ))
+    }
+    if (!isTRUE(ok_p)) {
+      grDevices::pdf(pdf_path, width = 8.5, height = 8)
+      graphics::plot.new()
+      graphics::title("Pooled — attrition by cohort")
+      txt <- apply(flow_rows, 1, function(r)
+        sprintf("%s: final N=%s, events=%s, drop_no_FU=%s",
+                r["cohort"], r["n_final"], r["n_event"], r["n_drop_no_followup"]))
+      graphics::text(0.05, seq(0.85, 0.4, length.out = length(txt)), labels = txt, adj = 0, cex = 1.1)
+      grDevices::dev.off()
+    }
   }
-  grDevices::dev.off()
 }
 
 # ── Table S5：自动设计（2年=two_wave；≥3年=three_plus）──────────────────────
@@ -774,7 +849,7 @@ for (db in c("CHARLS", "ELSA", "HRS")) {
     config = list(
       project = list(
         database = db, output_dir = out_dir,
-        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture"
+        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag
       ),
       cross_lagged_long_prepare = list(panel = panel),
       cross_lagged_change_logistic = list(
@@ -819,7 +894,7 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs) &&
     config = list(
       project = list(
         database = "Pooled", output_dir = out_dir,
-        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else "Hip_Fracture"
+        analysis_group = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag
       ),
       cross_lagged_change_logistic = list(
         scheme = .lock_scheme,
@@ -885,8 +960,21 @@ s7_rds <- file.path(
   paste0("phase3_long_", .long_cohorts),
   "Tables", "Table_Mediation_Longitudinal_pub.rds"
 )
-s7_out <- file.path(study_root, "summary_result", "table",
-                    "Table S7. Longitudinal mediation Frailty Index→Depression→Hip fracture.xlsx")
+.s7_arrow <- intToUtf8(0x2192L)
+.s7_name <- if (exists(".circadian_index_var", inherits = TRUE)) {
+  paste0(
+    "Table S7. Longitudinal mediation ",
+    as.character(.circ_exp_lab %||% "Exposure")[1L], .s7_arrow,
+    as.character(.circ_med_lab %||% "FI")[1L], .s7_arrow,
+    as.character(.circ_out_lab %||% "Circadian disorder")[1L], ".xlsx"
+  )
+} else {
+  paste0(
+    "Table S7. Longitudinal mediation Frailty Index", .s7_arrow,
+    "Depression", .s7_arrow, "Hip fracture.xlsx"
+  )
+}
+s7_out <- file.path(study_root, "summary_result", "table", .s7_name)
 if (any(file.exists(s7_rds))) {
   tryCatch({
     dir.create(dirname(s7_out), recursive = TRUE, showWarnings = FALSE)

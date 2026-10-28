@@ -133,6 +133,9 @@ pipeline_apply_pub_digits <- function(cfg = NULL) {
   if (!is.null(d$desc_trim)) {
     options(medical_blocks.pub_digits.desc_trim = isTRUE(d$desc_trim))
   }
+  if (exists("pub_lock_gtsummary_pvalue", mode = "function")) {
+    pub_lock_gtsummary_pvalue()
+  }
   invisible(.pipeline_pub_digits())
 }
 
@@ -163,6 +166,8 @@ pub_format_p_cell <- function(p, digits = NULL) {
   if (!nzchar(s) || s %in% c("Ref", "ref", "NA", "NaN")) {
     return(if (s %in% c("NA", "NaN")) "" else s)
   }
+  # 已是 "<0.001" 时禁止再 as.numeric / 剥 "<"，否则会变成 0.001
+  if (grepl("^<", s)) return("<0.001")
   pn <- suppressWarnings(as.numeric(s))
   if (!is.finite(pn)) return(s)
   dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
@@ -3050,7 +3055,46 @@ filter_redundant_nhanes_index_group_columns <- function(vars, cfg, data_column_n
 }
 
 # ── 发表图表命名：「Figure|Table …-数据库名. 描述」（库名在编号后，不在最前）────────
+# 单库：文件名/表题不加 -库名（与 pv2_pub_names / 用户口径一致）
+pub_config_is_single_db <- function(config = NULL) {
+  if (is.null(config)) {
+    return(isTRUE(getOption("pipeline.single_db", FALSE)))
+  }
+  bc <- config$ml_batch %||% config$incidence_batch %||% list()
+  dd <- config$dual_db %||% list()
+  pr <- config$project %||% list()
+  pub <- config$pub %||% list()
+  ## 显式单库 / 关闭 dual_db / 无次库 → 文件名不加 -库名
+  dual_off <- isFALSE(dd$enable %||% TRUE) ||
+    identical(tolower(as.character(dd$enable %||% "true")[1L]), "false")
+  no_secondary <- is.null(dd$secondary) ||
+    identical(toupper(as.character((dd$secondary %||% list())$name %||% "UNUSED")[1L]), "UNUSED")
+  isTRUE(bc$single_db) || isTRUE(dd$single_db) || isTRUE(pr$single_db) ||
+    isTRUE(pub$omit_db_in_names) ||
+    identical(tolower(as.character(bc$pub_figure_scheme %||% "")[1L]), "ml_single_standard") ||
+    (isTRUE(dual_off) && isTRUE(no_secondary))
+}
+
+#' 按 config 设置发表命名 options（单库清空 database_name）
+pub_apply_naming_options <- function(config = NULL, database_name = NULL) {
+  single <- pub_config_is_single_db(config)
+  options(pipeline.single_db = single)
+  if (isTRUE(single)) {
+    options(pipeline.database_name = "")
+    return(invisible(""))
+  }
+  nm <- database_name
+  if (is.null(nm) && !is.null(config)) {
+    prj <- config$project %||% list()
+    nm <- prj$database %||% prj$database_type %||% getOption("pipeline.database_name")
+  }
+  nm <- trimws(as.character(nm %||% "UnknownDB")[1L])
+  options(pipeline.database_name = nm)
+  invisible(nm)
+}
+
 .get_db_name_for_naming <- function(sanitize_for_file = FALSE) {
+  if (isTRUE(getOption("pipeline.single_db", FALSE))) return("")
   opt <- getOption("pipeline.database_name")
   if (!is.null(opt)) {
     nm <- trimws(as.character(opt)[1L])
@@ -4818,35 +4862,41 @@ logistic_glm_pretty_var <- function(v) {
   pipeline_var_display_name(v, cfg = NULL)
 }
 
-logistic_glm_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL, Crude = NULL) {
-  if (exists("pipeline_model3_table_footnotes", mode = "function")) {
-    return(pipeline_model3_table_footnotes(M1, M2, M3, m3_significant, Crude = Crude))
-  }
-  m1_txt <- if (length(M1)) {
-    paste(vapply(M1, logistic_glm_pretty_var, character(1L)), collapse = ", ")
+logistic_glm_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL,
+                                         Crude = NULL, ctx = NULL) {
+  notes <- if (exists("pipeline_model3_table_footnotes", mode = "function")) {
+    pipeline_model3_table_footnotes(M1, M2, M3, m3_significant, Crude = Crude, ctx = ctx)
   } else {
-    "none"
-  }
-  m2_txt <- if (length(M2)) {
-    paste(vapply(M2, logistic_glm_pretty_var, character(1L)), collapse = ", ")
-  } else {
-    "none"
-  }
-  Crude <- as.character(Crude %||% character(0))
-  crude_line <- if (length(Crude)) {
-    paste0(
-      "The Crude Model was adjusted by: ",
-      paste(vapply(Crude, logistic_glm_pretty_var, character(1L)), collapse = ", "),
-      "."
+    m1_txt <- if (length(M1)) {
+      paste(vapply(M1, logistic_glm_pretty_var, character(1L)), collapse = ", ")
+    } else {
+      "none"
+    }
+    m2_txt <- if (length(M2)) {
+      paste(vapply(M2, logistic_glm_pretty_var, character(1L)), collapse = ", ")
+    } else {
+      "none"
+    }
+    Crude <- as.character(Crude %||% character(0))
+    crude_line <- if (length(Crude)) {
+      paste0(
+        "The Crude Model was adjusted by: ",
+        paste(vapply(Crude, logistic_glm_pretty_var, character(1L)), collapse = ", "),
+        "."
+      )
+    } else {
+      "The Crude Model was non-adjusted."
+    }
+    c(
+      crude_line,
+      paste0("The Model 1 was adjusted by: ", m1_txt, "."),
+      paste0("The Model 2 was adjusted by: ", m2_txt, ".")
     )
-  } else {
-    "The Crude Model was non-adjusted."
   }
-  c(
-    crude_line,
-    paste0("The Model 1 was adjusted by: ", m1_txt, "."),
-    paste0("The Model 2 was adjusted by: ", m2_txt, ".")
-  )
+  if (exists("mi_append_table_footnotes", mode = "function")) {
+    notes <- mi_append_table_footnotes(notes, ctx)
+  }
+  notes
 }
 
 # ── 导出 SCI 标准三线表到 Excel ───────────────────────────────────────────────
@@ -5944,6 +5994,7 @@ table1_booktabs_latex_document <- function(
 # level_row_idx：tbl_df_new 中行号（含第 1 行表头），首列用居中；Table S1 分类水平行由 block_imputation 传入
 sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "Table",
                                             footnotes = NULL, level_row_idx = NULL,
+                                            section_titles = NULL,
                                             blank_na_cells = TRUE) {
   df_body <- as.data.frame(df_body, stringsAsFactors = FALSE)
   if (isTRUE(blank_na_cells)) {
@@ -5971,9 +6022,15 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
   } else {
     as.integer(level_row_idx)
   }
+  sec_map <- NULL
+  if (!is.null(section_titles) && length(section_titles)) {
+    sec <- unique(as.character(section_titles))
+    sec <- sec[nzchar(sec)]
+    if (length(sec)) sec_map <- stats::setNames(rep(2L, length(sec)), sec)
+  }
   .sci_xlsx_write_three_line_workbook(
     filepath, title %||% "", tbl_df_new, sheet = sheet,
-    footnotes = footnotes, insert_map = NULL, level_row_idx = lr
+    footnotes = footnotes, insert_map = sec_map, level_row_idx = lr
   )
 }
 
@@ -6410,6 +6467,22 @@ render_queued_tables <- function(ctx) {
     if (!isTRUE(it$excel_use_prepared %||% TRUE)) {
       df_raw <- .pub_df_cells_underscores_to_spaces(df_raw)
     }
+    # 分类水平行：首列两个及以上前导空格。xlsx 在 trim 后无法再识别，须在此记成
+    # tbl 行号（含表头行 +1），与 Table S1 的 excel_level_row_idx 同一口径，首列居中。
+    lr_resolved <- it$excel_level_row_idx %||% NULL
+    if (is.null(lr_resolved) || !length(lr_resolved)) {
+      if (is.data.frame(df_raw) && ncol(df_raw) >= 1L) {
+        v1_indent <- as.character(df_raw[[1L]])
+        hit_indent <- which(grepl("^\\s{2,}", v1_indent) & nzchar(trimws(v1_indent)))
+        if (length(hit_indent)) lr_resolved <- as.integer(hit_indent + 1L)
+      }
+    }
+    if (!is.null(lr_resolved) && length(lr_resolved)) {
+      lr_resolved <- as.integer(lr_resolved)
+      lr_resolved <- lr_resolved[is.finite(lr_resolved)]
+    } else {
+      lr_resolved <- integer(0)
+    }
     title_render <- .pub_charvec_underscores(it$title %||% "")
     df_tex <- .prepare_df_for_tex(df_raw, it$filepath %||% "")
     df_xlsx <- if (isTRUE(it$excel_use_prepared %||% TRUE)) df_tex else df_raw
@@ -6455,8 +6528,7 @@ render_queued_tables <- function(ctx) {
             footnotes = if (length(tf) > 0L) tf else NULL
           )
         } else {
-          lr_x <- it$excel_level_row_idx %||% NULL
-          if (!is.null(lr_x) && length(lr_x)) lr_x <- as.integer(lr_x)
+          lr_x <- if (length(lr_resolved)) lr_resolved else NULL
           sci_xlsx_single_header_booktabs(
             it$filepath, title_render, df_x, sheet = sh,
             footnotes = if (length(tf) > 0L) tf else NULL,
@@ -6548,7 +6620,7 @@ render_queued_tables <- function(ctx) {
       }
       # 单列表头：excel_level_row_idx = 含表头时的 Excel 行号；TeX 表体第 i 行对应 idx - 1。
       # Table S1：.prepare_df_for_tex 对首列 trimws，无法用「前导空格」识别分类水平，须与 xlsx 共用 excel_level_row_idx。
-      lx_lv <- it$excel_level_row_idx %||% integer(0)
+      lx_lv <- if (length(lr_resolved)) lr_resolved else integer(0)
       if (length(lx_lv) > 0L) {
         lx_lv <- as.integer(lx_lv) - 1L
         lx_lv <- lx_lv[is.finite(lx_lv) & lx_lv >= 1L & lx_lv <= nrow(df)]
@@ -7004,7 +7076,11 @@ run_block <- function(ctx, block_name, ...) {
   
   proj_cfg <- ctx$config$project %||% list()
   db_name_for_naming <- proj_cfg$database %||% proj_cfg$database_type %||% "UnknownDB"
-  options(pipeline.database_name = db_name_for_naming)
+  if (exists("pub_apply_naming_options", mode = "function")) {
+    pub_apply_naming_options(ctx$config, database_name = db_name_for_naming)
+  } else {
+    options(pipeline.database_name = db_name_for_naming)
+  }
   entry <- .block_registry[[block_name]]
   cli::cli_rule(left = paste0("Block: ", block_name))
   cli::cli_alert_info("Block output directory: {.file {block_output_dir}}")
@@ -7201,6 +7277,21 @@ fmt_pval <- function(p, digits = NULL) {
   if (!is.finite(dig) || dig < 0L) dig <- 3L
   ifelse(is.na(p), NA_character_,
          ifelse(p < 0.001, "<0.001", formatC(round(p, dig), format = "f", digits = dig)))
+}
+
+#' 把 gtsummary 默认 p 格式锁成 fmt_pval。
+#' style_pvalue() 默认 digits=1：0.185 显示成 0.2，再补三位就成 0.200。
+#' 凡 source 了 utils.R 的课题，add_p() 即使忘了 pvalue_fun 也走这一口径。
+pub_lock_gtsummary_pvalue <- function() {
+  if (!requireNamespace("gtsummary", quietly = TRUE)) return(invisible(FALSE))
+  cur <- tryCatch(gtsummary::get_gtsummary_theme(), error = function(e) NULL)
+  if (is.null(cur) || !is.list(cur)) cur <- list()
+  cur[["pkgwide-fn:pvalue_fun"]] <- function(x, ...) fmt_pval(x)
+  ok <- tryCatch({
+    gtsummary::set_gtsummary_theme(cur)
+    TRUE
+  }, error = function(e) FALSE)
+  invisible(isTRUE(ok))
 }
 
 # 单因素 / 附表：OR|HR (lo-hi, p=…)；效应量走 est 位数，描述统计仍用 fmt_num
@@ -8168,4 +8259,7 @@ local({
   )
   path_uv <- cand_uv[file.exists(cand_uv)][1L]
   if (!is.na(path_uv) && nzchar(path_uv)) source(path_uv, local = FALSE)
+  if (exists("pub_lock_gtsummary_pvalue", mode = "function")) {
+    pub_lock_gtsummary_pvalue()
+  }
 })

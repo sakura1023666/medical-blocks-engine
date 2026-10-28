@@ -64,6 +64,10 @@ feishu_on      <- isTRUE(.study$feishu_enable %||% FALSE)
 outcome_col    <- .study$outcome_column %||% "Disease"
 id_col         <- .study$id_column %||% "ID"
 
+## 单库发病/预测 ML：只跑 primary 槽（worker --db nhanes）；次库可省略
+single_db_mode <- isTRUE(.study$single_db %||% FALSE) ||
+  identical(tolower(trimws(as.character(.study$mode %||% "")[1L])), "single")
+
 primary_name   <- .study$primary_name %||% "CHARLS"
 primary_type   <- tolower(.study$primary_db_type %||% "regular")
 primary_subdir <- .study$primary_subdir %||% tolower(primary_name)
@@ -71,16 +75,21 @@ primary_file   <- .req(.study, "primary_rdata_file")
 primary_obj    <- .study$primary_rdata_obj %||% "data"
 primary_map    <- .study$primary_column_mapping %||% primary_name
 
-secondary_name   <- .study$secondary_name %||% "ELSA"
+secondary_name   <- .study$secondary_name %||% if (single_db_mode) "UNUSED" else "ELSA"
 secondary_type   <- tolower(.study$secondary_db_type %||% "regular")
 secondary_subdir <- .study$secondary_subdir %||% tolower(secondary_name)
-secondary_file   <- .req(.study, "secondary_rdata_file")
+secondary_file   <- if (single_db_mode) {
+  as.character(.study$secondary_rdata_file %||% primary_file)[1L]
+} else {
+  .req(.study, "secondary_rdata_file")
+}
 secondary_obj    <- .study$secondary_rdata_obj %||% "data"
 secondary_map    <- .study$secondary_column_mapping %||% secondary_name
 
 merge_tables     <- isTRUE(.study$merge_dual_db_tables %||% FALSE)
 prefix_db        <- isTRUE(.study$mirror_aggregate_prefix_db %||% FALSE)
 use_nhanes_path  <- isTRUE(.study$apply_nhanes_upstream %||% (primary_type == "nhanes"))
+if (single_db_mode) use_nhanes_path <- isTRUE(.study$apply_nhanes_upstream %||% FALSE)
 
 disease_preset <- .study$disease_config_preset %||% "psoriasis"
 preset_path <- file.path(.engine, "configs", disease_preset, "config11.R")
@@ -353,7 +362,11 @@ config$ml_batch <- list(
   parallel_workers = NULL,
   fail_policy = "continue",
   skip_existing = TRUE,
-  db_mode = "both",
+  db_mode = if (single_db_mode) "nhanes" else "both",
+  single_db = single_db_mode,
+  write_index_summary_results = isTRUE(
+    .study$write_index_summary_results %||% single_db_mode
+  ),
   output_base = .batch_project_root,
   shared_ck_base = file.path(.batch_ck_root, "_shared"),
   index_ck_base = file.path(.batch_ck_root, "by_index"),
@@ -367,10 +380,20 @@ config$ml_batch <- list(
   min_valid_per_db = 50L,
   trim_quantile = 0.01,
   curate_purge_pub_figures = TRUE,
-  pub_figure_scheme = "ml_dual_standard",
+  pub_figure_scheme = if (single_db_mode) "ml_single_standard" else "ml_dual_standard",
   merge_dual_db_tables = merge_tables,
-  split_mode = .study_split_mode
+  split_mode = if (single_db_mode) {
+    as.character(.study$split_mode %||% "dev_internal_ext")[1L]
+  } else {
+    .study_split_mode
+  }
 )
+
+if (single_db_mode) {
+  config$dual_db$mirror_aggregate <- FALSE
+  config$dual_db$workflow <- "primary_only"
+  config$project$name <- paste0(disease, "_ML_single_", primary_name)
+}
 
 config$incidence_batch <- config$ml_batch
 config <- ml_dual_apply_cross_db_split_overrides(config)
@@ -405,7 +428,7 @@ rm(.study, .engine, .req, disease_code, disease, pmid, analysis_group, reference
    index_group, index_vars, feishu_on, outcome_col, id_col,
    primary_name, primary_type, primary_subdir, primary_file, primary_obj, primary_map,
    secondary_name, secondary_type, secondary_subdir, secondary_file, secondary_obj, secondary_map,
-   merge_tables, prefix_db, use_nhanes_path, disease_preset, preset_path,
+   merge_tables, prefix_db, use_nhanes_path, single_db_mode, disease_preset, preset_path,
    .normalize_study_root, .study_split_mode,
    list = intersect(c(".study_config_file"), ls()))
 

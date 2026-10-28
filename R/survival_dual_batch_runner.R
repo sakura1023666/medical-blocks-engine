@@ -1420,11 +1420,13 @@ survival_batch_write_index_flowcharts <- function(project_root, index_root, ix,
       )
     }
 
-    # 极端值：仅实际 n_trim>0
+    # 极端值：仅实际 n_trim>0；不写具体截断数值范围（主分析绝对窗/分位窗均通用）
     if (is.finite(fr$n_trim) && fr$n_trim > 0L && is.finite(fr$n_after)) {
       extra[[length(extra) + 1L]] <- data.frame(
-        step = sprintf("After exclude extreme %s (n excluded = %s)",
-                       ix, format(as.integer(fr$n_trim), big.mark = ",")),
+        step = sprintf(
+          "After excluding extreme values (n excluded = %s)",
+          format(as.integer(fr$n_trim), big.mark = ",")
+        ),
         n = fr$n_after, stringsAsFactors = FALSE
       )
     }

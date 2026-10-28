@@ -218,6 +218,9 @@
   if (any(grepl("^NE\\b", as.character(out_table[[lab_uni]] %||% ""), perl = TRUE))) {
     uv_fn <- "NE = not estimable (complete separation, infinite CI, or unstable OR/HR)."
   }
+  if (exists("mi_append_table_footnotes", mode = "function")) {
+    uv_fn <- mi_append_table_footnotes(uv_fn, ctx)
+  }
   tryCatch(
     export_sci_table(
       out_table, pub_uv$filepath, title = pub_uv$title,
@@ -282,9 +285,22 @@ block_univariate_prognosis <- function(ctx, ...) {
   strip_id_cfg <- as.character((cfg$data %||% list())$strip_id_columns_after_imputation %||% character(0))
   strip_here <- unique(c(as.character(id_col %||% character(0)), strip_id_cfg))
   strip_here <- strip_here[nzchar(strip_here) & strip_here %in% names(data)]
+  keep_id_for_rubin <- exists("mi_rubin_enabled", mode = "function") && isTRUE(mi_rubin_enabled(ctx))
   if (length(strip_here)) {
-    data <- data[, setdiff(names(data), strip_here), drop = FALSE]
-    cli::cli_alert_info("已从分析用数据中移除 ID 类列: {paste(strip_here, collapse = ', ')}")
+    if (isTRUE(keep_id_for_rubin) && !is.null(id_col) && nzchar(as.character(id_col)[1L]) &&
+        as.character(id_col)[1L] %in% names(data)) {
+      # Rubin 对齐需要 id_column；勿剥掉，仅排除出预测池
+      id_keep <- as.character(id_col)[1L]
+      strip_rest <- setdiff(strip_here, id_keep)
+      if (length(strip_rest)) {
+        data <- data[, setdiff(names(data), strip_rest), drop = FALSE]
+      }
+      excluded_predictors <- unique(c(excluded_predictors, id_keep))
+      cli::cli_alert_info("Rubin 启用：保留 {id_keep} 供 MI 行对齐，已排除出预测变量")
+    } else {
+      data <- data[, setdiff(names(data), strip_here), drop = FALSE]
+      cli::cli_alert_info("已从分析用数据中移除 ID 类列: {paste(strip_here, collapse = ', ')}")
+    }
   }
 
   surv_cfg <- cfg$survival %||% list()
@@ -601,8 +617,15 @@ block_univariate_prognosis <- function(ctx, ...) {
     fml <- as.formula(paste0(
       "Surv(", .uvp01_bt(time_var), ", ", .uvp01_bt(event_var), ") ~ ", .uvp01_bt(var)
     ))
+    # 时间/结局锁模板；预测变量跨 m 套用插补值再 Rubin（勿把 var 放进 keep_vars）
     fit <- tryCatch(
-      survival::coxph(fml, data = d_fit),
+      if (exists("mi_coxph", mode = "function") &&
+          exists("mi_rubin_enabled", mode = "function") &&
+          isTRUE(mi_rubin_enabled(ctx))) {
+        mi_coxph(ctx, fml, d_fit, keep_vars = c(time_var, event_var))
+      } else {
+        survival::coxph(fml, data = d_fit)
+      },
       error = function(e) NULL
     )
     if (is.null(fit)) return(NULL)
@@ -611,9 +634,38 @@ block_univariate_prognosis <- function(ctx, ...) {
     nm <- rownames(co)
     if (is.null(nm) || length(nm) == 0) return(NULL)
     if (!is.null(s$conf.int) && nrow(s$conf.int) == length(nm)) {
-      hr <- s$conf.int[, "exp(coef)", drop = TRUE]
-      lo <- s$conf.int[, "lower .95", drop = TRUE]
-      hi <- s$conf.int[, "upper .95", drop = TRUE]
+      ci <- s$conf.int
+      cn <- colnames(ci)
+      hr <- if ("exp(coef)" %in% cn) {
+        ci[, "exp(coef)", drop = TRUE]
+      } else {
+        exp(stats::coef(fit))
+      }
+      lo_nm <- if ("lower .95" %in% cn) {
+        "lower .95"
+      } else if ("2.5 %" %in% cn) {
+        "2.5 %"
+      } else {
+        cn[max(1L, length(cn) - 1L)]
+      }
+      hi_nm <- if ("upper .95" %in% cn) {
+        "upper .95"
+      } else if ("97.5 %" %in% cn) {
+        "97.5 %"
+      } else {
+        cn[length(cn)]
+      }
+      lo <- ci[, lo_nm, drop = TRUE]
+      hi <- ci[, hi_nm, drop = TRUE]
+      # mi_pooled conf.int 末两列已是 HR 尺度；coxph 原生 lower/upper 亦为 HR
+      # 若误取到 log 尺度列，用 confint()+exp 兜底
+      if (any(is.finite(lo) & lo <= 0, na.rm = TRUE) ||
+          any(is.finite(hi) & hi <= 0, na.rm = TRUE)) {
+        ci_log <- suppressMessages(stats::confint(fit))
+        lo <- exp(ci_log[, 1L, drop = TRUE])
+        hi <- exp(ci_log[, 2L, drop = TRUE])
+        hr <- exp(stats::coef(fit))
+      }
     } else {
       se <- co[, "se(coef)", drop = TRUE]
       est <- co[, "coef", drop = TRUE]

@@ -151,6 +151,9 @@ suicide_clpm_export_step02_tables <- function(step_dir, n = NULL,
     character(0)
   }
   mice_vars <- intersect(as.character(mice_vars), intersect(names(df_before), names(df_after)))
+  if (exists("suicide_order_table_vars", mode = "function")) {
+    mice_vars <- suicide_order_table_vars(mice_vars)
+  }
 
   .fmt2 <- function(x) sprintf("%.2f", as.numeric(x))
   .desc_one <- function(x) {
@@ -241,6 +244,9 @@ suicide_clpm_export_step02_tables <- function(step_dir, n = NULL,
   mba_path <- file.path(step_dir, "missing_before_after.csv")
   if (!file.exists(mba_path)) stop("Missing missing_before_after.csv", call. = FALSE)
   mba <- utils::read.csv(mba_path, stringsAsFactors = FALSE, fileEncoding = "UTF-8")
+  if (exists("suicide_order_table_vars", mode = "function")) {
+    mba <- mba[match(suicide_order_table_vars(mba$variable), mba$variable), , drop = FALSE]
+  }
   mba_out <- data.frame(
     Variable = mba$variable,
     `N missing Before MI` = as.integer(mba$n_missing_before),
@@ -265,6 +271,9 @@ suicide_clpm_export_step02_tables <- function(step_dir, n = NULL,
 
   if (file.exists(mv_path)) {
     mv <- utils::read.csv(mv_path, stringsAsFactors = FALSE, fileEncoding = "UTF-8")
+    if (exists("suicide_order_table_vars", mode = "function")) {
+      mv <- mv[match(suicide_order_table_vars(mv$variable), mv$variable), , drop = FALSE]
+    }
     mv_out <- data.frame(
       Variable = mv$variable,
       `Entered MICE` = ifelse(isTRUE(mv$in_mice) | mv$in_mice %in% TRUE, "Yes", "No"),

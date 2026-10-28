@@ -60,12 +60,9 @@ ml_dual_audit_study_inherited_excludes <- function(config) {
   }
   ac <- config$assoc_covariate %||% list()
   if (isTRUE(ac$demo_uv_to_model1 %||% FALSE)) {
-    dk <- unique(as.character(ac$demo_keywords %||% character(0)))
-    if (!length(dk) || !any(tolower(dk) %in% c("gender", "sex"))) {
-      cli::cli_alert_warning(
-        "assoc_covariate$demo_keywords 未含 Gender/Sex；单因素显著的性别可能不进 Table2 Model1（与 VIF 不一致）"
-      )
-    }
+    cli::cli_alert_warning(
+      "assoc_covariate$demo_uv_to_model1=TRUE（旧行为）；默认应 FALSE，Model1 仅强制 Age+Gender"
+    )
   }
   rcs <- config$rcs_incidence %||% list()
   if (isTRUE(rcs$ylim_force %||% FALSE) &&
@@ -140,14 +137,17 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       severity_score_keep_priority = c("APSIII", "SAPSII", "OASIS", "SOFA", "GCS")
     )
   )
-  ## Cox/Logistic 协变量铁律（全 ML 课题默认）：仅 Age 强制；人体测量由 VIF 协调
+  ## Cox/Logistic 协变量铁律：Model1=Age+Gender；Model2=UV→VIF→MV→VIF final
   config$assoc_covariate <- modifyList(
     config$assoc_covariate %||% list(),
     list(
       enable = TRUE,
-      force_model1 = "Age",
-      demo_uv_to_model1 = TRUE,
-      demo_keywords = c("Gender", "Sex", "Height", "Weight", "BMI"),
+      force_model1 = c("Age", "Gender"),
+      force_gender_in_model1 = TRUE,
+      demo_uv_to_model1 = FALSE,
+      demo_keywords = character(0),
+      model2_from_vif_final = TRUE,
+      allow_ml_features_in_model2 = TRUE,
       model2_exclude = character(0),
       uv_source = "tb1",
       allow_m2_eq_m1 = TRUE
@@ -620,16 +620,18 @@ ml_dual_apply_prognosis_ml_overrides <- function(config) {
     )
   )
 
-  ## Cox 关联协变量 = 单因素→VIF 通过池（仅排除暴露）；不再用「UV 显著且未进 ML」
+  ## Cox 关联协变量 = Model1 Age+Gender；Model2 = 终末 VIF final 池
   config$assoc_covariate <- modifyList(
     config$assoc_covariate %||% list(),
     list(
       enable = TRUE,
-      force_model1 = "Age",
-      demo_uv_to_model1 = TRUE,
-      demo_keywords = c("Gender", "Sex", "Height", "Weight", "BMI"),
+      force_model1 = c("Age", "Gender"),
+      force_gender_in_model1 = TRUE,
+      demo_uv_to_model1 = FALSE,
+      demo_keywords = character(0),
       uv_source = "tb1",
-      model2_from_vif_pass = TRUE,
+      model2_from_vif_final = TRUE,
+      model2_from_vif_pass = FALSE,
       allow_ml_features_in_model2 = TRUE,
       allow_m2_eq_m1 = TRUE,
       model2_exclude = character(0)

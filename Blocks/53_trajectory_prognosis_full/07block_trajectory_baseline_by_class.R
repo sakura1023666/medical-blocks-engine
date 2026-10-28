@@ -274,7 +274,7 @@
         gtsummary::all_continuous()  ~ "wilcox.test",
         gtsummary::all_categorical() ~ "chisq.test"
       ),
-      pvalue_fun = ~ gtsummary::style_pvalue(.x, digits = 3)
+      pvalue_fun = function(x) fmt_pval(x)
     ) |>
     gtsummary::modify_header(
       gtsummary::all_stat_cols() ~ "{level}\n(N={n})",

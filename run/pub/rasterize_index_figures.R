@@ -33,7 +33,7 @@ if (file.exists(file.path(root, "R/incidence_dual_batch_runner.R"))) {
 
 figs_dir <- file.path(index_dir, "Figures")
 dirs <- pub_figure_ensure_format_dirs(figs_dir)
-config <- list(pub_figures = list(dpi = 300L, write_image_information = TRUE))
+config <- list(pub_figures = list(dpi = 600L, write_image_information = TRUE))
 cfg <- .pub_figure_cfg(config)
 
 pdfs <- sort(list.files(

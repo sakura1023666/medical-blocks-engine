@@ -241,12 +241,19 @@
   list(ctx = ctx, kept = res$kept, dropped = dropped, strategy = res$strategy)
 }
 
-.mvp01_run_multivariate_cox <- function(vars, data, time_var, event_var) {
+.mvp01_run_multivariate_cox <- function(vars, data, time_var, event_var, ctx = NULL) {
   if (length(vars) == 0L) return(NULL)
   rhs <- paste(vars, collapse = " + ")
   fml <- stats::as.formula(paste0("Surv(", time_var, ", ", event_var, ") ~ ", rhs))
   fit <- tryCatch(
-    survival::coxph(fml, data = data),
+    if (exists("mi_coxph", mode = "function") &&
+        exists("mi_rubin_enabled", mode = "function") &&
+        isTRUE(mi_rubin_enabled(ctx))) {
+      # 时间/结局锁模板；协变量跨 m 插补后 Rubin（勿把 rhs 整包 keep 成 complete#1）
+      mi_coxph(ctx, fml, data, keep_vars = c(time_var, event_var))
+    } else {
+      survival::coxph(fml, data = data)
+    },
     error = function(e) NULL
   )
   if (is.null(fit)) return(NULL)
@@ -255,9 +262,29 @@
   nm <- rownames(co)
   if (is.null(nm) || length(nm) == 0L) return(NULL)
   if (!is.null(s$conf.int) && nrow(s$conf.int) == length(nm)) {
-    hr <- s$conf.int[, "exp(coef)", drop = TRUE]
-    lo <- s$conf.int[, "lower .95", drop = TRUE]
-    hi <- s$conf.int[, "upper .95", drop = TRUE]
+    ci <- s$conf.int
+    cn <- colnames(ci)
+    hr <- if ("exp(coef)" %in% cn) {
+      ci[, "exp(coef)", drop = TRUE]
+    } else {
+      exp(stats::coef(fit))
+    }
+    lo_nm <- if ("lower .95" %in% cn) {
+      "lower .95"
+    } else if ("2.5 %" %in% cn) {
+      "2.5 %"
+    } else {
+      cn[max(1L, length(cn) - 1L)]
+    }
+    hi_nm <- if ("upper .95" %in% cn) {
+      "upper .95"
+    } else if ("97.5 %" %in% cn) {
+      "97.5 %"
+    } else {
+      cn[length(cn)]
+    }
+    lo <- ci[, lo_nm, drop = TRUE]
+    hi <- ci[, hi_nm, drop = TRUE]
   } else {
     se <- co[, "se(coef)", drop = TRUE]
     est <- co[, "coef", drop = TRUE]
@@ -948,7 +975,7 @@ block_multivariate_prognosis <- function(ctx, ...) {
     }
   }
   mv_fit <- intersect(mv_fit, names(data))
-  multivar_result <- .mvp01_run_multivariate_cox(mv_fit, data, time_var, event_var)
+  multivar_result <- .mvp01_run_multivariate_cox(mv_fit, data, time_var, event_var, ctx = ctx)
   tb2 <- character(0)
   if (!is.null(multivar_result) && nrow(multivar_result) > 0) {
     tb2 <- .mvp01_extract_base_varname(multivar_result$Variable[multivar_result$P < p_threshold], mv_fit)

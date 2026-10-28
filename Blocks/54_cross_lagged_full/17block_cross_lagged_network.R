@@ -3,7 +3,7 @@
 #
 #  require_data = ctx$data$longitudinal_wide_clpn %||% longitudinal_wide
 #  来源: C01_network_analysis.R；按同名 stem 对齐 T1_/T2_
-#  出版：Table S8 — 邻接矩阵，行列用 FI 条目真名（无 T1_ 前缀，如 Dressing）
+#  出版：Table S8 — 邻接矩阵 xlsx（SCI 三线），行列用 FI 条目真名（无 T1_ 前缀）
 #  register_block: "cross_lagged_network"
 ###############################################################################
 
@@ -37,8 +37,8 @@ block_cross_lagged_network <- function(ctx, ...) {
     # 血压药/诊断代理列（ELSA hedbd* 等）若不想进网可 drop；默认保留低基数
     "score", "cognition_score", "DN"
   ))
-  # 血脂默认可选纳入（文献有时含 TG/HDL）；从 drop 中移除以便可选再加入
-  if (!isTRUE(bl$include_lipids %||% TRUE)) {
+  # 血脂不是虚弱条目；默认不进 FI-item CLPN（课题显式 include_lipids=TRUE 才加）
+  if (!isTRUE(bl$include_lipids %||% FALSE)) {
     drop_stems <- unique(c(
       drop_stems,
       "newtg", "newhdl", "Triglycerides", "HDL_Cholesterol", "trig", "hdl"
@@ -47,7 +47,7 @@ block_cross_lagged_network <- function(ctx, ...) {
   # 默认：虚弱条目 + 疾病结局
   fi_items_only <- !isFALSE(bl$fi_items_only %||% TRUE)
   include_outcome <- if (is.null(bl$include_outcome)) TRUE else isTRUE(bl$include_outcome)
-  include_lipids <- isTRUE(bl$include_lipids %||% TRUE)
+  include_lipids <- isTRUE(bl$include_lipids %||% FALSE)
 
   t1_all <- grep("^T1_", names(df), value = TRUE)
   t2_all <- grep("^T2_", names(df), value = TRUE)
@@ -104,7 +104,7 @@ block_cross_lagged_network <- function(ctx, ...) {
 
   if (!length(force)) {
     if (isTRUE(fi_items_only)) {
-      # 严格：共性 FI 条目 + 结局 + 可选血脂（不把基线问卷共病/人口学当节点）
+      # 严格：共性 FI 条目 + 结局 + 可选血脂（血脂≠虚弱；不把人口学当节点）
       stems <- unique(c(
         if (include_outcome) outcome_stems else character(0),
         item_stems,
@@ -119,6 +119,32 @@ block_cross_lagged_network <- function(ctx, ...) {
         other,
         extra_ok
       ))
+    }
+  }
+
+  # 结局同义 FI 共病硬剔除（如结局=Hypertension 时不得再保留 hibpe）
+  if (isTRUE(bl$exclude_outcome_overlap %||% TRUE) &&
+      isTRUE(include_outcome) && length(outcome_stems)) {
+    disease_txt <- tolower(paste(c(
+      cfg$project$analysis_group %||% character(0),
+      cfg$project$disease %||% character(0),
+      cfg$project$outcome_label %||% character(0),
+      bl$disease_display %||% character(0)
+    ), collapse = " "))
+    overlap <- as.character(bl$outcome_overlap_stems %||% character(0))
+    if (!length(overlap) && grepl("hypertens|\\bhtn\\b|hibp", disease_txt)) {
+      overlap <- c("hibpe", "hedimbp", "hypertension", "Hypertension", "HTN")
+    }
+    overlap <- unique(overlap[nzchar(overlap)])
+    if (length(overlap)) {
+      hit <- intersect(stems, overlap)
+      if (length(hit)) {
+        stems <- setdiff(stems, hit)
+        item_stems <- setdiff(item_stems, hit)
+        cli::cli_alert_info(
+          "CLPN 剔除结局同义 FI 条目（防双重计入）: {paste(hit, collapse=', ')}"
+        )
+      }
     }
   }
 
@@ -159,13 +185,23 @@ block_cross_lagged_network <- function(ctx, ...) {
   }
   k <- length(stems)
   X_all <- as.matrix(df[, t1, drop = FALSE])
-  # 出版标签：查映射库（condition1→Abdominal obesity；hibpe→Hypertension）
+  # 出版标签：查映射库；结局列用课题疾病显示名（勿留 Incident disease）
   lab <- if (exists("clpn_node_display", mode = "function")) {
     clpn_node_display(stems, fallback = TRUE)
   } else if (exists("cross_lagged_fi_item_label", mode = "function")) {
     cross_lagged_fi_item_label(stems, with_wave = FALSE)
   } else {
     stems
+  }
+  disease_display <- as.character(
+    bl$disease_display %||%
+      cfg$project$analysis_group %||%
+      cfg$project$disease %||%
+      character(0)
+  )[1L]
+  if (!is.na(disease_display) && nzchar(disease_display)) {
+    lab[stems %in% c("Disease01", "Disease_Group", "Sarcopenia", "sarcop")] <-
+      disease_display
   }
   # 防重复标签
   if (any(duplicated(lab))) {
@@ -241,8 +277,32 @@ block_cross_lagged_network <- function(ctx, ...) {
   csv_path <- file.path(out_dir, "CLPN_adjacency.csv")
   utils::write.csv(adj, csv_path)
   db <- as.character(cfg$project$database %||% "Cohort")[1L]
-  s8_path <- file.path(out_dir, paste0("Table S8-", db, ". CLPN adjacency.csv"))
-  utils::write.csv(adj, s8_path)
+  # 发表 Table S8：SCI 三线 xlsx（与 summary 其它表同格式）；内部仍留 csv 供作图
+  s8_path <- file.path(out_dir, paste0("Table S8-", db, ". CLPN adjacency.xlsx"))
+  .clpn_write_table_s8_xlsx <- function(adj_mat, path, database) {
+    mf <- apply(adj_mat, 2L, function(x) {
+      ifelse(is.na(x), NA_character_, sprintf("%.3f", as.numeric(x)))
+    })
+    df <- data.frame(
+      Variable = rownames(adj_mat), mf,
+      stringsAsFactors = FALSE, check.names = FALSE
+    )
+    title <- paste0("Table S8-", database, ". CLPN adjacency matrix")
+    sheet <- paste0("Table S8-", database)
+    if (nchar(sheet) > 31L) sheet <- substr(sheet, 1L, 31L)
+    if (exists("sci_xlsx_single_header_booktabs", mode = "function")) {
+      sci_xlsx_single_header_booktabs(
+        filepath = path, title = title, df_body = df, sheet = sheet,
+        footnotes = NULL
+      )
+    } else {
+      openxlsx::write.xlsx(df, path, sheetName = sheet, overwrite = TRUE)
+    }
+  }
+  .clpn_write_table_s8_xlsx(adj, s8_path, db)
+  # 清旧 csv 发表名，避免与 xlsx 并存
+  old_csv <- file.path(out_dir, paste0("Table S8-", db, ". CLPN adjacency.csv"))
+  if (file.exists(old_csv)) unlink(old_csv)
 
   pdf_path <- file.path(fig_dir, "Fig_CLPN_network.pdf")
   if (requireNamespace("qgraph", quietly = TRUE) && any(adj != 0)) {

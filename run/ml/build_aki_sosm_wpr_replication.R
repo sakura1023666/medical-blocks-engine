@@ -41,6 +41,7 @@ config_path <- arg_value("--config")
 index_label <- arg_value("--index")
 dry_run <- "--dry-run" %in% args
 full_train <- "--full-train" %in% args
+overall_only <- "--overall-only" %in% args
 methods_arg <- arg_value("--methods", "")
 quick <- "--quick" %in% args
 if (quick && !nzchar(methods_arg)) methods_arg <- "logistic,rf"
@@ -51,7 +52,7 @@ assoc_timeout <- suppressWarnings(as.numeric(arg_value("--assoc-timeout", "2400"
 if (!nzchar(config_path) || !file.exists(config_path)) {
   stop("--config 必须指向存在的研究 config.R", call. = FALSE)
 }
-authorized_indices <- c("SOSM+WPR", "ACAG+RAR")
+authorized_indices <- c("SOSM+WPR", "ACAG+RAR", "SAR+CrCV", "CHG+GV")
 if (!index_label %in% authorized_indices) {
   stop("本终稿构建仅授权 --index 为: ", paste(authorized_indices, collapse = ", "),
        call. = FALSE)
@@ -98,6 +99,10 @@ suppressWarnings(suppressMessages({
 study_root <- normalizePath(dirname(normalizePath(config_path, winslash = "/")),
                             winslash = "/", mustWork = TRUE)
 index_root <- file.path(study_root, "by_index", paste0("【success】", index_label))
+if (!dir.exists(index_root)) {
+  alt <- file.path(study_root, "by_index", index_label)
+  if (dir.exists(alt)) index_root <- alt
+}
 if (!dir.exists(index_root)) {
   stop("成功指标目录不存在: ", index_root, call. = FALSE)
 }
@@ -322,18 +327,27 @@ if (is.null(cfg$pub_digits)) {
 pipeline_apply_pub_digits(cfg)
 
 ## SOFA 分层切点（默认三层 0–4 / 5–10 / ≥11，对应原文 NGR/Pre-DM/DM 三层）。
+## --overall-only：取消全部 SOFA 分层，图/表仅 Overall。
 ## 单一事实来源：所有 strata_keys / labels / layer_filter 均由此派生。
-SOFA_BREAKS <- suppressWarnings(as.integer(
-  unlist(cfg$reference$sofa_breaks %||% cfg$ml_frozen_bundle$sofa_breaks %||% c(4L, 10L))
-))
-if (!length(SOFA_BREAKS) || anyNA(SOFA_BREAKS)) SOFA_BREAKS <- c(4L, 10L)
-SOFA_BREAKS <- unique(sort(SOFA_BREAKS))
-SOFA_SPEC <- ml_stratum_spec_sofa(breaks = SOFA_BREAKS)
+if (isTRUE(overall_only)) {
+  SOFA_BREAKS <- NULL
+  SOFA_SPEC <- list(variable = "SOFA", breaks = integer(0), strata = list())
+  message("[overall-only] 全部图/表不做 SOFA 分层")
+} else {
+  SOFA_BREAKS <- suppressWarnings(as.integer(
+    unlist(cfg$reference$sofa_breaks %||% cfg$ml_frozen_bundle$sofa_breaks %||% c(4L, 10L))
+  ))
+  if (!length(SOFA_BREAKS) || anyNA(SOFA_BREAKS)) SOFA_BREAKS <- c(4L, 10L)
+  SOFA_BREAKS <- unique(sort(SOFA_BREAKS))
+  SOFA_SPEC <- ml_stratum_spec_sofa(breaks = SOFA_BREAKS)
+}
 
 # pub_format_est 是标量函数：向量输入会退化为「首元素原始值」（曾把 S11 整列
 # Estimate 写成同一个未格式化数字）。向量化包装强制逐元素 3 位。
-fmt3_vec <- function(v) vapply(as.numeric(v), function(x) pub_format_est(x),
-                               character(1), USE.NAMES = FALSE)
+fmt3_vec <- function(v) vapply(as.numeric(v), function(x) {
+  if (!is.finite(x)) return("NA")
+  pub_format_est(x)
+}, character(1), USE.NAMES = FALSE)
 
 ## ---------------------------------------------------------------------------
 ## 载入 ctx（只读）+ 发布口径重标（仅内存副本，checkpoint 文件不改）
@@ -464,12 +478,62 @@ eicu_in <- list(
 ## A) Figure 1 + Task4 关联全套（Fig2-6 / Table2 / S4-S10）+ Table1 / S1 / S2
 ## ---------------------------------------------------------------------------
 r <- run_stage("figure1_flowchart", 300, {
-  p <- ml_reference_build_flowchart(mimic_csv, eicu_csv, staging)
-  sprintf("target=%s", basename(p))
+  ## 标准预后纳排（outcome 分叉）；不写插补后人数。
+  source(file.path(engine_root, "R/attrition_log.R"), local = FALSE)
+  fmtn <- function(x) format(as.integer(x), big.mark = ",")
+  mi_d <- mimic_in$analysis
+  ei_d <- eicu_in$analysis
+  death_lab <- function(d) {
+    y <- as.character(d$fustatus)
+    sum(y %in% c("1", "Non-survivor"), na.rm = TRUE)
+  }
+  alive_lab <- function(d) {
+    y <- as.character(d$fustatus)
+    sum(y %in% c("0", "Survivor"), na.rm = TRUE)
+  }
+  age_lt18 <- function(d) {
+    a <- suppressWarnings(as.numeric(as.character(d$Age)))
+    sum(is.finite(a) & a < 18, na.rm = TRUE)
+  }
+  mk_panel <- function(letter, db_lab, d) {
+    n <- nrow(d)
+    n_d <- death_lab(d)
+    n_a <- alive_lab(d)
+    n_ped <- age_lt18(d)
+    list(
+      letter = paste(letter, db_lab),
+      top = sprintf("Adult ICU admissions with AKI\nin %s\n(n = %s)", db_lab, fmtn(n)),
+      mid = sprintf("Complete %s and %s\nwith 28-day vital status\n(n = %s)",
+                    INDEX_A, INDEX_B, fmtn(n)),
+      inc = sprintf("Included in final analysis\n(n = %s)", fmtn(n)),
+      side1 = if (n_ped > 0L) {
+        sprintf("Age < 18 years\n(n = %s)", fmtn(n_ped))
+      } else {
+        "No age exclusion\n(n = 0)"
+      },
+      side2 = "No further exclusion\n(n = 0)",
+      death = sprintf("28-day death\n(n = %s)", fmtn(n_d)),
+      alive = sprintf("Survivor\n(n = %s)", fmtn(n_a))
+    )
+  }
+  panels <- list(
+    mk_panel("A", "MIMIC-IV", mi_d),
+    mk_panel("B", "eICU", ei_d)
+  )
+  fig_dir <- file.path(staging, "Figures")
+  dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+  dest <- file.path(fig_dir,
+    "Figure 1. Inclusion exclusion flowchart (MIMIC-IV, eICU).pdf")
+  csv_path <- file.path(staging, "_assets", "Flowchart_attrition_outcome.csv")
+  dir.create(dirname(csv_path), recursive = TRUE, showWarnings = FALSE)
+  attrition_draw_outcome_figure(dest, panels, width = 15.6, height = 6.35,
+                                family = "Times", csv_path = csv_path)
+  sprintf("target=%s style=outcome_no_imputation", basename(dest))
 })
 
 r <- run_stage("task4_ref_assoc_all", assoc_timeout, {
-  res <- ref_assoc_run_all(mimic_in, eicu_in, staging, cutoff = SOFA_BREAKS,
+  cut_arg <- if (isTRUE(overall_only)) NULL else SOFA_BREAKS
+  res <- ref_assoc_run_all(mimic_in, eicu_in, staging, cutoff = cut_arg,
                            grid_n = 40L, quiet = FALSE,
                            indices = c(INDEX_A, INDEX_B))
   list(msg = sprintf("figures=%d tablefiles=%d", length(res$figures),
@@ -484,32 +548,16 @@ task4_res <- r$value$res
 run_stage("table1_from_analysis_frames", 300, {
   # 原始 fustatus（AKI=死亡 / No AKI=存活）；由 ml_reference_build_table1 正确映射，
   # 禁止在此用 relabel_outcome 误套 Non-survivor 标签导致 N_non=0。
-  db_frames <- list(MIMIC_IV = mi_assoc$data$imputed,
-                    eICU = ei_assoc$data$imputed)
-  vars <- list(
-    levels = list(Age = 65L),
-    sections = list(
-      list(
-        title = "Demographics",
-        continuous = intersect(c("Age", "Weight"), names(db_frames$MIMIC_IV)),
-        categorical = intersect("Gender", names(db_frames$MIMIC_IV))
-      ),
-      list(
-        title = "Exposures",
-        continuous = intersect(c(INDEX_A, INDEX_B), names(db_frames$MIMIC_IV)),
-        categorical = character(0)
-      ),
-      list(
-        title = "Vital signs / severity",
-        continuous = intersect(c("HR", "MAP", "Creatinine", "SOFA"),
-                               names(db_frames$MIMIC_IV)),
-        categorical = character(0)
-      )
-    )
+  db_frames <- list(
+    MIMIC_IV = list(imputed = mi_assoc$data$imputed, cleaned = mi_assoc$data$cleaned),
+    eICU = list(imputed = ei_assoc$data$imputed, cleaned = ei_assoc$data$cleaned)
   )
-  tab <- ml_reference_build_table1(db_frames, staging, vars = vars)
-  sprintf("rows=%d xlsx=%s Survivor/Non-survivor OK", nrow(tab),
-          basename(attr(tab, "xlsx") %||% "NA"))
+  tab <- ml_reference_write_table1_per_db(
+    db_frames, staging, exposures = c(INDEX_A, INDEX_B)
+  )
+  sprintf("files=%d sections=%d Survivor/Non-survivor OK",
+          length(attr(tab, "xlsx")),
+          length(attr(tab, "vars")$sections))
 }) -> r_t1
 if (!r_t1$ok) {
   # 回退：Task7 旧双库 Table 1 只读重排（误标签列头改 Survivor/Non-survivor）
@@ -596,7 +644,11 @@ methods_try <- if (nzchar(methods_arg)) {
   tolower(trimws(strsplit(methods_arg, ",")[[1]]))
 } else ml_frozen_default_methods()
 fallback_method <- if ("logistic" %in% methods_try) "logistic" else methods_try[[1]]
-strata_keys <- c("overall", names(SOFA_SPEC$strata))
+strata_keys <- if (isTRUE(overall_only)) {
+  "overall"
+} else {
+  c("overall", names(SOFA_SPEC$strata))
+}
 stratum_labels <- c(overall = "Overall",
                     stats::setNames(vapply(SOFA_SPEC$strata,
                                            function(s) s$label, character(1)),
@@ -711,12 +763,27 @@ if (length(s11_rows)) {
     modes <- paste(sprintf("%s=%s", names(bundles),
                            vapply(bundles, function(b) b$mode, character(1))),
                    collapse = "; ")
-    sci_xlsx_single_header_booktabs(
-      file.path(staging, "Tables",
-                "Table S11. Stratified five-model machine-learning performance.xlsx"),
-      title = "Table S11. Stratified five-model machine-learning performance (train / internal validation / eICU external).",
-      df_body = exp_df, sheet = "Table S11",
-      footnotes = c(
+    s11_xlsx <- if (isTRUE(overall_only)) {
+      "Table S11. Five-model machine-learning performance.xlsx"
+    } else {
+      "Table S11. Stratified five-model machine-learning performance.xlsx"
+    }
+    s11_title <- if (isTRUE(overall_only)) {
+      "Table S11. Five-model machine-learning performance (train / internal validation / eICU external; overall cohort)."
+    } else {
+      "Table S11. Stratified five-model machine-learning performance (train / internal validation / eICU external)."
+    }
+    s11_fn <- if (isTRUE(overall_only)) {
+      c(
+        "All models trained ONLY on MIMIC-IV development data (frozen assets; Trained_in=MIMIC-IV).",
+        "eICU external = frozen MIMIC-IV models applied WITHOUT refit (no_refit provenance asserted).",
+        "Overall cohort only (no SOFA stratification).",
+        "Boruta fitted on MIMIC-IV train only (restrict_to_train leakage gate).",
+        sprintf("Honest build mode: %s. smoke_only = degraded fit (logistic) after a", modes),
+        "full five-model attempt timed out or failed; such rows are NOT a five-model result.",
+        "Outcome: 28-day all-cause mortality (Survivor / Non-survivor).")
+    } else {
+      c(
         "All models trained ONLY on MIMIC-IV development data (frozen assets; Trained_in=MIMIC-IV).",
         "eICU external = frozen MIMIC-IV models applied WITHOUT refit (no_refit provenance asserted).",
         "Per-stratum Boruta fitted on stratum-train only (restrict_to_train leakage gate).",
@@ -724,7 +791,13 @@ if (length(s11_rows)) {
         "stratified candidate domain because it is the stratification key (Fig 7/8 same).",
         sprintf("Honest per-stratum build mode: %s. smoke_only = degraded fit (logistic) after a", modes),
         "full five-model attempt timed out or failed; such rows are NOT a five-model result.",
-        "Outcome: 28-day all-cause mortality (Survivor / Non-survivor)."))
+        "Outcome: 28-day all-cause mortality (Survivor / Non-survivor).")
+    }
+    sci_xlsx_single_header_booktabs(
+      file.path(staging, "Tables", s11_xlsx),
+      title = s11_title,
+      df_body = exp_df, sheet = "Table S11",
+      footnotes = s11_fn)
     sprintf("rows=%d", nrow(exp_df))
   })
 }
@@ -756,7 +829,15 @@ for (key in strata_keys) {
   })
   if (r$ok) boruta_cache[[key]] <- r$value$obj
 }
-if (sum(names(boruta_cache) != "overall") >= 2L) {
+if (isTRUE(overall_only) && !is.null(boruta_cache$overall)) {
+  ## overall-only：Figure 7 用 Overall Boruta（不再画 SOFA 分层）
+  run_stage("figure7_boruta_overall", 300, {
+    p <- ml_ref_s2_boruta(boruta_cache$overall,
+                          out_pdf = file.path(staging, "Figures",
+                          "Figure 7. Overall Boruta feature selection in MIMIC-IV.pdf"))
+    sprintf("panels=%d", nrow(p$panels))
+  })
+} else if (sum(names(boruta_cache) != "overall") >= 2L) {
   run_stage("figure7_boruta_strata", 300, {
     bys <- boruta_cache[names(boruta_cache) != "overall"]
     names(bys) <- vapply(names(bys), function(k) SOFA_SPEC$strata[[k]]$label, character(1))
@@ -767,7 +848,7 @@ if (sum(names(boruta_cache) != "overall") >= 2L) {
     sprintf("panels=%d", nrow(p$panels))
   })
 }
-if (!is.null(boruta_cache$overall)) {
+if (!is.null(boruta_cache$overall) && !isTRUE(overall_only)) {
   run_stage("figureS2_boruta_overall", 300, {
     p <- ml_ref_s2_boruta(boruta_cache$overall,
                           out_pdf = file.path(staging, "Figures",
@@ -776,7 +857,7 @@ if (!is.null(boruta_cache$overall)) {
   })
 }
 
-## Fig8：库 x SOFA 层（internal + external），冻结 best tag ROC+SHAP
+## Fig8：库 x SOFA 层（或 overall-only 时仅 Overall）ROC+SHAP
 fig8_cells <- list()
 shap_by_stratum <- list()
 fig8_degraded <- FALSE
@@ -809,7 +890,8 @@ fig8_build_cells <- function(fb, mi_res, ei_res, tag, lab, sk) {
     shap = list(sh_i = sh_i, sh_e = sh_e, tag = tag))
 }
 
-for (key in names(SOFA_SPEC$strata)) {
+.fig8_keys <- if (isTRUE(overall_only)) "overall" else names(SOFA_SPEC$strata)
+for (key in .fig8_keys) {
   if (is.null(bundles[[key]]) || is.null(ext_pred[[key]])) next
   fb <- bundles[[key]]$bundle
   lab <- stratum_labels[[key]]
@@ -838,9 +920,13 @@ for (key in names(SOFA_SPEC$strata)) {
 }
 if (length(fig8_cells)) {
   run_stage("figure8_grid", 300, {
+    fig8_name <- if (isTRUE(overall_only)) {
+      "Figure 8. Five-model ROC and SHAP in MIMIC-IV and eICU.pdf"
+    } else {
+      "Figure 8. Stratified five-model ROC and SHAP.pdf"
+    }
     p <- ml_ref_fig8_grid(fig8_cells,
-                          out_pdf = file.path(staging, "Figures",
-                          "Figure 8. Stratified five-model ROC and SHAP.pdf"))
+                          out_pdf = file.path(staging, "Figures", fig8_name))
     # 长表：每格 x 每模型一行（五模型 AUC/95%CI；best=该层内验最优 tag）
     write.csv(p$auc, file.path(staging, "_assets/Figure8_panel_auc.csv"),
               row.names = FALSE)
@@ -872,6 +958,45 @@ if (!is.null(bundles$overall) && !is.null(ext_pred$overall)) {
     write.csv(p$auc, file.path(staging, "_assets/FigureS3_auc.csv"),
               row.names = FALSE)
     sprintf("models=%d", length(unique(as.character(p$auc$model))))
+  })
+  ## Fig S9：overall 五模型三集 ROC（train / internal / eICU），对齐 ACAG 终稿 17 图
+  run_stage("figureS9_three_set_roc", 600, {
+    fb <- bundles$overall$bundle
+    train_frame <- function(fb) {
+      d <- mi_frame_all[!is.na(match(as.character(mi_frame_all[[id_col]]),
+                                     fb$train_ids)), , drop = FALSE]
+      layer_filter(d, "overall")
+    }
+    tr_res <- ml_predict_external_bundle(
+      fb, train_frame(fb), stratum = NULL, database = "MIMIC-IV")
+    cells9 <- list()
+    for (m in names(fb$models)) {
+      cells9[[length(cells9) + 1L]] <- list(
+        model = m, dataset = "training",
+        roc = ml_ref_roc_rows(tr_res$predictions[[m]], tr_res$predictions$truth,
+                              dataset = "training", model = m))
+      cells9[[length(cells9) + 1L]] <- list(
+        model = m, dataset = "internal_validation",
+        roc = ml_ref_roc_rows(ext_pred$overall$mi$predictions[[m]],
+                              ext_pred$overall$mi$predictions$truth,
+                              dataset = "internal_validation", model = m))
+      cells9[[length(cells9) + 1L]] <- list(
+        model = m, dataset = "external_validation",
+        roc = ml_ref_roc_rows(ext_pred$overall$ei$predictions[[m]],
+                              ext_pred$overall$ei$predictions$truth,
+                              dataset = "external_validation", model = m))
+    }
+    p9 <- ml_ref_s9_three_set_auc(
+      cells9,
+      out_pdf = file.path(
+        staging, "Figures",
+        "Figure S9. Overall five-model ROC train internal external.pdf"))
+    if (is.null(p9$path) || !file.exists(p9$path)) {
+      stop("Figure S9 未写出 PDF", call. = FALSE)
+    }
+    write.csv(p9$auc, file.path(staging, "_assets/FigureS9_three_set_auc.csv"),
+              row.names = FALSE)
+    sprintf("n_auc_rows=%d layout=1x3", nrow(p9$auc))
   })
   s4_build <- function(fb, tag) {
     sh_i <- ml_shap_from_frozen_bundle(fb, internal_frame(fb, "overall"),
@@ -934,9 +1059,13 @@ if (length(shap_by_stratum)) {
     }
     allf <- do.call(rbind, frames)
     picks <- ml_pick_paired_cases(allf)
-    # 原文 Fig.S5 是单队列 3 层 ×（非存活, 存活）共 6 条 force。
-    # 主库 MIMIC-IV 对齐 A–F；eICU 个体解释留在主文 Figure 8。
-    st_order <- unname(stratum_labels[names(SOFA_SPEC$strata)])
+    # 原文 Fig.S5：单队列分层 ×（非存活, 存活）；overall-only 仅 Overall 两格。
+    # 主库 MIMIC-IV；eICU 个体解释留在主文 Figure 8。
+    st_order <- if (isTRUE(overall_only)) {
+      "Overall"
+    } else {
+      unname(stratum_labels[names(SOFA_SPEC$strata)])
+    }
     picks <- picks[picks$database == "MIMIC-IV", , drop = FALSE]
     picks$stratum <- factor(picks$stratum, levels = st_order)
     picks$outcome_class <- factor(picks$outcome_class,
@@ -944,8 +1073,9 @@ if (length(shap_by_stratum)) {
     picks <- picks[order(picks$stratum, picks$outcome_class), , drop = FALSE]
     items <- lapply(seq_len(nrow(picks)), function(i) {
       pk <- picks[i, ]
-      v <- shap_by_stratum[[ key_of_lab[pk$stratum] ]]
-      if (is.null(v)) stop("S5: unknown stratum label '", pk$stratum, "'",
+      lab_key <- as.character(pk$stratum)
+      v <- shap_by_stratum[[ key_of_lab[[lab_key]] ]]
+      if (is.null(v)) stop("S5: unknown stratum label '", lab_key, "'",
                            call. = FALSE)
       sh_obj <- if (pk$database == "MIMIC-IV") v$sh_i else v$sh_e
       list(database = pk$database, stratum = pk$stratum,
@@ -1016,7 +1146,11 @@ run_stage("figureS1_ph_trend", 600, {
     )
   }
   out_pdf <- file.path(staging, "Figures",
-    "Figure S1. Time-varying PH coefficient trends by SOFA strata.pdf")
+    if (isTRUE(overall_only)) {
+      "Figure S1. Time-varying PH coefficient trends (Overall).pdf"
+    } else {
+      "Figure S1. Time-varying PH coefficient trends by SOFA strata.pdf"
+    })
   grDevices::pdf(out_pdf, width = 11.2, height = 5.6, onefile = TRUE)
   graphics::par(mfrow = c(1, 2), mar = c(5.2, 4.2, 3.8, 1.2),
                 oma = c(2.8, 0.2, 0.2, 0.2))
@@ -1198,11 +1332,17 @@ legacy_relayout(
 ## ---------------------------------------------------------------------------
 ## D) 四格式导出 + image_information 详注（单一公共入口）
 ## ---------------------------------------------------------------------------
+n_mi_pub <- nrow(mi_assoc$data$imputed)
+n_ei_pub <- nrow(ei_assoc$data$imputed)
 fig_meta <- list(exposure = paste0(INDEX_LABEL, " 联合暴露"),
                  outcome = "28 天全因死亡",
-                 grouping = "SOFA<=10 / SOFA>=11 数值分层（含 Overall）",
-                 n_by_db = c(`MIMIC-IV` = 18394L, eICU = 10558L),
-                 n_total = 28952L, databases = c("MIMIC-IV", "eICU"),
+                 grouping = if (isTRUE(overall_only)) {
+                   "Overall（不做 SOFA 分层）"
+                 } else {
+                   "SOFA<=10 / SOFA>=11 数值分层（含 Overall）"
+                 },
+                 n_by_db = c(`MIMIC-IV` = n_mi_pub, eICU = n_ei_pub),
+                 n_total = n_mi_pub + n_ei_pub, databases = c("MIMIC-IV", "eICU"),
                  combined = TRUE)
 r <- run_stage("pub_figure_ensure_formats", 2400, {
   st <- pub_figure_ensure_formats(file.path(staging, "Figures"), meta = fig_meta,
@@ -1244,8 +1384,12 @@ run_stage("image_information_rewrite", 240, {
       aucd <- read_csv(file.path(staging, "_assets/Figure8_panel_auc.csv"))
       if (!is.null(aucd)) {
         tag_col <- if ("model" %in% names(aucd)) aucd$model else aucd$tag
-        extra <- c(extra,
-          "SOFA 入模口径：SOFA 为分层键——各 SOFA 层冻结资产的候选域与 Boruta 均排除 SOFA；overall 资产保留 SOFA 为普通预测因子（Fig 7 / Table S11 同口径）。",
+        sofa_note <- if (isTRUE(overall_only)) {
+          "本终稿为 Overall 队列（不做 SOFA 分层）；SOFA 可作为普通预测因子进入 overall 冻结资产。"
+        } else {
+          "SOFA 入模口径：SOFA 为分层键——各 SOFA 层冻结资产的候选域与 Boruta 均排除 SOFA；overall 资产保留 SOFA 为普通预测因子（Fig 7 / Table S11 同口径）。"
+        }
+        extra <- c(extra, sofa_note,
           "每格 ROC 叠加该层全部五模型（logistic/dt/rf/xgboost/lightgbm，图例标各模型 AUC）；SHAP beeswarm/importance 两子格用该层内验最优冻结模型（tag 见图内标签）；MIMIC-IV internal 与 eICU external 解释同一冻结模型（model checksum 一致，provenance no_refit）。",
           "SHAP 解释行数：确定性降采样至最多 200 行/格（高置信事件/非事件各半 + seed=42 补足）；ROC 分母=该层全量冻结预测。",
           "图上标注（每格每模型 AUC；冻结模型 pROC，与 Table S11 同源口径；* = SHAP 所用最优模型）：",
@@ -1259,7 +1403,11 @@ run_stage("image_information_rewrite", 240, {
     }
     if (startsWith(stem, "Figure 7.") || startsWith(stem, "Figure S2.")) {
       extra <- c(extra,
-        "SOFA 入模口径：Figure 7 两层面板的候选域均已剔除分层键 SOFA（Task5 C1 审查口径）；Figure S2 overall 面板保留 SOFA 为普通预测因子（overall 非分层）。")
+        if (isTRUE(overall_only)) {
+          "Overall Boruta（MIMIC-IV train）；候选域可含 SOFA 为普通预测因子（本终稿不做 SOFA 分层）。"
+        } else {
+          "SOFA 入模口径：Figure 7 两层面板的候选域均已剔除分层键 SOFA（Task5 C1 审查口径）；Figure S2 overall 面板保留 SOFA 为普通预测因子（overall 非分层）。"
+        })
     }
     if (startsWith(stem, "Figure S3.")) {
       aucd <- read_csv(file.path(staging, "_assets/FigureS3_auc.csv"))
@@ -1292,17 +1440,19 @@ run_stage("image_information_rewrite", 240, {
       }
     }
     if (startsWith(stem, "Figure 1.")) {
-      fr <- ml_reference_read_flowcharts(mimic_csv, eicu_csv)
-      ex <- fr$exclusions
-      extra <- c(extra, "逐步人数与排除（相邻步差额，图上「本步排除 X 人」框）：",
-                 if (nrow(ex)) sprintf("- %s | %s: 本步排除 %d 人", ex$database,
-                                       ex$step, ex$excluded) else
-                   "- 两库各步之间无排除（差额=0）")
-      for (dbu in c("MIMIC-IV", "eICU")) {
-        rr <- fr$rows[fr$rows$database == dbu, ]
-        extra <- c(extra, sprintf("- %s 步序列 n：%s", dbu,
-                                  paste(format(rr$n, big.mark = ","),
-                                        collapse = " -> ")))
+      oc <- read_csv(file.path(staging, "_assets", "Flowchart_attrition_outcome.csv"))
+      if (!is.null(oc) && nrow(oc)) {
+        extra <- c(extra,
+          "标准预后纳排（outcome 分叉；不写插补后人数）。",
+          "图面逐步框与结局分叉人数：",
+          sprintf("- %s", apply(oc, 1L, function(r)
+            paste(names(r), r, sep = "=", collapse = "; "))))
+      } else {
+        extra <- c(extra,
+          "标准预后纳排（outcome 分叉；不写插补后人数）。",
+          sprintf("- MIMIC-IV 分析集 n=%s；eICU 分析集 n=%s",
+                  format(n_mi_pub, big.mark = ","),
+                  format(n_ei_pub, big.mark = ",")))
       }
     }
     if (startsWith(stem, "Figure S7.")) extra <- c(extra,
@@ -1347,9 +1497,10 @@ target_for_role <- function(kind, num) {
     return(NA_character_)
   }
   dirp <- file.path(staging, "Tables")
-  files <- list.files(dirp, pattern = paste0("^", lab, "\\."),
+  # 兼容：Table 1.… / Table 1-MIMIC IV.… / Table S11.…
+  files <- list.files(dirp, pattern = paste0("^", lab, "[ .\\-]"),
                       ignore.case = TRUE)
-  if (!length(files)) files <- list.files(dirp, pattern = paste0("^", lab, " "),
+  if (!length(files)) files <- list.files(dirp, pattern = paste0("^", lab, "$"),
                                           ignore.case = TRUE)
   files <- grep(ext, files, ignore.case = TRUE, value = TRUE)
   if (!length(files)) return(NA_character_)
@@ -1362,13 +1513,20 @@ any_smoke <- function() {
 }
 
 status_for_role <- function(kind, num, target) {
+  ## overall-only：Figure S2（Overall Boruta 已升主文 Fig7）、Table S7/S8（SOFA 层 PH）刻意省略
+  if (isTRUE(overall_only) && is.na(target)) {
+    if (kind == "figure_supp" && identical(num, "2")) return("omitted_overall_only")
+    if (kind == "table_supp" && num %in% c("7", "8")) return("omitted_overall_only")
+  }
   if (is.na(target)) return("missing")
   if (kind == "figure_main" && num %in% c("7")) {
-    return(if (length(boruta_cache) >= 2L && !any_smoke()) "ready_full" else
+    need_n <- if (isTRUE(overall_only)) 1L else 2L
+    return(if (length(boruta_cache) >= need_n && !any_smoke()) "ready_full" else
              "smoke_only")
   }
   if (kind == "figure_main" && num == "8") {
-    return(if (length(shap_by_stratum) >= 2L && !any_smoke() && !fig8_degraded)
+    need_n <- if (isTRUE(overall_only)) 1L else 2L
+    return(if (length(shap_by_stratum) >= need_n && !any_smoke() && !fig8_degraded)
              "ready_full" else "smoke_only")
   }
   if (kind == "figure_supp" && num %in% as.character(2:5)) {
@@ -1524,8 +1682,10 @@ if (!r_90$ok) {
 ## 终检（全部必需角色就位，无 *_FAIL/missing；四目录齐；16 图 18 表）
 g <- run_stage("final_gate", 120, {
   mdf <- manifest_df
-  if (any(grepl("_FAIL|missing", mdf$status))) {
-    bad <- mdf[grepl("_FAIL|missing", mdf$status), c("kind", "number", "status")]
+  bad_mask <- grepl("_FAIL|missing", mdf$status) &
+    !grepl("omitted_overall_only", mdf$status)
+  if (any(bad_mask)) {
+    bad <- mdf[bad_mask, c("kind", "number", "status")]
     stop("硬失败角色（拒绝替换）: ",
          paste(sprintf("%s%s=%s", bad$kind, bad$number, bad$status),
                collapse = "; "), call. = FALSE)
@@ -1536,8 +1696,19 @@ g <- run_stage("final_gate", 120, {
   }
   nfig <- length(st$stems)
   ntab <- length(list.files(file.path(staging, "Tables"), pattern = "\\.xlsx$"))
-  if (nfig != 16L || ntab != 18L) {
-    stop(sprintf("角色数异常 figures=%d(应16) tables=%d(应18)", nfig, ntab),
+  # ACAG 终稿可为 17 图（含 Figure S9）+ 19 表（Table 1 分库两张）；
+  # SOSM 原型为 16 图 + 18 表（Table 1 单张合并）。
+  # --overall-only：无 SOFA 分层 PH S7/S8、无 Figure S2（Overall Boruta 升主文 Fig7）
+  #   → 常见 16 图 + 17 表（仅 Overall PH 为 S6）。
+  ok_fig <- nfig %in% c(16L, 17L)
+  ok_tab <- if (isTRUE(overall_only)) {
+    ntab %in% c(16L, 17L, 18L, 19L)
+  } else {
+    ntab %in% c(18L, 19L)
+  }
+  if (!ok_fig || !ok_tab) {
+    stop(sprintf("角色数异常 figures=%d tables=%d (overall_only=%s)",
+                 nfig, ntab, isTRUE(overall_only)),
          call. = FALSE)
   }
   sprintf("figures=%d tables=%d formats_ok=TRUE", nfig, ntab)
@@ -1549,9 +1720,19 @@ if (!g$ok) {
 ## ---------------------------------------------------------------------------
 ## F) 原子替换 staging -> publication_literature_final
 ## ---------------------------------------------------------------------------
-run_stage("atomic_swap", 300, {
+r_swap <- run_stage("atomic_swap", 300, {
   previous <- paste0(out_final, ".__previous__")
   if (dir.exists(previous)) unlink(previous, recursive = TRUE)
+  # SMB/WSL：IDE 常锁 _report_dump.md / 中期 PDF，先挪开再 rename
+  if (dir.exists(out_final)) {
+    for (lk in c("_report_dump.md",
+                 list.files(out_final, pattern = "中期.*\\.pdf$", full.names = TRUE))) {
+      if (file.exists(lk)) {
+        tryCatch(file.rename(lk, paste0(lk, ".__swap_hold__")),
+                 error = function(e) NULL)
+      }
+    }
+  }
   backed_up <- FALSE
   if (dir.exists(out_final)) {
     if (!file.rename(out_final, previous)) {
@@ -1584,6 +1765,9 @@ run_stage("atomic_swap", 300, {
   sprintf("swapped: staging -> %s | backup=%s", basename(out_final),
           if (backed_up) basename(previous) else "none")
 })
+if (!r_swap$ok) {
+  stop("原子替换失败（staging 保留供排查）: ", r_swap$error, call. = FALSE)
+}
 
 cat(sprintf("\nBUILD_OK out=%s figures=%d tables=%d roles=34\n", out_final,
             length(pub_figure_formats_status(file.path(out_final, "Figures"))$stems),
@@ -1595,3 +1779,44 @@ if (length(bundles)) {
       collapse = "  "), "\n", sep = "")
 }
 cat("LOG ", file.path(out_final, "_build_log.tsv"), "\n", sep = "")
+
+## ---------------------------------------------------------------------------
+## G) 引擎级交付收口：重编号填空号 → Methods/软件版本 → summary_result → QC 骨架
+##    Agent 须继续 nature-statistics / nature-figure（修 P0）+ 中期 PDF
+## ---------------------------------------------------------------------------
+if (!isTRUE(as.logical(Sys.getenv("AKI_REF_SKIP_LIT_FINALIZE", unset = "0")))) {
+  fin_src <- file.path(engine_root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT"),
+                       "R/ml_literature_pub_finalize.R")
+  if (!file.exists(fin_src)) {
+    fin_src <- file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."),
+                         "R/ml_literature_pub_finalize.R")
+  }
+  if (file.exists(fin_src)) {
+    tryCatch({
+      if (!exists("ml_lit_finalize_delivery", mode = "function")) {
+        source(file.path(dirname(fin_src), "pub_software_versions.R"), local = FALSE)
+        source(file.path(dirname(fin_src), "pub_qc_after_finalize.R"), local = FALSE)
+        source(fin_src, local = FALSE)
+      }
+      # overall-only：撤 SOFA PH 后 S9+ 前移填 S8；全 SOFA 稿可用 AKI_REF_SKIP_RENUMBER=1
+      do_renum <- isTRUE(overall_only) &&
+        !isTRUE(as.logical(Sys.getenv("AKI_REF_SKIP_RENUMBER", unset = "0")))
+      fin <- ml_lit_finalize_delivery(
+        pub_root = out_final,
+        renumber = do_renum,
+        renumber_figures = do_renum,
+        write_methods = TRUE,
+        ensure_figures = TRUE,
+        run_qc = !isTRUE(as.logical(Sys.getenv("AKI_REF_SKIP_PUB_QC", unset = "0"))),
+        project_root_for_qc = dirname(dirname(index_root_abs))
+      )
+      cat("LIT_FINALIZE_OK summary=", fin$summary_root, "\n", sep = "")
+      cat("LIT_FINALIZE_CHECKLIST ", fin$checklist, "\n", sep = "")
+    }, error = function(e) {
+      warning("ml_lit_finalize_delivery 失败（终稿已落地，可手工重跑 finalize CLI）: ",
+              conditionMessage(e), call. = FALSE)
+    })
+  } else {
+    warning("缺少 R/ml_literature_pub_finalize.R，跳过 LIT_FINALIZE", call. = FALSE)
+  }
+}

@@ -925,32 +925,64 @@ ml_ref_fig8_grid <- function(cells, out_pdf = NULL) {
       cols <- ifelse(model_lv %in% names(five_cols),
                      five_cols[model_lv], "#455A64")
       names(cols) <- model_lv
-      # 图例放 ROC 面右下角空白（对齐原文 Fig.8），勿再挤到面外底部
+      # Overall 单格：正方形 ROC + classic；分层网格仍用紧凑主题
+      overall_cell <- identical(as.character(cl$stratum), "Overall")
       p_roc <- ggplot2::ggplot(roc_df, ggplot2::aes(x = fpr, y = tpr,
                                                     colour = model)) +
-        ggplot2::geom_abline(linetype = 2, colour = "grey50",
-                             linewidth = 0.3) +
-        ggplot2::geom_line(linewidth = 0.5) +
-        ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+        ggplot2::geom_abline(linetype = 2, colour = "grey55",
+                             linewidth = 0.35) +
+        ggplot2::geom_line(linewidth = if (overall_cell) 0.8 else 0.5,
+                           lineend = "round") +
+        ggplot2::coord_equal(xlim = c(0, 1), ylim = c(0, 1),
+                             expand = TRUE, clip = "off") +
         ggplot2::scale_colour_manual(values = cols, breaks = model_lv,
                                      labels = leg_vals, name = NULL) +
-        ggplot2::labs(x = "1 - Specificity", y = "Sensitivity", title = lab) +
-        .ref_theme +
+        ggplot2::labs(x = "1 - Specificity", y = "Sensitivity",
+                      title = if (overall_cell) {
+                        sprintf("%s | %s", cl$database, cl$stratum)
+                      } else lab,
+                      subtitle = if (overall_cell) {
+                        sprintf("SHAP = best: %s (AUC %s)",
+                                cl$tag %||% "NA",
+                                pub_format_est(ro_best$auc))
+                      } else NULL) +
+        if (overall_cell) {
+          ggplot2::theme_classic(base_size = 9)
+        } else {
+          .ref_theme
+        } +
         ggplot2::theme(
-          plot.title = ggplot2::element_text(size = 6, face = "bold"),
-          legend.position = "inside",
-          legend.position.inside = c(0.98, 0.02),
-          legend.justification = c(1, 0),
-          legend.background = ggplot2::element_rect(
-            fill = grDevices::adjustcolor("white", alpha.f = 0.9),
-            colour = "grey65", linewidth = 0.25
+          plot.title = ggplot2::element_text(
+            size = if (overall_cell) 10 else 6, face = "bold",
+            margin = ggplot2::margin(b = 2)
           ),
-          legend.key.height = grid::unit(0.28, "lines"),
-          legend.key.width = grid::unit(0.7, "lines"),
-          legend.text = ggplot2::element_text(size = 4.2),
-          legend.spacing.y = grid::unit(0.02, "lines"),
-          legend.margin = ggplot2::margin(1, 2, 1, 2)
-        )
+          plot.subtitle = ggplot2::element_text(
+            size = if (overall_cell) 8 else 5, colour = "grey30",
+            margin = ggplot2::margin(b = 4)
+          ),
+          # 图例外置，避免与 ROC 曲线 bbox 碰撞（Nature collision audit）
+          legend.position = "bottom",
+          legend.direction = "horizontal",
+          legend.background = ggplot2::element_blank(),
+          legend.key.height = grid::unit(
+            if (overall_cell) 0.42 else 0.28, "lines"
+          ),
+          legend.key.width = grid::unit(
+            if (overall_cell) 0.9 else 0.7, "lines"
+          ),
+          legend.text = ggplot2::element_text(
+            size = if (overall_cell) 6.5 else 4.2
+          ),
+          legend.spacing.y = grid::unit(0.08, "lines"),
+          legend.margin = ggplot2::margin(4, 0, 0, 0),
+          panel.grid.major = if (overall_cell) {
+            ggplot2::element_line(colour = "grey92", linewidth = 0.25)
+          } else {
+            ggplot2::element_line(colour = "grey90", linewidth = 0.2)
+          },
+          plot.margin = ggplot2::margin(6, 8, 6, 6)
+        ) +
+        ggplot2::guides(colour = ggplot2::guide_legend(nrow = 3L, byrow = TRUE))
       legend_labels[[length(legend_labels) + 1L]] <- leg_vals
     } else {
       ro <- ro_best
@@ -961,21 +993,38 @@ ml_ref_fig8_grid <- function(cells, out_pdf = NULL) {
       roc_df <- if (is.null(ro$curve)) {
         data.frame(fpr = numeric(0), tpr = numeric(0))
       } else ro$curve
+      overall_cell <- identical(as.character(cl$stratum), "Overall")
       p_roc <- ggplot2::ggplot(roc_df, ggplot2::aes(x = fpr, y = tpr)) +
-        ggplot2::geom_abline(linetype = 2, colour = "grey50", linewidth = 0.3) +
-        ggplot2::geom_line(colour = "#1565C0", linewidth = 0.6) +
-        ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1) +
+        ggplot2::geom_abline(linetype = 2, colour = "grey55", linewidth = 0.35) +
+        ggplot2::geom_line(colour = "#1565C0",
+                           linewidth = if (overall_cell) 0.85 else 0.6) +
+        ggplot2::coord_equal(xlim = c(0, 1), ylim = c(0, 1),
+                             expand = FALSE) +
         ggplot2::labs(x = "1 - Specificity", y = "Sensitivity", title = lab) +
-        .ref_theme +
-        ggplot2::theme(plot.title = ggplot2::element_text(size = 6,
-                                                          face = "bold"))
+        {
+          if (overall_cell) ggplot2::theme_classic(base_size = 9) else .ref_theme
+        } +
+        ggplot2::theme(plot.title = ggplot2::element_text(
+          size = if (overall_cell) 10 else 6, face = "bold"
+        ))
       legend_labels[[length(legend_labels) + 1L]] <- character(0)
     }
+    overall_cell <- identical(as.character(cl$stratum), "Overall")
     p_bee <- .ml_fshap_plot(cl$shp, "bee", "SHAP beeswarm") +
-      ggplot2::theme(axis.text.y = ggplot2::element_text(size = 5),
-                     legend.position = "none")
+      ggplot2::theme(
+        axis.text.y = ggplot2::element_text(size = if (overall_cell) 8 else 5),
+        legend.position = if (overall_cell) "right" else "none",
+        plot.title = ggplot2::element_text(
+          size = if (overall_cell) 10 else 7, face = "bold"
+        )
+      )
     p_bar <- .ml_fshap_plot(cl$shp, "bar", "mean(|SHAP|)") +
-      ggplot2::theme(axis.text.y = ggplot2::element_text(size = 5))
+      ggplot2::theme(
+        axis.text.y = ggplot2::element_text(size = if (overall_cell) 8 else 5),
+        plot.title = ggplot2::element_text(
+          size = if (overall_cell) 10 else 7, face = "bold"
+        )
+      )
     # store atomic panels for original A–I grid (row=plot type, col=stratum)
     plot_list[[length(plot_list) + 1L]] <- list(
       database = cl$database, stratum = cl$stratum,
@@ -1007,29 +1056,67 @@ ml_ref_fig8_grid <- function(cells, out_pdf = NULL) {
       st_order
     ))]
     n_st <- length(cells_db)
-    row_roc <- lapply(cells_db, function(x) x$p_roc)
-    row_bee <- lapply(cells_db, function(x) x$p_bee)
-    row_bar <- lapply(cells_db, function(x) x$p_bar)
-    block <- patchwork::wrap_plots(c(row_roc, row_bee, row_bar),
-                                   ncol = n_st, nrow = 3L) +
-      patchwork::plot_annotation(
-        title = sprintf("%s (columns = SOFA strata; rows = ROC / SHAP beeswarm / SHAP bar)",
-                        dbn))
+    overall_block <- length(st_order) == 1L &&
+      identical(as.character(st_order), "Overall")
+    if (overall_block && n_st == 1L) {
+      # 紧凑布局：上排 ROC | mean(|SHAP|)，下排 beeswarm 通栏（避免三行竖条过长）
+      x <- cells_db[[1L]]
+      block <- (x$p_roc | x$p_bar) / x$p_bee +
+        patchwork::plot_layout(heights = c(1.15, 1.05), widths = c(1.05, 1)) +
+        patchwork::plot_annotation(
+          title = sprintf("%s overall: ROC + mean(|SHAP|) (top); SHAP beeswarm (bottom)",
+                          dbn),
+          theme = ggplot2::theme(
+            plot.title = ggplot2::element_text(size = 10, face = "bold")
+          )
+        )
+    } else {
+      row_roc <- lapply(cells_db, function(x) x$p_roc)
+      row_bee <- lapply(cells_db, function(x) x$p_bee)
+      row_bar <- lapply(cells_db, function(x) x$p_bar)
+      block <- patchwork::wrap_plots(c(row_roc, row_bee, row_bar),
+                                     ncol = n_st, nrow = 3L) +
+        patchwork::plot_annotation(
+          title = sprintf(
+            "%s (columns = SOFA strata; rows = ROC / SHAP beeswarm / SHAP bar)",
+            dbn
+          )
+        )
+    }
     blocks[[length(blocks) + 1L]] <- block
+  }
+  overall_only <- nrow(panels) > 0L &&
+    all(as.character(panels$stratum) == "Overall")
+  fig8_title <- if (overall_only) {
+    "Figure 8. Overall five-model ROC and SHAP (frozen MIMIC models; eICU external, no refit)"
+  } else {
+    "Figure 8. Stratified five-model ROC and SHAP (frozen MIMIC models; eICU external)"
   }
   plt <- if (length(blocks) == 1L) blocks[[1]] else {
     patchwork::wrap_plots(blocks, ncol = 1L) +
-      patchwork::plot_annotation(
-        title = "Figure 8. Stratified five-model ROC and SHAP (frozen MIMIC models; eICU external)")
+      patchwork::plot_annotation(title = fig8_title)
   }
   if (length(blocks) == 1L) {
-    plt <- plt + patchwork::plot_annotation(
-      title = "Figure 8. Stratified five-model ROC and SHAP (frozen MIMIC models; eICU external)")
+    plt <- plt + patchwork::plot_annotation(title = fig8_title)
   }
   n_st_max <- max(table(panels$database))
-  path <- .ml_fshap_save(plt, out_pdf,
-                         width = 4.2 * max(n_st_max, 1L),
-                         height = 9.5 * max(length(db_order), 1L))
+  path <- .ml_fshap_save(
+    plt, out_pdf,
+    width = if (overall_only) {
+      10.5
+    } else if (n_st_max <= 1L) {
+      7.2
+    } else {
+      4.2 * max(n_st_max, 1L)
+    },
+    height = if (overall_only) {
+      6.6 * max(length(db_order), 1L)
+    } else if (n_st_max <= 1L) {
+      8.2 * max(length(db_order), 1L)
+    } else {
+      9.5 * max(length(db_order), 1L)
+    }
+  )
   list(panels = panels, auc = auc, curve = curve,
        legend_labels = legend_labels, path = path)
 }

@@ -140,7 +140,12 @@
 }
 
 # 双库不合并时：Table 2-NHANES. / Table 2-MIMIC IV.（主次库都标）
+# 单库：不加 -库名
 .ml_ptc_table_db_infix <- function(cfg, db_tag) {
+  if (exists("pub_config_is_single_db", mode = "function") &&
+      isTRUE(pub_config_is_single_db(cfg))) {
+    return("")
+  }
   if (.ml_ptc_should_merge_dual_db_tables(cfg) || identical(db_tag, "Combined") ||
       !nzchar(db_tag)) {
     return("")

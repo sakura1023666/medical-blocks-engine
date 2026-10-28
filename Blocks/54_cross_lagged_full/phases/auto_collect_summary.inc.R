@@ -16,10 +16,10 @@ if (exists("study_root") && exists("root") &&
   if (file.exists(.sh) && dir.exists(as.character(study_root)[1L])) {
     cli::cli_h2("自动收集 summary_result/figure + table")
     .sr <- as.character(study_root)[1L]
+    # 路径含空格时勿把 study_root 拼进 argv（易被拆段 → need study_root）；只走环境变量
     Sys.setenv(CROSS_LAGGED_STUDY_ROOT = .sr)
     .st <- tryCatch(
-      # system2 向量参数勿再 shQuote（路径空格会变成字面引号 → need study_root）
-      system2("bash", c(.sh, .sr), stdout = TRUE, stderr = TRUE),
+      system2("bash", .sh, stdout = TRUE, stderr = TRUE),
       error = function(e) {
         cli::cli_alert_warning("自动汇总失败: {conditionMessage(e)}")
         character(0)

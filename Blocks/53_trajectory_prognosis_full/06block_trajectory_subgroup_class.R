@@ -109,6 +109,16 @@
     cols[[v]] <- factor(data[[v]])
   }
 
+  forbid <- unique(as.character(bl$forbid_subgroup_vars %||% character(0)))
+  if (length(forbid)) cols <- cols[!names(cols) %in% forbid]
+  # 单水平（如全队列 Stroke=Yes）不能做分层
+  if (length(cols)) {
+    keep_lv <- vapply(cols, function(f) {
+      nlevels(droplevels(f[!is.na(f)])) >= 2L
+    }, logical(1))
+    cols <- cols[keep_lv]
+  }
+
   # 双库铁律：默认关 auto_scan，须显式 subgroup_vars（避免扩库特异列）
   auto_scan <- if (is.null(bl$auto_scan_categorical)) FALSE else isTRUE(bl$auto_scan_categorical)
   if (!length(explicit_vars) && auto_scan) {
@@ -191,17 +201,24 @@
     Variables = "Overall", subgroup_var = "Overall", subgroup_level = "Overall",
     Count = N_total, Percent = 100, is_header = FALSE, stringsAsFactors = FALSE
   ))
+  .tsc06_show <- function(x) {
+    if (exists("pipeline_display_label", mode = "function")) {
+      pipeline_display_label(x)
+    } else {
+      gsub("_", " ", as.character(x), fixed = TRUE)
+    }
+  }
   for (vname in names(subgroup_cols)) {
     fcol <- subgroup_cols[[vname]]
     base[[paste0(".sg_", vname)]] <- fcol
     count_rows[[length(count_rows) + 1L]] <- data.frame(
-      Variables = vname, subgroup_var = vname, subgroup_level = NA_character_,
+      Variables = .tsc06_show(vname), subgroup_var = vname, subgroup_level = NA_character_,
       Count = NA_integer_, Percent = NA_real_, is_header = TRUE, stringsAsFactors = FALSE
     )
     for (lv in levels(fcol)) {
       sub <- base[!is.na(fcol) & fcol == lv, , drop = FALSE]
       count_rows[[length(count_rows) + 1L]] <- data.frame(
-        Variables = paste0("  ", lv), subgroup_var = vname, subgroup_level = lv,
+        Variables = paste0("  ", .tsc06_show(lv)), subgroup_var = vname, subgroup_level = lv,
         Count = nrow(sub), Percent = round(100 * nrow(sub) / N_total, 1),
         is_header = FALSE, stringsAsFactors = FALSE
       )

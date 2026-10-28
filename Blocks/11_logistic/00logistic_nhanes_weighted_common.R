@@ -631,7 +631,7 @@ logistic_covariate_lcfg <- .lnw00_lcfg
 
 .lnw00_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL) {
   if (exists("logistic_glm_table_footnotes", mode = "function")) {
-    return(logistic_glm_table_footnotes(M1, M2, M3, m3_significant))
+    return(logistic_glm_table_footnotes(M1, M2, M3, m3_significant, ctx = NULL))
   }
   pipeline_model3_table_footnotes(M1, M2, M3, m3_significant)
 }

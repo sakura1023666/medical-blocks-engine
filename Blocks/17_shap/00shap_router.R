@@ -426,8 +426,10 @@
 .shap_surv_predict_risk <- function(tag, model, X_df) {
   tag <- tolower(trimws(as.character(tag)[1L]))
   X <- as.data.frame(X_df)
-  ## mboost / gbm / rsf / survivalsvm 需要与训练一致的列类型（可含 factor）
-  keep_factor <- tag %in% c("mboost_cox", "gbmsurv", "rsf", "survivalsvm")
+  ## mboost / gbm / rsf / survivalsvm / coxboost 需要与训练一致的列类型（可含 factor）
+  ## coxboost 训练走 model.matrix dummy；若先把 T_Stage 压成 1/2/3/4，再按训练水平
+  ## 还原会全 NA → model.matrix 0 行 → predict as.matrix 越界（NPC CoxBoost SHAP 已踩）
+  keep_factor <- tag %in% c("mboost_cox", "gbmsurv", "rsf", "survivalsvm", "coxboost")
   if (!keep_factor) {
     for (cn in names(X)) {
       if (!is.numeric(X[[cn]])) X[[cn]] <- suppressWarnings(as.numeric(as.factor(as.character(X[[cn]]))))
@@ -458,7 +460,54 @@
       pr <- stats::predict(model, newdata = nd)
       as.numeric(pr$predicted)
     } else if (identical(tag, "coxboost")) {
-      as.numeric(stats::predict(model, newdata = X_mat, type = "lp"))
+      ## 训练用 .mlsurv_model_matrix（因子→dummy）；禁止把 T_Stage 压成单列 numeric
+      if (!requireNamespace("CoxBoost", quietly = TRUE)) {
+        stop("coxboost SHAP: 需要安装 CoxBoost。", call. = FALSE)
+      }
+      cn <- as.character(attr(model, "mlsurv_design_cols") %||% character(0))
+      if (!length(cn) || !any(nzchar(cn))) {
+        cn <- as.character(model$xnames %||% names(model$meanx) %||% character(0))
+      }
+      cn <- cn[nzchar(cn)]
+      if (!length(cn)) cn <- colnames(X_mat)
+      lv <- attr(model, "mlsurv_train_levels")
+      ## 用未压码的 X（keep_factor 路径）而非已 as.numeric 的 X_mat
+      X_raw <- as.data.frame(X)
+      if (is.list(lv) && length(lv)) {
+        for (nm in names(lv)) {
+          if (!nm %in% names(X_raw) || is.null(lv[[nm]])) next
+          cur <- X_raw[[nm]]
+          lab <- as.character(lv[[nm]])
+          ## 已是正确标签 / 字符 → 按训练水平；若误成整数码 1..K 则映射回水平名
+          if (is.numeric(cur) && !is.factor(cur)) {
+            idx <- as.integer(round(cur))
+            ok <- is.finite(idx) & idx >= 1L & idx <= length(lab)
+            mapped <- rep(NA_character_, length(idx))
+            mapped[ok] <- lab[idx[ok]]
+            X_raw[[nm]] <- factor(mapped, levels = lab)
+          } else {
+            X_raw[[nm]] <- factor(as.character(cur), levels = lab)
+          }
+        }
+      }
+      feat_cols <- setdiff(names(X_raw), c(".time", ".event", "time", "status", "Group"))
+      feat_cols <- feat_cols[nzchar(feat_cols)]
+      if (!length(feat_cols)) stop("coxboost SHAP: 无可用特征列。", call. = FALSE)
+      form <- stats::as.formula(paste("~", paste(feat_cols, collapse = " + ")))
+      mm <- stats::model.matrix(form, data = X_raw)
+      if (!nrow(mm)) {
+        stop("coxboost SHAP: model.matrix 0 行（因子水平未对齐）。", call. = FALSE)
+      }
+      mm <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+      miss <- setdiff(cn, colnames(mm))
+      if (length(miss)) {
+        add0 <- matrix(0, nrow = nrow(mm), ncol = length(miss))
+        colnames(add0) <- miss
+        mm <- cbind(mm, add0)
+      }
+      mm <- mm[, cn, drop = FALSE]
+      storage.mode(mm) <- "double"
+      as.numeric(stats::predict(model, newdata = mm, type = "lp"))
     } else if (identical(tag, "gbmsurv")) {
       ntr <- if (!is.null(model$n.trees)) model$n.trees else 100L
       as.numeric(gbm::predict.gbm(model, newdata = X, n.trees = ntr, type = "link"))
@@ -570,9 +619,9 @@
     stop("需要 shapviz。", call. = FALSE)
   }
   tag0 <- tolower(trimws(as.character(tag)[1L]))
-  ## RSF/GBM 等训练用 factor；若这里先 as.numeric(factor)→整数码再喂 predict，
-  ## 分类列扰动几乎不改变预测 → SHAP 图上大量 0.000（假零）。
-  keep_factor <- tag0 %in% c("mboost_cox", "gbmsurv", "rsf", "survivalsvm")
+  ## RSF/GBM/CoxBoost 等训练用 factor；若这里先 as.numeric(factor)→整数码再喂 predict，
+  ## 分类列扰动几乎不改变预测 → SHAP 假零；CoxBoost 更会因 dummy 对不齐而 predict 越界。
+  keep_factor <- tag0 %in% c("mboost_cox", "gbmsurv", "rsf", "survivalsvm", "coxboost")
   X <- as.data.frame(X_df)
   for (cn in names(X)) {
     if (keep_factor) {

@@ -99,6 +99,7 @@ config <- list(
     missing_col_threshold = 0.40,
     method = "cart",
     m = 5L,
+    rubin_pool = TRUE,
     seed = 1234L,
     mi_quality_exclude_enable = TRUE,
     mi_quality_p_threshold = 0.05,

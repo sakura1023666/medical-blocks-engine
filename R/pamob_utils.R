@@ -1326,23 +1326,137 @@ pamob_draw_fig2_flowchart <- function(steps, pdf_path) {
 }
 
 #' Figure S1：NHANES CONSORT 纳排
+#'
+#' 主链止于 DSST 主样本（年龄 ≥60，不设上限，不要求 NfL）。
+#' sNfL（60–75 岁 + WTSSNH2Y）从合并队列侧出，不画成主链上的顺序剔除。
+#' 556 = 合并队列中年龄 <60（组装汇总 with_Age_demo 与合并 n 相同，无年龄缺失）。
 pamob_draw_figs1_nhanes_flowchart <- function(steps, pdf_path) {
-  lab_map <- c(
-    "1_cycle_H_PA_mobility_merged" =
-      "NHANES 2013\u20132014 (Cycle H)\nPA\u2013mobility phenotype merged",
-    "2_age_60_75" =
-      "Age 60\u201375 years",
-    "3_DSST_available" =
-      "DSST available\n(cognitive performance)",
-    "4_NfL_weighted_analytic" =
-      "Serum NfL analytic sample\n(WTSSNH2Y survey weights)"
+  pamob_ensure_packages("ggplot2")
+  stopifnot(is.data.frame(steps), all(c("step", "n") %in% names(steps)))
+  .n_of <- function(pat) {
+    i <- grep(pat, as.character(steps$step), ignore.case = TRUE)
+    if (!length(i)) return(NA_integer_)
+    as.integer(steps$n[i[[1L]]])
+  }
+  n_merge <- .n_of("^1_|cycle_H|merged")
+  n_age <- .n_of("age_ge60")
+  n_dsst <- .n_of("WTMEC2YR|DSST_plus")
+  n_nfl <- .n_of("NfL_exploratory|age60_75")
+  if (anyNA(c(n_merge, n_age, n_dsst))) {
+    stop("NHANES flowchart steps 缺少合并 / age>=60 / DSST 主样本人数", call. = FALSE)
+  }
+  ge <- "\u2265"
+  fmt <- function(x) format(as.integer(x), big.mark = ",")
+  y <- c(0.84, 0.52, 0.20)
+  box_h <- 0.125
+  main_lab <- c(
+    "NHANES 2013\u20132014 (Cycle H)\nPA\u2013mobility phenotype merged",
+    paste0("Age ", ge, "60 years"),
+    paste0(
+      "DSST main cognitive sample\n",
+      "age ", ge, "60 years, no upper limit\n",
+      "WTMEC2YR > 0; NfL not required"
+    )
   )
-  excl_lab <- c(NA,
-                "Age <60 or >75 years",
-                "Missing DSST",
-                "Missing NfL or\nineligible for weighted NfL")
-  pamob_draw_flowchart_pub(steps, pdf_path, lab_map, excl_lab,
-                           width = 7.8, height = 6.4)
+  boxes <- data.frame(
+    x = 0.30, y = y,
+    label = sprintf("%s\nn = %s", main_lab, fmt(c(n_merge, n_age, n_dsst))),
+    stringsAsFactors = FALSE
+  )
+  excl_df <- data.frame(
+    x = 0.30, y = c(mean(y[1:2]), mean(y[2:3])),
+    label = c(
+      sprintf("Age <60 years\nn = %s", fmt(n_merge - n_age)),
+      sprintf("Missing DSST or\nnon-positive WTMEC2YR\nn = %s", fmt(n_age - n_dsst))
+    ),
+    stringsAsFactors = FALSE
+  )
+  # 排除框放在主链右侧，避免与主框重叠
+  excl_df$x <- 0.74
+  seg_main <- data.frame(
+    x = 0.30, xend = 0.30,
+    y = y[-3] - box_h / 2, yend = y[-1] + box_h / 2
+  )
+  side_boxes <- NULL
+  seg_side <- NULL
+  if (!is.na(n_nfl) && is.finite(n_nfl)) {
+    side_boxes <- data.frame(
+      x = 0.74, y = y[1],
+      label = sprintf(
+        paste0(
+          "Exploratory sNfL\n",
+          "age 60\u201375 years\n",
+          "WTSSNH2Y and NfL available\n",
+          "separate from the DSST sample\n",
+          "n = %s"
+        ),
+        fmt(n_nfl)
+      ),
+      stringsAsFactors = FALSE
+    )
+    seg_side <- data.frame(
+      x = 0.30 + 0.22, xend = 0.74 - 0.18,
+      y = y[1], yend = y[1]
+    )
+  }
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_segment(
+      data = seg_main, ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      arrow = ggplot2::arrow(length = grid::unit(0.16, "cm"), type = "closed"),
+      linewidth = 0.65, color = "#334155"
+    )
+  if (!is.null(seg_side)) {
+    p <- p + ggplot2::geom_segment(
+      data = seg_side, ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      linewidth = 0.55, color = "#64748B",
+      arrow = ggplot2::arrow(length = grid::unit(0.12, "cm"), type = "closed")
+    )
+  }
+  p <- p +
+    ggplot2::geom_segment(
+      data = data.frame(
+        x = 0.30 + 0.22, xend = 0.74 - 0.16,
+        y = excl_df$y, yend = excl_df$y
+      ),
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      linewidth = 0.55, color = "#64748B"
+    ) +
+    ggplot2::geom_tile(
+      data = excl_df, ggplot2::aes(x, y), width = 0.32, height = 0.105,
+      fill = "#FFF7ED", color = "#C2410C", linewidth = 0.70
+    ) +
+    ggplot2::geom_text(
+      data = excl_df, ggplot2::aes(x, y, label = label),
+      size = 2.65, lineheight = 0.94, color = "#431407"
+    ) +
+    ggplot2::geom_tile(
+      data = boxes, ggplot2::aes(x, y), width = 0.44, height = box_h,
+      fill = "#EFF6FF", color = "#1D4ED8", linewidth = 0.85
+    ) +
+    ggplot2::geom_text(
+      data = boxes, ggplot2::aes(x, y, label = label),
+      size = 2.85, lineheight = 0.94, color = "#0F172A"
+    )
+  if (!is.null(side_boxes)) {
+    p <- p +
+      ggplot2::geom_tile(
+        data = side_boxes, ggplot2::aes(x, y), width = 0.36, height = 0.155,
+        fill = "#F0FDF4", color = "#15803D", linewidth = 0.75
+      ) +
+      ggplot2::geom_text(
+        data = side_boxes, ggplot2::aes(x, y, label = label),
+        size = 2.45, lineheight = 0.92, color = "#14532D"
+      )
+  }
+  p <- p +
+    ggplot2::coord_cartesian(xlim = c(0.02, 0.98), ylim = c(0.06, 0.98), expand = FALSE) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.margin = ggplot2::margin(10, 10, 10, 10),
+      plot.background = ggplot2::element_rect(fill = "white", color = NA)
+    )
+  pamob_ggsave_pub(pdf_path, p, width = 8.4, height = 7.6)
+  invisible(pdf_path)
 }
 
 #' Figure 3：校正后认知轨迹（单面板，兼容旧调用）

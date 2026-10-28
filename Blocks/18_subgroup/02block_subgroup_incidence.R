@@ -541,6 +541,7 @@ block_subgroup_incidence <- function(ctx, ...) {
     n_unique_num > 5L
   forest_cap_mode <- "continuous"
   rt_full_for_n <- NULL
+  .sgi_fold_end_lv <- NULL
   if (is_cont_idx) {
     grp_method <- as.character(
       (cfg$logistic_quartile_glm %||% list())$scheme %||%
@@ -583,15 +584,26 @@ block_subgroup_incidence <- function(ctx, ...) {
     } else if (!identical(ci_mode, "keep_quantile") && nlevels(rt[[index_var]]) > 2L) {
       lv <- levels(rt[[index_var]])
       keep_lv <- c(lv[1L], lv[length(lv)])
+      .sgi_fold_end_lv <- keep_lv[2L]
       n0 <- nrow(rt)
-      # 保留全分析集用于森林图 N（展示分层样本量，如全部女性）；模型仍只用 Q1+Q4
-      rt_full_for_n <- rt
-      rt <- rt[as.character(rt[[index_var]]) %in% keep_lv, , drop = FALSE]
-      rt[[index_var]] <- factor(as.character(rt[[index_var]]), levels = keep_lv)
-      forest_cap_mode <- "highest_vs_lowest"
-      cli::cli_alert_info(
-        "亚组森林图：连续暴露取最高 vs 最低（{keep_lv[2]} vs {keep_lv[1]}），模型 n {n0} → {nrow(rt)}；图上 N 默认用全分层（mode={ci_mode}）"
-      )
+      if (isTRUE(.sgi_full_pop) &&
+          exists("subgroup_collapse_middle_levels", mode = "function")) {
+        # 全人群（默认）：中间分位并为 Middle（不删行）；最高 vs 最低系数与主文同分位对比
+        rt[[index_var]] <- subgroup_collapse_middle_levels(rt[[index_var]], levels = lv)
+        forest_cap_mode <- "highest_vs_lowest"
+        cli::cli_alert_info(
+          "亚组森林图：全分析集估计（n={n0}），各层报告 {keep_lv[2]} vs {keep_lv[1]}（中间分位并为 Middle；mode={ci_mode}）"
+        )
+      } else {
+        # 旧口径：模型仅 Q1+Q4 子集；图上 N 仍可用全分层覆盖
+        rt_full_for_n <- rt
+        rt <- rt[as.character(rt[[index_var]]) %in% keep_lv, , drop = FALSE]
+        rt[[index_var]] <- factor(as.character(rt[[index_var]]), levels = keep_lv)
+        forest_cap_mode <- "highest_vs_lowest"
+        cli::cli_alert_info(
+          "亚组森林图：连续暴露取最高 vs 最低（{keep_lv[2]} vs {keep_lv[1]}），模型 n {n0} → {nrow(rt)}；图上 N 默认用全分层（mode={ci_mode}）"
+        )
+      }
     }
   } else {
     if (is.factor(idx_raw) || is.character(idx_raw)) {
@@ -728,6 +740,15 @@ block_subgroup_incidence <- function(ctx, ...) {
     return(ctx)
   }
 
+  if (!is.null(.sgi_fold_end_lv) &&
+      exists("subgroup_fold_quantile_contrast_rows", mode = "function")) {
+    res <- subgroup_fold_quantile_contrast_rows(res, index_var, .sgi_fold_end_lv)
+    if (!is.data.frame(res) || !nrow(res)) {
+      cli::cli_alert_warning("Subgroup table empty after quantile fold")
+      return(ctx)
+    }
+  }
+
   res <- res[-1, , drop = FALSE]
   if (nrow(res) == 0L) {
     cli::cli_alert_warning("Subgroup table dropped to zero rows after header removal")
@@ -785,7 +806,9 @@ block_subgroup_incidence <- function(ctx, ...) {
     }
   }
 
-  fig_cap <- if (exists("pipeline_subgroup_forest_caption", mode = "function")) {
+  fig_cap <- if (nzchar(as.character(sub_cfg$figure_caption %||% "")[1L])) {
+    as.character(sub_cfg$figure_caption)[1L]
+  } else if (exists("pipeline_subgroup_forest_caption", mode = "function")) {
     pipeline_subgroup_forest_caption(index_var, mode = forest_cap_mode %||% "highest_vs_lowest")
   } else {
     paste0("Subgroup Forest analyses of ", index_var)

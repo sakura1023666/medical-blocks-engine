@@ -1,0 +1,49 @@
+---
+description: 全项目插补铁律 m=5 + Rubin 合并（禁止只取 complete#1 当推断）
+alwaysApply: true
+---
+
+# 多重插补铁律：m=5 + Rubin（全项目）
+
+凡流水线启用 MICE / `config$imputation`（`method` 非 `none`），必须遵守。
+
+## 铁律
+
+1. **`m = 5`**（或更大）；禁止为图省事写 `m = 1` 却在 Methods 写多重插补。
+2. **`rubin_pool = TRUE`**：推断回归（Cox / logistic / Fine–Gray 等）在 **每一套** imputed 上拟合，再按 **Rubin 规则**合并 HR/OR、CI、P。
+3. **`complete_action = 1`** 只服务**操作层**（Table1/S1、trim、Boruta/SHAP、KM/RCS 画图、轨迹输入）。**禁止**用 complete#1 的 Cox/logistic 点估计交差，还写成「多重插补」。
+4. 插补块必须保留 `ctx$results$mice_model`（mids）与 `mice_row_ids`，供 `mi_complete_aligned` 对齐。
+5. 推断回归必须走 `mi_coxph` / 等价；**禁止**剥掉 `id_column` 导致 Rubin 0/5 回退 complete#1 仍交差。
+
+## 实现入口
+
+| 场景 | 入口 |
+|------|------|
+| API | `R/mi_rubin_pool.R` → `mi_coxph` / `mi_glm_binomial` / `mi_append_table_footnotes` / `mi_rubin_normalize_config` |
+| 单因素预后 | `Blocks/06_univariate/01block_univariate_prognosis.R`（Rubin 时保留 ID） |
+| 多因素预后 | `Blocks/07_multivariate/01block_multivariate_prognosis.R` |
+| 分位 Cox | `Blocks/10_cox/03block_cox_quartile.R` |
+| ML 连续特征 Cox | `Blocks/10_cox/08block_cox_ml_continuous_batch.R`（`dt` 须带 ID） |
+| Methods 文案 | `R/ml_index_summary_results.R` |
+
+`run_pipeline` 启动时规范化 config。复用地图：`docs/reuse/2026-10-27-npc-ml-rubin-os-attrition-reuse-map.md`。
+
+## 例外（须注释写明）
+
+- `imputation$method = "none"`：不做 MI。
+- **深度模型训练**（TST / 部分 ML）：网络训练可用操作层单套；若同课题另有 Cox/logistic 发表表，那些表仍须 Rubin。
+- 用户书面要求关闭 Rubin：仅单课题、且 Methods 不得写多重插补推断。
+
+## 新课题检查
+
+- [ ] config：`m = 5L`，`rubin_pool = TRUE`，`complete_action = 1L`
+- [ ] 日志出现 Rubin / `mi_pool=rubin`；或 Cox 脚注含 Rubin's rules
+- [ ] 无「Rubin 失败（0/5），回退单套 complete」仍当主推断交差（先查 ID 是否被剥）
+- [ ] 无「m=5 且 The analysis uses the first completed dataset」作为 **Cox/logistic 主推断**脚注（操作层描述可以提 first completed）
+
+## 反例（禁止）
+
+- Table S6 / Methods 写 MICE m=5，Table 3 Cox 却只拟合 complete#1
+- 模板默认 `rubin_pool` 缺失或 FALSE
+- 新 Block 直接 `coxph(…, data = ctx$data$imputed)` 且不经 `mi_coxph` / 等价 Rubin 循环
+- UV/ML Cox 剥 ID 后静默回退 complete#1，脚注仍写 Rubin's rules

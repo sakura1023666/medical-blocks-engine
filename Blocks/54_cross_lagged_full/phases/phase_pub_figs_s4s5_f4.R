@@ -80,16 +80,30 @@ options(warn = 1, cli.hyperlink = FALSE)
 
 .panel_f <- file.path(study_root, "config_long_panel.R")
 .meta <- tryCatch(cross_lagged_study_meta(study_root), error = function(e) NULL)
+# 仅认真正赋值；注释里的字样不得误判为昼夜
 .is_circadian <- isTRUE(.meta$kind == "circadian") || (
   file.exists(.panel_f) &&
-    any(grepl("circadian_index_var|ePWV", readLines(.panel_f, warn = FALSE)))
+    any(grepl("^\\s*\\.circadian_index_var\\s*<-", readLines(.panel_f, warn = FALSE)))
 )
+.is_dep_htn <- isTRUE(.meta$kind == "depression_htn_frailty")
 if (file.exists(.panel_f)) {
   data_root <- file.path(study_root, "data")
   source(.panel_f, local = FALSE)
 }
-.ev_lab <- if (.is_circadian) "Circadian disorder" else "Hip fracture"
-.ref_lab <- if (.is_circadian) "No disorder" else "No fracture"
+.ev_lab <- if (.is_circadian) {
+  "Circadian disorder"
+} else if (.is_dep_htn) {
+  "Hypertension"
+} else {
+  "Hip fracture"
+}
+.ref_lab <- if (.is_circadian) {
+  "No disorder"
+} else if (.is_dep_htn) {
+  "No hypertension"
+} else {
+  "No fracture"
+}
 .fig4_title <- if (.is_circadian) "CLPN network of circadian conditions.pdf" else
   "CLPN network of frailty index items.pdf"
 .index_var <- if (!is.null(.meta$index_var)) as.character(.meta$index_var)[1L] else
@@ -108,9 +122,11 @@ if (file.exists(.panel_f)) {
 .std_disease <- function(x) {
   x <- as.character(x)
   ifelse(is.na(x), NA_character_,
-         ifelse(x %in% c("1", "Hip_Fracture", "Patellar_Fracture", "Fracture", "Yes", "Circadian_Disorder"),
+         ifelse(x %in% c("1", "Hip_Fracture", "Patellar_Fracture", "Fracture", "Yes",
+                         "Circadian_Disorder", "Hypertension"),
                 .ev_lab,
-                ifelse(x %in% c("0", "No_Fracture", "No fracture", "Normal", "No", "No_Disorder"),
+                ifelse(x %in% c("0", "No_Fracture", "No fracture", "Normal", "No",
+                                "No_Disorder", "No_Hypertension"),
                        .ref_lab, x)))
 }
 
@@ -584,7 +600,12 @@ for (db in cohorts) {
   ctx <- list(
     data = list(longitudinal_wide = w, longitudinal_wide_clpn = NULL),
     config = list(
-      project = list(database = db, output_dir = out_dir),
+      project = list(
+        database = db,
+        output_dir = out_dir,
+        analysis_group = .ev_lab,
+        disease = .ev_lab
+      ),
       cross_lagged_network = if (isTRUE(.is_circadian)) {
         list(
           node_stems = c(paste0("condition", 1:7), "ePWV"),
@@ -598,7 +619,9 @@ for (db in cohorts) {
         list(
           fi_items_only = TRUE,
           include_outcome = TRUE,
-          include_lipids = TRUE,
+          include_lipids = FALSE,
+          exclude_outcome_overlap = TRUE,
+          disease_display = .ev_lab,
           max_nodes = 40L
         )
       }
@@ -628,7 +651,8 @@ for (db in cohorts) {
   utils::write.csv(inv, inv_path, row.names = FALSE)
 
   out4 <- file.path(fig_out, paste0("Figure 4-", db, ". ", .fig4_title))
-  .plot_clpn_pub(adj, stems, out4, title = paste0("(", LETTERS[match(db, cohorts)], ") ", db))
+  # 分库面板不写 (A)/(B) 标题：拼图 compose 会再加 A. CHARLS，否则标题写两遍
+  .plot_clpn_pub(adj, stems, out4, title = "")
   file.copy(out4, file.path(out_dir, "Figures", "Fig4_CLPN_network_pub.pdf"), overwrite = TRUE)
   file.copy(out4, file.path(out_dir, "Figures", "Fig_CLPN_network.pdf"), overwrite = TRUE)
   cli::cli_alert_success(
@@ -652,13 +676,21 @@ for (db in cohorts) {
       ctx <- block_cross_lagged_network_bootstrap(ctx)
       s1 <- ctx$results$cross_lagged_network_bootstrap$figure_s1
       s2 <- ctx$results$cross_lagged_network_bootstrap$figure_s2
+      .cl_safe_cp <- function(src, dest) {
+        if (is.null(src) || !file.exists(src)) return(invisible(FALSE))
+        dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+        sn <- normalizePath(src, winslash = "/", mustWork = TRUE)
+        dn <- normalizePath(dest, winslash = "/", mustWork = FALSE)
+        if (identical(sn, dn)) return(invisible(TRUE))
+        file.copy(src, dest, overwrite = TRUE)
+      }
       if (!is.null(s1) && file.exists(s1)) {
-        file.copy(s1, file.path(fig_out, basename(s1)), overwrite = TRUE)
-        file.copy(s1, file.path(out_dir, "Figures", basename(s1)), overwrite = TRUE)
+        .cl_safe_cp(s1, file.path(fig_out, basename(s1)))
+        .cl_safe_cp(s1, file.path(out_dir, "Figures", basename(s1)))
       }
       if (!is.null(s2) && file.exists(s2)) {
-        file.copy(s2, file.path(fig_out, basename(s2)), overwrite = TRUE)
-        file.copy(s2, file.path(out_dir, "Figures", basename(s2)), overwrite = TRUE)
+        .cl_safe_cp(s2, file.path(fig_out, basename(s2)))
+        .cl_safe_cp(s2, file.path(out_dir, "Figures", basename(s2)))
       }
       # 同步 bootstrap 表
       for (bn in c(
@@ -727,7 +759,11 @@ if (nzchar(gdest) && dir.exists(gdest)) {
   # also S8 into G phase3 tables if present
   for (db in cohorts) {
     s8e <- file.path(study_root, paste0("phase3_long_", db), "Tables",
-                     paste0("Table S8-", db, ". CLPN adjacency.csv"))
+                     paste0("Table S8-", db, ". CLPN adjacency.xlsx"))
+    if (!file.exists(s8e)) {
+      s8e <- file.path(study_root, paste0("phase3_long_", db), "Tables",
+                       paste0("Table S8-", db, ". CLPN adjacency.csv"))
+    }
     if (file.exists(s8e)) {
       dir.create(file.path(gdest, paste0("phase3_long_", db), "Tables"),
                  recursive = TRUE, showWarnings = FALSE)

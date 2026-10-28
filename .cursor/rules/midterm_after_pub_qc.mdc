@@ -1,0 +1,31 @@
+---
+description: Nature 审阅 P0 清零后，对刚审完的 success 发表根直接出中期 PDF
+alwaysApply: true
+---
+
+# 审完即出中期（全项目）
+
+标准收口顺序：**跑项目 → 发表质控 + Nature 审阅 → 中期 PDF**。中期不是另开一轮任务。
+
+## 何时出
+
+Phase 6 总评 **PASS 或 WARN**，且 Nature P0 已清零（或质控报告写明用户接受残留）之后，立刻按 `.cursor/skills/Aiya-NB004-midterm-report/SKILL.md` 出报告。去 AI 味读 `.cursor/skills/step05-Aiya-humanizer-zh/SKILL.md`。
+
+- 项目目录 = 刚审完的每个 `by_index/【success】<INDEX>/`、`by_unit/【success】*/` 或 `summary_results/`（须有 `Tables` 与 `Figures`）。用户 2026-10-12 授权：该目录已确认，**不再二次询问**。
+- 引擎递归收集 `Figures/pdf/*.pdf` 与 `Tables/*.xlsx`。
+- 缺 `项目信息-中期.md` 时，只从本课题 config / 已有字段填写能对上的客户、暴露、结局、数据集、公式、报告标题；没有的留空。公式无出处则问用户，禁止编造。
+- 数值只来自 inspect 的 `_report_dump.md`。全部图（含 Figure 1 与 Figure S）嵌入正文。
+- build 必须打印出厂闸门通过。聊天里给出 PDF 绝对路径。
+
+## 何时不出
+
+- 总评 FAIL，或 P0 未清。
+- 没有 success 发表根。
+- 用户当次说「不要中期 / 先别出报告」：跳过并在回复里声明。
+
+## 反例
+
+- Nature 审完只报 PASS，不出中期 PDF
+- 在 `/tmp` 或自建演练目录上合成报告
+- 用记忆或 QC 报告补 dump 里没有的数字
+- P0 还在就先出中期

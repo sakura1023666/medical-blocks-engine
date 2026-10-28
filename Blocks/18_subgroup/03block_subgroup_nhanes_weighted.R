@@ -147,12 +147,71 @@ block_subgroup_nhanes_weighted <- function(ctx) {
   design_grp <- nhanes_sel$design
   grp_col    <- nhanes_sel$group_col
   grp_lbl    <- nhanes_sel$label %||% "Selected"
-  # 连续暴露：亚组内 OR 为每升高 1 单位 index（避免最高分位 0 事件时 OR≈0 导致森林图“空白”）
-  use_continuous <- isTRUE((cfg$subgroup %||% list())$exposure_continuous %||% FALSE) ||
-    identical(tolower(as.character((cfg$subgroup %||% list())$exposure_type %||% "")[1L]), "continuous")
+  # 连续暴露：仅当 config 显式要求；默认同主文分位「最高 vs 最低」全分析集
+  sub_cfg0 <- cfg$subgroup %||% list()
+  exposure_cont_explicit <- !is.null(sub_cfg0$exposure_continuous) ||
+    !is.null(sub_cfg0$exposure_type)
+  use_continuous <- isTRUE(sub_cfg0$exposure_continuous %||% FALSE) ||
+    identical(tolower(as.character(sub_cfg0$exposure_type %||% "")[1L]), "continuous")
+
+  # 分位列与 Table2 对齐。禁止对「离散等级（≤5 个唯一值）」做等频 ntile 重切：
+  # 牙周炎 0–3 等会把同级随机拆进 Q1/Q2，导致 Q4 vs Q1 OR 与主文反向（P0）。
+  if (!use_continuous && nzchar(index_var) &&
+      index_var %in% names(design_grp$variables) &&
+      grp_col %in% names(design_grp$variables) &&
+      grepl("Quartile|Tertile", grp_col, ignore.case = TRUE) &&
+      exists("pipeline_quantile_group_factor", mode = "function")) {
+    x_idx <- suppressWarnings(as.numeric(design_grp$variables[[index_var]]))
+    n_unique <- length(unique(stats::na.omit(x_idx)))
+    method <- if (grepl("Quartile", grp_col, ignore.case = TRUE)) "quartile" else "tertile"
+    br_lock <- tryCatch({
+      br <- ctx$results$nhanes_logistic_grouping_cutoffs %||%
+        ctx$results$logistic_grouping_cutoffs %||% NULL
+      if (is.null(br)) NULL else br
+    }, error = function(e) NULL)
+    # 解析 "≥ 2.00" / "0.00 -< 2.00" 类标签为内部切点；失败则 NULL
+    br_num <- NULL
+    if (!is.null(br_lock) && length(br_lock) >= 2L) {
+      br_num <- tryCatch({
+        labs <- as.character(br_lock)
+        nums <- unique(stats::na.omit(as.numeric(unlist(regmatches(
+          labs, gregexpr("[-+]?[0-9]*\\.?[0-9]+", labs)
+        )))))
+        nums[is.finite(nums)]
+      }, error = function(e) NULL)
+    }
+    g_new <- NULL
+    if (is.finite(n_unique) && n_unique > 0L && n_unique <= 5L) {
+      # 离散等级：按观测水平做有序因子，后续 highest_vs_lowest = 最高 vs 最低等级
+      u <- sort(unique(stats::na.omit(x_idx)))
+      g_new <- factor(x_idx, levels = u, labels = paste0("L", seq_along(u)))
+      cli::cli_alert_info(
+        "NHANES 亚组：暴露仅 {n_unique} 个离散水平，跳过等频分位重切，按等级 L1..L{n_unique}（最高 vs 最低）"
+      )
+    } else {
+      g_new <- tryCatch(
+        pipeline_quantile_group_factor(
+          x_idx, method = method,
+          breaks = if (length(br_num) >= 1L) br_num else NULL
+        ),
+        error = function(e) NULL
+      )
+      if (!is.null(g_new)) {
+        cli::cli_alert_info(
+          "NHANES 亚组：已用 pipeline_quantile_group_factor({method}, right=FALSE) 重切 {grp_col}"
+        )
+      }
+    }
+    if (!is.null(g_new) && nlevels(droplevels(g_new[!is.na(g_new)])) >= 2L) {
+      design_grp$variables[[grp_col]] <- g_new
+      cli::cli_alert_info(
+        "重切后水平 n: {paste(names(table(g_new)), '=', as.integer(table(g_new)), collapse=', ')}"
+      )
+    }
+  }
+
   if (!use_continuous && nzchar(index_var) && index_var %in% names(design_grp$variables) &&
       grp_col %in% names(design_grp$variables)) {
-    # 自动：最高组事件数为 0 → 改连续
     .tmp_y <- tryCatch(
       pipeline_outcome_as_01(
         design_grp$variables[[outcome_col]],
@@ -171,10 +230,17 @@ block_subgroup_nhanes_weighted <- function(ctx) {
         na.rm = TRUE
       )
       if (is.finite(n_hi_ev) && n_hi_ev <= 0L) {
-        use_continuous <- TRUE
-        cli::cli_alert_warning(
-          "block_subgroup(NHANES): 最高组 [{hi}] 事件数=0，改用连续暴露 {index_var} 估计亚组 OR（避免森林图 OR≈0）"
-        )
+        if (!isTRUE(exposure_cont_explicit)) {
+          # 未写 exposure_continuous：兜底改连续，避免整图 OR≈0
+          use_continuous <- TRUE
+          cli::cli_alert_warning(
+            "block_subgroup(NHANES): 最高组 [{hi}] 事件数=0，改用连续暴露 {index_var}（未显式设 exposure_continuous）"
+          )
+        } else {
+          cli::cli_alert_warning(
+            "block_subgroup(NHANES): 最高组 [{hi}] 事件数=0，但 exposure_continuous=FALSE — 保留最高 vs 最低（层内可能 NE）"
+          )
+        }
       }
     }
   }
@@ -351,10 +417,15 @@ block_subgroup_nhanes_weighted <- function(ctx) {
       keep_lv <- c(lv_all[1L], lv_all[length(lv_all)])
       n0 <- nrow(design_grp$variables)
       if (isTRUE(.sgn_full_pop_default)) {
-        # 全部人群：不删行，svyglm 取最高层系数（vs Q1 参照）＝主文同分位对比
+        # 全部人群：中间分位并为 Middle（不删行）；svyglm 最高层系数＝主文最高 vs 最低
+        if (exists("subgroup_collapse_middle_levels", mode = "function")) {
+          design_grp$variables[[grp_col]] <- subgroup_collapse_middle_levels(
+            design_grp$variables[[grp_col]], levels = lv_all
+          )
+        }
         forest_cap_mode <- "highest_vs_lowest"
         cli::cli_alert_info(
-          "NHANES 亚组：全分析集估计（n={n0}），各层报告 {keep_lv[2]} vs {keep_lv[1]}（mode={ci_mode}）"
+          "NHANES 亚组：全分析集估计（n={n0}），各层报告 {keep_lv[2]} vs {keep_lv[1]}（中间分位并为 Middle；mode={ci_mode}）"
         )
       } else {
         g_chr <- as.character(design_grp$variables[[grp_col]])

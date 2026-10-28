@@ -88,10 +88,22 @@ block_ml_aggregate <- function(ctx, ...) {
   all_models <- ctx$results[["ml_models"]] %||% list()
   if (nrow(eval_all)) {
     ev <- eval_all
+    ## best_metric: "roc_auc"（验证 AUC）| "c_index"；默认预后 c_index、发病 roc_auc
+    st <- tolower(trimws(as.character(ctx$config$project$study_type %||% "")[1L]))
+    metric_cfg <- tolower(trimws(as.character(
+      bl_cfg$best_metric %||% ctx$config$ml_best$metric %||% ""
+    )[1L]))
+    metric_order <- if (nzchar(metric_cfg) && metric_cfg %in% c("roc_auc", "auc", "c_index")) {
+      if (metric_cfg %in% c("roc_auc", "auc")) c("roc_auc", "c_index") else c("c_index", "roc_auc")
+    } else if (identical(st, "prognosis")) {
+      c("c_index", "roc_auc")
+    } else {
+      c("roc_auc", "c_index")
+    }
     sub <- ev[tolower(as.character(ev$dataset)) == "test" &
-                tolower(as.character(ev$.metric)) %in% c("roc_auc", "c_index"), , drop = FALSE]
+                tolower(as.character(ev$.metric)) %in% metric_order, , drop = FALSE]
     if (nrow(sub)) {
-      sub <- sub[order(match(tolower(as.character(sub$.metric)), c("c_index", "roc_auc"))), , drop = FALSE]
+      sub <- sub[order(match(tolower(as.character(sub$.metric)), metric_order)), , drop = FALSE]
       sub <- sub[!duplicated(sub$model), , drop = FALSE]
       dm <- c(
         "DT" = "dt", "RF" = "rf", "XGBoost" = "xgboost", "ENet" = "enet",
@@ -123,6 +135,10 @@ block_ml_aggregate <- function(ctx, ...) {
       ctx$results$ml_best_model_display <- disp
       ctx$results$ml_best_model_tag <- if (is.na(hit)) tolower(trimws(disp)) else unname(dm[hit])
       ctx$results$ml_best_auc <- as.numeric(best$.estimate[1L])
+      ctx$results$ml_best_metric <- as.character(best$.metric[1L])
+      cli::cli_alert_success(
+        "ml_aggregate: 最优模型={disp} (tag={ctx$results$ml_best_model_tag}; metric={ctx$results$ml_best_metric}; est={round(ctx$results$ml_best_auc, 3)})"
+      )
     }
   }
 

@@ -49,6 +49,41 @@ def _render_pdftoppm(pdf_path: str, dpi: int):
         return Image.open(cand).convert("RGB")
 
 
+def save_tiff_dpi(im, path: str, dpi: int) -> None:
+    """Write LZW TIFF with an inch resolution tag.
+
+    Anaconda Pillow routes TIFF through libtiff, which drops the dpi= argument
+    and leaves XResolution empty (readers then report 1 dpi). The pure-Python
+    encoder keeps the tag.
+    """
+    import PIL.TiffImagePlugin as tiff_plugin
+
+    previous = getattr(tiff_plugin, "WRITE_LIBTIFF", False)
+    tiff_plugin.WRITE_LIBTIFF = False
+    try:
+        im.save(
+            path,
+            format="TIFF",
+            compression="tiff_lzw",
+            dpi=(int(dpi), int(dpi)),
+            resolution_unit=2,
+        )
+    finally:
+        tiff_plugin.WRITE_LIBTIFF = previous
+
+
+def png_save_dpi(dpi: int) -> tuple[float, float]:
+    """DPI tuple whose PNG pHYs reads back as at least ``dpi``.
+
+    pHYs stores integer pixels per metre. ``round(600/0.0254)`` is 23622,
+    which reads as 599.9988 and file properties often show 599 while TIFF
+    shows 600. Use the next pixel-per-metre so the tag is 600.0242.
+    """
+    ppm = int(int(dpi) / 0.0254) + 1
+    d = ppm * 0.0254
+    return (d, d)
+
+
 def render_page(pdf_path: str, dpi: int):
     errors = []
     for name, fn in (
@@ -71,19 +106,29 @@ def main() -> int:
     except Exception:
         pass
 
+    # 上下拼大图（如双库 CLPN）600 dpi 像素数可超 Pillow 默认炸弹阈值
+    try:
+        from PIL import Image as _PIL_Image
+
+        _PIL_Image.MAX_IMAGE_PIXELS = None
+    except Exception:
+        pass
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--pdf", required=True)
     ap.add_argument("--png")
     ap.add_argument("--tiff")
-    ap.add_argument("--dpi", type=int, default=300)
+    ap.add_argument("--dpi", type=int, default=600)
     args = ap.parse_args()
-    im = render_page(args.pdf, args.dpi)
+    dpi = int(args.dpi) if int(args.dpi) > 0 else 600
+    im = render_page(args.pdf, dpi)
+    dpi_tuple = (dpi, dpi)
     if args.png:
         os.makedirs(os.path.dirname(os.path.abspath(args.png)) or ".", exist_ok=True)
-        im.save(args.png, format="PNG")
+        im.save(args.png, format="PNG", dpi=png_save_dpi(dpi))
     if args.tiff:
         os.makedirs(os.path.dirname(os.path.abspath(args.tiff)) or ".", exist_ok=True)
-        im.save(args.tiff, format="TIFF", compression="tiff_lzw")
+        save_tiff_dpi(im, args.tiff, dpi)
     return 0
 
 

@@ -327,7 +327,7 @@ block_logistic_quintile_glm <- function(ctx, ...) {
       rt_body, filepath, title = title,
       header_row1 = h1, header_row2 = h2, latex_include_colnames = FALSE,
       table_footnotes = if (exists("logistic_glm_table_footnotes", mode = "function")) {
-        logistic_glm_table_footnotes(Model1Factors, Model2Factors)
+        logistic_glm_table_footnotes(Model1Factors, Model2Factors, ctx = ctx)
       } else {
         NULL
       }

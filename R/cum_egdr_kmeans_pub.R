@@ -96,6 +96,70 @@ ckm_stroke_attach_class_paper <- function(data, class_col = "eGDR_Class",
   data
 }
 
+# 类别展示名只看本数据的波次均值变化。文献四类名（尤其 Rapid decrease）
+# 不得在 |mean Δ| 小于类间极差 25% 时沿用。
+ckm_stroke_class_display_labels <- function(
+    data,
+    class_col = "Class_paper",
+    t1_col = "eGDR_t1",
+    t2_col = "eGDR_t2",
+    cmap = ckm_stroke_class_map_paper(),
+    rapid_frac = 0.25) {
+  rows <- lapply(cmap$order_paper, function(cl) {
+    keep <- as.character(data[[class_col]]) == cl
+    t1 <- as.numeric(data[[t1_col]][keep])
+    t2 <- as.numeric(data[[t2_col]][keep])
+    dlt <- t2 - t1
+    data.frame(
+      class = cl, n = sum(keep),
+      mean_t1 = mean(t1, na.rm = TRUE),
+      mean_t2 = mean(t2, na.rm = TRUE),
+      mean_delta = mean(dlt, na.rm = TRUE),
+      median_delta = stats::median(dlt, na.rm = TRUE),
+      stringsAsFactors = FALSE
+    )
+  })
+  sm <- do.call(rbind, rows)
+  rng <- max(sm$mean_t1, na.rm = TRUE) - min(sm$mean_t1, na.rm = TRUE)
+  thr <- rapid_frac * rng
+  if (!is.finite(thr) || thr <= 0) thr <- Inf
+  mid_cut <- stats::median(sm$mean_t1, na.rm = TRUE)
+  sm$rapid <- is.finite(sm$mean_delta) & sm$mean_delta < 0 & abs(sm$mean_delta) >= thr
+  sm$display <- vapply(seq_len(nrow(sm)), function(i) {
+    if (isTRUE(sm$rapid[i])) return("Rapid decrease")
+    if (sm$mean_t1[i] <= min(sm$mean_t1, na.rm = TRUE) + 1e-8) return("Persistent low")
+    if (sm$mean_t1[i] >= max(sm$mean_t1, na.rm = TRUE) - 1e-8) return("Stable high")
+    if (sm$mean_t1[i] >= mid_cut) return("Moderate-high stable")
+    "Intermediate stable"
+  }, character(1))
+  # 重名时加上类号，避免两行脚注无法区分
+  dup <- sm$display[duplicated(sm$display) | duplicated(sm$display, fromLast = TRUE)]
+  if (length(dup)) {
+    hit <- sm$display %in% unique(dup)
+    sm$display[hit] <- paste0(sm$display[hit], " (", sm$class[hit], ")")
+  }
+  phrase <- function(i) {
+    sprintf(
+      "%s = %s (Wave4 mean %.2f, Wave6 mean %.2f, median within-person change %.2f)",
+      sm$class[i], sm$display[i], sm$mean_t1[i], sm$mean_t2[i], sm$median_delta[i]
+    )
+  }
+  footnote <- paste(vapply(seq_len(nrow(sm)), phrase, character(1)), collapse = "; ")
+  footnote <- paste0(
+    "Class labels follow the observed trajectory. A decline is named rapid only when the absolute mean change is at least ",
+    sprintf("%.0f%%", 100 * rapid_frac),
+    " of the between-class range of Wave 4 means (threshold ",
+    sprintf("%.2f", thr),
+    "). ",
+    footnote, "."
+  )
+  labels <- setNames(
+    paste0(sm$class, ": ", sm$display),
+    sm$class
+  )
+  list(summary = sm, labels = labels, footnote = footnote, rapid_threshold = thr)
+}
+
 # Safe relevel: if reference level absent in a stratum, keep factor as-is (fit returns NE)
 .ckm_relevel_class_safe <- function(x, ref) {
   x <- factor(x)
@@ -115,9 +179,10 @@ ckm_stroke_fmt_p <- function(p) {
 }
 ckm_stroke_fmt_orci <- function(or, lo, hi) {
   if (!is.finite(or) || !is.finite(lo) || !is.finite(hi)) return("NE")
-  sprintf("%.2f (%.2f\u2013%.2f)", or, lo, hi)
+  # 三位：两位小数会把不同模型收成同一字符串（WWI 连续行 M1/M2）
+  sprintf("%.3f (%.3f\u2013%.3f)", or, lo, hi)
 }
-ckm_stroke_fmt_or_tilde <- function(est, lo, hi, digits = 2L) {
+ckm_stroke_fmt_or_tilde <- function(est, lo, hi, digits = 3L) {
   # 与表内 OR/HR 一致：en-dash（–），不用波浪号 ~
   if (!is.finite(est) || !is.finite(lo) || !is.finite(hi)) return("")
   sprintf(
@@ -478,8 +543,8 @@ ckm_stroke_write_software_versions <- function(out_dir, extra = character(0)) {
   lines <- c(
     lines,
     "",
-    "Primary analyses: logistic / Cox models (glm, survival::coxph); restricted cubic splines (rms::rcs);",
-    "k-means clustering (stats::kmeans); forest plots (forestploter); multiple imputation (mice) where applicable."
+    "Primary analyses: logistic and Cox regression; restricted cubic splines (rms);",
+    "k-means clustering; forest plots (forestploter); multiple imputation with mice and Rubin's rules when a sensitivity table is exported."
   )
   out <- file.path(out_dir, "Methods_software_versions.txt")
   writeLines(lines, out, useBytes = TRUE)
@@ -489,7 +554,7 @@ ckm_stroke_write_software_versions <- function(out_dir, extra = character(0)) {
 #' 表脚注用的一行软件版本（复用，勿课题手写）
 ckm_stroke_software_footnote <- function() {
   sprintf(
-    "Software: see Methods_software_versions.txt (R %s; rms/survival/ggplot2/forestploter/mice).",
+    "Software: R %s; rms, survival, ggplot2, forestploter, mice. Package versions are listed in the methods note beside the tables.",
     paste(R.version$major, R.version$minor, sep = ".")
   )
 }
@@ -497,6 +562,14 @@ ckm_stroke_software_footnote <- function() {
 # -----------------------------------------------------------------------------
 # Association tables (Table2 / S1 / S3 / S4)
 # -----------------------------------------------------------------------------
+# 逻辑下标里的 NA 会在 data.frame 子集中插入空行，使缺失者同时进入两个水平。
+.ckm_level_subset <- function(df, var, lv) {
+  x <- df[[var]]
+  hit <- which(!is.na(x) & as.character(x) == as.character(lv))
+  if (!length(hit)) return(df[0, , drop = FALSE])
+  df[hit, , drop = FALSE]
+}
+
 .ckm_get_term <- function(fit_df, term_pat) {
   if (is.null(fit_df) || !nrow(fit_df)) return(NULL)
   hit <- grepl(term_pat, fit_df$term)
@@ -558,7 +631,9 @@ ckm_stroke_build_table2_assoc <- function(
     cont_col = "cum_eGDR",
     tert_col = "eGDR_tertile",
     cmap = ckm_stroke_class_map_paper(),
-    index_lab = "eGDR") {
+    index_lab = "eGDR",
+    row_fit = NULL,
+    trend_p = NULL) {
   .ckm_pub_ensure_literature()
   index_lab <- as.character(index_lab %||% "eGDR")[1L]
   if (!nzchar(index_lab)) index_lab <- "eGDR"
@@ -568,23 +643,18 @@ ckm_stroke_build_table2_assoc <- function(
   d0 <- data
   d0[[class_col]] <- stats::relevel(factor(d0[[class_col]]), ref = cmap$ref_semantic)
   .model_names <- c("Model1", "Model2", "Model3")
+  .one_fit <- function(dd, expo, cov) {
+    if (is.function(row_fit)) return(row_fit(dd, expo, cov))
+    if (is_hr) ckm_stroke_fit_hr_row(dd, expo, cov) else ckm_stroke_fit_or_row(dd, expo, outcome, cov)
+  }
   class_fits <- list()
-  for (mn in .model_names) {
-    class_fits[[mn]] <- if (is_hr) ckm_stroke_fit_hr_row(d0, class_col, models[[mn]])
-    else ckm_stroke_fit_or_row(d0, class_col, outcome, models[[mn]])
-  }
+  for (mn in .model_names) class_fits[[mn]] <- .one_fit(d0, class_col, models[[mn]])
   cont_fits <- list()
-  for (mn in .model_names) {
-    cont_fits[[mn]] <- if (is_hr) ckm_stroke_fit_hr_row(data, cont_col, models[[mn]])
-    else ckm_stroke_fit_or_row(data, cont_col, outcome, models[[mn]])
-  }
+  for (mn in .model_names) cont_fits[[mn]] <- .one_fit(data, cont_col, models[[mn]])
   dtert <- data
   dtert[[tert_col]] <- stats::relevel(factor(dtert[[tert_col]]), ref = "T1")
   tert_fits <- list()
-  for (mn in .model_names) {
-    tert_fits[[mn]] <- if (is_hr) ckm_stroke_fit_hr_row(dtert, tert_col, models[[mn]])
-    else ckm_stroke_fit_or_row(dtert, tert_col, outcome, models[[mn]])
-  }
+  for (mn in .model_names) tert_fits[[mn]] <- .one_fit(dtert, tert_col, models[[mn]])
 
   .model_cells <- function(rr, term_pat) {
     out <- list()
@@ -658,11 +728,16 @@ ckm_stroke_build_table2_assoc <- function(
       rows[[length(rows) + 1L]] <- mk_row(paste0("  ", tv), n, ev, cells)
     }
   }
-  ptr <- vapply(.model_names, function(mn) {
-    ckm_stroke_fmt_p(.ckm_p_trend_tert(data, models[[mn]], is_hr = is_hr,
-                                       outcome = outcome, tert_col = tert_col))
-  }, character(1))
-  names(ptr) <- .model_names
+  if (is.function(trend_p)) {
+    ptr <- trend_p()
+    ptr <- setNames(as.character(ptr[.model_names]), .model_names)
+  } else {
+    ptr <- vapply(.model_names, function(mn) {
+      ckm_stroke_fmt_p(.ckm_p_trend_tert(data, models[[mn]], is_hr = is_hr,
+                                         outcome = outcome, tert_col = tert_col))
+    }, character(1))
+    names(ptr) <- .model_names
+  }
   rows[[length(rows) + 1L]] <- data.frame(
     Variable = "  P for trend",
     `Total number` = "", `Events, n (%)` = "",
@@ -675,14 +750,153 @@ ckm_stroke_build_table2_assoc <- function(
   rownames(out) <- NULL
   names(out) <- c("Variable", "Total number", "Events, n (%)",
                   "M1e", "M1p", "M2e", "M2p", "M3e", "M3p")
-  list(df = out, est_lab = est_lab)
+  list(df = out, est_lab = est_lab, cont_fits = cont_fits)
 }
 
 ckm_stroke_build_table_s1_cox <- function(...) {
   ckm_stroke_build_table2_assoc(..., is_hr = TRUE)
 }
 
+# Rubin 合并。只插补调用方点名且确有缺失的协变量；结局与暴露留在插补模型里作预测变量，本身不插。
+ckm_stroke_prepare_mice <- function(data, impute_vars, m = 5L, maxit = 5L, seed = 2026L) {
+  impute_vars <- intersect(as.character(impute_vars), names(data))
+  impute_vars <- impute_vars[vapply(impute_vars, function(v) anyNA(data[[v]]), logical(1))]
+  if (!length(impute_vars)) return(NULL)
+  if (!requireNamespace("mice", quietly = TRUE)) {
+    stop("mice is required to build Table S3/S4", call. = FALSE)
+  }
+  md <- data
+  for (v in names(md)) if (is.character(md[[v]])) md[[v]] <- factor(md[[v]])
+  ini <- mice::mice(md, maxit = 0L, printFlag = FALSE)
+  meth <- ini$method
+  pred <- ini$predictorMatrix
+  diag(pred) <- 0
+  meth[setdiff(names(md), impute_vars)] <- ""
+  imp <- mice::mice(
+    md, m = as.integer(m), maxit = as.integer(maxit),
+    method = meth, predictorMatrix = pred,
+    printFlag = FALSE, seed = as.integer(seed)
+  )
+  list(imp = imp, imputed = impute_vars)
+}
+
+ckm_stroke_mice_fit_row <- function(imp, exposure, covars, is_hr = FALSE, outcome = "Osteoporosis") {
+  covars <- intersect(as.character(covars %||% character(0)), names(imp$data))
+  rhs <- paste(c(exposure, covars), collapse = " + ")
+  # 公式必须写进 with() 的表达式。事先 as.formula() 再传入时，mice 在插补数据里找不到结局列，拟合失败后单元格会是空的。
+  if (isTRUE(is_hr)) {
+    call_txt <- sprintf(
+      "with(imp, survival::coxph(survival::Surv(futime, status) ~ %s))", rhs
+    )
+  } else {
+    call_txt <- sprintf(
+      "with(imp, stats::glm(%s ~ %s, family = stats::binomial()))", outcome, rhs
+    )
+  }
+  mira <- tryCatch(eval(parse(text = call_txt)), error = function(e) {
+    warning("MICE fit failed for ", exposure, ": ", conditionMessage(e), call. = FALSE)
+    NULL
+  })
+  if (is.null(mira)) return(NULL)
+  sm <- tryCatch(as.data.frame(summary(mice::pool(mira), conf.int = TRUE)), error = function(e) NULL)
+  if (is.null(sm) || !nrow(sm)) return(NULL)
+  lo_col <- grep("^2\\.5", names(sm), value = TRUE)[1L]
+  hi_col <- grep("^97\\.5", names(sm), value = TRUE)[1L]
+  hit <- grepl(paste0("^", exposure), sm$term)
+  if (!any(hit)) return(NULL)
+  rows <- lapply(which(hit), function(i) {
+    est <- sm$estimate[i]
+    data.frame(
+      term = sm$term[i], OR = exp(est), HR = exp(est),
+      CI_low = exp(sm[[lo_col]][i]), CI_high = exp(sm[[hi_col]][i]),
+      P = sm$p.value[i], stringsAsFactors = FALSE
+    )
+  })
+  out <- do.call(rbind, rows)
+  rownames(out) <- NULL
+  out
+}
+
+ckm_stroke_assert_mice_not_shell <- function(cc_df, mi_df) {
+  cols <- intersect(c("M2e", "M2p", "M3e", "M3p"), names(cc_df))
+  same <- all(vapply(cols, function(cl) identical(as.character(cc_df[[cl]]), as.character(mi_df[[cl]])), logical(1)))
+  if (isTRUE(same)) {
+    stop("MICE table matches the complete-case table on Model 2/3. Export refused.", call. = FALSE)
+  }
+  est_cols <- intersect(c("M1e", "M2e", "M3e"), names(mi_df))
+  body <- mi_df$Variable %in% c("  Class 1", "  Class 3", "  Class 4", "  T2", "  T3") |
+    grepl("^Cumulative ", mi_df$Variable)
+  filled <- mi_df[body, est_cols, drop = FALSE]
+  if (!any(nzchar(trimws(as.character(unlist(filled)))))) {
+    stop("MICE table has no effect estimates. Export refused.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+ckm_stroke_p_for_estimate_cell <- function(est_cell, p) {
+  if (identical(as.character(est_cell)[1L], "NE")) return("\u2014")
+  ckm_stroke_fmt_p(p)
+}
+
+ckm_stroke_assert_mice_footnote <- function(title, footnotes) {
+  title <- paste(as.character(title %||% ""), collapse = " ")
+  if (!grepl("MICE|multiple imputation", title, ignore.case = TRUE)) return(invisible(TRUE))
+  blob <- paste(as.character(footnotes %||% ""), collapse = " ")
+  if (grepl("mirror complete-case|missingness is near-zero|missingness near-zero", blob, ignore.case = TRUE)) {
+    stop("MICE table footnote copies the complete-case table. Export refused.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+ckm_stroke_assert_forest_scale <- function(scale, title = NULL, allow_per_sd = FALSE) {
+  scale <- as.character(scale)[1L]
+  if (identical(scale, "sd") && !isTRUE(allow_per_sd)) {
+    stop("Subgroup forest scale is per 1-SD. Table 2/S1 are per 1-unit. Use scale='unit', or allow_per_sd=TRUE only for a historical figure.", call. = FALSE)
+  }
+  title <- paste(as.character(title %||% ""), collapse = " ")
+  if (nzchar(title) && grepl("1-SD|per-SD|per SD", title) && identical(scale, "unit")) {
+    stop("Forest title says per 1-SD but the estimate is per 1-unit.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+ckm_stroke_fit_mice_assoc <- function(
+    data, models, outcome = "Stroke", index_lab = "eGDR",
+    cmap = NULL, m = 5L, maxit = 5L, seed = 2026L) {
+  .ckm_pub_ensure_literature()
+  if (is.null(cmap)) cmap <- ckm_stroke_class_map_paper()
+  need <- unique(c(outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "eGDR_tertile", unlist(models, use.names = FALSE)))
+  need <- intersect(need, names(data))
+  md <- data[, need, drop = FALSE]
+  if ("eGDR_Class" %in% names(md)) md$eGDR_Class <- stats::relevel(factor(md$eGDR_Class), ref = cmap$ref_semantic)
+  if ("eGDR_tertile" %in% names(md)) {
+    md$eGDR_tertile <- stats::relevel(factor(md$eGDR_tertile), ref = "T1")
+    md$T_num <- as.integer(md$eGDR_tertile)
+  }
+  impute <- setdiff(names(md), c(outcome, "futime", "status", "eGDR_Class", "cum_eGDR", "eGDR_tertile", "T_num"))
+  prep <- ckm_stroke_prepare_mice(md, impute, m = m, maxit = maxit, seed = seed)
+  if (is.null(prep)) return(NULL)
+  row_fit <- function(is_hr) {
+    function(dd, expo, cov) ckm_stroke_mice_fit_row(prep$imp, expo, cov, is_hr = is_hr, outcome = outcome)
+  }
+  trend_p <- function(is_hr) {
+    function() vapply(c("Model1", "Model2", "Model3"), function(mn) {
+      row <- ckm_stroke_mice_fit_row(prep$imp, "T_num", models[[mn]], is_hr = is_hr, outcome = outcome)
+      if (is.null(row) || !nrow(row)) return("")
+      ckm_stroke_fmt_p(row$P[1])
+    }, character(1))
+  }
+  cc_cox <- ckm_stroke_build_table_s1_cox(data, models, outcome = outcome, cmap = cmap, index_lab = index_lab)
+  cc_log <- ckm_stroke_build_table2_assoc(data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = index_lab)
+  s3 <- ckm_stroke_build_table_s1_cox(data, models, outcome = outcome, cmap = cmap, index_lab = index_lab, row_fit = row_fit(TRUE), trend_p = trend_p(TRUE))
+  s4 <- ckm_stroke_build_table2_assoc(data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = index_lab, row_fit = row_fit(FALSE), trend_p = trend_p(FALSE))
+  ckm_stroke_assert_mice_not_shell(cc_cox$df, s3$df)
+  ckm_stroke_assert_mice_not_shell(cc_log$df, s4$df)
+  list(s3 = s3, s4 = s4, imputed = prep$imputed)
+}
+
 ckm_stroke_export_assoc_xlsx <- function(built, filepath, title, footnotes) {
+  ckm_stroke_assert_mice_footnote(title, footnotes)
   df <- built$df
   h1 <- c("Variable", "Total number", "Events, n (%)",
           "Model 1", "Model 1", "Model 2", "Model 2", "Model 3", "Model 3")
@@ -729,7 +943,7 @@ ckm_stroke_build_table3_subgroup <- function(
     if (sg_var == "BMI_Group") return("BMI")
     if (sg_var == "Smoke_ne") return("Smoke")
     if (sg_var == "Drink_ne") return("Drink")
-    if (sg_var %in% c("Gender", "Dyslipidemia", "Diabetes")) return(sg_var)
+    if (sg_var %in% c("Gender", "Dyslipidemia", "Diabetes", "Hypertension")) return(sg_var)
     character(0)
   }
   t3_rows <- list()
@@ -738,39 +952,51 @@ ckm_stroke_build_table3_subgroup <- function(
     cov_base <- setdiff(models$Model3, .cov_drop(sg$var))
     pint <- ckm_stroke_lrt_pint(data_sg, class_col, sg$var, cov_base,
                                 is_hr = FALSE, outcome = outcome)
-    t3_rows[[length(t3_rows) + 1L]] <- data.frame(
-      Subgroup = sg$label,
-      `Class 2` = "", `Class 1` = "", `Class 3` = "", `Class 4` = "",
-      `P for trend` = "", `P for interaction` = ckm_stroke_fmt_p(pint),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
-    for (lv in levels(factor(data_sg[[sg$var]]))) {
-      dsub <- data_sg[as.character(data_sg[[sg$var]]) == lv, , drop = FALSE]
+    levs <- levels(factor(data_sg[[sg$var]]))
+    levs <- levs[!is.na(levs)]
+    level_rows <- list()
+    sem_of <- function(cl) {
+      hit <- names(cmap$map)[cmap$map == cl]
+      if (!length(hit)) return(NA_character_)
+      hit[[1L]]
+    }
+    for (lv in levs) {
+      dsub <- .ckm_level_subset(data_sg, sg$var, lv)
       cov <- setdiff(models$Model3, .cov_drop(sg$var))
       dsub[[class_col]] <- .ckm_relevel_class_safe(dsub[[class_col]], cmap$ref_semantic)
       rr <- if (nrow(dsub) >= 40L) ckm_stroke_fit_or_row(dsub, class_col, outcome, cov) else NULL
-      cell <- function(pat) {
-        h <- .ckm_get_term(rr, pat)
+      cell <- function(cl) {
+        sem <- sem_of(cl)
+        if (is.na(sem)) return("NE")
+        h <- .ckm_get_term(rr, paste0(sem, "$"))
         if (is.null(h)) return("NE")
         ckm_stroke_fmt_orci(h$OR, h$CI_low, h$CI_high)
       }
-      ptr <- ckm_stroke_fmt_p(.ckm_p_trend_class(dsub, cov, is_hr = FALSE,
-                                                 outcome = outcome, cmap = cmap))
-      t3_rows[[length(t3_rows) + 1L]] <- data.frame(
+      c1 <- cell("Class 1"); c3 <- cell("Class 3"); c4 <- cell("Class 4")
+      # 参照类 0 事件时三列都是 NE，空层不进表
+      if (all(c(c1, c3, c4) == "NE")) next
+      level_rows[[length(level_rows) + 1L]] <- data.frame(
         Subgroup = paste0("  ", lv),
         `Class 2` = "Reference",
-        `Class 1` = cell("Moderate_high_stable"),
-        `Class 3` = cell("Stable_high"),
-        `Class 4` = cell("Rapid_decrease"),
-        `P for trend` = ptr, `P for interaction` = "",
+        `Class 1` = c1, `Class 3` = c3, `Class 4` = c4,
+        `P for interaction` = "",
         check.names = FALSE, stringsAsFactors = FALSE
       )
     }
+    if (!length(level_rows)) next
+    pint_txt <- if (length(level_rows) >= 2L) ckm_stroke_fmt_p(pint) else "\u2014"
+    t3_rows[[length(t3_rows) + 1L]] <- data.frame(
+      Subgroup = sg$label,
+      `Class 2` = "", `Class 1` = "", `Class 3` = "", `Class 4` = "",
+      `P for interaction` = pint_txt,
+      check.names = FALSE, stringsAsFactors = FALSE
+    )
+    t3_rows <- c(t3_rows, level_rows)
   }
   t3 <- do.call(rbind, t3_rows)
   rownames(t3) <- NULL
   names(t3) <- c("Subgroup", "Class 2 Reference", "Class 1", "Class 3", "Class 4",
-                 "P for trend", "P for interaction")
+                 "P for interaction")
   list(df = t3, excel_level_row_idx = which(grepl("^  ", t3$Subgroup)) + 1L)
 }
 
@@ -804,7 +1030,7 @@ ckm_stroke_build_table_s2_long <- function(
     if (sg_var == "BMI_Group") return("BMI")
     if (sg_var == "Smoke_ne") return("Smoke")
     if (sg_var == "Drink_ne") return("Drink")
-    if (sg_var %in% c("Gender", "Dyslipidemia", "Diabetes")) return(sg_var)
+    if (sg_var %in% c("Gender", "Dyslipidemia", "Diabetes", "Hypertension")) return(sg_var)
     character(0)
   }
   rows <- list()
@@ -817,18 +1043,23 @@ ckm_stroke_build_table_s2_long <- function(
       `HR (95%CI)` = "", `P value` = "", `P for interaction` = ckm_stroke_fmt_p(pint),
       check.names = FALSE, stringsAsFactors = FALSE
     )
-    for (lv in levels(factor(data_sg[[sg$var]]))) {
+    levs <- levels(factor(data_sg[[sg$var]]))
+    levs <- levs[!is.na(levs)]
+    n_assigned <- 0L
+    for (lv in levs) {
+      dsub <- .ckm_level_subset(data_sg, sg$var, lv)
+      n_assigned <- n_assigned + nrow(dsub)
       rows[[length(rows) + 1L]] <- data.frame(
-        Subgroup = lv, Variable = "", N = "", `Events, n (%)` = "",
+        Subgroup = lv, Variable = "", N = as.character(nrow(dsub)),
+        `Events, n (%)` = ckm_stroke_events_cell(dsub[[outcome]]),
         `HR (95%CI)` = "", `P value` = "", `P for interaction` = "",
         check.names = FALSE, stringsAsFactors = FALSE
       )
-      dsub <- data_sg[as.character(data_sg[[sg$var]]) == lv, , drop = FALSE]
       dsub[[class_col]] <- .ckm_relevel_class_safe(dsub[[class_col]], cmap$ref_semantic)
       rr <- if (nrow(dsub) >= 40L) ckm_stroke_fit_hr_row(dsub, class_col, cov) else NULL
       for (cl in cmap$order_table_ref_first) {
-        keep <- as.character(dsub$Class_paper) == cl
-        n <- sum(keep)
+        keep <- which(as.character(dsub$Class_paper) == cl)
+        n <- length(keep)
         ev <- ckm_stroke_events_cell(dsub[[outcome]][keep])
         if (cl == cmap$ref_class) {
           hr_cell <- "1(Ref)"; p_cell <- ""
@@ -836,10 +1067,10 @@ ckm_stroke_build_table_s2_long <- function(
           sem <- names(cmap$map)[cmap$map == cl]
           h <- .ckm_get_term(rr, paste0(sem, "$"))
           if (is.null(h)) {
-            hr_cell <- "NE"; p_cell <- ""
+            hr_cell <- "NE"; p_cell <- "\u2014"
           } else {
             hr_cell <- ckm_stroke_fmt_orci(h$HR, h$CI_low, h$CI_high)
-            p_cell <- ckm_stroke_fmt_p(h$P)
+            p_cell <- ckm_stroke_p_for_estimate_cell(hr_cell, h$P)
           }
         }
         rows[[length(rows) + 1L]] <- data.frame(
@@ -849,28 +1080,13 @@ ckm_stroke_build_table_s2_long <- function(
           check.names = FALSE, stringsAsFactors = FALSE
         )
       }
-      ptr <- .ckm_p_trend_class(dsub, cov, is_hr = TRUE, outcome = outcome, cmap = cmap)
-      n_tot <- nrow(dsub)
-      ev_tot <- ckm_stroke_events_cell(dsub[[outcome]])
-      dsub$Class_num <- as.integer(factor(as.character(dsub$Class_paper), levels = cmap$order_paper))
-      trend_hr <- tryCatch({
-        keep <- unique(c("futime", "status", "Class_num", cov))
-        dd <- dsub[, intersect(keep, names(dsub)), drop = FALSE]
-        dd <- dd[stats::complete.cases(dd), , drop = FALSE]
-        fit <- survival::coxph(
-          stats::as.formula(paste("survival::Surv(futime, status) ~ Class_num +",
-                                  paste(cov, collapse = "+"))), data = dd)
-        sm <- summary(fit)$coefficients
-        ci <- exp(stats::confint(fit))
-        ckm_stroke_fmt_orci(exp(sm["Class_num", 1]), ci["Class_num", 1], ci["Class_num", 2])
-      }, error = function(e) "")
-      rows[[length(rows) + 1L]] <- data.frame(
-        Subgroup = "", Variable = "P for trend",
-        N = as.character(n_tot), `Events, n (%)` = ev_tot,
-        `HR (95%CI)` = trend_hr, `P value` = ckm_stroke_fmt_p(ptr),
-        `P for interaction` = "",
-        check.names = FALSE, stringsAsFactors = FALSE
-      )
+    }
+    n_obs <- sum(!is.na(data_sg[[sg$var]]))
+    if (n_assigned != n_obs) {
+      stop(sprintf(
+        "Table S2 stratum N for %s sums to %d, non-missing N is %d",
+        sg$var, n_assigned, n_obs
+      ), call. = FALSE)
     }
   }
   out <- do.call(rbind, rows)
@@ -908,6 +1124,7 @@ ckm_stroke_fig2_abc <- function(
     xlab_b = NULL,
     ylab_b = NULL,
     xlab_c = "Year",
+    cluster_labels = NULL,
     width = 12.5, height = 4.0) {
   .ckm_pub_ensure_literature()
   if (!requireNamespace("ggplot2", quietly = TRUE)) stop("need ggplot2")
@@ -961,9 +1178,9 @@ ckm_stroke_fig2_abc <- function(
       alpha = 0.18, linewidth = 0.55, show.legend = FALSE
     ) +
     ggplot2::geom_point(size = 1.05, alpha = 0.65, stroke = 0.2) +
-    ggplot2::scale_color_manual(values = cmap$colors) +
-    ggplot2::scale_fill_manual(values = cmap$colors) +
-    ggplot2::scale_shape_manual(values = cmap$shapes) +
+    ggplot2::scale_color_manual(values = cmap$colors, labels = cluster_labels) +
+    ggplot2::scale_fill_manual(values = cmap$colors, labels = cluster_labels) +
+    ggplot2::scale_shape_manual(values = cmap$shapes, labels = cluster_labels) +
     ggplot2::coord_cartesian(
       xlim = range(sc$x, na.rm = TRUE),
       ylim = range(sc$y, na.rm = TRUE),
@@ -995,8 +1212,8 @@ ckm_stroke_fig2_abc <- function(
       width = 0.22, linewidth = 0.85, show.legend = FALSE
     ) +
     ggplot2::geom_point(size = 2.6) +
-    ggplot2::scale_color_manual(values = cmap$colors) +
-    ggplot2::scale_shape_manual(values = cmap$shapes) +
+    ggplot2::scale_color_manual(values = cmap$colors, labels = cluster_labels) +
+    ggplot2::scale_shape_manual(values = cmap$shapes, labels = cluster_labels) +
     ggplot2::scale_x_continuous(breaks = year_labs) +
     ggplot2::coord_cartesian(
       ylim = range(c(agg$Mean - agg$SE, agg$Mean + agg$SE), na.rm = TRUE) + c(-0.35, 0.35)
@@ -1039,7 +1256,7 @@ ckm_stroke_fig1_flowchart <- function(
          border = "black", lwd = 1.25, col = "white")
     text(x, y, txt, cex = cex, font = font)
   }
-  .fmtn <- function(x) format(as.integer(x), big.mark = " ")
+  .fmtn <- function(x) format(as.integer(x), big.mark = ",")
   .sprintf_excl <- function(tpl, a) {
     slots <- gregexpr("%s", tpl, fixed = TRUE)[[1L]]
     n_slot <- if (length(slots) == 1L && identical(as.integer(slots), -1L)) 0L else length(slots)
@@ -1183,7 +1400,7 @@ ckm_stroke_rcs_one_panel <- function(
   h_df$ymax <- or_lo * (or_hi / or_lo)^(0.20 * h_df$count / max(h_df$count, 1))
   annot_lab <- sprintf("P for overall = %s\nP for non-linearity = %s", .fmtp(p_overall), .fmtp(p_nonlin))
   # P / Ref 放 subtitle+caption（绘图区外），避免与 vline/曲线 text-stroke FAIL
-  ggplot2::ggplot() +
+  p_rcs <- ggplot2::ggplot() +
     ggplot2::geom_rect(data = h_df, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
                        fill = "#9ECAE1", color = NA, alpha = 0.55) +
     ggplot2::geom_ribbon(data = pp, ggplot2::aes(x = .data[[xname]], ymin = lower, ymax = upper),
@@ -1209,17 +1426,64 @@ ckm_stroke_rcs_one_panel <- function(
       plot.subtitle = ggplot2::element_text(size = 9, face = "bold", hjust = 0),
       plot.caption = ggplot2::element_text(size = 8, face = "bold", colour = "#41B6C4", hjust = 0.5)
     )
+  attr(p_rcs, "rcs_p_overall") <- p_overall
+  attr(p_rcs, "rcs_p_nonlin") <- p_nonlin
+  attr(p_rcs, "rcs_ref") <- xref
+  p_rcs
 }
 
 # -----------------------------------------------------------------------------
 # Free-Statistics forest (Fig S2/S3) — continuous per-SD
 # -----------------------------------------------------------------------------
+.ckm_mice_pool_expo <- function(imp, data, rows, exposure, covars, is_hr, outcome, interaction = NULL) {
+  covars <- intersect(as.character(covars %||% character(0)), names(imp$data))
+  fits <- lapply(seq_len(imp$m), function(i) {
+    d <- mice::complete(imp, i)
+    extra <- setdiff(names(data), names(d))
+    for (v in extra) d[[v]] <- data[[v]]
+    if (!is.null(rows)) d <- d[rows, , drop = FALSE]
+    if (!is.null(interaction)) {
+      d[[interaction]] <- factor(d[[interaction]])
+      rhs <- paste(c(sprintf("%s * %s", exposure, interaction), covars), collapse = " + ")
+    } else {
+      rhs <- paste(c(exposure, covars), collapse = " + ")
+    }
+    if (!nzchar(rhs)) return(NULL)
+    fit <- tryCatch({
+      if (isTRUE(is_hr)) {
+        survival::coxph(stats::as.formula(paste("survival::Surv(futime, status) ~", rhs)), data = d)
+      } else {
+        stats::glm(
+          stats::as.formula(paste(outcome, "~", rhs)),
+          data = d, family = stats::binomial()
+        )
+      }
+    }, error = function(e) NULL)
+    fit
+  })
+  if (any(vapply(fits, is.null, logical(1)))) return(NULL)
+  sm <- tryCatch(
+    as.data.frame(summary(mice::pool(mice::as.mira(fits)), conf.int = TRUE)),
+    error = function(e) NULL
+  )
+  if (is.null(sm) || !nrow(sm)) return(NULL)
+  sm
+}
+
 ckm_stroke_forest_free_stats <- function(
     data, expo_raw = "cum_eGDR", is_hr = FALSE, outfile,
     title = NULL, outcome = "Stroke",
-    expo_lab = "cumulative eGDR",
+    expo_lab = NULL,
+    index_lab = NULL,
     model3 = c("Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
-               "eGFR", "Dyslipidemia", "Diabetes")) {
+               "eGFR", "Dyslipidemia", "Diabetes"),
+    scale = c("unit", "sd"),
+    allow_per_sd = FALSE,
+    mice_keep = NULL,
+    mice_impute = NULL,
+    mice_m = 5L,
+    mice_maxit = 5L,
+    mice_seed = 2026L) {
   .ckm_pub_ensure_literature()
   if (!requireNamespace("forestploter", quietly = TRUE)) stop("need forestploter")
   stopifnot(expo_raw %in% names(data))
@@ -1235,11 +1499,52 @@ ckm_stroke_forest_free_stats <- function(
     }
   }
 
+  scale <- match.arg(scale)
+  ckm_stroke_assert_forest_scale(scale, title, allow_per_sd = allow_per_sd)
+  if (is.null(expo_lab) || !nzchar(as.character(expo_lab)[1L])) {
+    expo_lab <- if (!is.null(index_lab) && nzchar(as.character(index_lab)[1L])) {
+      paste("cumulative", as.character(index_lab)[1L])
+    } else {
+      "cumulative exposure"
+    }
+  }
+  if (!is.null(index_lab) && nzchar(as.character(index_lab)[1L]) &&
+      grepl("eGDR", expo_lab) && !grepl("eGDR", as.character(index_lab)[1L])) {
+    stop("Forest label says eGDR but index_lab is ", index_lab, ".", call. = FALSE)
+  }
   x <- as.numeric(data[[expo_raw]])
   sd_x <- stats::sd(x, na.rm = TRUE)
-  data$cum_eGDR_z <- as.numeric(scale(x))
-  expo <- "cum_eGDR_z"
+  if (identical(scale, "unit")) {
+    expo <- expo_raw
+  } else {
+    data$cum_eGDR_z <- as.numeric(scale(x))
+    expo <- "cum_eGDR_z"
+  }
   models3 <- intersect(model3, names(data))
+  if ((is.null(mice_keep) || !length(mice_keep)) && isTRUE(mice_m > 0) && identical(scale, "unit")) {
+    miss <- models3[vapply(models3, function(v) anyNA(data[[v]]), logical(1))]
+    if (length(miss)) {
+      mice_impute <- miss
+      mice_keep <- intersect(
+        c(outcome, "futime", "status", "eGDR_Class", expo_raw, "eGDR_tertile", models3),
+        names(data)
+      )
+    }
+  }
+  imp <- NULL
+  imp_labs <- character(0)
+  if (!is.null(mice_keep) && length(mice_keep)) {
+    keep <- intersect(as.character(mice_keep), names(data))
+    prep_mi <- ckm_stroke_prepare_mice(
+      data[, keep, drop = FALSE],
+      as.character(mice_impute %||% models3),
+      m = mice_m, maxit = mice_maxit, seed = mice_seed
+    )
+    if (!is.null(prep_mi)) {
+      imp <- prep_mi$imp
+      imp_labs <- prep_mi$imputed
+    }
+  }
 
   sub_specs <- list(
     list(var = "Age_Group", label = "Age, years", drop = "Age"),
@@ -1255,8 +1560,30 @@ ckm_stroke_forest_free_stats <- function(
   )
   sub_specs <- Filter(function(s) s$var %in% names(data), sub_specs)
   effect_lab <- if (is_hr) "HR (95%CI)" else "OR (95%CI)"
+  .pool_hit <- function(rows, cov, interaction = NULL) {
+    if (is.null(imp)) return(NULL)
+    sm <- .ckm_mice_pool_expo(imp, data, rows, expo, cov, is_hr, outcome, interaction)
+    if (is.null(sm)) return(NULL)
+    if (is.null(interaction)) {
+      hit <- sm$term == expo
+      if (!any(hit)) return(NULL)
+      sm[which(hit)[1L], , drop = FALSE]
+    } else {
+      hit <- grepl(":", sm$term, fixed = TRUE)
+      if (!any(hit)) return(NULL)
+      # 二分类亚组只有一个交互项，取该行的合并 Wald P
+      sm[which(hit)[1L], , drop = FALSE]
+    }
+  }
   fit1 <- function(d, cov) {
+    if (!is.null(imp)) return(NULL)
     if (is_hr) ckm_stroke_fit_hr_row(d, expo, cov) else ckm_stroke_fit_or_row(d, expo, outcome, cov)
+  }
+  .from_pool <- function(hit) {
+    lo_col <- grep("^2\\.5", names(hit), value = TRUE)[1L]
+    hi_col <- grep("^97\\.5", names(hit), value = TRUE)[1L]
+    est <- exp(hit$estimate[1L])
+    list(est = est, lo = exp(hit[[lo_col]][1L]), hi = exp(hit[[hi_col]][1L]), p = hit$p.value[1L])
   }
   .stroke01 <- function(d) as.integer(as.numeric(d[[outcome]]) == 1L)
   .mk <- function(subgroup, total = "", event = "", effect_txt = "", pint = "",
@@ -1282,21 +1609,37 @@ ckm_stroke_forest_free_stats <- function(
   }
 
   rows <- list()
-  rr <- fit1(data, models3)
-  cc_cols <- unique(c(expo, if (is_hr) c("futime", "status") else outcome, models3))
-  ok_all <- stats::complete.cases(data[, intersect(cc_cols, names(data)), drop = FALSE])
-  n_tot <- sum(ok_all)
-  n_evt <- if (is_hr) sum(as.integer(data$status[ok_all]) == 1L) else sum(.stroke01(data[ok_all, , drop = FALSE]))
-  if (!is.null(rr) && nrow(rr)) {
-    hit <- rr[1, , drop = FALSE]
-    est0 <- if (is_hr) hit$HR[1] else hit$OR[1]
-    if (is.finite(est0) && is.finite(hit$CI_low[1]) && hit$CI_low[1] > 0 &&
-        is.finite(hit$CI_high[1]) && hit$CI_high[1] > 0 && est0 > 0) {
-      rows[[length(rows) + 1L]] <- .mk(
-        "Overall", n_tot, .fmt_event(n_evt, n_tot),
-        ckm_stroke_fmt_or_tilde(est0, hit$CI_low[1], hit$CI_high[1]), "",
-        est0, hit$CI_low[1], hit$CI_high[1], FALSE
-      )
+  if (!is.null(imp)) {
+    n_tot <- nrow(data)
+    n_evt <- if (is_hr) sum(as.integer(data$status) == 1L, na.rm = TRUE) else sum(.stroke01(data))
+    hitp <- .pool_hit(NULL, models3)
+    if (!is.null(hitp)) {
+      got <- .from_pool(hitp)
+      if (is.finite(got$est) && got$est > 0 && is.finite(got$lo) && got$lo > 0 && is.finite(got$hi) && got$hi > 0) {
+        rows[[length(rows) + 1L]] <- .mk(
+          "Overall", format(n_tot, big.mark = ","), .fmt_event(n_evt, n_tot),
+          ckm_stroke_fmt_or_tilde(got$est, got$lo, got$hi), "",
+          got$est, got$lo, got$hi, FALSE
+        )
+      }
+    }
+  } else {
+    rr <- fit1(data, models3)
+    cc_cols <- unique(c(expo, if (is_hr) c("futime", "status") else outcome, models3))
+    ok_all <- stats::complete.cases(data[, intersect(cc_cols, names(data)), drop = FALSE])
+    n_tot <- sum(ok_all)
+    n_evt <- if (is_hr) sum(as.integer(data$status[ok_all]) == 1L) else sum(.stroke01(data[ok_all, , drop = FALSE]))
+    if (!is.null(rr) && nrow(rr)) {
+      hit <- rr[1, , drop = FALSE]
+      est0 <- if (is_hr) hit$HR[1] else hit$OR[1]
+      if (is.finite(est0) && is.finite(hit$CI_low[1]) && hit$CI_low[1] > 0 &&
+          is.finite(hit$CI_high[1]) && hit$CI_high[1] > 0 && est0 > 0) {
+        rows[[length(rows) + 1L]] <- .mk(
+          "Overall", n_tot, .fmt_event(n_evt, n_tot),
+          ckm_stroke_fmt_or_tilde(est0, hit$CI_low[1], hit$CI_high[1]), "",
+          est0, hit$CI_low[1], hit$CI_high[1], FALSE
+        )
+      }
     }
   }
   for (sp in sub_specs) {
@@ -1304,27 +1647,47 @@ ckm_stroke_forest_free_stats <- function(
     cov_i <- setdiff(models3, sp$drop)
     levs <- if (is.factor(data[[sv]])) levels(data[[sv]]) else unique(stats::na.omit(as.character(data[[sv]])))
     levs <- as.character(levs); levs <- levs[nzchar(levs)]
-    pint <- ckm_stroke_lrt_pint(data, expo, sv, cov_i, is_hr = is_hr, outcome = outcome)
-    pint_txt <- ckm_stroke_fmt_p(pint)
+    if (!is.null(imp)) {
+      obs <- which(!is.na(data[[sv]]))
+      pint_row <- .pool_hit(obs, cov_i, interaction = sv)
+      pint_txt <- if (is.null(pint_row)) "" else ckm_stroke_fmt_p(.from_pool(pint_row)$p)
+    } else {
+      pint <- ckm_stroke_lrt_pint(data, expo, sv, cov_i, is_hr = is_hr, outcome = outcome)
+      pint_txt <- ckm_stroke_fmt_p(pint)
+    }
     rows[[length(rows) + 1L]] <- .mk(sp$label, "", "", "", pint_txt, NA_real_, NA_real_, NA_real_, TRUE)
     for (lev in levs) {
-      dsub <- data[as.character(data[[sv]]) == lev & !is.na(data[[sv]]), , drop = FALSE]
-      if (nrow(dsub) < 30L) next
-      need_cols <- unique(c(expo, if (is_hr) c("futime", "status") else outcome, cov_i))
-      ok_cc <- stats::complete.cases(dsub[, intersect(need_cols, names(dsub)), drop = FALSE])
-      dfit <- dsub[ok_cc, , drop = FALSE]
-      n_i <- nrow(dfit)
-      if (n_i < 30L) next
-      n_e <- if (is_hr) sum(as.integer(dfit$status) == 1L) else sum(.stroke01(dfit))
-      if (n_e < 1L) next
-      rr <- fit1(dfit, cov_i)
-      if (is.null(rr) || !nrow(rr)) next
-      hit <- rr[1, , drop = FALSE]
-      est0 <- if (is_hr) hit$HR[1] else hit$OR[1]
-      lo0 <- hit$CI_low[1]; hi0 <- hit$CI_high[1]
+      if (!is.null(imp)) {
+        idx <- which(!is.na(data[[sv]]) & as.character(data[[sv]]) == lev)
+        n_i <- length(idx)
+        if (n_i < 30L) next
+        n_e <- if (is_hr) sum(as.integer(data$status[idx]) == 1L, na.rm = TRUE) else sum(.stroke01(data[idx, , drop = FALSE]))
+        if (n_e < 1L) next
+        hitp <- .pool_hit(idx, cov_i)
+        if (is.null(hitp)) next
+        got <- .from_pool(hitp)
+        est0 <- got$est; lo0 <- got$lo; hi0 <- got$hi
+      } else {
+        dsub <- data[as.character(data[[sv]]) == lev & !is.na(data[[sv]]), , drop = FALSE]
+        if (nrow(dsub) < 30L) next
+        need_cols <- unique(c(expo, if (is_hr) c("futime", "status") else outcome, cov_i))
+        ok_cc <- stats::complete.cases(dsub[, intersect(need_cols, names(dsub)), drop = FALSE])
+        dfit <- dsub[ok_cc, , drop = FALSE]
+        n_i <- nrow(dfit)
+        if (n_i < 30L) next
+        n_e <- if (is_hr) sum(as.integer(dfit$status) == 1L) else sum(.stroke01(dfit))
+        if (n_e < 1L) next
+        rr <- fit1(dfit, cov_i)
+        if (is.null(rr) || !nrow(rr)) next
+        hit <- rr[1, , drop = FALSE]
+        est0 <- if (is_hr) hit$HR[1] else hit$OR[1]
+        lo0 <- hit$CI_low[1]; hi0 <- hit$CI_high[1]
+      }
       if (!(is.finite(est0) && est0 > 0 && is.finite(lo0) && lo0 > 0 && is.finite(hi0) && hi0 > 0)) next
       rows[[length(rows) + 1L]] <- .mk(
-        paste0("  ", lev), n_i, .fmt_event(n_e, n_i),
+        paste0("  ", lev),
+        if (!is.null(imp)) format(n_i, big.mark = ",") else n_i,
+        .fmt_event(n_e, n_i),
         ckm_stroke_fmt_or_tilde(est0, lo0, hi0), "",
         est0, lo0, hi0, FALSE
       )
@@ -1416,10 +1779,28 @@ ckm_stroke_forest_free_stats <- function(
   }
   if (!is.null(p$layout) && "clip" %in% names(p$layout)) p$layout$clip[] <- "off"
 
-  sd_note <- sprintf(
-    "Exposure: per 1-SD increase in %s (SD = %.3f). Continuous OR/HR in tables is per 1-unit. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
-    as.character(expo_lab)[1L], sd_x
-  )
+  if (!is.null(imp)) {
+    sd_note <- c(
+      sprintf(
+        "Per 1-unit increase in %s, the same scale as Tables 2 and S1. Overall n = %s (%s events) is the analytic cohort.",
+        as.character(expo_lab)[1L], format(n_tot, big.mark = ","), format(n_evt, big.mark = ",")
+      ),
+      sprintf(
+        "Missing Model 3 covariates (%s) are imputed (mice, m=%d, seed=%d). Interaction P is the pooled Wald test. Observed stratum levels can sum to less than Overall.",
+        paste(imp_labs, collapse = ", "), as.integer(mice_m), as.integer(mice_seed)
+      )
+    )
+  } else if (identical(scale, "unit")) {
+    sd_note <- sprintf(
+      "Per 1-unit increase in %s, the same scale as the regression tables. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
+      as.character(expo_lab)[1L]
+    )
+  } else {
+    sd_note <- sprintf(
+      "Exposure: per 1-SD increase in %s (SD = %.3f). Continuous OR/HR in tables is per 1-unit. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
+      as.character(expo_lab)[1L], sd_x
+    )
+  }
   fig_w <- 10.2
   fig_h <- max(5.4, min(7.6, 0.245 * nrow(plot_df) + 1.35))
   grDevices::pdf(outfile, width = fig_w, height = fig_h, useDingbats = FALSE)
@@ -1432,8 +1813,13 @@ ckm_stroke_forest_free_stats <- function(
     grid::grid.text(title, x = 0.02, y = 0.975, just = c("left", "top"),
                     gp = grid::gpar(fontsize = 9, fontface = "bold", col = "grey15"))
   }
-  grid::grid.text(sd_note, x = 0.02, y = 0.018, just = c("left", "bottom"),
-                  gp = grid::gpar(fontsize = 6.5, col = "grey25", fontfamily = ""))
+  sd_note <- as.character(sd_note)
+  y0 <- 0.012 + 0.018 * (seq_along(sd_note) - 1L)
+  y0 <- rev(y0)
+  for (i in seq_along(sd_note)) {
+    grid::grid.text(sd_note[i], x = 0.02, y = y0[i], just = c("left", "bottom"),
+                    gp = grid::gpar(fontsize = 6.5, col = "grey25", fontfamily = ""))
+  }
   grDevices::dev.off()
   attr(plot_df, "sd") <- sd_x
   attr(plot_df, "exposure_scale") <- "per_1_SD"

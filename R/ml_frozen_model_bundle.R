@@ -349,6 +349,24 @@ ml_fit_stratum_bundle <- function(
   # 候选全集补齐到 10（仍限定在本层候选域内，Boruta 结果优先保留）。
   if ("rf" %in% methods && length(feats) < 10L) {
     extra <- setdiff(cand, feats)
+    # 候选仍不够时，从训练集数值/二值列再补（排除结局/时间/ID/暴露黑名单）
+    if (length(feats) + length(extra) < 10L) {
+      train_df0 <- child$data$train
+      never <- unique(c(
+        as.character(child$config$ml_frozen_bundle$never_features %||% character(0)),
+        "futime", "fustatus", "ID", "SEQN", "DN", "Group",
+        if (is.null(stratum)) character(0) else as.character(stratum$variable)
+      ))
+      pool <- setdiff(names(train_df0), c(feats, extra, never))
+      ok <- vapply(pool, function(cn) {
+        x <- train_df0[[cn]]
+        if (is.factor(x) || is.character(x)) {
+          return(length(unique(stats::na.omit(as.character(x)))) <= 8L)
+        }
+        is.numeric(x) && sum(is.finite(x)) >= 10L
+      }, logical(1))
+      extra <- unique(c(extra, pool[ok]))
+    }
     if (length(feats) + length(extra) >= 10L) {
       feats <- c(feats, utils::head(extra, 10L - length(feats)))
       cli::cli_alert_info(
@@ -360,6 +378,26 @@ ml_fit_stratum_bundle <- function(
     }
   }
   child$results$feature_selection_final <- feats
+
+  # 字符列（如 Gender）在打包 factor_levels 时会整层失败。按训练集水平
+  # 先升成因子，外验未见水平在预测时再变成 NA。
+  train_df <- child$data$train
+  char_feats <- intersect(feats, names(train_df))
+  char_feats <- char_feats[vapply(char_feats, function(cn) {
+    is.character(train_df[[cn]])
+  }, logical(1))]
+  if (length(char_feats)) {
+    locked_levels <- lapply(char_feats, function(cn) levels(factor(train_df[[cn]])))
+    names(locked_levels) <- char_feats
+    for (slot in names(child$data)) {
+      df <- child$data[[slot]]
+      if (!is.data.frame(df)) next
+      for (cn in intersect(char_feats, names(df))) {
+        df[[cn]] <- factor(as.character(df[[cn]]), levels = locked_levels[[cn]])
+      }
+      child$data[[slot]] <- df
+    }
+  }
 
   for (m in c("ml_dt", "ml_rf", "ml_xgboost", "ml_lightgbm", "ml_logistic",
               "feature_selection_boruta")) {

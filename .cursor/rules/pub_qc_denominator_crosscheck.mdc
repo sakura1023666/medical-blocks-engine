@@ -1,0 +1,52 @@
+---
+description: 发表 QC 分母交叉硬门控（亚组 Count 之和=分析集 N；禁旧队列残留；image_info「未收获」升 P0）
+alwaysApply: true
+---
+
+# 发表 QC 分母交叉硬门控（全项目）
+
+**踩坑（VitalDB 术后 AKI Sodium，2026-10）**：分析集已是 N=3,522，但交付 Table3/Fig3/S12 仍是旧队列 Age Count 3,995+2,042=**6,037**；Fig3 `image_information` 写「未收获结果表」却仍交稿。nature skill 因执行漏检（未对 Count 求和、碰撞 FAIL 当假阳性消化、未读图上 N）未拦住。
+
+## 铁律（每次发表 QC / nature Layer B·D 必做，禁止跳过）
+
+1. **亚组表 Count 之和 = 分析集 N**  
+   对 Table 3（或等价亚组表）每个分层变量：各水平 `Count`（或 `N`）之和 **必须** = Fig1 终步 / Table1 Overall / attrition analytic N。  
+   任一层合计 ≠ analytic N → **P0 FAIL**，不得 PASS。
+
+2. **森林图 N = 亚组表 Count**  
+   读 Fig 森林 PDF 图面 Age（及主要分层）N 标签，与 Table3 同行一致；禁止只审 collision 而不读 N。
+
+3. **禁旧队列残留 token**  
+   若本轮 analytic N 已变，全文交付表/图/md **不得**再出现上一轮总 N（及上一轮 Age 两层 Count）。课题 gate 应硬拒已知 legacy token。
+
+4. **`image_information`「未收获」= P0**  
+   主文图（Fig1–3）md 写「未收获结果表」或图面口径与表不一致（如连续亚组却写 Q4 vs Q1）→ **P0**，修完再交，不得当模板残缺放过。
+
+5. **切点 / 敏感性表同检分母**  
+   Table S* cutoff、Events/N、sensitivity 表：Events 或 N 合计（若为全队列分层）须与 analytic N 同口径；旧集残留 → 撤出交付或重算，不得静默留在 summary。
+
+6. **主效应口径对齐**  
+   亚组为 continuous 暴露时：层内 OR 应与主分析 Crude/同模型连续 OR **同数量级同方向**；若层内 ~1.0 而 Crude 明显偏离（或相反），先查是否旧样本，再谈异质性。
+
+## 检查口令（Agent 每次 QC 必须打勾）
+
+```
+[ ] sum(Table3 Age Count) == Table1 Overall N == Fig1 final N
+[ ] Fig3 Age N labels == Table3 Age Count（读 PDF 文本，不只看 collision）
+[ ] 无 legacy analytic N / 旧 Age 分层 Count token
+[ ] 主文图 image_information 无「未收获」；口径与表一致（continuous vs Q4vsQ1）
+[ ] 切点/敏感性表 N 或 Events/N 非旧集（否则撤出或重算）
+```
+
+## 反例（禁止）
+
+- QC 报告只写 Fig1/Table2/RCS 对齐，不写亚组 Count 合计  
+- collision FAIL 全判假阳性，却不读森林图上的 N  
+- 「未收获结果表」仍标 PASS  
+- 旧 S12/旧 Table3 与新 Fig1 并存于 `summary_results/`
+
+## 实现挂点
+
+- 课题门控示例：`scripts/gate_pub_artifacts.R`（Age Count 之和；Fig3 legacy token）  
+- 技能清单：`.cursor/skills/pub-qc-after-project/checklist.md` §B  
+- 复盘样例：`02block_result/.../reports/qc_miss_subgroup_n6037_postmortem_2026-10-10.md`

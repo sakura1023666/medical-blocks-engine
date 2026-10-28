@@ -1,0 +1,12 @@
+rule_id,rule,amsterdam,mimic4,eicu,hirid,min_patients,pass_min500
+acg_enzyme_ge2uln,ACG-style enzyme elevation: first ALT or AST >=2xULN (ULN=40),3323,11222,18369,5152,3323,True
+acg_mild_plus_bili12,ACG enzyme >=2xULN AND first TBil >1.2 mg/dL (>=20 umol/L),732,5373,7241,1796,732,True
+apasl_lab_bili5_inr15,APASL lab gate only: first TBil >=5 mg/dL AND first INR >=1.5,73,1925,1352,185,73,False
+easl_dili_lab_mild,EASL/DILI lab gate: first ALT >=5xULN OR ALP >=2xULN (ULN ALT40/ALP115),1223,5980,7978,2060,1223,True
+hys_law_lab,Hy's-law lab pattern: (ALT or AST >=3xULN) AND first TBil >=2xULN (>=34 umol/L),293,2994,3198,810,293,False
+mars_early_bili33_48h,MARS early hyperbilirubinemia: TBil >=33 umol/L within first 48 h,852,6824,8435,1892,852,True
+sofa_liver_ge1,SOFA liver item >=1 (first TBil >=20 umol/L),1590,10025,15930,3267,1590,True
+sofa_liver_ge2,SOFA liver item >=2 (first TBil >=33 umol/L) [current main],681,6204,7881,1752,681,True
+sofa_liver_ge3,SOFA liver item >=3 (first TBil >=102 umol/L),100,2019,1648,385,100,False
+sofa_liver_ge4,SOFA liver item >=4 (first TBil >=204 umol/L),27,955,631,128,27,False
+tbili_ge3_mgdl,First TBil >=3 mg/dL (>=51.3 umol/L),284,3991,4144,968,284,False

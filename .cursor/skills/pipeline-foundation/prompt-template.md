@@ -37,6 +37,10 @@ H. 发表质控（强制）：按 `.cursor/skills/pub-qc-after-project/SKILL.md`
    结构 + 交叉数字 + 逻辑审阅 + Nature Layer D → `reports/pub_qc_*.md` 与 `reports/nature_*_qc_*.md`
    **P0 必须修改并复检清零**；口头给出 PASS/WARN/FAIL；未出报告或 P0 未清不得宣称完成
    （我只举例路径或说「不要审」时禁止打开该目录审阅）
+I. 中期 PDF（强制，紧接 H）：按 `.cursor/skills/Aiya-NB004-midterm-report/SKILL.md`
+   仅当 H 为 PASS/WARN 且 Nature P0 已清；每个刚审完的 【success】发表根出一份
+   inspect → content.json（数字只来自 dump）→ step05 去 AI 味 → build（出厂闸门通过）
+   FAIL 或我说「不要中期」则不出并声明
 
 【输入】
 - 文献：@adversarial_lit_reading/papers/<论文>.pdf
@@ -60,6 +64,7 @@ H. 发表质控（强制）：按 `.cursor/skills/pub-qc-after-project/SKILL.md`
 6. 飞书：run/feishu/ + 三表同步（我给出 base 链接则用我的）
 7. 发表清单：原文每个 Figure/Table/Supp → 产出键，一个都不能少
 8. 质控：reports/pub_qc_YYYY-MM-DD.md + nature_statistics/figure_qc（PASS/WARN/FAIL；P0 已清）
+9. 中期：每个【success】发表根下的中期分析结果.pdf（出厂闸门通过；FAIL 则无此文件）
 
 【工程约束】
 - Rscript 与包路径按我约定；R 不能实现再接 Python（参考 ML python 路径）
@@ -68,7 +73,7 @@ H. 发表质控（强制）：按 `.cursor/skills/pub-qc-after-project/SKILL.md`
 
 【完成标准】
 对抗阅读产物齐全且未伪造 GLM；地基判定正确；套路交付件齐全；
-图/表键对齐文献；发表质控 + Nature P0 已清且结论已告知；不改动历史成功项目。
+图/表键对齐文献；发表质控 + Nature P0 已清且结论已告知；中期 PDF 已出（或已声明跳过）；不改动历史成功项目。
 ```
 
 ---
@@ -127,6 +132,7 @@ Rscript："/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe"
 | shared-only → workers | ✅ | ✅ |
 | 发表收口 | ✅ | ✅ |
 | 发表质控 PASS/WARN/FAIL | ❌ 旧版无 | ✅ Phase 6 |
+| 中期 PDF | ❌ 旧版无 | ✅ Phase 7（P0 清零后） |
 
 ---
 

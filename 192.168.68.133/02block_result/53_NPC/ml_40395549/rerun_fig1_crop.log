@@ -1,0 +1,72 @@
+预后 ML 覆盖: 上游=univariate_prognosis→VIF; FS=仅 LASSO-Cox; assoc=Model2 来自 VIF 通过池; models=文献六模型 XGBoost-Cox/CoxBoost/GBM-Cox/RSF/Ridge-Cox/ElasticNet-Cox; SHAP=auto(最优模型); Shiny=surv_prognostic; surv_horizon=auto
+
+── Pipeline: npc_os_death_ml_prognosis_allvars ─────────────────────────────────
+ℹ 检查点: 'G:/02block_result/53_NPC/ml_40395549/checkpoints'（关闭: pipeline$checkpoint$enable = FALSE）
+ℹ 续跑: 从 shiny_ml_app 之后继续
+ℹ 范围: 执行到 attrition_flowchart（含）
+ℹ Blocks (21): data_clean → column_mapping → analysis_exclusion → imputation → train_validation → baseline_binary → skew_log1p → univariate_prognosis → multicollinearity_screen → ml_feature_selection_bundle → ml_assoc_covariate_resolve → cox_ml_continuous_batch → rcs_prognosis → km_continuous_router → subgroup_prognosis → ml_models_bundle → performance_ml → supplementary_ml → shap → shiny_ml_app → attrition_flowchart
+ℹ Output: 'G:/02block_result/53_NPC/ml_40395549'
+✔ 已恢复检查点: step20_shiny_ml_app
+── Block: attrition_flowchart ──────────────────────────────────────────────────
+ℹ Block output directory: 'G:/02block_result/53_NPC/ml_40395549/step30_attrition_flowchart'
+ℹ Mirrored to root: 'Figures/Figure 1. Flowchart.pdf'
+✔ attrition_flowchart: 2 step(s) -> 'Flowchart_attrition_npc.csv + Figure 1. Flowchart_npc.pdf'
+ℹ Mirrored to root: 'Figures/Figure 1. Flowchart.pdf'
+✔ Block 'attrition_flowchart' done in 0.6s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step21_attrition_flowchart.rds'
+✔ Pipeline finished: npc_os_death_ml_prognosis_allvars
+ℹ Mirrored to root: 'Tables/Table S1-NPC. Baseline characteristics before and after imputation.xlsx'
+ℹ Mirrored to root: 'Figures/Figure Missing Value Overview.pdf'
+ℹ Mirrored to root: 'Tables/Table 1-NPC. Baseline characteristics of NPC Death.xlsx'
+ℹ Mirrored to root: 'Tables/Table S2-NPC. Normality test results for continuous variables.xlsx'
+ℹ Mirrored to root: 'Tables/Table S3-NPC. Baseline characteristics by training and validation sets.xlsx'
+ℹ Mirrored to root: 'Tables/Table S4-NPC. Univariate Regression Analysis.xlsx'
+ℹ Mirrored to root: 'Tables/Table S5-NPC. Multicollinearity Analysis.xlsx'
+ℹ Mirrored to root: 'Figures/Figure S1.LASSO-Cox.pdf'
+ℹ Mirrored to root: 'Figures/Figure S2-NPC. LASSO-Cox.pdf'
+ℹ Mirrored to root: 'Figures/Figure S2.LASSO-Cox.pdf'
+ℹ Mirrored to root: 'Tables/Table S6-NPC. Cox regression for ML continuous features.xlsx'
+ℹ Mirrored to root: 'Figures/Figure 2-NPC. RCS Analysis of the Association Between Age and Mortality in NPC Death.pdf'
+ℹ Mirrored to root: 'Figures/Figure 3. Combined KM Plots.pdf'
+ℹ Mirrored to root: 'Figures/KM continuous Age quartile.pdf'
+ℹ Mirrored to root: 'Figures/Figure 4-NPC. Subgroup Forest analyses of Age.pdf'
+ℹ Mirrored to root: 'Tables/Table 2-NPC. ML performance wide training.xlsx'
+ℹ Mirrored to root: 'Tables/Table 3-NPC. ML performance wide validation.xlsx'
+ℹ Mirrored to root: 'Tables/Table S7-NPC. Bootstrap performance metrics.xlsx'
+ℹ Mirrored to root: 'Figures/Figure 5-NPC. ML performance combined 2x4.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance calibration train calibrated.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance calibration train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance calibration validation calibrated.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance calibration validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance DCA train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance DCA validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance parallel train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance parallel validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance ROC train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S-NPC. ML performance ROC validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure. Prognosis calibration faceted.pdf'
+ℹ Mirrored to root: 'Figures/Figure. Prognosis DCA combined.pdf'
+ℹ Mirrored to root: 'Tables/Table S8-NPC. Hyperparameters for machine learning models.xlsx'
+ℹ Mirrored to root: 'Tables/Table S9-NPC. Calibration intercept and slope on validation set.xlsx'
+ℹ Mirrored to root: 'Figures/Figure 6-NPC. SHAP — XGBoost-Cox.pdf'
+ℹ Mirrored to root: 'Figures/Figure 1. Flowchart.pdf'
+ℹ 已汇总镜像 35 个发表表/图到根目录 Tables/Figures
+ℹ 发表编号重排：1 个文件已顺延（Figures）
+ℹ 已清空旧发表图导出 63 个: 'Figures'
+New names:
+• `` -> `...1`
+• `` -> `...2`
+• `` -> `...3`
+• `` -> `...4`
+• `` -> `...5`
+! TIFF 兜底重导失败：Figure S-NPC. ML performance calibration validation.tiff（请手工 `pub_figure_ensure_tiff_from_png`）
+! 栅格化失败 [Figure S3.LASSO-Cox]: 无法复制 PDF 到临时目录
+! 发表图仍残留在 Figures 根目录 2 个，已强制收进四目录
+✔ 发表图已落入四目录（pdf/png/tiff/image_information）: 23 张
+✖ 发表图四目录仍不完整: missing_png=0, missing_tiff=2, bad_dpi=0 (require>=600), flat=0
+✔ 已生成单库平链 code 包: 'G:/02block_result/53_NPC/ml_40395549/code'
+Warning in system2(py, c(scan_py, "--project", project_root, "--repair"),  :
+  'CreateProcess' failed to run 'C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps\python3.exe E:/01block/01Block-new-Final/python/nature_two_aspect_scan.py --project G:/02block_result/53_NPC/ml_40395549 --repair'
+✔ pub-qc 结构 OK -> G:/02block_result/53_NPC/ml_40395549/reports/pub_qc_2026-10-27.md
+EXIT:0

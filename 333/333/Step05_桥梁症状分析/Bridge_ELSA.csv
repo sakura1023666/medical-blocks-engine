@@ -1,0 +1,14 @@
+"Label","Items","Community","Bridge_Strength","Bridge_ExpectedInfluence","Bridge_Closeness","Bridge_Betweenness"
+"Depression_1","Felt Depressed","Depression",-0.202,0.041,0.134,0.774
+"Depression_2","Everything Was an Effort","Depression",0.595,0.035,0.891,1.146
+"Depression_3","Restless Sleep","Depression",-0.579,-0.316,0.058,-0.717
+"Depression_4","Happy [POS]","Depression",-0.659,-0.719,-0.839,-0.717
+"Depression_5","Positive Mindset [POS]","Depression",-0.609,-0.766,-0.712,-0.717
+"Depression_6","Negative Mindset","Depression",-0.832,-0.555,-0.413,-0.344
+"Depression_7","Felt Lonely","Depression",-0.832,-0.555,-0.905,-0.717
+"Depression_8","Could Not Get Going","Depression",1.87,2.001,1.388,1.892
+"MetS_1","Waist Circumference (cm)","MetS",1.038,0.793,1.605,1.668
+"MetS_2","HDL-Cholesterol (mg/dL)","MetS",-0.43,-0.935,-2.041,-0.717
+"MetS_3","Triglycerides (mg/dL)","MetS",1.883,2.013,0.077,-0.717
+"MetS_4","Systolic Blood Pressure (mmHg)","MetS",-0.659,-0.719,0.269,-0.12
+"MetS_5","Fasting Glucose (mg/dL)","MetS",-0.584,-0.32,0.488,-0.717

@@ -138,13 +138,17 @@ suppressPackageStartupMessages({
   s2 <- ckm_stroke_forest_free_stats(
     data, "cum_eGDR", TRUE,
     file.path(.fig, sprintf("Figure S2. Cumulative %s subgroup HR.pdf", index)),
-    title = sprintf("Fig. S2  Subgroup analysis (Cox, per 1-SD cum-%s)", index),
+    title = sprintf("Fig. S2  Subgroup analysis (Cox, per 1-unit cum-%s)", index),
+    index_lab = index,
+    scale = "unit",
     outcome = outcome, expo_lab = sprintf("cumulative %s", index), model3 = covars
   )
   s3 <- ckm_stroke_forest_free_stats(
     data, "cum_eGDR", FALSE,
     file.path(.fig, sprintf("Figure S3. Cumulative %s subgroup OR.pdf", index)),
-    title = sprintf("Fig. S3  Subgroup analysis (Logistic, per 1-SD cum-%s)", index),
+    title = sprintf("Fig. S3  Subgroup analysis (Logistic, per 1-unit cum-%s)", index),
+    index_lab = index,
+    scale = "unit",
     outcome = outcome, expo_lab = sprintf("cumulative %s", index), model3 = covars
   )
   .internal <- file.path(dirname(.tab), "_internal")
@@ -161,7 +165,7 @@ suppressPackageStartupMessages({
   writeLines(c(
     sprintf("# Figure 3. RCS of cumulative %s and osteoporosis", index), "",
     "## 图面说明",
-    "三面板 RCS（3 knots）+ Model3（uv_vif，与 Table2 同协变量）。A Overall；B BMI < 30；C Age ≥60。",
+    "三面板 RCS（3 knots）+ Model 3（与 Table 2 同一套协变量）。A Overall；B BMI < 30；C Age ≥60。",
     "纵轴 OR；图上标注 P for overall / P for non-linearity。",
     "",
     "## 分析上下文",
@@ -181,7 +185,7 @@ suppressPackageStartupMessages({
   writeLines(c(
     sprintf("# Figure S2. Cumulative %s subgroup HR", index), "",
     "## 图面说明",
-    "亚组森林（Cox，per 1-SD）。Smoke/Drink 水平为 Never/Ever；CI 用 en-dash，与主表一致。",
+    "亚组森林（Cox，每增加 1 个单位）。Overall 为分析集。Smoke/Drink 水平为 Never/Ever。",
     "",
     "## 分析上下文",
     sprintf("Model3=%s。Overall n 为 Model3 完整病例。ELSA。", paste(covars, collapse = "+"))
@@ -190,7 +194,7 @@ suppressPackageStartupMessages({
   writeLines(c(
     sprintf("# Figure S3. Cumulative %s subgroup OR", index), "",
     "## 图面说明",
-    "亚组森林（Logistic，per 1-SD）。标签/CI 格式与 Table3 / Fig S2 对齐。",
+    "亚组森林（Logistic，每增加 1 个单位）。口径与 Fig S2 和插补后的 Model 3 连续项对齐。",
     "",
     "## 分析上下文",
     sprintf("Model3=%s。与 Table2 连续行（per 1-unit）量纲不同。ELSA。", paste(covars, collapse = "+"))

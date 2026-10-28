@@ -1,0 +1,6 @@
+__pycache__
+results/
+results_before_rev/
+figures/
+*.json
+4_extraction_table_v2.py

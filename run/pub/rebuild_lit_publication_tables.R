@@ -43,13 +43,20 @@ out_override <- get_arg("--out")
 tables_sel  <- strsplit(get_arg("--tables",
   "t1,joint,s4,s5,ph,s9,s10,s2,s3,s11"), ",")[[1L]]
 do_fig_s1   <- !is.na(match("--fig-s1", .args))
+overall_only <- !is.na(match("--overall-only", .args))
 
 if (is.null(config_path) || is.null(index_label)) {
-  stop("需 --config 与 --index。可选 --index-a/--index-b/--cutoff/--glucose-threshold/--out/--tables",
+  stop("需 --config 与 --index。可选 --index-a/--index-b/--cutoff/--glucose-threshold/--out/--tables/--overall-only",
        call. = FALSE)
 }
 config_path <- normalizePath(config_path, winslash = "/", mustWork = TRUE)
-cutoff <- suppressWarnings(as.integer(strsplit(cutoff_raw, ",")[[1L]]))
+if (isTRUE(overall_only)) {
+  cutoff <- NULL
+  tables_sel <- setdiff(tables_sel, "ph")
+  message("[overall-only] cutoff=NULL；跳过 Table S6–S8 SOFA 层 PH")
+} else {
+  cutoff <- suppressWarnings(as.integer(strsplit(cutoff_raw, ",")[[1L]]))
+}
 
 engine <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
 if (!nzchar(engine)) {
@@ -153,8 +160,21 @@ copy_one <- function(src, dest) {
 DB_SHORT_PRI <- gsub("_", "-", primary)          # MIMIC_IV -> MIMIC-IV
 DB_TAG_PRI   <- gsub("-", " ", DB_SHORT_PRI)      # for filenames "MIMIC IV"
 lay_labels <- names(.ref_assoc_layer_masks(dat, cutoff))
-strata_pub <- c("Overall", "SOFA 0\u20134", "SOFA 5\u201310", "SOFA \u226511")
-PH_LAYERS  <- stats::setNames(strata_pub[-1], c("S6", "S7", "S8"))
+strata_pub <- if (isTRUE(overall_only)) {
+  "Overall"
+} else {
+  c("Overall", "SOFA 0\u20134", "SOFA 5\u201310", "SOFA \u226511")
+}
+PH_LAYERS  <- if (isTRUE(overall_only)) {
+  list()
+} else {
+  stats::setNames(strata_pub[-1], c("S6", "S7", "S8"))
+}
+STRATA_FOOT <- if (isTRUE(overall_only)) {
+  "Overall cohort only (no SOFA stratification)."
+} else {
+  "Strata: Overall and SOFA layers."
+}
 
 # ---- 文献版式标题/脚注：可被 config$lit_tables 覆盖（本课题定稿措辞的单一来源）----
 .lit <- cfg$lit_tables %||% list()
@@ -172,13 +192,23 @@ PH_LAYERS  <- stats::setNames(strata_pub[-1], c("S6", "S7", "S8"))
 # title(key, default) / foot(key, default) —— 优先 config$lit_tables$<key>$title|footnotes
 .lit_title <- function(key, default)
   .lit_sub(.lit[[key]]$title %||% default)
-.lit_foot <- function(key, default)
-  .lit_sub(.lit[[key]]$footnotes %||% default)
+.lit_foot <- function(key, default) {
+  out <- .lit_sub(.lit[[key]]$footnotes %||% default)
+  if (isTRUE(overall_only)) {
+    out <- gsub("Strata: Overall and SOFA layers[^.]*\\.",
+                "Overall cohort only (no SOFA stratification).", out)
+    out <- gsub("Strata: Overall and SOFA layers \\(mapped from reference glucose-metabolism strata\\)\\.",
+                "Overall cohort only (no SOFA stratification).", out)
+    out <- gsub("Three sets per SOFA stratum,",
+                "Three sets (overall cohort),", out)
+  }
+  out
+}
 
 FOOT_COMMON <- .lit_foot("common", c(
   "Model 1: unadjusted; Model 2: age and sex; Model 3: clinical\u2229UV\u2229VIF covariates.",
   "Joint groups from {PRI} train frozen upper-tertile cuts; P for trend ordinal score.",
-  "Strata: Overall and SOFA layers. Outcome: {OUT} only."))
+  paste0(STRATA_FOOT, " Outcome: {OUT} only.")))
 
 # ==========================================================================
 # Table1 文献版式（分库：Survivor/Non-survivor + Exposures 末节）——就地重排
@@ -266,13 +296,15 @@ if ("s9" %in% tables_sel) {
                 blank_hdr(b9, paste0("Panel B: ", secondary)), drop_hdr(b9s))
     rownames(b9) <- NULL
   }
+  # Windows 文件名禁止 < >；题名仍写 <70，磁盘名用 below 70
+  gthr_lab <- format(glucose_thr, scientific = FALSE)
   fn <- file.path(local, paste0("Table S9. Joint association of ", index_a, " and ",
-              index_b, " after excluding baseline glucose <", format(glucose_thr, scientific = FALSE),
+              index_b, " after excluding baseline glucose below ", gthr_lab,
               " (", DB_SHORT_PRI, ", ", secondary, ").xlsx"))
   sci_xlsx_single_header_booktabs(fn,
     title = .lit_title("s9", paste0("Table S9. The association of the combination of ",
       index_a, " and ", index_b, " with 28-day all-cause mortality after excluding ",
-      "individuals with baseline glucose <", format(glucose_thr, scientific = FALSE),
+      "individuals with baseline glucose <", gthr_lab,
       " mg/dL (", DB_SHORT_PRI, " and ", secondary, ").")),
     df_body = b9, sheet = "Table S9",
     footnotes = .lit_foot("s9", c(
@@ -297,7 +329,7 @@ if ("s10" %in% tables_sel) {
       paste0("Complete-case on ", index_a, ", ", index_b,
              ", Model 3 covariates, time and event."),
       "Model 1–3 and joint-group definitions as in Table 2 / Table S9.",
-      "Strata: Overall and SOFA layers. {OUT} only.")))
+      paste0(STRATA_FOOT, " {OUT} only."))))
   copy_one(fn, file.path(out_tables, basename(fn)))
 }
 
@@ -315,7 +347,7 @@ if ("s4" %in% tables_sel) {
     df_body = s4, sheet = "Table S4",
     footnotes = .lit_foot("s4", c(FOOT_COMMON[1],
       "T1\u2013T3: tertiles (type-7) within each stratum; P for trend treats tertile as ordinal 1\u20133.",
-      "Strata: Overall and SOFA layers.",
+      STRATA_FOOT,
       paste0("Outcome: {OUT} only."),
       paste0(DB_SHORT_PRI, " analysis set."))))
   copy_one(fn, file.path(out_tables, basename(fn)))
@@ -353,14 +385,14 @@ if ("s5" %in% tables_sel) {
       "AUC (95% CI) from pROC; Sensitivity/Specificity at Youden threshold.",
       paste0("P: DeLong test versus {ILAB} (reference)."),
       paste0("Comparators: ", paste(names(preds), collapse = ", "), "."),
-      paste0("Strata: Overall and SOFA layers. ", DB_SHORT_PRI, " only; 28-day mortality only."))))
+      paste0(STRATA_FOOT, " ", DB_SHORT_PRI, " only; 28-day mortality only."))))
   copy_one(fn, file.path(out_tables, basename(fn)))
 }
 
 # ==========================================================================
 # S6-S8 PH per layer
 # ==========================================================================
-if ("ph" %in% tables_sel) {
+if ("ph" %in% tables_sel && length(PH_LAYERS)) {
   alias <- list(Heart_Failure = "Heart Failure",
                 Ventilation = "Mechanical ventilation")
   for (i in seq_along(PH_LAYERS)) {
@@ -443,13 +475,19 @@ if ("s3" %in% tables_sel) {
 # ==========================================================================
 if ("s11" %in% tables_sel) {
   s11_src <- NULL
-  cand <- file.path(pub_tbl, "Table S11. Stratified five-model machine-learning performance.xlsx")
-  if (file.exists(cand)) s11_src <- cand else {
-    g <- list.files(pub_tbl, pattern = "Stratified five-model", full.names = TRUE)
+  for (pat in c(
+    "Table S11. Stratified five-model machine-learning performance.xlsx",
+    "Table S11. Five-model machine-learning performance.xlsx")) {
+    cand <- file.path(pub_tbl, pat)
+    if (file.exists(cand)) { s11_src <- cand; break }
+  }
+  if (is.null(s11_src)) {
+    g <- list.files(pub_tbl, pattern = "five-model machine-learning performance",
+                    full.names = TRUE, ignore.case = TRUE)
     if (length(g)) s11_src <- g[1]
   }
   if (is.null(s11_src)) {
-    message("S11: 未找到分层五模型性能源表（跳过；先跑 build_*_replication 生成）")
+    message("S11: 未找到五模型性能源表（跳过；先跑 build_*_replication 生成）")
   } else {
     raw <- openxlsx::read.xlsx(s11_src, startRow = 2)
     s11 <- pub_lit_reshape_ml_perf(raw,
@@ -470,7 +508,8 @@ if ("s11" %in% tables_sel) {
         DB_SHORT_PRI, " internal validation, and ", secondary, " external validation).")),
       df_body = s11, sheet = "Table S11",
       footnotes = .lit_foot("s11", c(
-        paste0("Three sets per SOFA stratum, aligned with Figures: ", DB_SHORT_PRI,
+        paste0(if (isTRUE(overall_only)) "Three sets (overall cohort), " else "Three sets per SOFA stratum, ",
+               "aligned with Figures: ", DB_SHORT_PRI,
                " training; ", DB_SHORT_PRI, " internal validation; ", secondary,
                " external validation."),
         "Metrics: AUC, Sensitivity, Specificity, Accuracy, F1. Models: LR, DT, RF, XGBoost, LGB.",

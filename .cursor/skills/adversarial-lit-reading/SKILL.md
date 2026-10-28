@@ -38,6 +38,11 @@ paper_id（如 paper_001）、qid（Q1~Q8）、question（若缺，按 qid 从 `
 4. **评分（六字段 + metadata）**：以 `prompts/Judge_labeler.md` 为指令，读初稿+攻击+修正+原文，给 10 分 score_detail 六维度，**同时产出两棵树** rejected_decision_tree 与 chosen_decision_tree（各含 mermaid+nodes+edges）+ rejected_answer/critique/chosen_answer/evidence；强制单行 JSON 写 `labels/<PAPER>_<QID>_training.jsonl`。metadata 含 reader_model="Cursor model"、critic_model="GLM 5.1"、judge="Cursor model (Judge_labeler)"、created_at=今天(YYYY-MM-DD)。保证 score==sum(score_detail)、各维度为 int、键名在白名单、edges 无悬空、node_id 唯一。
 5. **校验+修复**：运行 `python3 adversarial_lit_reading/scripts/validate_jsonl.py --input adversarial_lit_reading/labels/<PAPER>_<QID>_training.jsonl --fix-hints`。标量错误（score≠sum、float、缺字段）直接 patch 重存；结构错误（悬空边/重复 node_id/解析失败）重跑第 4 步 Judge 而非原地改；最多 3 次。仍 FAIL 则写入 `labels/review_needed/<PAPER>_<QID>_training.jsonl`（标 status:"fail"）不进 training.jsonl 并报告。PASS 后按 score 分桶：>=8 追加进 labels/training.jsonl；6-7 进 review_needed/；<=5 进 reject/。
 6. **（可选）Block 抽取**：仅当用户要求。以 `prompts/Block_Extractor.md` 为指令，读 Judge JSONL+CHUNK+Blocks/+prompt/pipeline_config_wizard_prompt.txt+Data/mimic/D04_dabiao.RData，写 `rounds/block_gap_<PAPER>_<QID>.md`（**仅新 type** 才新建 configs/templates/*.template.R + 根 run_<type>.R；已有 config/template/run_*.R 一律不覆盖，需改动先 diff + 用户确认）。不碰 Blocks/、R/；缺失 block 只登记；展示终版决策树。
+7. **图表 Word（该 PDF 只出一次）**：本篇第一份修正决策树（`A_tree_round2_revised_*.md`）落盘后，把原文图和表截进 Word。同一 PDF 已有 `*_图表.docx` 则跳过，除非用户要求重出。
+   顺序必须是先全部图、再全部表。正文图和补充图放在一起，正文表和补充表放在一起。补充 PDF，或补充 DOCX 里的图/表，用 `--extra` 传入，不能漏。
+   标题写成 `序号. Figure 1，中文图题` / `序号. Table 1，中文表题`（补充为 `Figure S1`、`Table S1`）。中文图题写入 `--zh-json`，按英文图题译成一句中文，不要留英文标题。
+   `python3 adversarial_lit_reading/scripts/export_paper_figures_docx.py "<PDF路径>" --extra "<补充文件>" --zh-json "<中文标题.json>"`
+   默认写到 PDF 同目录，文件名加 `_图表.docx`。聊天里给出该 docx 的绝对路径。
 
 ## 不做的事
 - 不伪造 GLM 攻击结果；glm_call 非零退出必须中止（不得回退到自行生成）；不在无 key 时假装调用了 GLM（应提示用户配 ZHIPU_API_KEY）。
@@ -45,5 +50,9 @@ paper_id（如 paper_001）、qid（Q1~Q8）、question（若缺，按 qid 从 `
 - 不覆盖其他角色文件；不让两个角色写同一文件；不覆盖已有 configs/templates/、根 run_*.R。
 - 不直接声称已训练模型参数。
 
+## 5007 只读入口
+
+5007 的人只投文献、只取结果，不改引擎。入口：`/mnt/g/DockerHome/5007/文献对抗阅读/`（`inbox/` 放 PDF，`out/<论文>/` 收 `decision_tree.md` 与 `图表.docx`）。提示词在该目录 `提示词.md`。切块、rounds、labels、Word 都写到该 `out`，禁止写回引擎。
+
 ## 完成
-报告每步写了哪个文件、B_*.md 的 provenance 头、validate 的 PASS/FAIL、终版决策树图、score 与分桶（train≥8 / review 6-7 / reject≤5）。
+报告每步写了哪个文件、B_*.md 的 provenance 头、validate 的 PASS/FAIL、终版决策树图、score 与分桶（train≥8 / review 6-7 / reject≤5）、图表 Word 的绝对路径。

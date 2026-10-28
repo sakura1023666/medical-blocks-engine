@@ -6,6 +6,8 @@ Usage: xlsx_strip.py <path.xlsx>
   makes openpyxl raise KeyError: 'xl/drawings/drawing1.xml')
 - removes xml:space="preserve" (openpyxl writes inlineStr cells that openxlsx then reads back as a
   literal 'xml:space="preserve">...' text blob)
+- fixes empty workbookView int attrs (xWindow="" → openpyxl TypeError: expected int)
+- unescapes HTML entities (&lt; &gt; &amp;) left in cell text by some exporters
 Rewrites the zip in place. Prints 'stripped' or 'clean'.
 """
 import zipfile, re, sys
@@ -14,10 +16,54 @@ from lxml import etree
 
 M = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
+
+def _preparse_fix_unbound_ns(raw: bytes) -> bytes:
+    """Remove undeclared nsN: attribute prefixes (e.g. ns1:id on pageSetup).
+
+    openxlsx sometimes emits pageSetup ns1:id=... without xmlns:ns1 → lxml/openpyxl
+    raise 'unbound prefix'. Strip those attributes before XML parse.
+    """
+    try:
+        s = raw.decode("utf-8")
+    except Exception:
+        s = raw.decode("utf-8", "replace")
+    s2 = re.sub(r"\s+ns\d+:[A-Za-z_][\w.-]*=\"[^\"]*\"", "", s)
+    s2 = re.sub(r"\s+ns\d+:[A-Za-z_][\w.-]*='[^']*'", "", s2)
+    if s2 != s:
+        return s2.encode("utf-8")
+    return raw
+
+
+def _fix_workbook_views(files: dict) -> bool:
+    """Empty xWindow/yWindow/windowWidth/windowHeight break openpyxl int descriptors."""
+    n = "xl/workbook.xml"
+    if n not in files:
+        return False
+    xml = etree.fromstring(files[n])
+    changed = False
+    defaults = {
+        "xWindow": "0",
+        "yWindow": "0",
+        "windowWidth": "20000",
+        "windowHeight": "10000",
+    }
+    for view in xml.findall(f".//{M}workbookView"):
+        for attr, default in defaults.items():
+            val = view.get(attr)
+            if val is None or str(val).strip() == "":
+                view.set(attr, default)
+                changed = True
+    if changed:
+        files[n] = etree.tostring(xml, xml_declaration=True, encoding="UTF-8")
+    return changed
+
+
 def main(path):
     with zipfile.ZipFile(path) as z:
         files = {n: z.read(n) for n in z.namelist()}
     changed = False
+    if _fix_workbook_views(files):
+        changed = True
     for n in list(files):
         if "/drawings/" in n:
             del files[n]; changed = True
@@ -34,7 +80,11 @@ def main(path):
             files[n] = etree.tostring(xml, xml_declaration=True, encoding="UTF-8")
     for n in list(files):
         if re.match(r"xl/worksheets/sheet\d+\.xml", n):
-            xml = etree.fromstring(files[n])
+            raw0 = files[n]
+            raw = _preparse_fix_unbound_ns(raw0)
+            if raw != raw0:
+                changed = True
+            xml = etree.fromstring(raw)
             for tag in ("drawing", "legacyDrawing", "tableParts"):
                 for el in xml.findall(M + tag):
                     xml.remove(el); changed = True

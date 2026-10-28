@@ -1,0 +1,69 @@
+---
+description: NHANES/发病发表交付 P0 铁律（银屑病 eGDR 2026-10 教训；防再被审出）
+alwaysApply: true
+---
+
+# NHANES / 发病发表 P0 铁律（eGDR 374 教训）
+
+凡 **NHANES 加权发病 / dual-batch 含 NHANES / 复合指标 logistic** 在质控、Methods 补写、表图返工时必须遵守。踩坑课题：`06_Psoriasis/incidence_38341157`【success】eGDR。
+
+与 `pub-qc-after-project/checklist.md` **§B3**、`nature-statistics/.../common-failure-modes.md`「Medical Blocks 交付漏检」同步；未逐条过不得 PASS。
+
+## 1. 主表调整集唯一链（防 Diabetes 漂移）
+
+1. **交付根 Table 2 Model 2 脚注所列协变量 = 单元格实际拟合集**。禁止根表脚注删 Diabetes（或其它变量）却仍用含该变量的引擎 OR，或反过来。
+2. 对照：`NHANES/step*_logistic_quartile_nhanes_weighted` 的 Table 2 与根 `Tables/Table 2*` — **脚注与 Q4/连续 Model2 OR 字符串级一致**；不一致 → P0，外科回写或重导，禁止只改脚注。
+3. **中介 / RCS / 敏感性加权 logistic 脚注**的 Model 2 调整集必须与交付 Table 2 **同名同集**（用户书面要求某表另设除外，须脚注写明）。
+4. **亚组分层 ≠ 调整协变量**：Fig3 Diabetes 分层可以有；Yes 层 0 事件 → 图面 **NE**，禁止 md/正文抄 `0.00 (1e-07…)` 伪 CI。NE 图注一句事实句即可。
+
+## 2. 加权 vs 不加权两套切点（防 9.318 / 9.387）
+
+1. **主文 / Table 1 / Table 2 分位切点** = **调查加权**分位；Numbers_Master 只锁这一套。
+2. **Table S1（插补前后）、不加权基线、不加权 GLM 敏感性**若给出另一套中位数/切点 → 脚注必须写 **unweighted**，并写「不可与 Table 2 加权切点互换」。
+3. RCS 二分切点若贴近不加权中位数 → 脚注标明，勿暗示等于 Table 2 四分网格。
+4. 同一暴露 0% 缺失却「插补前后中位数不同」→ 先查是否加权口径不同，禁止臆造「重算了指标」。
+
+## 3. 中介总效应 ≠ Table 2（防硬拗 0.489 vs 0.528）
+
+1. 中介 **Total effect** 与 Table 2 Model 2 最高分位 OR **允许数值不同**（暴露编码、Q2/Q3 保留、有限样本 survey 估计等）。
+2. **禁止**无脚注假装一致；S12 / 路径图 md 必须写：同调整集（或写明不同）+ 总效应不必与 Table 2 逐字相同。
+3. **禁止**把中介 Total CI 写成「即 Table 2 Model 2」。路径实现写实：`svyglm` + PSU cluster bootstrap（B、seed）；勿写未使用的 `mediation` 包拟合叙事。
+4. Fig S* 路径数字须与 S12 对应行逐值一致（a/b/直接/比例）。
+
+## 4. Methods 必写实（防零文档）
+
+交付 `Methods_statistical_analysis.md`（或合并 Software 后的方法文）缺任一项 → **P0（轨道 B 可只改文案）**：
+
+| 项 | 最低内容 |
+|----|----------|
+| 复合指标公式 | 完整式 + 系数出处（如 eGDR SEARCH/Williams）；成人外推一句 |
+| MICE | method、m、maxit、seed、结局是否入插补模型、complete_action / 操作层 vs Rubin |
+| 调查权重 | `new_Weight` 来源（WTMEC2YR/4YR 等）、按周期缩放、`SDMVSTRA`/`SDMVPSU` |
+| 协变量路径 | S3→S4→S5→S7（或课题等价）；若 S5 暴露效应消失须如实点名，不藏 |
+| ROC | 只报图上 AUC；**禁止** fig md / Methods 写惩罚回归·GBM「训练抬高、CV 掉下去所以不用」自曝句 |
+
+## 5. 图 md 与图面（防陈旧抄录）
+
+1. `image_information` 图上标注 **必须与 PDF 图面一致**；图面 NE → md 写 NE，旧数值作废。
+2. 脚注声称 `weighted mean (SE) or median (IQR)` 但表内全是 median → **改单口径**（P1，交付前必改）。
+3. 表题写「participants with \<Disease\>」实为全队列 → 改题名（P1）。
+
+## Agent 检查清单（每次 NHANES 发病 QC）
+
+```
+[ ] 根 Table2 M2 脚注变量 = step 源表 = 中介/RCS/S8/S10 脚注（同集）
+[ ] 根 Table2 M2 OR 字符串 = step 源表（无「只改脚注」漂移）
+[ ] 主切点=加权；S1/S9/S10 若另一套已标 unweighted
+[ ] S12 总效应与 Table2 关系已脚注；路径数=图
+[ ] Methods：公式出处、MICE、权重、终模路径、无 ROC 自曝
+[ ] Fig md NE/数字 = pdftotext 图面；无伪 0.00 CI
+[ ] 描述脚注口径与单元格一致；表题=内容
+```
+
+## 反例（禁止）
+
+- 引擎 Model2 含 Diabetes，交付 Table2 脚注删掉且 OR 换成另一套，中介仍报旧总效应
+- 主文用 9.39 切点，敏感性不加权切点不披露，审稿当两套样本
+- 正文写中介总效应「与 Table 2 一致」但 0.489 ≠ 0.528
+- Methods 不写 m/seed；fig md 自曝过拟合试验
+- Fig3 Yes=NE，md 仍写 0.00 (4.57e-07–…)

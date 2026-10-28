@@ -51,7 +51,6 @@ source(file.path(.mb_root, "Blocks/00_index/01block_index.R"))
 .batch_ck_root   <- file.path(.batch_project_root, "checkpoints")
 
 # <TO_CONFIRM_DATA>：Task2 已组装宽表（对象 baseline）
-# 项目实例请用 file.exists 探针优先 G:/… 再 /mnt/g/…（见课题 config）
 .baseline_rdata <- file.path(.batch_data_root, "<TO_CONFIRM_BASELINE_RDATA>")
 
 # PE 病理/纤溶泄漏列（列审阅 Data/_column_review.md）
@@ -113,7 +112,8 @@ config <- list(
 
   imputation = list(
     missing_col_threshold = 0.5,
-    method = "cart", m = 5L, max_iter = 5L, seed = 1234L,
+    method = "cart", m = 5L,
+    rubin_pool = TRUE, max_iter = 5L, seed = 1234L,
     missing_as_supp_figure = TRUE,
     missing_fig_caption = "Missing value overview",
     force_keep_columns = c(

@@ -248,12 +248,9 @@ attr_ward_path <- file.path(out_dir, "attrition_ward.csv")
 utils::write.csv(out_f$attrition, attr_out_path, row.names = FALSE, fileEncoding = "UTF-8")
 utils::write.csv(ward_f$attrition, attr_ward_path, row.names = FALSE, fileEncoding = "UTF-8")
 
-dabiao <- dabiao_out
-save(dabiao, file = file.path(out_dir, "D04_outpatient_clpm.RData"))
-dabiao <- dabiao_ward
-save(dabiao, file = file.path(out_dir, "D04_ward_clpm.RData"))
+# QC uses the pre-rename column names (HAMD_Index etc.).
 
-# QC
+
 qc_row <- function(label, d, attr_tbl) {
   n_complete <- if (nrow(attr_tbl)) {
     attr_tbl$n_remain[attr_tbl$step == "six_nodes_complete"][1L]
@@ -286,6 +283,19 @@ prep_qc <- rbind(
 )
 qc_path <- file.path(out_dir, "prep_qc.csv")
 utils::write.csv(prep_qc, qc_path, row.names = FALSE, fileEncoding = "UTF-8")
+
+# Indicator names: title case, spaces, no underscores. year_education = Years of education.
+.nm_r <- file.path(
+  Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "/mnt/e/01block/01Block-new-Final"),
+  "run/cross_lagged/suicide_clpm_indicator_names.R"
+)
+source(.nm_r, local = FALSE)
+dabiao_out <- suicide_indicator_rename_df(dabiao_out)
+dabiao_ward <- suicide_indicator_rename_df(dabiao_ward)
+dabiao <- dabiao_out
+save(dabiao, file = file.path(out_dir, "D04_outpatient_clpm.RData"))
+dabiao <- dabiao_ward
+save(dabiao, file = file.path(out_dir, "D04_ward_clpm.RData"))
 
 message("\n========== prep_qc ==========")
 print(prep_qc, row.names = FALSE)

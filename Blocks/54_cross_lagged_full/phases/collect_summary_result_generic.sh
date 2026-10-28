@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 固定出版清单收图/表（所有交叉滞后课题同一槽位，不拷中间件）。
 # 清单：phases/PUBLICATION_SLOTS.md
-#   Fig1–4, S1/S2 网络稳定性, S3 中介, S4/S5, S11 ROC
+#   Fig1–4, S1/S2 网络稳定性, S3 中介, S4/S5, S6 ROC（勿用 S11，避 Table S11）
 #   表 T1/T2/S1/S3–S8 + 敏感性 S9–S17.1
 # 横断面第三库：有 NHANES 则用 NHANES（对应髋部 HRS）；纵向仅存在的 phase3_long_*。
 set -euo pipefail
@@ -41,11 +41,36 @@ _phase1() {
 }
 
 IS_CIRC=0
-if [[ -f "$STUDY/config_long_panel.R" ]] && grep -qE "circadian_index_var|ePWV" "$STUDY/config_long_panel.R" 2>/dev/null; then
-  IS_CIRC=1
+IS_LEISURE=0
+IS_DEP_HTN=0
+if [[ -f "$STUDY/config_long_panel.R" ]] && grep -qE "circadian_index_var\s*<-|ePWV" "$STUDY/config_long_panel.R" 2>/dev/null; then
+  # 仅当真指定了昼夜暴露时才判为 circadian（避免抑郁课题误伤）
+  if grep -qE '\.circadian_index_var\s*<-\s*["'\''][^"'\'']+' "$STUDY/config_long_panel.R" 2>/dev/null; then
+    IS_CIRC=1
+  fi
+  if grep -qE '\.circadian_index_var\s*<-\s*["'\'']Leisure_score["'\'']' "$STUDY/config_long_panel.R" 2>/dev/null; then
+    IS_LEISURE=1
+  fi
+fi
+if [[ -f "$STUDY/README_DEPRESSION_HTN_FRAILTY.txt" ]] || \
+   [[ -f "$STUDY/data/harmonized/D04_CHARLS_depression_htn_baseline.RData" ]]; then
+  IS_DEP_HTN=1
 fi
 
-if [[ "$IS_CIRC" == "1" ]]; then
+if [[ "$IS_CIRC" == "1" && "$IS_LEISURE" == "1" ]]; then
+  XS=(CHARLS ELSA NHANES)
+  T1_SUF="Baseline characteristics of Circadian disorder.xlsx"
+  T2_SUF="Logistic regression analysis of Leisure activity score and Circadian disorder - quartile (GLM).xlsx"
+  FIG2_SUF="RCS plot between Leisure activity score and Circadian Disorder.pdf"
+  FIG3_SUF="Subgroup Forest analyses of Leisure activity score.pdf"
+  FIG4_SUF="CLPN network of circadian conditions.pdf"
+  S3_SUF="Longitudinal mediation path diagram of Leisure activity score FI and circadian disorder.pdf"
+  S4_SUF="Mean Leisure activity score by Year and Disease.pdf"
+  S5_NAME="Figure S5. Mean Leisure activity score by Country and Disease.pdf"
+  S6_NAME="Table S6. Correlation regression Leisure activity score FI Circadian disorder.xlsx"
+  S7_NAME="Table S7. Longitudinal mediation Leisure activity score→FI→Circadian disorder.xlsx"
+  FIG_S6_ROC="Figure S6. ROC of Leisure activity score for Circadian Disorder.pdf"
+elif [[ "$IS_CIRC" == "1" ]]; then
   XS=(CHARLS ELSA NHANES)
   T1_SUF="Baseline characteristics of Circadian disorder.xlsx"
   T2_SUF="Logistic regression analysis of ePWV and Circadian disorder - quartile (GLM).xlsx"
@@ -57,7 +82,21 @@ if [[ "$IS_CIRC" == "1" ]]; then
   S5_NAME="Figure S5. Mean ePWV by Country and Disease.pdf"
   S6_NAME="Table S6. Correlation regression ePWV FI Circadian disorder.xlsx"
   S7_NAME="Table S7. Longitudinal mediation ePWV→FI→Circadian disorder.xlsx"
-  S11_SUF="ROC ePWV.pdf"
+  FIG_S6_ROC="Figure S6. ROC of ePWV for Circadian Disorder.pdf"
+elif [[ "$IS_DEP_HTN" == "1" ]]; then
+  XS=(CHARLS ELSA HRS)
+  T1_SUF="Baseline characteristics of Hypertension.xlsx"
+  # 主文 Table 2 跟 logistic 闸门：本课题为 quartile（勿硬锁 tertile）
+  T2_SUF="Logistic regression analysis of Frailty Index and Hypertension - quartile (GLM).xlsx"
+  FIG2_SUF="RCS plot between Frailty Index and Hypertension.pdf"
+  FIG3_SUF="Subgroup Forest analyses of FI.pdf"
+  FIG4_SUF="CLPN network of frailty index items.pdf"
+  S3_SUF="Longitudinal mediation path diagram of FI and hypertension.pdf"
+  S4_SUF="Mean FI by Year and Disease.pdf"
+  S5_NAME="Figure S5. Mean FI by Country and Disease.pdf"
+  S6_NAME="Table S6. Correlation regression FI Depression Hypertension.xlsx"
+  S7_NAME="Table S7. Longitudinal mediation Frailty Index→Depression→Hypertension.xlsx"
+  FIG_S6_ROC="Figure S6. ROC of Frailty Index for Hypertension.pdf"
 else
   XS=(CHARLS ELSA HRS)
   T1_SUF="Baseline characteristics of Hip fracture.xlsx"
@@ -70,7 +109,7 @@ else
   S5_NAME="Figure S5. Mean FI by Country and Disease.pdf"
   S6_NAME="Table S6. Correlation regression FI Depression Hip fracture.xlsx"
   S7_NAME="Table S7. Longitudinal mediation Frailty Index→Depression→Hip fracture.xlsx"
-  S11_SUF="ROC FI.pdf"
+  FIG_S6_ROC="Figure S6. ROC of Frailty Index for Hip fracture.pdf"
 fi
 
 LONG=()
@@ -79,6 +118,15 @@ for db in CHARLS ELSA HRS; do
     LONG+=("$db")
   fi
 done
+# 抑郁×高血压：CHARLS 仅基线，不进纵向 Fig1（即使残留 phase3_long_CHARLS）
+if [[ "$IS_DEP_HTN" == "1" ]]; then
+  LONG_FILTERED=()
+  for db in "${LONG[@]}"; do
+    [[ "$db" == "CHARLS" ]] && continue
+    LONG_FILTERED+=("$db")
+  done
+  LONG=("${LONG_FILTERED[@]}")
+fi
 
 # ── TABLES ──────────────────────────────────────────────────────────────────
 for db in "${XS[@]}"; do
@@ -89,6 +137,8 @@ for db in "${XS[@]}"; do
     "$p1/Tables/Table 1-${db}. Baseline characteristics of Circadian disorder.xlsx" \
     "$p1/Tables/Table 1-USA. Baseline characteristics of Circadian rhythm.xlsx" \
     "$p1/Tables/Table 1-USA. Baseline characteristics of Circadian disorder.xlsx" \
+    "$p1/Tables/Table 1-${db}. Baseline characteristics of Hypertension.xlsx" \
+    "$p1/Tables/Table 1. Baseline characteristics of Hypertension.xlsx" \
     "$p1/Tables/Table 1-${db}. Baseline characteristics of Hip fracture.xlsx" \
     "$p1/Tables/Table 1. Baseline characteristics of Hip fracture.xlsx" \
     "$p1/Tables/Table 1. Baseline characteristics of Circadian rhythm.xlsx" \
@@ -133,17 +183,33 @@ for db in "${XS[@]}" Pooled; do
   else
     pdir="$(_phase1 "$db")"
   fi
-  src=$(first_existing \
-    "$TAB/Table 2-${db}. ${T2_SUF}" \
-    "$pdir/Tables/Table 2-${db}. Logistic regression of ePWV quartile.xlsx" \
-    "$pdir/Tables/Table 3-${db}. Logistic regression of ePWV quartile.xlsx" \
-    "$p1/Tables/Table 2-${db}. Logistic regression of ePWV quartile.xlsx" \
-    "$p1/Tables/Table 3-${db}. Logistic regression of ePWV quartile.xlsx" \
-    "$pdir/Tables/Table 2-USA. Logistic regression of ePWV quartile.xlsx" \
-    "$pdir/Tables/Table 1-Pooled. Logistic regression of ePWV quartile.xlsx" \
-    "$pdir/Tables/Table 2-${db}. Logistic regression analysis of Frailty Index and Hip fracture - tertile (GLM).xlsx" \
-    "$pdir/Tables/Table 2-${db}. Logistic regression analysis of ePWV and Circadian disorder - quartile (GLM).xlsx" \
-    || true)
+  if [[ "$IS_DEP_HTN" == "1" ]]; then
+    # 抑郁×高血压：优先闸门选定的 quartile 步目录
+    src=$(first_existing \
+      "$pdir/step11_logistic_quartile_glm/Tables/Table 1-${db}. Logistic regression of Frailty Index quartile.xlsx" \
+      "$pdir/step01_logistic_quartile_glm/Tables/Table 1-${db}. Logistic regression of Frailty Index quartile.xlsx" \
+      "$pdir/step03_logistic_quartile_glm/Tables/Table 1-${db}. Logistic regression of Frailty Index quartile.xlsx" \
+      "$pdir/Tables/Table 1-${db}. Logistic regression of Frailty Index quartile.xlsx" \
+      "$pdir/Tables/Table 3-${db}. Logistic regression of Frailty Index quartile.xlsx" \
+      "$TAB/Table 2-${db}. ${T2_SUF}" \
+      || true)
+  else
+    src=$(first_existing \
+      "$TAB/Table 2-${db}. ${T2_SUF}" \
+      "$pdir/Tables/Table 2-${db}. Logistic regression analysis of Frailty Index and Hypertension - tertile (GLM).xlsx" \
+      "$pdir/Tables/Table 2-${db}. Logistic regression of FI tertile.xlsx" \
+      "$pdir/Tables/Table S1-${db}. Logistic regression of FI tertile.xlsx" \
+      "$pdir/Tables/Table S4-${db}. Logistic regression of FI tertile.xlsx" \
+      "$pdir/Tables/Table 2-${db}. Logistic regression of ePWV quartile.xlsx" \
+      "$pdir/Tables/Table 3-${db}. Logistic regression of ePWV quartile.xlsx" \
+      "$p1/Tables/Table 2-${db}. Logistic regression of ePWV quartile.xlsx" \
+      "$p1/Tables/Table 3-${db}. Logistic regression of ePWV quartile.xlsx" \
+      "$pdir/Tables/Table 2-USA. Logistic regression of ePWV quartile.xlsx" \
+      "$pdir/Tables/Table 1-Pooled. Logistic regression of ePWV quartile.xlsx" \
+      "$pdir/Tables/Table 2-${db}. Logistic regression analysis of Frailty Index and Hip fracture - tertile (GLM).xlsx" \
+      "$pdir/Tables/Table 2-${db}. Logistic regression analysis of ePWV and Circadian disorder - quartile (GLM).xlsx" \
+      || true)
+  fi
   cp_one "${src:-}" "$TMP/table/Table 2-${db}. ${T2_SUF}"
 done
 
@@ -234,17 +300,27 @@ out_dir <- "'"$TMP"'/table"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 all_cohorts <- c("CHARLS", "ELSA", "HRS", "NHANES")
 have <- all_cohorts[dir.exists(file.path(study, paste0("phase3_long_", all_cohorts)))]
-is_circ <- file.exists(file.path(study, "config_long_panel.R")) &&
-  any(grepl("circadian_index_var|ePWV", readLines(file.path(study, "config_long_panel.R"), warn = FALSE)))
+.cfg_lines <- if (file.exists(file.path(study, "config_long_panel.R")))
+  readLines(file.path(study, "config_long_panel.R"), warn = FALSE) else character(0)
+is_circ <- length(.cfg_lines) && any(grepl("circadian_index_var|ePWV", .cfg_lines))
+is_leisure <- length(.cfg_lines) && any(grepl("Leisure_score", .cfg_lines))
 # 节律病节点：Pooled 单独收（其 pub.rds 与各库同名，但 db 字段为 "Pooled"）
 if (is_circ && dir.exists(file.path(study, "phase3_long_Pooled")))
   have <- c(have, "Pooled")
-s6 <- if (is_circ) "Table S6. Correlation regression ePWV FI Circadian disorder.xlsx" else
-  "Table S6. Correlation regression FI Depression Hip fracture.xlsx"
-s7 <- if (is_circ) {
-  paste0("Table S7. Longitudinal mediation ePWV", intToUtf8(0x2192L), "FI", intToUtf8(0x2192L), "Circadian disorder.xlsx")
+arrow <- intToUtf8(0x2192L)
+s6 <- if (is_leisure) {
+  "Table S6. Correlation regression Leisure activity score FI Circadian disorder.xlsx"
+} else if (is_circ) {
+  "Table S6. Correlation regression ePWV FI Circadian disorder.xlsx"
 } else {
-  paste0("Table S7. Longitudinal mediation Frailty Index", intToUtf8(0x2192L), "Depression", intToUtf8(0x2192L), "Hip fracture.xlsx")
+  "Table S6. Correlation regression FI Depression Hip fracture.xlsx"
+}
+s7 <- if (is_leisure) {
+  paste0("Table S7. Longitudinal mediation Leisure activity score", arrow, "FI", arrow, "Circadian disorder.xlsx")
+} else if (is_circ) {
+  paste0("Table S7. Longitudinal mediation ePWV", arrow, "FI", arrow, "Circadian disorder.xlsx")
+} else {
+  paste0("Table S7. Longitudinal mediation Frailty Index", arrow, "Depression", arrow, "Hip fracture.xlsx")
 }
 f5 <- file.path(root, "Blocks/54_cross_lagged_full/20block_cross_lagged_change_logistic.R")
 if (length(have) && file.exists(f5)) {
@@ -305,6 +381,7 @@ if [[ ${#XS_ONLY[@]} -gt 0 ]]; then
     dbs <- strsplit(Sys.getenv("XS_ONLY_CSV"), ",", fixed = TRUE)[[1]]
     source(file.path(root, "R/utils.R"), local = FALSE)
     source(file.path(root, "R/attrition_log.R"), local = FALSE)
+    source(file.path(root, "R/cross_lagged_study_meta.R"), local = FALSE)
     source(file.path(root, "R/cross_lagged_covariate_lock.R"), local = FALSE)
     source(file.path(root, "R/cross_lagged_xs_flowchart.R"), local = FALSE)
     for (db in dbs) {
@@ -324,11 +401,30 @@ if [[ ${#XS_ONLY[@]} -gt 0 ]]; then
   done
 fi
 
+# 抑郁×高血压等：主文 Fig1 三库拼图（引擎 R/cross_lagged_fig1_pub.R，勿课题私写 remosaic）
+if [[ "$IS_DEP_HTN" == "1" ]]; then
+  export STUDY_ROOT="$STUDY"
+  export MEDICAL_BLOCKS_ROOT="${MEDICAL_BLOCKS_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+  Rscript --vanilla "${MEDICAL_BLOCKS_ROOT}/run/cross_lagged/remosaic_fig1.R" \
+    --study "$STUDY" || true
+  # 若已写出 summary_result/Figures/pdf 主文 Fig1，同步一份到 align 临时 figure 槽（兼容旧 figure/）
+  _mosaic=$(first_existing \
+    "$STUDY/summary_result/Figures/pdf/Figure 1. Inclusion exclusion flowchart.pdf" \
+    "$STUDY/summary_result/Figures/Figure 1. Inclusion exclusion flowchart.pdf" \
+    || true)
+  if [[ -n "${_mosaic:-}" ]]; then
+    cp_one "$_mosaic" "$TMP/figure/Figure 1. Inclusion exclusion flowchart.pdf"
+  fi
+fi
+
 # Fig2 RCS：横断面三库 + Pooled
 for db in "${XS[@]}"; do
   p1="$(_phase1 "$db")"
   src=$(first_existing \
     "$p1/Figures/Figure 2-${db}. ${FIG2_SUF}" \
+    "$p1/Figures/pdf/Figure 2-${db}. ${FIG2_SUF}" \
+    "$p1/Figures/Figure 2-${db}. RCS of Frailty Index and Hypertension.pdf" \
+    "$p1/Figures/pdf/Figure 2-${db}. RCS of Frailty Index and Hypertension.pdf" \
     "$p1/Figures/Figure 2-${db}. RCS plot between ePWV and Circadian Disorder.pdf" \
     "$p1/Figures/Figure 2-USA. RCS plot between ePWV and Circadian Disorder.pdf" \
     "$p1/Figures/Figure 2-${db}. RCS plot between Frailty Index and Hip Fracture.pdf" \
@@ -337,6 +433,11 @@ for db in "${XS[@]}"; do
   cp_one "${src:-}" "$TMP/figure/Figure 2-${db}. ${FIG2_SUF}"
 done
 src=$(first_existing \
+  "$STUDY/phase3_post_Pooled/Figures/Figure 2-Pooled. ${FIG2_SUF}" \
+  "$STUDY/phase3_post_Pooled/Figures/pdf/Figure 2-Pooled. RCS of Frailty Index and Hypertension.pdf" \
+  "$STUDY/phase3_post_Pooled/Figures/Figure 2-Pooled. RCS of Frailty Index and Hypertension.pdf" \
+  "$STUDY/phase3_post_Pooled/Figures/pdf/Figure 1-Pooled. RCS of Frailty Index and Hypertension.pdf" \
+  "$STUDY/phase3_post_Pooled/Figures/Figure 1-Pooled. RCS of Frailty Index and Hypertension.pdf" \
   "$STUDY/phase3_post_Pooled/Figures/Figure 2-Pooled. RCS plot between ePWV and Circadian Disorder.pdf" \
   "$STUDY/phase3_post_Pooled/Figures/Figure 3-Pooled. RCS plot between ePWV and Circadian Disorder.pdf" \
   "$STUDY/phase3_post_Pooled/Figures/Figure 2-Pooled. RCS plot between Frailty Index and Hip Fracture.pdf" \
@@ -402,6 +503,7 @@ for db in "${S4_DBS[@]}"; do
     "$OUT/figure/Figure S4-${db}. ${S4_SUF}" \
     "$STUDY/phase3_long_${db}/Figures/FigS4_Mean_ePWV_by_Year_Disease.pdf" \
     "$STUDY/phase3_long_${db}/Figures/FigS4_Mean_FI_by_Year_Disease.pdf" \
+    "$STUDY/phase3_long_${db}/Figures/Fig1_FI_by_Year_Disease.pdf" \
     "$STUDY/phase1_${db}/Figures/FigS4_Mean_ePWV_by_Year_Disease.pdf" \
     "$OUT/figure/Figure S4-${db}. Mean FI by Year and Disease.pdf" \
     "$OUT/figure/Figure S4-${db}. Mean ePWV by Year and Disease.pdf" \
@@ -416,21 +518,31 @@ src=$(first_existing \
   "$OUT/figure/Figure S5. Mean FI by Country and Disease.pdf" \
   "$STUDY/phase3_long_Pooled/Figures/FigS5_Mean_ePWV_by_Country_Disease.pdf" \
   "$STUDY/phase3_long_Pooled/Figures/FigS5_Mean_FI_by_Country_Disease.pdf" \
+  "$STUDY/phase3_long_Pooled/Figures/Fig_CountryYear_FI.pdf" \
   || true)
 cp_one "${src:-}" "$TMP/figure/${S5_NAME}"
 
-# S11 ROC（不占 S1）
-for db in "${XS[@]}"; do
-  p1="$(_phase1 "$db")"
-  src=$(first_existing \
-    "$p1/Figures/Figure S1-${db}. ROC Multivariable ePWV.pdf" \
-    "$p1/Figures/Figure S1-USA. ROC Multivariable ePWV.pdf" \
-    "$p1/Figures/Figure S1-${db}. ROC Frailty Index.pdf" \
-    "$p1/Figures/Figure S11-${db}. ${S11_SUF}" \
-    "$OUT/figure/Figure S11-${db}. ${S11_SUF}" \
-    || true)
-  cp_one "${src:-}" "$TMP/figure/Figure S11-${db}. ${S11_SUF}"
-done
+# Figure S6 ROC：优先已叠好的三库单图；否则仍收分库面板供后处理（槽位名 S6，勿用 S11）
+src=$(first_existing \
+  "$OUT/figure/pdf/${FIG_S6_ROC}" \
+  "$OUT/figure/${FIG_S6_ROC}" \
+  "$STUDY/summary_result/figure/pdf/${FIG_S6_ROC}" \
+  || true)
+if [[ -n "${src:-}" ]]; then
+  cp_one "$src" "$TMP/figure/${FIG_S6_ROC}"
+else
+  for db in "${XS[@]}"; do
+    p1="$(_phase1 "$db")"
+    src=$(first_existing \
+      "$p1/Figures/Figure S1-${db}. ROC Multivariable Frailty Index.pdf" \
+      "$p1/Figures/pdf/Figure S1-${db}. ROC Multivariable Frailty Index.pdf" \
+      "$p1/Figures/Figure S1-${db}. ROC Multivariable ePWV.pdf" \
+      "$p1/Figures/Figure S1-USA. ROC Multivariable ePWV.pdf" \
+      "$p1/Figures/Figure S1-${db}. ROC Frailty Index.pdf" \
+      || true)
+    cp_one "${src:-}" "$TMP/figure/Figure S6-${db}. ROC panel.pdf"
+  done
+fi
 
 src=$(first_existing \
   "$OUT/figure/README_FigS1_S2_CLPN_bootstrap.txt" \
@@ -489,7 +601,6 @@ done
 for db in "${XS[@]}"; do
   need_fig "Figure 2-${db}. ${FIG2_SUF}"
   need_fig "Figure 3-${db}. ${FIG3_SUF}"
-  need_fig "Figure S11-${db}. ${S11_SUF}"
   need_tab "Table 1-${db}. ${T1_SUF}"
   need_tab "Table 2-${db}. ${T2_SUF}"
   need_tab "Table S1-${db}. Baseline characteristics of patients before and after multiple imputation.xlsx"
@@ -509,6 +620,7 @@ if [[ "$IS_CIRC" == "1" ]]; then
   need_fig "Figure S4-NHANES. ${S4_SUF}"
 fi
 need_fig "${S5_NAME}"
+need_fig "${FIG_S6_ROC}"
 need_tab "Table S5. Change analysis Mean FI and FI change.xlsx"
 need_tab "Table S5.1. Change analysis Mean FI and FI change.xlsx"
 need_tab "$S6_NAME"
@@ -535,7 +647,7 @@ fi
   echo "study: $STUDY"
   echo "XS cohorts: ${XS[*]}"
   echo "LONG cohorts: ${LONG[*]}"
-  echo "figures: Fig1 flowchart | Fig2 RCS | Fig3 subgroup (no Pooled) | Fig4 CLPN | S1 edge-boot | S2 case-drop | S3 mediation | S4–S5 FI desc | S11 ROC"
+  echo "figures: Fig1 flowchart | Fig2 RCS | Fig3 subgroup (no Pooled) | Fig4 CLPN | S1 edge-boot | S2 case-drop | S3 mediation | S4–S5 FI desc | S6 ROC (combined)"
   echo "tables: T1 | T2 | S1 | S3 | S4 VIF screen | S5/S5.1 change | S6 corr merged | S7 mediation merged | S8 CLPN | S9–S17.1 sensitivity"
   echo "excluded: S2 normality, multivariable, VIF final, RCS S-XX, boxplot, missing-overview, Fig3-Pooled, per-DB S6/S7, raw csv/rds except CLPN bootstrap"
   echo

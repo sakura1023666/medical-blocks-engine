@@ -81,10 +81,14 @@ utils::write.csv(qc_out, file.path(step_dir, "prep_qc.csv"), row.names = FALSE, 
 e <- new.env(parent = emptyenv())
 load(file.path(step_dir, "dabiao.RData"), envir = e)
 dabiao <- e$dabiao
-nodes <- c("HAMD_Index", "HAMD_1st", "HAMA_Index", "HAMA_1st", "CSSRS_Index", "CSSRS_1st")
+nodes <- c(
+  "HAMD-17 total, Index", "HAMD-17 total, 1st",
+  "HAMA-14 total, Index", "HAMA-14 total, 1st",
+  "C-SSRS ideation, Index", "C-SSRS ideation, 1st"
+)
 stopifnot(is.data.frame(dabiao), nrow(dabiao) > 0L)
 stopifnot(all(nodes %in% names(dabiao)))
-stopifnot(all(dabiao$patient_group == "门诊入组", na.rm = TRUE))
+stopifnot(all(dabiao[["Patient Group"]] == "门诊入组", na.rm = TRUE))
 stopifnot(all(stats::complete.cases(dabiao[, nodes, drop = FALSE])))
 
 attr_tbl <- utils::read.csv(file.path(step_dir, "attrition.csv"), stringsAsFactors = FALSE)
@@ -99,7 +103,7 @@ meta <- data.frame(
   n_cols = ncol(dabiao),
   nodes = paste(nodes, collapse = ","),
   cssrs_item = 2L,
-  cssrs_cols = "C_SSRS_Ideation_index_2,C_SSRS_Ideation_1st_2",
+  cssrs_cols = "C-SSRS Ideation Index 2,C-SSRS Ideation 1st 2",
   source = if (need_prep) "prep_rebuilt" else "harmonized_reuse",
   skipped = "analysis_exclusion,imputation,univariate,vif,clpm_paths",
   written_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),

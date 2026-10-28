@@ -36,7 +36,7 @@ If the input is partial, run a bounded audit and state which parts cannot be ass
 2. **Extract the design.** Identify groups, treatments, time points, endpoints, blocking factors, repeated measures, randomization, blinding, exclusions, and missing-data handling.
 3. **Define `n` and replication.** Separate independent experimental units, biological replicates, technical replicates, repeated measures, cells/fields/subsamples, simulations, and pooled observations.
 4. **Map claims to analyses.** For each result claim, record the comparison/model, test family, assumptions, correction strategy, effect estimate, uncertainty, and exact p-value policy.
-5. **Check common failure modes.** Use `references/common-failure-modes.md` when the text involves nested data, many comparisons, cell-level measurements, interaction claims, correlations, regression, outliers, small samples, or significance-only reasoning.
+5. **Check common failure modes.** Use `references/common-failure-modes.md` when the text involves nested data, many comparisons, cell-level measurements, interaction claims, correlations, regression, outliers, small samples, or significance-only reasoning. For any Medical Blocks / `02block_result` delivery audit, also apply the section **Medical Blocks 交付漏检** in that file on every review; matching analytic N does not waive it, and PASS is forbidden until those rows are checked.
 6. **Check reporting completeness.** Use `references/statistical-reporting.md` to verify that Methods and Results give enough information for readers and reviewers to understand the analysis.
    If the target is the flagship journal Nature, also use
    `references/nature-article-requirements.md` for its exact tail, `n`, repeat,

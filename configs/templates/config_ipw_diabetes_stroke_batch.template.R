@@ -96,7 +96,8 @@ config <- list(
 
   imputation = list(
     missing_col_threshold = 0.5,
-    method = "cart", m = 5L, max_iter = 5L, seed = 1234L,
+    method = "cart", m = 5L,
+    rubin_pool = TRUE, max_iter = 5L, seed = 1234L,
     missing_as_supp_figure = TRUE,
     missing_fig_caption = "Missing value overview",
     force_keep_columns = c(

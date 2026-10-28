@@ -1,0 +1,3 @@
+"node","node_label","p_value","q_BH","significance","Male_Strength","Female_Strength","Strength_diff"
+"MetS_1","Waist Circumference (cm)",0.001,0.013,"**",0.486,0.786,0.3
+"MetS_3","Triglycerides (mg/dL)",0.002,0.013,"**",0.585,0.816,0.231

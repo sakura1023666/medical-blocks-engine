@@ -1,0 +1,4 @@
+"nodeA","nodeB","nodeA_label","nodeB_label","p_value","q_BH","significance"
+"Depression_3","MetS_3","Restless Sleep","Triglycerides (mg/dL)",0.001,0.026,"**"
+"Depression_6","MetS_2","Negative Mindset","HDL-Cholesterol (mg/dL)",0.001,0.026,"**"
+"Depression_6","MetS_3","Negative Mindset","Triglycerides (mg/dL)",0.001,0.026,"**"

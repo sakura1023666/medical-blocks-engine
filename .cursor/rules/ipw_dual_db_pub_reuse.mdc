@@ -1,0 +1,43 @@
+---
+description: 双库 IPW 发表复用铁律（拼图/summary_result/600dpi/QC）
+alwaysApply: true
+---
+
+# 双库 IPW 发表复用铁律（全项目）
+
+本对话（PE×alteplase MIMIC+eICU）沉淀的改动，**新双库 IPW 课题直接走引擎**，禁止在 `02block_result/.../scripts/` 或 `/tmp` 堆 remirror/hotfix。
+
+## 已进引擎（勿课题私改绕过）
+
+| 能力 | 入口 |
+|------|------|
+| IPW KM：svylogrank 取 **p**（勿把 Chisq 当 p） | `Blocks/69_ipw_diabetes_stroke_full/03block_ipw_weighted_km_pub.R` |
+| Flowchart 暴露自适应标签 | `Blocks/69_…/02block_ipw_flowchart.R` |
+| 药物/阿替普酶暴露块 | `Blocks/69_…/10block_ipw_alteplase_exposure.R`（或仿写暴露块） |
+| 预后亚组 IPTW → **HR**；退化 **NE** | `Blocks/18_subgroup/08block_subgroup_iptw_weighted.R` |
+| 双库拼图 + summary_result | `R/ipw_dual_db_pub.R` |
+| png/tiff **≥600 dpi** | `R/pub_figure_export.R` / `python/pub_figure_rasterize.py` |
+| 结构 QC CLI | `run/pub/run_pub_qc_after_project.R` → `R/pub_qc_after_finalize.R` |
+
+## 铁律
+
+1. **拼图只用引擎**：`ipw_dual_panel_remirror()` + `ipw_jin_role_spec(exposure_lab=…)`；课题 `run/*/remirror_*.R` 仅薄封装。
+2. **收口只用引擎**：`ipw_finalize_summary_result()`；Methods 文案可课题传入 `methods_lines`。
+3. **定稿栅格必须 600 dpi**：`pub_figure_formats_status()$bad_dpi` 非空 = P0，当场 `pub_figure_ensure_formats`。
+4. **一次性 repair/rerun** 用完进 `_archive_oneoff/`；可复用逻辑必须回写 `Blocks/` / `R/`。
+5. 跑完：`Rscript run/pub/run_pub_qc_after_project.R --project …` + Nature Layer D。
+
+## 新课题检查
+
+- [ ] 未复制 `_archive_oneoff/` 脚本当正式入口
+- [ ] remirror/finalize 调 `R/ipw_dual_db_pub.R`
+- [ ] `summary_result/Figures` 四目录齐全且 `bad_dpi=0`
+- [ ] Fig2 图注 log-rank P 与曲线一致（非 P>0.999 假值）
+- [ ] 预后 Fig3 为 HR（非发病 OR 残留）；退化层 NE
+
+## 反例（禁止）
+
+- 在结果目录手写 `hotfix_remirror_*.R` 当长期方案
+- 依赖 `/tmp/ipw_*.R` 继续跑下一课题
+- Nature 审图跳过 DPI 检查
+- 规则写了 `run_pub_qc_after_project.R` 却用结果目录私有 QC 脚本替代

@@ -1,6 +1,11 @@
 ###############################################################################
-#  clpn_network_plot.R — 出版 Fig4 CLPN（短码节点 + 图例真名）
-#  样式对齐髋部 frailty-item 网 / 参考 DN1–DN8+TyG 网。
+#  clpn_network_plot.R — 出版 Fig4 CLPN
+#
+#  画法对齐课题交付脚本 Step07 plot_clpn()：
+#    W <- exp(beta); diag=0; OR∈[0.95,1.05]→0
+#    qgraph(layout="spring", layout.par=list(repulse.rad=80),
+#           vsize=4, esize=3, pdf 18×14)
+#    OR>1 红 / OR<1 蓝
 ###############################################################################
 
 if (!exists("%||%", mode = "function")) {
@@ -43,15 +48,38 @@ clpn_plot_short_labels <- function(stems, root = NULL) {
   out
 }
 
-#' 出版 CLPN 图：节点短码，右侧图例为「短码: 真名」（不重复短码）
-#' @param layout NULL=小网 circle / 大网 spring；可显式传 "spring" 或 "circle"
-#' @param drop_self_loops NULL=小网保留自环 / 大网去自环；TRUE 强制去自环
-#' @param fade_weak_edges NULL=小网不淡化 / 大网去掉最弱 15%% 边；TRUE 强制淡化
+# 与 Step07 脚本一致的域分组（用于分色，非彩虹挤叠）
+.clpn_stem_domain <- function(stem) {
+  if (stem %in% c("Disease01", "Sarcopenia", "sarcop", "Disease_Group"))
+    return("Outcome")
+  if (stem %in% c("hibpe", "diabe", "cancre", "lunge", "psyche", "memrye", "arthre",
+                  "hedimbp", "hedbts", "hedibca", "hedibar", "hediblu", "hedibps", "hedibpd"))
+    return("Comorbidity")
+  if (stem %in% c("dressa", "batha", "eata", "beda", "toilta", "mealsa", "shopa",
+                  "medsa", "moneya", "headldr", "headlba", "headlea", "headlbe",
+                  "headlwc", "headlpr", "headlsh", "headlmo", "headlme"))
+    return("ADL")
+  if (stem %in% c("srh", "armsa", "chaira", "climsa", "dimea", "lifta", "stoopa",
+                  "walk100a", "walk10", "hemobwa", "hemobch", "hemobcs", "hemobst",
+                  "hemobre", "hemobli", "hemobpi", "hehelf"))
+    return("Mobility")
+  if (stem %in% c("glass", "hear", "heeye", "hehear"))
+    return("Sensory")
+  if (stem %in% c("Triglycerides", "HDL_Cholesterol", "newtg", "newhdl"))
+    return("Biomarker")
+  "Other"
+}
+
+#' 出版 CLPN — 对齐 Step07 plot_clpn
+#' @param or_band 长度 2，OR 落在开区间内则置 0；默认 c(0.95, 1.05)
+#' @param repulse_rad qgraph spring 排斥；默认 80（与交付脚本一致）
 clpn_plot_publication <- function(adj, stems, outfile, title = "",
                                   disease_display = NULL, root = NULL,
-                                  layout = NULL,
-                                  drop_self_loops = NULL,
-                                  fade_weak_edges = NULL) {
+                                  layout = "spring",
+                                  drop_self_loops = TRUE,
+                                  fade_weak_edges = NULL,
+                                  or_band = c(0.95, 1.05),
+                                  repulse_rad = 80) {
   if (!requireNamespace("qgraph", quietly = TRUE))
     stop("clpn_plot_publication: 需要 qgraph", call. = FALSE)
   stems <- as.character(stems)
@@ -74,97 +102,89 @@ clpn_plot_publication <- function(adj, stems, outfile, title = "",
       as.character(disease_display)[1L]
   }
   short <- clpn_plot_short_labels(stems, root = root)
-  groups_lab <- if (exists("clpn_node_group", mode = "function")) {
-    clpn_node_group(stems, root = root)
-  } else {
-    rep("Other", k)
-  }
-  # qgraph 图例会拼成「labels: nodeNames」，此处 nodeNames 只放真名
   node_names <- full
 
-  glev <- c(
-    "Outcome", "Circadian", "Depression", "Mood", "Index",
-    "Comorbidity", "ADL", "IADL", "Mobility", "Sensory", "Lipid", "Other"
-  )
-  glev <- glev[glev %in% unique(groups_lab)]
-  groups_fac <- factor(groups_lab, levels = glev)
-  # 自杀 CLPM 三组必须分色：结局粉 / 抑郁蓝 / 焦虑(心情)绿（对齐参考图 DN/中介/指标分色）
-  pal_map <- c(
-    Outcome = "#F6B7C6",
-    Circadian = "#F6B7C6",
-    Depression = "#A8C5E2",
-    Mood = "#82B181",
-    Index = "#F0A780",
-    Comorbidity = "#B8A9C9",
-    ADL = "#E6C38C",
-    IADL = "#9DD6C5",
-    Mobility = "#F0A780",
-    Sensory = "#E6C38C",
-    Lipid = "#9DD6C5",
-    Other = "#CCCCCC"
-  )
-  color_vec <- unname(pal_map[glev])
-
-  W <- as.matrix(adj)
+  # beta → OR（与 Step07: W <- exp(graph) 一致）
+  W <- exp(as.matrix(adj))
   storage.mode(W) <- "double"
-  small <- k <= 12L
-  use_large_style <- identical(layout, "spring") ||
-    (is.null(layout) && !isTRUE(small))
-  drop_diag <- isTRUE(drop_self_loops) ||
-    (is.null(drop_self_loops) && use_large_style)
-  fade_edges <- isTRUE(fade_weak_edges) ||
-    (is.null(fade_weak_edges) && use_large_style)
-  layout_used <- if (!is.null(layout)) {
-    layout
-  } else if (isTRUE(small)) {
-    "circle"
-  } else {
-    "spring"
-  }
-  if (drop_diag) diag(W) <- 0
-  nz <- W[W != 0]
-  if (isTRUE(fade_edges) && length(nz)) {
-    thr <- stats::quantile(abs(nz), 0.15, na.rm = TRUE)
-    if (is.finite(thr) && thr > 0) W[abs(W) < thr] <- 0
-  }
-  edge_col <- ifelse(W > 0, "#5B9BD5", ifelse(W < 0, "#E07A72", NA_character_))
-  mx <- max(abs(W), na.rm = TRUE)
-  if (!is.finite(mx) || mx <= 0) mx <- 1
-  vsize <- rep(if (isTRUE(use_large_style)) 5.5 else 7.8, k)
-  if (any(groups_lab == "Index")) vsize[groups_lab == "Index"] <- vsize[1] * 1.2
+  if (isTRUE(drop_self_loops %||% TRUE)) diag(W) <- 0
+
+  band <- as.numeric(or_band)
+  if (length(band) < 2L || any(!is.finite(band))) band <- c(0.95, 1.05)
+  lo_b <- min(band); hi_b <- max(band)
+  W[W > lo_b & W < hi_b] <- 0
+
+  # 颜色按 OR 方向；作图用 log(OR) 以便 fade/线宽按效应强弱出深浅
+  edge_colors <- ifelse(W > 1, "#e87d72", "#6095ce")
+  edge_colors[W == 0] <- NA
+  W_plot <- log(pmax(W, 1e-12))
+  W_plot[W == 0] <- 0
+  mx_abs <- max(abs(W_plot), na.rm = TRUE)
+  if (!is.finite(mx_abs) || mx_abs <= 0) mx_abs <- 1
+  # 深浅分层，但弱边不能太淡（否则“啥都看不出来”）
+  # alpha：弱边 ≈0.55，强边 ≈0.98
+  strength <- abs(W_plot) / mx_abs
+  alpha_vec <- as.numeric(0.55 + 0.43 * strength)
+  w_vec <- as.numeric(W_plot)
+  edge_colors <- vapply(seq_along(edge_colors), function(i) {
+    col <- edge_colors[[i]]
+    if (is.na(col) || !is.finite(w_vec[[i]]) || w_vec[[i]] == 0)
+      return(NA_character_)
+    grDevices::adjustcolor(col, alpha.f = alpha_vec[[i]])
+  }, character(1))
+  dim(edge_colors) <- dim(W_plot)
+
+  domains <- vapply(stems, .clpn_stem_domain, character(1))
+  group_names <- c(
+    "Outcome", "Comorbidity", "ADL", "Mobility", "Sensory", "Biomarker", "Other"
+  )
+  group_names <- group_names[group_names %in% unique(domains)]
+  groups_fac <- factor(domains, levels = group_names)
+  color_map <- c(
+    Outcome = "#F6B7C6",
+    Comorbidity = "#c9d8eb",
+    ADL = "#82b181",
+    Mobility = "#F0A780",
+    Sensory = "#B8A9C9",
+    Biomarker = "#FFD700",
+    Other = "#E6C38C"
+  )
+  color_vec <- unname(color_map[group_names])
+
+  layout_used <- if (identical(layout, "circle")) "spring" else (layout %||% "spring")
+  if (!is.character(layout_used)) layout_used <- "spring"
+  rad <- as.numeric(repulse_rad)[1L]
+  if (!is.finite(rad) || rad <= 0) rad <- 80
 
   dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
-  grDevices::pdf(outfile, width = 11, height = 9)
-  tryCatch({
-    qgraph::qgraph(
-      W,
-      directed = TRUE,
-      layout = layout_used,
-      labels = short,
-      nodeNames = node_names,
-      groups = groups_fac,
-      color = setNames(color_vec, glev),
-      edge.color = edge_col,
-      edge.labels = FALSE,
-      legend = TRUE,
-      legend.cex = 0.42,
-      vsize = vsize,
-      esize = if (isTRUE(use_large_style)) 4 else 10,
-      asize = if (isTRUE(use_large_style)) 1.6 else 2.6,
-      curveAll = !isTRUE(use_large_style),
-      curve = if (isTRUE(use_large_style)) 0 else 0.18,
-      fade = isTRUE(fade_edges),
-      maximum = mx,
-      minimum = 0,
-      cut = 0,
-      label.cex = if (isTRUE(use_large_style)) 0.85 else 1.0,
-      title = title,
-      title.cex = 1.15,
-      layout.par = if (identical(layout_used, "spring")) list(repulse.rad = 100) else list()
-    )
-  }, error = function(e) {
-    qgraph::qgraph(W, labels = short, layout = layout_used, directed = TRUE, title = title)
-  })
+  grDevices::pdf(outfile, width = 18, height = 14)
+  set.seed(6008L)
+  qgraph::qgraph(
+    W_plot,
+    directed = TRUE,
+    layout = layout_used,
+    layout.par = list(repulse.rad = rad),
+    title = title,
+    title.cex = 1.2,
+    nodeNames = node_names,
+    labels = short,
+    label.cex = 0.6,
+    groups = groups_fac,
+    color = color_vec,
+    edge.color = edge_colors,
+    legend = TRUE,
+    legend.cex = 0.55,
+    vsize = 4,
+    esize = 6,
+    asize = 1.7,
+    curveAll = FALSE,
+    # 不用 qgraph 再淡一层（已用 alpha）；避免叠淡后看不见
+    fade = FALSE,
+    maximum = mx_abs,
+    minimum = 0,
+    cut = 0,
+    bg = "white"
+  )
   grDevices::dev.off()
   invisible(outfile)
 }

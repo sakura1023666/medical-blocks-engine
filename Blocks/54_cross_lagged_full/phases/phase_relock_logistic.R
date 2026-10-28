@@ -377,7 +377,7 @@ run_rcs_sxx <- function(db) {
     m1 <- .M1_LOCK
     m2 <- .M2_POOLED
     e <- new.env(parent = globalenv())
-    sys.source(file.path(study_root, "config_phase1_CHARLS.R"), envir = e)
+    sys.source(cross_lagged_phase1_template_config(study_root, .meta_lock), envir = e)
   } else {
     out_dir <- cross_lagged_phase1_dir(study_root, db)
     ck_dir <- file.path(out_dir, "checkpoints")
@@ -551,13 +551,13 @@ run_pooled <- function() {
     stop("Pooled 缺 Country")
 
   e <- new.env(parent = globalenv())
-  sys.source(file.path(study_root, "config_phase1_CHARLS.R"), envir = e)
+  sys.source(cross_lagged_phase1_template_config(study_root, .meta_lock), envir = e)
   out_dir <- file.path(study_root, "phase3_post_Pooled")
   ck_dir <- file.path(out_dir, "checkpoints")
   dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
 
   config <- .lock_cfg(e$config, m1, m2)
-  config$project$name <- "Hip_Frailty_Pooled_relock_logistic"
+  config$project$name <- "Pooled_relock_logistic"
   config$project$database <- "Pooled"
   config$project$output_dir <- out_dir
   config$data$rawdata_path <- pooled_path

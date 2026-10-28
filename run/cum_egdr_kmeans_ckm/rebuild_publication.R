@@ -110,6 +110,7 @@ Sys.setenv(MEDICAL_BLOCKS_PUB_DB = "CHARLS")
 options(pipeline.database_name = "")
 
 # ---- Tables ----
+class_disp <- ckm_stroke_class_display_labels(data, cmap = cmap)
 message("Building Table 1...")
 t1b <- ckm_stroke_build_table1_by_class(data, cmap = cmap)
 export_sci_table(
@@ -118,7 +119,7 @@ export_sci_table(
   title = "Table 1. Baseline characteristics according to eGDR change patterns",
   table_footnotes = c(
     "Values are mean (SD) or n (%). P from Kruskal-Wallis / chi-square across Class 1\u20134.",
-    "Class mapping: Class 1 = Moderate-high stable; Class 2 = Persistent low (regression reference); Class 3 = Stable high; Class 4 = Rapid decrease.",
+    class_disp$footnote,
     sprintf("Analytic N = %s (project denominator; paper N = 5,248).", format(n_all, big.mark = ",")),
     "Section order: Demographics; Vital signs and laboratory tests; Comorbidities; Exposure."
   ),
@@ -157,30 +158,34 @@ ckm_stroke_export_assoc_xlsx(
     ckm_stroke_software_footnote()
   )
 )
-s3b <- ckm_stroke_build_table_s1_cox(data, models, cmap = cmap, index_lab = "eGDR")
-ckm_stroke_export_assoc_xlsx(
-  s3b, file.path(tab_dir, "Table S3. Cox after MICE.xlsx"),
-  "Table S3. Association between eGDR change patterns, cumulative eGDR, and stroke in adults with CKM syndrome: cox regression analysis after multiple imputation",
-  c(
-    "CI, confidence interval; HR, hazard ratio; T, tertiles; eGDR, estimated glucose disposal rate.",
-    "Model 1: no covariates were adjusted.",
-    paste0("Model 2: Adjusted for ", paste(models$Model2, collapse = ", "), "."),
-    paste0("Model 3: Adjusted for ", paste(models$Model3, collapse = ", "), "."),
-    "Covariate missingness is near-zero; estimates mirror complete-case Table S1 (MOESM MICE sensitivity layout)."
+s_mi <- ckm_stroke_fit_mice_assoc(data, models, outcome = "Stroke", index_lab = "eGDR", cmap = cmap)
+if (is.null(s_mi)) {
+  message("No Model 2/3 covariate is missing. Table S3 and Table S4 are not written.")
+} else {
+  mice_note <- paste0("Multiple imputation (mice, m=5, seed=2026) of ", paste(s_mi$imputed, collapse = ", "), ". Rubin's rules. Not a copy of the complete-case table.")
+  ckm_stroke_export_assoc_xlsx(
+    s_mi$s3, file.path(tab_dir, "Table S3. Cox after MICE.xlsx"),
+    "Table S3. Association between eGDR change patterns, cumulative eGDR, and stroke in adults with CKM syndrome: cox regression analysis after multiple imputation",
+    c(
+      "CI, confidence interval; HR, hazard ratio; T, tertiles; eGDR, estimated glucose disposal rate.",
+      "Model 1: no covariates were adjusted.",
+      paste0("Model 2: Adjusted for ", paste(models$Model2, collapse = ", "), "."),
+      paste0("Model 3: Adjusted for ", paste(models$Model3, collapse = ", "), "."),
+      mice_note
+    )
   )
-)
-s4b <- ckm_stroke_build_table2_assoc(data, models, is_hr = FALSE, cmap = cmap, index_lab = "eGDR")
-ckm_stroke_export_assoc_xlsx(
-  s4b, file.path(tab_dir, "Table S4. Logistic after MICE.xlsx"),
-  "Table S4. Association between eGDR change patterns, cumulative eGDR, and stroke in adults with CKM syndrome: logistic regression analysis after multiple imputation",
-  c(
-    "CI, confidence interval; OR, odds ratio; T, tertiles; eGDR, estimated glucose disposal rate.",
-    "Model 1: no covariates were adjusted.",
-    paste0("Model 2: Adjusted for ", paste(models$Model2, collapse = ", "), "."),
-    paste0("Model 3: Adjusted for ", paste(models$Model3, collapse = ", "), "."),
-    "Covariate missingness is near-zero; estimates mirror complete-case Table 2 (MOESM MICE sensitivity layout)."
+  ckm_stroke_export_assoc_xlsx(
+    s_mi$s4, file.path(tab_dir, "Table S4. Logistic after MICE.xlsx"),
+    "Table S4. Association between eGDR change patterns, cumulative eGDR, and stroke in adults with CKM syndrome: logistic regression analysis after multiple imputation",
+    c(
+      "CI, confidence interval; OR, odds ratio; T, tertiles; eGDR, estimated glucose disposal rate.",
+      "Model 1: no covariates were adjusted.",
+      paste0("Model 2: Adjusted for ", paste(models$Model2, collapse = ", "), "."),
+      paste0("Model 3: Adjusted for ", paste(models$Model3, collapse = ", "), "."),
+      mice_note
+    )
   )
-)
+}
 
 message("Building Table 3 / S2...")
 t3b <- ckm_stroke_build_table3_subgroup(data, models, cmap = cmap)
@@ -191,7 +196,9 @@ export_sci_table(
   table_footnotes = c(
     "Adjusted for Model 3 covariates except the stratification variable.",
     "Class 2 (Persistent low) is the reference. Columns ordered Class 2 Reference, Class 1, Class 3, Class 4.",
-    "P for trend: Class coded 1\u20134 as continuous. P for interaction: likelihood-ratio test.",
+    "Classes are nominal. No P for trend is reported for class. Tertile P for trend stays in Table 2.",
+    "NE marks a contrast that is not estimable. Its P value is an em dash. A level with no events in the reference class is omitted.",
+    "P for interaction: likelihood-ratio test.",
     "OR (95% CI). NE = not estimable (typically 0 events in that class\u00d7stratum).",
     "Gender levels ordered Female then Male (paper Table 3)."
   ),
@@ -247,12 +254,16 @@ message("Drawing Figure S2 / S3 forests...")
 s2_rows <- ckm_stroke_forest_free_stats(
   data, "cum_eGDR", TRUE,
   file.path(fig_dir, "Figure S2. Cumulative eGDR subgroup HR.pdf"),
-  title = "Fig. S2  Subgroup analysis (Cox, per 1-SD cum-eGDR)"
+  title = "Fig. S2  Subgroup analysis (Cox, per 1-unit cum-eGDR)",
+  index_lab = "eGDR",
+  scale = "unit"
 )
 s3_rows <- ckm_stroke_forest_free_stats(
   data, "cum_eGDR", FALSE,
   file.path(fig_dir, "Figure S3. Cumulative eGDR subgroup OR.pdf"),
-  title = "Fig. S3  Subgroup analysis (Logistic, per 1-SD cum-eGDR)"
+  title = "Fig. S3  Subgroup analysis (Logistic, per 1-unit cum-eGDR)",
+  index_lab = "eGDR",
+  scale = "unit"
 )
 .internal <- file.path(sr, "_internal")
 dir.create(.internal, recursive = TRUE, showWarnings = FALSE)
@@ -312,10 +323,7 @@ writeLines(c(
   sprintf("Junk archived: %s", if (length(moved)) paste(moved, collapse = ", ") else "(none)"),
   "",
   "## Class mapping",
-  "- Class 1 = Moderate-high stable",
-  "- Class 2 = Persistent low (**reference**)",
-  "- Class 3 = Stable high",
-  "- Class 4 = Rapid decrease"
+  class_disp$footnote
 ), file.path(sr, "README.md"))
 
 message("DONE")

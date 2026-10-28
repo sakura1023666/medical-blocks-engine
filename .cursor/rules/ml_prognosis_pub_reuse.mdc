@@ -21,6 +21,17 @@ alwaysApply: true
 | 表现 bootstrap CI 表（默认关） | `performance_ml$bootstrap_ci_table` → `R/ml_bootstrap_pub_tables.R` |
 | 校准 intercept/slope bootstrap（默认勿列入 methods） | `supplementary_ml` methods=`calibration_boot` |
 | 文献 wide 版式表（Table1/2 + S2–S11 + Fig S1；双库 Panel / SOFA 层 / DeLong / GVIF / 分层五模型） | `R/pub_reference_lit_tables.R` → `run/pub/rebuild_lit_publication_tables.R`（见 `run/pub/README_lit_tables.md`）|
+| ML 文献终稿：重编号填空号 + Methods + sync `summary_result` | `R/ml_literature_pub_finalize.R` → `run/ml/finalize_ml_literature_publication.R` |
+| 交付根白名单（Figures/Tables/方法md/软件版本txt/中期PDF） | `R/pub_delivery_prune.R` → `run/pub/finalize_delivery_root.R`；规则 `pub_delivery_whitelist.mdc` |
+| 文献 Model1–3（`literature_m123`）+ Model3 踢严重度 | `R/ml_assoc_covariate_rule.R` + `configs/ml_literature_aki_dev_ext_assoc_overrides.R` |
+| 统一 Model3 返工表/图 | `run/ml/rebuild_assoc_unified_model3.R` + `run/ml/redraw_assoc_figs.R`；复用地图 `docs/reuse/2026-10-26-ml-literature-m123-assoc-reuse-map.md` |
+| 关联图 Fig2/3/4/6（Fig6 prefer Model3） | `R/ml_reference_assoc_figures.R` |
+| 密文本图 collision→image PDF | `R/pub_figure_export.R` → `pub_figure_rasterize_pdf_page` |
+| 单因素 / ML 连续 Cox / 多因素 → Rubin | `01block_univariate_prognosis` / `08block_cox_ml_continuous_batch` / `01block_multivariate_prognosis` + `R/mi_rubin_pool.R` |
+| Fig1 无 Exclude 主列居中 | `R/attrition_log.R` → `attrition_draw_pdf` |
+| Methods：m=5 Rubin vs complete#1 操作层 | `R/ml_index_summary_results.R` |
+
+复用地图（NPC 2026-10-27）：`docs/reuse/2026-10-27-npc-ml-rubin-os-attrition-reuse-map.md`。
 
 ## 铁律
 
@@ -29,6 +40,8 @@ alwaysApply: true
 3. **Shiny 生存模型禁止** `predict(..., new_data=, type="prob")`（tidymodels 口径）；RSF 必须 `predict(rfsrc, newdata=)` + 时点生存概率。
 4. **汇总 Figures 只留主文/必要补充**（Fig1–5 + S1–S2 一类）；DCA/ROC/parallel 单图勿当发表汇总主目录常驻。
 5. **课题 `scripts/` 热修用完归档**；可复用逻辑必须回写 `Blocks/` / `R/` / `configs/`。
+6. **`summary_result` 交付面**只留白名单五项（见 `pub_delivery_whitelist`）；finalize / 中期后必 prune。
+7. **推断 Cox 必须 Rubin**（见 `mi_m5_rubin_pool`）：S4/S6/多因素脚注含 Rubin's rules；ID 对齐失败不得 silently 交差。
 
 ## 新课题检查
 
@@ -40,6 +53,8 @@ alwaysApply: true
 - [ ] 需要超参表时开 `supplementary_ml` 的 `hyperparameters`
 - [ ] 需要文献 Table3 风格 CI 时：`performance_ml$bootstrap_ci_table=TRUE`（时点=`surv_horizon`）
 - [ ] 需要校准表时：`methods` 含 `calibration_boot`（勿写死 60 月）
+- [ ] `summary_result` 根目录仅 Figures/Tables/Methods_*.md|txt/*中期*.pdf（见复用地图 `docs/reuse/2026-10-22-ml-lit-delivery-whitelist-reuse-map.md`）
+- [ ] Cox 推断表脚注 Rubin；无 Exclude 的 Fig1 居中（勿手绘）
 
 ## 反例
 
@@ -48,3 +63,4 @@ alwaysApply: true
 - `save(staged, ...)` 却 `load` 后读 `shiny_staging`
 - 主文 Table 3 用工程特征冲 C-index，正文不披露
 - 在课题 `scripts/` 再写一套 bootstrap 表绕过引擎开关
+- 复活 `_archive_oneoff/polish_npc_pub.R` / `/tmp/run_npc_*.R` 当正式入口

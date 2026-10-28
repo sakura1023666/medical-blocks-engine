@@ -124,9 +124,6 @@ block_subgroup_prognosis <- function(ctx, ...) {
   if (is.null(data_imp)) stop("No data found. Run 'imputation' or 'data_clean' first.")
   data_imp <- as.data.frame(data_imp)
 
-  log_idx <- cfg$logistic$index_var
-  if (is.null(log_idx)) stop("index_var is required in config$logistic")
-
   study_type <- "prognosis"
 
   # subgroup_prognosis 覆盖 subgroup（如 continuous_index_mode / forest_*）
@@ -135,14 +132,22 @@ block_subgroup_prognosis <- function(ctx, ...) {
   time_col <- surv$time_var %||% surv$time_column %||% "futime"
   status_col <- surv$event_var %||% surv$status_column %||% surv$event_column %||% "fustatus"
 
+  ## 优先 subgroup(_prognosis)$index_var：全变量 ML 可做「普通亚组」而不把该列写进 Table1 Exposure
+  log_idx <- cfg$logistic$index_var
   index_var <- as.character(
-    cfg$prediction$index_vars %||%
+    sub_cfg$index_var %||%
+      cfg$prediction$index_vars %||%
       cfg$ml_batch$index_vars %||%
       surv$index_var %||%
       log_idx
   )
-  index_var <- index_var[nzchar(trimws(index_var))]
-  if (!length(index_var)) stop("index_var is required", call. = FALSE)
+  index_var <- index_var[nzchar(trimws(as.character(index_var)))]
+  if (!length(index_var)) {
+    stop(
+      "subgroup_prognosis: 需要 index_var（subgroup$index_var / logistic / survival / prediction）。",
+      call. = FALSE
+    )
+  }
   index_var <- index_var[[1L]]
   disease_col <- cfg$data$outcome_column %||% "fustatus"
 
@@ -400,6 +405,14 @@ block_subgroup_prognosis <- function(ctx, ...) {
   if (length(forbid)) {
     categorical_vars <- setdiff(categorical_vars, forbid)
     cli::cli_alert_info("Forbid subgroup vars (removed from pool): {paste(forbid, collapse=', ')}")
+  }
+  ## Age_Group / BMI_Group 由本块现算，table1 池通常不含；进 required 前须并入候选
+  if ("Age_Group" %in% names(data_imp) && !all(is.na(data_imp$Age_Group))) {
+    categorical_vars <- unique(c(categorical_vars, "Age_Group"))
+  }
+  if (isTRUE(has_bmi) && "BMI_Group" %in% names(data_imp) &&
+      !all(is.na(data_imp$BMI_Group))) {
+    categorical_vars <- unique(c(categorical_vars, "BMI_Group"))
   }
   if (length(req)) {
     miss <- setdiff(req, names(data_imp))

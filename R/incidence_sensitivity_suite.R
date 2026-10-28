@@ -2082,6 +2082,38 @@ incidence_sensitivity_run_one <- function(root, config, config_path, ix, sg,
   } else {
     dir.create(dst, recursive = TRUE, showWarnings = FALSE)
   }
+  if (isTRUE(incidence_sensitivity_is_complete_case(sg))) {
+    writeLines(
+      c(
+        paste0("p_primary=", ifelse(is.finite(p_primary), p_primary, "NA")),
+        paste0("p_secondary=", ifelse(is.finite(p_secondary), p_secondary, "NA")),
+        paste0("status=", status)
+      ),
+      file.path(dst, "complete_case_gate.txt"),
+      useBytes = TRUE
+    )
+    sig_cc <- is.finite(p_primary) && p_primary < 0.05 &&
+      (!is.finite(p_secondary) || p_secondary < 0.05)
+    if (identical(status, "success") && sig_cc) {
+      if (!exists("incidence_promote_sig_complete_case", mode = "function")) {
+        eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+        src_sum <- c(
+          if (nzchar(eng)) file.path(eng, "R", "incidence_summary_result.R") else character(0),
+          file.path(getwd(), "R", "incidence_summary_result.R")
+        )
+        src_sum <- src_sum[file.exists(src_sum)]
+        if (length(src_sum)) source(src_sum[[1L]], local = FALSE)
+      }
+      if (exists("incidence_promote_sig_complete_case", mode = "function")) {
+        tryCatch(
+          incidence_promote_sig_complete_case(
+            parent_dir, p_primary = p_primary, p_secondary = p_secondary
+          ),
+          error = function(e) cli::cli_alert_warning("完整病例晋升失败: {e$message}")
+        )
+      }
+    }
+  }
   if (!identical(status, "success") && file.exists(log_path)) {
     dir.create(dst, recursive = TRUE, showWarnings = FALSE)
     tryCatch(file.copy(log_path, file.path(dst, "worker.log"), overwrite = TRUE),

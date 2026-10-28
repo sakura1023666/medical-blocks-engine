@@ -67,18 +67,30 @@
   # train/test 常在特征选择或缺失补救后附加预测专用列，而这些列不一定回写
   # imputed。只要保留了拆分前的唯一行名，应优先用它恢复事件真值，不能因
   # 列集合不完全相同而误判为无法对齐。
+  #
+  # 踩坑（NPC OS ML, 2026-10）：train_validation 后 rownames 常被 reset 成
+  # "1".."n"。若仍用行名去 match imputed 的 "1".."N"，会把验证/训练真值
+  # 对到错误患者 → ROC 图 AUC≈0.42，与 Table 宽表（按预测表 Group）严重不符。
   rn_all <- rownames(d_tv)
   rn_part <- rownames(part)
-  if (!is.null(rn_all) && !is.null(rn_part) &&
-      !anyDuplicated(rn_all) && !anyDuplicated(rn_part) &&
-      all(rn_part %in% rn_all)) {
+  .pm_rn_is_sequential <- function(rn, n) {
+    !is.null(rn) && length(rn) == n && identical(as.character(rn), as.character(seq_len(n)))
+  }
+  use_rn <- !is.null(rn_all) && !is.null(rn_part) &&
+    !anyDuplicated(rn_all) && !anyDuplicated(rn_part) &&
+    all(rn_part %in% rn_all) &&
+    !.pm_rn_is_sequential(rn_part, nrow(part))
+  if (use_rn) {
     return(match(rn_part, rn_all))
   }
   cols <- names(part)
   if (!length(cols)) return(integer(0))
-  if (!all(cols %in% names(d_tv))) {
+  # 预测专用列可能只在 train/test：对齐时只用两侧共有列
+  cols <- intersect(cols, names(d_tv))
+  if (!length(cols)) {
     stop("block_performance_ml: train/test 列无法与 imputed 对齐。", call. = FALSE)
   }
+  # 去掉几乎必定被重置的行名噪声列；保留结局/时间以降低碰撞
   pc <- function(df, cn) {
     do.call(paste, c(lapply(cn, function(v) as.character(df[[v]])), list(sep = "\1")))
   }

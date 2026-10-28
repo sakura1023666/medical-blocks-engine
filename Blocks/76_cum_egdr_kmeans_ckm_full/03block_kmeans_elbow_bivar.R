@@ -26,6 +26,43 @@ block_kmeans_elbow_bivar <- function(ctx, ...) {
 
   mat <- cbind(as.numeric(data$eGDR_t1), as.numeric(data$eGDR_t2))
   colnames(mat) <- c("t1", "t2")
+
+  # 外验模式：固定发现队列中心，跳过本库重拟合
+  fc_path <- bl$fixed_centers_csv %||% ""
+  if (nzchar(as.character(fc_path)[1L])) {
+    centers <- ckm_stroke_read_fixed_centers_csv(fc_path)
+    cls <- ckm_stroke_kmeans_assign_centers(mat, centers)
+    data$eGDR_Class <- cls
+    data$Subphenotype <- cls
+    k_use <- nrow(centers)
+    utils::write.csv(
+      data.frame(class = rownames(centers), t1 = centers[, 1], t2 = centers[, 2],
+                 stringsAsFactors = FALSE),
+      file.path(tab_dir, "Kmeans_fixed_centers_used.csv"), row.names = FALSE
+    )
+    # 外验仍写占位 elbow 表，标明 fixed_assign
+    utils::write.csv(
+      data.frame(
+        k = k_use, WCSS = NA_real_, chosen_k = k_use,
+        auto_elbow = NA_integer_, visual_cap = NA_integer_,
+        mode = "fixed_centers_assign",
+        centers_csv = as.character(fc_path)[1L]
+      ),
+      file.path(tab_dir, "Kmeans_elbow_WCSS.csv"), row.names = FALSE
+    )
+    ctx$data$cleaned <- data
+    if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data
+    ctx$results$kmeans_elbow_bivar <- list(
+      k = k_use, elbow = NA_integer_, mode = "fixed_centers_assign",
+      centers_csv = as.character(fc_path)[1L],
+      nclass = table(cls, useNA = "ifany")
+    )
+    cli::cli_alert_success(
+      "k-means 外验固定中心分配: k={k_use}; nclass={paste(names(table(cls)), as.integer(table(cls)), collapse=', ')}"
+    )
+    return(ctx)
+  }
+
   el <- ckm_stroke_kmeans_elbow(
     mat, k_max = as.integer(bl$k_max %||% 10L),
     seed = as.integer(bl$seed %||% 2026L),
@@ -50,6 +87,19 @@ block_kmeans_elbow_bivar <- function(ctx, ...) {
   cls <- ckm_stroke_anchor_classes(fit$cluster, data$eGDR_t1, data$eGDR_t2)
   data$eGDR_Class <- cls
   data$Subphenotype <- cls
+
+  # 发现队列：落盘语义类中心，供外验固定分配
+  if (!is.null(fit$centers)) {
+    cen_sem <- ckm_stroke_centers_by_semantic(fit$centers, fit$cluster, cls)
+    utils::write.csv(
+      data.frame(
+        class = rownames(cen_sem),
+        t1 = cen_sem[, 1], t2 = cen_sem[, 2],
+        stringsAsFactors = FALSE
+      ),
+      file.path(tab_dir, "Kmeans_semantic_centers.csv"), row.names = FALSE
+    )
+  }
 
   # Elbow 图
   pdf(file.path(out_dir, "Figure 2A. Elbow method WCSS.pdf"), width = 5, height = 4)

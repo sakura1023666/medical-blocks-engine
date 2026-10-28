@@ -17,6 +17,7 @@ alwaysApply: true
    - ROC / RCS / Youden 切点：`cutoff = 3`
    - **整数（人数 / 事件数 / 计数）**：`int_big_mark = TRUE`（默认千分位逗号 `1,234`；期刊要求无逗号时设 `FALSE`，全表统一）
 3. **必须走公共格式化**：`pub_format_p` / `pub_format_p_cell` / `fmt_pval` / `pub_format_est` / `pub_fmt_est_ci_p` / `logistic_glm_format_p`；单因素 OR/HR 用 `pub_fmt_est_ci_p`，**不要**用 `fmt_num` 硬编码位数格式化效应量。描述统计走 `fmt_num` / `fmt_continuous`（自动 trim）。
+3a. **gtsummary 的 p 禁止走默认一位小数**：`style_pvalue()` 默认 `digits = 1`，会把 0.185 收成 0.2，再 `sprintf("%.3f")` 就变成 0.200；小于 0.1 又多留几位，表内看起来像混用了两种检验。`source("R/utils.R")` 时 `pub_lock_gtsummary_pvalue()` 把默认 `pvalue_fun` 锁成 `fmt_pval`。`add_p()` 仍应显式写 `pvalue_fun = function(x) fmt_pval(x)`。**禁止** `style_pvalue(.x, digits = 1|2)`。**禁止**把已格式化的 `"<0.001"` 去掉 `"<"` 再当数字格式化，否则变成 `0.001`。
 4. **Cox / logistic 单元格**：写入前用 `pub_format_p_cell`；导出前可用 `pub_fix_p_cells`。`logistic_glm_format_p` 已与 3 位对齐，勿再分叉。
 5. **整数只有一把尺子**：凡表内人数 / 事件数 / `n (%)` 中的 n，一律走 `pub_format_int()`（`R/utils.R`）。**禁止** Block / 课题里再手写 `format(n, big.mark=",")`、`sprintf("%d", n)`、`paste0(n, " (")` 出发表表——同表 4,000 与 4000 混排审稿必抓。
    - 引擎已在 `.prepare_df_for_tex` 挂**渲染层守卫** `.pub_group_count_ints()`：凡经 `export_sci_table` 落盘的发表表，「计数上下文」（含 `%`、`/`、`N=`）里的 ≥4 位独立整数自动补千分位，且对年份区间（`2006-2010`）、小数（`0.1234`）、效应量单元格**不误伤**；已带逗号者幂等。
@@ -43,6 +44,7 @@ config$pub_digits <- list(
 
 - [ ] config 含 `pub_digits`（或接受引擎默认 3/3/3/3 + 千分位开 + desc_trim）
 - [ ] 无新建 `round(p, 4)` / `formatC(..., digits = 4)` 写进回归表 P 列
+- [ ] `add_p()` 使用 `fmt_pval`，没有 `style_pvalue(digits = 1|2)`，也没有把 `<0.001` 剥成 `0.001`
 - [ ] Table 2 / 中介 / 单因素 OR(CI) 为固定 **3** 位；Table 1 / S1 描述最多 3 位且无强制整数 `.000`
 - [ ] 切点默认 **3** 位
 - [ ] 表内人数 / 事件数 / `n (%)` 的 n 千分位口径一致（全 `1,234` 或全 `1234`），无同表混排
@@ -56,6 +58,8 @@ config$pub_digits <- list(
 - 中介图 HR 两位成 0.99、表三位 0.992
 - Table 1 / S1 把心率等整数硬写成 `90.000 (78.000, 106.000)`（未开 `desc_trim`）
 - 课题私自再写一套 `sprintf("%.4f", p)` 绕过公共函数
+- `add_p()` 不传 `pvalue_fun`，表上出现 0.200、0.900 这种一位小数补成的三位
+- 把 `"<0.001"` 用 `gsub` 去掉 `"<"` 再格式化，极小 p 变成 `0.001`
 - 同一张 Table 1 里 `1,234 (34.5%)` 与 `5678 (12.3%)` 千分位混排
 - 把千分位逗号写回数据层 CSV / rds（守卫只作用渲染层）
 - 为个别单元格手工删逗号导致全表口径再度分叉

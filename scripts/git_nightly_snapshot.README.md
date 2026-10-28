@@ -4,10 +4,11 @@
 
 ## 行为
 
-- 工作区有可跟踪改动（尊重 `.gitignore`）→ `commit` + `push origin nightly` + 移动当日 tag
-- 工作区干净 → 日志写 `skip: clean`，退出 0
-- **不** push `main`，**不** 自动开 PR
-- 发现 `.env` / `engine.env` / `*.pem` 等敏感路径 → 拒绝提交
+- **本地无任何可跟踪改动** → 日志写 `skip: no local changes`，退出 0（不 fetch / 不 commit / 不 push）
+- 有可跟踪改动 → 用当前工作区树直接挂到 `nightly`（`write-tree` / `commit-tree`，**不切分支、不 stash**）+ `push` + 移动当日 tag
+- **不** push `main`，**不** 自动开 PR；跑完后工作区文件保持原样
+- 发现真实密钥类路径（`.env` / `engine.env` / `id_rsa` / `credentials.json` / 私有 `.pem` 等）→ 拒绝提交
+- 忽略虚拟环境与公共 CA 包（`.venv*/`、`venv/`、`site-packages`、`certifi/cacert.pem`），不再误拦
 
 ## Cron
 

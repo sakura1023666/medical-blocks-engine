@@ -1,0 +1,21 @@
+loaded R/pub_delivery_prune.R
+预后 ML 覆盖: 上游=univariate_prognosis→VIF; FS=仅 LASSO-Cox; assoc=Model2 来自 VIF 通过池; models=文献六模型 XGBoost-Cox/CoxBoost/GBM-Cox/RSF/Ridge-Cox/ElasticNet-Cox; SHAP=auto(最优模型); Shiny=surv_prognostic; surv_horizon=auto
+ℹ 已清空旧发表图导出 1 个: 'Figures'
+New names:
+• `` -> `...1`
+• `` -> `...2`
+• `` -> `...3`
+• `` -> `...4`
+• `` -> `...5`
+✔ 发表图已落入四目录（pdf/png/tiff/image_information）: 5 张
+✔ 发表图四目录校验通过: 21 张 × pdf/png/tiff @ 600 dpi
+Registered S3 method overwritten by 'lme4':
+  method           from
+  na.action.merMod car 
+✔ Software versions: G:/02block_result/53_NPC/ml_40395549/summary_results/Methods_software_versions.txt
+ℹ Tables 非 xlsx 已移出 1 项 -> G:/02block_result/53_NPC/ml_40395549/summary_results_delivery_workspace/tables_non_xlsx_20261026_173624
+✔ 交付白名单已干净: G:/02block_result/53_NPC/ml_40395549/summary_results
+✔ 指标 summary_results: G:/02block_result/53_NPC/ml_40395549/summary_results（Tables xlsx=12, Figures pdf=21, Methods=TRUE, software=TRUE）
+SUM= G:/02block_result/53_NPC/ml_40395549/summary_results 
+OK
+EXIT:0

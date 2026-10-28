@@ -1,0 +1,33 @@
+# 发病/预后 summary_result 收口铁律（全项目）
+
+凡 **发病 / 预后 dual-batch** 指标 finalize 成功后，必须写出课题根 `summary_result/`，并做 Nature 统计/图面深审。禁止只留 `by_index/【success】*/` 却无汇总包。
+
+## 铁律
+
+1. **汇总包位置**：`project_root/summary_result/{Tables,Figures}` + `Methods_software_versions.txt` + `Methods_software_section.md`（可选 `Methods_statistical_analysis.md`）。
+2. **源**：优先指标根 `Tables/` `Figures/`；单库未镜像时回退 `NHANES|MIMIC|CHARLS/…` 槽。
+3. **完整病例敏感性**：仅当 Model 2 主比较 P < 0.05（双库两侧都要）时，基线表和关联表晋升为指标 `Tables/` 的下一组补充表，并随收口进入 `summary_result/Tables/`。目录名是【success】但 Model 2 不显著（complete case 的 success 不强制 Model 2）不得进入。失败场景不进汇总。展示文件名不得带编程下划线。
+4. **亚组口径**：默认全分析集 + 最高 vs 最低分位（`continuous_index_mode=highest_vs_lowest`，`forest_n_source=full_stratum`）；禁止无注释地写 `exposure_continuous=TRUE` 把主文 quartile 亚组改成连续 OR。
+5. **ROC 分母**：NHANES `simple_ROC` 默认对齐调查加权分析集（与 Table1 / svydesign 同 n）；禁止 Fig S* AUC 用插补全队列 n、主表用加权 n 却不披露。
+6. **Figures**：四目录 + DPI≥600；`pub_figure_ensure_formats`。
+7. **质控**：finalize 后跑 `run_pub_qc_after_project.R`；Agent Layer D nature-statistics + nature-figure，**含**对 SA_complete_case 表的数字口径审阅。
+
+## 实现入口
+
+- `R/incidence_summary_result.R` → `incidence_finalize_summary_result`
+- 挂点：`incidence_batch_finalize_index_outputs` → `incidence_batch_finalize_summary_result`
+- 关闭：`config$pub$summary_result = FALSE`；完整病例：`config$pub$include_sa_complete_case = FALSE`（须注释理由）
+
+## 检查清单
+
+- [ ] `summary_result/Tables` 含主文表
+- [ ] SA_complete_case 成功 ⇒ 汇总含其 S12/S13（或等价编号）
+- [ ] Fig3 为最高 vs 最低（或显式连续并注释）；层内 N 之和 ≈ 分析集 N
+- [ ] 多变量 ROC N = 加权分析集 N（若走 survey）
+- [ ] Nature QC 报告已写且 P0 清零
+
+## 反例（禁止）
+
+- 完整病例敏感性成功却只留在 `sensitivity/【success】SA_complete_case/`，summary 无表
+- 主文 Table2 quartile，Fig3 静默连续 OR 且图注不披露
+- ROC 用 n=799、Table1 用 n=712 却写「同队列」

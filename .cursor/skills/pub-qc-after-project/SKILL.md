@@ -83,6 +83,7 @@ description: >-
 对**每个 success 目录**按 [checklist.md](checklist.md) §A。至少检查：
 - `Figures/` 是否 `pdf|png|tiff|image_information` 四目录；根目录无平铺 `Figure*.pdf`  
 - 每张 pdf 有对应 png/tiff；tiff 非 0 字节  
+- **定稿 png/tiff 嵌入 DPI ≥ 600**（缺元数据 / &lt;600 / 垃圾值如 1 → FAIL/P0，当场 `pub_figure_ensure_formats` 重导）  
 - 每张定稿图有 `image_information/*.md`，且含 `## 图面说明` / `## 分析上下文`（无「标识」「技术」）  
 - Tables 文件名与表内标题角色一致；双库同角色同号（若双库）  
 - 适用时：该 success 下 `code/` 包存在  
@@ -96,8 +97,9 @@ description: >-
 - Fig1 逐步 n ↔ `Flowchart_attrition*.csv`  
 - Table1 分析集 N ↔ Fig1 最终保留 n / `_batch_status`  
 - 主表效应量（OR/HR）↔ 森林 Overall / KM 注释（同口径）  
-- RCS/KM：P-overall、P-nonlinear、Log-rank、cutoff ↔ `image_information` 与源产物  
+- RCS/KM：P-linear（预后对齐 Table 3）+ P-nonlinear、Log-rank、cutoff ↔ `image_information` 与源产物；KM 分组 = 锁定 cascade  
 - 双库拼图：两侧 N、切点、暴露对比口径一致  
+- 预后 v2：checklist **§B4** + `pv2_pub_p0_gate`（Fig6=S8 Direct、Fig7 High vs Low+P-int、禁下划线、PH/取材/MICE） 
 
 不一致 → **FAIL**（数字）或 **WARN**（口径需人工确认）。
 
@@ -108,6 +110,8 @@ description: >-
 - 中介未显著却残留实验室关联表（门控铁律）  
 - 脚注是否解释 Firth‡ / 权重 / 分母  
 - 亚组：年龄二分类、全分析集最高 vs 最低（双库一致）  
+- NHANES/发病：checklist **§B3** + `pub_nhanes_incidence_p0_gate`（Table2↔step 调整集、加权切点、中介≠主表脚注、Methods、ROC 自曝、NE md）  
+- 预后 v2 / Cox 文献：checklist **§B4** + `prognosis_v2_pub_p0_gate` / `pv2_pub_p0_gate()` 
 - 「读起来不通」的跳跃结论 → 记 P0/P1/P2，不擅自改表  
 
 ### 5. Layer D — Nature 统计与配图（强制，修 P0）
@@ -180,5 +184,7 @@ reports/nature_figure_qc_YYYY-MM-DD.md
 … → --shared-only → workers → 发表收口（Phase 5）
                               → 【Phase 6】本 skill 质控（仅 【success】）
                                    Layer A/B/C → Layer D nature-statistics + nature-figure（修 P0）
-                              → 用户看到 PASS/WARN/FAIL 后才算闭环
+                              → 【Phase 7】中期 PDF（Aiya-NB004-midterm-report）
+                                   仅 PASS/WARN 且 P0 已清；FAIL 不出
+                              → 用户看到质控总评 + 中期 PDF 路径后才算闭环
 ```

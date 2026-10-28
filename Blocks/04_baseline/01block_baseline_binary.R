@@ -127,12 +127,16 @@
   cutoff <- bl_cfg$sig_cutoff
   if (is.null(cutoff)) cutoff <- bl_cfg$p_threshold
   if (is.null(cutoff)) {
-    .bb01_pause(
-      ctx,
-      "未配置 config$baseline_binary$sig_cutoff（或 legacy p_threshold）。",
-      "在 config$baseline_binary 中设置 sig_cutoff，或设 pause_enable = FALSE 后自行处理。",
-      NULL
-    )
+    if (.bb01_should_pause(bl_cfg, "pause_on_missing_sig_cutoff", TRUE)) {
+      .bb01_pause(
+        ctx,
+        "未配置 config$baseline_binary$sig_cutoff（或 legacy p_threshold）。",
+        "在 config$baseline_binary 中设置 sig_cutoff，或设 pause_enable = FALSE 后自行处理。",
+        NULL
+      )
+    }
+    cutoff <- 0.05
+    cli::cli_alert_warning("baseline_binary: 未配置 sig_cutoff，回退默认 0.05")
   }
   as.numeric(cutoff)[1L]
 }

@@ -1,0 +1,34 @@
+# 预后 v2 文献宽表与交付复用铁律（全项目）
+
+Hip AKI（2026-10）沉淀：分位级联、M1–M3 宽表、S6–S8、改终点敏感性、finalize 白名单。**新课题直接走引擎**，禁止再堆 `_hotfix_*` / 课题私有 rebuild 算法副本。
+
+## 已进引擎（勿课题私改绕过）
+
+| 能力 | 入口 |
+|---|---|
+| 分位级联 Q→T→B | `R/quantile_scheme_cascade.R` |
+| 宽表 Cox / 改终点 / S6–S8 | `R/pv2_literature_pub_tables.R` |
+| Rubin Cox | `run/prognosis_v2/pv2_mi_cox.R` |
+| Methods + 软件版本 + 白名单 | `R/pub_prognosis_v2_methods.R` + `run/pub/finalize_delivery_root.R --study-type prognosis_v2` |
+| 图四目录 / DPI≥600 | `R/pub_figure_export.R` |
+
+## 铁律
+
+1. **S7/S8 协变量 = Table 3**（Model1 未调整；Model2/3 与主文相同）。
+2. **无 COD 不做假 Fine-Gray**；敏感性优先改终点窗（如 90 天），勿默认排除早期死亡凑显著。
+3. **课题脚本只薄封装路径/指标名**；算法进 `R/`。一次性脚本用完进 `_archive_oneoff_*/`。
+4. **交付根只留** Figures / Tables / Methods_statistical_analysis.md / Methods_software_versions.txt / *中期*.pdf。
+5. remirror / finalize 收尾必须 prune；中期后再 prune 一次。
+
+## 新课题检查
+
+- [ ] 未复制 `_archive_oneoff_*/` 或 Hip `_rebuild_*` 当算法源
+- [ ] 调用 `pv2_*` / `quantile_scheme_*` / `finalize_delivery_root`
+- [ ] S7/S8 脚注写明与 Table 3 同调整集
+- [ ] 交付根白名单干净
+
+## 反例
+
+- 在 `02block_result/.../scripts/` 长期放 rebuild
+- S7 仍 Crude/Age-only，Table3 却是 Age+Gender+CHARLSON
+- Methods 写 quartile，表却是 binary（未走级联锁定）

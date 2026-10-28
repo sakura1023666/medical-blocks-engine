@@ -255,8 +255,10 @@
 }
 
 .dual_db_is_per_db_fig1_flowchart <- function(bn) {
+  # 发病：Figure 1-DB. Inclusion exclusion flowchart.pdf
+  # 交叉滞后纵向：Figure 1-DB. Longitudinal inclusion exclusion flowchart.pdf
   grepl(
-    "^Figure\\s+1-.+\\.\\s*Inclusion\\s+exclusion\\s+flowchart\\.pdf$",
+    "^Figure\\s+1-.+\\.\\s*(Longitudinal\\s+)?Inclusion\\s+exclusion\\s+flowchart\\.pdf$",
     bn,
     ignore.case = TRUE
   )
@@ -717,13 +719,21 @@
   out_safe <- file.path(tmp_dir, "out.pdf")
 
   font_size <- max(10, round(12 * as.numeric(label_cex %||% 1.15)[1L], 1))
-  n_layout <- if (length(paths) == 4L) "grid" else "side"
+  # 尊重调用方 layout：RCS 等竖拼须传 stack；仅未指定时 4 面板默认 2×2
+  want_layout <- tolower(as.character(layout %||% "side")[1L])
+  if (!nzchar(want_layout) || !want_layout %in% c("side", "stack", "grid", "vertical", "col")) {
+    want_layout <- "side"
+  }
+  if (identical(want_layout, "side") && length(paths) == 4L) {
+    want_layout <- "grid"
+  }
+  if (want_layout %in% c("vertical", "col")) want_layout <- "stack"
   args <- c(
     script,
     "--out", out_safe,
     "--inputs", safe_paths,
     "--labels", labels,
-    "--layout", n_layout,
+    "--layout", want_layout,
     "--font-size", as.character(font_size)
   )
   if (grepl("Subgroup\\s*Forest", basename(out_path), ignore.case = TRUE)) {
@@ -768,29 +778,56 @@
   margin_in <- 0.35
   gap_in <- 0.25
 
-  cols <- if (n == 4L) 2L else n
-  rows <- if (n == 4L) 2L else 1L
+  want_layout <- tolower(as.character(layout %||% "side")[1L])
+  if (want_layout %in% c("vertical", "col")) want_layout <- "stack"
+  if (identical(want_layout, "stack")) {
+    cols <- 1L
+    rows <- as.integer(n)
+  } else if (identical(want_layout, "grid") || (identical(want_layout, "side") && n == 4L)) {
+    cols <- 2L
+    rows <- 2L
+  } else {
+    cols <- as.integer(n)
+    rows <- 1L
+  }
   grid <- vector("list", n)
   idx <- 1L
   for (r in seq_len(rows)) {
     row_idx <- idx:min(idx + cols - 1L, n)
     panel_h <- max(vapply(infos[row_idx], function(x) x$h / dpi, numeric(1)))
-    row_w <- 0
-    for (i in row_idx) {
-      w_in <- infos[[i]]$w / dpi
-      h_in <- infos[[i]]$h / dpi
-      sc <- panel_h / h_in
-      grid[[i]] <- list(w = w_in * sc, h = panel_h, raster = infos[[i]]$raster)
-      row_w <- row_w + w_in * sc
+    # 竖拼：各行按统一内容宽缩放，避免一列宽窄不一
+    if (identical(want_layout, "stack")) {
+      target_w <- max(vapply(infos[row_idx], function(x) x$w / dpi, numeric(1)))
+      row_w <- target_w
+      for (i in row_idx) {
+        w_in <- infos[[i]]$w / dpi
+        h_in <- infos[[i]]$h / dpi
+        sc <- target_w / w_in
+        grid[[i]] <- list(w = target_w, h = h_in * sc, raster = infos[[i]]$raster, row_w = row_w)
+      }
+    } else {
+      row_w <- 0
+      for (i in row_idx) {
+        w_in <- infos[[i]]$w / dpi
+        h_in <- infos[[i]]$h / dpi
+        sc <- panel_h / h_in
+        grid[[i]] <- list(w = w_in * sc, h = panel_h, raster = infos[[i]]$raster)
+        row_w <- row_w + w_in * sc
+      }
+      row_w <- row_w + gap_in * max(0L, length(row_idx) - 1L)
+      for (i in row_idx) grid[[i]]$row_w <- row_w
     }
-    row_w <- row_w + gap_in * max(0L, length(row_idx) - 1L)
-    for (i in row_idx) grid[[i]]$row_w <- row_w
     idx <- idx + cols
   }
 
   content_w <- max(vapply(grid, function(g) g$row_w %||% g$w, numeric(1)))
-  content_h <- rows * (label_h_in + max(vapply(grid, function(g) g$h, numeric(1)))) +
-    gap_in * max(0L, rows - 1L)
+  if (identical(want_layout, "stack")) {
+    content_h <- sum(vapply(grid, function(g) label_h_in + g$h, numeric(1))) +
+      gap_in * max(0L, n - 1L)
+  } else {
+    content_h <- rows * (label_h_in + max(vapply(grid, function(g) g$h, numeric(1)))) +
+      gap_in * max(0L, rows - 1L)
+  }
   total_w <- max(content_w + 2 * margin_in, 4)
   total_h <- content_h + 2 * margin_in
 
@@ -899,13 +936,22 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
       pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
     }
   }
-  # 汇总目录只要 Figure 1. Flowchart.pdf；分库 Inclusion exclusion 底稿仅留在各库子目录
+  # 若汇总目录已有无库标签的 Figure 1（发病 dual-panel / 已拼好），才删分库 Fig1 底稿；
+  # 否则保留分库底稿供下方 bucket 拼成 Figure 1. …flowchart.pdf（交叉滞后纵向）
   fig1_singles <- pdfs[.dual_db_is_per_db_fig1_flowchart(basename(pdfs))]
   if (length(fig1_singles)) {
-    unlink(fig1_singles)
-    deleted <- c(deleted, basename(fig1_singles))
-    cli::cli_alert_info("已删除汇总目录分库 Figure 1 纳排图 {length(fig1_singles)} 个")
-    pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+    has_combined_fig1 <- any(vapply(basename(pdfs), function(bn) {
+      grepl("^Figure\\s+1\\.", bn, ignore.case = TRUE) &&
+        !grepl(.dual_db_per_db_tag_pattern(c(
+          "CHARLS", "ELSA", "HRS", "NHANES", "MIMIC", "eICU", "Pooled", "CLHLS", "SHARE"
+        )), bn, ignore.case = TRUE, perl = TRUE)
+    }, logical(1L)))
+    if (isTRUE(has_combined_fig1)) {
+      unlink(fig1_singles)
+      deleted <- c(deleted, basename(fig1_singles))
+      cli::cli_alert_info("已删除汇总目录分库 Figure 1 纳排图 {length(fig1_singles)} 个（已有拼图）")
+      pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+    }
   }
 
   db_names <- if (length(cfg$databases)) cfg$databases else unique(c(cfg$primary, cfg$secondary, cfg$tertiary))

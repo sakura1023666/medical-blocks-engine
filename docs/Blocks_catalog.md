@@ -1,6 +1,6 @@
 # Blocks 选型目录（写 config 用）
 
-> 生成/同步：`python3 scripts/update_blocks_catalog.py`  ·  日期：2026-10-09  ·  register_block 数：481
+> 生成/同步：`python3 scripts/update_blocks_catalog.py`  ·  日期：2026-10-27  ·  register_block 数：516
 
 分工：`docs/block操作手册.md` = 怎么跑研究；本文件 = **选哪个 block / 改哪些 config 键**；`docs/block_catalog/` = 程序员 search_blocks 只读导出（另一套）。
 
@@ -24,7 +24,8 @@
 | 场景 | 推荐 template | study_type / 备注 | 心智模型 |
 |---|---|---|---|
 | 交叉滞后（三库/多库发病） | `configs/templates/config_cross_lagged_frailty_batch.template.R` | `54_cross_lagged_full` | 出版清单固定：Fig1–4 / S1–S5 / S11；表 T1/T2/S1/S3–S8；**必跑**敏感性 S9–S17.1（`phases/PUBLICATION_SLOTS.md`） |
-| 双库预后 / 生存 | `configs/templates/config_survival_dual_batch.template.R` | `prognosis` | Cox / KM / 亚组 |
+| 双库预后 / 生存 | `configs/templates/config_survival_dual_batch.template.R` | `prognosis` | Cox / KM / 亚组。原流水线保留 |
+| 预后 2.0（睡眠×血脂异常×死亡） | `configs/templates/config_prognosis_v2_sleep_dyslipid.template.R` | `prognosis_v2` | 不替换上一行。三库、睡眠范围、2 年窗口、`79_*` |
 | 单库 NHANES 发病 | `configs/templates/config_incidence_nhanes_batch.template.R` | `incidence` + 权重 | survey design |
 | 竞争风险（卒中等） | `configs/templates/config_competing_risk_stroke_batch.template.R` | competing | `55_competing_risk_full` |
 | IPW 糖尿病-卒中 | `configs/templates/config_ipw_diabetes_stroke_batch.template.R` | IPW | `69_ipw_*` |
@@ -98,7 +99,7 @@
 | `00_index` | 1 | `index` |
 | `01_column_mappings` | 1 | `column_mapping` |
 | `02_data_clean` | 1 | `data_clean` |
-| `03_imputation` | 4 | `analysis_exclusion`, `imputation`, `prognosis_outcome_landmark`, `trim_index_extreme` |
+| `03_imputation` | 5 | `analysis_exclusion`, `imputation`, `prognosis_outcome_landmark`, `skew_log1p`, `trim_index_extreme` |
 | `04_baseline` | 3 | `baseline_binary`, `baseline_multiclass`, `baseline_nhanes` |
 | `05_boxplot` | 1 | `boxplot` |
 | `06_univariate` | 4 | `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis` |
@@ -114,10 +115,10 @@
 | `16_weightcox` | 4 | `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile` |
 | `17_shap` | 1 | `shap` |
 | `18_subgroup` | 8 | `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `unsupervised_clustering_table` |
-| `19_feature_selection` | 10 | `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, …(+2) |
+| `19_feature_selection` | 11 | `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, …(+3) |
 | `20_mediation` | 12 | `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `modmed_data_prep`, `modmed_mediation_batch`, …(+4) |
 | `21_train_validation` | 1 | `train_validation` |
-| `22_ml_models` | 26 | `cart_decision_path`, `ml_adaboost`, `ml_aggregate`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, …(+18) |
+| `22_ml_models` | 29 | `cart_decision_path`, `ml_adaboost`, `ml_aggregate`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, …(+21) |
 | `23_ml_performance` | 1 | `performance_ml` |
 | `24_ml_dual` | 10 | `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_logistic_multi_index_bundle`, `ml_models_bundle`, …(+2) |
 | `24_ml_supplementary` | 1 | `supplementary_ml` |
@@ -131,15 +132,15 @@
 | `32_stepp` | 1 | `stepp_prognosis` |
 | `33_composite_risk_score` | 1 | `composite_risk_cox` |
 | `34_IPTW` | 2 | `iptw_association`, `iptw_balance` |
-| `35_environment_function` | 10 | `environment_lod_screen`, `environment_subgroup_search`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `prepare_environment_dkd_data`, `process_environment_data`, …(+2) |
+| `35_environment_function` | 11 | `environment_lod_screen`, `environment_subgroup_search`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `exwas_gastric_assemble`, `prepare_environment_dkd_data`, …(+3) |
 | `36_capability` | 1 | `sensitivity_scenarios` |
-| `36_environment_glm` | 1 | `glm_environment_quartile` |
-| `37_environment_wqs` | 1 | `wqs_environment` |
+| `36_environment_glm` | 2 | `ers_elastic_net`, `glm_environment_quartile` |
+| `37_environment_wqs` | 2 | `wqs_environment`, `wqs_exwas_fixed` |
 | `38_environment_bkmr` | 2 | `bkmr_analysis`, `bkmr_fit` |
 | `39_environment_qgcomp` | 1 | `qgcomp_environment` |
 | `40_environment_descriptive` | 2 | `environment_characteristics`, `voc_correlation` |
 | `41_environment_target` | 1 | `environment_target_enrichment` |
-| `42_environment_single` | 1 | `environment_single_exposure_transform` |
+| `42_environment_single` | 2 | `environment_single_exposure_transform`, `exwas_unweighted` |
 | `43_dynamic_causal` | 2 | `dynamic_causal_cox_total`, `dynamic_causal_index_compute` |
 | `44_multimorbidity` | 2 | `multimorbidity_baseline_category`, `multimorbidity_gee_cognition` |
 | `45_multimodal` | 1 | `multimodal_early_fusion` |
@@ -175,6 +176,10 @@
 | `75_osteo_dxa_qct` | 3 | `diagnostic_vs_fracture`, `dxa_qct_agreement`, `modality_discordance_profile` |
 | `76_cum_egdr_kmeans_ckm_full` | 11 | `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `cum_exposure_build`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `logistic_cum_index_bundle`, `rcs_ckm_strata_panels`, …(+3) |
 | `77_gallstone_nomogram_full` | 13 | `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, …(+5) |
+| `78_database_pooling_full` | 9 | `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, …(+1) |
+| `79_sleep_dyslipid_prognosis_full` | 5 | `bayesian_mediation_horizon`, `horizon_roc_youden`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `survival_fixed_horizon` |
+| `80_easymr_full` | 3 | `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample` |
+| `81_clhls_symptom_network_full` | 9 | `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, …(+1) |
 
 <!-- END AUTO:dir_index -->
 
@@ -322,7 +327,7 @@
 | `mediation_prognosis` |
 | `mediation_subgroup_router` |
 
-### `ml_*`（41）
+### `ml_*`（44）
 
 | register_block |
 |---|
@@ -337,6 +342,7 @@
 | `ml_enet_cox` |
 | `ml_eval_external` |
 | `ml_feature_selection_bundle` |
+| `ml_gbdt` |
 | `ml_gbmsurv` |
 | `ml_id_deduplicate` |
 | `ml_inherit_primary_features` |
@@ -353,6 +359,7 @@
 | `ml_nafld_omics_display` |
 | `ml_nafld_pub_finalize` |
 | `ml_nafld_score_compare` |
+| `ml_naive_bayes` |
 | `ml_realmlp` |
 | `ml_realtabpfn_2_5` |
 | `ml_rf` |
@@ -364,6 +371,7 @@
 | `ml_tablcl_v2` |
 | `ml_tabpfn` |
 | `ml_tabpfnv2` |
+| `ml_topsis_fusion` |
 | `ml_vif_train_test` |
 | `ml_xgboost` |
 | `ml_xgbsurv` |
@@ -473,6 +481,8 @@
 | `configs/templates/config_burden_gbd.template.R` | config_burden_gbd.template.R — GBD 二次数据【全球负担描述】通用模板 | 见文件头 |
 | `configs/templates/config_cdc_wonder_dobbs_batch.template.R` | config_cdc_wonder_dobbs_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_cftraj_charls_batch.template.R` | config_cftraj_charls_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
+| `configs/templates/config_clhls_symptom_network.template.R` | config_clhls_symptom_network.template.R — 复制后改【必改】路径 | 见文件头 |
+| `configs/templates/config_clhls_symptom_network_batch.template.R` | config_clhls_symptom_network_batch.template.R — 性别 / NCT / 稳定性并行 | 见文件头 |
 | `configs/templates/config_competing_risk_chf_batch.template.R` | config_competing_risk_chf_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_competing_risk_stroke_batch.template.R` | config_competing_risk_stroke_batch.template | 见文件头 |
 | `configs/templates/config_competing_risk_stroke_isolation.template.R` | config_competing_risk_stroke_batch.template.R — 竞争风险（MIMIC · by_unit） | 见文件头 |
@@ -481,12 +491,17 @@
 | `configs/templates/config_crm_nhanes_mr_batch.template.R` | config_crm_nhanes_mr_batch.template.R — NHANES 单库 CRM × 孟德尔随机化（Batch） | 见文件头 |
 | `configs/templates/config_cross_lagged_frailty_batch.template.R` | config_cross_lagged_frailty_batch.template.R — 交叉滞后 三库+Pooled | 见文件头 |
 | `configs/templates/config_cum_egdr_kmeans_ckm_batch.template.R` | config_cum_egdr_kmeans_ckm_batch.template.R | 见文件头 |
+| `configs/templates/config_database_pooling_batch.template.R` | config_database_pooling_batch.template | 见文件头 |
 | `configs/templates/config_dual_change_score_elsa_batch.template.R` | config_dual_change_score_elsa_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_dual_incidence_mr_crm_batch.template.R` | config_dual_incidence_mr_crm_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_dynamic_causal_dual_batch.template.R` | config_dynamic_causal_dual_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
+| `configs/templates/config_easymr_gwas_search.template.R` | config_easymr_gwas_search.template.R | 见文件头 |
+| `configs/templates/config_easymr_ieu.template.R` | config_easymr_ieu.template.R | 见文件头 |
+| `configs/templates/config_easymr_twosample.template.R` | config_easymr_twosample.template.R | 见文件头 |
 | `configs/templates/config_environment_cd_osteo_nhanes.template.R` | config_environment_cd_osteo_nhanes.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_environment_dkd_batch.template.R` | config_environment_dkd_batch.template.R — DKD × 环境 VOC（NHANES 批量模板） | 见文件头 |
 | `configs/templates/config_environment_dkd_nhanes.template.R` | config_environment_dkd_nhanes.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
+| `configs/templates/config_environment_exwas_batch.template.R` | config_environment_exwas_batch.template.R | 见文件头 |
 | `configs/templates/config_gallstone_nomogram_batch.template.R` | config_gallstone_nomogram_batch.template.R | 见文件头 |
 | `configs/templates/config_glide_sol_seoul.template.R` | Template — copy to configs/config_glide_sol_seoul.R and set gee$project | 见文件头 |
 | `configs/templates/config_hf_dual_clustering.template.R` | config_hf_dual_clustering.template | 见文件头 |
@@ -498,15 +513,19 @@
 | `configs/templates/config_incidence_prepost_charls_batch.template.R` | config_incidence_prepost_charls_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_incidence_single.template.R` | config_incidence_single.template.R — 单库发病 Logistic 流水线配置模板 | 见文件头 |
 | `configs/templates/config_ipw_diabetes_stroke_batch.template.R` | config_ipw_diabetes_stroke_batch.template.R — 用药IPW（Jin · MIMIC · unit=main） | 见文件头 |
+| `configs/templates/config_ipw_pe_alteplase_dual_batch.template.R` | config_ipw_pe_alteplase_dual_batch.template.R — PE × 阿替普酶 IPW（Jin · 双库路径1） | 见文件头 |
 | `configs/templates/config_markov_cognitive_clhls_batch.template.R` | config_markov_cognitive_clhls_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_medication_regimen_text_soft_batch.template.R` | config_medication_regimen_text_soft_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_ml_dual_batch.template.R` | config_ml_dual_batch.template.R — ML 双库批量配置模板 | 见文件头 |
+| `configs/templates/config_ml_single_batch.template.R` | config_ml_single_batch.template.R — 单库发病/预测 ML 批量模板 | 见文件头 |
 | `configs/templates/config_ml_small_sample.template.R` | config_ml_small_sample.template.R — 小样本 ML 配置模板（单库 / 单指标 or 全变量） | 见文件头 |
+| `configs/templates/config_ml_tcf_sepsis_aki_batch.template.R` | config_ml_tcf_sepsis_aki_batch.template | 见文件头 |
 | `configs/templates/config_multimodal_tbi_batch.template.R` | config_multimodal_tbi_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_multimorbidity_additive_batch.template.R` | config_multimorbidity_additive_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_network_temperature_adolescent_batch.template.R` | config_network_temperature_adolescent_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_pa_mobility_cognitive.template.R` | config_pa_mobility_cognitive.template | 见文件头 |
 | `configs/templates/config_pa_mobility_cognitive_batch.template.R` | config_pa_mobility_cognitive_batch.template | 见文件头 |
+| `configs/templates/config_prognosis_v2_sleep_dyslipid.template.R` | config_prognosis_v2_sleep_dyslipid.template.R | 见文件头 |
 | `configs/templates/config_sem_chain_mediation_charls_batch.template.R` | config_sem_chain_mediation_charls_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_sle_aki_inc_prog_batch.template.R` | config_sle_aki_inc_prog_batch.template.R | 见文件头 |
 | `configs/templates/config_survival_dual_batch.template.R` | config_survival_dual_batch.template.R — 双库预后批量多指标配置模板（引擎 defaults） | 见文件头 |
@@ -565,7 +584,7 @@
 <!-- BEGIN AUTO:block_cards -->
 ## 8. Block 卡片（AUTO）
 
-共 **481** 个 `register_block`。 细节以各文件头部注释为准；本表只做选型索引。
+共 **516** 个 `register_block`。 细节以各文件头部注释为准；本表只做选型索引。
 
 ### `00_attrition/`
 
@@ -662,6 +681,12 @@
 - 典型位置: imputation 之后、baseline_binary 之前
 - config 节: `config$prognosis_outcome`, `config$survival`
 - 回读: `Blocks/03_imputation/04block_prognosis_outcome_landmark.R` 文件头注释
+
+#### `skew_log1p`
+- 路径: `Blocks/03_imputation/05block_skew_log1p.R`
+- 用途: ##############################################################################
+- config 节: `config$skew_log1p`
+- 回读: `Blocks/03_imputation/05block_skew_log1p.R` 文件头注释
 
 #### `trim_index_extreme`
 - 路径: `Blocks/03_imputation/02block_trim_index_extreme.R`
@@ -1289,6 +1314,11 @@
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned # 由 pipeline 决定，块内不选源`; `require_ctx_results = ctx$results$feature_selection_by_model # 须先跑 01–06 各方法块`; `require_min_composites_in_auto = FALSE,`
 - 回读: `Blocks/19_feature_selection/07block_feature_selection_consensus.R` 文件头注释
 
+#### `feature_selection_entropy_stepwise`
+- 路径: `Blocks/19_feature_selection/11block_feature_selection_entropy_stepwise.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/19_feature_selection/11block_feature_selection_entropy_stepwise.R` 文件头注释
+
 #### `feature_selection_lasso`
 - 路径: `Blocks/19_feature_selection/01block_feature_selection_lasso.R`
 - 用途: ##############################################################################
@@ -1467,6 +1497,11 @@
 - 典型位置: train_validation → 本系列 → ml_aggregate → performance_ml
 - 回读: `Blocks/22_ml_models/20block_ml_surv_extra_models.R` 文件头注释
 
+#### `ml_gbdt`
+- 路径: `Blocks/22_ml_models/23block_ml_gbdt.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/22_ml_models/23block_ml_gbdt.R` 文件头注释
+
 #### `ml_gbmsurv`
 - 路径: `Blocks/22_ml_models/20block_ml_surv_extra_models.R`
 - 用途: ##############################################################################
@@ -1502,6 +1537,12 @@
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = feature_selection_final（feature_selection 启用时）或 Model2Factors`
 - 回读: `Blocks/22_ml_models/06block_ml_mlp.R` 文件头注释
+
+#### `ml_naive_bayes`
+- 路径: `Blocks/22_ml_models/22block_ml_naive_bayes.R`
+- 用途: ##############################################################################
+- 典型位置: train_validation → … → ml_models_bundle（methods 含 naive_bayes）
+- 回读: `Blocks/22_ml_models/22block_ml_naive_bayes.R` 文件头注释
 
 #### `ml_realmlp`
 - 路径: `Blocks/22_ml_models/07block_ml_realmlp.R`
@@ -1569,6 +1610,11 @@
 - 典型位置: train_validation → 本块 → ml_aggregate
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = feature_selection_final（feature_selection 启用时）或 Model2Factors`
 - 回读: `Blocks/22_ml_models/14block_ml_tabpfnv2.R` 文件头注释
+
+#### `ml_topsis_fusion`
+- 路径: `Blocks/22_ml_models/24block_ml_topsis_fusion.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/22_ml_models/24block_ml_topsis_fusion.R` 文件头注释
 
 #### `ml_xgboost`
 - 路径: `Blocks/22_ml_models/03block_ml_xgboost.R`
@@ -1873,6 +1919,13 @@
 - config 节: `config$environment_voc_log_transform`
 - 回读: `Blocks/35_environment_function/00block_environment_voc_log_transform.R` 文件头注释
 
+#### `exwas_gastric_assemble`
+- 路径: `Blocks/35_environment_function/09block_exwas_gastric_assemble.R`
+- 用途: ##############################################################################
+- 典型位置: exwas_gastric_assemble → exwas_unweighted → ers_elastic_net
+- config 节: `config$exwas_gastric_assemble`
+- 回读: `Blocks/35_environment_function/09block_exwas_gastric_assemble.R` 文件头注释
+
 #### `prepare_environment_dkd_data`
 - 路径: `Blocks/35_environment_function/00block_prepare_environment_dkd_data.R`
 - 用途: ##############################################################################
@@ -1912,6 +1965,12 @@
 
 ### `36_environment_glm/`
 
+#### `ers_elastic_net`
+- 路径: `Blocks/36_environment_glm/02block_ers_elastic_net.R`
+- 用途: ##############################################################################
+- config 节: `config$ers_elastic_net`
+- 回读: `Blocks/36_environment_glm/02block_ers_elastic_net.R` 文件头注释
+
 #### `glm_environment_quartile`
 - 路径: `Blocks/36_environment_glm/01block_glm_environment_quartile.R`
 - 用途: ##############################################################################
@@ -1930,6 +1989,12 @@
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
 - config 节: `config$data`, `config$wqs_environment`
 - 回读: `Blocks/37_environment_wqs/01block_wqs_environment.R` 文件头注释
+
+#### `wqs_exwas_fixed`
+- 路径: `Blocks/37_environment_wqs/02block_wqs_exwas_fixed.R`
+- 用途: ##############################################################################
+- config 节: `config$wqs_exwas_fixed`
+- 回读: `Blocks/37_environment_wqs/02block_wqs_exwas_fixed.R` 文件头注释
 
 
 ### `38_environment_bkmr/`
@@ -1995,6 +2060,12 @@
 - 路径: `Blocks/42_environment_single/01block_environment_single_exposure_transform.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/42_environment_single/01block_environment_single_exposure_transform.R` 文件头注释
+
+#### `exwas_unweighted`
+- 路径: `Blocks/42_environment_single/02block_exwas_unweighted.R`
+- 用途: ##############################################################################
+- config 节: `config$exwas_unweighted`
+- 回读: `Blocks/42_environment_single/02block_exwas_unweighted.R` 文件头注释
 
 
 ### `43_dynamic_causal/`
@@ -3657,11 +3728,171 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/77_gallstone_nomogram_full/01a_block_gallstone_uv_covariate_screen.R` 文件头注释
 
+
+### `78_database_pooling_full/`
+
+#### `dbpool_batch_finalize`
+- 路径: `Blocks/78_database_pooling_full/09block_dbpool_batch_finalize.R`
+- 用途: dbpool_batch_finalize — batch 汇总、发表收口（Methods/软件版本/四目录/白名单）、QC 队列
+- 回读: `Blocks/78_database_pooling_full/09block_dbpool_batch_finalize.R` 文件头注释
+
+#### `dbpool_cohort_ingest`
+- 路径: `Blocks/78_database_pooling_full/01block_dbpool_cohort_ingest.R`
+- 用途: dbpool_cohort_ingest — 读取 RealExtraction delivery 队列与 provenance
+- 回读: `Blocks/78_database_pooling_full/01block_dbpool_cohort_ingest.R` 文件头注释
+
+#### `dbpool_labels`
+- 路径: `Blocks/78_database_pooling_full/04block_dbpool_labels.R`
+- 用途: dbpool_labels — ICU 死亡 + 动态 RLoS（cap=10；死亡 mask）
+- 回读: `Blocks/78_database_pooling_full/04block_dbpool_labels.R` 文件头注释
+
+#### `dbpool_metrics`
+- 路径: `Blocks/78_database_pooling_full/06block_dbpool_metrics.R`
+- 用途: dbpool_metrics — 汇总 AUROC/AUPRC/MAPE/Mcomposite（从 unit work 或上游结果表）
+- 回读: `Blocks/78_database_pooling_full/06block_dbpool_metrics.R` 文件头注释
+
+#### `dbpool_preprocess`
+- 路径: `Blocks/78_database_pooling_full/02block_dbpool_preprocess.R`
+- 用途: dbpool_preprocess — clip / forward-fill+mask / q5-q95 归一化（对齐原文 + 适配器落盘）
+- 回读: `Blocks/78_database_pooling_full/02block_dbpool_preprocess.R` 文件头注释
+
+#### `dbpool_pub_figures`
+- 路径: `Blocks/78_database_pooling_full/08block_dbpool_pub_figures.R`
+- 用途: dbpool_pub_figures — 四目录补齐
+- 回读: `Blocks/78_database_pooling_full/08block_dbpool_pub_figures.R` 文件头注释
+
+#### `dbpool_pub_tables`
+- 路径: `Blocks/78_database_pooling_full/07block_dbpool_pub_tables.R`
+- 用途: dbpool_pub_tables — Table 1–4、S1、S2 与 Figure 1–2
+- 回读: `Blocks/78_database_pooling_full/07block_dbpool_pub_tables.R` 文件头注释
+
+#### `dbpool_split`
+- 路径: `Blocks/78_database_pooling_full/03block_dbpool_split.R`
+- 用途: dbpool_split — 患者级 70/15/15（seed=974）；优先复用 delivery split_manifest
+- 回读: `Blocks/78_database_pooling_full/03block_dbpool_split.R` 文件头注释
+
+#### `dbpool_train_eval`
+- 路径: `Blocks/78_database_pooling_full/05block_dbpool_train_eval.R`
+- 用途: dbpool_train_eval — 调用公开 BlendedLoS（经 python/database_pooling/run_dbpool_experiment.py）
+- 回读: `Blocks/78_database_pooling_full/05block_dbpool_train_eval.R` 文件头注释
+
+
+### `79_sleep_dyslipid_prognosis_full/`
+
+#### `bayesian_mediation_horizon`
+- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/05block_bayesian_mediation_horizon.R`
+- 用途: ##############################################################################
+- 典型位置: survival_fixed_horizon 之后
+- config 节: `config$prognosis_v2`
+- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/05block_bayesian_mediation_horizon.R` 文件头注释
+
+#### `horizon_roc_youden`
+- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/04block_horizon_roc_youden.R`
+- 用途: ##############################################################################
+- 典型位置: survival_fixed_horizon 之后（依赖 event_h）
+- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/04block_horizon_roc_youden.R` 文件头注释
+
+#### `sleep_duration_range`
+- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/02block_sleep_duration_range.R`
+- 用途: ##############################################################################
+- 典型位置: sleep_dyslipid_cohort 之后
+- config 节: `config$prognosis_v2`
+- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/02block_sleep_duration_range.R` 文件头注释
+
+#### `sleep_dyslipid_cohort`
+- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/01block_sleep_dyslipid_cohort.R`
+- 用途: ##############################################################################
+- 典型位置: 预后 2.0 第一步（不替换旧 survival dual-batch）
+- config 节: `config$prognosis_v2`
+- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/01block_sleep_dyslipid_cohort.R` 文件头注释
+
+#### `survival_fixed_horizon`
+- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/03block_survival_fixed_horizon.R`
+- 用途: ##############################################################################
+- 典型位置: sleep_duration_range 之后
+- config 节: `config$prognosis_v2`
+- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/03block_survival_fixed_horizon.R` 文件头注释
+
+
+### `80_easymr_full/`
+
+#### `easymr_gwas_search`
+- 路径: `Blocks/80_easymr_full/02block_easymr_gwas_search.R`
+- 用途: ##############################################################################
+- 典型位置: 下载数据之前单独跑。不调用 easyMR，也不插入发病/预后主链
+- 前置: `require_summary_stats = TRUE, # 只要目录里给了 FTP 汇总统计的研究`
+- config 节: `config$easymr_gwas_search`
+- 回读: `Blocks/80_easymr_full/02block_easymr_gwas_search.R` 文件头注释
+
+#### `easymr_ieu`
+- 路径: `Blocks/80_easymr_full/03block_easymr_ieu.R`
+- 用途: ##############################################################################
+- 典型位置: 还没有本地 GWAS 文件时。不插入发病/预后主链
+- config 节: `config$easymr_ieu`
+- 回读: `Blocks/80_easymr_full/03block_easymr_ieu.R` 文件头注释
+
+#### `easymr_twosample`
+- 路径: `Blocks/80_easymr_full/01block_easymr_twosample.R`
+- 用途: ##############################################################################
+- 典型位置: 数据已下载之后单独跑，不插入发病/预后主链
+- config 节: `config$easymr`
+- 回读: `Blocks/80_easymr_full/01block_easymr_twosample.R` 文件头注释
+
+
+### `81_clhls_symptom_network_full/`
+
+#### `clhls_bridge`
+- 路径: `Blocks/81_clhls_symptom_network_full/05block_clhls_bridge.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/05block_clhls_bridge.R` 文件头注释
+
+#### `clhls_centrality`
+- 路径: `Blocks/81_clhls_symptom_network_full/03block_clhls_centrality.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/03block_clhls_centrality.R` 文件头注释
+
+#### `clhls_network`
+- 路径: `Blocks/81_clhls_symptom_network_full/02block_clhls_network.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/02block_clhls_network.R` 文件头注释
+
+#### `clhls_network_pub`
+- 路径: `Blocks/81_clhls_symptom_network_full/09block_clhls_network_pub.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/09block_clhls_network_pub.R` 文件头注释
+
+#### `clhls_sex`
+- 路径: `Blocks/81_clhls_symptom_network_full/06block_clhls_sex.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/06block_clhls_sex.R` 文件头注释
+
+#### `clhls_sex_nct`
+- 路径: `Blocks/81_clhls_symptom_network_full/07block_clhls_sex_nct.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/07block_clhls_sex_nct.R` 文件头注释
+
+#### `clhls_stability`
+- 路径: `Blocks/81_clhls_symptom_network_full/08block_clhls_stability.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/08block_clhls_stability.R` 文件头注释
+
+#### `clhls_symptom_ingest`
+- 路径: `Blocks/81_clhls_symptom_network_full/01block_clhls_symptom_ingest.R`
+- 用途: ##############################################################################
+- 典型位置: data_clean → column_mapping → imputation 之后。
+- config 节: `config$clhls_network`
+- 回读: `Blocks/81_clhls_symptom_network_full/01block_clhls_symptom_ingest.R` 文件头注释
+
+#### `clhls_weighted`
+- 路径: `Blocks/81_clhls_symptom_network_full/04block_clhls_weighted.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/81_clhls_symptom_network_full/04block_clhls_weighted.R` 文件头注释
+
 <!-- END AUTO:block_cards -->
 
 <!-- BEGIN AUTO:id_list -->
 ## 9. 全量 register_block 列表（AUTO）
 
-`ROC`, `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate`, `ai_reader_comparison`, `ai_reader_study`, `analysis_exclusion`, `attrition_flowchart`, `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_outcome_validate`, `bayesian_roc_calibration`, `bkmr_analysis`, `bkmr_fit`, `boxplot`, `cart_decision_path`, `cdc_wonder_fetch`, `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long`, `chord_diagram`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended`, `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `column_mapping`, `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, `competing_mixed_cox`, `competing_models_123`, `competing_models_123_death`, `competing_ph_calibration`, `competing_pub_export`, `competing_rcs`, `competing_stratified`, `competing_supp_tables`, `competing_trajectory_cluster`, `competing_tyg_compute`, `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_publication_tables`, `composite_risk_cox`, `correlation`, `cox_binary`, `cox_interaction`, `cox_ml_continuous_batch`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_subphenotype`, `cox_tertile`, `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, `crm_nhanes_ordinal_pub`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables`, `crm_nhanes_rcs_pub`, `crm_nhanes_subgroup_supp`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, `cross_lagged_frailty_transition`, `cross_lagged_km`, `cross_lagged_long_prepare`, `cross_lagged_mediation`, `cross_lagged_mediation_bootstrap`, `cross_lagged_meta_merge`, `cross_lagged_network`, `cross_lagged_network_bootstrap`, `cross_lagged_panel_network`, `cross_lagged_pooled_bind`, `cross_lagged_sensitivity`, `cross_lagged_subgroup`, `cross_lagged_subgroup_extended`, `cum_exposure_build`, `cutoff`, `data_clean`, `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency`, `diagnostic_vs_fracture`, `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize`, `dxa_qct_agreement`, `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change`, `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary`, `environment_characteristics`, `environment_lod_screen`, `environment_single_exposure_transform`, `environment_subgroup_search`, `environment_target_enrichment`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, `feature_selection_venn`, `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, `gallstone_roc_cal_boot`, `gallstone_subgroup_sex`, `gallstone_table1`, `gallstone_train_split`, `gallstone_uv_covariate_screen`, `glm_environment_quartile`, `imputation`, `index`, `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `iptw_association`, `iptw_balance`, `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub`, `km_binary`, `km_continuous_router`, `km_strata`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `lasso_environment_voc`, `lca`, `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_cum_index_bundle`, `logistic_environment_glm`, `logistic_quartile_clogit`, `logistic_quartile_glm`, `logistic_quartile_glm_rcs`, `logistic_quartile_iptw_weighted`, `logistic_quartile_nhanes_weighted`, `logistic_quartile_nhanes_weighted_rcs`, `logistic_quintile_clogit`, `logistic_quintile_glm`, `logistic_quintile_glm_rcs`, `logistic_rcs_cutoff_nhanes_weighted`, `logistic_sextile_clogit`, `logistic_sextile_glm`, `logistic_subphenotype`, `logistic_tertile_clogit`, `logistic_tertile_glm`, `logistic_tertile_glm_rcs`, `logistic_tertile_iptw_weighted`, `logistic_tertile_nhanes_weighted`, `logistic_tertile_nhanes_weighted_rcs`, `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons`, `ml_adaboost`, `ml_aggregate`, `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_gbmsurv`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_knn`, `ml_lightgbm`, `ml_logistic`, `ml_logistic_multi_index_bundle`, `ml_mboost_cox`, `ml_mlp`, `ml_models_bundle`, `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare`, `ml_realmlp`, `ml_realtabpfn_2_5`, `ml_rf`, `ml_ridge_cox`, `ml_rsf`, `ml_rsvm`, `ml_stratified_reference_profile`, `ml_survivalsvm`, `ml_tablcl_v2`, `ml_tabpfn`, `ml_tabpfnv2`, `ml_vif_train_test`, `ml_xgboost`, `ml_xgbsurv`, `modality_discordance_profile`, `modmed_data_prep`, `modmed_mediation_batch`, `modmed_moderated_mediation`, `modmed_moderation`, `modmed_simple_slopes`, `modmed_spearman`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample`, `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen`, `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess`, `multimorbidity_baseline_category`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sensitivity_suite`, `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized`, `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory`, `obj`, `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, `pamob_feasibility`, `pamob_flowchart`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_pub_export`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, `pamob_svy_nfl`, `pamob_traj_plot`, `performance_ml`, `plot_cutoff`, `plot_histogram`, `prepare_environment_dkd_data`, `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize`, `process_environment_data`, `prognosis_outcome_landmark`, `qgcomp_environment`, `rcs_ckm_strata_panels`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `remove_outliers`, `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified`, `sensitivity_cox_mice_bundle`, `sensitivity_scenarios`, `shap`, `shiny_dynnom`, `shiny_ml_app`, `simple_ROC`, `stepp_prognosis`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `subtype_viz`, `supplementary_ml`, `table1_by_class_ckm`, `table1_summary`, `table3_class_subgroup_forests`, `threshold_logistic`, `train_validation`, `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_chisq`, `trajectory_creatinine_pct`, `trajectory_dynpred`, `trajectory_dynpred_individual`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_piecewise_cox`, `trajectory_plot_gbmt`, `trajectory_plot_jlcm`, `trajectory_prepare_wide_rdata`, `trajectory_subgroup_class`, `trajectory_weibull_compare`, `trajectory_wide_to_long`, `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, `trf_sensitivity`, `trf_train_eval`, `trim_index_extreme`, `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, `tst_split`, `tst_summary_results`, `tst_timeseries`, `tst_train_eval`, `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting`, `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis`, `unsupervised_clustering_table`, `voc_correlation`, `wqs_environment`
+`ROC`, `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate`, `ai_reader_comparison`, `ai_reader_study`, `analysis_exclusion`, `attrition_flowchart`, `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_mediation_horizon`, `bayesian_outcome_validate`, `bayesian_roc_calibration`, `bkmr_analysis`, `bkmr_fit`, `boxplot`, `cart_decision_path`, `cdc_wonder_fetch`, `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long`, `chord_diagram`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended`, `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, `clhls_weighted`, `column_mapping`, `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, `competing_mixed_cox`, `competing_models_123`, `competing_models_123_death`, `competing_ph_calibration`, `competing_pub_export`, `competing_rcs`, `competing_stratified`, `competing_supp_tables`, `competing_trajectory_cluster`, `competing_tyg_compute`, `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_publication_tables`, `composite_risk_cox`, `correlation`, `cox_binary`, `cox_interaction`, `cox_ml_continuous_batch`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_subphenotype`, `cox_tertile`, `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, `crm_nhanes_ordinal_pub`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables`, `crm_nhanes_rcs_pub`, `crm_nhanes_subgroup_supp`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, `cross_lagged_frailty_transition`, `cross_lagged_km`, `cross_lagged_long_prepare`, `cross_lagged_mediation`, `cross_lagged_mediation_bootstrap`, `cross_lagged_meta_merge`, `cross_lagged_network`, `cross_lagged_network_bootstrap`, `cross_lagged_panel_network`, `cross_lagged_pooled_bind`, `cross_lagged_sensitivity`, `cross_lagged_subgroup`, `cross_lagged_subgroup_extended`, `cum_exposure_build`, `cutoff`, `data_clean`, `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, `dbpool_train_eval`, `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency`, `diagnostic_vs_fracture`, `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize`, `dxa_qct_agreement`, `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change`, `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample`, `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary`, `environment_characteristics`, `environment_lod_screen`, `environment_single_exposure_transform`, `environment_subgroup_search`, `environment_target_enrichment`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `ers_elastic_net`, `exwas_gastric_assemble`, `exwas_unweighted`, `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, `feature_selection_venn`, `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, `gallstone_roc_cal_boot`, `gallstone_subgroup_sex`, `gallstone_table1`, `gallstone_train_split`, `gallstone_uv_covariate_screen`, `glm_environment_quartile`, `horizon_roc_youden`, `imputation`, `index`, `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `iptw_association`, `iptw_balance`, `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub`, `km_binary`, `km_continuous_router`, `km_strata`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `lasso_environment_voc`, `lca`, `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_cum_index_bundle`, `logistic_environment_glm`, `logistic_quartile_clogit`, `logistic_quartile_glm`, `logistic_quartile_glm_rcs`, `logistic_quartile_iptw_weighted`, `logistic_quartile_nhanes_weighted`, `logistic_quartile_nhanes_weighted_rcs`, `logistic_quintile_clogit`, `logistic_quintile_glm`, `logistic_quintile_glm_rcs`, `logistic_rcs_cutoff_nhanes_weighted`, `logistic_sextile_clogit`, `logistic_sextile_glm`, `logistic_subphenotype`, `logistic_tertile_clogit`, `logistic_tertile_glm`, `logistic_tertile_glm_rcs`, `logistic_tertile_iptw_weighted`, `logistic_tertile_nhanes_weighted`, `logistic_tertile_nhanes_weighted_rcs`, `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons`, `ml_adaboost`, `ml_aggregate`, `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_gbdt`, `ml_gbmsurv`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_knn`, `ml_lightgbm`, `ml_logistic`, `ml_logistic_multi_index_bundle`, `ml_mboost_cox`, `ml_mlp`, `ml_models_bundle`, `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare`, `ml_naive_bayes`, `ml_realmlp`, `ml_realtabpfn_2_5`, `ml_rf`, `ml_ridge_cox`, `ml_rsf`, `ml_rsvm`, `ml_stratified_reference_profile`, `ml_survivalsvm`, `ml_tablcl_v2`, `ml_tabpfn`, `ml_tabpfnv2`, `ml_topsis_fusion`, `ml_vif_train_test`, `ml_xgboost`, `ml_xgbsurv`, `modality_discordance_profile`, `modmed_data_prep`, `modmed_mediation_batch`, `modmed_moderated_mediation`, `modmed_moderation`, `modmed_simple_slopes`, `modmed_spearman`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample`, `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen`, `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess`, `multimorbidity_baseline_category`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sensitivity_suite`, `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized`, `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory`, `obj`, `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, `pamob_feasibility`, `pamob_flowchart`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_pub_export`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, `pamob_svy_nfl`, `pamob_traj_plot`, `performance_ml`, `plot_cutoff`, `plot_histogram`, `prepare_environment_dkd_data`, `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize`, `process_environment_data`, `prognosis_outcome_landmark`, `qgcomp_environment`, `rcs_ckm_strata_panels`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `remove_outliers`, `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified`, `sensitivity_cox_mice_bundle`, `sensitivity_scenarios`, `shap`, `shiny_dynnom`, `shiny_ml_app`, `simple_ROC`, `skew_log1p`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `stepp_prognosis`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `subtype_viz`, `supplementary_ml`, `survival_fixed_horizon`, `table1_by_class_ckm`, `table1_summary`, `table3_class_subgroup_forests`, `threshold_logistic`, `train_validation`, `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_chisq`, `trajectory_creatinine_pct`, `trajectory_dynpred`, `trajectory_dynpred_individual`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_piecewise_cox`, `trajectory_plot_gbmt`, `trajectory_plot_jlcm`, `trajectory_prepare_wide_rdata`, `trajectory_subgroup_class`, `trajectory_weibull_compare`, `trajectory_wide_to_long`, `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, `trf_sensitivity`, `trf_train_eval`, `trim_index_extreme`, `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, `tst_split`, `tst_summary_results`, `tst_timeseries`, `tst_train_eval`, `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting`, `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis`, `unsupervised_clustering_table`, `voc_correlation`, `wqs_environment`, `wqs_exwas_fixed`
 
 <!-- END AUTO:id_list -->

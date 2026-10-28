@@ -66,14 +66,31 @@ ref_assoc_dependencies_ok <- function() {
 # --------------------------------------------------------------------------
 
 #' SOFA 分层标签（默认三层 0–4 / 5–10 / ≥11），与 ml_stratum_spec_sofa() 对齐。
+#' 是否仅 Overall（不做 SOFA 分层）。cutoff=NULL / integer(0) / "overall"。
+.ref_assoc_overall_only <- function(cutoff) {
+  if (is.null(cutoff)) return(TRUE)
+  if (is.character(cutoff)) {
+    return(identical(tolower(trimws(as.character(cutoff)[1L])), "overall"))
+  }
+  br <- suppressWarnings(as.integer(as.numeric(cutoff)))
+  br <- br[!is.na(br)]
+  !length(br)
+}
+
 #' cutoff 参数现承载递增整数切点向量（breaks）；单值等价旧 2 层口径。
+#' overall-only 时返回 integer(0)（调用方须先判 .ref_assoc_overall_only）。
 .ref_assoc_breaks <- function(cutoff) {
+  if (.ref_assoc_overall_only(cutoff)) return(integer(0))
   br <- suppressWarnings(as.integer(as.numeric(cutoff)))
   br <- br[!is.na(br)]
   if (!length(br)) c(4L, 10L) else unique(sort(br))
 }
 
 ref_assoc_sofa_layer <- function(data, cutoff = c(4L, 10L)) {
+  n <- if (is.data.frame(data)) nrow(data) else length(data)
+  if (.ref_assoc_overall_only(cutoff)) {
+    return(factor(rep("Overall", n), levels = "Overall"))
+  }
   spec <- ml_stratum_spec_sofa(breaks = .ref_assoc_breaks(cutoff))
   value <- suppressWarnings(as.numeric(as.character(data[[spec$variable]])))
   out <- rep(NA_character_, length(value))
@@ -84,7 +101,9 @@ ref_assoc_sofa_layer <- function(data, cutoff = c(4L, 10L)) {
 }
 
 #' Overall + 各 SOFA 层的标签顺序（图/表统一使用）。
+#' overall-only 时仅返回 "Overall"。
 ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
+  if (.ref_assoc_overall_only(cutoff)) return("Overall")
   spec <- ml_stratum_spec_sofa(breaks = .ref_assoc_breaks(cutoff))
   c("Overall", vapply(spec$strata, function(s) s$label, character(1)))
 }
@@ -123,6 +142,9 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
 }
 
 .ref_assoc_layer_masks <- function(d, cutoff = c(4L, 10L)) {
+  if (.ref_assoc_overall_only(cutoff)) {
+    return(list(Overall = rep(TRUE, nrow(d))))
+  }
   spec <- ml_stratum_spec_sofa(breaks = .ref_assoc_breaks(cutoff))
   value <- suppressWarnings(as.numeric(as.character(d[[spec$variable]])))
   masks <- list(Overall = rep(TRUE, nrow(d)))
@@ -171,6 +193,28 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
   if ("Model1 Age+Gender" %in% nms) return("Model1 Age+Gender")
   if ("Model2" %in% nms) return("Model2")
   nms[[1L]]
+}
+
+#' Resolve literature Model1–3 covariate lists for a db_frame.
+#' Prefer explicit `db$models`; else read locked factors from `db$assoc_ctx`.
+.ref_assoc_resolve_db_models <- function(db, data = NULL) {
+  if (!is.null(db$models) && length(db$models)) return(db$models)
+  ctx <- db$assoc_ctx
+  nm <- if (is.data.frame(data)) names(data) else character(0)
+  pick <- function(x) {
+    x <- unique(as.character(x %||% character(0)))
+    x <- x[nzchar(x)]
+    if (length(nm)) x <- intersect(x, nm)
+    x
+  }
+  sex <- intersect(c("Gender", "Sex"), if (length(nm)) nm else c("Gender", "Sex"))
+  m_agesex <- pick(c("Age", if (length(sex)) sex[[1L]] else "Gender"))
+  if (!length(m_agesex)) m_agesex <- "Age"
+  m3 <- pick(ctx$results$assoc_model3_factors %||% ctx$results$Model3Factors)
+  if (!length(m3)) m3 <- pick(ctx$results$assoc_model2_factors)
+  if (!length(m3)) m3 <- m_agesex
+  m3 <- unique(c(m_agesex, setdiff(m3, m_agesex)))
+  list(Model1 = character(0), Model2 = m_agesex, Model3 = m3)
 }
 
 #' Fully adjusted model key (literature Model3 or legacy Model2).
@@ -395,7 +439,117 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
                        data = dd)$pvalue,
     error = function(e) NA_real_
   )
-  list(status = "estimable", curve = sdf, p = p)
+  list(status = "estimable", curve = sdf, p = p, fit = fit, data = dd)
+}
+
+# 参考期刊常见 KM：顶栏图例（指标名 + T1/T2/T3）、蓝/红/绿 + 实/点/虚线、
+# 左下角 p、classic 白底；不做双库挤条带。
+.ref_assoc_km_p_lab <- function(p) {
+  if (is.na(p) || !is.finite(p)) return("p = NE")
+  # 期刊常见口径：极小 p 写 p < 0.001（勿用科学计数挤在左下角）
+  if (p < 0.001) return("p < 0.001")
+  sprintf("p = %.3f", p)
+}
+
+.ref_assoc_km_pretty_one <- function(curve, p, legend_title,
+                                     xmax = NULL, y_floor = NULL) {
+  if (is.null(curve) || !nrow(curve)) return(NULL)
+  lv <- unique(as.character(curve$grp))
+  nums <- suppressWarnings(as.numeric(sub(".*?([0-9]+)$", "\\1", lv)))
+  ord <- if (!anyNA(nums)) lv[order(nums)] else sort(lv)
+  # Joint Group1–4 → 图例缩写 G1–G4，避免顶栏挤裁
+  lab_map <- stats::setNames(ord, ord)
+  g_hit <- grepl("^Group[0-9]+$", ord)
+  if (any(g_hit)) {
+    lab_map[g_hit] <- sub("^Group", "G", ord[g_hit])
+  }
+  curve$grp <- factor(as.character(curve$grp), levels = ord)
+  # 每组补 t=0, S=1，阶梯从左上角起
+  origin <- do.call(rbind, lapply(levels(curve$grp), function(g) {
+    row0 <- curve[1, , drop = FALSE]
+    row0$time <- 0
+    row0$surv <- 1
+    if ("upper" %in% names(row0)) row0$upper <- 1
+    if ("lower" %in% names(row0)) row0$lower <- 1
+    if ("n.risk" %in% names(row0)) row0$n.risk <- NA_integer_
+    row0$grp <- g
+    row0
+  }))
+  origin$grp <- factor(as.character(origin$grp), levels = levels(curve$grp))
+  curve <- rbind(origin, curve)
+  n_g <- nlevels(curve$grp)
+  pal <- if (n_g <= 3L) {
+    c("#2F5F8A", "#C23B3B", "#3E9B4A")[seq_len(n_g)]
+  } else if (n_g == 4L) {
+    c("#2F5F8A", "#C23B3B", "#3E9B4A", "#D4A017")
+  } else {
+    grDevices::hcl.colors(n_g, "Dark 3")
+  }
+  lty <- if (n_g <= 3L) {
+    c("solid", "dotted", "dashed")[seq_len(n_g)]
+  } else if (n_g == 4L) {
+    c("solid", "dotted", "dashed", "dotdash")
+  } else {
+    rep(c("solid", "dashed", "dotted", "dotdash"), length.out = n_g)
+  }
+  if (is.null(xmax) || !is.finite(xmax)) {
+    xmax <- max(curve$time, na.rm = TRUE)
+  }
+  ymin <- if (!is.null(y_floor) && is.finite(y_floor)) y_floor else {
+    floor(min(curve$surv, na.rm = TRUE) * 10) / 10
+  }
+  ymin <- max(0, min(ymin, 0.5))
+  p_lab <- .ref_assoc_km_p_lab(p)
+  ggplot2::ggplot(
+    curve,
+    ggplot2::aes(x = time, y = surv, colour = grp, linetype = grp)
+  ) +
+    ggplot2::geom_step(linewidth = 0.85, lineend = "round") +
+    ggplot2::scale_colour_manual(
+      values = pal, breaks = levels(curve$grp),
+      labels = unname(lab_map[levels(curve$grp)]),
+      name = legend_title
+    ) +
+    ggplot2::scale_linetype_manual(
+      values = lty, breaks = levels(curve$grp),
+      labels = unname(lab_map[levels(curve$grp)]),
+      name = legend_title
+    ) +
+    ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(ymin, 1),
+                             expand = TRUE, clip = "off") +
+    ggplot2::scale_x_continuous(breaks = pretty(c(0, xmax), n = 4)) +
+    ggplot2::scale_y_continuous(
+      breaks = seq(ymin, 1, by = if ((1 - ymin) > 0.4) 0.25 else 0.1)
+    ) +
+    ggplot2::labs(
+      x = "Time (days)", y = "Survival Probability",
+      subtitle = p_lab
+    ) +
+    ggplot2::theme_classic(base_size = 11, base_family = "sans") +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.title = ggplot2::element_text(size = 11, face = "bold"),
+      legend.text = ggplot2::element_text(size = 9.5),
+      legend.key.width = grid::unit(0.95, "cm"),
+      legend.key.height = grid::unit(0.32, "cm"),
+      legend.margin = ggplot2::margin(2, 0, 4, 0),
+      legend.box.margin = ggplot2::margin(0, 0, 2, 0),
+      legend.box.spacing = grid::unit(4, "pt"),
+      plot.subtitle = ggplot2::element_text(
+        size = 9.5, colour = "grey20", hjust = 0,
+        margin = ggplot2::margin(b = 4)
+      ),
+      axis.title = ggplot2::element_text(size = 11),
+      axis.text = ggplot2::element_text(size = 10, colour = "grey20"),
+      axis.line = ggplot2::element_line(linewidth = 0.45, colour = "grey20"),
+      axis.ticks = ggplot2::element_line(linewidth = 0.35, colour = "grey20"),
+      plot.margin = ggplot2::margin(10, 16, 10, 10)
+    ) +
+    ggplot2::guides(
+      colour = ggplot2::guide_legend(title.position = "left", nrow = 1,
+                                     override.aes = list(linewidth = 0.95)),
+      linetype = ggplot2::guide_legend(title.position = "left", nrow = 1)
+    )
 }
 
 ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
@@ -405,12 +559,17 @@ ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
   curves <- list()
   k <- 0L
   cols <- list(
-    list(column = ia, name = paste0(ia, " tertile")),
-    list(column = ib, name = paste0(ib, " tertile")),
-    list(column = "Joint", name = paste0(ilab, " joint"))
+    list(column = ia, name = paste0(ia, " tertile"), legend = ia),
+    list(column = ib, name = paste0(ib, " tertile"), legend = ib),
+    list(column = "Joint", name = paste0(ilab, " joint"),
+         legend = paste0(ilab))
   )
   sofa_lv <- ref_assoc_layer_labels(cutoff)
-  sofa_lv <- sofa_lv[sofa_lv != "Overall"]
+  # overall-only：保留 Overall；有 SOFA 层时 KM 只画各 SOFA 层（不含 Overall 重复）
+  if (!.ref_assoc_overall_only(cutoff)) {
+    sofa_lv <- sofa_lv[sofa_lv != "Overall"]
+  }
+  overall_pretty <- isTRUE(.ref_assoc_overall_only(cutoff))
   for (db in db_frames) {
     d <- .ref_assoc_event01(data.frame(db$data), "fustatus", db$outcome_cfg)
     d$event <- d$fustatus
@@ -422,8 +581,12 @@ ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
     group_of <- stats::setNames(c(paste0(ia, "_T"), paste0(ib, "_T"), "Joint"),
                                 c(ia, ib, "Joint"))
     for (ri in seq_along(sofa_lv)) {
-      mask <- !is.na(as.character(d$SOFA_layer)) &
-        as.character(d$SOFA_layer) == sofa_lv[[ri]]
+      mask <- if (overall_pretty) {
+        rep(TRUE, nrow(d))
+      } else {
+        !is.na(as.character(d$SOFA_layer)) &
+          as.character(d$SOFA_layer) == sofa_lv[[ri]]
+      }
       for (col in cols) {
         k <- k + 1L
         res <- .ref_assoc_km_panel(d[mask, , drop = FALSE],
@@ -431,8 +594,12 @@ ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
         panels[[k]] <- data.frame(
           panel = k, row = ri, column = col$column, database = db$name,
           stratum = sofa_lv[[ri]],
-          panel_title = paste0(db$short, " ", sofa_lv[[ri]], " | ",
-                               col$name),
+          panel_title = if (overall_pretty) {
+            col$legend
+          } else {
+            paste0(db$short, " ", sofa_lv[[ri]], " | ", col$name)
+          },
+          legend_title = col$legend,
           logrank_p = res$p, status = res$status, n = sum(mask),
           stringsAsFactors = FALSE
         )
@@ -449,40 +616,92 @@ ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
   curve <- if (length(curves)) do.call(rbind, curves) else NULL
   path <- NULL
   if (!is.null(out_pdf) && !is.null(curve)) {
-    strip <- paste0(
-      panels$panel_title, "\nLog-rank P = ",
-      ifelse(is.na(panels$logrank_p), "NE",
-             pub_format_p_cell(panels$logrank_p))
-    )
-    strip_df <- data.frame(panel = panels$panel, strip = strip,
-                           stringsAsFactors = FALSE)
-    # 按构建顺序固定 facet（主库在前、SOFA 0-4→≥11、A|B|Joint），禁字母重排
-    strip_df <- strip_df[order(strip_df$panel), , drop = FALSE]
-    curve <- merge(curve, strip_df, by = "panel", all.x = TRUE, sort = FALSE)
-    curve$strip <- factor(curve$strip, levels = strip_df$strip)
-    plt <- ggplot2::ggplot(
-      curve,
-      ggplot2::aes(x = time, y = surv, colour = grp, fill = grp)
-    ) +
-      ggplot2::geom_ribbon(
-        ggplot2::aes(ymin = lower, ymax = upper),
-        alpha = 0.15, linewidth = 0, na.rm = TRUE
-      ) +
-      ggplot2::geom_step(linewidth = 0.6) +
-      ggplot2::facet_wrap(~strip, ncol = 3, scales = "free") +
-      ggplot2::scale_y_continuous(limits = c(0, 1), expand = c(0.02, 0)) +
-      ggplot2::scale_x_continuous(expand = c(0, 0)) +
-      ggplot2::labs(x = "Days since ICU admission",
-                    y = "Survival probability", colour = NULL, fill = NULL) +
-      ggplot2::theme_bw(base_size = 8) +
-      ggplot2::theme(legend.position = "bottom",
-                     strip.text = ggplot2::element_text(size = 6),
-                     panel.grid.minor = ggplot2::element_blank())
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-    n_rows <- ceiling(nrow(panels) / 3)
-    pipeline_ggsave_pdf(path, plt, width = 10,
-                        height = max(10, 2.1 * n_rows + 2))
+    if (overall_pretty) {
+      # 主库优先；若传入多库只画第一库（发表 Fig2 不再拼 eICU）
+      keep_db <- panels$database[[1L]]
+      panels_use <- panels[panels$database == keep_db, , drop = FALSE]
+      xmax <- max(curve$time[curve$panel %in% panels_use$panel], na.rm = TRUE)
+      # 统一 y 下界，三面板可比
+      y_floor <- max(
+        0,
+        floor(min(curve$surv[curve$panel %in% panels_use$panel],
+                  na.rm = TRUE) * 10) / 10 - 0.1
+      )
+      y_floor <- min(y_floor, 0.5)
+      plts <- lapply(seq_len(nrow(panels_use)), function(i) {
+        pr <- panels_use[i, , drop = FALSE]
+        cv <- curve[curve$panel == pr$panel, , drop = FALSE]
+        .ref_assoc_km_pretty_one(
+          cv, pr$logrank_p, legend_title = pr$legend_title,
+          xmax = xmax, y_floor = y_floor
+        )
+      })
+      plts <- Filter(Negate(is.null), plts)
+      if (requireNamespace("patchwork", quietly = TRUE) && length(plts)) {
+        plt <- patchwork::wrap_plots(plts, nrow = 1) +
+          patchwork::plot_annotation(
+            theme = ggplot2::theme(plot.margin = ggplot2::margin(4, 4, 4, 4))
+          )
+      } else {
+        # 无 patchwork 时退回横向 facet，但仍用简化 strip
+        curve2 <- curve[curve$panel %in% panels_use$panel, , drop = FALSE]
+        strip_df <- data.frame(
+          panel = panels_use$panel,
+          strip = panels_use$legend_title,
+          stringsAsFactors = FALSE
+        )
+        curve2 <- merge(curve2, strip_df, by = "panel", all.x = TRUE,
+                        sort = FALSE)
+        curve2$strip <- factor(curve2$strip, levels = strip_df$strip)
+        plt <- ggplot2::ggplot(
+          curve2,
+          ggplot2::aes(x = time, y = surv, colour = grp, linetype = grp)
+        ) +
+          ggplot2::geom_step(linewidth = 0.8) +
+          ggplot2::facet_wrap(~strip, nrow = 1) +
+          ggplot2::coord_cartesian(ylim = c(y_floor, 1), expand = FALSE) +
+          ggplot2::labs(x = "Time (days)", y = "Survival Probability",
+                        colour = NULL, linetype = NULL) +
+          ggplot2::theme_classic(base_size = 11) +
+          ggplot2::theme(legend.position = "top")
+      }
+      pipeline_ggsave_pdf(path, plt, width = 13.6, height = 5.0)
+    } else {
+      strip <- paste0(
+        panels$panel_title, "\nLog-rank P = ",
+        ifelse(is.na(panels$logrank_p), "NE",
+               pub_format_p_cell(panels$logrank_p))
+      )
+      strip_df <- data.frame(panel = panels$panel, strip = strip,
+                             stringsAsFactors = FALSE)
+      # 按构建顺序固定 facet（主库在前、SOFA 0-4→≥11、A|B|Joint），禁字母重排
+      strip_df <- strip_df[order(strip_df$panel), , drop = FALSE]
+      curve <- merge(curve, strip_df, by = "panel", all.x = TRUE, sort = FALSE)
+      curve$strip <- factor(curve$strip, levels = strip_df$strip)
+      plt <- ggplot2::ggplot(
+        curve,
+        ggplot2::aes(x = time, y = surv, colour = grp, fill = grp)
+      ) +
+        ggplot2::geom_ribbon(
+          ggplot2::aes(ymin = lower, ymax = upper),
+          alpha = 0.15, linewidth = 0, na.rm = TRUE
+        ) +
+        ggplot2::geom_step(linewidth = 0.6) +
+        ggplot2::facet_wrap(~strip, ncol = 3, scales = "free") +
+        ggplot2::scale_y_continuous(limits = c(0, 1), expand = c(0.02, 0)) +
+        ggplot2::scale_x_continuous(expand = c(0, 0)) +
+        ggplot2::labs(x = "Days since ICU admission",
+                      y = "Survival probability", colour = NULL, fill = NULL) +
+        ggplot2::theme_bw(base_size = 8) +
+        ggplot2::theme(legend.position = "bottom",
+                       strip.text = ggplot2::element_text(size = 6),
+                       panel.grid.minor = ggplot2::element_blank())
+      n_rows <- ceiling(nrow(panels) / 3)
+      pipeline_ggsave_pdf(path, plt, width = 10,
+                          height = max(10, 2.1 * n_rows + 2))
+    }
   }
   list(panels = panels, curve = curve, path = path)
 }
@@ -500,13 +719,19 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
   for (db in db_frames) {
     d <- data.frame(db$data)
     d$SOFA_layer <- ref_assoc_sofa_layer(d, cutoff)
-    keep_cols <- intersect(c("futime", "fustatus", ia, ib, "SOFA_layer",
-                             "Age", "Gender"), names(d))
+    models_db <- .ref_assoc_resolve_db_models(db, d)
+    rcs_covs <- as.character(models_db$Model3 %||% c("Age", "Gender"))
+    if (!length(rcs_covs)) rcs_covs <- intersect(c("Age", "Gender"), names(d))
+    keep_cols <- intersect(
+      c("futime", "fustatus", ia, ib, "SOFA_layer", rcs_covs),
+      names(d)
+    )
     d <- d[!is.na(d$SOFA_layer), keep_cols, drop = FALSE]
+    rcs_covs <- intersect(rcs_covs, names(d))
     for (index in c(ia, ib)) {
       res <- reference_grouped_rcs(
         data = d, time = "futime", event = "fustatus", index = index,
-        stratum = "SOFA_layer", covariates = c("Age", "Gender"),
+        stratum = "SOFA_layer", covariates = rcs_covs,
         locked_spec = db$rcs_locks[[index]], outcome_cfg = db$outcome_cfg,
         grid_n = grid_n
       )
@@ -526,38 +751,38 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
   rownames(curve) <- NULL
   path <- NULL
   if (!is.null(out_pdf)) {
+    # P 标注放在 facet strip（区外），避免图内 geom_text 与曲线/刻度碰撞
     ann <- summary
-    ann$lab <- paste0(
-      ann$stratum, ": P for overall = ", pub_format_p_cell(ann$p_overall),
-      ", P for nonlinear = ", pub_format_p_cell(ann$p_nonlinear)
+    ann$p_lab <- paste0(
+      "P for overall = ", pub_format_p_cell(ann$p_overall),
+      "; P for nonlinear = ", pub_format_p_cell(ann$p_nonlinear)
     )
-    lab_df <- do.call(rbind, lapply(
+    strip_df <- do.call(rbind, lapply(
       split(ann, list(ann$database, ann$index), drop = TRUE),
       function(a) {
-        idx <- a$index[[1L]]; dbn <- a$database[[1L]]
-        cv <- curve[curve$database == dbn & curve$index == idx, , drop = FALSE]
-        xv <- if (nrow(cv)) min(cv$value, na.rm = TRUE) else 0
-        yh <- if (nrow(cv)) {
-          max(c(cv$conf_high, cv$hr), na.rm = TRUE)
+        idx <- as.character(a$index[[1L]])
+        dbn <- as.character(a$database[[1L]])
+        lab <- if (all(as.character(a$stratum) %in% c("Overall", "overall")) ||
+                     nrow(a) == 1L) {
+          paste0(idx, "\n", a$p_lab[[1L]])
         } else {
-          2
+          paste0(idx, "\n", paste0(a$stratum, ": ", a$p_lab, collapse = "\n"))
         }
-        data.frame(
-          database = dbn, index = idx,
-          lab = paste0(a$lab, collapse = "\n"),
-          value = xv, hr = yh,
-          stringsAsFactors = FALSE
-        )
+        data.frame(database = dbn, index = idx, strip = lab,
+                   stringsAsFactors = FALSE)
       }
     ))
+    curve <- merge(curve, strip_df, by = c("database", "index"), all.x = TRUE,
+                   sort = FALSE)
     curve$database <- .ref_assoc_factor_db(curve$database, short = FALSE)
-    lab_df$database <- .ref_assoc_factor_db(lab_df$database, short = FALSE)
-    # 列顺序：指标 A | B（与原文 SHR | GV 一致）
-    curve$index <- factor(curve$index, levels = c(ia, ib))
-    lab_df$index <- factor(lab_df$index, levels = c(ia, ib))
-    # 图面显示名用短名
     levels(curve$database) <- .ref_assoc_db_levels(short = TRUE)
-    levels(lab_df$database) <- .ref_assoc_db_levels(short = TRUE)
+    curve$index <- factor(as.character(curve$index), levels = c(ia, ib))
+    n_db <- length(unique(as.character(curve$database)))
+    single_db <- n_db <= 1L
+    overall_only <- isTRUE(.ref_assoc_overall_only(cutoff))
+    strip_lv <- unique(as.character(curve$strip))
+    strip_lv <- strip_lv[order(match(sub("\n.*$", "", strip_lv), c(ia, ib)))]
+    curve$strip <- factor(as.character(curve$strip), levels = strip_lv)
     plt <- ggplot2::ggplot(
       curve,
       ggplot2::aes(x = value, y = hr, colour = stratum, fill = stratum)
@@ -566,28 +791,51 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
         ggplot2::aes(ymin = conf_low, ymax = conf_high),
         alpha = 0.15, linewidth = 0
       ) +
-      ggplot2::geom_line(linewidth = 0.7) +
+      ggplot2::geom_line(linewidth = 0.85) +
       ggplot2::geom_hline(yintercept = 1, linetype = 2, colour = "grey40",
-                          linewidth = 0.3) +
-      ggplot2::facet_grid(database ~ index, scales = "free_x") +
-      ggplot2::geom_text(
-        data = lab_df,
-        ggplot2::aes(x = value, y = hr, label = lab),
-        hjust = 0, vjust = 1.05, size = 1.9, inherit.aes = FALSE,
-        show.legend = FALSE
+                          linewidth = 0.35) +
+      ggplot2::scale_x_continuous(
+        labels = scales::label_comma(),
+        breaks = scales::pretty_breaks(n = 4L)
       ) +
-      ggplot2::scale_x_continuous(labels = scales::label_comma()) +
-      ggplot2::coord_cartesian(ylim = c(0.4, NA)) +
-      ggplot2::labs(x = "Exposure", y = "Adjusted HR (95% CI)",
-                    colour = NULL, fill = NULL,
-                    title = paste0("Figure 3. Restricted cubic splines for ", ia, " and ", ib)) +
-      ggplot2::theme_bw(base_size = 8) +
-      ggplot2::theme(legend.position = "bottom",
-                     panel.grid.minor = ggplot2::element_blank(),
-                     plot.title = ggplot2::element_text(size = 9, face = "bold"))
+      ggplot2::coord_cartesian(ylim = c(0.4, NA), expand = TRUE, clip = "off") +
+      ggplot2::labs(
+        x = "Exposure", y = "Adjusted HR (95% CI)",
+        colour = NULL, fill = NULL,
+        title = paste0("Figure 3. Restricted cubic splines for ", ia,
+                       " and ", ib),
+        subtitle = "Model 3 covariates (same set as Table 2 / Table S4); P values in panel strips"
+      ) +
+      ggplot2::theme_classic(base_size = if (single_db) 11 else 8) +
+      ggplot2::theme(
+        legend.position = if (overall_only) "none" else "bottom",
+        panel.grid.minor = ggplot2::element_blank(),
+        plot.title = ggplot2::element_text(size = if (single_db) 11 else 9,
+                                           face = "bold"),
+        plot.subtitle = ggplot2::element_text(
+          size = if (single_db) 8.5 else 7, colour = "grey35",
+          margin = ggplot2::margin(b = 6)
+        ),
+        plot.margin = ggplot2::margin(10, 14, 10, 10),
+        strip.background = ggplot2::element_blank(),
+        strip.text = ggplot2::element_text(
+          size = if (single_db) 9 else 7.5, face = "bold",
+          margin = ggplot2::margin(b = 6)
+        ),
+        panel.spacing = grid::unit(1.1, "lines")
+      )
+    plt <- if (single_db) {
+      plt + ggplot2::facet_wrap(~strip, ncol = 2L, scales = "free_x")
+    } else {
+      plt + ggplot2::facet_wrap(~strip, ncol = 2L, scales = "free_x")
+    }
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-    pipeline_ggsave_pdf(path, plt, width = 9, height = 8)
+    pipeline_ggsave_pdf(
+      path, plt,
+      width = if (single_db) 10.5 else 9.5,
+      height = if (single_db) 5.2 else 8.4
+    )
   }
   list(summary = summary, curve = curve, path = path)
 }
@@ -702,30 +950,69 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
     levels(curve$database) <- .ref_assoc_db_levels(short = TRUE)
     curve$stratum <- factor(curve$stratum, levels = stratum_order)
     curve$predictor <- factor(curve$predictor, levels = pred_lv)
+    overall_only <- length(stratum_order) == 1L &&
+      identical(as.character(stratum_order), "Overall")
+    n_db <- length(unique(as.character(curve$database)))
+    single_db <- n_db <= 1L
     plt <- ggplot2::ggplot(
       curve, ggplot2::aes(x = fpr, y = tpr, colour = predictor)
     ) +
-      ggplot2::geom_abline(linetype = 2, colour = "grey50",
-                           linewidth = 0.3) +
-      ggplot2::geom_line(linewidth = 0.6) +
-      ggplot2::facet_grid(database ~ stratum) +
-      ggplot2::scale_colour_discrete(breaks = pred_lv, labels = pred_labs) +
-      ggplot2::scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-      ggplot2::scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
-      ggplot2::labs(x = "1 - Specificity", y = "Sensitivity", colour = NULL,
-                    title = paste0(
-                      "Figure 4. ROC of ", ia, ", ", ib, ", ",
-                      .ref_joint_lab(),
-                      " and clinical scores (Overall and SOFA strata)"
-                    )) +
-      ggplot2::theme_bw(base_size = 8) +
-      ggplot2::theme(legend.position = "bottom",
-                     panel.grid.minor = ggplot2::element_blank(),
-                     plot.title = ggplot2::element_text(size = 8, face = "bold"))
+      ggplot2::geom_abline(linetype = 2, colour = "grey55",
+                           linewidth = 0.35) +
+      ggplot2::geom_line(linewidth = 0.85) +
+      ggplot2::scale_colour_brewer(
+        palette = "Dark2", breaks = pred_lv, labels = pred_labs
+      ) +
+      ggplot2::coord_equal(xlim = c(0, 1), ylim = c(0, 1), expand = TRUE,
+                           clip = "off") +
+      ggplot2::labs(
+        x = "1 - Specificity", y = "Sensitivity", colour = NULL,
+        title = paste0("Figure 4. ROC of ", ia, ", ", ib, ", ",
+                       .ref_joint_lab(), " and clinical scores"),
+        subtitle = if (overall_only) {
+          "Overall cohort, 28-day all-cause mortality (AUC in Table S5)"
+        } else {
+          "Overall and SOFA strata, 28-day all-cause mortality (AUC in Table S5)"
+        }
+      ) +
+      ggplot2::theme_classic(base_size = if (single_db) 11 else 8) +
+      ggplot2::theme(
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.box = "vertical",
+        legend.spacing.y = grid::unit(4, "pt"),
+        legend.key.width = grid::unit(1.05, "cm"),
+        legend.margin = ggplot2::margin(6, 0, 0, 0),
+        panel.grid.minor = ggplot2::element_blank(),
+        plot.title = ggplot2::element_text(
+          size = if (single_db) 11 else 8, face = "bold",
+          hjust = 0, margin = ggplot2::margin(b = 2)
+        ),
+        plot.subtitle = ggplot2::element_text(
+          size = if (single_db) 9 else 7, colour = "grey30",
+          margin = ggplot2::margin(b = 6)
+        ),
+        plot.margin = ggplot2::margin(10, 14, 12, 10),
+        strip.background = ggplot2::element_blank(),
+        strip.text = ggplot2::element_text(face = "bold")
+      ) +
+      ggplot2::guides(colour = ggplot2::guide_legend(nrow = 2L, byrow = TRUE))
+    if (!single_db) {
+      plt <- if (overall_only) {
+        plt + ggplot2::facet_wrap(~database, ncol = 2)
+      } else {
+        plt + ggplot2::facet_grid(database ~ stratum)
+      }
+    } else if (!overall_only) {
+      plt <- plt + ggplot2::facet_wrap(~stratum, ncol = 2)
+    }
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-    # 2 行(库) × 4 列(Overall+三层) = 8 面板
-    pipeline_ggsave_pdf(path, plt, width = 12, height = 7)
+    pipeline_ggsave_pdf(
+      path, plt,
+      width = if (single_db && overall_only) 7.4 else if (overall_only) 8.4 else 12,
+      height = if (single_db && overall_only) 7.0 else if (overall_only) 5.0 else 7.4
+    )
   }
   list(auc = auc, curve = curve, path = path)
 }
@@ -841,12 +1128,17 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     out
   }
 
-  res <- rbind(
+  res_parts <- list(
     fit_rows("MIMIC_IV", .ref_assoc_event01(mimic_analysis, "fustatus",
-                                            outcome_cfg)),
-    fit_rows("eICU", .ref_assoc_event01(eicu_analysis, "fustatus",
-                                        outcome_cfg))
+                                            outcome_cfg))
   )
+  if (!is.null(eicu_analysis) && is.data.frame(eicu_analysis) &&
+      nrow(eicu_analysis) > 0L) {
+    res_parts[[length(res_parts) + 1L]] <- fit_rows(
+      "eICU", .ref_assoc_event01(eicu_analysis, "fustatus", outcome_cfg)
+    )
+  }
+  res <- do.call(rbind, res_parts)
   res$segment <- factor(res$segment, levels = c("before", "after", "all"))
 
   # ---- Figure 5 plot: 原文式单轴联合 landmark KM ----
@@ -967,10 +1259,12 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
 
     curve_rows <- list()
     p_ann <- list()
-    for (src in list(
-      build_km_src("MIMIC-IV", mimic_analysis),
-      build_km_src("eICU", eicu_analysis)
-    )) {
+    src_list <- list(build_km_src("MIMIC-IV", mimic_analysis))
+    if (!is.null(eicu_analysis) && is.data.frame(eicu_analysis) &&
+        nrow(eicu_analysis) > 0L) {
+      src_list[[length(src_list) + 1L]] <- build_km_src("eICU", eicu_analysis)
+    }
+    for (src in src_list) {
       d <- src$data
       if (!nrow(d)) next
       # Before: 超过 landmark 删失
@@ -1002,8 +1296,9 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     cdf <- if (length(curve_rows)) do.call(rbind, curve_rows) else NULL
     if (!is.null(cdf) && nrow(cdf)) {
       cdf$group <- factor(as.character(cdf$group), levels = grp_levels)
-      cdf$database <- factor(as.character(cdf$database),
-                             levels = c("MIMIC-IV", "eICU"))
+      db_lv <- intersect(c("MIMIC-IV", "eICU"), unique(as.character(cdf$database)))
+      cdf$database <- factor(as.character(cdf$database), levels = db_lv)
+      single_db <- length(db_lv) <= 1L
       ann <- do.call(rbind, p_ann)
       ann$lab <- paste0(
         "P = ", ifelse(is.na(ann$p_lr), "NE", pub_format_p_cell(ann$p_lr))
@@ -1017,17 +1312,16 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
       plt <- ggplot2::ggplot(
         cdf, ggplot2::aes(x = time, y = surv, colour = group)
       ) +
-        ggplot2::geom_step(linewidth = 0.75) +
+        ggplot2::geom_step(linewidth = 0.85) +
         ggplot2::geom_vline(
           xintercept = locked_day, linetype = 2, colour = "grey40",
           linewidth = 0.45
         ) +
         ggplot2::geom_text(
           data = ann, ggplot2::aes(x = x, y = y, label = lab),
-          inherit.aes = FALSE, hjust = 0, size = 2.8, colour = "black"
+          inherit.aes = FALSE, hjust = 0,
+          size = if (single_db) 3.4 else 2.8, colour = "black"
         ) +
-        # 原文单队列一张图；双库改为左右并排（非上下叠），更接近「一张联合图」观感
-        ggplot2::facet_wrap(~database, ncol = 2L, scales = "fixed") +
         ggplot2::coord_cartesian(ylim = c(0, 1), xlim = c(0, max(28, xmax))) +
         ggplot2::scale_colour_manual(
           values = grp_cols, breaks = grp_levels, drop = FALSE
@@ -1036,35 +1330,43 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
           breaks = sort(unique(c(0, locked_day, 10, 20, 28)))
         ) +
         ggplot2::labs(
-          x = "Time (day)", y = "Survival Probability", colour = NULL,
+          x = "Time (days)", y = "Survival Probability", colour = NULL,
           title = paste0(
             "Figure 5. Landmark survival analysis of ", .ref_joint_lab(),
             " groups"
           ),
           subtitle = sprintf(
-            "Locked in MIMIC: %s, day %s (dashed line); eICU applies the same lock",
+            "Landmark locked in MIMIC-IV: %s, day %s (dashed line)",
             locked_layer, as.integer(locked_day)
           )
         ) +
-        ggplot2::theme_bw(base_size = 9) +
+        ggplot2::theme_classic(base_size = if (single_db) 11 else 9) +
         ggplot2::theme(
-          # 双库并排：图例横排置于图底（避免压住 landmark 后塌缩曲线）
           legend.position = "bottom",
           legend.direction = "horizontal",
-          legend.key.height = grid::unit(0.4, "lines"),
-          legend.key.width = grid::unit(1.1, "lines"),
-          legend.text = ggplot2::element_text(size = 7),
+          legend.key.height = grid::unit(0.45, "lines"),
+          legend.key.width = grid::unit(1.2, "lines"),
+          legend.text = ggplot2::element_text(size = if (single_db) 8.5 else 7),
           legend.margin = ggplot2::margin(0, 0, 0, 0),
-          plot.title = ggplot2::element_text(size = 10, face = "bold"),
-          plot.subtitle = ggplot2::element_text(size = 7.5),
+          plot.title = ggplot2::element_text(
+            size = if (single_db) 11 else 10, face = "bold"
+          ),
+          plot.subtitle = ggplot2::element_text(size = if (single_db) 9 else 7.5),
           panel.grid.minor = ggplot2::element_blank(),
           strip.text = ggplot2::element_text(face = "bold", size = 9),
-          strip.background = ggplot2::element_rect(fill = "grey92")
+          strip.background = ggplot2::element_blank()
         ) +
-        ggplot2::guides(colour = ggplot2::guide_legend(nrow = 1L, byrow = TRUE))
+        ggplot2::guides(colour = ggplot2::guide_legend(nrow = 2L, byrow = TRUE))
+      if (!single_db) {
+        plt <- plt + ggplot2::facet_wrap(~database, ncol = 2L, scales = "fixed")
+      }
       path <- out_pdf
       dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-      pipeline_ggsave_pdf(path, plt, width = 11, height = 4.6)
+      pipeline_ggsave_pdf(
+        path, plt,
+        width = if (single_db) 7.2 else 11,
+        height = if (single_db) 5.4 else 4.6
+      )
     }
   }
   list(
@@ -1078,8 +1380,8 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
 }
 
 # --------------------------------------------------------------------------
-# Figure 6: clinical-subgroup forest (Model 2), highest vs lowest tertile
-#   Panels = 2 databases x 2 indices (SOSM / WPR), matching original Fig.6A/B
+# Figure 6: clinical-subgroup forest (prefer Model3; fallback Age+Sex),
+#   highest vs lowest tertile. Panels = databases x indices.
 #   Rows = Overall + each clinical subgroup level; per-subgroup P-interaction
 # --------------------------------------------------------------------------
 
@@ -1089,7 +1391,7 @@ ref_assoc_fig6_subgroups <- c(
   "Ventilation", "Heart_Failure", "COPD", "Cancer", "Myocardial_Infarction"
 )
 
-#' 每层拟合 Model2 Cox（index 传入的是 .ex 数值列），返回该层 HR。
+#' 每层拟合 Cox（index 为 .ex 数值列）；调用方传入 Model3 或 Age+Sex covs。
 .ref_assoc_fig6_stratum_hr <- function(dd, index, covs, time, event, cfg) {
   need <- unique(c(time, event, index, covs))
   dd <- dd[, intersect(need, names(dd)), drop = FALSE]
@@ -1170,13 +1472,13 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
     d <- .ref_assoc_event01(data.frame(db$data), "fustatus", db$outcome_cfg)
     d$event <- d$fustatus
     d$futime <- suppressWarnings(as.numeric(as.character(d$futime)))
-    models <- db$models
+    models <- .ref_assoc_resolve_db_models(db, d)
     age_sex_nm <- .ref_assoc_age_sex_model_name(models)
     full_nm <- .ref_assoc_full_model_name(models)
-    m1 <- models[[age_sex_nm]]
-    if (!length(m1)) m1 <- intersect(c("Age", "Gender", "Sex"), names(d))
-    m2 <- models[[full_nm]]
-    if (!length(m2)) m2 <- m1
+    m_agesex <- models[[age_sex_nm]]
+    if (!length(m_agesex)) m_agesex <- intersect(c("Age", "Gender", "Sex"), names(d))
+    m_full <- models[[full_nm]]
+    if (!length(m_full)) m_full <- m_agesex
     for (index in c(ia, ib)) {
       lock <- if (identical(index, ia)) db$sosm_lock else db$wpr_lock
       tert <- .ref_assoc_tertile3(d, index, lock, db$train_ref)
@@ -1184,15 +1486,15 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
       d$.ex <- as.integer(as.character(tert) == "T3")
       d$.ex[is.na(tert) | as.character(tert) == "T2"] <- NA_integer_
       keep <- !is.na(d$.ex)
-      # 亚组森林默认 Age+Sex（Model2）；全调整 Model3 高维层内容易准分离 → 空面。
-      covs_ov <- setdiff(m1, c(index, "SOFA", "SOFA_layer"))
+      # 与 Table 2/S4 统一：优先全调整 Model3；层内不可估时回退 Age+Sex
+      covs_ov <- setdiff(m_full, c(index, "SOFA", "SOFA_layer"))
       ov <- .ref_assoc_fig6_stratum_hr(
         d[keep, , drop = FALSE], ".ex", covs_ov, "futime", "event", db$outcome_cfg
       )
-      if (!identical(ov$status, "estimable") && length(m2)) {
-        covs2 <- setdiff(m2, c(index, "SOFA", "SOFA_layer"))
+      if (!identical(ov$status, "estimable") && length(m_agesex)) {
+        covs_as <- setdiff(m_agesex, c(index, "SOFA", "SOFA_layer"))
         ov2 <- .ref_assoc_fig6_stratum_hr(
-          d[keep, , drop = FALSE], ".ex", covs2, "futime", "event", db$outcome_cfg
+          d[keep, , drop = FALSE], ".ex", covs_as, "futime", "event", db$outcome_cfg
         )
         if (identical(ov2$status, "estimable")) ov <- ov2
       }
@@ -1205,7 +1507,7 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
       )
       for (sg in sub_vars) {
         if (!sg %in% names(d)) next
-        covs <- setdiff(m1, c(index, "SOFA", "SOFA_layer", sg))
+        covs <- setdiff(m_full, c(index, "SOFA", "SOFA_layer", sg))
         # Age 二分类 <65 / >=65；其余用原始因子/字符水平
         sg_disp <- d[[sg]]
         if (identical(sg, "Age")) {
@@ -1227,8 +1529,8 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
             d[sel, , drop = FALSE], ".ex", covs, "futime", "event",
             db$outcome_cfg
           )
-          if (!identical(r$status, "estimable") && length(m2)) {
-            covs2 <- setdiff(m2, c(index, "SOFA", "SOFA_layer", sg))
+          if (!identical(r$status, "estimable") && length(m_agesex)) {
+            covs2 <- setdiff(m_agesex, c(index, "SOFA", "SOFA_layer", sg))
             r2 <- .ref_assoc_fig6_stratum_hr(
               d[sel, , drop = FALSE], ".ex", covs2, "futime", "event",
               db$outcome_cfg
@@ -1309,7 +1611,8 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
         if (!nrow(ss)) next
         p_int <- ss$p_interaction[which(!is.na(ss$p_interaction))[1]]
         rows[[length(rows) + 1L]] <- data.frame(
-          Variable = sg,
+          Variable = if (exists("pipeline_display_label", mode = "function"))
+            pipeline_display_label(sg) else gsub("_", " ", sg, fixed = TRUE),
           `HR (95% CI)` = " ",
           ` ` = paste(rep(" ", 18L), collapse = ""),
           P = " ",
@@ -1381,8 +1684,10 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
       p
     }
     # 双库共有亚组（禁一侧 COPD/Cancer 导致行高错位）
-    est$database_f <- .ref_assoc_factor_db(est$database, short = FALSE)
-    levels(est$database_f) <- .ref_assoc_db_levels(short = TRUE)
+    # 注意：禁止把未出现的 eICU 空水平硬塞进 factor——否则
+    # intersect(亚组, character(0)) 会把全部亚组裁掉，只剩 Overall。
+    est$database_f <- .ref_assoc_factor_db(est$database, short = TRUE)
+    est$database_f <- droplevels(est$database_f)
     db_lv <- levels(est$database_f)
     common_sgs <- ref_assoc_fig6_subgroups
     if (length(db_lv) >= 2L) {
@@ -1391,7 +1696,13 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
           as.character(est$database_f) == dbn & est$subgroup != "Overall"
         ]))
       })
-      common_sgs <- Reduce(intersect, c(list(ref_assoc_fig6_subgroups), sg_by_db))
+      # 任一库无亚组时不要与空集求交
+      sg_by_db <- Filter(function(x) length(x) > 0L, sg_by_db)
+      if (length(sg_by_db) >= 2L) {
+        common_sgs <- Reduce(intersect, c(list(ref_assoc_fig6_subgroups), sg_by_db))
+      } else if (length(sg_by_db) == 1L) {
+        common_sgs <- intersect(ref_assoc_fig6_subgroups, sg_by_db[[1L]])
+      }
     }
     est <- est[est$subgroup == "Overall" | est$subgroup %in% common_sgs, ,
                drop = FALSE]
@@ -1451,16 +1762,31 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
           !requireNamespace("magick", quietly = TRUE)) {
         stop("Figure 6 compose needs pdftools + magick.", call. = FALSE)
       }
-      pdftools::pdf_convert(pdf_i, format = "png", dpi = 200,
-                            filenames = png_i, verbose = FALSE)
+      pdftools::pdf_convert(
+        pdf_i, format = "png", dpi = 200, pages = 1L,
+        filenames = file.path(tmp_dir, sprintf("panel_%s-%%d.%%s", ps$letter)),
+        verbose = FALSE
+      )
+      gen <- file.path(tmp_dir, sprintf("panel_%s-1.png", ps$letter))
+      if (file.exists(gen)) file.rename(gen, png_i)
+      if (!file.exists(png_i) || file.info(png_i)$size < 1000) {
+        stop("Figure 6 panel raster missing: ", png_i,
+             " pdf_bytes=", file.info(pdf_i)$size, call. = FALSE)
+      }
       im <- magick::image_read(png_i)
       title_h <- 48L
       title_bar <- magick::image_blank(
         magick::image_info(im)$width, title_h, "white"
       )
+      # 单库时面板题对齐原文「A  SHR / B  GV」；双库才带库名
+      panel_lab <- if (length(db_lv) <= 1L) {
+        sprintf("%s  %s", ps$letter, ps$index)
+      } else {
+        sprintf("%s  %s | %s", ps$letter, ps$dbn, ps$index)
+      }
       title_bar <- magick::image_annotate(
         title_bar,
-        text = sprintf("%s  %s | %s", ps$letter, ps$dbn, ps$index),
+        text = panel_lab,
         size = 22, gravity = "west", location = "+12+0", weight = 700
       )
       im <- magick::image_append(c(title_bar, im), stack = TRUE)
@@ -1513,8 +1839,15 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
       foot_bar,
       text = paste0(
         "Exposure contrast = highest vs lowest tertile of ", ia, " / ", ib,
-        ". Subgroups aligned across databases: ",
-        paste(common_sgs, collapse = ", "), "."
+        ". Adjusted for the same Model 3 covariates as Table 2/S4 ",
+        "(Age+Sex fallback if a stratum was not estimable). ",
+        "Subgroups: ",
+        paste(
+          if (exists("pipeline_display_label", mode = "function"))
+            pipeline_display_label(common_sgs)
+          else gsub("_", " ", common_sgs, fixed = TRUE),
+          collapse = ", "
+        ), "."
       ),
       size = 16, gravity = "west", location = "+20+0", color = "#555555"
     )
@@ -1815,21 +2148,28 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   }
 
   # -- Figure 2 --------------------------------------------------------------
+  fig2_name <- if (.ref_assoc_overall_only(cutoff)) {
+    paste0("Figure 2. KM ", ia, " ", ib, " joint groups.pdf")
+  } else {
+    paste0("Figure 2. KM ", ia, " ", ib, " joint by SOFA strata.pdf")
+  }
   fig2 <- ref_assoc_fig2_km(
     db_frames, cutoff = cutoff,
-    out_pdf = file.path(
-      fig_dir, paste0("Figure 2. KM ", ia, " ", ib, " joint by SOFA strata.pdf")
-    )
+    out_pdf = file.path(fig_dir, fig2_name)
   )
-  notes <- c(notes, sprintf("Fig2 not_estimable panels: %d/12",
-                            sum(fig2$panels$status != "estimable")))
+  notes <- c(notes, sprintf("Fig2 not_estimable panels: %d/%d",
+                            sum(fig2$panels$status != "estimable"),
+                            nrow(fig2$panels)))
 
   # -- Figure 3 --------------------------------------------------------------
+  fig3_name <- if (.ref_assoc_overall_only(cutoff)) {
+    paste0("Figure 3. Grouped RCS ", ia, " ", ib, ".pdf")
+  } else {
+    paste0("Figure 3. Grouped RCS ", ia, " ", ib, " by SOFA strata.pdf")
+  }
   fig3 <- ref_assoc_fig3_rcs(
     db_frames, cutoff = cutoff, grid_n = grid_n,
-    out_pdf = file.path(
-      fig_dir, paste0("Figure 3. Grouped RCS ", ia, " ", ib, " by SOFA strata.pdf")
-    )
+    out_pdf = file.path(fig_dir, fig3_name)
   )
 
   # -- Figure 4 + S5 ----------------------------------------------------------
@@ -1842,7 +2182,12 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   s5_title <- paste0(
     "Table S5. Discrimination (AUC with 95% CI) and DeLong tests versus ",
     ia, " for ", ia, ", ", ib, ", joint group score, APSIII, OASIS and GCS, by ",
-    "database and SOFA stratum (28-day all-cause mortality)."
+    "database",
+    if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+      " (overall cohort, 28-day all-cause mortality)."
+    } else {
+      " and SOFA stratum (28-day all-cause mortality)."
+    }
   )
   s5_out <- fig4$auc
   s5_out$predictor[s5_out$predictor == "Joint"] <- .ref_joint_lab()
@@ -1859,7 +2204,12 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   )
   s5_export <- s5_out[, c("database", "stratum", "predictor", "n", "events",
                           "auc_fmt", "ci_fmt", "delong_fmt", "status")]
-  names(s5_export) <- c("Database", "SOFA stratum", "Predictor", "N",
+  names(s5_export) <- c("Database",
+                        if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+                          "Stratum"
+                        } else {
+                          "SOFA stratum"
+                        }, "Predictor", "N",
                         "Events", "AUC", "95% CI", paste0("DeLong P vs ", ia),
                         "Status")
   files <- list(
@@ -1971,9 +2321,15 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
       paste0(
         "Model 1: unadjusted; Model 2: age and sex; Model 3: clinically meaningful ",
         "indicators that were significant in univariate analysis, with collinearity ",
-        "controlled (VIF < 5)."
+        "controlled (VIF < 5). Disease-severity scores and organ-support variables ",
+        "(e.g. APSIII, OASIS, SOFA, GCS, mechanical ventilation) are excluded from ",
+        "Model 3 to avoid overadjustment of the total association."
       ),
-      "SOFA strata 0-4 / 5-10 / >=11. Joint groups from MIMIC development-frozen upper-tertile cutpoints.",
+      if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+        "Overall cohort only (no disease-severity split). Joint groups from MIMIC development-frozen upper-tertile cutpoints."
+      } else {
+        "SOFA strata 0-4 / 5-10 / >=11. Joint groups from MIMIC development-frozen upper-tertile cutpoints."
+      },
       "Cells show HR (95% CI) and P; NE = not estimable; Group1 = 1.000 (ref).",
       paste0(
         "\u2021 Model3 not estimable (sparse events or collinearity); cell shows ",
@@ -1984,7 +2340,11 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   } else {
     c(
       "Model 1: Age + Gender. Model 2: association-rule covariate set (per project covariate rule).",
-      "SOFA strata 0-4 / 5-10 / >=11. Joint groups from MIMIC development-frozen upper-tertile cutpoints.",
+      if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+        "Overall cohort only (no disease-severity split). Joint groups from MIMIC development-frozen upper-tertile cutpoints."
+      } else {
+        "SOFA strata 0-4 / 5-10 / >=11. Joint groups from MIMIC development-frozen upper-tertile cutpoints."
+      },
       "Cells show HR (95% CI) and P; NE = not estimable; Group1 = 1.000 (ref).",
       paste0("\u2021 Model2 not estimable (sparse events or collinearity); cell shows Age+Gender-adjusted ",
              "estimate (Model1 covariates) with the same joint-group contrast."),
@@ -2009,10 +2369,20 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   )
   s4_title <- paste0(
     paste0("Table S4. Cox associations of ", ia, " and ", ib, " (continuous and tertiles) "),
-    "with 28-day all-cause mortality, Overall and by SOFA stratum."
+    "with 28-day all-cause mortality",
+    if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+      ", overall cohort."
+    } else {
+      ", Overall and by SOFA stratum."
+    }
   )
   s4_export <- s4
-  names(s4_export) <- c("Database", "SOFA stratum", "Index", "Coding",
+  names(s4_export) <- c("Database",
+                        if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+                          "Stratum"
+                        } else {
+                          "SOFA stratum"
+                        }, "Index", "Coding",
                         "Model", "Group", "HR (95% CI)", "P", "p raw",
                         "N", "Events", "Status")
   files$S4 <- .ref_assoc_export_xlsx(
@@ -2029,9 +2399,16 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   ph$exposure_p_fmt <- pub_format_p_cell(ph$exposure_p)
   ph$global_p_fmt <- pub_format_p_cell(ph$global_p)
   # 原文 S6/S7/S8 = 三个糖代谢层的 PH 检验；本课题映射到三个 SOFA 层。
+  # overall-only：仅导出 Overall 一张 Table S6（不做 SOFA 分层 PH）。
   layer_labs <- ref_assoc_layer_labels(cutoff)
-  layer_labs <- layer_labs[layer_labs != "Overall"]
-  ph_keys <- paste0("S", seq_along(layer_labs) + 5L)  # S6, S7, S8
+  if (.ref_assoc_overall_only(cutoff)) {
+    layer_labs <- "Overall"
+    ph_keys <- "S6"
+  } else {
+    layer_labs <- layer_labs[layer_labs != "Overall"]
+    ph_keys <- paste0("S", seq_along(layer_labs) + 5L)  # S6, S7, S8
+  }
+  if (length(layer_labs)) {
   ph_map <- stats::setNames(as.list(layer_labs), ph_keys)
   for (key in names(ph_map)) {
     lab <- ph_map[[key]]
@@ -2047,6 +2424,7 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
       file.path(tab_dir, paste0("Table ", key, " PH ", lab, ".xlsx")),
       ph_title, exp_df
     )
+  }
   }
 
   # -- S9 baseline glucose sensitivity -------------------------------------------
@@ -2080,7 +2458,12 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
     "patients with baseline glucose <70 mg/dL (28-day all-cause mortality)."
   )
   s9_export <- s9
-  names(s9_export) <- c("Database", "SOFA stratum", "Model", "Group",
+  names(s9_export) <- c("Database",
+                        if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+                          "Stratum"
+                        } else {
+                          "SOFA stratum"
+                        }, "Model", "Group",
                         "HR (95% CI)", "p raw", "P", "N", "Events", "Status")
   files$S9 <- .ref_assoc_export_xlsx(
     file.path(tab_dir, "Table S9 baseline glucose excluded joint Cox.xlsx"),
@@ -2110,7 +2493,12 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
     "complete cases (28-day all-cause mortality)."
   )
   s10_export <- s10
-  names(s10_export) <- c("Database", "SOFA stratum", "Model", "Group",
+  names(s10_export) <- c("Database",
+                         if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
+                           "Stratum"
+                         } else {
+                           "SOFA stratum"
+                         }, "Model", "Group",
                          "HR (95% CI)", "p raw", "P", "N", "Events",
                          "Status")
   files$S10 <- .ref_assoc_export_xlsx(

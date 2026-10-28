@@ -156,9 +156,32 @@ block_mediation_longitudinal <- function(ctx, ...) {
 
     b_fit <- stats::lm(med_fml, data = mydata)
     c_fit <- stats::glm(out_fml, data = mydata, family = binomial())
+    # 连续暴露：禁止默认 control=0 / treat=1（FI 多在 0–1，0vs1 会外推）
+    # 默认用分析样本 P25 vs P75；可用 config 覆盖
+    tv <- bl[["treat_value"]]
+    cv <- bl[["control_value"]]
+    xtr <- suppressWarnings(as.numeric(mydata[[treat]]))
+    xtr <- xtr[is.finite(xtr)]
+    if (!length(xtr)) xtr <- 0
+    if (is.null(tv) || !is.finite(as.numeric(tv)[1L])) {
+      tv <- as.numeric(stats::quantile(xtr, 0.75, na.rm = TRUE, names = FALSE))
+    } else tv <- as.numeric(tv)[1L]
+    if (is.null(cv) || !is.finite(as.numeric(cv)[1L])) {
+      cv <- as.numeric(stats::quantile(xtr, 0.25, na.rm = TRUE, names = FALSE))
+    } else cv <- as.numeric(cv)[1L]
+    if (!is.finite(tv) || !is.finite(cv) || isTRUE(all.equal(tv, cv))) {
+      tv <- mean(xtr, na.rm = TRUE) + stats::sd(xtr, na.rm = TRUE)
+      cv <- mean(xtr, na.rm = TRUE) - stats::sd(xtr, na.rm = TRUE)
+    }
     set.seed(seed)
-    cc <- mediation::mediate(b_fit, c_fit, sims = sims, treat = treat, mediator = mediator)
+    cc <- mediation::mediate(
+      b_fit, c_fit, sims = sims, treat = treat, mediator = mediator,
+      treat.value = tv, control.value = cv
+    )
     s <- summary(cc)
+    cli::cli_alert_info(
+      "mediation_longitudinal ({d}): continuous contrast {treat} {round(cv,4)} → {round(tv,4)}"
+    )
 
     med_type <- if (sign(s$d0) == sign(s$z0)) "Complementary" else "Competitive (suppression)"
     a_ci <- tryCatch(stats::confint(b_fit)[treat, ], error = function(e) c(NA_real_, NA_real_))
@@ -341,8 +364,18 @@ cross_lagged_mediation_build_table_s7 <- function(
     rds_paths,
     outfile,
     cohorts = c("CHARLS", "ELSA", "HRS"),
-    title = "Table S7. Longitudinal mediation Frailty Index→Depression→Hip fracture"
+    title = NULL
 ) {
+  if (is.null(title) || !nzchar(as.character(title)[1L])) {
+    o0 <- NULL
+    for (p0 in rds_paths) {
+      if (file.exists(p0)) { o0 <- readRDS(p0); break }
+    }
+    tl <- as.character(o0$treat_lab %||% "Frailty Index")[1L]
+    ml <- as.character(o0$med_lab %||% o0$mediator %||% "Mediator")[1L]
+    ol <- as.character(o0$out_lab %||% "Outcome")[1L]
+    title <- paste0("Table S7. Longitudinal mediation ", tl, "→", ml, "→", ol)
+  }
   objs <- list()
   for (p in rds_paths) {
     if (!file.exists(p)) next
@@ -386,7 +419,7 @@ cross_lagged_mediation_build_table_s7 <- function(
   note <- paste0(
     "Note: Effects are risk difference (95% CI) P value. ",
     "Path a/b are regression coefficients (95% CI) P value. ",
-    "Per-database path covariates locked by depression-mediation screen. ",
+    "Path covariates follow locked Model2 (see study mediation lock). ",
     type_note, "."
   )
 

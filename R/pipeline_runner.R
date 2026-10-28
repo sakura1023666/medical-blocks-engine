@@ -33,6 +33,7 @@ pipeline_block_sources <- function(root) {
     dual_db_logistic_main_table_realign = b("00_dual_db/05block_dual_db_logistic_main_table_realign.R"),
     imputation                    = b("03_imputation/01block_imputation.R"),
     prognosis_outcome_landmark    = b("03_imputation/04block_prognosis_outcome_landmark.R"),
+    skew_log1p                    = b("03_imputation/05block_skew_log1p.R"),
     environment_voc_log_transform = b("35_environment_function/00block_environment_voc_log_transform.R"),
     trim_index_extreme            = b("03_imputation/02block_trim_index_extreme.R"),
     analysis_exclusion            = b("03_imputation/03block_analysis_exclusion.R"),
@@ -157,6 +158,11 @@ pipeline_block_sources <- function(root) {
     ml_mboost_cox                 = b("22_ml_models/20block_ml_surv_extra_models.R"),
     ml_aggregate                  = b("22_ml_models/17block_ml_aggregate.R"),
     cart_decision_path            = b("22_ml_models/21block_cart_decision_path.R"),
+    ml_naive_bayes                = b("22_ml_models/22block_ml_naive_bayes.R"),
+    ml_gbdt                       = b("22_ml_models/23block_ml_gbdt.R"),
+    ml_topsis_fusion              = b("22_ml_models/24block_ml_topsis_fusion.R"),
+    ml_tcf_balance_scale          = b("22_ml_models/25block_ml_tcf_balance_scale.R"),
+    feature_selection_entropy_stepwise = b("19_feature_selection/11block_feature_selection_entropy_stepwise.R"),
     performance_ml                = b("23_ml_performance/01block_performance_ml.R"),
     supplementary_ml              = b("24_ml_supplementary/01block_supplementary_ml.R"),
     shiny_dynnom                  = b("25_shiny/01block_shiny_dynnom.R"),
@@ -235,6 +241,10 @@ pipeline_block_sources <- function(root) {
     lasso_environment_voc         = b("19_feature_selection/09block_lasso_environment_voc.R"),
     subgroup_environment_or       = b("18_subgroup/09block_subgroup_environment_or.R"),
     environment_single_exposure_transform = b("42_environment_single/01block_environment_single_exposure_transform.R"),
+    exwas_unweighted              = b("42_environment_single/02block_exwas_unweighted.R"),
+    ers_elastic_net               = b("36_environment_glm/02block_ers_elastic_net.R"),
+    wqs_exwas_fixed               = b("37_environment_wqs/02block_wqs_exwas_fixed.R"),
+    exwas_gastric_assemble        = b("35_environment_function/09block_exwas_gastric_assemble.R"),
     dynamic_causal_index_compute  = b("43_dynamic_causal/01block_dynamic_causal_index_compute.R"),
     dynamic_causal_cox_total      = b("43_dynamic_causal/02block_dynamic_causal_cox_total.R"),
     multimorbidity_baseline_category = b("44_multimorbidity/01block_multimorbidity_baseline_category.R"),
@@ -501,6 +511,20 @@ pipeline_block_sources <- function(root) {
     pamob_panel_fig4              = b("74_pa_mobility_cognitive_full/16block_pamob_panel_fig4.R"),
     pamob_sensitivity_nhanes      = b("74_pa_mobility_cognitive_full/17block_pamob_sensitivity_nhanes.R"),
     pamob_pub_export              = b("74_pa_mobility_cognitive_full/18block_pamob_pub_export.R"),
+    sleep_dyslipid_cohort         = b("79_sleep_dyslipid_prognosis_full/01block_sleep_dyslipid_cohort.R"),
+    sleep_duration_range          = b("79_sleep_dyslipid_prognosis_full/02block_sleep_duration_range.R"),
+    survival_fixed_horizon        = b("79_sleep_dyslipid_prognosis_full/03block_survival_fixed_horizon.R"),
+    horizon_roc_youden            = b("79_sleep_dyslipid_prognosis_full/04block_horizon_roc_youden.R"),
+    bayesian_mediation_horizon    = b("79_sleep_dyslipid_prognosis_full/05block_bayesian_mediation_horizon.R"),
+    clhls_symptom_ingest          = b("81_clhls_symptom_network_full/01block_clhls_symptom_ingest.R"),
+    clhls_network                 = b("81_clhls_symptom_network_full/02block_clhls_network.R"),
+    clhls_centrality              = b("81_clhls_symptom_network_full/03block_clhls_centrality.R"),
+    clhls_weighted                = b("81_clhls_symptom_network_full/04block_clhls_weighted.R"),
+    clhls_bridge                  = b("81_clhls_symptom_network_full/05block_clhls_bridge.R"),
+    clhls_sex                     = b("81_clhls_symptom_network_full/06block_clhls_sex.R"),
+    clhls_sex_nct                 = b("81_clhls_symptom_network_full/07block_clhls_sex_nct.R"),
+    clhls_stability               = b("81_clhls_symptom_network_full/08block_clhls_stability.R"),
+    clhls_network_pub             = b("81_clhls_symptom_network_full/09block_clhls_network_pub.R"),
     render_tables                 = b("Tables_Blocks/block_render_tables.R")
   )
 }
@@ -756,7 +780,10 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
   }
   dual_harm_path <- file.path(engine_root, "R", "dual_db_harmonize.R")
   if (file.exists(dual_harm_path)) source(dual_harm_path, local = FALSE)
-  for (gate_file in c("cox_gate.R", "logistic_gate.R", "model3_required.R", "cox_ph_test.R")) {
+  for (gate_file in c(
+    "cox_gate.R", "logistic_gate.R", "model3_required.R", "cox_ph_test.R",
+    "quantile_scheme_cascade.R"
+  )) {
     gate_path <- file.path(engine_root, "R", gate_file)
     if (file.exists(gate_path)) source(gate_path, local = FALSE)
   }
@@ -768,6 +795,11 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
   if (file.exists(logistic_iptw_common)) source(logistic_iptw_common, local = FALSE)
   utils_path <- file.path(engine_root, "R/utils.R")
   if (file.exists(utils_path)) source(utils_path, local = FALSE)
+  mi_rubin_path <- file.path(engine_root, "R/mi_rubin_pool.R")
+  if (file.exists(mi_rubin_path)) source(mi_rubin_path, local = FALSE)
+  if (exists("mi_rubin_normalize_config", mode = "function")) {
+    config <- mi_rubin_normalize_config(config)
+  }
   if (exists("pipeline_apply_pub_digits", mode = "function")) {
     pipeline_apply_pub_digits(config)
   }

@@ -104,6 +104,7 @@ config <- list(
     max_iter = 2L,
     seed = 42L,
     complete_action = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig = FALSE
   ),
 

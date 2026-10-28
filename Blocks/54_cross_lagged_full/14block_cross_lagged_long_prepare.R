@@ -44,16 +44,22 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
 
   .recode01 <- function(x) {
     ifelse(is.na(x), NA_real_,
-           ifelse(as.character(x) %in% c("1", "Hip_Fracture", "Patellar_Fracture", "Circadian_Disorder"), 1,
-                  ifelse(as.character(x) %in% c("0", "No_Fracture", "No_Disorder"), 0, NA_real_)))
+           ifelse(as.character(x) %in% c(
+             "1", "Hip_Fracture", "Patellar_Fracture", "Circadian_Disorder", "Hypertension"
+           ), 1,
+                  ifelse(as.character(x) %in% c(
+                    "0", "No_Fracture", "No_Disorder", "No_Hypertension"
+                  ), 0, NA_real_)))
   }
   .recode_lab <- function(x) {
     xc <- as.character(x)
     ifelse(is.na(x), NA_character_,
            ifelse(xc %in% c("1", "Hip_Fracture", "Patellar_Fracture"), "Hip_Fracture",
            ifelse(xc %in% c("Circadian_Disorder"), "Circadian_Disorder",
+           ifelse(xc %in% c("Hypertension"), "Hypertension",
            ifelse(xc %in% c("0", "No_Fracture"), "No_Fracture",
-           ifelse(xc %in% c("No_Disorder"), "No_Disorder", xc)))))
+           ifelse(xc %in% c("No_Disorder"), "No_Disorder",
+           ifelse(xc %in% c("No_Hypertension"), "No_Hypertension", xc)))))))
   }
   .pick_charls_id <- function(raw_id, target_ids) {
     raw_id <- as.character(raw_id)
@@ -646,12 +652,22 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
     cli::cli_alert_warning("{cohort}: 未合并抑郁（缺文件）")
   }
 
-  need_cc <- intersect(c(treat_var, med_var, "Disease_Group"), names(med_out))
-  if (length(need_cc) < 3L) {
-    cli::cli_alert_warning("{cohort}: mediation 缺列 {paste(setdiff(c(treat_var, med_var, 'Disease_Group'), names(med_out)), collapse=', ')}")
+  # Leisure/ePWV→FI 中介：完整病例须含 T1 FI（FI_T1）+ T2 FI（列 FI）+ 暴露 + 结局
+  need_cc <- c(treat_var, med_var, "Disease_Group")
+  if (identical(med_var, "FI") && !identical(treat_var, "FI") && "FI_T1" %in% names(med_out)) {
+    need_cc <- c(need_cc, "FI_T1")
+  }
+  need_cc <- intersect(need_cc, names(med_out))
+  .need_n <- if (identical(med_var, "FI") && !identical(treat_var, "FI")) 4L else 3L
+  if (length(need_cc) < .need_n) {
+    cli::cli_alert_warning("{cohort}: mediation 缺列 {paste(setdiff(c(treat_var, med_var, 'Disease_Group', if (identical(med_var, 'FI') && !identical(treat_var, 'FI')) 'FI_T1'), names(med_out)), collapse=', ')}")
     med_out <- NULL
   } else {
+    n_before_cc <- nrow(med_out)
     med_out <- med_out[stats::complete.cases(med_out[, need_cc, drop = FALSE]), , drop = FALSE]
+    cli::cli_alert_info(
+      "{cohort}: mediation complete-case on {paste(need_cc, collapse='+')}: {n_before_cc} → {nrow(med_out)}"
+    )
   }
 
   # ── 写出纳排表 + 流程图 ────────────────────────────────────────────────────
@@ -661,6 +677,7 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   dir.create(tab_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
+  # 明细 CSV（kept/dropped 逐步记账，供审计）
   flow_df <- data.frame(
     step = c(
       "Baseline year present (ID in baseline frailty/outcome)",
@@ -689,36 +706,141 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   )
   utils::write.csv(flow_df, file.path(tab_dir, paste0("Flowchart_attrition_", cohort, ".csv")), row.names = FALSE)
 
-  # simple PDF flowchart
-  pdf_path <- file.path(fig_dir, paste0("Figure 1-", cohort, ". Longitudinal inclusion exclusion flowchart.pdf"))
-  grDevices::pdf(pdf_path, width = 8.5, height = 10)
-  op <- graphics::par(mar = c(1, 1, 2, 1))
-  on.exit(graphics::par(op), add = TRUE)
-  graphics::plot.new()
-  graphics::title(main = paste0(cohort, " — Inclusion / Exclusion"), cex.main = 1.2)
-  lines_txt <- c(
-    sprintf("Baseline present (year %s): N = %s", baseline_year, flow$n_baseline_present),
-    sprintf("− Prevalent disease at baseline: %s", flow$n_drop_prevalent),
-    sprintf("− Missing baseline outcome: %s", flow$n_drop_baseline_outcome_missing),
-    sprintf("= Disease-free at baseline: N = %s", flow$n_after_baseline_free),
-    sprintf("− No follow-up in any FU year (%s): %s",
-            paste(fu_years, collapse = "/"), flow$n_drop_no_followup),
-    sprintf("= With any follow-up: N = %s", flow$n_with_followup),
-    sprintf(
-      if (isTRUE(require_fi)) "− Missing baseline FI: %s" else paste0("− Missing ", idx_var, " at T1 or T2: %s"),
-      flow$n_drop_no_baseline_FI %||% 0L
+  # CONSORT 纳排图（发病套路 attrition_draw_pdf：主列纳入框 + 右侧 Exclude + 底部分叉）
+  n_event_t2 <- as.integer(sum(long_pair$Disease01[long_pair$wave == 2L] == 1, na.rm = TRUE))
+  n_final <- as.integer(flow$n_final_pair)
+  n_nonevent <- max(0L, n_final - n_event_t2)
+  out_lab <- as.character(
+    ctx$config$project$analysis_group %||%
+      ctx$config$cross_lagged_corr_table$outcome_label %||%
+      "Event"
+  )[1L]
+  if (!nzchar(out_lab) || identical(out_lab, "1")) out_lab <- "Event"
+  ref_lab <- as.character(
+    ctx$config$project$reference_group %||%
+      "No event"
+  )[1L]
+  if (!nzchar(ref_lab) || identical(ref_lab, "0")) ref_lab <- paste0("No ", out_lab)
+
+  drop_prev_bits <- character(0)
+  if (as.integer(flow$n_drop_prevalent %||% 0L) > 0L) {
+    drop_prev_bits <- c(drop_prev_bits, paste0("Prevalent ", out_lab, " at baseline"))
+  }
+  if (as.integer(flow$n_drop_baseline_outcome_missing %||% 0L) > 0L) {
+    drop_prev_bits <- c(drop_prev_bits, "Missing baseline outcome")
+  }
+  if (!length(drop_prev_bits)) drop_prev_bits <- "Prevalent disease / missing baseline outcome"
+
+  drop_fi_bits <- character(0)
+  if (isTRUE(require_fi)) {
+    if (as.integer(flow$n_drop_no_baseline_FI %||% 0L) > 0L) {
+      drop_fi_bits <- c(drop_fi_bits, "Missing baseline FI")
+    }
+    if (as.integer(flow$n_drop_incomplete_FI_pair %||% 0L) > 0L) {
+      drop_fi_bits <- c(drop_fi_bits, "Incomplete FI at T1/T2 pair")
+    }
+    if (!length(drop_fi_bits)) drop_fi_bits <- "Missing/incomplete FI at T1/T2"
+  } else {
+    drop_fi_bits <- paste0("Missing ", idx_var, " or follow-up outcome")
+  }
+
+  draw_rows <- data.frame(
+    step = c(
+      sprintf("Baseline present (year %s)", baseline_year),
+      "Disease-free at baseline",
+      sprintf("With any follow-up (%s)", paste(fu_years, collapse = "/")),
+      "Final analytic sample (wave1+wave2 pair)"
     ),
-    sprintf(
-      if (isTRUE(require_fi)) "− Incomplete FI at T1/T2 pair: %s" else "− Missing follow-up outcome: %s",
-      flow$n_drop_incomplete_FI_pair %||% 0L
+    n = as.integer(c(
+      flow$n_baseline_present,
+      flow$n_after_baseline_free,
+      flow$n_with_followup,
+      flow$n_final_pair
+    )),
+    exclude_label = c(
+      NA_character_,
+      paste(drop_prev_bits, collapse = "; "),
+      sprintf("No follow-up in FU years (%s)", paste(fu_years, collapse = "/")),
+      paste(drop_fi_bits, collapse = "; ")
     ),
-    sprintf("Final analytic sample: N = %s (events at T2 = %s)",
-            flow$n_final_pair,
-            sum(long_pair$Disease01[long_pair$wave == 2L] == 1, na.rm = TRUE))
+    step_id = c("starting_cohort", "after_baseline_free", "with_followup", "analytic"),
+    stringsAsFactors = FALSE
   )
-  graphics::text(0.05, seq(0.92, 0.08, length.out = length(lines_txt)), labels = lines_txt,
-                 adj = 0, cex = 1.05, family = "sans")
-  grDevices::dev.off()
+  # 抑郁×高血压：在「抑郁阳性基线」前补「有 FI 的基线 → 排除非抑郁」
+  if (!exists("cross_lagged_depression_htn_baseline_attrition", mode = "function")) {
+    .root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+    if (!nzchar(.root)) .root <- getwd()
+    .xf <- file.path(.root, "R/cross_lagged_xs_flowchart.R")
+    if (!file.exists(.xf)) .xf <- file.path(getwd(), "R/cross_lagged_xs_flowchart.R")
+    if (file.exists(.xf)) {
+      .sm <- file.path(dirname(.xf), "cross_lagged_study_meta.R")
+      if (!exists("cross_lagged_study_is_depression_htn_frailty", mode = "function") &&
+          file.exists(.sm)) {
+        source(.sm, local = FALSE)
+      }
+      source(.xf, local = FALSE)
+    }
+  }
+  if (exists("cross_lagged_study_is_depression_htn_frailty", mode = "function") &&
+      isTRUE(cross_lagged_study_is_depression_htn_frailty(study_root)) &&
+      exists("cross_lagged_depression_htn_baseline_attrition", mode = "function")) {
+    up <- tryCatch(
+      cross_lagged_depression_htn_baseline_attrition(study_root, cohort, through = "depressed"),
+      error = function(e) NULL
+    )
+    if (is.data.frame(up) && nrow(up) >= 2L) {
+      # 用上游抑郁阳性 N 对齐 starting_cohort；其后步骤不变
+      draw_rows$n[1L] <- as.integer(up$n[nrow(up)])
+      draw_rows$step[1L] <- "Depression-positive analytic sample"
+      draw_rows$step_id[1L] <- "depressed_sample"
+      draw_rows <- rbind(up[seq_len(nrow(up) - 1L), , drop = FALSE], draw_rows)
+    }
+  }
+  utils::write.csv(
+    draw_rows,
+    file.path(tab_dir, paste0("Flowchart_attrition_", cohort, "_draw.csv")),
+    row.names = FALSE
+  )
+
+  pdf_path <- file.path(
+    fig_dir,
+    paste0("Figure 1-", cohort, ". Longitudinal inclusion exclusion flowchart.pdf")
+  )
+  title <- sprintf("Figure 1. %s — Inclusion / Exclusion", cohort)
+  fork <- list(
+    left_label = out_lab,
+    left_n = n_event_t2,
+    right_label = ref_lab,
+    right_n = n_nonevent
+  )
+  if (!exists("attrition_draw_pdf", mode = "function")) {
+    .root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+    if (!nzchar(.root)) .root <- getwd()
+    .al <- file.path(.root, "R/attrition_log.R")
+    if (!file.exists(.al)) .al <- file.path(getwd(), "R/attrition_log.R")
+    if (file.exists(.al)) source(.al, local = FALSE)
+  }
+  ok_draw <- FALSE
+  if (exists("attrition_draw_pdf", mode = "function")) {
+    ok_draw <- isTRUE(tryCatch(
+      attrition_draw_pdf(draw_rows, title, pdf_path, fork = fork),
+      error = function(e) {
+        cli::cli_alert_warning("attrition_draw_pdf 失败: {e$message}")
+        FALSE
+      }
+    ))
+  }
+  if (!isTRUE(ok_draw)) {
+    # 兜底：仍保证有 PDF（旧文本列表）
+    grDevices::pdf(pdf_path, width = 8.5, height = 10)
+    graphics::par(mar = c(1, 1, 2, 1))
+    graphics::plot.new()
+    graphics::title(main = title, cex.main = 1.2)
+    lines_txt <- sprintf("%s\nn = %s", draw_rows$step, format(draw_rows$n, big.mark = ","))
+    graphics::text(0.05, seq(0.88, 0.2, length.out = length(lines_txt)),
+                   labels = lines_txt, adj = 0, cex = 1.05)
+    grDevices::dev.off()
+  }
 
   # save RData
   save(long_pair, long_all, wide, wide_clpn, wave2_info, flow_df,

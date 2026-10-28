@@ -1,0 +1,83 @@
+---
+description: 预后 v2 / Cox 文献发表 P0 铁律（Hip AKI 2026-10 教训；防再被审出）
+alwaysApply: true
+---
+
+# 预后 v2 发表 P0 铁律（Hip AKI 教训）
+
+凡 **prognosis_v2 / 单库或双库 Cox 预后文献发表 / remirror 收口 / Nature 质控** 必须遵守。踩坑课题：`52_Hip_arthroplasty_aki/prognosis_v2_41904528`（SIRI/PIV → 365 天死亡）。
+
+与 `pub-qc-after-project/checklist.md` **§B4**、`nature-statistics/.../common-failure-modes.md`「Medical Blocks 交付漏检」同步；未逐条过不得 PASS。
+
+机器半边：`R/pv2_pub_p0_gate.R` → `pv2_pub_p0_gate(summary_root, …)`；remirror / finalize 收尾应调用，失败即停。
+
+## 1. 分位级联 ↔ KM / 亚组（防 Fig3 四分位、Fig7 Q4vsQ1）
+
+1. **全文同一锁定 scheme**：`quantile_scheme_cascade` 锁 `binary` / `tertile` / `quartile` 后，Table 2/3、KM（Fig3）、亚组森林（Fig7）、Methods、image_information **必须同方案**。
+2. **binary 锁定**：KM 风险表只有 Low/High（或课题等价标签）；**禁止**仍画 Q1–Q4 四条曲线却 Methods 写 binary。
+3. **亚组轴标**：对比名 = 锁定方案最高 vs 最低（binary → `High vs Low`；勿残留 `Q4 vs Q1`）。
+4. **交互 P**：各分层标题或侧栏须有 `P-int` / `P for interaction`；正文提异质性却图上无交互 P → P0。
+5. 风险集 N：各暴露层 Number at risk 之和 = 分析集 N（允许删失后退化，首列之和须对）。
+
+## 2. 中介路径图 = Table S8 Direct（防 Total 冒充 Direct）
+
+1. **路径图底边箭 = Direct effect HR**，与 Table S8 `Direct effect HR (95% CI)` **逐位一致**（`pdftotext` 可核）。
+2. **禁止**把 Total effect 画在 Direct 箭上，或图注写 Direct 却数字取 Total。
+3. **path a / b / Proportion** 与 S8 同行同源；S7 与 S8 **同向**：暴露 → 中介（`mediator ~ exposure`），禁止反写成 `index ~ OASIS`。
+4. **中介调整集诚实**：默认可与 Table 3 Model 3 同集；若因概念重叠（如 CHARLSON 慢性共病 vs OASIS 急性严重度）改用 Model 2（Age+Gender）：
+   - 脚注写 **Table 3 Model 2**（或实际协变量名单）；
+   - **禁止**脚注仍写「与 Table 2 / Model 3 一致」却未进 CHARLSON；
+   - **禁止**把「概念重叠」伪造成「VIF 高度共线」（实证 r 近 0 时不得写 collinearity）。
+5. 中介门控未通过时仍适用全项目 `mediation_gate_lab_assoc`（不导出关联表）。
+
+## 3. RCS 标注：P-linear + P-nonlinear（防 P-overall 与 Table 3 打架）
+
+1. 主文连续推断 = Table 3 **线性 per-SD（或 per-unit）Cox**。
+2. Fig RCS 字幕主报 **`P-linear`**（与 Table 3 同模型规格的线性项/似然比）+ **`P-nonlinear`**（样条 vs 线性）。
+3. **禁止**只报多自由度 **`P-overall`** 却暗示与 Table 3 线性 P 可比；审稿会当矛盾。
+4. `image_information` 须抄图面 P-linear / P-nonlinear，不得残留旧 P-overall 句且无 P-linear。
+
+## 4. 展示禁下划线（防 Fig2 特征名）
+
+1. Boruta/SHAP/森林/轴标签展示层走 `pipeline_display_label()`；**禁止** `Mean_Corpuscular_Volume` 类编程名上图。
+2. 质控：`pdftotext` + `image_information` 扫描 `_`；命中临床特征下划线 → P0（见 `pub_no_underscore_display`）。
+
+## 5. Methods / 补充表硬项（防漏检）
+
+交付 Methods 缺任一项 → **P0（轨道 B 可只改文）**：
+
+| 项 | 最低内容 |
+|----|----------|
+| 暴露取材时点 | 实验室/指标计算时窗（如 first lab ≥ ICU intime；有无上限） |
+| 分位级联 | quartile→tertile→binary + 本课题锁定结果 |
+| MICE | m、method、seed、**结局/暴露/futime 是否入插补**、操作层 vs Rubin |
+| PH | `cox.zph` + 表号（如 Table S9）；违规则 Limitations 一句 |
+| 中介调整 | 实际 Model 与是否概念重叠剔除共病评分 |
+
+有中介时须有 Table S8；有 Cox 主文时须有 PH 表（或 Methods 明确写未做并入 Limitations —— 默认不可接受，须用户书面接受）。
+
+## Agent 检查清单（每次预后 v2 QC）
+
+```
+[ ] KM / Fig3 分组 = 锁定 scheme（binary→仅 Low/High）
+[ ] Fig7 轴标 = High vs Low（或锁定对比）；有 P-int
+[ ] Fig6 Direct HR 字符串 ∈ Table S8；非 Total
+[ ] S7 path a = 暴露→中介，与 S8 同向
+[ ] 中介脚注协变量 = 实际拟合；概念重叠≠假共线
+[ ] Fig4 有 P-linear + P-nonlinear；非仅 P-overall
+[ ] Fig2/展示层无临床特征下划线
+[ ] Methods：取材时点、MICE 结局入模裁决、cox.zph/S9
+[ ] 已跑 pv2_pub_p0_gate() 或等价 pdftotext 核验
+```
+
+## 反例（禁止）
+
+- cascade 锁 binary，Fig3 仍四条 Q 曲线、风险表 Q1–Q4
+- Fig6 底边 1.77（Total）而 S8 Direct 1.24
+- Fig7 轴写 Q4 vs Q1，层标题无交互 P
+- RCS 只标 P-overall=0.03，Table 3 线性 P=0.01，正文不解释
+- S7 列成 OASIS→SIRI，S8 path a 却是 SIRI→OASIS
+- 脚注写 Model 3 /「与 Table 2 一致」，实际只调 Age+Gender
+- 把 CHARLSON–OASIS r≈0.07 写成「高度共线故剔除」
+- Fig2 SHAP 轴残留 `Red_Cell_Distribution_Width`
+- Methods 不写血常取材时点；无 Table S9 / 不提 PH

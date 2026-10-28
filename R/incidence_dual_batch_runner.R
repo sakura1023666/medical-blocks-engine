@@ -233,7 +233,9 @@ incidence_batch_gate_a_from_clean <- function(config) {
   if (!exists("dual_db_is_demo_col", mode = "function")) {
     source(file.path(getwd(), "R", "dual_db_harmonize.R"), local = FALSE)
   }
-  harm <- config$dual_db$harmonization %||% list()
+  ## 注意：勿用 $harmonization — 会与 harmonization_dir 部分匹配，把路径字符串当 list
+  harm <- config$dual_db[["harmonization"]]
+  if (!is.list(harm)) harm <- list()
   .gate_a_sec_t1_drop <- c(
     "Residence", "Hukou", "Familysize", "HR", "Pulse", "CRP", "HSCRP",
     "Family_per_capita_consumption", "Memeory", "Totalcognition", "Executive", "Incometotal"
@@ -265,35 +267,39 @@ incidence_batch_gate_a_from_clean <- function(config) {
       )
     }
   }
-  demo_kw <- as.character(harm$demo_keywords %||% character(0))
+  demo_kw <- as.character(harm[["demo_keywords"]] %||% character(0))
   demo_n <- unique(n_cols[dual_db_is_demo_col(n_cols, demo_kw)])
   demo_m <- unique(m_cols[dual_db_is_demo_col(m_cols, demo_kw)])
   common_clin_sorted <- sort(common_clin)
 
   # 注入 config，使 dual_db_column_harmonize / subgroup 能正确读取
-  config$dual_db$harmonization$column_keep_nhanes               <- keep_n
-  config$dual_db$harmonization$column_keep_mimic                <- keep_m
-  config$dual_db$harmonization$common_non_demo_cols             <- common_clin_sorted
-  config$dual_db$harmonization$common_clinical_subgroup_cols     <- common_clin_sorted
-  config$dual_db$harmonization$demo_cols_nhanes                   <- demo_n
-  config$dual_db$harmonization$demo_cols_mimic                    <- demo_m
+  harm2 <- modifyList(harm, list(
+    column_keep_nhanes = keep_n,
+    column_keep_mimic = keep_m,
+    common_non_demo_cols = common_clin_sorted,
+    common_clinical_subgroup_cols = common_clin_sorted,
+    demo_cols_nhanes = demo_n,
+    demo_cols_mimic = demo_m
+  ))
+  config$dual_db[["harmonization"]] <- harm2
   config$dual_db$current_db <- NULL   # 清除遗留值
 
   config
 }
 
 incidence_batch_extract_gate_a_from_config <- function(config) {
-  harm <- (config$dual_db %||% list())$harmonization %||% list()
-  common <- as.character(harm$common_non_demo_cols %||% character(0))
+  harm <- (config$dual_db %||% list())[["harmonization"]]
+  if (!is.list(harm)) harm <- list()
+  common <- as.character(harm[["common_non_demo_cols"]] %||% character(0))
   list(
     common_non_demo_cols          = common,
     common_clinical_subgroup_cols = as.character(
-      harm$common_clinical_subgroup_cols %||% common
+      harm[["common_clinical_subgroup_cols"]] %||% common
     ),
-    column_keep_nhanes = as.character(harm$column_keep_nhanes %||% character(0)),
-    column_keep_mimic  = as.character(harm$column_keep_mimic %||% character(0)),
-    demo_cols_nhanes   = as.character(harm$demo_cols_nhanes %||% character(0)),
-    demo_cols_mimic    = as.character(harm$demo_cols_mimic %||% character(0))
+    column_keep_nhanes = as.character(harm[["column_keep_nhanes"]] %||% character(0)),
+    column_keep_mimic  = as.character(harm[["column_keep_mimic"]] %||% character(0)),
+    demo_cols_nhanes   = as.character(harm[["demo_cols_nhanes"]] %||% character(0)),
+    demo_cols_mimic    = as.character(harm[["demo_cols_mimic"]] %||% character(0))
   )
 }
 
@@ -401,11 +407,25 @@ incidence_batch_filter_disease_derived_indices <- function(config, index_vars) {
   invisible(exists("index_canonicalize_names", mode = "function"))
 }
 
+#' 全变量伪指标（ALLVARS）：不在复合指标库、不要求数据列
+.incidence_batch_is_pseudo_all_vars <- function(x) {
+  x <- toupper(gsub("[^A-Za-z0-9]+", "", as.character(x)[1L] %||% ""))
+  x %in% c("ALLVARS", "ALLVARIABLES", "ALLFEATURES", "ALLCOVARIATES")
+}
+
 incidence_batch_resolve_index_vars <- function(config) {
   .incidence_batch_ensure_index_canonical()
-  bc  <- config$incidence_batch %||% list()
+  bc  <- config$incidence_batch %||% config$ml_batch %||% list()
   ivs <- bc$index_vars
   grp <- bc$index_group %||% "all"
+  mode <- tolower(trimws(as.character(bc$index_mode %||% "")[1L]))
+
+  ## ALLVARS / all_vars：单任务伪标签，勿走复合指标病衍生过滤
+  if (identical(mode, "all_vars") ||
+      (!is.null(ivs) && length(ivs) &&
+       all(vapply(as.character(ivs), .incidence_batch_is_pseudo_all_vars, logical(1))))) {
+    return("ALLVARS")
+  }
 
   if (!is.null(ivs) && length(ivs)) {
     out <- incidence_batch_filter_disease_derived_indices(config, as.character(ivs))
@@ -447,9 +467,28 @@ incidence_batch_resolve_from_shared_ck <- function(config, candidate_vars,
   } else {
     candidate_vars
   }
-  bc   <- config$incidence_batch %||% list()
+  bc   <- config$incidence_batch %||% config$ml_batch %||% list()
   min_valid <- as.integer(bc$min_valid_per_db %||% 50L)
   db_seq <- switch(db_mode, nhanes="nhanes", mimic="mimic", c("nhanes","mimic"))
+
+  ## ALLVARS：只要各库共享层 index.rds 可读，即保留单任务（无需列存在）
+  if (length(candidate_vars) &&
+      all(vapply(as.character(candidate_vars), .incidence_batch_is_pseudo_all_vars, logical(1)))) {
+    for (db in db_seq) {
+      ck_dir <- incidence_batch_shared_ck_dir(config, db)
+      alias  <- file.path(ck_dir, "index.rds")
+      if (!file.exists(alias)) alias <- .batch_wsl_to_win(alias)
+      obj <- tryCatch(readRDS(alias), error = function(e) NULL)
+      if (is.null(obj) || is.null(obj$ctx)) {
+        stop(
+          sprintf("ALLVARS 需要共享层检查点，但 [%s] 不可读: %s", toupper(db), alias),
+          call. = FALSE
+        )
+      }
+    }
+    cli::cli_h2("指标筛查（ALLVARS 伪指标）：跳过复合列 n_valid，保留 1 个任务")
+    return("ALLVARS")
+  }
 
   col_sets_by_db <- list()
   for (db in db_seq) {
@@ -2127,10 +2166,29 @@ incidence_batch_should_purge_pub_figure <- function(basename, all_basenames) {
   bn <- as.character(basename)[1L]
   all_bn <- as.character(all_basenames)
   if (grepl("^Figure S2[A-G]", bn)) return(TRUE)
+  ## 有 2×4 拼图时：ROC/DCA/校准/平行坐标等单面板不进汇总
   has_ml_combined <- any(grepl("ML performance combined 2x4|combined 2x4", all_bn, ignore.case = TRUE))
+  if (has_ml_combined &&
+      grepl("ML performance", bn, ignore.case = TRUE) &&
+      !grepl("combined 2x4", bn, ignore.case = TRUE)) {
+    return(TRUE)
+  }
   if (has_ml_combined && grepl("Figure S-.*ML (performance|internal validation)", bn, ignore.case = TRUE)) {
     return(TRUE)
   }
+  ## 预后校准/DCA 草稿拼图：有 ML 2×4 时不进汇总
+  if (has_ml_combined &&
+      grepl("^Figure\\.?\\s*Prognosis\\s+(calibration|DCA)", bn, ignore.case = TRUE)) {
+    return(TRUE)
+  }
+  ## 仅保留一份 LASSO 拼图（S1）；S2/S3/S4 重复路径图丢弃
+  has_s1_lasso <- any(grepl("Figure\\s*S1.*LASSO|Figure\\s*S1.*Lasso", all_bn, ignore.case = TRUE))
+  if (has_s1_lasso &&
+      grepl("Figure\\s*S[2-9].*LASSO|Figure\\s*S[2-9].*Lasso", bn, ignore.case = TRUE)) {
+    return(TRUE)
+  }
+  ## 单层连续 KM 草稿（汇总只留 Combined KM）
+  if (grepl("^KM continuous", bn, ignore.case = TRUE)) return(TRUE)
   has_shap_combined <- any(grepl("SHAP.*combined|Weighted SHAP|SHAP [—\\-–]", all_bn, ignore.case = TRUE))
   if (has_shap_combined &&
       grepl("SHAP .+ (bee|waterfall|importance|dependence)(\\.| |$)", bn, ignore.case = TRUE, perl = TRUE)) {
@@ -2141,6 +2199,55 @@ incidence_batch_should_purge_pub_figure <- function(basename, all_basenames) {
     return(TRUE)
   }
   FALSE
+}
+
+#' 从 Figures 四目录（或平铺）剔除不进交付汇总的冗余图
+incidence_batch_purge_non_delivery_figures <- function(figures_dir) {
+  if (is.null(figures_dir) || !nzchar(figures_dir) || !dir.exists(figures_dir)) {
+    return(invisible(0L))
+  }
+  pdf_dir <- file.path(figures_dir, "pdf")
+  work <- if (dir.exists(pdf_dir)) pdf_dir else figures_dir
+  files <- list.files(work, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+  if (!length(files)) return(invisible(0L))
+  all_bn <- basename(files)
+  drop_idx <- vapply(all_bn, function(bn) {
+    incidence_batch_should_purge_pub_figure(bn, all_bn)
+  }, logical(1L))
+  if (!any(drop_idx)) return(invisible(0L))
+  drop_bn <- all_bn[drop_idx]
+  stems <- sub("\\.pdf$", "", drop_bn, ignore.case = TRUE)
+  n <- 0L
+  for (stem in stems) {
+    for (sub in c("pdf", "png", "tiff", "image_information", "")) {
+      d <- if (nzchar(sub)) file.path(figures_dir, sub) else figures_dir
+      if (!dir.exists(d)) next
+      exts <- if (identical(sub, "image_information")) {
+        c(".md")
+      } else if (identical(sub, "png")) {
+        c(".png")
+      } else if (identical(sub, "tiff")) {
+        c(".tiff", ".tif")
+      } else if (identical(sub, "pdf") || !nzchar(sub)) {
+        c(".pdf", ".png", ".tiff", ".tif", ".md")
+      } else {
+        character(0)
+      }
+      for (ext in exts) {
+        fp <- file.path(d, paste0(stem, ext))
+        if (file.exists(fp)) {
+          unlink(fp)
+          n <- n + 1L
+        }
+      }
+    }
+  }
+  if (n > 0L && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "汇总图已剔除冗余单面板 {length(stems)} 组（{n} 文件）: {.file {basename(figures_dir)}}"
+    )
+  }
+  invisible(as.integer(n))
 }
 
 incidence_batch_pub_figure_scheme <- function(config) {
@@ -2247,7 +2354,7 @@ incidence_batch_ml_pub_figure_role <- function(basename, cfg = list()) {
     if (with_cor) return("drop")
     return("drop")
   }
-  if (grepl("Kaplan", norm, ignore.case = TRUE)) {
+  if (grepl("Kaplan|Combined KM|\\bKM\\b Plots", norm, ignore.case = TRUE)) {
     if (identical(scheme, "ml_dual_dev_ext") &&
         grepl("joint", norm, ignore.case = TRUE)) {
       return("fig2_joint_km")
@@ -2256,6 +2363,18 @@ incidence_batch_ml_pub_figure_role <- function(basename, cfg = list()) {
     if (with_cor) return("drop")
     return("fig3_km")
   }
+  ## 有 2×4 时单张 ML / Prognosis 校准·DCA / 重复 LASSO 不进定稿角色
+  if (grepl("ML performance", norm, ignore.case = TRUE) &&
+      !grepl("combined 2x4", norm, ignore.case = TRUE)) {
+    return("drop")
+  }
+  if (grepl("^Figure\\.?\\s*Prognosis\\s+(calibration|DCA)", norm, ignore.case = TRUE)) {
+    return("drop")
+  }
+  if (grepl("Figure\\s*S[2-9].*LASSO|Figure\\s*S[2-9].*Lasso", norm, ignore.case = TRUE)) {
+    return("drop")
+  }
+  if (grepl("^KM continuous", norm, ignore.case = TRUE)) return("drop")
   if (grepl("ML ROC training internal and external", norm, ignore.case = TRUE)) {
     return("fig3_ml_roc3")
   }
@@ -2332,8 +2451,14 @@ incidence_batch_ml_pub_figure_target_bn <- function(role, src_bn, cfg = list()) 
   ## 本课题含相关热图方案：主图不加库名；否则 Figure N-DB. …（与单库 step 一致）
   with_cor <- identical(incidence_batch_pub_figure_scheme(cfg), "ml_with_correlation")
   dev_ext <- identical(incidence_batch_pub_figure_scheme(cfg), "ml_dual_dev_ext")
-  ## AF 口径：Fig2 LASSO / Fig3–6 三集图不加库名；SHAP/亚组仍可带主库标签
-  db_inf <- if ((!with_cor && !dev_ext) && !is.na(db_tag) && nzchar(db_tag)) {
+  single_db <- (exists("pub_config_is_single_db", mode = "function") &&
+                  isTRUE(pub_config_is_single_db(cfg))) ||
+    identical(incidence_batch_pub_figure_scheme(cfg), "ml_single_standard")
+  ## 单库 / ml_single_standard：文件名不加 -库名
+  ## AF 口径：Fig2 LASSO / Fig3–6 三集图不加库名；双库 SHAP/亚组可带主库标签
+  db_inf <- if (isTRUE(single_db)) {
+    ""
+  } else if ((!with_cor && !dev_ext) && !is.na(db_tag) && nzchar(db_tag)) {
     paste0("-", db_tag)
   } else if (dev_ext && !is.na(db_tag) && nzchar(db_tag)) {
     paste0("-", db_tag)
@@ -2827,17 +2952,38 @@ incidence_batch_pub_figure_meta_n <- function(index_root, config, db_seq) {
 }
 
 #' 从各库 step*/Tables/Flowchart_attrition*.csv 拼双栏 Figure 1（发病/ML 双库）
+#' 判断 Figure 1 是否为旧竖链版式（需升级为 Cataract/pv2 Exclude 侧栏）
+incidence_batch_figure1_is_legacy_style <- function(pdf_path) {
+  pdf_path <- as.character(pdf_path %||% "")[1L]
+  if (!nzchar(pdf_path) || !file.exists(pdf_path)) return(TRUE)
+  txt <- ""
+  if (nzchar(Sys.which("pdftotext"))) {
+    txt <- paste(tryCatch(
+      system2("pdftotext", c("-layout", pdf_path, "-"), stdout = TRUE, stderr = FALSE),
+      error = function(e) character(0)
+    ), collapse = "\n")
+  }
+  if (!nzchar(txt) && requireNamespace("pdftools", quietly = TRUE)) {
+    txt <- paste(tryCatch(pdftools::pdf_text(pdf_path), error = function(e) ""), collapse = "\n")
+  }
+  if (!nzchar(txt)) return(FALSE)
+  if (grepl("Inclusion exclusion flowchart", txt, ignore.case = TRUE)) return(TRUE)
+  # 旧图常见左侧 "-107,971" 差额、无 Exclude: 侧栏
+  has_delta <- grepl("(?m)^\\s*-\\s*[0-9][0-9,]*\\s*$", txt, perl = TRUE) ||
+    grepl("\\n\\s*-\\s*[0-9][0-9,]*\\s*\\n", txt)
+  has_exclude <- grepl("Exclude\\s*:", txt, ignore.case = TRUE)
+  isTRUE(has_delta && !has_exclude)
+}
+
+#' 从指标根 / 分库 attrition CSV 画 Figure 1（pv2；单库或双库）
 #'
 #' 根因修复：mirror 常把单库 Figure 1. Flowchart.pdf 拷进汇总，旧逻辑见「非占位」就提前
-#' 返回，导致双库 ML 发病终稿只剩 NHANES/CHARLS 单栏。双库（length(db_seq)>=2）必须
-#' 优先用分库纳排 CSV 强制覆盖为左右拼图。
-incidence_batch_write_dual_flowchart_from_db_attrition <- function(
-    index_root, config, db_seq, ix = NULL, font_family = "Times New Roman"
+#' 返回，导致双库 ML 发病终稿只剩 NHANES/CHARLS 单栏；单库旧竖链也需强制升为 pv2。
+incidence_batch_write_flowchart_from_attrition_csv <- function(
+    index_root, config = list(), db_seq = NULL, ix = NULL,
+    font_family = "Times New Roman", force = FALSE
 ) {
   if (is.null(index_root) || !dir.exists(index_root)) return(invisible(FALSE))
-  db_seq <- unique(as.character(db_seq[nzchar(as.character(db_seq))]))
-  if (length(db_seq) < 2L) return(invisible(FALSE))
-
   fig_dir <- file.path(index_root, "Figures")
   tab_dir <- file.path(index_root, "Tables")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
@@ -2847,40 +2993,100 @@ incidence_batch_write_dual_flowchart_from_db_attrition <- function(
   ix <- sub("^【[^】]+】", "", ix)
   font_family <- as.character(font_family %||% "Times New Roman")[1L]
 
+  if (is.null(db_seq) || !length(db_seq)) {
+    slots <- c("NHANES", "MIMIC", "CHARLS", "eICU", "ELSA", "KNHANES")
+    db_seq <- slots[dir.exists(file.path(index_root, slots))]
+  }
+  db_seq <- unique(as.character(db_seq[nzchar(as.character(db_seq))]))
+
+  collect_one <- function(csv, db_disp) {
+    dt <- tryCatch(utils::read.csv(csv, stringsAsFactors = FALSE), error = function(e) NULL)
+    if (is.null(dt) || !nrow(dt) || !all(c("step", "n") %in% names(dt))) return(NULL)
+    rows <- dt
+    rows$step <- as.character(rows$step)
+    rows$n <- suppressWarnings(as.integer(rows$n))
+    if (!"database" %in% names(rows) || all(!nzchar(as.character(rows$database %||% "")))) {
+      rows$database <- db_disp
+    }
+    rows <- rows[is.finite(rows$n), , drop = FALSE]
+    if (!nrow(rows)) return(NULL)
+    if (exists("attrition_enrich_rows_for_pv2", mode = "function")) {
+      rows <- attrition_enrich_rows_for_pv2(rows, database = db_disp)
+    }
+    rows
+  }
+
   all_rows <- list()
   for (db in db_seq) {
-    db_disp <- if (exists("dual_db_slot_path_name", mode = "function")) {
+    db_disp <- if (exists("dual_db_slot_path_name", mode = "function") && is.list(config)) {
       tryCatch(dual_db_slot_path_name(config, db), error = function(e) NA_character_)
     } else {
       NA_character_
     }
     if (is.na(db_disp) || !nzchar(db_disp)) db_disp <- as.character(db)[1L]
     db_root <- file.path(index_root, db_disp)
-    if (!dir.exists(db_root)) next
-
-    csvs <- list.files(
-      db_root,
-      pattern = "^Flowchart_attrition.*\\.csv$",
-      full.names = TRUE,
-      recursive = TRUE,
-      ignore.case = TRUE
-    )
-    # 优先 step*_attrition_flowchart/Tables，避免误收其它副本
-    prefer <- csvs[grepl("attrition_flowchart", csvs, ignore.case = TRUE)]
-    if (length(prefer)) csvs <- prefer
+    csvs <- character(0)
+    if (dir.exists(db_root)) {
+      csvs <- list.files(
+        db_root,
+        pattern = "^Flowchart_attrition.*\\.csv$",
+        full.names = TRUE,
+        recursive = TRUE,
+        ignore.case = TRUE
+      )
+      prefer <- csvs[grepl("attrition_flowchart", csvs, ignore.case = TRUE)]
+      if (length(prefer)) csvs <- prefer
+    }
+    if (!length(csvs) && dir.exists(tab_dir)) {
+      root_csvs <- list.files(
+        tab_dir,
+        pattern = sprintf("^Flowchart_attrition.*%s.*\\.csv$", db_disp),
+        full.names = TRUE,
+        ignore.case = TRUE
+      )
+      if (!length(root_csvs)) {
+        root_csvs <- list.files(
+          tab_dir,
+          pattern = "^Flowchart_attrition.*\\.csv$",
+          full.names = TRUE,
+          ignore.case = TRUE
+        )
+        # 单库：优先非 dual
+        root_csvs <- root_csvs[!grepl("_dual\\.csv$", basename(root_csvs), ignore.case = TRUE)]
+      }
+      csvs <- root_csvs
+    }
     if (!length(csvs)) next
     csv <- csvs[[which.max(file.info(csvs)$mtime)]]
-    dt <- tryCatch(utils::read.csv(csv, stringsAsFactors = FALSE), error = function(e) NULL)
-    if (is.null(dt) || !nrow(dt) || !all(c("step", "n") %in% names(dt))) next
-    rows <- dt
-    rows$step <- as.character(rows$step)
-    rows$n <- suppressWarnings(as.integer(rows$n))
-    rows$database <- db_disp
-    rows <- rows[is.finite(rows$n), , drop = FALSE]
-    if (!nrow(rows)) next
-    all_rows[[db_disp]] <- rows
+    rows <- collect_one(csv, db_disp)
+    if (!is.null(rows)) all_rows[[db_disp]] <- rows
   }
-  if (length(all_rows) < 2L) return(invisible(FALSE))
+
+  # 无分库槽时：直接用指标根 Tables 的单份 CSV
+  if (!length(all_rows) && dir.exists(tab_dir)) {
+    root_csvs <- list.files(
+      tab_dir,
+      pattern = "^Flowchart_attrition.*\\.csv$",
+      full.names = TRUE,
+      ignore.case = TRUE
+    )
+    root_csvs <- root_csvs[!grepl("_dual\\.csv$", basename(root_csvs), ignore.case = TRUE)]
+    if (length(root_csvs)) {
+      csv <- root_csvs[[which.max(file.info(root_csvs)$mtime)]]
+      db_guess <- "NHANES"
+      bn <- tolower(basename(csv))
+      for (cand in c("nhanes", "mimic", "charls", "eicu", "elsa", "knhanes")) {
+        if (grepl(cand, bn, fixed = TRUE)) {
+          db_guess <- toupper(cand)
+          if (identical(db_guess, "KNHANES")) db_guess <- "KNHANES"
+          break
+        }
+      }
+      rows <- collect_one(csv, db_guess)
+      if (!is.null(rows)) all_rows[[db_guess]] <- rows
+    }
+  }
+  if (!length(all_rows)) return(invisible(FALSE))
 
   want_cols <- c(
     "step", "n", "database", "exclude_label",
@@ -2892,7 +3098,6 @@ incidence_batch_write_dual_flowchart_from_db_attrition <- function(
     }
     x[, want_cols, drop = FALSE]
   }))
-  # 汇总 Tables 只留带 database 列的 dual CSV，避免无库名片被收成「未知库」
   stale_attr <- list.files(
     tab_dir,
     pattern = "^Flowchart_attrition.*\\.csv$",
@@ -2900,15 +3105,17 @@ incidence_batch_write_dual_flowchart_from_db_attrition <- function(
     ignore.case = TRUE
   )
   if (length(stale_attr)) unlink(stale_attr)
-  utils::write.csv(
-    comb,
-    file.path(tab_dir, sprintf("Flowchart_attrition_%s_dual.csv", ix)),
-    row.names = FALSE
-  )
+  out_csv <- if (length(all_rows) >= 2L) {
+    file.path(tab_dir, sprintf("Flowchart_attrition_%s_dual.csv", ix))
+  } else {
+    file.path(tab_dir, sprintf(
+      "Flowchart_attrition_%s.csv",
+      tolower(names(all_rows)[[1L]])
+    ))
+  }
+  utils::write.csv(comb, out_csv, row.names = FALSE)
 
-  # 标题只用库名（对齐 12_AKI/AF）：勿把指标名（如 sdLDL_C）当「文件名」写进纳排图
   titles <- as.character(names(all_rows))
-  # NHANES 侧从权重 Exclude 标签重建脚注（标明权重名与剔除人数）
   footnotes_by_db <- lapply(all_rows, function(rows) {
     if (is.null(rows) || !nrow(rows)) return(character(0))
     el <- if ("exclude_label" %in% names(rows)) {
@@ -2935,7 +3142,22 @@ incidence_batch_write_dual_flowchart_from_db_attrition <- function(
     )
   })
   ok_draw <- FALSE
-  if (exists("attrition_draw_dual_panel_pdf", mode = "function")) {
+  is_prog <- isTRUE(tryCatch(
+    incidence_batch_is_prognosis_config(config),
+    error = function(e) FALSE
+  ))
+  if (!is_prog && exists("attrition_draw_pv2_pdf", mode = "function")) {
+    ok_draw <- isTRUE(tryCatch(
+      attrition_draw_pv2_pdf(
+        all_rows, dest,
+        cohort = (config$attrition %||% list())$pv2,
+        width = ((config$attrition %||% list())$pv2 %||% list())$figure_width
+      ),
+      error = function(e) FALSE
+    ))
+  }
+  if (!isTRUE(ok_draw) && length(all_rows) >= 2L &&
+      exists("attrition_draw_dual_panel_pdf", mode = "function")) {
     ok_draw <- isTRUE(tryCatch(
       attrition_draw_dual_panel_pdf(
         all_rows, dest, titles = titles, font_family = font_family,
@@ -2944,11 +3166,20 @@ incidence_batch_write_dual_flowchart_from_db_attrition <- function(
       error = function(e) FALSE
     ))
   }
+  if (!isTRUE(ok_draw) && length(all_rows) == 1L &&
+      exists("attrition_draw_pdf", mode = "function")) {
+    ok_draw <- isTRUE(tryCatch(
+      attrition_draw_pdf(
+        all_rows[[1L]], titles[[1L]], dest, font_family = font_family,
+        footnote = footnotes_by_db[[1L]] %||% character(0)
+      ),
+      error = function(e) FALSE
+    ))
+  }
   if (!isTRUE(ok_draw) || !file.exists(dest)) {
-    cli::cli_alert_warning("Figure 1 双库 CONSORT 拼图失败")
+    cli::cli_alert_warning("Figure 1 纳排图重建失败")
     return(invisible(FALSE))
   }
-  # 汇总目录不留分库 Figure 1 单图
   stale <- list.files(
     fig_dir,
     pattern = "^Figure 1-.+\\. Inclusion exclusion flowchart\\.pdf$",
@@ -2959,16 +3190,34 @@ incidence_batch_write_dual_flowchart_from_db_attrition <- function(
   ok <- file.exists(dest) && !incidence_batch_is_figure1_placeholder(dest)
   if (isTRUE(ok)) {
     cli::cli_alert_success(
-      "Figure 1 双库纳排已由分库 attrition CSV 重建（{paste(names(all_rows), collapse = ' + ')}）"
+      "Figure 1 pv2 纳排已重建（{paste(names(all_rows), collapse = ' + ')}）"
     )
   }
   invisible(isTRUE(ok))
 }
 
+#' 兼容旧名：双库入口（内部走通用 pv2 重建）
+incidence_batch_write_dual_flowchart_from_db_attrition <- function(
+    index_root, config, db_seq, ix = NULL, font_family = "Times New Roman"
+) {
+  db_seq <- unique(as.character(db_seq[nzchar(as.character(db_seq))]))
+  if (length(db_seq) < 2L) return(invisible(FALSE))
+  incidence_batch_write_flowchart_from_attrition_csv(
+    index_root = index_root,
+    config = config,
+    db_seq = db_seq,
+    ix = ix,
+    font_family = font_family,
+    force = TRUE
+  )
+}
+
 #' 课题根 / 指标根：尽量写出真实 Figure 1（双库纳排），禁止占位空图终稿
+#' @param force TRUE 时强制用 attrition CSV 重画 pv2（升级旧竖链版式）
 incidence_batch_ensure_real_figure1 <- function(index_root, config, ix = NULL,
                                                  db_seq = c("nhanes", "mimic"),
-                                                 project_root = NULL) {
+                                                 project_root = NULL,
+                                                 force = FALSE) {
   if (is.null(index_root) || !nzchar(index_root) || !dir.exists(index_root)) {
     return(invisible(FALSE))
   }
@@ -3008,23 +3257,36 @@ incidence_batch_ensure_real_figure1 <- function(index_root, config, ix = NULL,
     }
   }
 
-  # 1b) 发病 / ML 双库：分库 attrition CSV → 强制双栏 Figure 1（覆盖单库 mirror）
-  if (is_index_dir && length(db_seq) >= 2L &&
-      !incidence_batch_is_prognosis_config(config)) {
-    ok_dual <- tryCatch(
-      incidence_batch_write_dual_flowchart_from_db_attrition(
-        index_root = index_root,
-        config = config,
-        db_seq = db_seq,
-        ix = ix,
-        font_family = font_family
-      ),
-      error = function(e) {
-        cli::cli_alert_warning("ensure_real_figure1 发病双库纳排失败: {e$message}")
-        FALSE
+  # 1b) 发病 / ML：attrition CSV → pv2 Figure 1（双库拼图；单库旧竖链强制升级）
+  if (is_index_dir && !incidence_batch_is_prognosis_config(config)) {
+    need_pv2 <- isTRUE(force) ||
+      !file.exists(dest) ||
+      incidence_batch_is_figure1_placeholder(dest) ||
+      (exists("incidence_batch_figure1_is_legacy_style", mode = "function") &&
+         incidence_batch_figure1_is_legacy_style(dest)) ||
+      length(db_seq) >= 2L
+    if (isTRUE(need_pv2) &&
+        exists("incidence_batch_write_flowchart_from_attrition_csv", mode = "function")) {
+      ok_pv2 <- tryCatch(
+        incidence_batch_write_flowchart_from_attrition_csv(
+          index_root = index_root,
+          config = config,
+          db_seq = db_seq,
+          ix = ix,
+          font_family = font_family,
+          force = TRUE
+        ),
+        error = function(e) {
+          cli::cli_alert_warning("ensure_real_figure1 pv2 纳排失败: {e$message}")
+          FALSE
+        }
+      )
+      if (isTRUE(ok_pv2) &&
+          !(exists("incidence_batch_figure1_is_legacy_style", mode = "function") &&
+            incidence_batch_figure1_is_legacy_style(dest))) {
+        return(invisible(TRUE))
       }
-    )
-    if (isTRUE(ok_dual)) return(invisible(TRUE))
+    }
   }
 
   # 2) 提升本目录已有 Inclusion exclusion / Dual 纳排 PDF
@@ -3040,9 +3302,11 @@ incidence_batch_ensure_real_figure1 <- function(index_root, config, ix = NULL,
   if (length(dual_cands) && (incidence_batch_is_figure1_placeholder(dest) || !file.exists(dest))) {
     file.copy(dual_cands[[which.max(file.info(dual_cands)$size)]], dest, overwrite = TRUE)
   }
-  # 单库课题：已有真实 Fig1 即可返回；双库仍继续尝试课题根 / dual CSV
+  # 单库：仅当已是 pv2（非 legacy）才可提前返回
   if (length(db_seq) < 2L &&
-      file.exists(dest) && !incidence_batch_is_figure1_placeholder(dest)) {
+      file.exists(dest) && !incidence_batch_is_figure1_placeholder(dest) &&
+      !(exists("incidence_batch_figure1_is_legacy_style", mode = "function") &&
+        incidence_batch_figure1_is_legacy_style(dest))) {
     return(invisible(TRUE))
   }
   if (length(db_seq) >= 2L &&
@@ -3105,6 +3369,13 @@ incidence_batch_ensure_real_figure1 <- function(index_root, config, ix = NULL,
           rows_by_db <- rows_by_db[vapply(rows_by_db, nrow, integer(1)) > 0L]
           if (!length(rows_by_db)) {
             FALSE
+          } else if (!incidence_batch_is_prognosis_config(config) &&
+                     exists("attrition_draw_pv2_pdf", mode = "function")) {
+            isTRUE(attrition_draw_pv2_pdf(
+              rows_by_db, dest,
+              cohort = (config$attrition %||% list())$pv2,
+              width = ((config$attrition %||% list())$pv2 %||% list())$figure_width
+            ))
           } else if (exists("attrition_draw_dual_panel_pdf", mode = "function") &&
                      length(rows_by_db) >= 2L) {
             isTRUE(attrition_draw_dual_panel_pdf(
@@ -3591,6 +3862,23 @@ incidence_batch_finalize_index_outputs <- function(root, config, ix, db_seq) {
       incidence_batch_write_software_versions(root, config, index_root),
       error = function(e) cli::cli_alert_warning("Software versions 跳过: {e$message}")
     )
+    tryCatch(
+      incidence_batch_finalize_summary_result(root, config, ix),
+      error = function(e) cli::cli_alert_warning("summary_result 收口跳过: {e$message}")
+    )
+    tryCatch(
+      {
+        if (!exists("ml_batch_finalize_index_summary_results", mode = "function")) {
+          eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = root)
+          src <- file.path(eng, "R", "ml_index_summary_results.R")
+          if (file.exists(src)) source(src, local = FALSE)
+        }
+        if (exists("ml_batch_finalize_index_summary_results", mode = "function")) {
+          ml_batch_finalize_index_summary_results(root, config, ix)
+        }
+      },
+      error = function(e) cli::cli_alert_warning("指标 summary_results 收口跳过: {e$message}")
+    )
     return(invisible(NULL))
   }
   incidence_batch_purge_aggregate_pub_cache(index_root)
@@ -3726,6 +4014,24 @@ incidence_batch_finalize_index_outputs <- function(root, config, ix, db_seq) {
     error = function(e) cli::cli_alert_warning("Software versions 跳过: {e$message}")
   )
 
+  tryCatch(
+    incidence_batch_finalize_summary_result(root, config, ix),
+    error = function(e) cli::cli_alert_warning("summary_result 收口跳过: {e$message}")
+  )
+  tryCatch(
+    {
+      if (!exists("ml_batch_finalize_index_summary_results", mode = "function")) {
+        eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = root)
+        src <- file.path(eng, "R", "ml_index_summary_results.R")
+        if (file.exists(src)) source(src, local = FALSE)
+      }
+      if (exists("ml_batch_finalize_index_summary_results", mode = "function")) {
+        ml_batch_finalize_index_summary_results(root, config, ix)
+      }
+    },
+    error = function(e) cli::cli_alert_warning("指标 summary_results 收口跳过: {e$message}")
+  )
+
   # Phase 6：指标发表收口后自动结构 QC（Agent 再填 nature Layer D）
   tryCatch({
     eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
@@ -3741,6 +4047,68 @@ incidence_batch_finalize_index_outputs <- function(root, config, ix, db_seq) {
   }, error = function(e) cli::cli_alert_warning("pub-qc 跳过: {e$message}"))
 
   # code 包由函数开头 on.exit 统一写入（全项目铁律）
+}
+
+#' 指标 finalize 后写/刷新 project/summary_result（含 SA_complete_case）
+#'
+#' 若 ML 已启用指标级 `summary_results/`（`write_index_summary_results`），
+#' 则**跳过**课题根 `summary_result/`，避免双份交付面（TyG_WHtR 2026-10 踩坑）。
+incidence_batch_finalize_summary_result <- function(root, config, ix) {
+  eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!exists("ml_index_summary_results_enabled", mode = "function")) {
+    ml_src <- file.path(eng, "R", "ml_index_summary_results.R")
+    if (!nzchar(eng) || !file.exists(ml_src)) {
+      ml_src <- file.path(getwd(), "R", "ml_index_summary_results.R")
+    }
+    if (file.exists(ml_src)) source(ml_src, local = FALSE)
+  }
+  if (exists("ml_index_summary_results_enabled", mode = "function") &&
+      isTRUE(ml_index_summary_results_enabled(config))) {
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info(
+        "ML 指标 summary_results 已启用：跳过课题根 summary_result（交付面以 by_index/【success】*/summary_results 为准）"
+      )
+    }
+    return(invisible(NULL))
+  }
+  srcs <- c(
+    if (nzchar(eng)) file.path(eng, "R", "incidence_summary_result.R") else character(0),
+    file.path(root, "R", "incidence_summary_result.R"),
+    file.path(getwd(), "R", "incidence_summary_result.R")
+  )
+  srcs <- srcs[file.exists(srcs)]
+  if (!length(srcs)) return(invisible(NULL))
+  if (!exists("incidence_finalize_summary_result", mode = "function")) {
+    source(srcs[[1L]], local = FALSE)
+  }
+  if (!exists("pub_write_software_versions", mode = "function")) {
+    vs <- c(
+      if (nzchar(eng)) file.path(eng, "R", "pub_software_versions.R") else character(0),
+      file.path(getwd(), "R", "pub_software_versions.R")
+    )
+    vs <- vs[file.exists(vs)]
+    if (length(vs)) source(vs[[1L]], local = FALSE)
+  }
+  if (!exists("pub_figure_ensure_formats", mode = "function")) {
+    pf <- c(
+      if (nzchar(eng)) file.path(eng, "R", "pub_figure_export.R") else character(0),
+      file.path(getwd(), "R", "pub_figure_export.R")
+    )
+    pf <- pf[file.exists(pf)]
+    if (length(pf)) source(pf[[1L]], local = FALSE)
+  }
+  # 默认开；config$pub$summary_result=FALSE 可关
+  if (isFALSE((config$pub %||% list())$summary_result %||% TRUE)) {
+    return(invisible(NULL))
+  }
+  incidence_finalize_summary_result(
+    project_root = root,
+    config = config,
+    index = ix,
+    include_sa_complete_case = isTRUE(
+      (config$pub %||% list())$include_sa_complete_case %||% TRUE
+    )
+  )
 }
 
 incidence_batch_write_software_versions <- function(root, config, index_root) {
@@ -4029,12 +4397,41 @@ incidence_batch_index_available <- function(shared_ck_dir, ix) {
   if (is.null(obj) || is.null(obj$ctx)) return(NA)
   data <- incidence_batch_ctx_data(obj$ctx)
   if (is.null(data) || !is.data.frame(data)) return(NA)
+  ## ALLVARS 伪指标：共享层有行即可，不要求同名列
+  if (exists(".incidence_batch_is_pseudo_all_vars", mode = "function") &&
+      .incidence_batch_is_pseudo_all_vars(ix)) {
+    return(nrow(data) > 0L)
+  }
   if (!ix %in% names(data)) return(FALSE)
   sum(!is.na(data[[ix]])) > 0
 }
 
-# ── 8. 过滤该指标的 NA 行 + 前后 p_trim 极端值（原地修改检查点文件）──────────
-incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01) {
+# 解析指标绝对截断窗：config$incidence_batch$index_value_bounds[[ix]] = c(lo, hi)
+# 或 config$index_overrides[[ix]]$value_bounds；有绝对窗时优先于百分位 p_trim
+.incidence_batch_resolve_index_value_bounds <- function(ix, config = NULL) {
+  if (is.null(config)) return(NULL)
+  bc <- config$incidence_batch %||% list()
+  bounds_map <- bc$index_value_bounds %||% list()
+  b <- bounds_map[[ix]]
+  if (is.null(b) || !length(b)) {
+    ovr <- (config$index_overrides %||% list())[[ix]] %||% list()
+    b <- ovr$value_bounds %||% NULL
+  }
+  b <- suppressWarnings(as.numeric(b))
+  b <- b[is.finite(b)]
+  if (length(b) < 2L) return(NULL)
+  lo <- min(b[1:2])
+  hi <- max(b[1:2])
+  if (!(is.finite(lo) && is.finite(hi) && lo < hi)) return(NULL)
+  c(lo = lo, hi = hi)
+}
+
+# ── 8. 过滤该指标的 NA 行 + 极端值（原地修改检查点文件）────────────────────
+#  极端值：若 config 为该指标配置了绝对窗 index_value_bounds，按窗截断（主分析口径）；
+#  否则用前后 p_trim 分位（>10000 人各 5% 规则仍走 trim_index_quantile_for_n）。
+#  纳排标签不写具体截断数值，仅写剔除极端值。
+incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01,
+                                                   config = NULL) {
   if (!file.exists(ck_path)) {
     cli::cli_alert_warning("  检查点不存在，跳过过滤: {.file {basename(ck_path)}}")
     return(invisible(list(n_before = NA, n_after = NA, n_na = NA, n_trim = NA)))
@@ -4045,14 +4442,36 @@ incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01) {
     return(invisible(list(n_before = NA, n_after = NA, n_na = NA, n_trim = NA)))
   }
 
+  # worker / batch 入口未必已 source attrition_log；否则极端值步写不进 Fig1
+  if (!exists("attrition_record", mode = "function")) {
+    eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+    al <- if (nzchar(eng)) {
+      file.path(eng, "R", "attrition_log.R")
+    } else {
+      file.path(getwd(), "R", "attrition_log.R")
+    }
+    if (file.exists(al)) {
+      try(source(al, local = FALSE), silent = TRUE)
+    }
+  }
+
   ctx    <- obj$ctx
   result <- list()
+  bounds <- .incidence_batch_resolve_index_value_bounds(ix, config)
 
   for (slot in c("mapped", "imputed", "cleaned")) {
     df <- ctx$data[[slot]]
     if (is.null(df) || !is.data.frame(df) || !ix %in% names(df)) next
 
     n_before <- nrow(df)
+    if (!nzchar(trimws(as.character(ctx$results$attrition_key_missing_label %||% "")[1L]))) {
+      lab_miss <- if (exists("attrition_key_missing_label_from_index", mode = "function")) {
+        tryCatch(attrition_key_missing_label_from_index(df, ix), error = function(e) "")
+      } else {
+        ""
+      }
+      if (nzchar(lab_miss)) ctx$results$attrition_key_missing_label <- lab_miss
+    }
     vals     <- suppressWarnings(as.numeric(df[[ix]]))
 
     # 步骤 1：删除 ix 为 NA 的行
@@ -4061,15 +4480,24 @@ incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01) {
     df       <- df[keep, , drop = FALSE]
     vals     <- vals[keep]
 
-    # 步骤 2：删除前后极端值（>10000 人各 5%，否则用 p_trim）
+    # 步骤 2：绝对窗 或 百分位极端值
     n_trim <- 0L
-    p_use  <- trim_index_quantile_for_n(length(vals), base_trim = p_trim)
-    if (length(vals) >= 20 && p_use > 0) {
-      q_lo   <- quantile(vals, probs = p_use,     na.rm = TRUE)
-      q_hi   <- quantile(vals, probs = 1 - p_use, na.rm = TRUE)
-      keep_t <- vals >= q_lo & vals <= q_hi
+    if (!is.null(bounds) && length(vals) >= 1L) {
+      keep_t <- vals >= bounds[["lo"]] & vals <= bounds[["hi"]]
       n_trim <- sum(!keep_t)
       df     <- df[keep_t, , drop = FALSE]
+      cli::cli_alert_info(
+        "  [{slot}] {ix}: 绝对窗截断（纳排不展示具体界值），剔除 {n_trim} 行"
+      )
+    } else {
+      p_use  <- trim_index_quantile_for_n(length(vals), base_trim = p_trim)
+      if (length(vals) >= 20 && p_use > 0) {
+        q_lo   <- quantile(vals, probs = p_use,     na.rm = TRUE)
+        q_hi   <- quantile(vals, probs = 1 - p_use, na.rm = TRUE)
+        keep_t <- vals >= q_lo & vals <= q_hi
+        n_trim <- sum(!keep_t)
+        df     <- df[keep_t, , drop = FALSE]
+      }
     }
 
     n_after            <- nrow(df)
@@ -4081,13 +4509,24 @@ incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01) {
       "  [{slot}] {ix}: {n_before} 行 → 删 NA {n_na} 行, 删极端值 {n_trim} 行 → 剩余 {n_after} 行"
     )
     if (exists("attrition_record", mode = "function") && exists("ctx", inherits = FALSE)) {
+      # 分两步写纳排：缺失 vs 极端值；极端值步骤不写具体数值范围
+      n_after_na <- as.integer(n_before - n_na)
       ctx <- attrition_record(
         ctx,
-        step_id = paste0("after_index_filter_", ix),
-        label = sprintf("After excluding missing/extreme %s", ix),
-        n = as.integer(n_after),
-        meta = list(block = "index_filter", index = ix, n_na = n_na, n_trim = n_trim)
+        step_id = paste0("after_index_missing_", ix),
+        label = sprintf("After excluding missing %s", ix),
+        n = n_after_na,
+        meta = list(block = "index_filter", index = ix, n_na = n_na)
       )
+      if (as.integer(n_trim) > 0L) {
+        ctx <- attrition_record(
+          ctx,
+          step_id = paste0("after_index_extreme_", ix),
+          label = "After excluding extreme values",
+          n = as.integer(n_after),
+          meta = list(block = "index_filter", index = ix, n_trim = n_trim)
+        )
+      }
     }
   }
 
@@ -4225,8 +4664,10 @@ incidence_batch_copy_shared_ck <- function(shared_ck_dir, per_index_ck_dir,
     }
   }
 
-  # 原地过滤：删除 ix 的 NA 行 + 极端值（p_trim=0 时只删 NA）
-  stats <- incidence_batch_apply_filter_and_trim(alias_dst, ix, p_trim)
+  # 原地过滤：删除 ix 的 NA 行 + 极端值（绝对窗优先；否则 p_trim；p_trim=0 且无窗则只删 NA）
+  stats <- incidence_batch_apply_filter_and_trim(
+    alias_dst, ix, p_trim = p_trim, config = config
+  )
   invisible(structure(TRUE, filter_stats = stats))
 }
 

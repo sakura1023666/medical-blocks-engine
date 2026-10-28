@@ -21,7 +21,7 @@
 | S3 | 纵向中介路径图 | 纵向库 + Pooled |
 | S4 | Mean ePWV（或 FI）by Year and Disease | 纵向库；昼夜课题另收 **NHANES**（横断面一年/周期） |
 | S5 | Mean ePWV（或 FI）by Country and Disease | 一张合并图（昼夜含 NHANES=USA） |
-| S11 | ROC | 横断面库 |
+| S6 | ROC（三库曲线可叠一张；勿用 S11，避免与 Table S11 敏感性撞号） | 横断面库 |
 | README | FigS1/S2 说明 | 一份 |
 
 ## Table（核心 T1/T2/S1/S3–S8）

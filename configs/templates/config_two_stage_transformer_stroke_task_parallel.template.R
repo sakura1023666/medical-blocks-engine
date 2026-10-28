@@ -96,6 +96,7 @@ config <- list(
     # A2 铁律：仅训练集拟合；val∪test 用 mice(ignore=TRUE) 套用（禁止 val/test 各自重拟合）
     fit_on = "train",
     complete_action = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig = FALSE,
     export_table_s1 = FALSE,
     pause_enable = FALSE

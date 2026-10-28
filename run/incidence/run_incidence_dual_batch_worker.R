@@ -494,18 +494,25 @@ if (isTRUE(bc$.sensitivity_light)) {
       filter_stats[[db]] <- list(imputed = list(n_after = nrow(df_f)))
   }
 } else if (!resume_mode) {
-  # 注意：此处只过滤 NA 行（p_trim=0 跳过极值裁剪）
-  # 发病套路不再挂 trim_index_extreme，不做百分位极端值裁剪
+  # 默认 p_trim=0（只删 NA）；若 config$incidence_batch$index_value_bounds[[ix]]
+  # 配置了绝对窗，则在 copy_shared 内按窗剔除极端值（纳排不写具体界值）
   for (db in actual_db_seq) {
     shared_dir   <- incidence_batch_shared_ck_dir(config, db)
     per_index_ck <- file.path(
       bc$index_ck_base %||% "checkpoints/_by_index", ix,
       dual_db_slot_path_name(config, db)
     )
-    ok <- incidence_batch_copy_shared_ck(shared_dir, per_index_ck, ix, 0, config = config)  # p_trim=0: 只过滤NA
+    ok <- incidence_batch_copy_shared_ck(
+      shared_dir, per_index_ck, ix, p_trim = 0, config = config
+    )
     if (!ok) {
       .write_status("failed", error_message = sprintf("复制 %s checkpoint 失败", toupper(db)))
       quit(save = "no", status = 1)
+    }
+    st_map <- attr(ok, "filter_stats")
+    slot_st <- NULL
+    if (is.list(st_map) && length(st_map)) {
+      slot_st <- st_map[["mapped"]] %||% st_map[["imputed"]] %||% st_map[["cleaned"]]
     }
 
     # ── 亚组补救重跑：在 per-index ck 上按亚组表达式剔除行（由 config 注入）──────
@@ -534,13 +541,18 @@ if (isTRUE(bc$.sensitivity_light)) {
       }
     }
 
-    # 记录过滤统计
+    # 记录过滤统计（含绝对窗 n_trim，供 Figure 1 / _batch_status）
     ck_path <- file.path(per_index_ck, "index.rds")
     if (file.exists(ck_path)) {
       obj   <- tryCatch(readRDS(ck_path), error = function(e) NULL)
       df_f <- incidence_batch_ctx_data(obj$ctx)
-      if (!is.null(df_f) && is.data.frame(df_f))
-        filter_stats[[db]] <- list(imputed = list(n_after = nrow(df_f)))
+      n_after <- if (!is.null(df_f) && is.data.frame(df_f)) nrow(df_f) else NA_integer_
+      filter_stats[[db]] <- list(imputed = list(
+        n_before = slot_st$n_before %||% NA_integer_,
+        n_na     = slot_st$n_na %||% NA_integer_,
+        n_trim   = slot_st$n_trim %||% NA_integer_,
+        n_after  = slot_st$n_after %||% n_after
+      ))
     }
   }
 

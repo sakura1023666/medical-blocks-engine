@@ -77,6 +77,8 @@ Task 1: complete (no-git, review Approved; Important tracked: critic_model metad
 Task 2: DONE_WITH_CONCERNS — awaiting user confirm on MIMIC iv=alteplase union + foundation before Task 3
 Task 2: complete (user confirmed foundation; exposure MAIN=A rx∪iv; sensitivity optional rx-only; controller Approved after concerns cleared)
 User gate 2026-10-09: 地基确认; 暴露选A(代理判断合理); 图/表对齐原文献+卒中一个不能少
-Task 3: complete (no-git, review Approved; awaiting user confirm decision_tree_ipw_pe_alteplase.md §0 before Task 4)
-Exposure MAIN locked to prescription-only (425/70); decision tree §0 checked; starting Task 4
-Task 4: complete (no-git, review Approved; exposure MAIN=rx-only)
+Task 5: complete (MIMIC 【success】main; Fig1-5/S1-S4 + Table1/S1-S4 + Sens OK; four-format ok=TRUE; 2026-10-10)
+Task 6: complete (eICU 【success】eICU; keys OK; MIMIC unpolluted)
+Task 7: complete (dual-panel remirror root Figures/; four-format ok)
+Task 8: structural inventory PASS; CLI stub WARN (python3 Windows App path); Nature Layer D still recommended
+Note: Task5 subagent b606e494 later errored on resume (stale); deliverables already finalized by repair+T6/T7 — no re-run needed.

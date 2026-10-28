@@ -207,6 +207,50 @@ block_tst_summary_results <- function(ctx, ...) {
     }
   )
 
+  # 交付白名单收口：Methods md + 软件版本 txt + 移出 by_landmark/README 等
+  tryCatch({
+    eng_root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+    if (!nzchar(eng_root) || !dir.exists(file.path(eng_root, "run", "pub"))) {
+      eng_root <- .tst71_root(ctx)
+    }
+    fin <- file.path(eng_root, "run", "pub", "finalize_delivery_root.R")
+    if (!file.exists(fin)) {
+      fin <- "/mnt/e/01block/01Block-new-Final/run/pub/finalize_delivery_root.R"
+    }
+    if (file.exists(fin) && dir.exists(summary_dir)) {
+      prj <- ctx$config$project %||% list()
+      tst <- ctx$config$tst_stroke %||% list()
+      outcome <- as.character(prj$analysis_group %||% prj$disease %||% "in-hospital mortality")[1L]
+      dbs <- prj$databases %||% c("MIMIC", "eICU")
+      if (length(dbs) > 1L) dbs <- paste(dbs, collapse = ",")
+      args <- c(
+        fin,
+        "--dir", summary_dir,
+        "--study-type", "tst",
+        "--outcome", outcome,
+        "--exposure", "Two-stage Transformer",
+        "--databases", as.character(dbs)[1L]
+      )
+      # 透传年龄/对照分到 finalize 用的环境变量（可选）
+      Sys.setenv(
+        TST_MIN_AGE = as.character(tst$min_age %||% 18L),
+        TST_COMPARATOR = as.character(tst$comparator_score %||% "APSIII"),
+        TST_LANDMARK_H = as.character(tst$summary_primary_landmark %||% primary %||% 120L)
+      )
+      st <- system2("Rscript", args, stdout = TRUE, stderr = TRUE)
+      code <- attr(st, "status") %||% 0L
+      if (!identical(as.integer(code), 0L)) {
+        cli::cli_alert_warning(
+          "tst_summary_results finalize_delivery 非零退出: {paste(utils::tail(st, 8L), collapse = ' | ')}"
+        )
+      } else if (length(st)) {
+        cli::cli_alert_info("{utils::tail(st, 1L)}")
+      }
+    }
+  }, error = function(e) {
+    cli::cli_alert_warning("tst_summary_results 交付收口跳过: {conditionMessage(e)}")
+  })
+
   checklist <- file.path(summary_dir, "Pub_deliverables_checklist.pdf")
   n_pass <- NA_integer_
   n_total <- NA_integer_
@@ -257,5 +301,5 @@ block_tst_summary_results <- function(ctx, ...) {
 register_block(
   "tst_summary_results",
   block_tst_summary_results,
-  "两阶段 Transformer：summary_results 汇总 + 发表图四目录（pdf/png/tiff/image_information）"
+  "两阶段 Transformer：summary_results 汇总 + 四目录图 + Methods/软件版本 + 交付白名单修剪"
 )

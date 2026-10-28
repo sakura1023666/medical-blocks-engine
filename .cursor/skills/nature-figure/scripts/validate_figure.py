@@ -451,11 +451,15 @@ def check_resolution(source: str, _backend: str) -> Finding:
     ]
     if not values:
         return finding("RASTER-DPI", "WARN", "No explicit raster DPI/resolution found")
-    below_minimum = sorted({value for value in values if value < 300})
-    if below_minimum:
-        return finding("RASTER-DPI", "FAIL", "Raster resolution below 300 dpi", [str(v) for v in below_minimum])
-    if max(values) < 600:
-        return finding("RASTER-DPI", "WARN", "Raster export meets the 300 dpi floor but not the 600 dpi default", [str(max(values))])
+    # Medical Blocks / 本仓库铁律：定稿栅格必须 ≥600 dpi（期刊 300 底线不够）
+    below_600 = sorted({value for value in values if value < 600})
+    if below_600:
+        return finding(
+            "RASTER-DPI",
+            "FAIL",
+            "Raster resolution below required 600 dpi (Medical Blocks iron rule)",
+            [str(v) for v in below_600],
+        )
     return finding("RASTER-DPI", "PASS", "A raster export of at least 600 dpi is configured", [str(max(values))])
 
 

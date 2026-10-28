@@ -5,6 +5,7 @@
 #    single_loop    — 两库共同可用的单指标逐个并行 worker
 #    multi_combined — 候选池按单因素 P 值取 top N，合并为一次 ML 运行
 #    combo_loop     — 预先锁定的双复合指标组合逐对并行 worker（A+B）
+#    all_vars       — 全变量池单任务（伪指标 ALLVARS，不要求复合指标列）
 ###############################################################################
 
 # 引擎根：优先 MEDICAL_BLOCKS_ROOT（worker cwd 常为课题目录，勿用 getwd()）
@@ -36,6 +37,27 @@ ml_batch_index_label <- function(indices) {
   paste(as.character(indices), collapse = "_")
 }
 
+#' 全变量伪指标 token（非复合指标列；TCF / all_vars_ml）
+ml_batch_is_all_vars_token <- function(x) {
+  x <- toupper(gsub("[^A-Za-z0-9]+", "", as.character(x)[1L] %||% ""))
+  x %in% c("ALLVARS", "ALLVARIABLES", "ALLFEATURES", "ALLCOVARIATES")
+}
+
+ml_batch_is_all_vars_job <- function(indices) {
+  ix <- unique(as.character(indices)[nzchar(as.character(indices))])
+  length(ix) == 1L && ml_batch_is_all_vars_token(ix[[1L]])
+}
+
+ml_batch_canonical_all_vars_label <- function() "ALLVARS"
+
+ml_batch_config_is_all_vars_mode <- function(config) {
+  bc <- config$ml_batch %||% config$incidence_batch %||% list()
+  mode <- tolower(trimws(as.character(bc$index_mode %||% "")[1L]))
+  if (identical(mode, "all_vars")) return(TRUE)
+  ivs <- as.character(bc$index_vars %||% character(0))
+  length(ivs) > 0L && all(vapply(ivs, ml_batch_is_all_vars_token, logical(1)))
+}
+
 #' combo_loop 专用标签：复合指标名本身含 '_'（如 De_Ritis / BUN_Cr），
 #' 用 '_' 连接组合会与单指标名歧义，故组合标签用 '+' 连接。
 ml_batch_combo_label <- function(indices) {
@@ -52,6 +74,49 @@ ml_batch_parse_index_arg <- function(ix_arg) {
 ml_batch_patch_config_for_indices <- function(config, indices) {
   indices <- unique(as.character(indices)[nzchar(as.character(indices))])
   config <- .ml_batch_bind_config(config)
+  ## ALLVARS：不把伪标签当复合暴露列；关闭 index 计算与基线 index-NS 早停
+  if (ml_batch_is_all_vars_job(indices)) {
+    lab <- ml_batch_canonical_all_vars_label()
+    config$incidence$index_var <- NULL
+    config$logistic$index_var <- NULL
+    config$nhanes$cutoff_index_var <- NULL
+    config$survival$index_var <- NULL
+    config$prediction$index_vars <- character(0)
+    config$feature_selection$composite_features <- character(0)
+    config$index <- modifyList(
+      config$index %||% list(),
+      list(enable = FALSE, only = NULL)
+    )
+    config$analysis_exclusion <- modifyList(
+      config$analysis_exclusion %||% list(),
+      list(
+        index_var = NULL,
+        current_index_vars = character(0)
+      )
+    )
+    config$baseline_binary <- modifyList(
+      config$baseline_binary %||% list(),
+      list(early_stop_if_index_ns = FALSE)
+    )
+    config$baseline_nhanes <- modifyList(
+      config$baseline_nhanes %||% list(),
+      list(early_stop_if_index_ns = FALSE)
+    )
+    config$ml_batch <- modifyList(
+      config$ml_batch %||% list(),
+      list(
+        index_mode = "all_vars",
+        index_vars = lab,
+        baseline_index_ns_fail_rule = FALSE
+      )
+    )
+    config$incidence_batch <- modifyList(
+      config$incidence_batch %||% list(),
+      list(index_mode = "all_vars", index_vars = lab)
+    )
+    config$project$current_index <- lab
+    return(config)
+  }
   if (length(indices) == 1L) {
     config <- incidence_batch_patch_config_for_index(config, indices[[1L]])
   } else {
@@ -131,6 +196,12 @@ ml_batch_rank_indices_top_n <- function(config, candidates, top_n = 3L, root = g
 
 ml_batch_resolve_indices_from_label <- function(label, config) {
   label <- as.character(label)[1L]
+  if (ml_batch_is_all_vars_token(label) ||
+      identical(tolower(trimws(as.character(
+        (config$ml_batch %||% config$incidence_batch %||% list())$index_mode %||% ""
+      )[1L])), "all_vars")) {
+    return(ml_batch_canonical_all_vars_label())
+  }
   if (grepl(",", label, fixed = TRUE)) return(ml_batch_parse_index_arg(label))
 
   bc <- config$ml_batch %||% config$incidence_batch %||% list()
@@ -171,6 +242,10 @@ ml_batch_resolve_indices_from_label <- function(label, config) {
 
 ml_batch_apply_filter_for_indices <- function(ck_path, indices, p_trim = 0.01) {
   indices <- unique(as.character(indices))
+  if (ml_batch_is_all_vars_job(indices)) {
+    cli::cli_alert_info("ALLVARS：跳过指标缺失/极端值过滤（无暴露列）")
+    return(invisible(list(ALLVARS = list(skipped = TRUE))))
+  }
   stats <- list()
   for (ix in indices) {
     st <- incidence_batch_apply_filter_and_trim(ck_path, ix, p_trim)
@@ -179,11 +254,19 @@ ml_batch_apply_filter_for_indices <- function(ck_path, indices, p_trim = 0.01) {
   invisible(stats)
 }
 
-#' 解析批量指标计划：single_loop / multi_combined / single_then_multi / combo_loop
+#' 解析批量指标计划：single_loop / multi_combined / single_then_multi / combo_loop / all_vars
 ml_batch_resolve_index_plan <- function(config, candidate_vars, root = getwd()) {
   bc <- config$ml_batch %||% config$incidence_batch %||% list()
   mode <- tolower(trimws(as.character(bc$index_mode %||% "single_loop")))
   top_n <- bc$multi_top_n %||% 3L
+  cand0 <- unique(as.character(candidate_vars)[nzchar(as.character(candidate_vars))])
+
+  ## all_vars：显式 mode，或候选全是 ALLVARS 伪 token → 单任务
+  if (identical(mode, "all_vars") ||
+      (length(cand0) > 0L && all(vapply(cand0, ml_batch_is_all_vars_token, logical(1))))) {
+    lab <- ml_batch_canonical_all_vars_label()
+    return(list(mode = "all_vars", jobs = list(lab), labels = lab))
+  }
 
   if (identical(mode, "single_then_multi")) {
     list(
@@ -311,6 +394,7 @@ ml_batch_seed_index_checkpoint <- function(alias_dst, indices, other_ix, config_
   if (!file.exists(alias_dst)) return(invisible(FALSE))
   obj <- tryCatch(readRDS(alias_dst), error = function(e) NULL)
   if (is.null(obj) || is.null(obj$ctx)) return(invisible(FALSE))
+  all_vars_job <- ml_batch_is_all_vars_job(indices)
   for (slot in c("mapped", "imputed", "cleaned", "raw")) {
     df <- obj$ctx$data[[slot]]
     if (!is.null(df) && is.data.frame(df)) {
@@ -319,15 +403,29 @@ ml_batch_seed_index_checkpoint <- function(alias_dst, indices, other_ix, config_
       obj$ctx$data[[slot]] <- pipeline_ensure_outcome_group_column(df, config_ix)
     }
   }
-  obj$ctx$results$computed_index_names <- indices
-  if (!is.null(obj$ctx$config)) {
-    obj$ctx$config$prediction$index_vars <- indices
-    obj$ctx$config$feature_selection$composite_features <- indices
-    obj$ctx$config$incidence$index_var <- indices[[1L]]
-    obj$ctx$config$index <- modifyList(
-      obj$ctx$config$index %||% list(),
-      list(only = indices)
-    )
+  if (isTRUE(all_vars_job)) {
+    obj$ctx$results$computed_index_names <- character(0)
+    obj$ctx$results$ml_batch_job_label <- ml_batch_canonical_all_vars_label()
+    if (!is.null(obj$ctx$config)) {
+      obj$ctx$config$prediction$index_vars <- character(0)
+      obj$ctx$config$feature_selection$composite_features <- character(0)
+      obj$ctx$config$incidence$index_var <- NULL
+      obj$ctx$config$index <- modifyList(
+        obj$ctx$config$index %||% list(),
+        list(enable = FALSE, only = NULL)
+      )
+    }
+  } else {
+    obj$ctx$results$computed_index_names <- indices
+    if (!is.null(obj$ctx$config)) {
+      obj$ctx$config$prediction$index_vars <- indices
+      obj$ctx$config$feature_selection$composite_features <- indices
+      obj$ctx$config$incidence$index_var <- indices[[1L]]
+      obj$ctx$config$index <- modifyList(
+        obj$ctx$config$index %||% list(),
+        list(only = indices)
+      )
+    }
   }
   obj$config <- config_ix
   saveRDS(obj, alias_dst)
@@ -471,7 +569,7 @@ run_ml_dual_batch <- function(root,
 
   db_seq <- switch(db_mode, nhanes = "nhanes", mimic = "mimic", c("nhanes", "mimic"))
 
-  if (isTRUE(config$dual_db$enable)) {
+  if (isTRUE(config$dual_db$enable) && !isTRUE(bc$single_db %||% FALSE)) {
     config <- tryCatch(
       incidence_batch_ensure_gate_a(config, root, force = !skip_exist)$config,
       error = function(e) {
@@ -479,6 +577,8 @@ run_ml_dual_batch <- function(root,
         config
       }
     )
+  } else if (isTRUE(bc$single_db %||% FALSE)) {
+    cli::cli_alert_info("单库 ML：跳过 Gate A 双库对齐")
   }
 
   for (db in db_seq) {

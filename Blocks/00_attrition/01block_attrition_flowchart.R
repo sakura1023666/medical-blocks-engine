@@ -140,10 +140,41 @@ block_attrition_flowchart <- function(ctx, ...) {
         error = function(e) character(0)
       )
     }
+    study_kind <- tolower(trimws(as.character(
+      (ctx$config$project %||% list())$study_type %||% ""
+    )[1L]))
+    # 配置了 attrition$pv2 即用银屑病/预后 v2 版式（含 ML prediction）；预后另走专属路径。
+    pv2_cfg <- (ctx$config$attrition %||% list())$pv2
+    use_pv2 <- !identical(study_kind, "prognosis") &&
+      is.list(pv2_cfg) && length(pv2_cfg) > 0L &&
+      exists("attrition_draw_pv2_pdf", mode = "function")
     pdf_ok <- isTRUE(tryCatch(
-      attrition_draw_pdf(rows, title, pdf_path,
-                         font_family = font_family, footnote = footnote,
-                         box_fill = box_fill),
+      if (use_pv2) {
+        attrition_draw_pv2_pdf(
+          rows, pdf_path,
+          cohort = {
+            cohort <- (ctx$config$attrition %||% list())$pv2 %||% list()
+            auto <- trimws(as.character(ctx$results$attrition_key_missing_label %||% "")[1L])
+            if (nzchar(auto) && !identical(auto, "NA")) cohort$key_missing_label <- auto
+            wi <- (ctx$results %||% list())$nhanes_weight_info
+            if (is.list(wi) && nzchar(as.character(wi$weight_col %||% "")[1L])) {
+              wt <- gsub("_", " ", as.character(wi$weight_col)[1L], fixed = TRUE)
+              src <- gsub("_", " ", as.character(wi$source %||% "")[1L], fixed = TRUE)
+              cohort$survey_weight_label <- if (nzchar(src)) {
+                sprintf("Survey weight: %s\n(%s)", wt, src)
+              } else {
+                sprintf("Survey weight: %s", wt)
+              }
+            }
+            cohort
+          },
+          width = ((ctx$config$attrition %||% list())$pv2 %||% list())$figure_width
+        )
+      } else {
+        attrition_draw_pdf(rows, title, pdf_path,
+                           font_family = font_family, footnote = footnote,
+                           box_fill = box_fill)
+      },
       error = function(e) {
         if (requireNamespace("cli", quietly = TRUE)) {
           cli::cli_alert_warning("attrition_flowchart PDF draw failed: {e$message}")

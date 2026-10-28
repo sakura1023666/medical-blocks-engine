@@ -719,7 +719,8 @@ pipeline_sci_model3_ref_cells <- function(include_m3) {
   if (isTRUE(include_m3)) c("Ref", "Ref", "") else character(0)
 }
 
-pipeline_model3_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL, Crude = NULL) {
+pipeline_model3_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL,
+                                            Crude = NULL, ctx = NULL) {
   pretty <- if (exists("logistic_glm_pretty_var", mode = "function")) {
     logistic_glm_pretty_var
   } else {
@@ -750,6 +751,8 @@ pipeline_model3_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = 
       )
     }
   }
+  # MI/Rubin 脚注由 logistic_glm_table_footnotes → mi_append_table_footnotes 统一追加
+  invisible(ctx)
   out
 }
 

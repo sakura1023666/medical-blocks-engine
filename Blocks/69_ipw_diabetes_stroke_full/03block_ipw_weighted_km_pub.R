@@ -110,17 +110,24 @@
     )
     if (!is.null(des)) {
       lr <- tryCatch(survey::svylogrank(form, design = des), error = function(e) NULL)
-      # svylogrank 返回 list，p 常在 [[2]] 或 $p
+      # svylogrank: [[2]] = c(Chisq=..., p=...)；禁止取 [1]（会把 Chisq 当成 p → 图上 P>0.999）
       if (!is.null(lr)) {
         p <- NA_real_
-        if (is.list(lr) && length(lr) >= 2L && is.numeric(lr[[2]])) {
-          p <- as.numeric(lr[[2]])[1L]
-        } else if (!is.null(lr$p)) {
-          p <- as.numeric(lr$p)[1L]
-        } else if (is.numeric(lr)) {
-          p <- as.numeric(lr)[1L]
+        if (is.list(lr) && length(lr) >= 2L) {
+          v2 <- lr[[2]]
+          if (!is.null(names(v2)) && "p" %in% names(v2)) {
+            p <- as.numeric(v2[["p"]])[1L]
+          } else if (is.numeric(v2) && length(v2) >= 2L) {
+            p <- as.numeric(v2)[2L]
+          }
         }
-        if (is.finite(p)) return(list(p = p, method = "IPW-adjusted log-rank"))
+        if (!is.finite(p) && !is.null(lr$p)) {
+          p <- as.numeric(lr$p)[1L]
+        }
+        # 仅接受合法 p∈(0,1]；Chisq 误读（>1）则回退 Cox
+        if (is.finite(p) && p >= 0 && p <= 1) {
+          return(list(p = p, method = "IPW-adjusted log-rank"))
+        }
       }
     }
   }
@@ -491,7 +498,13 @@ block_ipw_weighted_km_pub <- function(ctx, ...) {
   d[[weight_col]] <- suppressWarnings(as.numeric(d[[weight_col]]))
   d <- d[is.finite(d[[tvar]]) & d[[tvar]] >= 0 & !is.na(d[[yvar]]) &
            is.finite(d[[weight_col]]) & !is.na(d[[exp_var]]), , drop = FALSE]
-  d$Group <- factor(ifelse(as.numeric(d[[exp_var]]) == 1L, lvl_hi, lvl_lo), levels = c(lvl_lo, lvl_hi))
+  # 禁止 as.numeric(factor)：会把 0/1 水平码翻成 1/2，导致 No/Yes 对调
+  .exp01 <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    as.integer(pipeline_outcome_as_01(d[[exp_var]]))
+  } else {
+    as.integer(trimws(as.character(d[[exp_var]])) %in% c("1", "Yes", "yes"))
+  }
+  d$Group <- factor(ifelse(.exp01 == 1L, lvl_hi, lvl_lo), levels = c(lvl_lo, lvl_hi))
   d <- d[!is.na(d$Group), , drop = FALSE]
 
   if (!nrow(d) || length(unique(d$Group)) < 2L) {
@@ -570,12 +583,23 @@ block_ipw_weighted_km_pub <- function(ctx, ...) {
     if (is.null(attr(fit_risk, "formula", exact = TRUE))) attr(fit_risk, "formula") <- surv_form
 
     if (isTRUE(weighted)) {
-      lr <- .wkm03_ipw_logrank_p(d, tvar, yvar, "Group", weight_col)
-      pf <- pub_format_p(lr$p)
-      p_lab <- if (grepl("^[<>]", pf)) {
-        sprintf("%s P%s", lr$method, pf)
+      # 默认用 IPW-weighted Cox HR/P（与 Sens/主关联同源）；logrank 仅显式 annot_stat="logrank"
+      annot_stat <- tolower(as.character(bl_cfg$annot_stat %||% "cox")[1L])
+      if (identical(annot_stat, "logrank")) {
+        lr <- .wkm03_ipw_logrank_p(d, tvar, yvar, "Group", weight_col)
+        pf <- pub_format_p(lr$p)
+        p_lab <- if (grepl("^[<>]", pf)) {
+          sprintf("%s P%s", lr$method, pf)
+        } else {
+          sprintf("%s P=%s", lr$method, pf)
+        }
       } else {
-        sprintf("%s P=%s", lr$method, pf)
+        pf <- pub_format_p(cox_weighted$p)
+        p_suffix <- if (grepl("^[<>]", pf)) pf else paste0("=", pf)
+        p_lab <- sprintf(
+          "IPW-weighted HR = %.2f (95%% CI %.2f\u2013%.2f), P%s",
+          cox_weighted$hr, cox_weighted$lower, cox_weighted$upper, p_suffix
+        )
       }
       rate_hdr <- sprintf("Weighted %s-day survival rate", as.integer(landmark))
     } else {

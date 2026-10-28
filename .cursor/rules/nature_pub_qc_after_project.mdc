@@ -11,6 +11,14 @@ alwaysApply: true
 `configs/templates/H1_Methods_P0_author_adjudication.template.md`（通常只写描述、不重跑）。  
 复用地图：`docs/reuse/2026-10-08-nature-pub-qc-tst-reuse-map.md`。
 
+**轨道 B 默认确认（用户 2026-10-12 授权）：** Agent 按产物填实 H1「推荐/定稿结论」后，**裁决记录直接写「全按推荐」并将状态全部勾 `[x]`**，不必再请用户逐条确认。用户若某课题要改措辞会主动说；未说即视为同意推荐。仍禁止因 H1 误开全库重跑。
+
+**窄 PASS 禁止（用户 2026-10-12）：** Layer D 在分母/亚组 N 对齐之后，仍必须过 `nature-statistics/references/common-failure-modes.md` 的「Medical Blocks 交付漏检」和 `pub-qc-after-project/checklist.md` §B2（错图号 AUC、Incidence/Prevalence、RCS 面板、Youden 无出处、CI–P 口径、加权检验脚注、中介 CI 互串、xlsx drawing、缺 pdf）。未逐条检查不得写 PASS。
+
+**NHANES/发病加检（用户 2026-10-26；银屑病 eGDR）：** 另须过 checklist **§B3** 与规则 `pub_nhanes_incidence_p0_gate.mdc`（Table2 调整集与 step 同源、加权/不加权切点、中介总效应≠Table2 脚注、Methods 公式/MICE/权重、ROC 禁自曝、Fig md≠图面 NE）。无 NHANES 可 N/A。
+
+**预后 v2 / Cox 加检（用户 2026-10-26；Hip AKI）：** 另须过 checklist **§B4** 与规则 `prognosis_v2_pub_p0_gate.mdc`，并跑 `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear、禁下划线、PH 表、Methods 取材/MICE）。无预后 Cox 可 N/A。
+
 ## 强制技能（只审发表产物）
 
 1. **`nature-statistics`**（`.cursor/skills/nature-statistics/SKILL.md`，个人副本 `~/.cursor/skills/nature-statistics/`）  
@@ -18,7 +26,7 @@ alwaysApply: true
    - 输出格式与严重度按该 skill；落盘写入项目 `reports/nature_statistics_qc_YYYY-MM-DD.md`。
 
 2. **`nature-figure`**（`.cursor/skills/nature-figure/SKILL.md`，个人副本 `~/.cursor/skills/nature-figure/`）  
-   - 审：定稿 `Figures/`（优先 `pdf/`；缺则 png）面板对齐、碰撞、图注统计对齐、四目录与可读性。  
+   - 审：定稿 `Figures/`（优先 `pdf/`；缺则 png）面板对齐、碰撞、图注统计对齐、四目录与可读性；**定稿 png/tiff 嵌入 DPI ≥ 600（全项目铁律，缺/不足 = P0）**。  
    - 能跑脚本则跑 `scripts/validate_figure.py` / `audit_panel_alignment.py` / `audit_figure_collisions.py` / `audit_pdf_text.py`；`FIX BEFORE DELIVERY` 或 `severity=FAIL` **等同 P0**。  
    - 落盘 `reports/nature_figure_qc_YYYY-MM-DD.md`（可附 collision/alignment JSON 路径）。
 
@@ -31,7 +39,7 @@ alwaysApply: true
 | 来源 | 视为 P0 |
 |------|---------|
 | nature-statistics | 标签为 **P0** 的条目（能推翻中心结论的统计报告/分析逻辑问题） |
-| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读 |
+| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读、**定稿 png/tiff 嵌入 DPI &lt; 600 或缺元数据**（`pub_figure_formats_status()$bad_dpi` 非空） |
 
 **铁律：**
 
@@ -71,6 +79,8 @@ alwaysApply: true
 - [ ] 已写出两份 QC md（或合并报告中含两节）
 - [ ] P0 已修复并复检清零（或用户接受残留已记录）
 - [ ] 图改动后重跑四目录导出（`pub_figure_ensure_formats`）
+- [ ] png/tiff DPI ≥ 600 已检（`pub_figure_formats_status` 或抽读元数据；不合格当场重导）
+- [ ] P0 已清且总评 PASS/WARN 后，已按 `Aiya-NB004-midterm-report` 对每个刚审完的 success 发表根出中期 PDF（用户说不要中期则跳过并声明；FAIL 不出）
 
 ## 反例（禁止）
 

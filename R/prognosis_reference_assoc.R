@@ -359,7 +359,20 @@ reference_apply_joint_tertiles <- function(data, locked_spec) {
     stop("Model2 (Age+Sex) requires both Age and Gender/Sex.", call. = FALSE)
   }
   m_age_sex <- unique(c("Age", sex_hit[[1L]]))
-  hard_exclude <- unique(c(indices, "SOFA", stratum_vars))
+  sev_ex <- if (exists("ml_assoc_default_model3_exclude", mode = "function")) {
+    ml_assoc_default_model3_exclude()
+  } else {
+    c("APSIII", "OASIS", "SOFA", "SAPSII", "Ventilation", "GCS", "CRRT")
+  }
+  cfg_ac <- if (is.list(covariates) && !is.null(covariates$config)) {
+    covariates$config$assoc_covariate %||% list()
+  } else {
+    list()
+  }
+  if (length(as.character(cfg_ac$model3_exclude %||% character(0)))) {
+    sev_ex <- unique(c(sev_ex, as.character(cfg_ac$model3_exclude)))
+  }
+  hard_exclude <- unique(c(indices, "SOFA", stratum_vars, sev_ex))
   if (is.list(covariates) && !is.null(covariates$config) &&
       !is.null(covariates$results)) {
     if (!exists("ml_resolve_assoc_covariates", mode = "function", inherits = TRUE)) {
@@ -369,6 +382,9 @@ reference_apply_joint_tertiles <- function(data, locked_spec) {
     current <- ctx$config$assoc_covariate %||% list()
     current$exclude_extra <- unique(c(current$exclude_extra, hard_exclude))
     current$model2_exclude <- unique(c(current$model2_exclude, hard_exclude))
+    current$model3_exclude <- unique(c(
+      as.character(current$model3_exclude %||% character(0)), sev_ex
+    ))
     ctx$config$assoc_covariate <- current
     resolver <- get("ml_resolve_assoc_covariates", mode = "function", inherits = TRUE)
     resolved <- resolver(ctx, data_names = names(data))
@@ -533,7 +549,12 @@ reference_lock_grouped_rcs <- function(
     if (is.numeric(x) || is.integer(x)) {
       out[[v]] <- stats::median(x)
     } else if (is.factor(x)) {
+      # 单行 newdata 必须带齐原水平，否则 model.matrix 报
+      # contrasts can be applied only to factors with 2 or more levels
       out[[v]] <- factor(levels(x)[1L], levels = levels(x))
+    } else if (is.character(x)) {
+      lv <- levels(factor(x))
+      out[[v]] <- factor(lv[1L], levels = lv)
     } else {
       out[[v]] <- names(sort(table(x), decreasing = TRUE))[[1L]]
     }
@@ -552,10 +573,11 @@ reference_lock_grouped_rcs <- function(
       d <- data[as.character(data[[stratum]]) == label, c(core, trial), drop = FALSE]
       d <- d[stats::complete.cases(d), , drop = FALSE]
       if (nrow(d) < 5L || length(unique(d[[core[[2L]]]])) < 2L) return(FALSE)
-      mm <- stats::model.matrix(
-        stats::reformulate(trial), data = d
+      mm <- tryCatch(
+        stats::model.matrix(stats::reformulate(trial), data = d),
+        error = function(e) NULL
       )
-      qr(mm)$rank == ncol(mm)
+      !is.null(mm) && qr(mm)$rank == ncol(mm)
     }, logical(1))
     if (all(estimable)) {
       kept <- trial
@@ -635,6 +657,10 @@ reference_grouped_rcs <- function(
     d <- data[as.character(data[[stratum]]) == label, needed, drop = FALSE]
     d <- d[stats::complete.cases(d), , drop = FALSE]
     if (!nrow(d)) stop("No complete cases in stratum: ", label, call. = FALSE)
+    # 字符协变量在拟合前升为因子，使 terms 的水平与单行预测 newdata 一致
+    for (v in covariates) {
+      if (is.character(d[[v]])) d[[v]] <- factor(d[[v]])
+    }
     surv_lhs <- sprintf(
       "survival::Surv(%s, %s)", .reference_bt(time), .reference_bt(event)
     )

@@ -9,6 +9,16 @@ description: >-
 
 # Nature Figure Making — Router
 
+## Medical Blocks 定稿栅格 DPI（本仓库强制）
+
+凡审 Medical Blocks / `01Block` 课题定稿 `Figures/png` 与 `Figures/tiff`：
+
+1. **嵌入 DPI 必须 ≥ 600**（全项目铁律；与期刊「≥300」底线无关，本仓库一律 600）。
+2. 每次 Nature 图面审（含 `pub-qc-after-project` Layer D）**必须**检查：优先 `pub_figure_formats_status(figures_dir)`，或用 PIL/`identify` 抽读元数据。
+3. `bad_dpi` 非空、缺 DPI 元数据、或读值为垃圾（如 1）→ **P0 / FIX BEFORE DELIVERY**；当场 `pub_figure_ensure_formats(..., config)` 重导后再复检。
+4. 引擎默认：`R/pub_figure_export.R` 与 `python/pub_figure_rasterize.py` 的 dpi 下限为 600。
+5. **交付漏检（与 nature-statistics 同清单，图面侧必做）**：`pdftotext` 核对 AUC/Youden 落在被引用的那张 PDF；横断面轴不得写 Incidence；多面板 RCS 的主叙述跟显著面板；引用图必须有 pdf；禁止 `.tif`（用 `.tiff`）；image_information stem 与 pdf 一一对应，无幽灵条目。分母对齐不能代替这些检查。
+
 ## Routing protocol
 
 For a new task, load the core and matching resources below. Reuse already loaded guidance on follow-ups; load more only when the task needs it.

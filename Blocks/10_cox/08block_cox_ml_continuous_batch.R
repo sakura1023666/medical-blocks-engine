@@ -51,7 +51,8 @@
 }
 
 .cml08_grouped_table <- function(time_var, event_var, index_var, data,
-                                 model1, model2, breaks = NULL, method = "quartile") {
+                                 model1, model2, breaks = NULL, method = "quartile",
+                                 ctx = NULL) {
   method <- match.arg(method, c("quartile", "tertile"))
   if (!exists("pipeline_quantile_group_factor", mode = "function")) {
     stop("缺少 pipeline_quantile_group_factor（请加载 pipeline_capability_layer.R）", call. = FALSE)
@@ -80,7 +81,11 @@
 
   m1 <- setdiff(intersect(model1, names(d)), index_var)
   m2 <- setdiff(intersect(model2, names(d)), index_var)
+  id_col <- as.character(((ctx$config$data %||% list())$id_column %||% "ID"))[1L]
   need <- unique(c(time_var, event_var, index_var, "Group", "Num", m1, m2))
+  if (!is.null(ctx) && nzchar(id_col) && id_col %in% names(d)) {
+    need <- unique(c(need, id_col))
+  }
   dt <- stats::na.omit(d[, need, drop = FALSE])
   if (nrow(dt) < 20L) {
     stop(sprintf("%s: 有效样本 < 20，无法拟合 Cox", index_var), call. = FALSE)
@@ -91,17 +96,27 @@
 
   surv_lhs <- paste0("Surv(", time_var, ", ", event_var, ")")
   rhs_c <- function(vars) paste(c(vars), collapse = " + ")
-  mc1 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(index_var))), data = dt)
-  mc2 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(index_var, m1)))), data = dt)
-  mc3 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(index_var, m2)))), data = dt)
-  mf1 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c("Group"))), data = dt)
-  mf2 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c("Group", m1)))), data = dt)
-  mf3 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c("Group", m2)))), data = dt)
-  mt1 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c("Num"))), data = dt)
-  mt2 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c("Num", m1)))), data = dt)
-  mt3 <- survival::coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c("Num", m2)))), data = dt)
+  # 分位切点/Group/Num 锁在操作层模板；协变量缺失跨 m 用 mi_coxph + Rubin
+  .fit <- function(rhs) {
+    fml <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(rhs)))
+    if (exists("mi_coxph", mode = "function") && !is.null(ctx)) {
+      mi_coxph(ctx, fml, dt, keep_vars = c(time_var, event_var, rhs))
+    } else {
+      survival::coxph(fml, data = dt)
+    }
+  }
+  mc1 <- .fit(index_var)
+  mc2 <- .fit(c(index_var, m1))
+  mc3 <- .fit(c(index_var, m2))
+  mf1 <- .fit("Group")
+  mf2 <- .fit(c("Group", m1))
+  mf3 <- .fit(c("Group", m2))
+  mt1 <- .fit("Num")
+  mt2 <- .fit(c("Num", m1))
+  mt3 <- .fit(c("Num", m2))
 
   .hr_ci_p <- function(m, row) {
+    if (exists("pub_hr_ci_p", mode = "function")) return(pub_hr_ci_p(m, row))
     sm <- summary(m); ci <- suppressMessages(confint(m))
     list(hr = round(exp(coef(m))[row], 3),
          ci = paste0("(", round(exp(ci[row, 1]), 3), ",", round(exp(ci[row, 2]), 3), ")"),
@@ -130,11 +145,23 @@
 }
 
 .cml08_table_footnotes <- function(time_var, event_var, event_label, model1, ml_pool,
-                                   method = "quartile", model2_exclude_by_index = NULL) {
+                                   method = "quartile", model2_exclude_by_index = NULL,
+                                   model2_factors = NULL, exposure_cont = NULL,
+                                   excl_cont_exp = FALSE) {
   pretty <- function(v) gsub("_", " ", as.character(v), fixed = TRUE)
   m1_txt <- if (length(model1)) paste(vapply(model1, pretty, character(1L)), collapse = ", ") else "none"
-  m2_pool <- unique(c(ml_pool, model1))
-  m2_txt <- if (length(m2_pool)) paste(vapply(m2_pool, pretty, character(1L)), collapse = ", ") else "none"
+  m2_set <- if (length(model2_factors)) {
+    unique(as.character(model2_factors))
+  } else if (isTRUE(excl_cont_exp)) {
+    unique(c(model1, setdiff(ml_pool, exposure_cont %||% character(0))))
+  } else {
+    unique(c(ml_pool, model1))
+  }
+  m2_set <- m2_set[nzchar(m2_set)]
+  if (isTRUE(excl_cont_exp) && length(exposure_cont)) {
+    m2_set <- setdiff(m2_set, exposure_cont)
+  }
+  m2_txt <- if (length(m2_set)) paste(vapply(m2_set, pretty, character(1L)), collapse = ", ") else "none"
   grp_note <- if (identical(method, "tertile")) {
     "Exposure tertiles (T1–T3) were defined by sample-specific tertiles of each continuous ML-selected feature; if quantile cutpoints were non-unique, equal-frequency rank tertiles were used."
   } else {
@@ -153,6 +180,17 @@
     bits <- bits[!is.na(bits)]
     if (length(bits)) excl_note <- paste0(paste(bits, collapse = "; "), ".")
   }
+  m2_line <- if (isTRUE(excl_cont_exp)) {
+    paste0(
+      "Model 2 adjusted for clinical/categorical covariates only (continuous ML exposures were not used as covariates): ",
+      m2_txt, "."
+    )
+  } else {
+    paste0(
+      "Model 2 adjusted for all other ML-selected features plus Model 1 covariates ",
+      "(excluding the index variable of each section): ", m2_txt, "."
+    )
+  }
   c(
     sprintf(
       "Survival outcome: time-to-event variable %s (months); event indicator %s (1 = %s).",
@@ -160,15 +198,16 @@
     ),
     grp_note,
     paste0("Crude Model: index variable only (continuous, grouped ", grp_word, ", or ordinal trend)."),
-    paste0("Model 1 adjusted for: ", m1_txt, "."),
     paste0(
-      "Model 2 adjusted for all other ML-selected features plus Model 1 covariates ",
-      "(excluding the index variable of each section): ", m2_txt, "."
+      "Model 1 adjusted for: ", m1_txt,
+      if (isTRUE(excl_cont_exp)) " (continuous ML exposures excluded from covariates)" else "",
+      "."
     ),
+    m2_line,
     if (!is.null(excl_note)) excl_note else NULL,
     "Continuous ML features entered Cox models on their original scale (no additional log transformation).",
     paste0(
-      "SHAP waterfall annotations (Figure 4): link-scale f(x) and baseline E[f(x)] from the surrogate ",
+      "SHAP waterfall annotations (Figure 6): link-scale f(x) and baseline E[f(x)] from the surrogate ",
       "explainer were mapped to predicted recurrence probability via plogis(); SHAP contributions are ",
       "not used in this Cox table."
     )
@@ -252,12 +291,22 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
   ml_pool <- unique(ml_pool[nzchar(ml_pool)])
   model1 <- unique(model1[nzchar(model1)])
   if (!length(model1)) model1 <- character(0)
+  ## 显式 Model2（课题可锁「协变量 ≠ 连续暴露」）；未设则回退：其它 ML 特征 + Model1 − 当前暴露
+  model2_fixed <- unique(as.character(bl$model2_factors %||% character(0)))
+  model2_fixed <- model2_fixed[nzchar(model2_fixed)]
+  exposure_cont <- cont_feats
+  excl_cont_exp <- isTRUE(bl$covariates_exclude_continuous_exposures %||% length(model2_fixed) > 0)
 
   cli::cli_alert_info(
-    "cox_ml_continuous_batch: {length(cont_feats)} 个连续 ML 特征；method={method}；time={time_var}；统一 M1/M2 协变量。"
+    paste0(
+      "cox_ml_continuous_batch: ", length(cont_feats), " 个连续 ML 特征；method=", method,
+      "；time=", time_var,
+      "；M1=", if (length(model1)) paste(model1, collapse = ", ") else "none",
+      "；M2=", if (length(model2_fixed)) paste(model2_fixed, collapse = ", ") else "ML池-当前暴露",
+      if (excl_cont_exp) "（连续暴露不进协变量）" else "", "."
+    )
   )
 
-  # 按暴露剔除同构/过度校正变量（如粘连评分 vs rAFS 分期）
   model2_exclude_by_index <- bl$model2_exclude_by_index %||% list()
   if (!is.list(model2_exclude_by_index)) model2_exclude_by_index <- list()
 
@@ -265,9 +314,22 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
   ok_feats <- character(0)
   for (vi in seq_along(cont_feats)) {
     v <- cont_feats[vi]
-    model2 <- unique(c(setdiff(ml_pool, v), setdiff(model1, v)))
-    ex_v <- as.character(model2_exclude_by_index[[v]] %||% character(0))
-    ex_v <- unique(ex_v[nzchar(ex_v)])
+    if (length(model2_fixed)) {
+      model2 <- model2_fixed
+    } else if (isTRUE(excl_cont_exp)) {
+      cat_ml <- setdiff(ml_pool, exposure_cont)
+      model2 <- unique(c(model1, cat_ml))
+    } else {
+      model2 <- unique(c(setdiff(ml_pool, v), model1))
+    }
+    ## 当前暴露永不进调整集；若锁定口径则所有连续暴露都不进
+    model2 <- setdiff(model2, v)
+    if (isTRUE(excl_cont_exp)) model2 <- setdiff(model2, exposure_cont)
+    model1_use <- setdiff(model1, v)
+    if (isTRUE(excl_cont_exp)) model1_use <- setdiff(model1_use, exposure_cont)
+
+    ex_v <- unique(as.character(model2_exclude_by_index[[v]] %||% character(0)))
+    ex_v <- ex_v[nzchar(ex_v)]
     if (length(ex_v)) {
       model2 <- setdiff(model2, ex_v)
       cli::cli_alert_info(
@@ -288,7 +350,10 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
       ctx <- pipeline_store_continuous_km_cutpoints(ctx, v, br, method = method)
     }
     tb <- tryCatch(
-      .cml08_grouped_table(time_var, event_var, v, data2, model1, model2, breaks = br, method = method),
+      .cml08_grouped_table(
+        time_var, event_var, v, data2, model1_use, model2,
+        breaks = br, method = method, ctx = ctx
+      ),
       error = function(e) {
         stop("cox_ml_continuous_batch: ", v, " 未能生成 ", method, "/连续 Cox 表 — ", e$message, call. = FALSE)
       }
@@ -325,8 +390,14 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
   event_label <- cfg$project$analysis_group %||% cfg$project$disease %||% "event"
   footnotes <- .cml08_table_footnotes(
     time_var, event_var, event_label, model1, ml_pool,
-    method = method, model2_exclude_by_index = model2_exclude_by_index
+    method = method, model2_exclude_by_index = model2_exclude_by_index,
+    model2_factors = model2_fixed, exposure_cont = exposure_cont,
+    excl_cont_exp = excl_cont_exp
   )
+  if (exists("mi_append_table_footnotes", mode = "function")) {
+    footnotes <- mi_append_table_footnotes(footnotes, ctx)
+  }
+  ctx$results$cox_ml_continuous_model2_factors <- if (length(model2_fixed)) model2_fixed else NULL
   pub <- pub_paths(ctx, tbl_dir, "supp_table", cap, "xlsx")
   export_sci_table(
     out, pub$filepath, title = pub$title, table_footnotes = footnotes,

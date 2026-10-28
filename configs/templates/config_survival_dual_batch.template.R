@@ -111,6 +111,17 @@ config <- list(
       covariate_source = "auto"
     )
   ),
+  # 发表收口：by_index/【success】*/summary_results/ 白名单五件套（与发病同口径）
+  pub = list(
+    write_index_summary_results = TRUE,
+    index_summary_results_dir = "summary_results",
+    summary_dirname = "summary_results",
+    summary_result = FALSE,
+    tables_figures_only = FALSE,
+    auto_qc = TRUE,
+    include_sa_complete_case = TRUE,
+    sa_complete_case_require_sig = TRUE
+  ),
   feishu = list(
     enable = TRUE,
     push_on_worker_finish = TRUE,
@@ -145,7 +156,8 @@ config <- list(
     variable_aliases = list(age = "Age", hypertension = "Hypertension", diabetes = "Diabetes")
   ),
   imputation = list(
-    missing_col_threshold = 0.4, method = "cart", m = 5L, seed = 1234L,
+    missing_col_threshold = 0.4, method = "cart", m = 5L, max_iter = 5L,
+    seed = 1234L, complete_action = 1L, rubin_pool = TRUE,
     mi_quality_exclude_enable = TRUE, mi_quality_p_threshold = 0.05,
     export_missing_fig = FALSE
   ),

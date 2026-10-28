@@ -158,16 +158,41 @@ filter_stats <- list()
                            nhanes_auc = NULL, mimic_auc = NULL,
                            error_message = NULL) {
   elapsed <- round(as.numeric((proc.time() - t_start)["elapsed"]), 1)
-  fields <- list(
-    index = ix, status = status, db_mode = db_mode_used,
-    nhanes_auc = if (is.null(nhanes_auc) || (length(nhanes_auc) == 1L && is.na(nhanes_auc))) NULL else nhanes_auc,
-    mimic_auc = if (is.null(mimic_auc) || (length(mimic_auc) == 1L && is.na(mimic_auc))) NULL else mimic_auc,
-    n_nhanes_after = filter_stats$nhanes$imputed$n_after %||% NA,
-    n_mimic_after  = filter_stats$mimic$imputed$n_after %||% NA,
-    error_message = error_message, elapsed_sec = elapsed,
-    disease  = (config_ix$feishu %||% list())$disease_label %||% config_ix$project$disease %||% "",
-    protocol = (config_ix$feishu %||% list())$protocol_label %||% ""
-  )
+  single_db <- isTRUE((config_ix$ml_batch %||% list())$single_db) ||
+    isTRUE((config$ml_batch %||% list())$single_db)
+  pri_name <- as.character(
+    (config_ix$dual_db$primary %||% list())$name %||%
+      (config$dual_db$primary %||% list())$name %||% "primary"
+  )[1L]
+  auc_pri <- if (is.null(nhanes_auc) || (length(nhanes_auc) == 1L && is.na(nhanes_auc))) {
+    NULL
+  } else {
+    nhanes_auc
+  }
+  n_pri <- filter_stats$nhanes$imputed$n_after %||% NA
+  if (isTRUE(single_db)) {
+    ## 单库：状态字段用 primary_*，避免误读成 MIMIC/NHANES 真双库
+    fields <- list(
+      index = ix, status = status, db_mode = "single",
+      primary_name = pri_name,
+      primary_auc = auc_pri,
+      n_primary_after = n_pri,
+      error_message = error_message, elapsed_sec = elapsed,
+      disease  = (config_ix$feishu %||% list())$disease_label %||% config_ix$project$disease %||% "",
+      protocol = (config_ix$feishu %||% list())$protocol_label %||% ""
+    )
+  } else {
+    fields <- list(
+      index = ix, status = status, db_mode = db_mode_used,
+      nhanes_auc = auc_pri,
+      mimic_auc = if (is.null(mimic_auc) || (length(mimic_auc) == 1L && is.na(mimic_auc))) NULL else mimic_auc,
+      n_nhanes_after = n_pri,
+      n_mimic_after  = filter_stats$mimic$imputed$n_after %||% NA,
+      error_message = error_message, elapsed_sec = elapsed,
+      disease  = (config_ix$feishu %||% list())$disease_label %||% config_ix$project$disease %||% "",
+      protocol = (config_ix$feishu %||% list())$protocol_label %||% ""
+    )
+  }
   incidence_batch_write_status(output_ix, fields)
   if (exists("ml_batch_feishu_push_result", mode = "function")) {
     tryCatch(ml_batch_feishu_push_result(config_ix, fields), error = function(e) NULL)
@@ -371,7 +396,10 @@ for (db in actual_db_seq) {
   file.copy(alias_src, alias_dst, overwrite = TRUE)
   ml_batch_seed_index_checkpoint(alias_dst, indices, other_ix, config_ix)
 
-  if (length(indices) == 1L) {
+  if (exists("ml_batch_is_all_vars_job", mode = "function") &&
+      ml_batch_is_all_vars_job(indices)) {
+    cli::cli_alert_info("[{toupper(db)}] ALLVARS：跳过指标缺失/极端值过滤")
+  } else if (length(indices) == 1L) {
     incidence_batch_apply_filter_and_trim(alias_dst, indices[[1L]], 0)
   } else if (file.exists(alias_dst)) {
     obj <- tryCatch(readRDS(alias_dst), error = function(e) NULL)
@@ -419,6 +447,20 @@ result_ctx <- list()
 
 .primary_pipeline <- function() {
   if (dual_db_is_weighted(config_ix, "nhanes")) pipeline_nhanes_batch else pipeline_regular_primary_ml_batch
+}
+
+## ALLVARS / 熵逐步 FS：worker 相位 stop token 不能写死 ml_feature_selection_bundle
+.ml_worker_fs_stop_token <- function(pl) {
+  bl <- as.character(pl$blocks %||% character(0))
+  if ("feature_selection_entropy_stepwise" %in% bl &&
+      (ml_batch_is_all_vars_job(indices) ||
+       identical(tolower(trimws(as.character(
+         (config_ix$ml_batch %||% list())$index_mode %||% ""
+       )[1L])), "all_vars") ||
+       !"ml_feature_selection_bundle" %in% bl)) {
+    return("feature_selection_entropy_stepwise")
+  }
+  "ml_feature_selection_bundle"
 }
 
 # ── cross_db: 一份结果（大库 train / 小库 test），跳过每库独立 70/30 与次库 ML ──
@@ -478,14 +520,15 @@ tryCatch({
       ## 单指标 或 普通双库组合（combo_loop）：两端点同走主库上游→ML
       ## （regular 主库无 NHANES 专属分段流水线；两指标一起进 VIF/FS/assoc/ML）
       pri_pl <- .primary_pipeline()
-      cli::cli_h2("[{ix}] 主库 — VIF 分步 + 特征选择（from={nhanes_from}, {length(indices)} 指标）")
+      fs_tok <- .ml_worker_fs_stop_token(pri_pl)
+      cli::cli_h2("[{ix}] 主库 — 上游 + 特征选择（from={nhanes_from}, to={fs_tok}, {length(indices)} 指标）")
       result_ctx[["nhanes"]] <- .run_db_phase(
         "nhanes", pri_pl,
-        nhanes_from, "ml_feature_selection_bundle"
+        nhanes_from, fs_tok
       )
       result_ctx[["nhanes"]] <- .run_db_phase(
         "nhanes", pri_pl,
-        "ml_feature_selection_bundle", NULL
+        fs_tok, NULL
       )
     }
   }

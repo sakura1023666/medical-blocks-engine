@@ -1,83 +1,50 @@
-# Task 5 Report — Block `diagnostic_vs_fracture`
+# Task 5 Report — MIMIC shared + unit 全链（PE × alteplase IPW）
 
-**Date:** 2026-09-22  
-**Engine root:** `/mnt/e/01block/01Block-new-Final`
+**Status:** DONE  
+**Date:** 2026-10-10  
+**Unit:** `by_unit/【success】main`  
+**Exposure MAIN:** 仅处方（Alteplase n1=425/1621）
 
-## Deliverables
+## Pipeline
 
-| Item | Path |
-|------|------|
-| Block | `Blocks/75_osteo_dxa_qct/02block_diagnostic_vs_fracture.R` |
-| Tests | `tests/test_osteo_dxa_qct_blocks.R`（保留 `helper OK` + `agreement OK` + 新增 `diagnostic OK`） |
+- shared + `--only-unit main --no-skip` 已完成（进程已退出）
+- 后处理：`repair_mimic_pub_keys_jin_order.R` + 手工补拷 Jin 五表；`export_missing_fig=TRUE` 已写入 MIMIC/eICU config
+- 四目录：`pub_figure_formats_status` → **ok=TRUE**（10 stems，png/tiff 无缺）
 
-## Config（`config$diagnostic_vs_fracture`）
+## 约定清单（对齐 Jin + 卒中）
 
-```r
-list(
-  enable = TRUE,
-  fracture = "Vertebral_fracture",
-  qct_cat = "QCT_cat",
-  dxa_cat = "DXA_cat_min",
-  qct_continuous = "QCT_vBMD",
-  dxa_continuous = "DXA_T_min",
-  op_level = 2L,
-  strata = c("Nathan_bin", "AAC", "BMI_bin"),
-  strata_supplemental = c("Age_bin"),
-  export_roc = TRUE,
-  export_sens_bar = TRUE,
-  roc_direction = ">"   # pROC: controls > cases（BMD/T 越低越病）
-)
-```
+### Figures（全部 OK）
 
-## Produces
+| 键 | 文件 |
+|----|------|
+| Fig1 | Flowchart … IPW alteplase cohort |
+| Fig2 | IPW-weighted KM … by Alteplase |
+| Fig3 | Subgroup analysis … IPTW-adjusted |
+| Fig4 | Forest Plot + Subgroup KM by age（两张同号，对齐卒中） |
+| Fig5 | STEPP … Alteplase across composite risk |
+| S1 | Missing value overview |
+| S2 | PS + SMD |
+| S3 | Unweighted KM … by Alteplase |
+| S4 | Calibration + ROC @28d |
 
-- Table 3 overall（Sens/Spec/PPV/NPV/AUC；脚注含 n / n_frac / op_level）
-- Table 4 stratified（Nathan_bin / AAC / BMI_bin：n、n_frac、DXA_sens、QCT_sens、Δsens）
-- Figure 4 ROC（DXA T-min + QCT vBMD 双曲线）
-- Figure 5 分层 Sens 柱图
-- 可选 Figure S3（Age_bin）
-- `ctx$results$diagnostic_vs_fracture`
+### Tables（全部 OK）
 
-## ROC direction note
+| 键 | 文件 |
+|----|------|
+| Table 1 | sIPTW 基线 |
+| Table S1 | Uno C-index @28d |
+| Table S2 | 多重插补前后基线 |
+| Table S3 | 单因素 |
+| Table S4 | VIF |
+| Sens | Multivariable Cox；Overlap Weights |
 
-Brief 写 `direction="<"` 表示「越低越病」；**pROC** 语义下 controls 高于 cases 时须用 `">"`。Block 默认 `roc_direction = ">"`，否则 BMD/T 的 AUC 会倒置（&lt;0.5）。可通过 config 覆盖。
+## Concerns / follow-ups
 
-## TDD
+1. 曾因 `export_missing_fig` 默认 FALSE 未出 S1，已补图并改 config。  
+2. 自动编号曾把 STEPP 挤成 Fig6、S1 错位；已按 step 源图恢复。  
+3. eICU（Task 6）尚未跑。
 
-### RED（先扩测、未实现 block）
+## Paths
 
-```
-helper OK
-agreement OK
-Error: file.exists(diag_path) is not TRUE
-EXIT:1
-```
-
-### GREEN（实现后）
-
-```bash
-cd /mnt/e/01block/01Block-new-Final && Rscript tests/test_osteo_dxa_qct_blocks.R
-```
-
-```
-helper OK
-agreement OK
-diagnostic OK
-EXIT:0
-```
-
-## Mini-data assertions
-
-8 行合成数据：fracture 4/8；`op_level=2` → QCT/DXA overall sens 均为 0.5；`table3`/`table4` 非空；block 填 `ctx$results$diagnostic_vs_fracture`。
-
-Internal API：`.dvf75_compute(data, cfg)`。
-
-## Git / pipeline
-
-- **No git commit**（按任务要求）
-- **No full pipeline run**；未强制读真实 dabiao
-- Catalog 同步留给 Task 7
-
-## Next
-
-Task 6: `03block_modality_discordance_profile.R`
+- Success: `/mnt/g/02block_result/47_PE/Medication_regimen_model_alteplase_ipw/by_unit/【success】main/`
+- Root Tables mirror: `…/Medication_regimen_model_alteplase_ipw/Tables/`

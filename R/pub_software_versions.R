@@ -162,3 +162,24 @@ pub_write_methods_software_section <- function(
   }
   invisible(out_path)
 }
+
+#' 方法学 md 缺省正文。课题传入 methods_lines 时用课题稿，否则收口仍落盘这一份。
+pub_default_methods_lines <- function(config = NULL) {
+  st <- ""
+  if (is.list(config)) {
+    st <- as.character((config$project %||% list())$study_type %||% "")[1L]
+  }
+  c(
+    "# Statistical analysis",
+    "",
+    "The analytic sample followed the study inclusion flowchart. Counts in tables are the unweighted number of participants unless a cell is labeled as a weighted percentage.",
+    "Where sampling weights were used, models were fit with the survey design (strata, primary sampling units, and weights). Descriptive p values used survey-weighted tests.",
+    "The exposure was entered as a continuous variable and as quantiles with the same cut points as the main regression table. The lowest quantile was the reference. Trend tests used the numeric quantile score.",
+    if (nzchar(st)) paste0("Study type: ", st, ".") else NULL,
+    "Model 1 and Model 2 covariates are those named in the main regression table footnote.",
+    "Restricted cubic splines, ROC curves, subgroup forests, and mediation tables were produced when the corresponding blocks were run. Mediation rows list the laboratory indicators in the candidate pool. A negative proportion mediated is suppression, not mediation.",
+    "Complete-case (unimputed) sensitivity tables were included in the summary supplementary tables when the SA_complete_case scenario completed successfully.",
+    "Software name and package versions are in Methods_software_versions.txt and the Software subsection of this file.",
+    ""
+  )
+}

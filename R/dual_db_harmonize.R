@@ -1054,7 +1054,8 @@ dual_db_load_mapped_frame <- function(root, db_cfg, cfg) {
 dual_db_compute_gate_a <- function(root, cfg) {
   p <- cfg$dual_db$primary
   s <- cfg$dual_db$secondary
-  harm <- cfg$dual_db$harmonization %||% list()
+  harm <- cfg$dual_db[["harmonization"]]
+  if (!is.list(harm)) harm <- list()
   demo_kw <- as.character(harm$demo_keywords %||% c(
     "Age", "Gender", "Sex", "Race", "Education", "PIR",
     "Smoke", "Marital", "Insurance", "Language", "Income",
@@ -1237,7 +1238,11 @@ dual_db_filter_data_columns <- function(data, keep_cols, label = "dual_db") {
 }
 
 dual_db_column_keep_for_db <- function(cfg, db_name, gate_a = NULL) {
-  gate_a <- gate_a %||% (cfg$dual_db$harmonization %||% list())
+  ## 精确 [[harmonization]]：避免与 harmonization_dir 部分匹配成路径字符串
+  if (is.null(gate_a)) {
+    gate_a <- (cfg$dual_db %||% list())[["harmonization"]]
+  }
+  if (!is.list(gate_a)) gate_a <- list()
   db_name <- as.character(db_name %||% "")[1L]
   keys <- unique(c(
     paste0("column_keep_", db_name),

@@ -226,6 +226,22 @@ config <- list(
     )
   ),
 
+  # ── 发表收口（cute_ran 2026-10 起：指标级 summary_results 为唯一交付面）──
+  # 路径：by_index/【success】<INDEX>/summary_results/
+  # 白名单：Figures / Tables / Methods md / 软件版本 txt / 中期 PDF
+  # 引擎默认写指标级；勿再堆课题根 summary_result(s) 双份
+  pub = list(
+    write_index_summary_results = TRUE,
+    index_summary_results_dir = "summary_results",
+    summary_dirname = "summary_results",
+    summary_result = FALSE,
+    tables_figures_only = FALSE,
+    auto_qc = TRUE,
+    include_sa_complete_case = TRUE,
+    # TRUE=完整病例 Model2 双库显著才优先晋升；失败则回退其它【success】SA_*
+    sa_complete_case_require_sig = TRUE
+  ),
+
   # ── 飞书结果管理表 ────────────────────────────────────────────────────────
   feishu = list(
     enable             = TRUE,

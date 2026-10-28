@@ -1,0 +1,4 @@
+project=/mnt/e/01block/01Block-new-Final
+date=2026-10-23
+note=Nature Layer D P0 must be cleared before build_report.py
+dir=

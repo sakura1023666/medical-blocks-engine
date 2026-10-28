@@ -166,7 +166,8 @@
                                       index_label = ContinuousName,
                                       Model3Factors = NULL,
                                       CrudeFactors = NULL,
-                                      include_trend = TRUE) {
+                                      include_trend = TRUE,
+                                      ctx = NULL) {
 
   include_m3 <- length(as.character(Model3Factors %||% character(0))) > 0L
   is_rcs_grp <- isTRUE(attr(cutoffs, "is_rcs_group") %||% FALSE)
@@ -177,6 +178,17 @@
   .rhs <- function(main, covs) {
     paste(c(main, covs), collapse = "+")
   }
+  .fit_bin <- function(fml) {
+    if (exists("mi_glm_binomial", mode = "function") && !is.null(ctx)) {
+      mi_glm_binomial(
+        ctx, fml, Data,
+        keep_vars = all.vars(fml),
+        fit_fun = function(ff, dd) .lqg01_glm_binomial_safe(ff, dd)
+      )
+    } else {
+      .lqg01_glm_binomial_safe(fml, Data)
+    }
+  }
   fml_f01 <- as.formula(paste0(ResultName, "~", .rhs(FactorName, CrudeFactors)))
   fml_f02 <- as.formula(paste0(ResultName, "~", paste(c(FactorName, Model1Factors), collapse = "+")))
   fml_f03 <- as.formula(paste0(ResultName, "~", paste(c(FactorName, Model2Factors), collapse = "+")))
@@ -185,15 +197,15 @@
   fml_t02 <- as.formula(paste0(ResultName, "~", paste(c(TrendName, Model1Factors), collapse = "+")))
   fml_t03 <- as.formula(paste0(ResultName, "~", paste(c(TrendName, Model2Factors), collapse = "+")))
 
-  mf  <- .lqg01_glm_binomial_safe(fml_f01, Data)
-  mf2 <- .lqg01_glm_binomial_safe(fml_f02, Data)
-  mf3 <- .lqg01_glm_binomial_safe(fml_f03, Data)
-  mf4 <- if (include_m3) .lqg01_glm_binomial_safe(as.formula(paste0(ResultName, "~", paste(c(FactorName, Model3Factors), collapse = "+"))), Data) else NULL
+  mf  <- .fit_bin(fml_f01)
+  mf2 <- .fit_bin(fml_f02)
+  mf3 <- .fit_bin(fml_f03)
+  mf4 <- if (include_m3) .fit_bin(as.formula(paste0(ResultName, "~", paste(c(FactorName, Model3Factors), collapse = "+")))) else NULL
 
-  mt  <- .lqg01_glm_binomial_safe(fml_t01, Data)
-  mt2 <- .lqg01_glm_binomial_safe(fml_t02, Data)
-  mt3 <- .lqg01_glm_binomial_safe(fml_t03, Data)
-  mt4 <- if (include_m3) .lqg01_glm_binomial_safe(as.formula(paste0(ResultName, "~", paste(c(TrendName, Model3Factors), collapse = "+"))), Data) else NULL
+  mt  <- .fit_bin(fml_t01)
+  mt2 <- .fit_bin(fml_t02)
+  mt3 <- .fit_bin(fml_t03)
+  mt4 <- if (include_m3) .fit_bin(as.formula(paste0(ResultName, "~", paste(c(TrendName, Model3Factors), collapse = "+")))) else NULL
 
   n_total <- nrow(Data)
   cnt     <- table(Data[[FactorName]])
@@ -263,10 +275,10 @@
     fml_c01 <- as.formula(paste0(ResultName, "~", .rhs(ContinuousName, CrudeFactors)))
     fml_c02 <- as.formula(paste0(ResultName, "~", paste(c(ContinuousName, Model1Factors), collapse = "+")))
     fml_c03 <- as.formula(paste0(ResultName, "~", paste(c(ContinuousName, Model2Factors), collapse = "+")))
-    mc  <- .lqg01_glm_binomial_safe(fml_c01, Data)
-    mc2 <- .lqg01_glm_binomial_safe(fml_c02, Data)
-    mc3 <- .lqg01_glm_binomial_safe(fml_c03, Data)
-    mc4 <- if (include_m3) .lqg01_glm_binomial_safe(as.formula(paste0(ResultName, "~", paste(c(ContinuousName, Model3Factors), collapse = "+"))), Data) else NULL
+    mc  <- .fit_bin(fml_c01)
+    mc2 <- .fit_bin(fml_c02)
+    mc3 <- .fit_bin(fml_c03)
+    mc4 <- if (include_m3) .fit_bin(as.formula(paste0(ResultName, "~", paste(c(ContinuousName, Model3Factors), collapse = "+")))) else NULL
     .ci_c <- function(m) {
       ci <- logistic_safe_confint(m)
       paste0("(", round(exp(ci[2, 1]), 3), ",", round(exp(ci[2, 2]), 3), ")")
@@ -399,7 +411,7 @@ block_logistic_quartile_glm <- function(ctx, ...) {
       .lqg01_Tb_ModelGroup3_OR(
         outcome_col, index_var, "Group", "Num",
         data2, m1, m2, cutoffs, raw_levels, include_cont,
-        index_label = ix_label, CrudeFactors = CrudeFactors
+        index_label = ix_label, CrudeFactors = CrudeFactors, ctx = ctx
       )
     },
     filter_m1 = function(m1) {
@@ -426,7 +438,8 @@ block_logistic_quartile_glm <- function(ctx, ...) {
           .lqg01_Tb_ModelGroup3_OR(
             outcome_col, index_var, "Group", "Num",
             data2, Model1Factors, Model2Factors, cutoffs, raw_levels, include_cont,
-            index_label = ix_label, Model3Factors = covs, CrudeFactors = CrudeFactors
+            index_label = ix_label, Model3Factors = covs, CrudeFactors = CrudeFactors,
+            ctx = ctx
           ),
           error = function(e) NULL
         )
@@ -447,7 +460,8 @@ block_logistic_quartile_glm <- function(ctx, ...) {
         .lqg01_Tb_ModelGroup3_OR(
           outcome_col, index_var, "Group", "Num",
           data2, Model1Factors, Model2Factors, cutoffs, raw_levels, include_cont,
-          index_label = ix_label, Model3Factors = m3a$M3, CrudeFactors = CrudeFactors
+          index_label = ix_label, Model3Factors = m3a$M3, CrudeFactors = CrudeFactors,
+          ctx = ctx
         ),
         error = function(e) NULL
       )
@@ -547,7 +561,7 @@ block_logistic_quartile_glm <- function(ctx, ...) {
                        latex_include_colnames = FALSE,
                        table_footnotes = logistic_glm_table_footnotes(
                          Model1Factors, Model2Factors, Model3Factors, m3_sig,
-                         Crude = CrudeFactors
+                         Crude = CrudeFactors, ctx = ctx
                        )),
       error = function(e) cli::cli_alert_warning("logistic_quartile_glm: export_sci_table 失败: {e$message}")
     )

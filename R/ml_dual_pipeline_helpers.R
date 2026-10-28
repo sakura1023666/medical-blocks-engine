@@ -755,6 +755,10 @@ inject_feature_selection_compound_indices <- function(cx, db_tag = "DB") {
 ml_dual_assert_primary_larger_n <- function(config, ix = NULL, stop_on_fail = TRUE) {
   dual <- config$dual_db %||% list()
   if (!isTRUE(dual$enable %||% FALSE)) return(invisible(NULL))
+  ## 课题显式授权「人少库做主库」（如加权 NHANES 主分析）时可放行，仅警告不硬停
+  if (isTRUE(dual$allow_primary_smaller_n %||% FALSE)) {
+    stop_on_fail <- FALSE
+  }
   bc <- config$ml_batch %||% config$incidence_batch %||% list()
   shared_base <- bc$shared_ck_base %||% file.path(
     dual$checkpoint_base %||% "checkpoints", "_shared"

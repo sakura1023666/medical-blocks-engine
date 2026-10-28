@@ -808,6 +808,134 @@ ml_reference_build_flowchart <- function(mimic_csv, eicu_csv, out_dir,
   body
 }
 
+# 预后套路基线（对齐 ACAG Table 1 章节）。键为表内列名，值为数据列别名。
+.ml_ref_t1_alias_map <- function() {
+  list(
+    Age = "Age", Gender = "Gender", Race = "Race", Weight = "Weight", Height = "Height",
+    HR = "HR", PP = "PP", RR = "RR", SpO2 = "SpO2", Temperature = "Temperature",
+    SBP = "SBP", DBP = "DBP", MAP = "MAP",
+    WBC = "WBC", RBC = "RBC", Hematocrit = "Hematocrit",
+    "Platelet Count" = c("Platelet Count", "Platelet_Count", "PlateletCount"),
+    "Neutrophil Count" = c("Neutrophil Count", "Neutrophil_Count", "NeutrophilCount"),
+    Lymphocytes = "Lymphocytes", ALT = "ALT", AST = "AST", Globulin = "Globulin",
+    "Bilirubin Total" = c("Bilirubin Total", "Bilirubin_Total", "BilirubinTotal"),
+    BUN = "BUN", Creatinine = "Creatinine", Sodium = "Sodium", Potassium = "Potassium",
+    Chloride = "Chloride", CalciumTotal = "CalciumTotal", Glucose = "Glucose",
+    PaO2 = "PaO2", PCO2 = "PCO2", INR = "INR", PT = "PT", PTT = "PTT",
+    APSIII = "APSIII", OASIS = "OASIS", GCS = "GCS", SOFA = "SOFA",
+    "Mechanical ventilation (ever)" = c("Mechanical ventilation (ever)", "Ventilation"),
+    Hypertension = "Hypertension", Diabetes = "Diabetes", T1DM = "T1DM", T2DM = "T2DM",
+    "Heart Failure" = c("Heart Failure", "Heart_Failure"),
+    "Myocardial Infarction" = c("Myocardial Infarction", "Myocardial_Infarction"),
+    Stroke = "Stroke", COPD = "COPD", CKD = "CKD", Cancer = "Cancer",
+    Hyperlipidemia = "Hyperlipidemia",
+    "Liver cirrhosis" = c("Liver cirrhosis", "Liver_cirrhosis"),
+    Hepatitis = "Hepatitis", Pneumonia = "Pneumonia",
+    SAR = "SAR", CrCV = "CrCV", ACAG = "ACAG", RAR = "RAR"
+  )
+}
+
+.ml_ref_t1_section_def <- function() {
+  list(
+    list(title = "Demographics",
+         continuous = c("Age", "Weight", "Height"),
+         categorical = c("Gender", "Race")),
+    list(title = "Vital Signs",
+         continuous = c("HR", "PP", "RR", "SpO2", "Temperature", "SBP", "DBP", "MAP"),
+         categorical = character(0)),
+    list(title = "Laboratory Tests",
+         continuous = c("WBC", "RBC", "Hematocrit", "Platelet Count", "Neutrophil Count",
+                        "Lymphocytes", "ALT", "AST", "Globulin", "Bilirubin Total",
+                        "BUN", "Creatinine", "Sodium", "Potassium", "Chloride",
+                        "CalciumTotal", "Glucose", "PaO2", "PCO2", "INR", "PT", "PTT"),
+         categorical = character(0)),
+    list(title = "Clinical Scores",
+         continuous = c("APSIII", "OASIS", "GCS", "SOFA"),
+         categorical = character(0)),
+    list(title = "Interventions and Hospital Course",
+         continuous = character(0),
+         categorical = "Mechanical ventilation (ever)"),
+    list(title = "Comorbidities",
+         continuous = character(0),
+         categorical = c("Hypertension", "Diabetes", "T1DM", "T2DM", "Heart Failure",
+                         "Myocardial Infarction", "Stroke", "COPD", "CKD", "Cancer",
+                         "Hyperlipidemia", "Liver cirrhosis", "Hepatitis", "Pneumonia")),
+    list(title = "Exposures",
+         continuous = c("SAR", "CrCV", "ACAG", "RAR"),
+         categorical = character(0))
+  )
+}
+
+.ml_ref_t1_apply_units <- function(characteristic) {
+  map <- c(
+    Age = "Age,years", Weight = "Weight,kg", Height = "Height,cm",
+    HR = "HR,bpm", PP = "PP,mmHg", `SpO2` = "SpO2,%",
+    Temperature = "Temperature,\u00b0C",
+    SBP = "SBP,mmHg", DBP = "DBP,mmHg", MAP = "MAP,mmHg",
+    WBC = "WBC,K/uL", RBC = "RBC,m/uL", Hematocrit = "Hematocrit,%",
+    `Platelet Count` = "Platelet Count,K/uL",
+    `Neutrophil Count` = "Neutrophil Count,K/uL",
+    Lymphocytes = "Lymphocytes,K/uL", ALT = "ALT,IU/L", AST = "AST,IU/L",
+    Globulin = "Globulin,g/dL", `Bilirubin Total` = "Bilirubin Total,mg/dL",
+    BUN = "BUN,mg/dL", Creatinine = "Creatinine,mg/dL",
+    Sodium = "Sodium,mEq/L", Potassium = "Potassium,mEq/L",
+    Chloride = "Chloride,mEq/L", CalciumTotal = "CalciumTotal,mg/dL",
+    Glucose = "Glucose,mg/dL", PCO2 = "PCO2,mmHg", PT = "PT,sec", PTT = "PTT,sec",
+    APSIII = "APSIII,points", OASIS = "OASIS,points",
+    GCS = "GCS,points", SOFA = "SOFA,points"
+  )
+  x <- as.character(characteristic)
+  hit <- unname(map[x])
+  ifelse(is.na(hit), x, hit)
+}
+
+#' 把清洗表里被插补框丢掉的共同列按 ID 补回，并改成基线表用的列名。
+ml_reference_baseline_frame <- function(imputed, cleaned = NULL,
+                                        outcome_col = "fustatus") {
+  if (!is.data.frame(imputed) || !nrow(imputed)) {
+    stop("Table 1 需要非空 imputed 分析集", call. = FALSE)
+  }
+  src <- imputed
+  if (is.data.frame(cleaned) && "ID" %in% names(cleaned) && "ID" %in% names(imputed)) {
+    extra <- setdiff(names(cleaned), names(imputed))
+    if (length(extra)) {
+      add <- cleaned[, c("ID", extra), drop = FALSE]
+      add <- add[!duplicated(add$ID), , drop = FALSE]
+      src <- merge(imputed, add, by = "ID", all.x = TRUE, sort = FALSE)
+    }
+  }
+  if (outcome_col %in% names(imputed) && "ID" %in% names(imputed) &&
+      "ID" %in% names(src)) {
+    src[[outcome_col]] <- imputed[[outcome_col]][match(src$ID, imputed$ID)]
+  }
+  amap <- .ml_ref_t1_alias_map()
+  for (canon in names(amap)) {
+    if (canon %in% names(src)) next
+    als <- as.character(amap[[canon]])
+    hit <- als[als %in% names(src)]
+    if (length(hit)) names(src)[names(src) == hit[[1L]]] <- canon
+  }
+  src
+}
+
+.ml_ref_t1_shared_vars <- function(frames, exposures = NULL) {
+  common <- Reduce(intersect, lapply(frames, names))
+  out <- list()
+  for (sec in .ml_ref_t1_section_def()) {
+    cont <- intersect(sec$continuous, common)
+    catv <- intersect(sec$categorical, common)
+    if (identical(sec$title, "Exposures")) {
+      if (length(exposures)) cont <- intersect(as.character(exposures), common)
+    }
+    if (!length(cont) && !length(catv)) next
+    out[[length(out) + 1L]] <- list(
+      title = sec$title, continuous = cont, categorical = catv
+    )
+  }
+  if (!length(out)) stop("Table 1 两库没有可对齐的基线变量", call. = FALSE)
+  list(levels = list(), sections = out)
+}
+
 #' 双库 Table 1（Panel A=MIMIC-IV，Panel B=eICU；结局 Survivor/Non-survivor）。
 #' @param db_frames list(MIMIC_IV=..., eICU=...)（元素为 data.frame，含结局列）。
 #' @return 合并 data.frame（列 Panel + Characteristic/Overall/Survivor/Non_survivor/p-value），
@@ -830,27 +958,14 @@ ml_reference_build_table1 <- function(db_frames, out_dir,
     stop("Table 1 无法从 db_frames 分出 MIMIC-IV / eICU", call. = FALSE)
   }
   if (is.null(vars)) {
-    idx_ab <- tryCatch(c(.ref_ia(), .ref_ib()), error = function(e) c("SOSM", "WPR"))
-    vars <- list(
-      levels = list(Age = 65L),
-      sections = list(
-        list(
-          title = "Demographics",
-          continuous = intersect(c("Age", "Weight"), names(mim)),
-          categorical = intersect("Gender", names(mim))
-        ),
-        list(
-          title = "Exposures",
-          continuous = intersect(idx_ab, names(mim)),
-          categorical = character(0)
-        ),
-        list(
-          title = "Vital signs / severity",
-          continuous = intersect(c("HR", "MAP", "Creatinine", "SOFA"), names(mim)),
-          categorical = character(0)
-        )
-      )
-    )
+    mim <- ml_reference_baseline_frame(mim, outcome_col = outcome_col)
+    eic <- ml_reference_baseline_frame(eic, outcome_col = outcome_col)
+    expo <- intersect(c("SAR", "CrCV", "ACAG", "RAR"),
+                      intersect(names(mim), names(eic)))
+    if (!length(expo)) {
+      expo <- tryCatch(c(.ref_ia(), .ref_ib()), error = function(e) character(0))
+    }
+    vars <- .ml_ref_t1_shared_vars(list(mim, eic), exposures = expo)
   }
   pa <- .ml_ref_t1_panel_rows("Panel A: MIMIC-IV", mim, vars, outcome_col,
                               sur_lbl, non_lbl)
@@ -895,6 +1010,85 @@ ml_reference_build_table1 <- function(db_frames, out_dir,
   attr(tab, "xlsx") <- if (isTRUE(ok)) normalizePath(dest, winslash = "/",
                                                      mustWork = FALSE) else NA_character_
   tab
+}
+
+#' 每个数据库单独一张基线表。db_frames 的元素可以是分析 data.frame，
+#' 或 list(imputed=, cleaned=)。只保留两库都有的变量。
+ml_reference_write_table1_per_db <- function(db_frames, out_dir,
+                                             exposures = c("SAR", "CrCV"),
+                                             outcome_col = "fustatus",
+                                             footnotes = NULL) {
+  .ml_ref_ensure_engine()
+  if (is.null(db_frames) || !length(db_frames)) {
+    stop("Table 1 需要至少一个数据库", call. = FALSE)
+  }
+  prepared <- lapply(db_frames, function(x) {
+    if (is.data.frame(x)) {
+      ml_reference_baseline_frame(x, outcome_col = outcome_col)
+    } else if (is.list(x) && is.data.frame(x$imputed)) {
+      ml_reference_baseline_frame(x$imputed, x$cleaned, outcome_col)
+    } else {
+      stop("Table 1 元素须为 data.frame 或 list(imputed, cleaned)", call. = FALSE)
+    }
+  })
+  vars <- .ml_ref_t1_shared_vars(prepared, exposures = exposures)
+  sur_lbl <- "Survivor"
+  non_lbl <- "Non-survivor"
+  tab_dir <- file.path(out_dir, "Tables")
+  dir.create(tab_dir, recursive = TRUE, showWarnings = FALSE)
+  if (is.null(footnotes)) {
+    expo_txt <- paste(exposures, collapse = " and ")
+    footnotes <- c(
+      "Continuous variables are presented as median (IQR); categorical as n (%).",
+      "Comparisons between Survivor and Non-survivor used the Wilcoxon rank-sum or Pearson chi-squared test.",
+      "Outcome: 28-day all-cause mortality (Survivor / Non-survivor).",
+      paste0("Exposures: ", expo_txt, ". Variables are the intersection of the two databases.")
+    )
+  }
+  written <- character(0)
+  pieces <- list()
+  for (nm in names(prepared)) {
+    pretty <- if (grepl("eICU", nm, ignore.case = TRUE)) "eICU" else "MIMIC-IV"
+    file_tag <- if (pretty == "eICU") "eICU" else "MIMIC IV"
+    body <- .ml_ref_t1_panel_rows(pretty, prepared[[nm]], vars, outcome_col,
+                                  sur_lbl, non_lbl)
+    body$Characteristic <- .ml_ref_t1_apply_units(body$Characteristic)
+    blob <- paste(as.character(unlist(body)), collapse = " ")
+    if (grepl("No AKI", blob, ignore.case = TRUE) || grepl("AKI N = ", blob)) {
+      stop("Table 1 混入 AKI/No AKI 误标签（须 Survivor/Non-survivor）", call. = FALSE)
+    }
+    hdr <- body[1L, , drop = FALSE]
+    rest <- body[-1L, , drop = FALSE]
+    keep <- c("Characteristic", "Overall", "Survivor", "Non_survivor", "p-value")
+    rest <- rest[, keep, drop = FALSE]
+    colnames(rest) <- c(
+      "Characteristic",
+      as.character(hdr$Overall),
+      as.character(hdr$Survivor),
+      as.character(hdr$Non_survivor),
+      "p-value"
+    )
+    fn <- sprintf(
+      "Table 1-%s. Baseline characteristics by 28-day survival.xlsx", file_tag
+    )
+    dest <- file.path(tab_dir, fn)
+    lvl <- which(grepl("^\\s", rest$Characteristic)) + 1L
+    sci_xlsx_single_header_booktabs(
+      filepath = dest,
+      title = sprintf(
+        "Table 1. Baseline characteristics by 28-day survival (%s).", pretty
+      ),
+      df_body = rest, sheet = "Table 1", footnotes = footnotes,
+      level_row_idx = lvl,
+      section_titles = vapply(vars$sections, function(s) s$title, character(1))
+    )
+    if (!file.exists(dest)) stop("Table 1 未写出: ", dest, call. = FALSE)
+    written <- c(written, normalizePath(dest, winslash = "/", mustWork = FALSE))
+    pieces[[nm]] <- rest
+  }
+  attr(pieces, "xlsx") <- written
+  attr(pieces, "vars") <- vars
+  pieces
 }
 
 #' 从旧双库 Table 1 xlsx（遗留标签 No AKI / AKI 实为 28d 生存/死亡分组）
@@ -1287,7 +1481,8 @@ ml_reference_build_manifest <- function(profile = NULL, out_dir,
       if (num == "1") {
         src[i] <- "Task7 ml_reference_build_table1（复用引擎基线；Survivor/Non-survivor）"
         den[i] <- "Panel A MIMIC-IV / Panel B eICU，28 天全队列"
-        status[i] <- if (ex_in(tab_dir, "^Table 1\\.")) "ready" else "pending"
+        # 单文件 Table 1.… 或按库 Table 1-MIMIC IV.… / Table 1-eICU.…
+        status[i] <- if (ex_in(tab_dir, "^Table 1([ .\\-]|$)")) "ready" else "pending"
       } else { # 2
         src[i] <- "Task4 Table 2 Joint group Cox（staging/task4/Tables）"
         den[i] <- "Overall/SOFA 三层，双库；Group1 low/low 参照"

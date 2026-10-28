@@ -330,7 +330,10 @@ block_logistic_tertile_glm <- function(ctx, ...) {
     }
     tryCatch(export_sci_table(rt_body, filepath, title = title,
                               header_row1 = h1, header_row2 = h2, latex_include_colnames = FALSE,
-                              table_footnotes = logistic_glm_table_footnotes(Model1Factors, Model2Factors, Model3Factors, m3_sig)),
+                              table_footnotes = logistic_glm_table_footnotes(
+                                Model1Factors, Model2Factors, Model3Factors, m3_sig,
+                                ctx = ctx
+                              )),
              error = function(e) cli::cli_alert_warning("logistic_tertile_glm: export 失败: {e$message}"))
   }
 

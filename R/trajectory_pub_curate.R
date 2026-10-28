@@ -152,13 +152,18 @@ trajectory_curate_figures_dir <- function(fig_dir, db_lab, index_name = "NLR",
                         ignore.case = TRUE, recursive = TRUE)
   all_pdf <- all_pdf[!grepl("/_raw/", all_pdf, fixed = TRUE)]
   raw_pdf <- list.files(raw_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
-  # S1 底稿常落在 step*_imputation/Figures（Figures 目录之外）→ 并入候选池
+  # S1 底稿常落在 step*_imputation/Figures；纳排图在 step*_attrition_flowchart。
+  # 这两类都不在 Figures 根下，不并入候选池时 Fig1 会被写成占位符。
   step_pdf <- character(0)
   unit_root <- dirname(fig_dir)
   if (dir.exists(unit_root)) {
     hit_miss <- list.files(unit_root, pattern = "^Figure Missing Value Overview\\.pdf$",
                            recursive = TRUE, full.names = TRUE, ignore.case = TRUE)
-    step_pdf <- hit_miss[!grepl("/_raw/", hit_miss)]
+    hit_fc <- list.files(unit_root, pattern = "^Figure 1\\..*Flowchart.*\\.pdf$",
+                         recursive = TRUE, full.names = TRUE, ignore.case = TRUE)
+    hit_fc <- hit_fc[grepl("attrition_flowchart", hit_fc, fixed = TRUE)]
+    step_pdf <- c(hit_miss, hit_fc)
+    step_pdf <- step_pdf[!grepl("/_raw/", step_pdf)]
   }
   pool_pdf <- unique(c(all_pdf, raw_pdf, step_pdf))
 

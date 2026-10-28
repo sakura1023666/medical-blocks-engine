@@ -1,19 +1,22 @@
 ###############################################################################
 #  ml_assoc_covariate_rule.R — Cox / Logistic 协变量铁律（全 ML 课题复用）
 #
-#  默认铁律：
-#  Model 1：Age 强制纳入（不论单因素是否显著）；可选 demo_uv_to_model1 将 UV 显著的人口学
-#           （Height/Weight/BMI 等）并入 Model1，非强制
-#  Model 2（默认）：Model1 +「单因素显著（tb1）且未进入最终 ML 特征」的其余变量（嵌套）
-#  Model 2（可选 model2_from_vif_pass）：Model1 + VIF 通过池（可含 ML 特征，仅排除暴露）
+#  默认铁律（2026-10-23）：
+#  Model 1：仅强制 Age + Gender/Sex（不论单因素是否显著）；不再 demo-UV 塞 Weight/BMI
+#  Model 2：Model1 +「单因素→VIF screen→多因素→VIF final」通过池中除 Age/Gender 外的变量
+#           （优先 vif_final_pass / 终末 Model2Factors；可含已进 ML 的特征；仅排除暴露等）
 #
-#  文献对齐 scheme = "literature_m123"（opt-in，不改全局默认）：
-#  Model2Factors = Age + Sex/Gender
-#  Model3Factors = Model2 ∪ (clinical_covariates ∩ UV-sig ∩ VIF-pass)
-#  兼容：Model1Factors ← Model2Factors；Model2Factors 对外也写入 Model3 全调整集
-#        （assoc 块仍读 M1=最小调整 / M2=全调整）
+#  兼容开关：
+#  - model2_from_uv_not_in_ml=TRUE：旧默认「UV 显著且未进 ML」
+#  - model2_from_vif_pass=TRUE 且未开 final：用 vif_screen_pass
+#  - demo_uv_to_model1=TRUE：旧行为，UV 显著人口学进 Model1（不推荐）
 #
-#  排除：暴露指标本身、（默认）已进 ML 的变量、结局/ID、可选黑名单
+#  文献对齐 scheme = "literature_m123"（opt-in）：
+#  Model1（表）= 未调整；Model2（表）= Age + Sex；Model3（表）= clinical∩UV∩VIF
+#  Model3 禁止纳入疾病严重度评分 / 器官支持等过度调整项（model3_exclude），
+#  否则联合暴露（如高 CrCV）与 APSIII/SOFA/通气高度重叠 → HR 方向可翻转。
+#  被剔除项写入 assoc_model3_severity_sensitivity，供敏感性表（非主文 Model3）。
+#
 #  配置：config$assoc_covariate / config$ml_small_sample$assoc_covariate
 ###############################################################################
 
@@ -24,10 +27,17 @@ if (!exists("%||%", mode = "function")) {
 ml_assoc_covariate_cfg <- function(cfg) {
   ms <- cfg$ml_small_sample %||% list()
   ac <- cfg$assoc_covariate %||% ms$assoc_covariate %||% list()
+  ## 默认 Model1 = Age + Gender；旧课题若只写 force_model1="Age" 且未关
+  ## force_gender_in_model1，仍自动并入 Gender/Sex
+  fm1 <- as.character(ac$force_model1 %||% c("Age", "Gender"))
+  fm1 <- unique(fm1[nzchar(fm1)])
+  if (!length(fm1)) fm1 <- c("Age", "Gender")
+  force_gender <- isTRUE(ac$force_gender_in_model1 %||% TRUE)
   list(
     enable = isTRUE(ac$enable %||% TRUE),
     scheme = as.character(ac$scheme %||% "default")[1L],
-    force_model1 = as.character(ac$force_model1 %||% "Age"),
+    force_model1 = fm1,
+    force_gender_in_model1 = force_gender,
     sex_var = as.character(ac$sex_var %||% "Gender")[1L],
     clinical_covariates = unique(as.character(ac$clinical_covariates %||% character(0))),
     uv_source = as.character(ac$uv_source %||% "tb1")[1L],  # tb1 | tb_screen
@@ -41,8 +51,27 @@ ml_assoc_covariate_cfg <- function(cfg) {
     demo_keywords = as.character(ac$demo_keywords %||% character(0)),
     allow_m2_eq_m1 = isTRUE(ac$allow_m2_eq_m1 %||% TRUE),
     prefer_clinical = as.character(ac$prefer_clinical %||% character(0)),
-    allow_ml_features_in_model2 = isTRUE(ac$allow_ml_features_in_model2 %||% FALSE),
-    model2_from_vif_pass = isTRUE(ac$model2_from_vif_pass %||% FALSE)
+    ## 新默认：终末 VIF 池可含 ML 特征；旧「UV 且未进 ML」需显式 model2_from_uv_not_in_ml
+    allow_ml_features_in_model2 = isTRUE(ac$allow_ml_features_in_model2 %||% TRUE),
+    model2_from_vif_pass = isTRUE(ac$model2_from_vif_pass %||% FALSE),
+    model2_from_vif_final = isTRUE(ac$model2_from_vif_final %||% TRUE),
+    model2_from_uv_not_in_ml = isTRUE(ac$model2_from_uv_not_in_ml %||% FALSE),
+    ## 总效应 Model3 硬排除（过度调整 / 严重度代理）；默认 ICU 常用评分+器官支持
+    model3_exclude = {
+      ex <- as.character(ac$model3_exclude %||% ml_assoc_default_model3_exclude())
+      unique(ex[nzchar(ex)])
+    }
+  )
+}
+
+#' ICU 预后总效应 Model3 默认剔除：严重度评分与器官支持（防 HR 翻转）
+ml_assoc_default_model3_exclude <- function() {
+  c(
+    "APSIII", "APS_III", "APACHEIII", "APACHE_III",
+    "OASIS", "SOFA", "SAPSII", "SAPS_II", "SAPS",
+    "Ventilation", "Mechanical_Ventilation", "MechVent",
+    "CRRT", "RRT", "Renal_Replacement",
+    "GCS", "GCS_eye", "GCS_motor", "GCS_verbal"
   )
 }
 
@@ -128,19 +157,27 @@ ml_resolve_assoc_covariates_literature_m123 <- function(ctx, data_names = NULL, 
     as.character(ac$model2_exclude %||% character(0))
   ))
   ban <- ban[nzchar(ban)]
+  sev_ban <- unique(as.character(ac$model3_exclude %||% ml_assoc_default_model3_exclude()))
+  sev_ban <- sev_ban[nzchar(sev_ban)]
 
-  extras <- intersect(clinical, intersect(uv, vif_pool))
-  extras <- setdiff(extras, ban)
+  extras_raw <- intersect(clinical, intersect(uv, vif_pool))
+  extras_raw <- setdiff(extras_raw, ban)
   if (!is.null(data_names)) {
-    extras <- intersect(extras, data_names)
+    extras_raw <- intersect(extras_raw, data_names)
+    sev_ban <- intersect(sev_ban, data_names)
   }
+  ## 严重度/器官支持：不进主文 Model3（总效应），留下作敏感性
+  severity_sens <- intersect(extras_raw, sev_ban)
+  extras <- setdiff(extras_raw, sev_ban)
   if (!length(extras)) {
     stop(
-      "literature_m123: clinical ∩ UV-sig ∩ VIF-pass is empty after exclusions. ",
+      "literature_m123: clinical ∩ UV-sig ∩ VIF-pass is empty after exclusions ",
+      "(incl. model3_exclude severity). ",
       "Check clinical_covariates vs tb1/vif_screen_pass. ",
       "clinical_n=", length(clinical),
       "; uv_n=", length(uv),
       "; vif_n=", length(vif_pool),
+      "; severity_held=", length(severity_sens),
       ".",
       call. = FALSE
     )
@@ -156,6 +193,7 @@ ml_resolve_assoc_covariates_literature_m123 <- function(ctx, data_names = NULL, 
     M2 = M2,
     M3 = M2,
     extras = extras,
+    severity_sensitivity = severity_sens,
     dropped_in_ml = character(0),
     ml_in_model2 = intersect(extras, ml_feats),
     uv_sig = uv,
@@ -168,7 +206,16 @@ ml_resolve_assoc_covariates_literature_m123 <- function(ctx, data_names = NULL, 
     scheme = "literature_m123",
     sex_var = sex_var,
     note = sprintf(
-      "literature_m123: Model2=Age+%s; Model3=Model2 + clinical∩UV∩VIF (%d): %s",
+      paste0(
+        "literature_m123: Model2=Age+%s; Model3=Model2 + clinical∩UV∩VIF ",
+        "excl.severity (%d): %s",
+        if (length(severity_sens)) {
+          sprintf("; severity→sensitivity (%d): %s",
+                  length(severity_sens), paste(severity_sens, collapse = ", "))
+        } else {
+          ""
+        }
+      ),
       sex_var,
       length(extras),
       paste(extras, collapse = ", ")
@@ -181,6 +228,19 @@ ml_assoc_vif_pass_vars <- function(ctx) {
     ctx$results$vif_screen_pass %||%
       ctx$results$vif_screen_pass_weighted %||%
       ctx$results$vif_final_pass %||%
+      character(0)
+  )
+  unique(v[nzchar(v)])
+}
+
+#' 单因素→VIF screen→多因素→VIF final 终末通过池（供 Model2）
+ml_assoc_vif_final_vars <- function(ctx) {
+  v <- as.character(
+    ctx$results$vif_final_pass %||%
+      ctx$results$vif_final_pass_weighted %||%
+      ## 终末 VIF / multivariate 写回的锁定集（常已含 Age/Gender）
+      ctx$results$Model2Factors %||%
+      ctx$results$nhanes_logistic_M2 %||%
       character(0)
   )
   unique(v[nzchar(v)])
@@ -226,13 +286,59 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
     return(ml_resolve_assoc_covariates_literature_m123(ctx, data_names, ac))
   }
   m1_force <- unique(as.character(ac$force_model1[nzchar(as.character(ac$force_model1))]))
-  if (!length(m1_force)) m1_force <- "Age"
+  if (!length(m1_force)) m1_force <- c("Age", "Gender")
+
+  ## Gender/Sex：默认强制进 Model1（不依赖 UV / demo_keywords）
+  sex_hit <- character(0)
+  if (isTRUE(ac$force_gender_in_model1)) {
+    sex_hit <- tryCatch(
+      ml_assoc_resolve_sex_var(ac$sex_var, data_names),
+      error = function(e) {
+        cand <- c(ac$sex_var, "Gender", "Sex")
+        if (is.null(data_names)) {
+          cand[[1L]]
+        } else {
+          hit <- intersect(cand, data_names)
+          if (length(hit)) hit[[1L]] else character(0)
+        }
+      }
+    )
+    sex_hit <- as.character(sex_hit %||% character(0))[1L]
+    if (!nzchar(sex_hit)) sex_hit <- character(0)
+  }
+  m1_force_norm <- m1_force
+  if (length(sex_hit)) {
+    m1_force_norm <- setdiff(m1_force_norm, c("Gender", "Sex", "gender", "sex"))
+    m1_force_norm <- unique(c(m1_force_norm, sex_hit))
+  }
 
   uv <- ml_assoc_uv_sig_vars(ctx, ac$uv_source)
   ml_feats <- ml_assoc_ml_feature_set(ctx)
   exposure <- ml_assoc_exposure_var(ctx)
-  vif_pool <- if (isTRUE(ac$model2_from_vif_pass)) ml_assoc_vif_pass_vars(ctx) else character(0)
-  candidate_src <- if (isTRUE(ac$model2_from_vif_pass) && length(vif_pool)) vif_pool else uv
+
+  vif_final <- ml_assoc_vif_final_vars(ctx)
+  vif_screen <- ml_assoc_vif_pass_vars(ctx)
+  pool_src <- "uv"
+  if (isTRUE(ac$model2_from_uv_not_in_ml)) {
+    candidate_src <- uv
+    pool_src <- "uv_not_in_ml"
+  } else if (isTRUE(ac$model2_from_vif_final) && length(vif_final)) {
+    candidate_src <- vif_final
+    pool_src <- "vif_final"
+  } else if (isTRUE(ac$model2_from_vif_pass) && length(vif_screen)) {
+    candidate_src <- vif_screen
+    pool_src <- "vif_screen"
+  } else if (length(vif_final)) {
+    candidate_src <- vif_final
+    pool_src <- "vif_final"
+  } else if (length(vif_screen)) {
+    candidate_src <- vif_screen
+    pool_src <- "vif_screen"
+  } else {
+    candidate_src <- uv
+    pool_src <- "uv_fallback"
+  }
+  vif_pool <- if (pool_src %in% c("vif_final", "vif_screen")) candidate_src else character(0)
 
   ban <- unique(c(
     exposure,
@@ -250,14 +356,10 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
   m2_never <- unique(as.character(ac$model2_exclude[nzchar(as.character(ac$model2_exclude))]))
 
   demo_kws <- ac$demo_keywords
-  if (!length(demo_kws)) {
-    demo_kws <- unique(c(
-      as.character((cfg$dual_db$harmonization %||% list())$demo_keywords %||% character(0)),
-      as.character((cfg$multivariate_incidence_binary %||% list())$demo_keywords %||% character(0)),
-      "Gender", "Sex", "Height", "Weight", "BMI"
-    ))
+  if (!length(demo_kws) && isTRUE(ac$demo_uv_to_model1)) {
+    demo_kws <- c("Gender", "Sex")
   }
-  demo_kws <- setdiff(unique(demo_kws[nzchar(demo_kws)]), m1_force)
+  demo_kws <- setdiff(unique(demo_kws[nzchar(demo_kws)]), m1_force_norm)
 
   demo_uv <- character(0)
   if (isTRUE(ac$demo_uv_to_model1) && length(candidate_src) && length(demo_kws)) {
@@ -270,9 +372,8 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
     }
   }
 
-  m1_all <- unique(c(m1_force, demo_uv))
+  m1_all <- unique(c(m1_force_norm, demo_uv))
   extras <- setdiff(candidate_src, unique(c(ban, m1_all, m2_never)))
-  # 优先临床名单（若配置），其余按原 UV 顺序
   if (length(ac$prefer_clinical) && length(extras)) {
     pref <- intersect(ac$prefer_clinical, extras)
     extras <- unique(c(pref, setdiff(extras, pref)))
@@ -286,10 +387,7 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
     extras <- intersect(extras, data_names)
   }
 
-  ## 2026-09-18 AKI(19) 修复: FIB4/FSI/NFS 等公式含 Age 的指标，Age 被成分防泄漏
-  ## 链从分析框剔除后 force_model1="Age" 交集落空；外验库(eICU 称主库/ MIMIC 外验)
-  ## 帧里 Race 也不在 → M1 全空直接 stop。仅在 M1 已空时启用 Age_Group→Gender 代理，
-  ## 其余指标 M1 非空、行为零改变。
+  ## 2026-09-18 AKI(19)：Age 被成分防泄漏踢掉后 M1 空 → 代理
   if (!length(m1_all) && !is.null(data_names)) {
     surrogate <- intersect(c("Age_Group", "Gender", "Race", "Ethnicity"), data_names)[1]
     if (!is.na(surrogate) && nzchar(surrogate)) {
@@ -305,7 +403,6 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
     stop("ml_resolve_assoc_covariates: Model1 为空（Age 不在数据中？）", call. = FALSE)
   }
   if (!ac$allow_m2_eq_m1 && identical(sort(M1), sort(M2))) {
-    # 无额外协变量时允许 M2=M1（小样本常见）
     ac$allow_m2_eq_m1 <- TRUE
   }
 
@@ -326,29 +423,17 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
     exposure = exposure,
     allow_m2_eq_m1 = ac$allow_m2_eq_m1,
     demo_uv = demo_uv,
+    pool_source = pool_src,
     scheme = "default",
-    note = if (isTRUE(ac$model2_from_vif_pass) && length(vif_pool)) {
-      sprintf(
-        "Model1=force(%s)%s; Model2=Model1 + VIF-pass (%d)%s: %s",
-        paste(m1_force, collapse = "+"),
-        if (length(demo_uv)) sprintf(" + demo(%s)", paste(demo_uv, collapse = "+")) else "",
-        length(extras),
-        if (isTRUE(ac$allow_ml_features_in_model2)) " incl.ML" else " excl.ML",
-        if (length(extras)) paste(extras, collapse = ", ") else "(none)"
-      )
-    } else {
-      sprintf(
-        "Model1=force(%s)%s; Model2=Model1 + UV-sig not in ML (%d): %s",
-        paste(m1_force, collapse = "+"),
-        if (length(demo_uv)) {
-          sprintf(" + demo-UV(%s)", paste(demo_uv, collapse = "+"))
-        } else {
-          ""
-        },
-        length(extras),
-        if (length(extras)) paste(extras, collapse = ", ") else "(none)"
-      )
-    }
+    note = sprintf(
+      "Model1=force(%s)%s; Model2=Model1 + %s (%d)%s: %s",
+      paste(M1, collapse = "+"),
+      if (length(demo_uv)) sprintf(" + demo-UV(%s)", paste(demo_uv, collapse = "+")) else "",
+      pool_src,
+      length(extras),
+      if (isTRUE(ac$allow_ml_features_in_model2)) "" else " excl.ML",
+      if (length(extras)) paste(extras, collapse = ", ") else "(none)"
+    )
   )
 }
 
@@ -451,6 +536,9 @@ ml_apply_assoc_covariate_rule_to_ctx <- function(ctx) {
   ctx$results$assoc_model2_factors <- res$M2
   ctx$results$assoc_model3_factors <- res$M3 %||% res$M2
   ctx$results$assoc_model2_extras <- res$extras %||% setdiff(res$M2, res$M1)
+  ctx$results$assoc_model3_severity_sensitivity <- as.character(
+    res$severity_sensitivity %||% character(0)
+  )
   ctx$results$assoc_covariate_note <- res$note
   ctx$results$assoc_covariate_scheme <- res$scheme %||% "default"
   # 兼容旧键：不覆盖 VIF 用的 Model2Factors（ML 候选池），只写 assoc 专用

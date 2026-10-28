@@ -401,8 +401,14 @@
       stop("block_shap: ml_model=auto 需要 ml_eval_all 或 ml_best_model_tag，请先运行 ml_models。", call. = FALSE)
     }
     st <- tolower(trimws(as.character(ctx$config$project$study_type %||% "")[1L]))
-    ## 预后优先 C-index；发病用 roc_auc
-    metrics <- if (identical(st, "prognosis")) {
+    ## 可由 ml_aggregate$best_metric / ml_best$metric 覆盖；默认预后 C-index、发病 roc_auc
+    metric_cfg <- tolower(trimws(as.character(
+      (ctx$config$ml_aggregate %||% list())$best_metric %||%
+        (ctx$config$ml_best %||% list())$metric %||% ""
+    )[1L]))
+    metrics <- if (nzchar(metric_cfg) && metric_cfg %in% c("roc_auc", "auc", "c_index")) {
+      if (metric_cfg %in% c("roc_auc", "auc")) c("roc_auc", "c_index") else c("c_index", "roc_auc")
+    } else if (identical(st, "prognosis")) {
       c("c_index", "roc_auc")
     } else {
       c("roc_auc", "c_index")

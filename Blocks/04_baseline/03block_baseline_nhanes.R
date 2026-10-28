@@ -573,7 +573,7 @@ block_baseline_nhanes <- function(ctx, ...) {
         statistic = stat_w,
         type      = type_arg
       ) %>%
-      gtsummary::add_p(pvalue_fun = ~gtsummary::style_pvalue(.x, digits = 2)) %>%
+      gtsummary::add_p(pvalue_fun = function(x) fmt_pval(x)) %>%
       gtsummary::add_overall() %>%
       gtsummary::modify_header(
         all_stat_cols() ~ "**{level}** \n (Unweighted N = {n_unweighted})"
@@ -672,7 +672,7 @@ block_baseline_nhanes <- function(ctx, ...) {
         )
         if (!is.null(type_arg) && length(type_arg)) tv_args$type <- type_arg
         tb_tv <- do.call(gtsummary::tbl_svysummary, tv_args) %>%
-          gtsummary::add_p(pvalue_fun = ~gtsummary::style_pvalue(.x, digits = 2)) %>%
+          gtsummary::add_p(pvalue_fun = function(x) fmt_pval(x)) %>%
           gtsummary::add_overall() %>%
           gtsummary::modify_header(
             all_stat_cols() ~ "**{level}** \n (Unweighted N = {n_unweighted})"

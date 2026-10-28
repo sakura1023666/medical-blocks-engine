@@ -1,0 +1,40 @@
+---
+description: 交付根白名单（summary_result 只留 Figures/Tables/方法md/软件版本txt/中期PDF）
+alwaysApply: true
+---
+
+# 交付根白名单铁律（全项目复用）
+
+凡客户可见的 `summary_result` / `summary_results`（含 `by_index/【success】*/summary_results` 与历史 `summary_result`），根目录**只允许**：
+
+| 保留 | 说明 |
+|---|---|
+| `Figures/` | 四目录 pdf/png/tiff/image_information |
+| `Tables/` | 发表 xlsx |
+| `Methods_statistical_analysis.md` | 统计分析方法（含 Software 小节） |
+| `Methods_software_versions.txt` | 软件版本清单 |
+| `*中期*.pdf` | 中期分析结果 PDF |
+
+**全项目铁律（用户 2026-10-27）**：每个课题 finalize 后交付面必须是上述五项；`ShinyApp/`、`code/`、`reports/`、`content.json`、`_report_dump.md`、`项目信息-中期.md` 等一律 prune 到同级 `*_delivery_workspace/`。单库文件名/表题**不加** `-库名`（`pub_strip_db_tags_from_delivery` + `pub_config_is_single_db`）。Nature P0 清零后出中期，再 prune 一次。
+
+## 铁律
+
+1. **禁止**在交付根留下：`README.md`、`reports/`、`content.json`、`_report_dump.md`、`项目信息-中期.md`、`Methods_software_section.md`（须并入方法 md）、根级 `image_information/`、QC 报告、其它中间稿。
+2. **修剪入口**：`R/pub_delivery_prune.R` → `pub_prune_delivery_root()`；归档到交付根**同级** `<basename>_delivery_workspace/`（不进客户打开的文件夹）。
+3. **自动挂点**（收口末尾必调）：
+ - 发病/预后：`run/incidence/finalize_summary_result.R` → 默认 `by_index/【success】*/summary_results/`（`ml_index_summary_results_enabled`）
+ - `ml_finalize_index_summary_results`（指标级；启用时**跳过**课题根第二份 `summary_result`）
+ - `ml_lit_sync_summary_result` / `finalize_ml_literature_publication`
+ - **数据库池化 / BlendedLoS**：`09block_dbpool_batch_finalize` + `finalize_easl_paper_pub.py` → `run/pub/finalize_delivery_root.R --study-type dbpool`（Methods=`R/pub_dbpool_methods.R`）；薄封装 `run/dbpool/finalize_summary_delivery.R`
+ - 中期 PDF 写入交付根之后**再 prune 一次**
+ - 复用地图：`docs/reuse/2026-10-23-incidence-index-summary-delivery-reuse-map.md`（发病/预后）、`docs/reuse/2026-10-23-ml-single-summary-results-delivery-reuse-map.md`（ML 单库）、`docs/reuse/2026-10-26-dbpool-delivery-midterm-reuse-map.md`（dbpool）
+4. **手工主入口**：`Rscript run/pub/finalize_delivery_root.R --dir ".../summary_results"`（完整收口）；仅修剪加 `--prune-only`。`prune_delivery_root.R` 仅为兼容别名。发病补收口：`run/incidence/finalize_summary_result.R`。
+5. Software 文案写入 `Methods_statistical_analysis.md` 的 `## Software`，勿单独交付 `Methods_software_section.md`。
+6. 复用地图：`docs/reuse/2026-10-22-ml-lit-delivery-whitelist-reuse-map.md`；dbpool 见上条 2026-10-26 地图。
+
+## 反例（禁止）
+
+- 交付文件夹里还有 `content.json` / `_report_dump` / `reports` / README
+- 把 `_delivery_workspace` 建在 `summary_result` 里面（客户仍看得见）
+- 中期出完后不 prune，残留 `项目信息-中期.md`
+- 在 `/tmp` 或课题 `scripts/` 再写一套 prune/hotfix 当长期方案

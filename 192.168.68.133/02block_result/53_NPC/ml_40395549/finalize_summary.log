@@ -1,0 +1,14 @@
+loaded R/pub_delivery_prune.R
+预后 ML 覆盖: 上游=univariate_prognosis→VIF; FS=仅 LASSO-Cox; assoc=Model2 来自 VIF 通过池; models=文献六模型 XGBoost-Cox/CoxBoost/GBM-Cox/RSF/Ridge-Cox/ElasticNet-Cox; SHAP=auto(最优模型); Shiny=surv_prognostic; surv_horizon=auto
+Registered S3 method overwritten by 'lme4':
+  method           from
+  na.action.merMod car 
+✔ Software versions: G:/02block_result/53_NPC/ml_40395549/summary_results/Methods_software_versions.txt
+✔ 交付白名单已干净: G:/02block_result/53_NPC/ml_40395549/summary_results
+✔ 指标 summary_results: G:/02block_result/53_NPC/ml_40395549/summary_results（Tables xlsx=12, Figures pdf=21, Methods=TRUE, software=TRUE）
+SUM_ROOT= G:/02block_result/53_NPC/ml_40395549/summary_results 
+attr_csv= G:/02block_result/53_NPC/ml_40395549/step30_attrition_flowchart/Tables/Flowchart_attrition_npc.csv 
+wrote  G:/02block_result/53_NPC/ml_40395549/Figures/image_information/Figure 1. Flowchart.md 
+wrote  G:/02block_result/53_NPC/ml_40395549/summary_results/Figures/image_information/Figure 1. Flowchart.md 
+OK
+EXIT:0

@@ -150,8 +150,9 @@
     list(name = "LCI",
          expr = "((Total_Cholesterol / 38.67) * (Triglycerides / 88.57) * (LDL / 38.67)) / (HDL / 38.67)",
          digits = 4),
+    # 标准 CHG = ln[TC × Glucose / (2 × HDL)]（校正旧式 HDL/2 误写）。
     list(name = "CHG",
-         expr = "log(Total_Cholesterol * Glucose / (HDL / 2))",
+         expr = "log(Total_Cholesterol * Glucose / (2 * HDL))",
          digits = 4),
     list(name = "AIP_BMI",
          expr = "log10(Triglycerides / HDL) * Weight / (Height / 100)^2",
@@ -221,6 +222,19 @@
          digits = 4),
     list(name = "BUN_Cr",
          expr = "BUN / Creatinine",
+         digits = 4),
+    # 宽表已预计算：SAR = 第一次肌酐/基线肌酐；CrCV = 肌酐标准差/肌酐均值。
+    # 单次 Creatinine 列无法重算轨迹，公式为 identity。协变量侧须另排除 Creatinine。
+    list(name = "SAR",
+         expr = "SAR",
+         digits = 4),
+    list(name = "CrCV",
+         expr = "CrCV",
+         digits = 4),
+    # 宽表已预计算：GV = 血糖标准差 / 血糖均值（单次 Glucose 无法重算）。
+    # 协变量侧须另排除 Glucose（及 CHG 组成 TC/HDL）。
+    list(name = "GV",
+         expr = "GV",
          digits = 4),
     list(name = "UACR",
          expr = "if (exists('Urine_Creatinine')) get(if (exists('Albumin_Urine')) 'Albumin_Urine' else 'AlbuminUrine') / (Urine_Creatinine * 0.01) else get(if (exists('Albumin_Creatinine')) 'Albumin_Creatinine' else 'AlbuminCreatinine')",

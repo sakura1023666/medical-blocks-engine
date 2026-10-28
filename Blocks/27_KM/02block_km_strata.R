@@ -583,7 +583,9 @@
   } else {
     km_ylim <- km_ylim[1:2]
   }
-  risk_tbl <- isTRUE(bl_cfg$risk_table %||% TRUE) && !for_combined
+  # 合并图默认关风险表（多面板挤）；单面板或显式 risk_table_on_combined=TRUE 时可开
+  risk_on_combined <- isTRUE(bl_cfg$risk_table_on_combined %||% FALSE)
+  risk_tbl <- isTRUE(bl_cfg$risk_table %||% TRUE) && (!for_combined || risk_on_combined)
   risk_y_text <- isTRUE(bl_cfg$risk_table_y_text %||% TRUE)
   legend_in_table <- isTRUE(bl_cfg$risk_table_legend_in_table %||% FALSE)
   risk_y_col <- isTRUE(bl_cfg$risk_table_y_text_col %||% risk_y_text)
@@ -681,7 +683,8 @@
       break.time.by = if (for_combined) NULL else km_break,
       title = .kms02_sanitize_legend(title_raw),
       subtitle = if (!for_combined && nzchar(subtitle_raw)) .kms02_sanitize_legend(subtitle_raw) else NULL,
-      xlab = .kms02_sanitize_legend(if (for_combined) "Time (d)" else xlab),
+      # 合并图也跟 config xlab（如 Time (months)），禁止写死 Time (d)
+      xlab = .kms02_sanitize_legend(xlab),
       ylab = .kms02_sanitize_legend(if (for_combined) "Prob (%)" else ylab),
       # 参考图：图例标题 = "{index} quartile"
       legend.title = .kms02_sanitize_legend(legend_title_raw),
@@ -1049,7 +1052,8 @@ block_km_strata <- function(ctx, ...) {
         time_col = time_var, time_div = time_div,
         for_combined = TRUE, config = cfg
       )
-      plot_list[[strata_col]] <- pinfo_c$build(FALSE, TRUE)
+      # 与单图一致：允许合并图带风险表（需 risk_table + risk_table_on_combined）
+      plot_list[[strata_col]] <- pinfo_c$build(isTRUE(pinfo_c$risk_table), TRUE)
     }
   }
 

@@ -5,11 +5,15 @@ alwaysApply: true
 
 # 分位一致性铁律（全项目复用）
 
-所有发病 / 预后 / 交叉滞后 / 敏感性分析项目必须遵守。同一个课题内，**分位数只能有一个来源：主文 logistic 闸门（gate）选定的 grouping**。下游所有表禁止自行写死分位。
+所有发病 / 预后 / 交叉滞后 / 敏感性分析项目必须遵守。同一个课题内，**分位数只能有一个来源：主文闸门（logistic_gate / cox_gate / quantile_scheme_cascade）选定的 grouping**。下游所有表禁止自行写死分位。
+
+## 级联降级（引擎级，2026-10）
+
+主文默认尝试 **quartile → tertile → binary**：在 **crude 最高档 vs 最低档** 不显著时降一档（`R/quantile_scheme_cascade.R`）。多指标默认 `pass_rule="all"`（全部指标最高档均显著才锁定该档）；锁定后 Table2 / Cox / KM / 亚组 / 脚注必须同 scheme。禁止课题手写 `Q1–Q4` 绕过锁定。
 
 ## 铁律
 
-1. **单一事实来源**：课题主文 logistic 的 grouping（`binary` / `tertile` / `quartile` / `quintile`）决定全套表格分位。主文 Table 2 是 quartile → change 分析（Table S5/S5.1）、敏感性（S10/S11/S14/S16/S17 系列）、亚组、汇总表全部必须是 quartile。
+1. **单一事实来源**：`ctx$results$quantile_scheme_selected` / `cox_grouping_scheme` / `logistic_grouping_scheme`（或双库 unified scheme）决定全套表格分位。主文 Table 2 是 tertile → change / 敏感性 / 亚组 / 汇总全部必须是 tertile。
 2. **禁止 phase 硬编码**：任何 phase / block / 汇总脚本不得写死 `scheme = "tertile"`（或其它分位）覆盖课题配置。分位必须从链上取：
    - 课题元数据：`cross_lagged_study_meta(study_root)$grouping`（`R/cross_lagged_study_meta.R`）
    - 或验收文件：`phase3_relock_acceptance.txt` 的 `main_grouping=` 行

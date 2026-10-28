@@ -1,0 +1,15 @@
+Table2_nodes_unified_CHARLS,,,,
+Label,Items,Mean,SD,Predictability (Rº†)
+Depression_1,Felt Depressed,0.11,0.313,0.441
+Depression_2,Everything Was an Effort,0.148,0.356,0.417
+Depression_3,Restless Sleep,0.338,0.473,0.152
+Depression_4,Happy [POS],0.096,0.294,0.445
+Depression_5,Positive Mindset [POS],0.081,0.273,0.458
+Depression_6,Negative Mindset,0.166,0.372,0.352
+Depression_7,Felt Lonely,0.097,0.296,0.268
+Depression_8,Could Not Get Going,0.146,0.353,0.381
+MetS_1,Waist Circumference (cm),94.786,13.471,0.277
+MetS_2,HDL-Cholesterol (mg/dL),65.512,18.387,0.361
+MetS_3,Triglycerides (mg/dL) (log),4.686,0.451,0.301
+MetS_4,Systolic Blood Pressure (mmHg) (log),4.874,0.128,0.042
+MetS_5,Fasting Glucose (mg/dL) (log),4.564,0.144,0.061

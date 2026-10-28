@@ -205,6 +205,73 @@ ckm_stroke_kmeans_fit <- function(mat, k = 4L, seed = 2026L, nstart = 25L) {
   list(cluster = cl, centers = km$centers, ok = ok, tot.withinss = km$tot.withinss)
 }
 
+# 外验：用发现队列固定中心（行=语义类名，列 t1/t2）最近邻分配
+ckm_stroke_kmeans_assign_centers <- function(mat, centers) {
+  mat <- as.matrix(mat)
+  centers <- as.matrix(centers)
+  if (is.null(colnames(centers))) colnames(centers) <- c("t1", "t2")
+  if (ncol(centers) < 2L) stop("fixed centers 需至少两列 t1/t2", call. = FALSE)
+  centers <- centers[, 1:2, drop = FALSE]
+  labs <- rownames(centers)
+  if (is.null(labs) || !any(nzchar(labs))) {
+    stop("fixed centers 行名须为语义类（Persistent_low 等）", call. = FALSE)
+  }
+  ok <- stats::complete.cases(mat[, 1:2, drop = FALSE])
+  out <- rep(NA_character_, nrow(mat))
+  if (!any(ok)) {
+    return(factor(out, levels = labs))
+  }
+  m <- mat[ok, 1:2, drop = FALSE]
+  # 欧氏距离最近中心
+  d2 <- matrix(NA_real_, nrow(m), nrow(centers))
+  for (j in seq_len(nrow(centers))) {
+    d2[, j] <- (m[, 1] - centers[j, 1])^2 + (m[, 2] - centers[j, 2])^2
+  }
+  jj <- max.col(-d2, ties.method = "first")
+  out[ok] <- labs[jj]
+  factor(out, levels = unique(c(
+    "Persistent_low", "Moderate_high_stable", "Stable_high", "Rapid_decrease", labs
+  )))
+}
+
+ckm_stroke_read_fixed_centers_csv <- function(path) {
+  path <- as.character(path)[1L]
+  if (!nzchar(path) || !file.exists(path)) {
+    stop("fixed_centers_csv 不存在: ", path, call. = FALSE)
+  }
+  d <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE,
+                       fileEncoding = "UTF-8-BOM")
+  lab_col <- intersect(c("class", "Class", "eGDR_Class", "label"), names(d))[1L]
+  if (is.na(lab_col)) lab_col <- names(d)[1L]
+  t1_col <- intersect(c("t1", "eGDR_t1", "WWI_t1", "center_t1"), names(d))[1L]
+  t2_col <- intersect(c("t2", "eGDR_t2", "WWI_t2", "center_t2"), names(d))[1L]
+  if (is.na(t1_col) || is.na(t2_col)) {
+    stop("fixed_centers_csv 需含 t1/t2（或 eGDR_t1/t2）列", call. = FALSE)
+  }
+  labs <- as.character(d[[lab_col]])
+  mat <- cbind(as.numeric(d[[t1_col]]), as.numeric(d[[t2_col]]))
+  colnames(mat) <- c("t1", "t2")
+  rownames(mat) <- labs
+  mat
+}
+
+# 从发现队列拟合结果导出「语义类 → 中心」矩阵（供外验固定分配）
+ckm_stroke_centers_by_semantic <- function(fit_centers, cluster, semantic) {
+  fit_centers <- as.matrix(fit_centers)
+  semantic <- as.character(semantic)
+  cluster <- as.integer(cluster)
+  labs <- unique(stats::na.omit(semantic))
+  out <- matrix(NA_real_, length(labs), ncol(fit_centers),
+                dimnames = list(labs, colnames(fit_centers) %||% c("t1", "t2")))
+  for (lab in labs) {
+    ids <- unique(stats::na.omit(cluster[semantic == lab]))
+    if (!length(ids)) next
+    # 该类对应的原始 k-means 簇中心（通常唯一）
+    out[lab, ] <- colMeans(fit_centers[ids, , drop = FALSE], na.rm = TRUE)
+  }
+  out
+}
+
 ckm_stroke_anchor_classes <- function(cluster, t1, t2, ref_policy = "lowest_mean_t1") {
   # 文献 Class2 = persistent low eGDR = 高风险参照
   u <- sort(unique(stats::na.omit(cluster)))
@@ -233,7 +300,9 @@ ckm_stroke_anchor_classes <- function(cluster, t1, t2, ref_policy = "lowest_mean
     dlt <- vapply(mid, function(k) {
       mean(as.numeric(t2)[cluster == k] - as.numeric(t1)[cluster == k], na.rm = TRUE)
     }, numeric(1))
-    # 下降更多 → Rapid_decrease；另一 → Moderate_high_stable
+    # 内部水平名仍可能是 Rapid_decrease（供已有 checkpoint 对齐）。
+    # 若该类 |mean Δ| 很小，发表脚注禁止沿用这个名字，必须走
+    # ckm_stroke_class_display_labels()（类间极差的 25% 门槛）。
     dec <- mid[which.min(dlt)]
     stab <- setdiff(mid, dec)
     out[cluster == dec] <- "Rapid_decrease"

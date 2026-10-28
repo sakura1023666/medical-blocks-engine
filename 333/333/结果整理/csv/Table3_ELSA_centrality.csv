@@ -1,0 +1,14 @@
+"Label","Items","Strength","Closeness","Betweenness","ExpectedInfluence"
+"Depression_1","Felt Depressed",0.986,0.004,60,0.986
+"Depression_2","Everything Was an Effort",0.887,0.004,64,0.873
+"Depression_3","Restless Sleep",0.433,0.003,0,0.433
+"Depression_4","Happy [POS]",0.865,0.003,0,0.859
+"Depression_5","Positive Mindset [POS]",0.893,0.003,2,0.885
+"Depression_6","Negative Mindset",0.801,0.003,20,0.801
+"Depression_7","Felt Lonely",0.615,0.003,0,0.615
+"Depression_8","Could Not Get Going",0.852,0.004,76,0.852
+"MetS_1","Waist Circumference (cm)",0.787,0.003,74,0.141
+"MetS_2","HDL-Cholesterol (mg/dL)",0.79,0.003,22,-0.69
+"MetS_3","Triglycerides (mg/dL)",0.68,0.002,0,-0.147
+"MetS_4","Systolic Blood Pressure (mmHg)",0.256,0.002,0,0.25
+"MetS_5","Fasting Glucose (mg/dL)",0.235,0.002,0,0.235

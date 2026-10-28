@@ -59,6 +59,12 @@ cross_lagged_draw_xs_fig1 <- function(study_root, db,
     if (file.exists(al)) source(al, local = FALSE)
   }
 
+  # 抑郁×高血压：无纵向库（如 CHARLS）只画基线 Table1 纳排 + 现患分叉
+  if (exists("cross_lagged_study_is_depression_htn_frailty", mode = "function") &&
+      isTRUE(cross_lagged_study_is_depression_htn_frailty(study_root))) {
+    return(invisible(.cross_lagged_draw_xs_fig1_depression_htn(study_root, db)))
+  }
+
   p1 <- if (exists("cross_lagged_phase1_dir", mode = "function")) {
     cross_lagged_phase1_dir(study_root, db)
   } else {
@@ -173,4 +179,140 @@ cross_lagged_draw_xs_fig1 <- function(study_root, db,
     grDevices::dev.off()
   }
   pdf_path
+}
+
+#' 抑郁×高血压：从「有 FI 的基线」→ CES-D 抑郁阳性 →（可选）Disease-free
+#' 人数优先读 D04_*_depression_baseline / *_htn_baseline，失败则用定稿回退。
+cross_lagged_depression_htn_baseline_attrition <- function(study_root, db,
+                                                          through = c("disease_free", "depressed")) {
+  through <- match.arg(through)
+  db <- as.character(db)[1L]
+  study_root <- as.character(study_root)[1L]
+  bl_year <- switch(toupper(db), CHARLS = "2011", ELSA = "2008", HRS = "2012", "baseline")
+  # 定稿回退（prep_qc / Table1）
+  n_fi <- switch(toupper(db), CHARLS = 7398L, ELSA = 6338L, HRS = 19155L, NA_integer_)
+  n_dep <- switch(toupper(db), CHARLS = 2565L, ELSA = 1197L, HRS = 4332L, NA_integer_)
+  n_htn <- switch(toupper(db), CHARLS = 1064L, ELSA = 528L, HRS = 2872L, NA_integer_)
+  n_free <- switch(toupper(db), CHARLS = 1501L, ELSA = 669L, HRS = 1460L, NA_integer_)
+
+  cand_dep <- c(
+    file.path(study_root, "data/harmonized", sprintf("D04_%s_depression_baseline.RData", db)),
+    file.path(study_root, "Data/harmonized", sprintf("D04_%s_depression_baseline.RData", db)),
+    file.path(study_root, "data/harmonized", sprintf("D04_%s_depression_htn_baseline.RData", db)),
+    file.path(study_root, "Data/harmonized", sprintf("D04_%s_depression_htn_baseline.RData", db))
+  )
+  for (p in cand_dep) {
+    if (!file.exists(p)) next
+    e <- new.env(parent = emptyenv())
+    ok <- tryCatch({ load(p, envir = e); TRUE }, error = function(err) FALSE)
+    if (!isTRUE(ok)) next
+    d <- if ("dabiao" %in% ls(e)) e$dabiao else e[[ls(e)[1L]]]
+    if (!is.data.frame(d) || !nrow(d)) next
+    dg <- if ("Disease_Group" %in% names(d)) as.character(d$Disease_Group) else character(0)
+    if (any(grepl("^Depression$|^No_Depression$", dg))) {
+      n_fi <- nrow(d)
+      n_dep <- sum(dg == "Depression", na.rm = TRUE)
+    } else if (any(grepl("Hypertension", dg, ignore.case = TRUE))) {
+      n_dep <- nrow(d)
+      n_htn <- sum(grepl("Hypertension", dg, ignore.case = TRUE) &
+                     !grepl("^No", dg, ignore.case = TRUE), na.rm = TRUE)
+      n_free <- sum(grepl("^No", dg, ignore.case = TRUE) |
+                      grepl("No_Hypertension|No Hypertension", dg), na.rm = TRUE)
+    }
+  }
+  # htn 基线再校准现患/无病
+  p_htn <- c(
+    file.path(study_root, "data/harmonized", sprintf("D04_%s_depression_htn_baseline.RData", db)),
+    file.path(study_root, "Data/harmonized", sprintf("D04_%s_depression_htn_baseline.RData", db))
+  )
+  for (p in p_htn) {
+    if (!file.exists(p)) next
+    e <- new.env(parent = emptyenv())
+    ok <- tryCatch({ load(p, envir = e); TRUE }, error = function(err) FALSE)
+    if (!isTRUE(ok)) next
+    d <- if ("dabiao" %in% ls(e)) e$dabiao else e[[ls(e)[1L]]]
+    if (!is.data.frame(d) || !nrow(d)) next
+    n_dep <- nrow(d)
+    dg <- if ("Disease_Group" %in% names(d)) as.character(d$Disease_Group) else character(0)
+    if (length(dg)) {
+      n_htn <- sum(grepl("Hypertension", dg, ignore.case = TRUE) &
+                     !grepl("^No", dg, ignore.case = TRUE), na.rm = TRUE)
+      n_free <- sum(grepl("^No", dg, ignore.case = TRUE) |
+                      grepl("No_Hypertension|No Hypertension", dg), na.rm = TRUE)
+    }
+  }
+  if (!is.finite(n_free) || n_free < 0L) n_free <- max(0L, as.integer(n_dep) - as.integer(n_htn))
+
+  rows <- data.frame(
+    step = c(
+      sprintf("Baseline with FI (year %s)", bl_year),
+      "Depression-positive analytic sample"
+    ),
+    n = as.integer(c(n_fi, n_dep)),
+    exclude_label = c(NA_character_, "Without depressive symptoms (CES-D negative)"),
+    step_id = c("fi_baseline", "depressed_sample"),
+    stringsAsFactors = FALSE
+  )
+  if (identical(through, "disease_free")) {
+    rows <- rbind(
+      rows,
+      data.frame(
+        step = "Disease-free at baseline",
+        n = as.integer(n_free),
+        exclude_label = "Prevalent Hypertension at baseline",
+        step_id = "after_baseline_free",
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+  attr(rows, "n_htn") <- as.integer(n_htn)
+  attr(rows, "n_free") <- as.integer(n_free)
+  attr(rows, "n_dep") <- as.integer(n_dep)
+  rows
+}
+
+#' 抑郁×高血压：CHARLS 等无纵向库 — 画到抑郁阳性基线，底部分叉 Hypertension / No Hypertension
+.cross_lagged_draw_xs_fig1_depression_htn <- function(study_root, db) {
+  db <- as.character(db)[1L]
+  study_root <- as.character(study_root)[1L]
+  if (!exists("attrition_draw_pdf", mode = "function")) {
+    root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
+    al <- file.path(root, "R/attrition_log.R")
+    if (file.exists(al)) source(al, local = FALSE)
+  }
+  p1 <- if (exists("cross_lagged_phase1_dir", mode = "function")) {
+    cross_lagged_phase1_dir(study_root, db)
+  } else {
+    file.path(study_root, paste0("phase1_", db, "_allages"))
+  }
+  if (!dir.exists(p1)) p1 <- file.path(study_root, paste0("phase1_", db))
+  fig_dir <- file.path(p1, "Figures")
+  tab_dir <- file.path(p1, "Tables")
+  dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(tab_dir, recursive = TRUE, showWarnings = FALSE)
+
+  # 停在抑郁阳性基线（Table1 Overall）；不画「排除现患 → Disease-free」
+  rows <- cross_lagged_depression_htn_baseline_attrition(study_root, db, through = "depressed")
+  utils::write.csv(
+    rows,
+    file.path(tab_dir, paste0("Flowchart_attrition_", db, "_xs.csv")),
+    row.names = FALSE
+  )
+  n_htn <- attr(rows, "n_htn")
+  n_free <- attr(rows, "n_free")
+  if (!is.finite(n_htn) || !is.finite(n_free)) {
+    n_htn <- switch(toupper(db), CHARLS = 1064L, ELSA = 528L, HRS = 2872L, NA_integer_)
+    n_free <- switch(toupper(db), CHARLS = 1501L, ELSA = 669L, HRS = 1460L, NA_integer_)
+  }
+  fork <- list(
+    left_label = "Hypertension",
+    left_n = as.integer(n_htn),
+    right_label = "No Hypertension",
+    right_n = as.integer(n_free)
+  )
+  pdf_path <- file.path(fig_dir, cross_lagged_xs_fig1_basename(db))
+  title <- sprintf("Figure 1. %s — Inclusion / Exclusion (baseline)", db)
+  ok <- isTRUE(attrition_draw_pdf(rows, title, pdf_path, fork = fork))
+  if (!isTRUE(ok)) return(invisible(NULL))
+  invisible(pdf_path)
 }
