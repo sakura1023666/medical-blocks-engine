@@ -64,7 +64,7 @@
 .dual_db_normalize_pair_key <- function(key) {
   key <- as.character(key %||% "")[1L]
   if (!nzchar(key)) return(key)
-  # 发病双库：去掉 Weighted 前缀，统一 RCS / 亚组标题，便于 NHANES↔CHARLS 成对
+  # 发病双库：去掉 Weighted 前缀，统一 RCS / 亚组 / 中介路径标题，便于 NHANES↔CHARLS 成对
   key <- sub("Weighted\\s+RCS\\s+of\\s+", "RCS of ", key, ignore.case = TRUE, perl = TRUE)
   key <- sub("RCS\\s+plot\\s+between\\s+", "RCS of ", key, ignore.case = TRUE, perl = TRUE)
   key <- sub("Weighted\\s+Subgroup\\s+(Forest\\s+)?(analyses\\s+)?of\\s+",
@@ -72,6 +72,9 @@
   key <- sub("Subgroup\\s+Forest\\s+analyses\\s+of\\s+",
              "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
   key <- sub("Subgroup\\s+of\\s+", "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Weighted\\s+mediation\\s+path\\s+diagram\\s+of\\s+",
+             "Mediation path diagram of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Weighted\\s+[Mm]ediation\\s+", "Mediation ", key, ignore.case = TRUE, perl = TRUE)
   # "RCS of X and Diabetic Nephropathy" vs "RCS of X and DN"
   key <- gsub("Diabetic\\s+Nephropathy", "DN", key, ignore.case = TRUE, perl = TRUE)
   key

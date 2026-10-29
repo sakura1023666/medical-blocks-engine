@@ -132,6 +132,7 @@ pipeline_block_sources <- function(root) {
     segmented_cox_tertile         = b("16_weightcox/02block_segmented_cox_tertile.R"),
     segmented_cox_quartile        = b("16_weightcox/03block_segmented_cox_quartile.R"),
     train_validation              = b("21_train_validation/01block_train_validation.R"),
+    ml_eval_common                = b("22_ml_models/00block_ml_eval_common.R"),
     ml_dt                         = b("22_ml_models/01block_ml_dt.R"),
     ml_rf                         = b("22_ml_models/02block_ml_rf.R"),
     ml_xgboost                    = b("22_ml_models/03block_ml_xgboost.R"),
@@ -162,6 +163,8 @@ pipeline_block_sources <- function(root) {
     ml_gbdt                       = b("22_ml_models/23block_ml_gbdt.R"),
     ml_topsis_fusion              = b("22_ml_models/24block_ml_topsis_fusion.R"),
     ml_tcf_balance_scale          = b("22_ml_models/25block_ml_tcf_balance_scale.R"),
+    ml_tcf_sklearn_rscv           = b("22_ml_models/26block_ml_tcf_sklearn_rscv.R"),
+    ml_tcf_sklearn_external       = b("22_ml_models/27block_ml_tcf_sklearn_external.R"),
     feature_selection_entropy_stepwise = b("19_feature_selection/11block_feature_selection_entropy_stepwise.R"),
     performance_ml                = b("23_ml_performance/01block_performance_ml.R"),
     supplementary_ml              = b("24_ml_supplementary/01block_supplementary_ml.R"),
@@ -921,6 +924,14 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
     ) || grepl("_iptw_weighted$", block_name)) &&
         !"logistic_iptw_weighted_common" %in% sourced) {
       sourced <- pipeline_source_block(root, "logistic_iptw_weighted_common", sourced)
+    }
+    if ((block_name %in% c(
+      "ml_dt", "ml_rf", "ml_xgboost", "ml_lightgbm", "ml_rsvm",
+      "ml_naive_bayes", "ml_gbdt", "ml_topsis_fusion", "ml_models_bundle",
+      "ml_tcf_sklearn_rscv", "ml_tcf_sklearn_external"
+    ) || grepl("^ml_(dt|rf|xgboost|lightgbm|rsvm|naive_bayes|gbdt|topsis|tcf_sklearn)", block_name)) &&
+        !"ml_eval_common" %in% sourced) {
+      sourced <- pipeline_source_block(root, "ml_eval_common", sourced)
     }
 
     if (exists(".lnw00_should_skip_cascade_block", mode = "function") &&

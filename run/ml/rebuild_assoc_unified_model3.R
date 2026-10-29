@@ -248,7 +248,22 @@ cutoff <- NULL  # overall-only
         coding = "tertile", model = mn, group = "P for trend",
         hr_ci = tr$hr_ci, p_cell = tr$p_cell, p = tr$p,
         n = nrow(d),
-        events = sum(suppressWarnings(as.integer(d$fustatus)) == 1L, na.rm = TRUE),
+        ## 禁止 as.integer(factor)：Survivor 常为水平 1，会把存活人数误记为 Events
+        events = {
+          ev01 <- tryCatch(
+            as.integer(pipeline_outcome_as_01(d$fustatus, case_label = "Non-survivor")),
+            error = function(e) {
+              x <- d$fustatus
+              if (is.factor(x) || is.character(x)) {
+                xl <- tolower(trimws(as.character(x)))
+                as.integer(xl %in% c("1", "yes", "dead", "death", "non-survivor", "nonsurvivor"))
+              } else {
+                as.integer(suppressWarnings(as.numeric(x)) == 1)
+              }
+            }
+          )
+          sum(ev01 == 1L, na.rm = TRUE)
+        },
         status = if (nzchar(tr$hr_ci) && !identical(tr$hr_ci, "NE")) {
           "estimable"
         } else {

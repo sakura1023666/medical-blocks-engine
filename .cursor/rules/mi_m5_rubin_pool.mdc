@@ -25,7 +25,7 @@ alwaysApply: true
 | 多因素预后 | `Blocks/07_multivariate/01block_multivariate_prognosis.R` |
 | 分位 Cox | `Blocks/10_cox/03block_cox_quartile.R` |
 | ML 连续特征 Cox | `Blocks/10_cox/08block_cox_ml_continuous_batch.R`（`dt` 须带 ID） |
-| NHANES 加权 logistic | `Blocks/11_logistic/*nhanes_weighted*`（**待挂**每套 svydesign→svyglm→Rubin；未落地前新课题不得假装已 Rubin） |
+| NHANES 加权 logistic | `Blocks/11_logistic/*nhanes_weighted*` → `.lnw00_svyglm_fit` → `mi_svyglm`（每套重建 svydesign→svyglm→Rubin） |
 | Methods 文案 | `R/ml_index_summary_results.R` |
 
 `run_pipeline` 启动时规范化 config。复用地图：`docs/reuse/2026-10-27-npc-ml-rubin-os-attrition-reuse-map.md`。
@@ -35,7 +35,6 @@ alwaysApply: true
 - `imputation$method = "none"`：不做 MI。
 - **深度模型训练**（TST / 部分 ML）：网络训练可用操作层单套；若同课题另有 Cox/logistic 发表表，那些表仍须 Rubin。
 - 用户书面要求关闭 Rubin：仅单课题、且 Methods 不得写多重插补推断。
-- **祖父条款（仅此一件）**：`22_depression/incidence_cute_ran`【success】HHR 等已交付指标 — NHANES 加权主表仍为 complete#1 + `svyglm`；Methods 须分写「加权=complete#1；CHARLS/未加权敏感性=Rubin」，**不重跑**。此后新课题不适用本条。
 
 ## 新课题检查
 

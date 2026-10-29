@@ -364,8 +364,10 @@ config$ml_batch <- list(
   skip_existing = TRUE,
   db_mode = if (single_db_mode) "nhanes" else "both",
   single_db = single_db_mode,
+  # 全项目铁律：指标级 summary_results 白名单五件套（图/表/Methods md/软件版本/中期）
+  # 双库与单库默认均开；显式 .study$write_index_summary_results=FALSE 可关
   write_index_summary_results = isTRUE(
-    .study$write_index_summary_results %||% single_db_mode
+    .study$write_index_summary_results %||% TRUE
   ),
   output_base = .batch_project_root,
   shared_ck_base = file.path(.batch_ck_root, "_shared"),

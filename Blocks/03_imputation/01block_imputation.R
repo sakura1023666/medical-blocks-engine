@@ -1266,6 +1266,18 @@ block_imputation <- function(ctx, ...) {
                    nrow(data_imputed) == nrow(imp_obj$data)) {
           ids_vec <- as.character(data_imputed[[id_primary]])
         }
+        if (!length(ids_vec) && !is.null(data_before_mi) && is.data.frame(data_before_mi) &&
+            nrow(data_before_mi) == nrow(imp_obj$data)) {
+          for (alt in c("ID", "ID_orig", "subject_id")) {
+            if (alt %in% names(data_before_mi)) {
+              ids_vec <- as.character(data_before_mi[[alt]])
+              cli::cli_alert_info(
+                "mice_row_ids: 主 ID 列 {id_primary} 不可用，改用 {alt}（n={length(ids_vec)}）"
+              )
+              break
+            }
+          }
+        }
         if (length(ids_vec)) {
           ctx$results$mice_row_ids <- ids_vec
           cli::cli_alert_info("mice_row_ids locked for Rubin pool (n={length(ids_vec)})")
@@ -1428,6 +1440,18 @@ block_imputation <- function(ctx, ...) {
       } else if (id_primary %in% names(data_imputed) &&
                  nrow(data_imputed) == nrow(imp_obj$data)) {
         ids_vec <- as.character(data_imputed[[id_primary]])
+      }
+      if (!length(ids_vec) && !is.null(data_before_mi) && is.data.frame(data_before_mi) &&
+          nrow(data_before_mi) == nrow(imp_obj$data)) {
+        for (alt in c("ID", "ID_orig", "subject_id")) {
+          if (alt %in% names(data_before_mi)) {
+            ids_vec <- as.character(data_before_mi[[alt]])
+            cli::cli_alert_info(
+              "mice_row_ids: 主 ID 列 {id_primary} 不可用，改用 {alt}（n={length(ids_vec)}）"
+            )
+            break
+          }
+        }
       }
       if (length(ids_vec)) {
         ctx$results$mice_row_ids <- ids_vec

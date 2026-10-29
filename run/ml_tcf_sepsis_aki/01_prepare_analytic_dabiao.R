@@ -87,6 +87,11 @@ ee[, DN := as.integer(
   tolower(as.character(hospdischargestatus)) == "expired" &
     !is.na(hosplosday) & hosplosday <= 28
 )]
+## 与 MIMIC 同字段：28 天全因死亡
+ee[, `:=`(
+  fustatus = as.integer(DN),
+  futime = pmin(as.numeric(hosplosday), 28, na.rm = FALSE)
+)]
 if (all(c("NeutrophilCount", "Lymphocytes") %in% names(ee))) {
   ee[, NLR := NeutrophilCount / pmax(Lymphocytes, 1e-6)]
 }

@@ -56,9 +56,7 @@ block_ml_gbdt <- function(ctx, ...) {
   }
 
   ctx$results$ml_gbdt <- list(model = fit, features = feats, pred_prob = p1)
-  ctx$results$ml_model_probs <- ctx$results$ml_model_probs %||% list()
-  ctx$results$ml_model_probs$GBDT <- p1
-  ctx$results$ml_model_probs$gbdt <- p1
+  ctx <- .ml_register_model_probs(ctx, "GBDT", p = as.numeric(p1))
   cli::cli_alert_success("ml_gbdt: 完成（n_test={length(p1)}）")
   ctx
 }

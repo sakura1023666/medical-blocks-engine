@@ -1,0 +1,64 @@
+---
+description: 亚组森林对比口径、ML vs 加权分母、密文本图碰撞栅格（听力 TyG_WHtR 2026-10 教训）
+alwaysApply: true
+---
+
+# 亚组森林 · ML 分母 · 碰撞栅格铁律
+
+踩坑课题：`15_hearing_loss/ml_tyg_whtr_nhanes_single`【success】TyG_WHtR（2026-10）。审稿/出厂前必过。
+
+## 1. 调整版亚组必须报「最高 vs 最低」系数（禁 hit[1]=Middle）
+
+`Blocks/18_subgroup/02block_subgroup_incidence.R` → `.sgi02_adjusted_subgroup_glm`：
+
+- 全人群 + Middle 合并后，treatment 哑变量顺序为 `Q1 | Middle | Q4`
+- **禁止** `grep(^index)[1]`（常为 Middle vs Q1）→ 层内 OR≈1 却图注写 Q4 vs Q1
+- **必须**取最高水平后缀系数（`endsWith(..., "Q4")` / 末水平）
+- 出图后核：层内 OR 应与 Table2 Q4 vs Q1 **同数量级**；若全在 0.9–1.2 而 Table2 Q4≈1.4+ → **P0，禁交差**
+
+## 2. 图注 / image_information / 中期 = 实跑对比
+
+- config `continuous_index_mode=highest_vs_lowest` ≠ 图面一定对：以 **pdftotext 层内 OR** 为准
+- 不得因「看起来像连续」就改注为 continuous 交差；根因多是 Middle 系数错取
+- 调整集短于 Model2 时脚注写清（如 Age+Education），层内 OR 不必等于总体 1.421
+
+## 3. ML 人群 ≠ 调查加权分析集（禁 silently 混用）
+
+NHANES / 加权课题常见两套分母：
+
+| 人群 | 典型用途 |
+|------|----------|
+| 权重剔除前（如 n=2895） | train/val、LASSO、分类器、SHAP、NRI |
+| 加权分析集（如 n=2736） | Table1/2、RCS、亚组、中介 |
+
+Methods **必须**一句区分 + Limitations 点无权重外推方向；禁止正文暗示 ML=加权 N。  
+划分：先 split 再 `fit_on=train` MICE；写清 ratio / stratify / seed。
+
+## 4. 密文本森林图 collision FAIL → 栅格，禁止「假阳性放行」
+
+- `audit_figure_collisions.py` 对 forestploter 常报 `FIX BEFORE DELIVERY`（跨行文本框膨胀）
+- **禁止**只写「pdftotext 可读故 FP」就 PASS
+- **必须** `pub_figure_rasterize_pdf_page(..., dpi=600)` → 再 `pub_figure_ensure_formats`；vector 备份移出交付 `Figures/pdf/`
+- 栅格后脚本可为 `NOT AUDITABLE`（0 文本层）——属密文本消碰撞标准路径（见 `docs/reuse/2026-10-26-ml-literature-m123-assoc-reuse-map.md`），**前提是已栅格且图注数字完整**
+
+## 5. 中期 / 历史叙述 vs 实体
+
+- 取数：**交付 Tables/Figures/Flowchart CSV > 中期旧句**
+- 实体已变（纳排 n、中介是否导出、Fig 口径）→ **同步重出中期**，勿留 3521/「Insulin 未导出」类残骸
+
+## Agent 检查清单
+
+```
+[ ] 亚组调整版取最高水平系数（非 Middle）
+[ ] Fig 层内 OR 与 Table2 Q4 同量级；图注=实跑
+[ ] Methods 区分 ML n vs 加权 n；MICE fit_on=train
+[ ] 森林 collision FAIL 已 600dpi 栅格，非口头 FP
+[ ] 中期与实体分母/中介/Fig5 一致
+```
+
+## 反例（禁止）
+
+- 图注 Q4 vs Q1，图面 OR=0.91–1.23 全不显著
+- Methods 只写 N=2736，Table3/4 却是 2025+870=2895 且不解释
+- collision FIX BEFORE DELIVERY → 报告写 PASS（假阳性）
+- 改了 Fig/表不重出中期

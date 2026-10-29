@@ -58,9 +58,7 @@ block_ml_naive_bayes <- function(ctx, ...) {
     pred_prob = as.numeric(p1),
     pred_class = as.integer(as.numeric(p1) > 0.5)
   )
-  ctx$results$ml_model_probs <- ctx$results$ml_model_probs %||% list()
-  ctx$results$ml_model_probs$NB <- as.numeric(p1)
-  ctx$results$ml_model_probs$naive_bayes <- as.numeric(p1)
+  ctx <- .ml_register_model_probs(ctx, "NB", p = as.numeric(p1))
   cli::cli_alert_success("ml_naive_bayes: 完成（n_test={nrow(x_te_b)}）")
   ctx
 }

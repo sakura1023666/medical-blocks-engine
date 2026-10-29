@@ -3,6 +3,36 @@
 #  配置: config$logistic_nhanes_weighted（或 config$logistic_covariates）
 ###############################################################################
 
+# 加权 svyglm 推断：块入口绑定 ctx，供 .lnw00_svyglm_fit → mi_svyglm（m 套 Rubin）
+.lnw00_mi_env <- new.env(parent = emptyenv())
+.lnw00_set_mi_ctx <- function(ctx) {
+  .lnw00_mi_env$ctx <- ctx
+  invisible(ctx)
+}
+.lnw00_clear_mi_ctx <- function() {
+  .lnw00_mi_env$ctx <- NULL
+  invisible(NULL)
+}
+.lnw00_svyglm_fit <- function(design, formula_str, ctx = NULL) {
+  fml <- stats::as.formula(formula_str)
+  if (is.null(ctx)) ctx <- .lnw00_mi_env$ctx
+  if (!is.null(ctx) && exists("mi_svyglm", mode = "function") &&
+      isTRUE(mi_rubin_enabled(ctx))) {
+    out <- tryCatch(
+      mi_svyglm(ctx, fml, design),
+      error = function(e) {
+        cli::cli_alert_warning("mi_svyglm 失败: {e$message}；回退单套 svyglm")
+        NULL
+      }
+    )
+    if (!is.null(out)) return(out)
+  }
+  tryCatch(
+    survey::svyglm(fml, design = design, family = stats::quasibinomial()),
+    error = function(e) NULL
+  )
+}
+
 .lnw00_dual_db_save_covariates <- function(ctx, cfg, m1, m2) {
   if (!exists("dual_db_save_logistic_covariates", mode = "function")) return(invisible(NULL))
   root <- normalizePath(
@@ -629,11 +659,16 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   list(M1 = M1, M2 = M2, index_var = index_var)
 }
 
-.lnw00_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL) {
-  if (exists("logistic_glm_table_footnotes", mode = "function")) {
-    return(logistic_glm_table_footnotes(M1, M2, M3, m3_significant, ctx = NULL))
+.lnw00_table_footnotes <- function(M1, M2, M3 = NULL, m3_significant = NULL, ctx = NULL) {
+  notes <- if (exists("logistic_glm_table_footnotes", mode = "function")) {
+    logistic_glm_table_footnotes(M1, M2, M3, m3_significant, ctx = ctx)
+  } else {
+    pipeline_model3_table_footnotes(M1, M2, M3, m3_significant)
   }
-  pipeline_model3_table_footnotes(M1, M2, M3, m3_significant)
+  if (exists("mi_append_table_footnotes", mode = "function")) {
+    notes <- mi_append_table_footnotes(notes, ctx = ctx %||% .lnw00_mi_env$ctx)
+  }
+  notes
 }
 
 .lnw00_store_models <- function(ctx, M1, M2, M3 = NULL, m3_sig = NULL, final = NULL) {
@@ -746,6 +781,10 @@ logistic_covariate_lcfg <- .lnw00_lcfg
   } else {
     fp <- file.path(ctx$output_dir_tables, fn)
     title <- pub_title(ctx, if (isTRUE(as_main)) "main_table" else "supp_table", caption)
+  }
+
+  if (exists("mi_append_table_footnotes", mode = "function")) {
+    table_footnotes <- mi_append_table_footnotes(table_footnotes, ctx = ctx)
   }
 
   tryCatch(

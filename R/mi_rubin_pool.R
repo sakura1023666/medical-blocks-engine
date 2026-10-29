@@ -11,7 +11,7 @@
 #    mi_rubin_normalize_config(config)
 #    mi_rubin_enabled(ctx)
 #    mi_complete_aligned(ctx, data_template, k, keep_vars)
-#    mi_coxph / mi_glm_binomial
+#    mi_coxph / mi_glm_binomial / mi_svyglm
 #    mi_rubin_pool_estimates / mi_rubin_hr_table
 ###############################################################################
 
@@ -30,6 +30,9 @@ mi_rubin_enabled <- function(ctx) {
 }
 
 #' 取第 k 套完整插补，按分析队列 ID 对齐；keep_vars 列强制用模板值（暴露/结局/时间）
+#'
+#' 若 config 在插补后剥离了 id_column（如 NHANES SEQN），则依次尝试：
+#' `.mi_row_id` 列、`attr(*, "mi_row_ids")`、与 mice 等长时的按行位置对齐。
 mi_complete_aligned <- function(ctx, data_template, k, keep_vars = character(0)) {
   mm <- ctx$results$mice_model
   if (is.null(mm) || !inherits(mm, "mids")) return(NULL)
@@ -53,16 +56,40 @@ mi_complete_aligned <- function(ctx, data_template, k, keep_vars = character(0))
       dk[[id_col]] <- as.character(mm$data[[id_col]])
     }
   }
-  if (!id_col %in% names(data_template) || !id_col %in% names(dk)) return(NULL)
 
-  ids <- as.character(data_template[[id_col]])
+  tpl <- as.data.frame(data_template)
+  if (!id_col %in% names(tpl)) {
+    if (".mi_row_id" %in% names(tpl)) {
+      tpl[[id_col]] <- as.character(tpl[[".mi_row_id"]])
+    } else {
+      attr_ids <- attr(data_template, "mi_row_ids")
+      if (is.null(attr_ids)) attr_ids <- attr(tpl, "mi_row_ids")
+      if (length(attr_ids) == nrow(tpl)) {
+        tpl[[id_col]] <- as.character(attr_ids)
+      } else if (nrow(tpl) == nrow(dk) && id_col %in% names(dk)) {
+        # 插补后剥 ID、行序未打乱：按位置 1:1
+        tpl[[id_col]] <- as.character(dk[[id_col]])
+      } else if (length(row_ids) == nrow(tpl)) {
+        tpl[[id_col]] <- row_ids
+      }
+    }
+  }
+  if ((!id_col %in% names(tpl) || !id_col %in% names(dk)) &&
+      nrow(tpl) == nrow(dk) && nrow(dk) > 0L) {
+    pos <- as.character(seq_len(nrow(dk)))
+    tpl[[id_col]] <- pos
+    dk[[id_col]] <- pos
+  }
+  if (!id_col %in% names(tpl) || !id_col %in% names(dk)) return(NULL)
+
+  ids <- as.character(tpl[[id_col]])
   idx <- match(ids, as.character(dk[[id_col]]))
   ok <- !is.na(idx)
   if (!any(ok)) return(NULL)
   out <- dk[idx[ok], , drop = FALSE]
-  tpl <- data_template[ok, , drop = FALSE]
+  tpl <- tpl[ok, , drop = FALSE]
 
-  keep_vars <- unique(c(as.character(keep_vars %||% character(0)), id_col))
+  keep_vars <- unique(c(as.character(keep_vars %||% character(0)), id_col, ".mi_row_id"))
   for (v in keep_vars) {
     if (v %in% names(tpl)) out[[v]] <- tpl[[v]]
   }
@@ -360,14 +387,136 @@ mi_glm_binomial <- function(ctx, formula, data, keep_vars = character(0),
   mi_as_glm_like(pooled, n = nrow(data))
 }
 
+#' 用模板 survey.design 的 call / nhanes 配置，在新 data 上重建 svydesign
+#'
+#' 注意：logistic 块常 `update(design, Group=…)`，此时 `design$call` 是 `update(...)`。
+#' 若把 update 参数塞进 `do.call(svydesign, …)` 会挂起/OOM（NHANES n~3e4 已踩）。
+#' 只信任 `mi_svy_meta` 或「直接 svydesign()」call；否则走 nhanes 列名兜底。
+mi_rebuild_svydesign <- function(design, data, ctx = NULL) {
+  data <- as.data.frame(data)
+  meta <- attr(design, "mi_svy_meta")
+  if (is.null(meta)) meta <- attr(design$variables, "mi_svy_meta")
+  if (is.list(meta) && !is.null(meta$id)) {
+    return(survey::svydesign(
+      id = meta$id,
+      strata = meta$strata,
+      weights = meta$weights,
+      data = data,
+      nest = isTRUE(meta$nest %||% TRUE)
+    ))
+  }
+  cl <- tryCatch(design$call, error = function(e) NULL)
+  if (!is.null(cl) && length(cl) >= 2L) {
+    head_chr <- tryCatch(paste(deparse(cl[[1L]]), collapse = ""), error = function(e) "")
+    # 仅直接 survey::svydesign / svydesign；拒绝 update / 其它包装
+    is_direct_svy <- grepl("svydesign", head_chr, fixed = TRUE) &&
+      !grepl("update", head_chr, fixed = TRUE)
+    if (is_direct_svy) {
+      args <- as.list(cl)[-1L]
+      args$data <- data
+      envir <- tryCatch(environment(cl), error = function(e) NULL)
+      if (is.null(envir)) envir <- parent.frame()
+      out <- tryCatch(
+        do.call(survey::svydesign, args, envir = envir),
+        error = function(e) NULL
+      )
+      if (!is.null(out)) return(out)
+    }
+  }
+  nh <- if (!is.null(ctx)) (ctx$config$nhanes %||% list()) else list()
+  wt <- as.character(nh$survey_weight %||% "new_Weight")[1L]
+  psu <- as.character(nh$survey_cluster %||% "SDMVPSU")[1L]
+  str <- as.character(nh$survey_strata %||% "SDMVSTRA")[1L]
+  nest <- if (!is.null(nh$nest)) isTRUE(nh$nest) else TRUE
+  # 设计表已有列时优先认列名（即使 config 缺省）
+  if (!wt %in% names(data)) {
+    for (cand in c("new_Weight", "WTMEC2YR", "weight", "Weight")) {
+      if (cand %in% names(data)) { wt <- cand; break }
+    }
+  }
+  if (!psu %in% names(data) && "SDMVPSU" %in% names(data)) psu <- "SDMVPSU"
+  if (!str %in% names(data) && "SDMVSTRA" %in% names(data)) str <- "SDMVSTRA"
+  need <- c(wt, psu, str)
+  miss <- setdiff(need, names(data))
+  if (length(miss)) {
+    stop("mi_rebuild_svydesign: data 缺列 ", paste(miss, collapse = ", "), call. = FALSE)
+  }
+  survey::svydesign(
+    id = stats::as.formula(paste0("~", psu)),
+    strata = stats::as.formula(paste0("~", str)),
+    weights = stats::as.formula(paste0("~", wt)),
+    data = data,
+    nest = nest
+  )
+}
+
+#' 跨 m 套拟合 survey::svyglm 并 Rubin 合并（NHANES 加权主推断）
+#'
+#' 分组列（Group/Num/Disease_Group）与调查权重/PSU/strata 固定取自 design$variables
+#' （操作层 complete#1 切点）；协变量随各套插补变化。
+mi_svyglm <- function(ctx, formula, design, keep_vars = character(0),
+                      family = NULL) {
+  if (is.null(family)) family <- stats::quasibinomial()
+  formula <- stats::as.formula(formula)
+  fit_one <- function(des) {
+    survey::svyglm(formula, design = des, family = family)
+  }
+  if (!isTRUE(mi_rubin_enabled(ctx))) {
+    return(fit_one(design))
+  }
+  if (!requireNamespace("survey", quietly = TRUE)) {
+    stop("mi_svyglm: 需要 survey 包", call. = FALSE)
+  }
+  nh <- ctx$config$nhanes %||% list()
+  wt <- as.character(nh$survey_weight %||% "new_Weight")[1L]
+  psu <- as.character(nh$survey_cluster %||% "SDMVPSU")[1L]
+  str <- as.character(nh$survey_strata %||% "SDMVSTRA")[1L]
+  id_col <- as.character((ctx$config$data %||% list())$id_column %||% "ID")[1L]
+  keep_vars <- unique(c(
+    as.character(keep_vars),
+    all.vars(formula),
+    id_col, wt, psu, str,
+    "Group", "Num", "Disease_Group"
+  ))
+  mm <- ctx$results$mice_model
+  m <- as.integer(mm$m %||% 1L)[1L]
+  fits <- list()
+  for (k in seq_len(m)) {
+    dk <- mi_complete_aligned(ctx, design$variables, k, keep_vars = keep_vars)
+    if (is.null(dk) || !nrow(dk)) next
+    des_k <- tryCatch(
+      mi_rebuild_svydesign(design, dk, ctx = ctx),
+      error = function(e) NULL
+    )
+    if (is.null(des_k)) next
+    fit <- tryCatch(fit_one(des_k), error = function(e) NULL)
+    if (is.null(fit)) next
+    cf <- tryCatch(stats::coef(fit), error = function(e) NULL)
+    V <- tryCatch(as.matrix(stats::vcov(fit)), error = function(e) NULL)
+    if (is.null(cf) || is.null(V) || !length(cf)) next
+    fits[[length(fits) + 1L]] <- list(coef = cf, var = V)
+  }
+  pooled <- mi_rubin_pool_estimates(fits)
+  if (is.null(pooled)) {
+    cli::cli_alert_warning(
+      "mi_svyglm: Rubin 失败（{length(fits)}/{m}），回退单套 complete design"
+    )
+    return(fit_one(design))
+  }
+  if (length(fits) >= 2L) {
+    cli::cli_alert_info("mi_svyglm: Rubin 合并 {length(fits)}/{m} 套 svyglm")
+  }
+  mi_as_glm_like(pooled, n = nrow(design$variables))
+}
+
 mi_methods_footnote_lines <- function(m = 5L, maxit = 5L, seed = 1234L) {
   c(
     sprintf(
       "Multiple imputation by chained equations (m = %d, maxit = %d, seed = %d).",
       as.integer(m), as.integer(maxit), as.integer(seed)
     ),
-    "Regression estimates (Cox/logistic) were pooled across imputations using Rubin's rules.",
-    "Operational steps (feature selection, KM/RCS plots, descriptive tables) used the first completed dataset."
+    "Regression estimates (Cox/logistic/survey-weighted svyglm) were pooled across imputations using Rubin's rules.",
+    "Operational steps (feature selection, KM/RCS plots, descriptive tables, survey design cutpoints) used the first completed dataset."
   )
 }
 

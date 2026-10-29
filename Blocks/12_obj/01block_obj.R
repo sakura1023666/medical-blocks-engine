@@ -229,7 +229,7 @@ block_obj <- function(ctx, ...) {
       cli::cli_alert_warning("block_obj [{label}]: 权重可用行数为 0，跳过。")
       return(NULL)
     }
-    tryCatch(
+    des <- tryCatch(
       survey::svydesign(
         id      = stats::as.formula(paste0("~", psu_col)),
         strata  = stats::as.formula(paste0("~", str_col)),
@@ -242,10 +242,31 @@ block_obj <- function(ctx, ...) {
         NULL
       }
     )
+    # 供 mi_rebuild_svydesign：update(design, …) 后 call 变成 update，不能再 do.call(svydesign)
+    if (!is.null(des)) {
+      attr(des, "mi_svy_meta") <- list(
+        id = stats::as.formula(paste0("~", psu_col)),
+        strata = stats::as.formula(paste0("~", str_col)),
+        weights = stats::as.formula(paste0("~", wt_col)),
+        nest = isTRUE(nest_flag)
+      )
+    }
+    des
   }
 
   base_data <- ctx$data$imputed %||% ctx$data$cleaned
   if (is.null(base_data)) stop("block_obj: 无插补数据，请先运行 imputation。")
+
+  # 插补后若剥掉 id_column（NHANES SEQN），挂 .mi_row_id 供 mi_svyglm / Rubin 对齐
+  id_col_obj <- as.character((cfg$data %||% list())$id_column %||% "ID")[1L]
+  mi_ids <- as.character(ctx$results$mice_row_ids %||% character(0))
+  if (nzchar(id_col_obj) && !id_col_obj %in% names(base_data) &&
+      length(mi_ids) == nrow(base_data)) {
+    base_data[[".mi_row_id"]] <- mi_ids
+    cli::cli_alert_info(
+      "block_obj: 已挂 .mi_row_id（n={length(mi_ids)}）供加权 Rubin 对齐（{id_col_obj} 已剥离）"
+    )
+  }
 
   base_data <- pipeline_ensure_outcome_group_column(base_data, cfg)
   if (exists("pipeline_relabel_binary_outcome_column", mode = "function")) {

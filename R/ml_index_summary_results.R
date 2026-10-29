@@ -376,8 +376,8 @@ ml_index_summary_results_dirname <- function(config = NULL) {
 #' 是否在 finalize 后写指标级 summary_results
 #'
 #' 交付面：`by_index/【success】<INDEX>/summary_results/`（白名单五件套）。
-#' 发病/预后 dual-batch **默认开**（cute_ran 2026-10：须在 by_index 下，勿只落课题根）。
-#' 显式 `write_index_summary_results=FALSE` 可关；单库 ML 仍默认开。
+#' 发病/预后 dual-batch、**双库/单库 ML** 均默认开（须在 by_index 下，勿只落课题根）。
+#' 显式 `write_index_summary_results=FALSE` 可关。
 ml_index_summary_results_enabled <- function(config = NULL) {
   bc <- config$ml_batch %||% config$incidence_batch %||% config$survival_batch %||% list()
   pub <- config$pub %||% list()
@@ -387,12 +387,13 @@ ml_index_summary_results_enabled <- function(config = NULL) {
   if (!is.null(pub$write_index_summary_results)) {
     return(isTRUE(pub$write_index_summary_results))
   }
-  ## 发病 / 预后 dual-batch：默认写指标级 summary_results
-  if (!is.null(config$incidence_batch) || !is.null(config$survival_batch)) {
+  ## 发病 / 预后 / ML dual-batch：默认写指标级 summary_results
+  if (!is.null(config$incidence_batch) ||
+      !is.null(config$survival_batch) ||
+      !is.null(config$ml_batch)) {
     return(TRUE)
   }
-  ## 单库 ML 默认开；其它双库 ML 可显式打开
-  isTRUE(bc$single_db %||% pub$single_db %||% FALSE)
+  TRUE
 }
 
 #' 同步指标根 Tables/Figures → summary_results，并写 Methods / 软件版本后白名单修剪

@@ -134,11 +134,18 @@
         )
         m <- stats::glm(stats::as.formula(fo), data = sub, family = stats::binomial())
         co <- summary(m)$coefficients
+        # 多水平暴露（Q1|Middle|Q4）时 treatment 哑变量按水平名排序进系数表；
+        # 禁止 hit[1]（常为 Middle vs Q1）——须取最高水平（Q4 vs Q1）系数。
         hit <- grep(paste0("^", index_var), rownames(co), value = TRUE)
         if (length(hit)) {
-          or <- exp(co[hit[1], 1]); lo <- exp(co[hit[1], 1] - 1.959963985 * co[hit[1], 2])
-          hi <- exp(co[hit[1], 1] + 1.959963985 * co[hit[1], 2])
-          pv <- fmt_p(co[hit[1], 4])
+          idx_lv <- levels(droplevels(factor(as.character(sub[[index_var]]))))
+          end_lv <- if (length(idx_lv)) idx_lv[length(idx_lv)] else ""
+          pick <- if (nzchar(end_lv)) hit[endsWith(hit, end_lv)] else character(0)
+          if (!length(pick)) pick <- hit[length(hit)]
+          nm <- pick[[1L]]
+          or <- exp(co[nm, 1]); lo <- exp(co[nm, 1] - 1.959963985 * co[nm, 2])
+          hi <- exp(co[nm, 1] + 1.959963985 * co[nm, 2])
+          pv <- fmt_p(co[nm, 4])
         }
       }, error = function(e) NULL)
       rows[[length(rows) + 1L]] <- .empty_row(

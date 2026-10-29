@@ -178,7 +178,11 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     mat
   }
 
-  if (is.null(mediators) || !length(mediators)) {
+  # 即使配置锁定 mediators，也始终构建实验室关联表（export_lab_assoc_even_if_ns /
+  # 门控通过后导出 Associations）；仅「自动筛选中介名单」在 mediators 为空时启用。
+  .mnw_preset_mediators <- mediators
+  .mnw_auto_mediators <- is.null(mediators) || !length(mediators)
+  if (TRUE) {
     lab_pool <- .mi02_resolve_lab_indicator_pool(
       cfg, bl_cfg, names(design$variables), exposure
     )
@@ -240,9 +244,14 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     }
 
     if (!length(lab_pool)) {
-      cli::cli_alert_warning("mediation_nhanes_weighted: 排除协变量后无可用中介候选，跳过。")
-      return(ctx)
-    }
+      if (isTRUE(.mnw_auto_mediators)) {
+        cli::cli_alert_warning("mediation_nhanes_weighted: 排除协变量后无可用中介候选，跳过。")
+        return(ctx)
+      }
+      cli::cli_alert_warning(
+        "mediation_nhanes_weighted: 实验室候选池为空；保留配置锁定中介，跳过 Associations 构建。"
+      )
+    } else {
     cli::cli_alert_info(
       "mediation_nhanes_weighted: 中介候选池 {length(lab_pool)} 个（血检+共病等，已排除协变量）— {paste(head(lab_pool, 8), collapse = ', ')}{if (length(lab_pool) > 8) '...' else ''}"
     )
@@ -318,23 +327,36 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
       ctx$results$mediation_nhanes_correlation_lm_rt <- rt
     }
 
-    if (dual_lm) {
-      mediators <- unique(intersect(sig_from_lm, names(design$variables)))
-      if (!length(mediators) && fallback_m2) {
-        mediators <- unique(intersect(sig_m2, names(design$variables)))
-        cli::cli_alert_warning(
-          "加权 LM 无 Model1∩Model2 交集，回退 Model2 显著血检（{length(mediators)} 个）"
-        )
+    if (isTRUE(.mnw_auto_mediators)) {
+      if (dual_lm) {
+        mediators <- unique(intersect(sig_from_lm, names(design$variables)))
+        if (!length(mediators) && fallback_m2) {
+          mediators <- unique(intersect(sig_m2, names(design$variables)))
+          cli::cli_alert_warning(
+            "加权 LM 无 Model1∩Model2 交集，回退 Model2 显著血检（{length(mediators)} 个）"
+          )
+        } else {
+          beta_rule <- if (lm_nonneg) ">=0" else "任意"
+          cli::cli_alert_info(
+            "加权 LM 交集（Model1 与 Model2 均 beta{beta_rule} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
+          )
+        }
       } else {
-        beta_rule <- if (lm_nonneg) ">=0" else "任意"
-        cli::cli_alert_info(
-          "加权 LM 交集（Model1 与 Model2 均 beta{beta_rule} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
-        )
+        mediators <- unique(intersect(sig_from_lm, names(design$variables)))
+        cli::cli_alert_info("加权 LM Model2 筛选: {length(mediators)} 个中介候选")
       }
     } else {
-      mediators <- unique(intersect(sig_from_lm, names(design$variables)))
-      cli::cli_alert_info("加权 LM Model2 筛选: {length(mediators)} 个中介候选")
+      mediators <- .mnw_preset_mediators
+      n_assoc <- if (!is.null(ctx$results$mediation_nhanes_correlation_lm_rt)) {
+        nrow(ctx$results$mediation_nhanes_correlation_lm_rt)
+      } else {
+        0L
+      }
+      cli::cli_alert_info(
+        "mediation_nhanes_weighted: 使用配置锁定中介（{paste(as.character(mediators), collapse = ', ')}）；已构建实验室关联表（{n_assoc} 行）"
+      )
     }
+    } # lab_pool non-empty
   }
 
   mediators <- as.character(mediators %||% character(0))
@@ -734,12 +756,24 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     "Proportion mediated"
   )
 
-  # 规则：最佳中介 Proportion mediated + Direct Effect 均显著才导出；否则不出表/图/关联表
+  # 规则：最佳中介达门槛才导出中介表/路径图；默认关联表同生共死
+  # export_lab_assoc_even_if_ns=TRUE 时仍可出实验室相关表（发病「相关性」附表）
   med_export_ok <- .mi02_mediation_should_export(final_table, cfg, bl_cfg)
   if (!med_export_ok) {
     ctx$results$mediation_nhanes_weighted <- final_table
     ctx$results$mediation_nhanes_ns_skipped <- TRUE
     reason <- .mi02_mediation_skip_reason(final_table, cfg, bl_cfg)
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    if (isTRUE(keep_lab)) {
+      cli::cli_alert_warning(
+        "mediation_nhanes_weighted: {reason}；中介表/路径图不出，仍导出实验室相关表。"
+      )
+      .mi02_unlink_mediation_exports(ctx)
+      .mi02_export_lab_association_table(
+        ctx, ctx$results$mediation_nhanes_correlation_lm_rt, exposure, weighted = TRUE
+      )
+      return(ctx)
+    }
     cli::cli_alert_warning(
       "mediation_nhanes_weighted: {reason}，按规则不导出中介表、路径图与实验室关联表。"
     )
@@ -781,8 +815,9 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     }
     sel_colors <- .mi02_palettes[[sample(names(.mi02_palettes), 1L)]]
     outcome_diag_label <- .mediation_outcome_diag_label(cfg)
+    # 与 CHARLS Mediation path diagram 同名，便于双库 Figure S3 拼图
     fig_caption <- paste0(
-      "Weighted mediation path diagram of ", exposure, " and ", outcome_diag_label
+      "Mediation path diagram of ", exposure, " and ", outcome_diag_label
     )
     # 发病双库发表规范：中介路径图 = Figure S3（与 CHARLS 统一）
     fig_kind <- as.character((cfg$mediation_nhanes_weighted %||% list())$figure_kind %||% "supp_figure")[1L]

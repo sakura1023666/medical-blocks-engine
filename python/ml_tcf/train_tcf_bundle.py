@@ -66,8 +66,9 @@ def _metrics(y_true, y_prob, y_pred) -> dict:
     }
 
 
-def _fit_search(est, grid, X, y, seed: int, cv: int = 5):
+def _fit_search(est, grid, X, y, seed: int, cv: int = 5, n_jobs: int = 4):
     # 文献 / NPJ-codes：RandomizedSearchCV(..., scoring='roc_auc', cv=5)
+    # 默认 n_jobs=4，避免本机多课题并行时 n_jobs=-1 占满全部 CPU
     n_cand = 1
     for v in grid.values():
         n_cand *= max(len(v), 1)
@@ -78,7 +79,7 @@ def _fit_search(est, grid, X, y, seed: int, cv: int = 5):
         scoring="roc_auc",
         cv=int(cv),
         random_state=seed,
-        n_jobs=-1,
+        n_jobs=int(n_jobs),
         refit=True,
     )
     rs.fit(X, y)
@@ -97,7 +98,20 @@ def main():
     ap.add_argument("--cv", type=int, default=5)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--threshold", type=float, default=0.5)
+    ap.add_argument(
+        "--n-jobs",
+        type=int,
+        default=4,
+        help="RandomizedSearchCV workers (default 4; use 1 on busy hosts). "
+        "Base estimators that support n_jobs are forced to 1 to avoid nested oversubscription.",
+    )
+    ap.add_argument(
+        "--write-proba",
+        action="store_true",
+        help="Write per-model + TCF validation probabilities under out-dir/proba_valid/",
+    )
     args = ap.parse_args()
+    n_jobs = max(1, int(args.n_jobs))
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -128,36 +142,50 @@ def main():
         ).fit_resample(Xtr_s, ytr)
 
     models = {}
-    # 网格贴近公开 notebook（GBDT）并覆盖七模型；cv 默认 5
+    # 网格对齐 NPJ-codes / main_code.ipynb（RandomizedSearchCV scoring=roc_auc, cv=5）
     grids = {
         "DT": (
             DecisionTreeClassifier(random_state=args.seed),
             {
                 "criterion": ["gini", "entropy"],
-                "max_depth": list(range(2, 21)),
-                "min_samples_leaf": [5, 10, 20, 30],
-                "min_samples_split": list(range(2, 21, 2)),
+                "max_depth": list(range(10, 300, 10)),
+                "max_features": ["sqrt", "log2", None],
+                "min_samples_leaf": list(range(1, 20, 2)),
+                "min_samples_split": list(range(2, 20, 2)),
             },
         ),
         "RF": (
-            RandomForestClassifier(random_state=args.seed, n_jobs=-1),
+            # estimator n_jobs=1：并行交给外层 RandomizedSearchCV，避免 4×全核嵌套
+            RandomForestClassifier(random_state=args.seed, n_jobs=1),
             {
-                "n_estimators": list(range(10, 100, 10)),
-                "max_depth": list(range(2, 21)),
-                "min_samples_leaf": list(range(20, 50, 5)),
+                "n_estimators": list(range(20, 100, 5)),
+                "criterion": ["gini", "entropy"],
+                "max_depth": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+                "min_samples_leaf": list(range(1, 20, 2)),
                 "max_features": ["sqrt", "log2"],
             },
         ),
         "SVM": (
             SVC(probability=True, random_state=args.seed),
-            {"C": [0.1, 1, 10], "kernel": ["rbf"], "gamma": ["scale", "auto"]},
+            {
+                "C": [0.1, 1, 10, 100],
+                "kernel": ["rbf", "linear"],
+                "gamma": ["scale", "auto", 0.001, 0.01, 0.1, 1],
+                "degree": [2, 3, 4],
+            },
         ),
-        "NB": (BernoulliNB(), {"alpha": [0.1, 0.5, 1.0]}),
+        "NB": (
+            BernoulliNB(),
+            {
+                "alpha": [0.01, 0.1, 0.5, 1.0, 2.0, 5.0],
+                "binarize": [0.0, 0.25, 0.5, 0.75],
+            },
+        ),
         "GBDT": (
             GradientBoostingClassifier(random_state=args.seed),
             {
                 "n_estimators": list(range(10, 100, 10)),
-                "learning_rate": [0.01, 0.05, 0.1],
+                "learning_rate": [0.01, 0.05, 0.1, 0.2],
                 "max_depth": list(range(2, 20)),
                 "subsample": [0.4, 0.5, 0.6, 0.7, 0.8],
                 "min_samples_split": list(range(2, 20, 2)),
@@ -172,29 +200,35 @@ def main():
                 random_state=args.seed,
                 eval_metric="logloss",
                 use_label_encoder=False,
+                n_jobs=1,
             ),
             {
-                "n_estimators": list(range(10, 100, 10)),
-                "max_depth": list(range(2, 12)),
-                "learning_rate": [0.01, 0.05, 0.1],
-                "subsample": [0.5, 0.7, 0.9],
+                "max_depth": list(range(20, 50, 5)),
+                "learning_rate": [0.01, 0.05, 0.1, 0.2],
+                "subsample": [0.5, 0.7, 0.9, 1.0],
+                "colsample_bytree": [0.5, 0.7, 0.9, 1.0],
+                "n_estimators": list(range(20, 50, 5)),
             },
         )
     if LGBMClassifier is not None:
         grids["LGBM"] = (
-            LGBMClassifier(random_state=args.seed),
+            LGBMClassifier(random_state=args.seed, verbose=-1, n_jobs=1),
             {
-                "n_estimators": list(range(10, 100, 10)),
-                "num_leaves": [15, 31, 63, 127],
+                "boosting_type": ["gbdt", "dart"],
+                "num_leaves": list(range(20, 150, 10)),
+                "max_depth": list(range(10, 50, 5)),
                 "learning_rate": [0.01, 0.05, 0.1],
-                "subsample": [0.5, 0.7, 0.9],
+                "n_estimators": list(range(10, 50, 5)),
+                "subsample": [0.5, 0.7, 0.9, 1.0],
             },
         )
 
     metric_rows = {}
     proba_valid = {}
     for name, (est, grid) in grids.items():
-        clf = _fit_search(est, grid, Xtr_s, ytr, args.seed, cv=int(args.cv))
+        clf = _fit_search(
+            est, grid, Xtr_s, ytr, args.seed, cv=int(args.cv), n_jobs=n_jobs
+        )
         models[name] = clf
         pv = clf.predict_proba(Xva_s)[:, 1]
         pred = (pv > args.threshold).astype(int)
@@ -213,9 +247,17 @@ def main():
     metric_df.loc["TCF"] = _metrics(yva, p_tcf, y_tcf)
 
     metric_df.to_csv(out / "metrics_valid.csv")
-    alpha.to_csv(out / "topsis_alpha.csv", header=True)
+    alpha_out = alpha.rename("alpha").reset_index()
+    alpha_out.columns = ["model", "alpha"]
+    alpha_out.to_csv(out / "topsis_alpha.csv", index=False)
     joblib.dump(scaler, out / "minmax_scaler.joblib")
     pd.Series(feats).to_csv(out / "features.csv", index=False, header=False)
+    if args.write_proba:
+        pdir = out / "proba_valid"
+        pdir.mkdir(parents=True, exist_ok=True)
+        for name, pv in proba_valid.items():
+            pd.DataFrame({"prob": pv}).to_csv(pdir / f"{name}.csv", index=False)
+        pd.DataFrame({"prob": p_tcf}).to_csv(pdir / "TCF.csv", index=False)
     with open(out / "tcf_summary.json", "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -225,6 +267,10 @@ def main():
                 "n_train": int(len(ytr)),
                 "n_valid": int(len(yva)),
                 "features": feats,
+                "cv": int(args.cv),
+                "smote": bool(args.smote),
+                "n_jobs": int(n_jobs),
+                "backend": "RandomizedSearchCV",
             },
             f,
             indent=2,

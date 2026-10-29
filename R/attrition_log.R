@@ -188,6 +188,49 @@ attrition_interpolate_tokens <- function(x, cfg) {
   x
 }
 
+#' 在 Starting cohort 主框补调查年份（如 2005-2023 / 2015），幂等。
+attrition_annotate_starting_years <- function(rows, years) {
+  years <- trimws(as.character(years %||% "")[1L])
+  if (!nzchar(years) || is.null(rows) || !is.data.frame(rows) || !nrow(rows)) {
+    return(rows)
+  }
+  if (!"step" %in% names(rows)) return(rows)
+  sid <- if ("step_id" %in% names(rows)) as.character(rows$step_id) else rep("", nrow(rows))
+  hit <- which(
+    grepl("^starting", sid, ignore.case = TRUE) |
+      grepl("^starting\\s+cohort", as.character(rows$step), ignore.case = TRUE)
+  )
+  if (!length(hit)) return(rows)
+  i <- hit[[1L]]
+  lab <- as.character(rows$step[[i]])[1L]
+  if (!nzchar(lab) || identical(lab, "NA")) lab <- "Starting cohort"
+  if (grepl(years, lab, fixed = TRUE)) return(rows)
+  base <- sub("\\s*\\n.*$", "", lab)
+  base <- sub("\\s*\\([^)]*\\)\\s*$", "", base)
+  base <- trimws(base)
+  if (!nzchar(base)) base <- "Starting cohort"
+  rows$step[[i]] <- paste0(base, "\n(", years, ")")
+  rows
+}
+
+#' 从 config$attrition 解析某库年份（years_by_db 优先，否则 years_label）。
+attrition_years_for_db <- function(cfg, db_name = NULL) {
+  att <- (cfg %||% list())$attrition %||% list()
+  by <- att$years_by_db %||% list()
+  db <- trimws(as.character(db_name %||% "")[1L])
+  y <- ""
+  if (length(by) && nzchar(db)) {
+    if (!is.null(by[[db]])) y <- as.character(by[[db]])[1L]
+    if (!nzchar(y)) {
+      nms <- names(by)
+      hit <- nms[tolower(nms) == tolower(db)]
+      if (length(hit)) y <- as.character(by[[hit[[1L]]]])[1L]
+    }
+  }
+  if (!nzchar(y)) y <- as.character(att$years_label %||% "")[1L]
+  trimws(y)
+}
+
 attrition_interpolate_index <- function(x, cfg) {
   attrition_interpolate_tokens(x, cfg)
 }
@@ -487,6 +530,15 @@ attrition_finalize_rows <- function(ctx, config) {
     }
   }
 
+  # Starting 框补年份：优先当前库 years_by_db，否则 years_label
+  db_now <- tryCatch({
+    dual <- (config %||% list())$dual_db %||% list()
+    as.character(dual$current_db %||% (config$attrition %||% list())$db_label %||% "")[1L]
+  }, error = function(e) "")
+  rows_df <- attrition_annotate_starting_years(
+    rows_df, attrition_years_for_db(config, db_now)
+  )
+
   rows_df <- attrition_apply_outcome_breakdown(rows_df, ctx, config)
   keep <- intersect(
     c("step", "n", "source", "kind", "step_id", "exclude_label",
@@ -734,6 +786,75 @@ attrition_key_missing_label_from_index <- function(df, index_name) {
   )
 }
 
+#' 从 attrition 行 + config 年份自动拼 pv2 cohort（Participants in DB / 年份 版式）
+attrition_pv2_cohort_from_rows <- function(rows, config = NULL, database = NULL) {
+  if (!is.data.frame(rows) || !nrow(rows) || !"n" %in% names(rows)) return(NULL)
+  db <- toupper(trimws(as.character(database %||% "")[1L]))
+  if (!nzchar(db) && "database" %in% names(rows)) {
+    db <- toupper(trimws(as.character(rows$database[1L])[1L]))
+  }
+  if (!nzchar(db)) db <- "COHORT"
+  years <- ""
+  if (!is.null(config) && exists("attrition_years_for_db", mode = "function")) {
+    years <- as.character(attrition_years_for_db(config, db) %||% "")[1L]
+  }
+  if (!nzchar(years) || identical(years, "NA")) {
+    years <- as.character((config$attrition %||% list())$years_label %||% "")[1L]
+  }
+  # 若 Starting 步已写成 "Starting cohort (2005-2023)"，可回退解析年份
+  if ((!nzchar(years) || identical(years, "NA")) && "step" %in% names(rows)) {
+    st0 <- as.character(rows$step[1L])[1L]
+    m <- regmatches(st0, regexpr("\\(([0-9]{4}[^)]*)\\)", st0))
+    if (length(m) && nzchar(m)) years <- gsub("[()]", "", m)
+  }
+  n0 <- suppressWarnings(as.integer(rows$n[1L])[1L])
+  if (!is.finite(n0)) return(NULL)
+
+  age_ex_n <- 0L
+  age_keep_n <- n0
+  # 发表固定文案（与截图一致）；禁止 exclude_label=NA 渗进侧框
+  age_ex_lab <- "Age < 18 or missing age"
+  age_keep_lab <- "Aged \u2265 18 years"
+  if (nrow(rows) >= 2L) {
+    sid2 <- if ("step_id" %in% names(rows)) as.character(rows$step_id[2L])[1L] else ""
+    st2 <- as.character(rows$step[2L])[1L]
+    is_age <- identical(sid2, "after_age_filter") || identical(sid2, "age_filter") ||
+      grepl("(?i)age\\s*(filter|\u2265|>=)|Aged|Age outside", st2)
+    if (is_age) {
+      age_keep_n <- suppressWarnings(as.integer(rows$n[2L])[1L])
+      if (!is.finite(age_keep_n)) age_keep_n <- n0
+      age_ex_n <- max(0L, n0 - age_keep_n)
+      if (grepl("Aged|Age\\s*\u2265|Age\\s*>=", st2, ignore.case = TRUE)) {
+        age_keep_lab <- sub(";\\s*excluded.*$", "", st2, ignore.case = TRUE)
+        age_keep_lab <- trimws(sub("\\s*\\(excluded[^)]*\\)\\s*", "", age_keep_lab, ignore.case = TRUE))
+      }
+    }
+  }
+  if (!nzchar(as.character(age_ex_lab %||% "")[1L]) ||
+      grepl("(?i)^na$", trimws(as.character(age_ex_lab)[1L]))) {
+    age_ex_lab <- "Age < 18 or missing age"
+  }
+
+  wt_lab <- "Missing or non-positive survey weights (new_weight from WTMEC2YR / WTMEC4YR)"
+  key_lab <- "Missing key variables"
+  ix <- as.character((config$incidence %||% list())$index_var %||%
+    (config$project %||% list())$index %||% "")[1L]
+  if (nzchar(ix) && !identical(ix, "NA")) key_lab <- paste0("Missing ", ix)
+
+  list(
+    database = db,
+    years = years,
+    n_source = n0,
+    age_exclude_label = age_ex_lab,
+    age_exclude_n = as.integer(age_ex_n)[1L],
+    age_keep_label = age_keep_lab,
+    age_keep_n = as.integer(age_keep_n)[1L],
+    key_missing_label = key_lab,
+    survey_weight_label = wt_lab,
+    side_line_width = 26L
+  )
+}
+
 .attrition_pv2_panel_spec <- function(rows, letter = "", cohort = NULL) {
   if (is.list(cohort) && is.finite(suppressWarnings(as.numeric(cohort$n_source)[1L]))) {
     return(.attrition_pv2_panel_from_cohort(rows, letter, cohort))
@@ -931,7 +1052,8 @@ attrition_pv2_letter <- function(rows, index = 1L) {
 }
 
 #' 单库或双库发病纳排图，版式与预后 v2 Figure 1 相同。
-attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = NULL) {
+attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = NULL,
+                                   config = NULL) {
   if (is.data.frame(rows_by_db)) {
     rows_by_db <- list(rows_by_db)
   }
@@ -956,23 +1078,33 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
   if (!isTRUE(ok)) return(invisible(FALSE))
   on.exit(grDevices::dev.off(), add = TRUE)
   grid::grid.newpage()
+  # cohort 可为：单库 list；或按库名 named list；缺省时从 rows+config 自动拼 Participants in 版式
+  cohorts_by_db <- NULL
+  if (is.list(cohort) && !is.null(names(cohort)) &&
+      any(vapply(cohort, function(x) is.list(x) && !is.null(x$n_source), logical(1L)))) {
+    cohorts_by_db <- cohort
+  }
   for (i in seq_len(n)) {
     grid::pushViewport(grid::viewport(
       x = (i - 0.5) / n, y = 0.5, width = 1 / n, height = 1
     ))
-    # 仅当本面板数据库与 cohort$database 一致时套用年份/年龄首框；
-    # 次库面板回退为按 attrition 行画的同款 pv2 版式，避免 CHARLS 误贴 NHANES 年号。
-    cohort_i <- cohort
-    if (is.list(cohort) && length(cohort)) {
+    rows_i <- rows_by_db[[i]]
+    panel_db <- ""
+    if (is.data.frame(rows_i) && "database" %in% names(rows_i)) {
+      panel_db <- toupper(trimws(as.character(rows_i$database[1L])[1L]))
+    }
+    panel_nm <- toupper(trimws(as.character(names(rows_by_db)[i] %||% "")[1L]))
+    if (!nzchar(panel_db)) panel_db <- panel_nm
+    panel_db <- sub("_COPY$", "", panel_db)
+
+    cohort_i <- NULL
+    if (!is.null(cohorts_by_db) && nzchar(panel_db)) {
+      hit <- names(cohorts_by_db)[toupper(names(cohorts_by_db)) == panel_db]
+      if (length(hit)) cohort_i <- cohorts_by_db[[hit[[1L]]]]
+    }
+    if (is.null(cohort_i) && is.list(cohort) && is.null(cohorts_by_db)) {
       want_db <- toupper(trimws(as.character(cohort$database %||% "")[1L]))
-      panel_db <- ""
-      rows_i <- rows_by_db[[i]]
-      if (is.data.frame(rows_i) && "database" %in% names(rows_i)) {
-        panel_db <- toupper(trimws(as.character(rows_i$database[1L])[1L]))
-      }
-      panel_nm <- toupper(trimws(as.character(names(rows_by_db)[i] %||% "")[1L]))
-      if (!nzchar(panel_db)) panel_db <- panel_nm
-      panel_db <- sub("_COPY$", "", panel_db)
+      cohort_i <- cohort
       if (nzchar(want_db) && nzchar(panel_db) &&
           !identical(want_db, panel_db) &&
           !grepl(want_db, panel_db, fixed = TRUE) &&
@@ -980,7 +1112,9 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
         cohort_i <- NULL
       }
     }
-    ## 单库假槽位（db_mode=nhanes 实为 CHARLS）时，letter 优先用 cohort$database
+    if (is.null(cohort_i) || !is.finite(suppressWarnings(as.numeric(cohort_i$n_source)[1L]))) {
+      cohort_i <- attrition_pv2_cohort_from_rows(rows_i, config = config, database = panel_db)
+    }
     letter_i <- attrition_pv2_letter(rows_by_db[[i]], i)
     if (is.list(cohort_i) && nzchar(trimws(as.character(cohort_i$database %||% "")[1L]))) {
       lab <- c("A", "B", "C", "D", "E", "F")

@@ -3088,6 +3088,15 @@ incidence_batch_write_flowchart_from_attrition_csv <- function(
   }
   if (!length(all_rows)) return(invisible(FALSE))
 
+  # Starting 框补调查年份（双库可 years_by_db；单库回退 years_label）
+  if (exists("attrition_annotate_starting_years", mode = "function") &&
+      exists("attrition_years_for_db", mode = "function")) {
+    for (nm in names(all_rows)) {
+      y <- attrition_years_for_db(config, nm)
+      all_rows[[nm]] <- attrition_annotate_starting_years(all_rows[[nm]], y)
+    }
+  }
+
   want_cols <- c(
     "step", "n", "database", "exclude_label",
     "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"
@@ -3147,11 +3156,29 @@ incidence_batch_write_flowchart_from_attrition_csv <- function(
     error = function(e) FALSE
   ))
   if (!is_prog && exists("attrition_draw_pv2_pdf", mode = "function")) {
+    # 按库自动拼 Participants in DB + 年份 cohort；config$attrition$pv2 可覆盖
+    pv2_cfg <- (config$attrition %||% list())$pv2 %||% list()
+    cohort_arg <- pv2_cfg
+    if (exists("attrition_pv2_cohort_from_rows", mode = "function")) {
+      auto_cohorts <- list()
+      for (nm in names(all_rows)) {
+        auto_cohorts[[nm]] <- attrition_pv2_cohort_from_rows(
+          all_rows[[nm]], config = config, database = nm
+        )
+      }
+      if (length(auto_cohorts)) cohort_arg <- auto_cohorts
+      # 单库旧式 pv2（带 n_source）仍优先覆盖对应库
+      if (is.list(pv2_cfg) && is.finite(suppressWarnings(as.numeric(pv2_cfg$n_source)[1L]))) {
+        db_one <- toupper(trimws(as.character(pv2_cfg$database %||% names(all_rows)[1L])[1L]))
+        if (nzchar(db_one)) cohort_arg[[db_one]] <- pv2_cfg
+      }
+    }
     ok_draw <- isTRUE(tryCatch(
       attrition_draw_pv2_pdf(
         all_rows, dest,
-        cohort = (config$attrition %||% list())$pv2,
-        width = ((config$attrition %||% list())$pv2 %||% list())$figure_width
+        cohort = cohort_arg,
+        width = pv2_cfg$figure_width,
+        config = config
       ),
       error = function(e) FALSE
     ))

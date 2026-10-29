@@ -35,7 +35,7 @@
 }
 
 .lrc16_svyglm_fit <- function(design, formula_str) {
-  tryCatch(survey::svyglm(stats::as.formula(formula_str), design = design, family = stats::quasibinomial()), error = function(e) NULL)
+  .lnw00_svyglm_fit(design, formula_str)
 }
 
 .lrc16_group_pct <- function(design, level) {
@@ -103,12 +103,14 @@
   ix <- as.character(bl_cfg$index_var %||% "exposure")[1L]
   # 「RCS cutoff」须在括号外，否则 shorten 剥括号后无法归入 Table S-XX
   cap <- paste0("Weighted logistic regression of ", ix, " RCS cutoff")
-  footnotes <- .lnw00_table_footnotes(M1, M2, M3, m3_significant)
+  footnotes <- .lnw00_table_footnotes(M1, M2, M3, m3_significant, ctx = ctx)
   .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = FALSE, table_footnotes = footnotes,
                        family = "rcs")
 }
 
 block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
+  .lnw00_set_mi_ctx(ctx)
+  on.exit(.lnw00_clear_mi_ctx(), add = TRUE)
   options(survey.lonely.psu = "adjust")
   cfg <- ctx$config
   bl_cfg <- cfg$logistic_rcs_cutoff_nhanes_weighted %||% list()

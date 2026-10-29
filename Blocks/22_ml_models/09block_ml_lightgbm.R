@@ -637,6 +637,7 @@ block_ml_lightgbm <- function(ctx, ...) {
   ctx$results$ml_models[[tag]] <- saved$model
   ctx$results$ml_predictions_all[[tag]] <- saved$preds
   ctx$results$ml_eval_by_model[[tag]] <- saved$eval
+  ctx <- .ml_register_model_probs(ctx, tag, preds_df = saved$preds)
   cli::cli_alert_success("ml_lightgbm 完成。")
   ctx
 }

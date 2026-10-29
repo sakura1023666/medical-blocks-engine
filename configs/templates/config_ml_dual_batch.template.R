@@ -40,9 +40,15 @@ config <- list(
   index = list(enable = FALSE),
   pub_figures = list(
     formats_dir = TRUE,
-    dpi = 300L,
+    dpi = 600L,
     tiff_compression = "lzw",
     write_image_information = TRUE
+  ),
+  # 指标级 summary_results 白名单五件套（图/表/Methods/软件版本/中期）；全项目默认开
+  pub = list(
+    write_index_summary_results = TRUE,
+    index_summary_results_dir = "summary_results",
+    summary_result = FALSE
   ),
   dual_db = list(
     enable = TRUE,
@@ -75,6 +81,7 @@ config <- list(
     shared_ck_base = file.path(.batch_ck_root, "_shared"),
     index_ck_base = file.path(.batch_ck_root, "by_index"),
     skip_existing = TRUE,
+    write_index_summary_results = TRUE,
     ram_per_worker_gb = 2.5
   ),
   # ML 基线把 simple_ROC 放在 VIF 前：显式单变量，避免引擎默认 multivariable 硬停

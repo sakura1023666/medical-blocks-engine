@@ -61,7 +61,10 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   standardize_mediator <- isTRUE(bl_cfg$standardize_mediator %||% TRUE)
   seed <- seed %||% bl_cfg$seed %||% cfg$splitting$seed %||% 1234
 
-  if (is.null(mediators) || length(mediators) == 0) {
+  # 即使配置锁定 mediators，也始终构建实验室关联表；仅自动筛选中介名单在 mediators 为空时启用。
+  .mi_preset_mediators <- mediators
+  .mi_auto_mediators <- is.null(mediators) || length(mediators) == 0
+  if (TRUE) {
     a <- colnames(data)
     Index <- exposure
     # 与 NHANES 同一实验室池：禁止把饮酒/婚姻/身高/血压等扫进 S8「实验室指标」
@@ -269,29 +272,41 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       ctx$results$mediation_incidence_correlation_lm_rt <- rt
     }
 
-    if (dual_lm) {
-      ctx$results$mediation_incidence_lm_sig_model1_only <- unique(intersect(sig_m1, names(data)))
-      ctx$results$mediation_incidence_lm_sig_model2_only <- unique(intersect(sig_m2, names(data)))
-      mediators <- unique(intersect(sig_from_lm, names(data)))
-      if (length(mediators) == 0L && fallback_m2) {
-        mediators <- unique(intersect(sig_m2, names(data)))
-        cli::cli_alert_warning(
-          "双库 LM 无交集（Model1∩Model2），已回退为仅 Model2 显著集（{length(mediators)} 个）"
-        )
+    if (isTRUE(.mi_auto_mediators)) {
+      if (dual_lm) {
+        ctx$results$mediation_incidence_lm_sig_model1_only <- unique(intersect(sig_m1, names(data)))
+        ctx$results$mediation_incidence_lm_sig_model2_only <- unique(intersect(sig_m2, names(data)))
+        mediators <- unique(intersect(sig_from_lm, names(data)))
+        if (length(mediators) == 0L && fallback_m2) {
+          mediators <- unique(intersect(sig_m2, names(data)))
+          cli::cli_alert_warning(
+            "双库 LM 无交集（Model1∩Model2），已回退为仅 Model2 显著集（{length(mediators)} 个）"
+          )
+        } else {
+          beta_rule_txt <- if (lm_nonneg) ">=0" else "任意"
+          cli::cli_alert_info(
+            "双库 LM 交集（Model1 与 Model2 均 beta{beta_rule_txt} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
+          )
+        }
       } else {
-        beta_rule_txt <- if (lm_nonneg) ">=0" else "任意"
-        cli::cli_alert_info(
-          "双库 LM 交集（Model1 与 Model2 均 beta{beta_rule_txt} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
-        )
+        mediators <- unique(intersect(sig_from_lm, names(data)))
+        cli::cli_alert_info("Auto-selected {length(mediators)} mediators from lm screening (Model2 only)")
       }
     } else {
-      mediators <- unique(intersect(sig_from_lm, names(data)))
-      cli::cli_alert_info("Auto-selected {length(mediators)} mediators from lm screening (Model2 only)")
+      mediators <- .mi_preset_mediators
+      n_assoc <- if (!is.null(ctx$results$mediation_incidence_correlation_lm_rt)) {
+        nrow(ctx$results$mediation_incidence_correlation_lm_rt)
+      } else {
+        0L
+      }
+      cli::cli_alert_info(
+        "mediation_incidence: 使用配置锁定中介（{paste(as.character(mediators), collapse = ', ')}）；已构建实验室关联表（{n_assoc} 行）"
+      )
     }
 
     if (length(mediators) > 0L) {
       list_path <- file.path(ctx$output_dir, "list_value.txt")
-      writeLines(mediators, list_path)
+      writeLines(as.character(mediators), list_path)
     }
   }
 
@@ -299,7 +314,16 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   if (is.null(exposure)) stop("Please specify 'exposure' (independent variable)")
   if (is.null(mediators) || length(mediators) == 0) {
     cli::cli_alert_warning("No mediators available. Skipping mediation analysis.")
+    # 空中介时默认 unlink；若配置仍要实验室关联表，先保留 LM rt 再导出
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    rt_lab <- ctx$results$mediation_incidence_correlation_lm_rt
     .mi02_unlink_mediation_exports(ctx)
+    if (isTRUE(keep_lab) && is.data.frame(rt_lab) && nrow(rt_lab) > 0L) {
+      cli::cli_alert_warning(
+        "mediation_incidence: 无可用中介；中介表/路径图不出，仍导出实验室相关表。"
+      )
+      .mi02_export_lab_association_table(ctx, rt_lab, exposure)
+    }
     return(ctx)
   }
 
@@ -335,6 +359,11 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
     cli::cli_alert_warning(
       "mediation_incidence: 筛选后无有效数值中介变量，跳过该指标中介分析（不阻断主分析）。"
     )
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    rt_lab <- ctx$results$mediation_incidence_correlation_lm_rt
+    if (isTRUE(keep_lab) && is.data.frame(rt_lab) && nrow(rt_lab) > 0L) {
+      .mi02_export_lab_association_table(ctx, rt_lab, exposure)
+    }
     return(ctx)
   }
 
@@ -801,12 +830,23 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       "Mediator-outcome OR"
   }
 
-  # 规则：最佳中介 Proportion mediated + Direct Effect 均显著才导出；否则不出表/图
+  # 规则：最佳中介达门槛才导出中介表/路径图；默认关联表同生共死
   path_alpha_inc <- as.numeric(bl_cfg$mediation_path_alpha %||% 0.05)
   if (!.mi02_mediation_should_export(final_table, cfg, bl_cfg)) {
     ctx$results$mediation_incidence <- final_table
     ctx$results$mediation_incidence_ns_skipped <- TRUE
     reason <- .mi02_mediation_skip_reason(final_table, cfg, bl_cfg)
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    if (isTRUE(keep_lab)) {
+      cli::cli_alert_warning(
+        "mediation_incidence: {reason}；中介表/路径图不出，仍导出实验室相关表。"
+      )
+      .mi02_unlink_mediation_exports(ctx)
+      .mi02_export_lab_association_table(
+        ctx, ctx$results$mediation_incidence_correlation_lm_rt, exposure
+      )
+      return(ctx)
+    }
     cli::cli_alert_warning(
       "mediation_incidence: {reason}，按规则不导出中介表、路径图与实验室关联表。"
     )
