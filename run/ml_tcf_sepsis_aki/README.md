@@ -2,17 +2,21 @@
 
 ## 入口
 
+Config（优先）：`…/multi-algorithm fusion_40295871/config/config_ml_tcf_sa_aki_linux.R`  
+FS 口径：先双库统一可算池（`dual_db_intersect`）→ 熵逐步路径 **argmax**；`n_jobs=5`。
+
 ```bat
 "C:\Program Files\R\R-4.5.1\bin\x64\Rscript.exe" run\ml_tcf_sepsis_aki\01_prepare_analytic_dabiao.R
 "C:\Program Files\R\R-4.5.1\bin\x64\Rscript.exe" run\ml_tcf_sepsis_aki\run_ml_tcf_sa_aki_batch.R --shared-only
-"C:\Program Files\R\R-4.5.1\bin\x64\Rscript.exe" run\ml_tcf_sepsis_aki\run_ml_tcf_sa_aki_batch.R --workers 2
+"C:\Program Files\R\R-4.5.1\bin\x64\Rscript.exe" run\ml_tcf_sepsis_aki\run_ml_tcf_sa_aki_batch.R --workers 5
 ```
 
-WSL：
+WSL（含空格路径时薄封装会引号；也可直调 `run/ml/run_ml_dual_batch.R --config <linux.R>`）：
 
 ```bash
+CFG="/mnt/g/02block_result/42_AKI_spesis/multi-algorithm fusion_40295871/config/config_ml_tcf_sa_aki_linux.R"
 "/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" run/ml_tcf_sepsis_aki/01_prepare_analytic_dabiao.R
-"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" run/ml_tcf_sepsis_aki/run_ml_tcf_sa_aki_batch.R --shared-only
+"/mnt/c/Program Files/R/R-4.5.1/bin/x64/Rscript.exe" run/ml_tcf_sepsis_aki/run_ml_tcf_sa_aki_batch.R --config "$CFG" --workers 5
 ```
 
 可选纯 Python TCF（七模型+TOPSIS）：
@@ -40,6 +44,6 @@ Rscript run/ml_tcf_sepsis_aki/rebuild_wang2025_figures.R
 ## 产物位置
 
 - 课题根：`\\192.168.68.133\02block_result\42_AKI_spesis\multi-algorithm fusion_40295871\`
-- config：`config_ml_tcf_sa_aki.R`
+- config：`config/config_ml_tcf_sa_aki_linux.R`（WSL/Windows 主用）
 - 决策树：`Decisiontree/decision_tree_ml_tcf_sepsis_aki_40295871.md`
 - 飞书：`run/feishu/run_feishu_mark_ml_tcf_sepsis_aki.R`

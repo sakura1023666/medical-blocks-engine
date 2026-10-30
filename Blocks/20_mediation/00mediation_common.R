@@ -346,6 +346,49 @@
   unique(as.character(lab_pool))
 }
 
+#' 双库共享实验室池：若已锁定则与本地池取交；仍 pin best_mediator（本库有列时）
+.mi02_apply_dual_shared_lab_pool <- function(cfg, bl_cfg, var_input, data_names = NULL) {
+  var_input <- unique(as.character(var_input %||% character(0)))
+  if (!isTRUE((cfg$dual_db %||% list())$enable)) return(var_input)
+  root <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
+  shared <- character(0)
+  if (exists("dual_db_load_shared_lab_indicator_pool", mode = "function")) {
+    shared <- dual_db_load_shared_lab_indicator_pool(root, cfg)
+  }
+  if (!length(shared) && exists("dual_db_lock_shared_lab_indicator_pool", mode = "function")) {
+    db_seq <- c(
+      as.character((cfg$dual_db$primary %||% list())$db_type %||% "nhanes")[1L],
+      as.character((cfg$dual_db$secondary %||% list())$db_type %||% "mimic")[1L]
+    )
+    shared <- tryCatch(
+      dual_db_lock_shared_lab_indicator_pool(root, cfg, db_seq = db_seq),
+      error = function(e) character(0)
+    )
+  }
+  if (!length(shared)) return(var_input)
+  out <- intersect(var_input, shared)
+  pin <- .mi02_resolve_best_mediator_name(cfg, bl_cfg)
+  dn <- as.character(data_names %||% character(0))
+  if (nzchar(pin) && (pin %in% dn || !length(dn)) && !pin %in% out) {
+    out <- unique(c(pin, out))
+  }
+  if (requireNamespace("cli", quietly = TRUE) && length(out) < length(var_input)) {
+    cli::cli_alert_info(
+      "双库共享实验室池：本地 {length(var_input)} → 交集 {length(out)}"
+    )
+  }
+  out
+}
+
+#' 预设中介是否合并 LM 显著集（双库默认 TRUE，除非 mediators_strict_only）
+.mi02_also_include_lm_sig_mediators <- function(cfg, bl_cfg) {
+  if (isTRUE(bl_cfg$mediators_strict_only %||% FALSE)) return(FALSE)
+  if (!is.null(bl_cfg$also_include_lm_sig_mediators)) {
+    return(isTRUE(bl_cfg$also_include_lm_sig_mediators))
+  }
+  isTRUE((cfg$dual_db %||% list())$enable)
+}
+
 #' 解析锁定中介名（config best_mediator / 双库 preferred）
 .mi02_resolve_best_mediator_name <- function(cfg, bl_cfg = list()) {
   pin <- as.character(bl_cfg$best_mediator %||% "")[1L]
@@ -358,6 +401,117 @@
   }
   if (!nzchar(pin) || identical(pin, "NA") || is.na(pin)) return("")
   pin
+}
+
+#' 关联表 β / CI 自适应位数：避免 tiny 效应 round 成 0.000 / (0,0) 却 P<0.001
+#' @param x 数值；`lo`/`hi` 可选，用于保证区间两端在展示位上可区分
+.mi02_fmt_assoc_beta <- function(x, digits = 3L, max_digits = 6L) {
+  if (!is.finite(x)) return("")
+  d <- as.integer(digits)[1L]
+  if (!is.finite(d) || d < 0L) d <- 3L
+  max_d <- as.integer(max_digits)[1L]
+  if (!is.finite(max_d) || max_d < d) max_d <- max(d, 6L)
+  while (d < max_d && abs(x) > 0 && abs(round(x, d)) < (10^(-(d)))) {
+    d <- d + 1L
+  }
+  formatC(x, format = "f", digits = d)
+}
+
+.mi02_fmt_assoc_ci <- function(lo, hi, digits = 3L, max_digits = 6L) {
+  if (!is.finite(lo) || !is.finite(hi)) return("")
+  d <- as.integer(digits)[1L]
+  if (!is.finite(d) || d < 0L) d <- 3L
+  max_d <- as.integer(max_digits)[1L]
+  if (!is.finite(max_d) || max_d < d) max_d <- max(d, 6L)
+  # 真实区间非退化时，禁止展示成 (0,0) / 两端相同
+  while (d < max_d && abs(hi - lo) > 0 &&
+         identical(round(lo, d), round(hi, d))) {
+    d <- d + 1L
+  }
+  paste0("(", .mi02_fmt_assoc_beta(lo, d, max_d), ",",
+         .mi02_fmt_assoc_beta(hi, d, max_d), ")")
+}
+
+#' 关联表脚注：Path a 方向（实验室 ~ 暴露），β 按暴露 1-SD
+.mi02_lab_assoc_footnote <- function(scale_exposure = TRUE, scale_lab = FALSE) {
+  if (isTRUE(scale_exposure) && isTRUE(scale_lab)) {
+    return("β values are per 1-SD of the exposure; laboratory outcomes also in 1-SD units (Path a direction: laboratory ~ exposure).")
+  }
+  if (isTRUE(scale_exposure)) {
+    return("β values are per 1-SD of the exposure (Path a direction: laboratory ~ exposure).")
+  }
+  if (isTRUE(scale_lab)) {
+    return("β values are change in 1-SD laboratory units per 1-unit of the exposure (Path a direction; aligned with Path a when mediators are standardized).")
+  }
+  "β values are change in laboratory units per 1-unit of the exposure (Path a direction: laboratory ~ exposure)."
+}
+
+#' 从关联 rt 解析各变量 Model2 P（及可选 β）
+.mi02_assoc_rt_model2_stats <- function(rt) {
+  if (is.null(rt) || !is.data.frame(rt) || !nrow(rt)) {
+    return(data.frame(variable = character(0), beta = numeric(0), p = numeric(0),
+                      stringsAsFactors = FALSE))
+  }
+  vcol <- if ("variable" %in% names(rt)) "variable" else names(rt)[1L]
+  bcol <- names(rt)[grepl("β|beta", names(rt), ignore.case = TRUE)][1L]
+  pcol <- names(rt)[grepl("^P", names(rt), ignore.case = TRUE)][1L]
+  if (is.na(bcol) || is.na(pcol)) {
+    return(data.frame(variable = character(0), beta = numeric(0), p = numeric(0),
+                      stringsAsFactors = FALSE))
+  }
+  v <- trimws(as.character(rt[[vcol]] %||% ""))
+  model_labs <- c("Crude Model", "Model1", "Model2", "Crude", "Model 1", "Model 2")
+  is_hdr <- nzchar(v) & !(v %in% model_labs)
+  hdr_idx <- which(is_hdr)
+  if (!length(hdr_idx)) {
+    return(data.frame(variable = character(0), beta = numeric(0), p = numeric(0),
+                      stringsAsFactors = FALSE))
+  }
+  out_v <- character(0)
+  out_b <- numeric(0)
+  out_p <- numeric(0)
+  for (i in seq_along(hdr_idx)) {
+    start <- hdr_idx[[i]]
+    end <- if (i < length(hdr_idx)) hdr_idx[[i + 1L]] - 1L else nrow(rt)
+    block_v <- v[start:end]
+    i_m2 <- which(block_v %in% c("Model2", "Model 2"))
+    if (!length(i_m2)) next
+    r <- start + i_m2[[1L]] - 1L
+    out_v <- c(out_v, v[[start]])
+    out_b <- c(out_b, suppressWarnings(as.numeric(rt[[bcol]][r])))
+    p_chr <- as.character(rt[[pcol]][r])
+    p_chr <- gsub("^<\\s*", "", p_chr)
+    out_p <- c(out_p, suppressWarnings(as.numeric(p_chr)))
+  }
+  data.frame(variable = out_v, beta = out_b, p = out_p, stringsAsFactors = FALSE)
+}
+
+#' 按变量名块过滤关联 rt（保留标题行结构）
+.mi02_assoc_rt_keep_variables <- function(rt, keep_vars) {
+  if (is.null(rt) || !is.data.frame(rt) || !nrow(rt)) return(rt)
+  keep_vars <- unique(as.character(keep_vars %||% character(0)))
+  if (!length(keep_vars)) return(rt[0, , drop = FALSE])
+  vcol <- if ("variable" %in% names(rt)) "variable" else names(rt)[1L]
+  v <- trimws(as.character(rt[[vcol]] %||% ""))
+  model_labs <- c("Crude Model", "Model1", "Model2", "Crude", "Model 1", "Model 2")
+  is_hdr <- nzchar(v) & !(v %in% model_labs)
+  hdr_idx <- which(is_hdr)
+  if (!length(hdr_idx)) return(rt)
+  keep_keys <- unique(c(
+    keep_vars,
+    gsub("_", " ", keep_vars, fixed = TRUE),
+    gsub(" ", "_", keep_vars, fixed = TRUE)
+  ))
+  keep_rows <- integer(0)
+  for (i in seq_along(hdr_idx)) {
+    start <- hdr_idx[[i]]
+    end <- if (i < length(hdr_idx)) hdr_idx[[i + 1L]] - 1L else nrow(rt)
+    key <- v[[start]]
+    key_alt <- c(key, gsub(" ", "_", key, fixed = TRUE), gsub("_", " ", key, fixed = TRUE))
+    if (any(key_alt %in% keep_keys)) keep_rows <- c(keep_rows, start:end)
+  }
+  if (!length(keep_rows)) return(rt[0, , drop = FALSE])
+  rt[keep_rows, , drop = FALSE]
 }
 
 #' 关联表按变量块（标题行 + Crude/M1/M2）把锁定中介置顶
@@ -402,10 +556,14 @@
   } else {
     paste0("Associations of ", gsub("_", " ", exposure), " with laboratory indicators")
   }
+  # Path a 方向默认：暴露 1-SD；实验室是否 1-SD 跟 standardize_mediator
+  scale_exp <- isTRUE(bl$lab_assoc_scale_exposure %||% TRUE)
+  scale_lab <- isTRUE(bl$lab_assoc_scale_lab %||% isTRUE(bl$standardize_mediator %||% TRUE))
+  fn <- as.character(bl$lab_assoc_footnote %||% .mi02_lab_assoc_footnote(scale_exp, scale_lab))[1L]
   corr_pub <- pub_paths(ctx, ctx$output_dir_tables, "supp_table", cap, "xlsx")
   export_sci_table(
     rt, corr_pub$filepath, title = corr_pub$title,
-    table_footnotes = "β values are per 1-SD of the laboratory variable."
+    table_footnotes = fn
   )
   invisible(TRUE)
 }

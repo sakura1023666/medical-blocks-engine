@@ -13,6 +13,94 @@ dual_db_preferred_mediator_path <- function(root, cfg) {
   file.path(dual_db_harmonization_dir(root, cfg), "preferred_mediator.rds")
 }
 
+dual_db_shared_lab_indicator_pool_path <- function(root, cfg) {
+  file.path(dual_db_harmonization_dir(root, cfg), "shared_lab_indicator_pool.rds")
+}
+
+dual_db_save_shared_lab_indicator_pool <- function(root, cfg, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  dir <- dual_db_harmonization_dir(root, cfg)
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  saveRDS(
+    list(vars = vars, saved_at = Sys.time()),
+    dual_db_shared_lab_indicator_pool_path(root, cfg)
+  )
+  invisible(TRUE)
+}
+
+dual_db_load_shared_lab_indicator_pool <- function(root, cfg) {
+  path <- dual_db_shared_lab_indicator_pool_path(root, cfg)
+  if (!file.exists(path)) return(character(0))
+  obj <- tryCatch(readRDS(path), error = function(e) NULL)
+  as.character(obj$vars %||% character(0))
+}
+
+#' 从单库 checkpoint 取可用列名（imputed/cleaned）
+dual_db_probe_data_colnames <- function(root, cfg, db_name) {
+  ck_dir <- tryCatch(
+    dual_db_checkpoint_dir(root, cfg, db_name),
+    error = function(e) NULL
+  )
+  if (is.null(ck_dir) || !dir.exists(ck_dir)) return(character(0))
+  candidates <- c(
+    "imputation", "trim_index_extreme", "baseline_binary",
+    "mediation_incidence", "mediation_nhanes_weighted",
+    "multicollinearity_final", "dual_db_covariate_harmonize"
+  )
+  for (blk in candidates) {
+    path <- file.path(ck_dir, paste0(blk, ".rds"))
+    if (!file.exists(path)) next
+    obj <- tryCatch(readRDS(path), error = function(e) NULL)
+    if (is.null(obj) || is.null(obj$ctx)) next
+    data <- obj$ctx$data$imputed %||% obj$ctx$data$cleaned
+    if (is.data.frame(data) && ncol(data) > 0L) return(names(data))
+    des <- obj$ctx$results$nhanes_design
+    if (!is.null(des) && is.data.frame(des$variables) && ncol(des$variables) > 0L) {
+      return(names(des$variables))
+    }
+  }
+  character(0)
+}
+
+#' 双库锁定同一实验室关联候选池（各库可用列 ∩ lab pool 后再取交集）
+#' @return character 共享变量；不足两侧时返回 character(0) 且不落盘
+dual_db_lock_shared_lab_indicator_pool <- function(root, cfg,
+                                                   db_seq = c("nhanes", "mimic")) {
+  if (!isTRUE((cfg$dual_db %||% list())$enable)) return(character(0))
+  if (length(db_seq) < 2L) return(character(0))
+  bl <- cfg$mediation_incidence %||% cfg$mediation_nhanes_weighted %||%
+    cfg$mediation_prognosis %||% list()
+  exposure <- as.character(
+    bl$exposure %||%
+      (cfg$survival %||% list())$index_var %||%
+      (cfg$logistic %||% list())$index_var %||% ""
+  )[1L]
+  pools <- list()
+  for (db in db_seq) {
+    cols <- dual_db_probe_data_colnames(root, cfg, db)
+    if (!length(cols)) {
+      cli::cli_alert_warning("双库实验室池：{db} 无可用列，暂不锁定")
+      return(character(0))
+    }
+    if (exists(".mi02_resolve_lab_indicator_pool", mode = "function")) {
+      pools[[db]] <- .mi02_resolve_lab_indicator_pool(cfg, bl, cols, exposure)
+    } else {
+      pools[[db]] <- character(0)
+    }
+  }
+  if (any(!vapply(pools, length, integer(1L)))) {
+    cli::cli_alert_warning("双库实验室池：至少一侧候选为空，暂不锁定")
+    return(character(0))
+  }
+  common <- Reduce(intersect, pools)
+  dual_db_save_shared_lab_indicator_pool(root, cfg, common)
+  cli::cli_alert_success(
+    "双库实验室关联候选池已锁定：{length(common)} 个（{paste(head(common, 8), collapse = ', ')}{if (length(common) > 8) '...' else ''}）"
+  )
+  common
+}
+
 dual_db_save_preferred_mediator <- function(root, cfg, mediator) {
   med <- as.character(mediator %||% "")[1L]
   if (!nzchar(med)) return(invisible(FALSE))

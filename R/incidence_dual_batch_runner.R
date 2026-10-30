@@ -1299,10 +1299,344 @@ incidence_batch_sync_supp_table_title <- function(path, new_s = NULL) {
   invisible(length(stale))
 }
 
+#' 双库 S-XX：任一侧 RCS 非线性 NS（或仅一侧有表）→ 两侧全部删除，禁止单侧残留对齐。
+#' 优先读 index Figures/image_information Figure 2 的 Model2 P-nonlinear；否则按「两侧都有才保留」。
+incidence_batch_omit_dual_sxx_if_either_ns <- function(tables_dirs = NULL,
+                                                       index_root = NULL,
+                                                       cfg = list()) {
+  dirs <- as.character(tables_dirs %||% character(0))
+  dirs <- dirs[nzchar(dirs)]
+  ix <- as.character(index_root %||% "")[1L]
+  if (nzchar(ix)) {
+    dirs <- c(
+      dirs,
+      file.path(ix, "Tables"),
+      file.path(ix, "summary_results", "Tables")
+    )
+    slot_names <- unique(c(
+      if (exists("dual_db_slot_path_name", mode = "function")) {
+        c(dual_db_slot_path_name(cfg, "nhanes"), dual_db_slot_path_name(cfg, "mimic"))
+      } else {
+        character(0)
+      },
+      "NHANES", "CHARLS", "MIMIC", "eICU", "ELSA", "Hosp"
+    ))
+    slot_names <- slot_names[nzchar(as.character(slot_names))]
+    for (sn in slot_names) {
+      dirs <- c(dirs, file.path(ix, sn, "Tables"))
+    }
+  }
+  dirs <- unique(normalizePath(dirs[dir.exists(dirs)], winslash = "/", mustWork = FALSE))
+  if (!length(dirs)) return(invisible(0L))
+
+  .collect_sxx <- function() {
+    out <- character(0)
+    for (d in dirs) {
+      fs <- list.files(d, pattern = "^Table S-XX.*\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+      if (length(fs)) out <- c(out, fs)
+      # 尚未改名为 S-XX 的 RCS cutoff 表也算
+      fs2 <- list.files(d, pattern = "\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+      fs2 <- fs2[vapply(fs2, function(f) {
+        identical(incidence_batch_classify_dual_supp_table(basename(f)), "rcs_logistic")
+      }, logical(1L))]
+      if (length(fs2)) out <- c(out, fs2)
+    }
+    unique(out)
+  }
+
+  .parse_fig2_p_nl <- function(md_path) {
+    if (!nzchar(md_path) || !file.exists(md_path)) return(list())
+    txt <- tryCatch(paste(readLines(md_path, warn = FALSE), collapse = "\n"),
+                    error = function(e) "")
+    if (!nzchar(txt)) return(list())
+    # 例：NHANES Model2：… P for nonlinear = 0.560
+    m <- gregexpr(
+      "(?i)(NHANES|CHARLS|MIMIC|eICU|ELSA|Hosp)[^\\n]{0,80}Model\\s*2[^\\n]{0,120}P for nonlinear\\s*[:=]\\s*(<\\s*0\\.001|<?\\s*[0-9]*\\.?[0-9]+)",
+      txt, perl = TRUE
+    )
+    mm <- regmatches(txt, m)[[1L]]
+    out <- list()
+    if (!length(mm)) return(out)
+    for (chunk in mm) {
+      dbm <- regmatches(chunk, regexpr("(?i)NHANES|CHARLS|MIMIC|eICU|ELSA|Hosp", chunk, perl = TRUE))
+      pm <- regmatches(
+        chunk,
+        regexpr("(?i)P for nonlinear\\s*[:=]\\s*(<\\s*0\\.001|<?\\s*[0-9]*\\.?[0-9]+)", chunk, perl = TRUE)
+      )
+      if (!length(dbm) || !length(pm)) next
+      pv <- sub("(?i)^P for nonlinear\\s*[:=]\\s*", "", pm[[1L]], perl = TRUE)
+      pv <- trimws(pv)
+      num <- if (grepl("^<", pv)) 0.0005 else suppressWarnings(as.numeric(sub("^<", "", pv)))
+      if (is.finite(num)) out[[toupper(dbm[[1L]])]] <- num
+    }
+    out
+  }
+
+  omit <- FALSE
+  reason <- ""
+  if (nzchar(ix)) {
+    fig_md_dir <- file.path(ix, "Figures", "image_information")
+    if (!dir.exists(fig_md_dir)) {
+      fig_md_dir <- file.path(ix, "summary_results", "Figures", "image_information")
+    }
+    md_cands <- if (dir.exists(fig_md_dir)) {
+      list.files(fig_md_dir, pattern = "(?i)Figure\\s*2.*\\.md$", full.names = TRUE)
+    } else {
+      character(0)
+    }
+    if (length(md_cands)) {
+      pnl <- .parse_fig2_p_nl(md_cands[[1L]])
+      if (length(pnl)) {
+        bad <- names(pnl)[vapply(pnl, function(p) is.finite(p) && p >= 0.05, logical(1L))]
+        if (length(bad)) {
+          omit <- TRUE
+          reason <- sprintf(
+            "Fig2 Model2 P-nonlinear NS on %s (%s)",
+            paste(bad, collapse = "+"),
+            paste(sprintf("%s=%.3f", bad, unlist(pnl[bad])), collapse = ", ")
+          )
+        }
+      }
+    }
+  }
+
+  sxx <- .collect_sxx()
+  if (!omit && length(sxx)) {
+    .tag_one <- function(f) {
+      t <- tryCatch(
+        incidence_batch_extract_pub_db_tag(basename(f), cfg),
+        error = function(e) NA_character_
+      )
+      if (!is.na(t) && nzchar(t)) return(as.character(t))
+      m <- regmatches(
+        basename(f),
+        regexpr("(?i)-(NHANES|CHARLS|MIMIC|eICU|ELSA|Hosp)\\.", basename(f), perl = TRUE)
+      )
+      if (length(m) && nzchar(m)) {
+        return(gsub("^[-]+|[.]+$", "", m[[1L]]))
+      }
+      "UNKNOWN"
+    }
+    tags <- vapply(sxx, .tag_one, character(1L))
+    uniq <- unique(tags[tags != "UNKNOWN"])
+    # 双库课题：必须两侧都有；缺一侧 = 视为对侧 NS/跳过 → 全删
+    if (isTRUE((cfg$dual_db %||% list())$enable) && length(uniq) < 2L) {
+      omit <- TRUE
+      reason <- sprintf(
+        "S-XX 未双侧齐全（现有：%s）",
+        if (length(uniq)) paste(uniq, collapse = "+") else "无"
+      )
+    }
+  }
+
+  if (!isTRUE(omit)) return(invisible(0L))
+  n <- 0L
+  for (f in unique(c(sxx, .collect_sxx()))) {
+    if (!file.exists(f)) next
+    tryCatch(unlink(f), error = function(e) NULL)
+    if (!file.exists(f)) n <- n + 1L
+  }
+  if (n > 0L && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "双库 S-XX 同生共死省略：已删 {n} 个（{reason}）"
+    )
+  }
+  invisible(n)
+}
+
+#' 双库 S8 实验室关联：行变量取交集（删除仅单侧出现的变量块）
+#' 默认再筛 Model2 双侧均显著（dual_db_lab_assoc_require_both_sig=TRUE）
+incidence_batch_harmonize_dual_lab_assoc_varnames <- function(tables_dir, cfg = list()) {
+  if (!dir.exists(tables_dir)) return(invisible(0L))
+  files <- list.files(tables_dir, pattern = "\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+  if (!length(files)) return(invisible(0L))
+  assoc <- files[vapply(files, function(f) {
+    identical(incidence_batch_classify_dual_supp_table(basename(f)), "lab_assoc")
+  }, logical(1L))]
+  if (length(assoc) < 2L) return(invisible(0L))
+
+  .assoc_var_blocks <- function(path) {
+    if (!requireNamespace("readxl", quietly = TRUE)) return(NULL)
+    d <- tryCatch(
+      as.data.frame(readxl::read_excel(path, col_names = FALSE), stringsAsFactors = FALSE),
+      error = function(e) NULL
+    )
+    if (is.null(d) || !nrow(d)) return(NULL)
+    v1 <- trimws(as.character(d[[1L]] %||% character(nrow(d))))
+    model_labs <- c("Crude Model", "Model1", "Model2", "Crude", "Model 1", "Model 2")
+    is_hdr <- nzchar(v1) & !(v1 %in% model_labs) &
+      !grepl("^Table\\s", v1, ignore.case = TRUE) &
+      !grepl("(?i)^(variable|β|beta)", v1, perl = TRUE)
+    hdr_idx <- which(is_hdr)
+    if (!length(hdr_idx) || hdr_idx[[1L]] <= 2L) {
+      # 跳过标题行/表头行
+      hdr_idx <- hdr_idx[hdr_idx >= 3L]
+    }
+    if (!length(hdr_idx)) return(NULL)
+    blocks <- list()
+    for (i in seq_along(hdr_idx)) {
+      start <- hdr_idx[[i]]
+      end <- if (i < length(hdr_idx)) hdr_idx[[i + 1L]] - 1L else nrow(d)
+      key <- gsub("\\s+", " ", gsub("_", " ", v1[[start]], fixed = TRUE))
+      key <- tolower(trimws(key))
+      # Model2 P：块内 Model2 行第 4 列
+      m2_rel <- which(v1[start:end] %in% c("Model2", "Model 2"))
+      p_m2 <- NA_real_
+      if (length(m2_rel) && ncol(d) >= 4L) {
+        r <- start + m2_rel[[1L]] - 1L
+        p_chr <- gsub("^<\\s*", "", trimws(as.character(d[[4L]][r] %||% "")))
+        p_m2 <- suppressWarnings(as.numeric(p_chr))
+      }
+      blocks[[key]] <- list(name = v1[[start]], rows = start:end, p_m2 = p_m2)
+    }
+    list(path = path, blocks = blocks, nrow = nrow(d))
+  }
+
+  parsed <- lapply(assoc, .assoc_var_blocks)
+  parsed <- Filter(Negate(is.null), parsed)
+  if (length(parsed) < 2L) return(invisible(0L))
+  keys <- lapply(parsed, function(x) names(x$blocks))
+  common <- Reduce(intersect, keys)
+  if (!length(common)) return(invisible(0L))
+
+  dual_cfg <- cfg$dual_db %||% list()
+  # 双库发病默认：Model2 双侧均 P<alpha 才保留（可配 FALSE 关闭）
+  require_both <- if (!is.null(dual_cfg$lab_assoc_require_both_sig)) {
+    isTRUE(dual_cfg$lab_assoc_require_both_sig)
+  } else if (!is.null(cfg$dual_db_lab_assoc_require_both_sig)) {
+    isTRUE(cfg$dual_db_lab_assoc_require_both_sig)
+  } else {
+    isTRUE(dual_cfg$enable %||% FALSE)  # 双库开启时默认 TRUE
+  }
+  alpha <- suppressWarnings(as.numeric(
+    dual_cfg$lab_assoc_both_sig_alpha %||%
+      (cfg$mediation_incidence %||% list())$lm_screen_alpha %||%
+      (cfg$mediation_nhanes_weighted %||% list())$lm_screen_alpha %||%
+      0.05
+  ))
+  if (!is.finite(alpha) || alpha <= 0) alpha <- 0.05
+
+  if (isTRUE(require_both)) {
+    both_sig <- common[vapply(common, function(k) {
+      ok <- vapply(parsed, function(info) {
+        p <- suppressWarnings(as.numeric(info$blocks[[k]]$p_m2))
+        is.finite(p) && p < alpha
+      }, logical(1L))
+      all(ok)
+    }, logical(1L))]
+    # 锁定中介 / 强制保留：即使一侧 Model2 临界不显著也不得从 S8 删掉
+    # （否则中介主线 CRP 从关联表消失，叙事断裂）
+    force_keep <- character(0)
+    for (bl_name in c("mediation_incidence", "mediation_nhanes_weighted",
+                      "mediation_prognosis")) {
+      bl <- cfg[[bl_name]] %||% list()
+      force_keep <- c(
+        force_keep,
+        as.character(bl$best_mediator %||% character(0)),
+        as.character(bl$lab_assoc_force_vars %||% character(0)),
+        as.character(dual_cfg$lab_assoc_force_vars %||% character(0))
+      )
+    }
+    if (exists("dual_db_load_preferred_mediator", mode = "function")) {
+      root_m <- normalizePath(
+        cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE
+      )
+      pref <- tryCatch(
+        dual_db_load_preferred_mediator(root_m, cfg),
+        error = function(e) NULL
+      )
+      force_keep <- c(force_keep, as.character(pref %||% character(0)))
+    }
+    force_keep <- unique(force_keep[nzchar(force_keep) & !is.na(force_keep)])
+    .norm_lab_key <- function(x) {
+      tolower(trimws(gsub("\\s+", " ", gsub("_", " ", as.character(x), fixed = TRUE))))
+    }
+    force_keys <- unique(.norm_lab_key(force_keep))
+    force_keys <- force_keys[force_keys %in% common]
+    if (length(force_keys)) {
+      both_sig <- unique(c(force_keys, both_sig))
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_info(
+          "S8 强制保留锁定中介/force_vars（可越过双侧显著过滤）: {paste(force_keys, collapse = ', ')}"
+        )
+      }
+    }
+    if (requireNamespace("cli", quietly = TRUE)) {
+      drop_ns <- setdiff(common, both_sig)
+      cli::cli_alert_info(
+        "S8 dual_db_lab_assoc_require_both_sig：保留 {length(both_sig)}/{length(common)}（Model2 P<{alpha} 双侧）；剔除 {paste(head(drop_ns, 8), collapse = ', ')}"
+      )
+    }
+    common <- both_sig
+  }
+  if (!length(common)) {
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_warning(
+        "S8 双库双侧显著交集为空：不删行（避免整表清空）；请检查关联方向/显著性"
+      )
+    }
+    return(invisible(0L))
+  }
+
+  n_edit <- 0L
+  for (info in parsed) {
+    drop_keys <- setdiff(names(info$blocks), common)
+    if (!length(drop_keys)) next
+    drop_rows <- sort(unique(unlist(lapply(drop_keys, function(k) info$blocks[[k]]$rows))))
+    if (!length(drop_rows)) next
+    if (!exists("pub_xlsx_delete_rows", mode = "function")) {
+      root_try <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      src <- file.path(root_try, "R", "pub_xlsx_surgical.R")
+      if (nzchar(root_try) && file.exists(src)) source(src, local = FALSE)
+    }
+    if (!exists("pub_xlsx_delete_rows", mode = "function")) next
+    tryCatch({
+      pub_xlsx_delete_rows(info$path, drop_rows)
+      n_edit <- n_edit + length(drop_keys)
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_info(
+          "S8 双库变量对齐：{basename(info$path)} 删除 {length(drop_keys)} 个（{paste(head(drop_keys, 5), collapse = ', ')}）"
+        )
+      }
+    }, error = function(e) {
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning("S8 变量对齐失败 {basename(info$path)}: {e$message}")
+      }
+    })
+  }
+  invisible(n_edit)
+}
+
 incidence_batch_realign_dual_supp_tables <- function(tables_dir, cfg,
                                                      start_s = 1L) {
   if (!dir.exists(tables_dir)) return(invisible(0L))
   .incidence_batch_purge_realign_temp_tables(tables_dir)
+  # 推断指标根，供 S-XX 双删 / Fig2 非线性扫描
+  .ix_from_tables <- function(td) {
+    parent <- dirname(td)
+    bn <- basename(parent)
+    slots <- c("NHANES", "CHARLS", "MIMIC", "eICU", "ELSA", "Hosp", "summary_results")
+    if (bn %in% slots) dirname(parent) else parent
+  }
+  ix_root <- .ix_from_tables(tables_dir)
+  tryCatch(
+    incidence_batch_omit_dual_sxx_if_either_ns(
+      tables_dirs = tables_dir, index_root = ix_root, cfg = cfg
+    ),
+    error = function(e) {
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning("S-XX 双删跳过: {e$message}")
+      }
+    }
+  )
+  tryCatch(
+    incidence_batch_harmonize_dual_lab_assoc_varnames(tables_dir, cfg),
+    error = function(e) {
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning("S8 变量交集跳过: {e$message}")
+      }
+    }
+  )
   files <- list.files(tables_dir, pattern = "\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
   # 含数字 S# 与字面量 S-XX
   files <- files[grepl("^Table S(\\d+|-XX)", basename(files), ignore.case = TRUE, perl = TRUE)]
@@ -2676,6 +3010,23 @@ incidence_batch_ml_collect_fs_figure <- function(index_root, config = list()) {
 
 incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list()) {
   if (!dir.exists(figures_dir)) return(invisible(0L))
+  ## 用户 2026-10-30：默认不出 Figure S1 韦恩/Upset（feature_selection_venn$enable=FALSE）
+  omit_s1_venn <- isTRUE(cfg$omit_figure_s1_venn) ||
+    isFALSE(cfg$feature_selection_venn$enable %||% TRUE) ||
+    isFALSE(cfg$feature_selection$draw_venn %||% TRUE)
+  if (omit_s1_venn) {
+    s1_venn_all <- list.files(
+      figures_dir,
+      pattern = "Figure S1.*(Venn|Upset)",
+      full.names = TRUE, ignore.case = TRUE, recursive = TRUE
+    )
+    if (length(s1_venn_all)) {
+      unlink(s1_venn_all)
+      cli::cli_alert_info(
+        "已按配置省略 Figure S1 韦恩/Upset（{length(s1_venn_all)} 个文件）"
+      )
+    }
+  }
   s1_files <- list.files(
     figures_dir, pattern = "Figure S1.*\\.pdf$",
     full.names = TRUE, ignore.case = TRUE
@@ -3005,9 +3356,9 @@ incidence_batch_write_flowchart_from_attrition_csv <- function(
     rows <- dt
     rows$step <- as.character(rows$step)
     rows$n <- suppressWarnings(as.integer(rows$n))
-    if (!"database" %in% names(rows) || all(!nzchar(as.character(rows$database %||% "")))) {
-      rows$database <- db_disp
-    }
+    ## 槽位 CSV 常写死 nhanes/mimic；必须以 dual_db 展示名（eICU/MIMIC_IV 等）覆盖，
+    ## 否则 Figure 1 面板会印成 Participants in NHANES（eICU×MIMIC 课题已踩）。
+    rows$database <- as.character(db_disp)[1L]
     rows <- rows[is.finite(rows$n), , drop = FALSE]
     if (!nrow(rows)) return(NULL)
     if (exists("attrition_enrich_rows_for_pv2", mode = "function")) {
@@ -5211,7 +5562,7 @@ incidence_batch_dispatch_workers <- function(root, config, index_vars,
         "HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE",
         "TABPFN_TOKEN", "TABPFN_API_KEY", "TABPFN_TOKEN_FILE",
         "TABPFN_ALLOW_CPU_LARGE_DATASET",
-        "RETICULATE_PYTHON", "KMP_DUPLICATE_LIB_OK"
+        "RETICULATE_PYTHON", "MEDICAL_BLOCKS_PYTHON", "KMP_DUPLICATE_LIB_OK"
       ))
     )
   }

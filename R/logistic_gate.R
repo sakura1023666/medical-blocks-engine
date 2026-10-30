@@ -295,10 +295,44 @@ logistic_glm_export_as_main <- function(ctx, family, is_rcs = FALSE) {
     !grepl("^extend_(quartile|tertile|quintile)$", branch)
 }
 
+#' 取 RCS Model2 非线性 P（NHANES 加权 / 普通库 panel_stats）
+logistic_rcs_model2_p_nonlinear <- function(ctx) {
+  res <- ctx$results %||% list()
+  cands <- c(
+    suppressWarnings(as.numeric(
+      ((res$rcs_incidence_panel_stats %||% list())$Model2 %||% list())$p_nonlinear
+    )),
+    suppressWarnings(as.numeric(
+      ((res$rcs_nhanes_panel_stats %||% list())$Model2 %||% list())$p_nonlinear
+    )),
+    suppressWarnings(as.numeric(
+      ((res$nhanes_rcs %||% list())$model2 %||% list())$p_nonlin
+    )),
+    suppressWarnings(as.numeric(
+      ((res$rcs_incidence %||% list())$model2 %||% list())$p_nonlin
+    ))
+  )
+  hit <- cands[is.finite(cands)]
+  if (!length(hit)) return(NA_real_)
+  as.numeric(hit[[1L]])
+}
+
 #' 是否应 export_sci_table（双库闸门可压掉非主方案；ML assoc force_export 强制全导出）
 logistic_glm_should_export <- function(ctx, family, is_rcs = FALSE, bl_cfg = list()) {
   if (isTRUE(bl_cfg$force_export %||% FALSE)) return(TRUE)
-  if (isTRUE(is_rcs)) return(TRUE)
+  if (isTRUE(is_rcs)) {
+    # Table S-XX：默认要求非线性显著；双库勿默认 force-export（任一侧 NS → remirror 双删）
+    require_nl <- isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)
+    cfg_rcs <- ctx$config %||% list()
+    if (isTRUE((cfg_rcs$dual_db %||% list())$enable) &&
+        isTRUE(bl_cfg$dual_db_export_even_if_linear %||% FALSE)) {
+      require_nl <- FALSE
+    }
+    if (!isTRUE(require_nl)) return(TRUE)
+    p_nl <- logistic_rcs_model2_p_nonlinear(ctx)
+    if (is.finite(p_nl) && p_nl >= 0.05) return(FALSE)
+    return(TRUE)
+  }
   if (exists("logistic_glm_export_as_main", mode = "function") &&
       isTRUE(logistic_glm_export_as_main(ctx, family, is_rcs = is_rcs))) {
     return(TRUE)

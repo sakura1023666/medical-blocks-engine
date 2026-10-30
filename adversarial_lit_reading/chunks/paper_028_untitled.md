@@ -1,1597 +1,1564 @@
 # Page 1
 
-Received: 7 November 2025
-Revised: 17 February 2026
-Accepted: 19 February 2026
-DOI: 10.1002/alz.71300
-R E S E A R C H A R T I C L E
-Circadian syndrome (CircS) and cognitive trajectory
-deterioration in middle-aged and older adults: A national
-cohort study with causal forest analysis
-Jiangping Ma1,2
-Nan Chen1,2
-Jingxuan Huang1,2
-Linghao Xu3
-Huifang Shang1,2
-1Department of Neurology, Laboratory of
-Neurodegenerative Disorders, Rare Disease
-Center, West China Hospital, Sichuan
-University, Chengdu, China
-2National Clinical Research Center for
-Geriatric, West China Hospital, Sichuan
-University, Chengdu, China
-3Department of Endocrinology and
-Metabolism, the Affiliated Hospital of
-Southwest Medical University, Luzhou,
-Sichuan, China
-Correspondence
-Huifang Shang, Department of Neurology,
-West China Hospital, Sichuan University,
-Guoxuexiang 37#, Wuhou District, Chengdu
-610041, Sichuan Province, China.
-Email: hfshang2002@126.com
-Jiangping Ma and Nan Chen contributed to the
-work equally and should be regarded as
-co-first authors.
-Funding information
-Sichuan Science and Technology Program,
-Grant/Award Number: 2022ZDZX0023
-Abstract
-INTRODUCTION: Cognitive impairment is a global health challenge. Circadian syn-
-drome (CircS) extends beyond metabolic syndrome to include sleep and mental health,
-but its long-term impact on cognitive trajectories remains unclear.
-METHODS: We analyzed 6218 participants from the China Health and Retirement
-Longitudinal Study (2011–2018). CircS was defined as ≥4 of 7 components. Cogni-
-tive trajectories were identified using latent class growth modeling. Associations were
-assessed via multinomial logistic regression, and heterogeneous effects via causal
-forest analysis.
-RESULTS: Three cognitive trajectories were identified: “persistently high” (40.29%),
-“persistently moderate” (43.78%), and “persistently low” (15.93%). CircS increased
-odds of “persistently low” global cognitive (adjusted OR = 1.27, 95%CI:1.06–1.52) and
-episodic memory (OR = 1.28, 95%CI:1.06–1.55) trajectories. Causal forest identified a
-vulnerable subgroup: younger age, mild anemia (Hb∼95 g/L), and elevated BMI.
-DISCUSSION: CircS is a significant, modifiable risk factor for adverse cognitive trajec-
-tories. Screening for CircS could enable early identification and targeted interventions,
-especially for the identified high-risk subgroup.
-KEYWORDS
-causal forest, circadian syndrome, cognitive trajectory, latent class growth model, longitudinal
-study
-Highlights
-∙Novel integration of latent class growth modeling with causal forest machine
-learning.
-∙Circadian syndrome increases risk of unfavorable cognitive trajectories by 27%–
-28%.
-∙Identification of high-risk subgroup: younger age, mild anemia, elevated BMI.
-∙First longitudinal evidence linking circadian syndrome to low cognitive trajectories.
-∙Circadian syndrome as a modifiable target for early screening and prevention.
-This is an open access article under the terms of the Creative Commons Attribution License, which permits use, distribution and reproduction in any medium, provided
-the original work is properly cited.
-© 2026 The Author(s). Alzheimer’s & Dementia published by Wiley Periodicals LLC on behalf of Alzheimer’s Association.
-Alzheimer’s Dement. 2026;22:e71300.
-wileyonlinelibrary.com/journal/alz
-1 of 16
-https://doi.org/10.1002/alz.71300
+Investigating the potential risk of cadmium exposure on Osteoporosis: An 
+integrated multi-omics approach
+Yiwei Li a, Xuezhen Liang a, Yifa Rong a, Kai Jiang a, Jiahao Zhang a, Gang Li b,*
+a The First Clinical Medical School, Shandong University of Traditional Chinese Medicine, Jinan, Shandong, China
+b Orthopaedic, Affiliated Hospital of Shandong University of Traditional Chinese Medicine, Jinan, Shandong, China
+A R T I C L E I N F O
+Edited by Yong Liang
+Keywords:
+Cadmium
+Osteoporosis
+Network toxicology
+Single-cell RNA sequencing
+Geniposide
+A B S T R A C T
+Osteoporosis (OP) is a chronic progressive bone disease, and its occurrence and development under cadmium 
+exposure remain unclear. This study aims to explore the role of cadmium exposure in the pathogenesis of OP 
+through a comprehensive analysis of multi-omics data. Through cross-sectional analysis using National Health 
+and Nutrition Examination Survey (NHANES), we observed that cadmium exposure is a risk factor for OP. 
+Bioinformatics and machine learning further emphasized the importance of FOXO3, CCND1, MAP1LC3B, 
+HMOX1, and MT1G as independent risk factors for OP, which was confirmed through robust internal validation. 
+Single-cell RNA sequencing revealed the heterogeneous expression of cadmium-related genes in different cell 
+populations, with a particular emphasis on the role of HMOX1 in cell communication and signaling. Through 
+Gene Set Enrichment Analysis (GSEA), we found that HMOX1 is positively correlated with the activity of M2 
+macrophage polarization. Through Mendelian randomization (MR), molecular docking, and molecular dynamics 
+simulations, we further discovered that geniposide can target and bind to HMOX1. Ultimately, this compre­
+hensive study elucidates the role of cadmium exposure in OP and highlights the potential of HMOX1 as a 
+therapeutic target in alleviating the adverse effects of the disease.
+1. Introduction
+Cadmium is a toxic heavy metal that is widely present in the envi­
+ronment and can pose a serious threat to human health (Genchi et al., 
+2020). With the acceleration of industrialization, cadmium is not only 
+extensively released into the environment through industrial activities, 
+but is also widely present in consumer goods. Epidemiological studies 
+suggest that food and cigarettes are the two main routes of cadmium 
+intake (Zhu et al., 2024). Cadmium is associated with an increased risk 
+of various diseases and can significantly raise the risk of chronic con­
+ditions such as cardiovascular diseases, kidney damage, and cancer 
+(Satarug et al., 2010; Verzelloni et al., 2024). Cadmium has a long 
+half-life, allowing it to accumulate in human organs over time and is 
+considered a key inducer of inflammation, oxidative stress, and other 
+processes(Ma et al., 2022).
+Osteoporosis (OP) is a common skeletal disease characterized by 
+decreased bone mass and deterioration of bone microstructure, leading 
+to increased bone fragility and a significantly higher risk of fractures. 
+Recent research has focused on the impact of cadmium exposure on bone 
+metabolism. A metabolomics study has shown that cadmium exposure 
+can block the electron transport chain in human osteoblast-like cells, 
+resulting in pyruvate accumulation and the buildup of nucleic acids 
+associated with aging (Tian et al., 2021). Additionally, cadmium expo­
+sure activates the DNA damage response through phosphorylation of 
+ATM and H2AX, while promoting the acetylation of SOD2, which in­
+duces mitochondrial dysfunction and exacerbates the aging process of 
+osteoblasts (Zhou et al., 2023). Further research has revealed the critical 
+role of NF-κB in the senescence of bone marrow-derived mesenchymal 
+stromal cells induced by cadmium exposure (Luo et al., 2021). A sys­
+tematic review and meta analysis found that even low levels of envi­
+ronmental cadmium exposure (urinary cadmium >0.5 µg/g creatinine) 
+are a risk factor for OP (Kunioka et al., 2022). A case-control study found 
+that blood cadmium levels are associated with an increased risk of 
+fractures (Wallin et al., 2024). A study based on the Swedish cohort of 
+the Osteoporotic Fractures in Men Study (MrOS) revealed that cadmium 
+exposure is associated with reduced cortical thickness, cortical area, and 
+trabecular bone volume fraction in elderly men (Wallin et al., 2021). A 
+similar phenomenon has been validated in the Korean population (Kim 
+* Corresponding author.
+E-mail addresses: liyiweizyy@163.com (Y. Li), 60170109@sdutcm.edu.cn (X. Liang), 2018128134@sdutcm.edu.cn (Y. Rong), 2023111093@sdutcm.edu.cn
+(K. Jiang), zjh160037@foxmail.com (J. Zhang), sdszylg@163.com (G. Li). 
+Contents lists available at ScienceDirect
+Ecotoxicology and Environmental Safety
+journal homepage: www.elsevier.com/locate/ecoenv
+https://doi.org/10.1016/j.ecoenv.2025.118502
+Received 27 February 2025; Received in revised form 20 May 2025; Accepted 9 June 2025  
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+Available online 14 June 2025 
+0147-6513/© 2025 The Author(s). Published by Elsevier Inc. This is an open access article under the CC BY-NC license ( http://creativecommons.org/licenses/by- 
+nc/4.0/ ).
 
 # Page 2
 
-2 of 16
-MA ET AL.
-1
-BACKGROUND
-Cognitive impairment presents a growing global public health chal-
-lenge, particularly for aging populations.1,2 As the demographic trend
-shifts towards an older population structure, the prevalence of cog-
-nitive impairment is rising.3 Given the current lack of curative treat-
-ments, identifying modifiable risk factors for cognitive decline has
-become a critical strategy for early intervention and prevention.4
-Metabolic syndrome (MetS) refers to a cluster of concurrent
-metabolic disorders, mainly including central obesity, hypertension,
-hyperglycemia, and dyslipidemia.5 MetS is a well-established risk fac-
-tors for cognitive impairment which is mediated through pathologic
-changes in the brain, such as reduced brain volume, white matter
-lesions, and vascular pathology.6–8 However, the conventional MetS
-framework does not fully consider other critical risk factors associ-
-ated with cognitive impairment, such as sleep disturbances and mental
-health issues. To address this limitation, the concept of Circadian Syn-
-drome (CircS) has been proposed as a more comprehensive disorder
-characterized by disrupted biological rhythms. CircS encompasses all
-components of MetS while also integrating additional factors such as
-reduced sleep duration and depressive symptoms.9 There is an increas-
-ing consensus that CircS serves as a superior predictor for a range
-of cardiometabolic diseases compared to MetS alone.10,11 Impor-
-tantly, this enhanced predictive utility extends to cognitive health, with
-emerging evidence demonstrating a strong correlation between CircS
-andcognitiveimpairment.12,13 Giventheestablishedindependentlinks
-between sleep, depression and cognitive decline, these findings high-
-light the potential of CircS as a more integrative and sensitive tool for
-identifying individuals at high risk for future cognitive impairment.14,15
-Furthermore, emerging evidence indicates that the association
-between CircS and cognitive outcomes is not uniform but varies
-substantially across subgroups. For instance, the detrimental effect of
-CircS on dementia risk is significantly modified by APOE-ε4 genotype
-and smoking status.16 In addition, female gender has been associated
-with a more pronounced cognitive impairment related to CircS.12 This
-heterogeneity suggests that individual susceptibility to the cognitive
-consequences of circadian and metabolic dysregulation is influenced
-by a complex interplay of genetic, lifestyle, and sociodemographic
-factors.
-Despite these advancements, the majority of previous research
-focuses on snapshots of cognition at a certain point in time, rather
-than its change over time. We still know little about how CircS influ-
-ences the long-term trajectory of cognitive function in middle-aged
-and elderly individuals. Because cognitive decline is a dynamic pro-
-cess, understanding its trajectory is key for early intervention. The
-investigation of cognitive trajectories has advanced by utilizing statis-
-tics that can find different patterns of changes within a cohort. Many
-high-quality longitudinal studies have demonstrated that cognitive tra-
-jectories differ between subgroups and possess predictive value for
-long-term prognosis, such as conversion to Alzheimer’s disease.17,18
-Causal inference methodologies utilizing real-world data provide
-valuable evidence complementary to randomized controlled trials. In
-observational research, the investigation of heterogeneous treatment
-effects (HTEs) is fundamental to personalized risk assessment. Wager
-and Athey advanced this field by developing the causal forest model,
-an extension of the random forest algorithm, to infer HTEs or condi-
-tional average treatment effects (CATEs) from observational data. This
-innovative approach estimates treatment effects tailored to individual
-characteristics, enabling personalized causal inference.19
-Traditional methods for assessing effect heterogeneity, such as
-interaction terms or subgroup analysis, are often limited by multi-
-collinearity, model dependence, or spurious findings.20–23 In contrast,
-the causal forest method offers several advantages: it handles high-
-dimensional covariates and complex interactions without pre-specified
-parametric forms, automatically partitions data based on effect het-
-erogeneity, provides valid confidence intervals (CI), and incorpo-
-rates cross-fitting (“honesty”) and out-of-bag estimation to mitigate
-overfitting.24–26
-In this research, we undertook a nationally representative cohort
-study utilizing four waves of data from the China Health and Retire-
-ment Longitudinal Study (CHARLS) spanning 2011–2018, with the
-objective of investigating the influence of CircS on cognitive aging.
-Through the application of trajectory-based modeling and personal-
-ized effect estimation, this study furnishes novel insights into the role
-of CircS as a modifiable risk factor for cognitive decline and pro-
-poses targeted prevention strategies for populations at heightened
-risk.
+et al., 2021). Another predictive model found that cadmium exposure 
+plays an important role in predicting decreased bone mineral density 
+(BMD) (Ximenez et al., 2021). Human biomonitoring surveys emphasize 
+that cadmium exposure represents a significant proportion of the soci­
+etal costs associated with OP (Ougier et al., 2021). As an environmental 
+pollutant, cadmium may play a crucial role in the onset and progression 
+of OP.
+This study employed various research methods aimed at exploring 
+the potential role of cadmium exposure in OP. Through network toxi­
+cology analysis, we constructed a gene-toxicity association network to 
+gain deeper insights into the expression patterns of cadmium exposure- 
+related genes in OP and their potential toxicological mechanisms. Key 
+genes were identified through machine learning, and bioinformatics and 
+single-cell RNA sequencing were combined to reveal the complex rela­
+tionship between cadmium exposure and mechanisms related to OP, 
+such as M2 macrophage polarization. Single-cell sequencing analysis 
+further revealed the specific expression of cadmium exposure-related 
+genes across different cell types in OP, thereby enhancing understand­
+ing of the underlying pathological mechanisms. In addition, Drug target 
+Mendelian randomization (MR) analysis, molecular docking, and mo­
+lecular dynamics simulations were employed to provide clues for the 
+development of novel targeted therapeutic drugs in the future.
+2. Method
+2.1. Cross-sectional analysis
+National Health and Nutrition Examination Survey (NHANES) 
+selected representative samples from the U.S. population to assess their 
+health and nutritional status. To ensure ethical standards, the survey 
+was approved by the National Center for Health Statistics. All selected 
+individuals voluntarily provided written informed consent before being 
+included in the study. The relevant data for this study were publicly 
+available through the website (https://www.cdc.gov/nchs/nhanes/ 
+index.htm). Data from multiple NHANES cycles were selected for sta­
+tistical analysis. A total of 13417 participants were included in our study 
+(Fig. 1).
+2.1.1. Variables
+Femoral neck bone mineral density (FN BMD) is widely used in 
+clinical practice for OP prediction (Kanis et al., 2008; Wright et al., 
+2014). Dual-energy X-ray absorptiometry (DXA) is easy to use, with low 
+radiation exposure, and is a common method for BMD measurement 
+(Baran et al., 1997). Blood cadmium levels were directly measured from 
+whole blood samples using mass spectrometry (Caudill et al., 2008). 
+Based on the characteristics of the studied population, the following 
+covariates were selected for analysis. These covariates include sex, age, 
+race, education, marital status, family income-to-poverty ratio, smok­
+ing, drinking, hypertension, diabetes, and hyperlipidemia.
+2.1.2. Regression analysis
+To further assess the relationship between blood cadmium and FN 
+BMD, weighted multiple linear regression analysis was used to examine 
+the association. In 2013–2014, blood analysis indicators were measured 
+for all participants aged 1–11 years, while only half of the participants 
+aged 12 years and older were measured. Therefore, for participants aged 
+12 and above, "WTSH2YR" was used as the weight variable; participants 
+aged 1–11 in this cycle and other cycles, "WTMEC2YR" was used as the 
+weight variable. To control for confounding factors, we adjusted for 
+different variables and constructed various linear regression models.
+2.2. Construction of networks
+To further investigate the mechanism by which cadmium affects 
+bone mineral density, we conducted a network toxicology analysis 
+(Chang et al., 2024; He et al., 2024). Initially, we retrieved gene targets 
+related to cadmium exposure from the Comparative Toxicogenomics 
+Database (CTD, https://ctdbase.org), a comprehensive platform that 
+Fig. 1. Overview of the study design.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
 2
-METHODS
-2.1
-Study design and population
-CHARLS constitutes an ongoing, nationally representative longitudi-
-nal survey focusing on adults aged 45 years and older. The primary
-objective of the study is to gather comprehensive data on sociode-
-mographic characteristics, health status, medical conditions, family
-structure, and health-related behaviors. Initiated in 2011, the CHARLS
-survey has been conducted with follow-up assessments occurring bien-
-nially or triennially. To date, CHARLS has produced four waves of
-survey data collected in the years 2011, 2013, 2015, and 2018. The
-research project received approval from the Biomedical Ethics Com-
-mittee of Peking University (IRB00001052-11015). Informed consent
-was obtained from all participants, who also consented to the sharing
-of their data.
-We employed data from the four waves of the CHARLS to identify
-eligible participants according to specific inclusion and exclusion cri-
-teria. Initially, individuals lacking diagnostic information for CircS at
-the baseline year of 2011 were excluded. Subsequently, participants
-with cognitive impairment or Parkinson’s disease/dementia at base-
-line were also removed from the study. Additionally, individuals who
-participated in fewer than two waves of cognitive assessment were
-excluded. Ultimately, the study comprised 6218 subjects, consisting
-of 3054 males and 3164 females. A comprehensive flowchart detail-
-ing the study design and the inclusion and exclusion of participants is
-provided in Figure S1.
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 3
 
-MA ET AL.
-3 of 16
-RESEARCH IN CONTEXT
-1. Systematic review: We reviewed the literature using
-PubMed and other traditional sources. Previous research
-has established links between Metabolic Syndrome and
-cognitive impairment. The novel concept of Circadian
-Syndrome (CircS) extends this framework to include sleep
-and mental health, with emerging evidence suggesting
-its superior predictive value for cardiometabolic diseases
-and cross-sectional cognitive status. However, longitudi-
-nal evidence on how CircS influences long-term cognitive
-trajectories was lacking.
-2. Interpretation: Our findings demonstrate that CircS is
-a significant risk factor for adverse long-term cognitive
-trajectories, increasing the odds of a “persistently low”
-trajectory by 27%–28%. Crucially, by applying causal for-
-est analysis, we move beyond average population risks
-to identify a vulnerable subgroup for whom this effect is
-most pronounced: younger individuals with mild anemia
-and elevated BMI. This establishes CircS as a comprehen-
-sive, modifiable risk factor and underscores the necessity
-for personalized cognitive risk assessment.
-3. Future directions: Future research should: (a) elucidate
-the precise biological mechanisms, particularly the non-
-linear role of hemoglobin, linking CircS to neurodegen-
-eration; (b) develop and test targeted interventions (e.g.,
-circadian rhythm stabilization) through randomized con-
-trolled trials in the identified high-risk subgroup; and (c)
-validate these findings and the generalizability of the
-high-risk profile in diverse ethnic and younger popula-
-tions.
-2.2
-Assessment of CircS
-Venous blood samples were promptly received by the Chinese Cen-
-ter for Disease Control and Prevention in Beijing within two weeks
-after leaving the CDC station. These samples were immediately stored
-and frozen at −20◦C prior to delivery. After necessary analyses in
-the laboratory of China Medical University, they were transferred
-to a deep freezer and maintained at −80◦C. In the clinical labora-
-tory of Youanmen, Capital Medical University, the concentrations of
-biomarkers such as high-density lipoprotein cholesterol (HDL-C), low-
-density lipoprotein cholesterol(LDL-C), triglycerides (TG), and glycated
-hemoglobin (HbA1c) were measured using the enzyme colorimetric
-method.12
-Blood pressure was measured three times by trained nurses using
-a sphygmomanometer, and the average value was calculated. Hyper-
-tension was defined as systolic blood pressure ≥140 mmHg and/or
-diastolic blood pressure ≥90 mmHg or the use of antihypertensive
-medications.
-The Center for Epidemiologic Studies Depression Scale (CES-D)
-(10-item version) was employed to assess depressive symptoms.
-Depression was defined as a CES-D score ≥10 points.13
-Anthropometric measurements were conducted by trained staff.
-Body weight was measured without shoes to an accuracy of 0.1 kg.
-Height was measured using a vertical stadiometer to an accuracy
-of 0.1 cm. Waist circumference was measured at the umbilical level
-to an accuracy of 0.1 cm. Central obesity was defined as a waist
-circumference ≥85 cm in men and ≥80 cm in women.
-Sleep duration was evaluated through personal self-report. A sleep
-duration of less than 6 h was classified as reduced sleep duration. It
-is important to note that sleep health is a multidimensional construct
-encompassing not only duration but also regularity, timing, efficiency,
-and quality.27 The single-item measure of sleep duration used here,
-while practical for large cohort studies and aligned with prior CircS
-research, may not fully distinguish between efficient short sleep and
-sleep disruption stemming from circadian misalignment.
-The concept of CircS was initially derived from MetS and was
-assessed based on the following seven components: reduced sleep
-duration, depression, central obesity, elevated TG (≥150 mg/dL or
-drug treatment for TG elevation), reduced high-density lipoprotein
-(HDL < 40 mg/dL in men; HDL < 50 mg/dL in women; or drug
-treatment for HDL-C reduction), hypertension, and elevated fasting
-blood glucose (≥100 mg/dL or drug treatment for hyperglycemia).
-Participants with four or more components were diagnosed with
-CircS.
-2.3
-Assessment of cognitive function
-Based on prior research utilizing CHARLS, cognitive function was
-assessed using the Chinese adaptation of the Mini-Mental State Exami-
-nation (MMSE), which evaluates two key dimensions: episodic memory
-and mental intactness. Participants were presented with a list of 10
-unrelated Chinese words and were required to recall them immedi-
-ately (immediate word recall) and again after a four-minute interval
-(delayed word recall). The episodic memory score was determined
-by averaging the number of words recalled in both the immediate
-and delayed tasks, with possible scores ranging from 0 to 10. The
-assessment of mental status included tasks such as serial subtrac-
-tion of 7 from 100 (up to five iterations), identifying the current date
-(month, day, and year), naming the day of the week, recognizing the
-current season, and completing an intersecting pentagon copying test.
-Responses to these tasks were aggregated to form a mental intact-
-ness score, which could range from 0 to 11. The overall cognitive score
-was calculated by summing the scores for episodic memory and mental
-intactness, yielding a total score range of 0–21.
-2.4
-Outcome-cognitive trajectories
-The primary outcome was the trajectory of global cognitive scores, and
-the second outcomes were the trajectory of episodic memory and men-
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+aggregates biological effect data for chemicals, metals, and other sub­
+stances (Davis et al., 2023). In this study, we used the keyword “Cad­
+mium” and applied a filtering criterion to retain only genes with more 
+than 10 interactions. OP data were sourced from the Gene Expression 
+Omnibus (GEO) database, specifically bulk datasets GSE7158 and 
+GSE56815 (Lei et al., 2009; Zhou et al., 2018). GEOquery was employed 
+to download and extract both the expression matrix and sample meta­
+data (Davis and Meltzer, 2007). Expression data were normalized using 
+the normalizeBetweenArrays function from the limma package, fol­
+lowed by log2 transformation. Probe annotations were mapped to gene 
+symbols using platform annotation files (GPL96 and GPL570). Differ­
+ential expression analysis was performed with the limma package 
+(Ritchie et al., 2015). By intersecting the genes identified in both the 
+CTD and GEO datasets, we ultimately selected key genes for further 
+analysis. Subsequently, we utilized Cytoscape software to construct a 
+"Cadmium - gene - OP" network diagram, visualizing the relationships 
+between cadmium exposure, genes, and OP (Shannon et al., 2003). 
+Enrichment analysis of the intersected genes was carried out using the 
+clusterProfiler package to elucidate their biological relevance in OP(Xu 
+et al., 2024). Gene Ontology (GO) analysis encompassed biological 
+processes (BP), cellular components (CC), and molecular functions (MF). 
+Kyoto Encyclopedia of Genes and Genomes (KEGG) enrichment analysis 
+highlighted significant pathways associated with the intersected genes, 
+enhancing our understanding of their potential mechanisms in OP. The 
+Protein-Protein Interaction (PPI) network for the intersected genes was 
+constructed using the STRING database (https://cn.string-db.org), 
+employing default parameters and visualizing the network based on 
+degree (Szklarczyk et al., 2023).
+2.3. Machine learning
+We conducted differential expression analysis by merging GSE7158 
+and GSE56815 using the limma package in R (Ma and Li, 2024). To 
+assess the predictive power of these genes, we employed machine 
+learning techniques. Specifically, we applied random forest and Support 
+Vector Machine - Recursive Feature Elimination (SVM-RFE) methods to 
+reduce the feature space and identify key genes for classification 
+(Breiman, 2001; Cortes and Vapnik, 1995; Guyon et al., 2002; Liaw and 
+Wiener, 2007). Feature selection was performed using the caret package 
+(Kuhn, 2008), and a random forest model was trained with the ran­
+domForest package (Breiman, 2001; Liaw and Wiener, 2007). The 
+importance of variables was determined using the MeanDecreaseGini 
+criterion, with the number of trees set to 1000 to ensure model stability 
+and optimize the tree count to minimize the error rate. Feature selection 
+was further refined through SVM-RFE, which iteratively eliminated less 
+predictive features, retaining only those most informative for the 
+outcome. A logistic regression model was subsequently fitted using the 
+selected genes to evaluate the relationship between gene expression and 
+the disease. The model was trained with the glm function, and odds 
+ratios (OR) with 95 % confidence intervals (CI) were computed for each 
+gene to assess their effects. To validate the robustness of the model, 
+bootstrap resampling with 1000 iterations was performed to estimate 
+model accuracy and calculate the Area Under the Curve (AUC) for 
+performance evaluation. Sensitivity and specificity analyses were also 
+conducted during the bootstrap to assess classification performance 
+across varying threshold settings.
+A nomogram was constructed using logistic regression to predict the 
+probability of the outcome, and a calibration curve was plotted to 
+compare predicted and observed probabilities. Additionally, decision 
+curve analysis (DCA) was applied to evaluate the clinical utility of the 
+models(Vickers and Elkin, 2006).
+2.4. Single-cell RNA sequencing data analysis
+2.4.1. Data acquisition and preprocessing
+Single-cell sequencing analysis was conducted using the Seurat 
+package (version 4.3.0). The raw data from GSE147287 were imported 
+using the Read10X function and stored as a Seurat object using the 
+CreateSeuratObject function (Wang et al., 2021; Zheng et al., 2017). For 
+quality control, cells with low or high feature counts were filtered using 
+subset(nFeature_RNA > 200 & nFeature_RNA < 10,000). Cells with 
+more than 15 % mitochondrial gene content were also removed. The 
+data were then normalized using NormalizeData(normalization.method 
+= "LogNormalize"), and highly variable genes were selected for subse­
+quent analysis using FindVariableFeatures(selection.method = "vst"). 
+Principal component analysis (PCA) was performed with the RunPCA 
+function (Jolliffe, 2002). Clustering was carried out using FindNeigh­
+bors(dims = 1:30) and FindClusters(resolution = seq(0.1, 1, 0.2)) to 
+explore the optimal resolution across different parameter settings. 
+UMAP dimensionality reduction was applied and visualized using 
+RunUMAP(dims = 1:15) (McInnes et al., 2018). Cell type annotation 
+was based on known markers from the literature (Wang et al., 2024). 
+The expression of key marker genes was visualized using the DotPlot 
+function.
+2.4.2. Cell-cell communication analysis
+Cell-cell communication analysis was performed using the CellChat 
+package, utilizing the CellChatDB.human within CellChat, with a focus 
+on secreted signal transduction (Jin et al., 2021; Su et al., 2024). 
+Overexpressed genes and ligand-receptor pairs were identified using the 
+identifyOverExpressedGenes and identifyOverExpressedInteractions 
+functions, respectively. The identified ligand and receptor genes were 
+then mapped to the human protein-protein interaction network to pro­
+vide a more comprehensive biological interpretation. Communication 
+probabilities between different cell populations were calculated using 
+the computeCommunProb function. Cell communication pathways were 
+inferred with the computeCommunProbPathway function, with rare 
+interactions filtered out. The results were visualized using the netVi­
+sual_circle function, which displayed both the number and intensity of 
+interactions. Specific signaling pathways were further analyzed using 
+the netVisual_aggregate function. Lastly, we calculated and visualized 
+the centrality of different cell types within the communication network, 
+showcasing their roles in signal transduction through heatmaps and 
+scatter plots.
+2.4.3. GSEA
+GSEA was a widely utilized method for identifying biological path­
+ways that were significantly enriched in gene expression data 
+(Subramanian et al., 2005). Differentially expressed genes across 
+various cell subgroups were identified using FindMarkers function. Gene 
+sets for GSEA were obtained from the Molecular Signatures Database 
+(MSigDB, http://software.broadinstitute.org/gsea/msigdb) and the 
+literature to explore biological differences between distinct cell sub­
+groups (Liberzon et al., 2015).
+2.5. Drug-target MR analysis
+2.5.1. Data sources
+To further investigate the potential relationship between key genes 
+and OP. We performed Drug-target MR. We used publicly accessible 
+GWAS datasets. The related eQTL data for genes were obtained from 
+eQTLGen (https://eqtlgen.org/), which provides data from 31684 Eu­
+ropean individuals’ blood samples (Vosa et al., 2021). The Genetic 
+Factors for Osteoporosis Consortium (GEFOS) is a large international 
+collaborative organization that provides numerous GWAS data related 
+to bone health (Zheng et al., 2015). UK Biobank (UKB) is one of the 
+largest human genetic cohort biobank in the world, and its research data 
+are significant for understanding human health and diseases (Donertas 
+et al., 2021). We selected FN BMD from GEFOS and OP from UKB as 
+outcomes (Table S1). This study followed the STROBE guidelines.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+3
 
 # Page 4
 
-4 of 16
-MA ET AL.
-tal intactness scores. Latent class growth model (LCGM) was used to
-determine the heterogeneity of cognitive trajectories. LCGM was uti-
-lized to identify homogeneous clusters of individuals who follow similar
-developmental trajectories across time.28
-2.5
-Covariates
-Interviewers systematically gathered and documented data on
-sociodemographic
-characteristics,
-health-related
-behaviors,
-and
-medical information utilizing structured questionnaires. The sociode-
-mographic variables encompassed age, gender (categorized as male
-or female), educational attainment (classified as primary school or
-below, junior high school to high school, and undergraduate or above),
-marital status (dichotomized into married and unmarried), and place of
-residence (rural or urban). Within the marital status classification, indi-
-viduals identified as “married with spouse present” and “married but
-not living with spouse” were grouped under “married,” whereas those
-identified as “separated,” “divorced,” “widowed,” or “never married”
-were categorized as “unmarried.” Health-related behaviors assessed
-included smoking status (yes or no) and alcohol consumption status
-(yes or no). The medical information collected comprised data on
-functional restrictions, self-reported visual and hearing impairments,
-history of stroke, and heart disease, which included conditions such
-as heart attack, coronary heart disease, angina pectoris, congestive
-heart failure, or other cardiac issues. Additionally, measurements
-of hemoglobin levels and body mass index (BMI) were recorded.
-Functional restriction was operationally defined as experiencing
-limitations in any of the five activities of daily living (ADL), namely
-bathing, dressing, eating, transferring in and out of bed, and toileting.
-BMI was calculated as the weight in kilograms divided by the square of
-the height in meters and was categorized as follows: <18.5, 18.5–23.9,
-24.0–27.9, and ≥28.0 kg/m2.
-2.6
-Statistical analysis
-Continuousnormallydistributedvariablesweredescribedusingmeans
-and standard deviations. Non-normally distributed continuous vari-
-ables were described using medians and interquartile ranges. Cate-
-gorical variables were described using frequencies and percentages.
-one-way analysis of variance, rank sum tests, or chi-square tests were
-used to compare baseline differences between groups.
-2.6.1
-Identification of cognitive trajectories
-To capture the heterogeneity in cognitive change over time, we identi-
-fied distinct cognitive trajectories using the LCGM. This method groups
-individuals into homogeneous subpopulations (latent classes) that
-share similar developmental paths of global cognitive scores across the
-study waves. Age in years was used as the timescale. We tested models
-with 2–5 trajectory classes, employing both linear and quadratic func-
-tions. The optimal number and shape of trajectories were determined
-based on the following criteria29: (1) the lowest sample size-adjusted
-Bayesian information criterion (SABIC); (2) an average posterior prob-
-ability of assignment (AvePP) for each trajectory class greater than 0.7,
-indicating adequate class separation; and (3) each trajectory class com-
-prising no less than 5% of the total sample to ensure clinical relevance.
-Detailed statistical methods were provided in the Supplementary File:
-Supplementary Method 1.
-2.6.2
-Association analysis between CircS and
-cognitive trajectories
-Multinomial logistic regression model was used to estimate the associ-
-ation of Circs with the trajectories of the cognitive function measures.
-Odds ratios (OR) and the corresponding 95% CI were reported. To
-preliminarily assess potential effect modification and to examine the
-consistency of the CircS-cognitive trajectory association across key
-demographic and clinical subgroups, we performed stratified analy-
-ses by each of the following baseline covariates: sex (male, female),
-age group (<60, ≥60 years), residence (urban, rural), educational level
-(primary school or below, junior high school to high school, undergrad-
-uate or above), marital status (married, unmarried), smoking status
-(yes/no), drinking status (yes/no), BMI category (<18.5, 18.5–23.9,
-24.0–27.9, ≥28.0 kg/m2), history of stroke (yes/no), history of heart
-disease (yes/no), ADL restriction (yes/no), visual impairment (yes/no),
-hearing impairment (yes/no), and hemoglobin level (split at the median
-into high/low groups). These stratified analyses served a dual purpose:
-(1) as an initial, descriptive exploration of heterogeneity in associa-
-tion strength across subgroups, and (2) as robustness checks to ensure
-the primary association was not driven by a specific subpopulation.
-Subsequently, to formally test for statistically significant effect mod-
-ification, we introduced multiplicative interaction terms (e.g., CircS ×
-sex, CircS × age group) individually into the fully adjusted multinomial
-logistic regression model. The significance of the interaction term was
-assessed using the likelihood ratio test.
-2.6.3
-Causal forest analysis
-To further investigate the HTEs of CircS on cognitive trajectories, we
-employed a causal forest machine learning approach. We constructed
-three separate causal forest models for each cognitive trajectory out-
-come (persistently low, moderate, and high). The analysis included 14
-pre-specified covariates: age, gender, residence, education, marital sta-
-tus, smoking, drinking, heart disease, stroke, hemoglobin, BMI, visual
-impairment, hearing impairment, and ADL ability. Each forest com-
-prised 10,000 trees and utilized honest estimation (50% of the data for
-splitting, 50% for estimation) to minimize overfitting.
-We assessed model calibration and estimated the average treat-
-ment effect (ATE) alongside Individual Treatment Effects (ITEs) to
-quantify effect heterogeneity. Variable importance was analyzed to
-identify key moderators of the CircS effect on cognitive trajectories.
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+2.5.2. Instrumental variables (IVs) selection
+We selected single nucleotide polymorphisms (SNPs) strongly asso­
+ciated with genes to construct IVs (p < 5.00E-08), and extracted expo­
+sure data based on the gene’s location, choosing SNPs within the 
+±1000 kb range of each gene’s transcription start site (TSS). We 
+removed linkage disequilibrium based on the European population 
+reference genome, setting r² to 0.1 and kb to 10,000. The F-statistic can 
+be used to assess the strength of the IVs (Bowden et al., 2019). We 
+calculated the value using F= β² /se². The selection process follows the 
+three main assumptions of MR: (1) a strong and robust association be­
+tween IVs and exposure; (2) IVs are independent of confounding factors 
+affecting the exposure-outcome relationship; (3) genetic variation af­
+fects the outcome only through the exposure and not through other 
+pathways (Emdin et al., 2017).
+2.5.3. MR and Meta-analysis
+MR analysis was conducted using the TwoSampleMR package. This 
+study used five MR methods to explore the relationship between genes 
+and diseases. Inverse Variance Weighted (IVW) method assumes that all 
+instrumental variables are valid and that there is no horizontal pleiot­
+ropy, providing high statistical power (Slob and Burgess, 2020). 
+Therefore, we selected the IVW as the primary analytical method. Het­
+erogeneity was assessed using Cochran’s Q test (Greco et al., 2015). 
+Pleiotropy refers to the potential of a gene or genetic variation to have 
+more than one independent phenotype. Horizontal pleiotropy was tested 
+using MR-Egger regression intercept (Bowden et al., 2015). 
+Leave-one-out sensitivity analysis was applied to assess the robustness of 
+the results (Burgess et al., 2017). To obtain more stable results, we used 
+the meta package to perform a meta analysis of the IVW estimates from 
+different cohort MR analyses and visualized the results using the forest 
+function (Schwarzer et al., 2015).
+2.6. Molecular docking and Molecular dynamic simulation
+2.6.1. Candidate drug prediction
+The Drug Signatures Database (http://dsigdb.tanlab.org/) collected 
+a large number of drug-related genes and compounds(Yoo et al., 2015). 
+We utilized the database to evaluate whether the target genes could 
+serve as drug targets and predict the potential effects of the drugs.
+2.6.2. Molecular docking
+To evaluate the binding energy and interaction patterns between the 
+candidate drug and its target. Molecular docking was performed using 
+AutoDock Vina 1.1.2 (Trott and Olson, 2010). We obtained the protein 
+crystal structure from the PubChem Compound Database (https://p 
+ubchem.ncbi.nlm.nih.gov/). The structural data of the drug were ob­
+tained from the Protein Data Bank (PDB, http://www.rcsb.org/). We 
+prepared the protein using PyMol 1.8.5 software, including hydroge­
+nation, removal of water molecules, etc., and converted the PDB format 
+of small molecules and receptor proteins into PDBQT format (Delano, 
+2002). During docking, the conformation with the lowest binding en­
+ergy was selected as the docking conformation, and visualization anal­
+ysis was performed using Plip 2021 (Adasme et al., 2021).
+2.6.3. Molecular dynamics simulations
+To further assess the stability and interactions of the molecular 
+docking, we performed molecular dynamics simulations using AMBER 
+22(Salomon-Ferrer et al., 2013). The charges of small molecule were 
+calculated using the antechamber module and the Hartree-Fock (HF) 
+SCF/6–31 G* method in Gaussian 09 software. We selected the TIP3P 
+water model and added sodium and chloride ions to the complex to 
+neutralize the charges. The system was optimized using the steepest 
+descent method and the conjugate gradient method. Following energy 
+optimization, the system was heated for 200 ps. The system was main­
+tained at a temperature of 298.15 K and underwent a 500 ps canonical 
+ensemble 
+(NVT). 
+A 
+500 ps 
+equilibration 
+simulation 
+under 
+isothermal-isobaric ensemble (NPT) conditions was performed for the 
+entire system. Finally, both complex systems underwent 100 ns NPT 
+under periodic boundary conditions. The system pressure was set to 
+1 atm, the integration time step was 2fs, and the trajectory was saved 
+every 10 ps for subsequent analysis.
+2.7. Statistical analysis
+All statistical analyses were performed using R version 4.1.3. For 
+continuous variables, group differences were assessed using Student’s t- 
+test or the Wilcoxon rank-sum test. For categorical variables, group as­
+sociations were assessed using chi-square tests or Fisher’s exact test 
+based on the expected frequency of each category. A p-value less than 
+0.05 was considered statistically significant. The data used in this study 
+are publicly available and have received ethical approval.
+3. Results
+3.1. Cross-Sectional analysis
+FN BMD was grouped by quartiles (Table 1). Notably, participants 
+with lower FN BMD tended to have higher blood cadmium levels. We 
+further employed multiple linear regression models and found a signif­
+icant negative correlation between blood cadmium and FN BMD, with 
+this significance persisting after adjusting for confounders. Specifically, 
+with an increase in blood cadmium, FN BMD decreased by 0.006 g/cm² 
+(-0.011, −0.001, p = 0.017). These results suggested a significant 
+negative correlation between blood cadmium levels and BMD, indi­
+cating that cadmium exposure was an important factor in reducing BMD 
+(Table 2).
+3.2. Identification of blood cadmium targets affecting OP
+We selected cadmium-related genes with "Interactions > 10" from 
+the CTD. OP-related genes were obtained from the GEO. A total of 24 
+significantly different genes were identified (Fig. 2A). To further explore 
+the potential biological functions of key genes, we performed GO and 
+KEGG enrichment analysis. We found that these genes are involved in 
+the following BP: response to cadmium ion, response to oxidative stress, 
+and cellular response to chemical stress. CC included transcription 
+repressor complex, nuclear envelope, mitochondrial outer membrane, 
+and others. MF analysis revealed RNA polymerase II−specific 
+DNA−binding transcription factor binding, DNA−binding transcription 
+factor binding, cholesterol transfer activity, and others. KEGG analysis 
+showed that the genes were enriched in pathways such as endocrine 
+resistance, mineral absorption, and lipid and atherosclerosis (Fig. 2B). 
+Based on the results of GO and KEGG enrichment, we found that these 
+genes are closely related to immune response, oxidative stress, and other 
+processes, providing clues for further investigating their potential roles 
+in diseases. Proteins such as AKT1, JUN, TP53, EGFR, and HMOX1 
+showed tight interactions with other proteins in the network (Fig. 2C). In 
+OP, FOXO3, MAP1LC3B, and MT1G were significantly upregulated, 
+while CCND1 and HMOX1 were downregulated (Fig. 2D–F). Correlation 
+analysis indicated relationships between multiple genes (Fig. 2G). We 
+identified key genes associated with cadmium exposure and revealed 
+their potential roles such as immune response and oxidative stress, 
+providing important clues for further investigation of their functions in 
+related diseases.
+3.3. Machine learning identifies key genes
+To identify key genes from another perspective, we employed ma­
+chine learning approaches. Random forest analysis showed that the 
+genes with the highest MeanDecreaseGini scores included CCND1, 
+FOXO3, SIRT1, MT1G, HMOX1, MAP1LC3B, HSP90B1, TP53, EGFR, 
+and XAF1 (Fig. 3A, B). The intersection of top genes from random forest 
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+4
 
 # Page 5
 
-MA ET AL.
-5 of 16
-All analyses were performed using R version 4.4.2 with the grf pack-
-age, and a random seed was set for reproducibility. Sensitivity analyses
-with fewer trees were used to confirm the robustness of our results.
-Detailed statistical methods were provided in the Supplementary File:
-Supplementary Method 2.
-2.6.4
-Sensitivity analysis
-1. Inverse Probability Weighting (IPW): We conducted IPW analysis
-to address potential confounding and validate our primary find-
-ings. Propensity scores were estimated using logistic regression
-with CircS as the outcome and all baseline covariates as predictors.
-Stabilized weights were applied to create a balanced pseudo-
-population. Weighted multinomial logistic regression was used to
-estimate the association between CircS and cognitive trajectories.
-2. Linear Mixed-Effects Models (LMMs): We fitted LMMs to directly
-model the repeated measures of global cognitive scores as a con-
-tinuous outcome over time. This approach treats cognitive decline
-as a continuous process and does not presuppose the existence of
-discrete trajectory classes. The core model included fixed effects
-for CircS status (present/absent), time (in years from baseline),
-and their interaction term (CircS × Time). A significant interac-
-tion term would indicate that the rate of cognitive decline (slope)
-differs between individuals with and without CircS. The models
-were adjusted for the same set of baseline covariates used in the
-multinomial logistic regression.
-3. Continuous CircS Score Analysis: As an additional sensitivity analy-
-sis, we examined the association between a continuous CircS score
-(range: 0–7) and cognitive trajectories using multinomial logistic
-regression. This approach treats CircS as a dimensional construct
-rather thana categorical diagnosis, allowing ustoinvestigate poten-
-tial dose–response relationships. Both crude and fully adjusted
-models were fitted using the same covariate sets as the primary
-binary analysis.
-4. Sensitivity Analysis with Additional Covariates: To further address
-concerns regarding potential residual confounding, an extended
-sensitivity analysis was performed. The original set of covari-
-ates was supplemented with five additional baseline variables
-for model refitting: physical activity level (categorized as low,
-moderate, or high), frequency of social activities (categorized
-as none, moderate, or high), use of sleep medication (yes/no),
-use of antidepressant medication (yes/no), and habitual nap-
-ping. Both the multinomial logistic regression models and the
-causal forest analysis were repeated using this extended covariate
-set.
-5. Sensitivity Analysis Using Multiple Imputation: To assess potential
-selection bias arising from missing CircS data at baseline, we con-
-ducted a sensitivity analysis using multiple imputation. All missing
-components defining CircS, along with other baseline covariates,
-were imputed. The complete analytical workflow—including cog-
-nitive trajectory identification, multinomial logistic regression, and
-causal forest analysis—was then performed on the imputed data.
-The pooled results were compared to the primary complete-case
-analysis to evaluate the robustness of the findings.
-6. Sensitivity Analysis Examining Collinearity and a Modified CircS
-Definition: To further assess the robustness of BMI as a poten-
-tial effect moderator, two supplementary analyses were con-
-ducted. First, variance inflation factors (VIFs) were calculated for
-all covariates in the causal forest model to examine potential
-multicollinearity. Second, we repeated the primary causal forest
-analysis using a modified CircS definition, which excluded the
-central obesity component. In this analysis, CircS was defined
-as the presence of ≥3 out of the remaining 6 components. All
-other model specifications were kept identical to the primary
-analysis.
-2.6.5
-Extended analysis
-We conducted an extended analysis using person-specific rates of cog-
-nitive change as the outcome. For each participant, a linear regression
-model was fitted with the global cognitive score as the dependent vari-
-able and time since baseline (in years) as the independent variable. The
-individual-specific slope from this model represented the rate of cogni-
-tive change. Participants were then classified into a binary transition
-outcome: “Cognitive Decline” (slope < 0) versus “Cognitive Stability
-or Improvement” (slope ≥0). The association between CircS and this
-binary transition outcome was examined using a logistic regression
-model, adjusted for the same baseline covariates as in the primary anal-
-ysis. A causal forest analysis was subsequently performed to estimate
-the heterogeneous effects of CircS on the risk of “Cognitive Decline.”
-The above statistical analyses were conducted using SPSS 25.0 and
-R 4.4.2. A two-sided p-value < 0.05 indicated a significant result.
-3
-RESULTS
-3.1
-Population characteristics
-In the study, from the initial cohort of 17,708 participants in
-CHARLS at baseline, individuals lacking CircS information (n = 7313)
-were excluded. Subsequently, participants with cognitive impairment
-(n = 678, Figure S2 presents the age-specific corresponding cog-
-nitive impairment thresholds) or diagnosed with Parkinson’s dis-
-ease/dementia (n = 91) were also excluded. Additionally, those with
-fewer than two waves of cognitive assessment data (n = 3408) were
-removed from the analysis. Ultimately, the final analytical sample
-comprised 6218 subjects. Figure S1 illustrates the study design and
-provides a detailed flowchart of inclusion and exclusion criteria of
-participants.
-Table 1 summarizes the baseline characteristics of the included par-
-ticipants. The mean age of the sample was 57.35 years (SD = 8.65),
-with 3054 (49.1%) being male. Statistically significant differences were
-observed in the age, sex, place of residence, educational level, marital
-status, smoking and drinking history, ADL ability, BMI, history of stroke
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+and SVM-RFE algorithms highlighted six common genes: FOXO3, 
+CCND1, MAP1LC3B, HMOX1, EGFR, and MT1G (Fig. 3C). Multivariable 
+logistic regression further confirmed that FOXO3, MAP1LC3B, and 
+MT1G were positively correlated with OP, while CCND1 and HMOX1 
+were negatively correlated with OP (Fig. 3D). Internal validation con­
+ducted through bootstrap analysis showed that the model had stable 
+sensitivity and specificity (Fig. 3E–H). A nomogram was constructed to 
+visualize the model, and calibration curves indicated robust predictive 
+performance (Fig. 3I, J). DCA showed that the combination of these 
+genes outperformed the use of any single gene in enhancing clinical 
+decision-making (Fig. 3K).
+3.4. Single-cell RNA sequencing of HMOX1 in macrophages
+Single-cell RNA sequencing of OP identified macrophages, mono­
+cytes, b cells, and other subpopulations (Fig. 4A, B). Among the key 
+Table 1 
+Characteristics of the participants.
+Characteristics
+Q1
+Q2
+Q3
+Q4
+p Value
+Age (years)
+​
+61.68 ± 0.36
+53.54 ± 0.40
+48.24 ± 0.35
+43.09 ± 0.38
+< 0.0001
+Blood cadmium (ug/L)
+​
+0.58 ± 0.02
+0.55 ± 0.01
+0.55 ± 0.02
+0.51 ± 0.01
+0.01
+Sex (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+Male
+1171(30.10)
+1637(46.78)
+1849(54.73)
+2134(63.71)
+​
+​
+Female
+2212(69.90)
+1719(53.22)
+1495(45.27)
+1200(36.29)
+​
+Race (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+Black
+349(4.40)
+487(6.42)
+688(10.48)
+1071(18.37)
+​
+​
+White
+2054(80.10)
+1778(76.20)
+1550(70.89)
+1244(61.61)
+​
+​
+Mexican American
+399(4.24)
+543(6.30)
+599(8.15)
+563(9.06)
+​
+​
+Other
+581(11.26)
+548(11.08)
+507(10.48)
+456(10.97)
+​
+Marital status (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+Married/Living with Partner
+1887(60.32)
+2146(68.56)
+2175(69.67)
+2070(65.88)
+​
+​
+Never married
+255(7.39)
+330(8.66)
+491(12.92)
+713(20.51)
+​
+​
+Widowed/Divorced/Separated
+1241(32.29)
+880(22.78)
+678(17.41)
+551(13.61)
+​
+Family income-to-poverty radio (%)
+​
+​
+​
+​
+​
+< 0.001
+​
+Low income
+936(17.14)
+921(15.79)
+924(17.52)
+968(19.36)
+​
+​
+Middle income
+1387(38.27)
+1221(33.39)
+1260(32.79)
+1239(35.20)
+​
+​
+High income
+1060(44.60)
+1214(50.83)
+1160(49.69)
+1127(45.44)
+​
+Education (%)
+​
+​
+​
+​
+​
+0.02
+​
+Less Than 9th Grade
+412(5.74)
+337(4.41)
+346(5.23)
+302(5.22)
+​
+​
+9–11th Grade
+470(10.73)
+470(10.15)
+456(9.51)
+555(12.85)
+​
+​
+High School Grad/GED or Equivalent
+835(24.82)
+771(23.49)
+805(25.50)
+800(24.82)
+​
+​
+Some College or AA degree
+913(28.79)
+976(30.98)
+970(30.07)
+968(30.02)
+​
+​
+College Graduate or above
+753(29.92)
+802(30.97)
+767(29.69)
+709(27.09)
+​
+Drinking (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+Former
+648(15.94)
+574(13.60)
+520(12.86)
+447(11.46)
+​
+​
+Never
+626(14.15)
+404(9.74)
+351(8.20)
+295(7.27)
+​
+​
+Mild
+1276(43.04)
+1244(39.49)
+1156(37.89)
+1116(35.61)
+​
+​
+Moderate
+467(15.70)
+543(19.15)
+527(17.96)
+542(17.13)
+​
+​
+Heavy
+366(11.18)
+591(18.02)
+790(23.09)
+934(28.53)
+​
+Smoking (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+Former
+1017(29.49)
+1002(29.60)
+888(27.17)
+748(23.53)
+​
+​
+Never
+1722(52.78)
+1595(48.70)
+1606(48.72)
+1707(50.92)
+​
+​
+Now
+644(17.73)
+759(21.69)
+850(24.12)
+879(25.55)
+​
+Hypertension (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+No
+1503(51.59)
+1789(57.09)
+1962(60.85)
+2055(64.82)
+​
+​
+Yes
+1880(48.41)
+1567(42.91)
+1382(39.15)
+1279(35.18)
+​
+Diabetes Mellitus (%)
+​
+​
+​
+​
+​
+0.36
+​
+No
+2359(76.45)
+2417(76.79)
+2492(78.15)
+2450(76.52)
+​
+​
+IFG
+169(4.62)
+154(4.56)
+165(4.89)
+166(5.33)
+​
+​
+IGT
+183(4.38)
+128(3.19)
+118(3.62)
+128(3.97)
+​
+​
+Yes
+672(14.54)
+657(15.47)
+569(13.34)
+590(14.18)
+​
+Hyperlipidemia (%)
+​
+​
+​
+​
+​
+< 0.0001
+​
+No
+701(21.80)
+846(24.90)
+899(26.65)
+968(29.72)
+​
+​
+Yes
+2682(78.20)
+2510(75.10)
+2445(73.35)
+2366(70.28)
+​
+Note：
+Mean ± SD for continuous variables: the p-value was calculated by the weighted linear regression model. (%) for categorical variables: the p-value was calculated by 
+the weighted chisquare test.
+GED, general educational development; IFG, Impaired Fasting Glycaemia; IGT, Impaired Glucose Tolerance.
+Table 2 
+Associations between blood cadmium and BMD.
+Model 1
+Model 2
+Model 3
+Variables
+β (95 %CI)
+p Value
+β (95 %CI)
+p Value
+β (95 %CI)
+p Value
+Femoral neck BMD
+−0.011 (−0.017,−0.005)
+< 0.001
+−0.012(−0.017,−0.008)
+< 0.0001
+−0.006(−0.011,−0.001)
+0.017
+Note：
+Model 1-Unadjusted.
+Model 2-Model 1 additionally adjusted for the age, sex, race, marital status, family income-to-poverty ratio, and education.
+Model 3-Model 2 plus additional adjustment for drinking, smoking, hypertension, diabetes mellitus, and hyperlipidemia.
+BMD, bone mineral density.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+5
 
 # Page 6
 
-6 of 16
-MA ET AL.
-TABLE 1
-Baseline characteristics (described based on the presence or absence of circadian syndrome).
-Variable
-All (N = 6218)
-No CircS (N = 4079)
-CircS (N = 2139)
-p.overall
-Age (years), mean ± SD
-57.35 ± 8.65
-57.05 ± 8.67
-57.91 ± 8.59
-0.0002
-Sex, n (%)
-<0.0001
-Male sex
-3054 (49.1%)
-2254 (55.3%)
-800 (37.4%)
-Female sex
-3164 (50.9%)
-1825 (44.7%)
-1339 (62.6%)
-Residence, n (%)
-Urban
-2186 (35.2%)
-1362 (33.4%)
-824 (38.5%)
-0.0001
-Rural
-4032 (64.8%)
-2717 (66.6%)
-1315 (61.5%)
-Educational level, n (%)
-Below primary school
-4137 (66.5%)
-2641 (64.7%)
-1496 (69.9%)
-0.0002
-Secondary to vocational school
-2024 (32.6%)
-1400 (34.3%)
-624 (29.2%)
-University and above
-57 (0.9%)
-38 (0.9%)
-19 (0.9%)
-Marital status, n (%)
-Unmarried
-483 (7.8%)
-262 (6.4%)
-221 (10.3%)
-<0.0001
-Married
-5735 (92.2%)
-3817 (93.6%)
-1918 (89.7%)
-Smoking status, n (%)
-No
-3715 (59.7%)
-2267 (55.6%)
-1448 (67.7%)
-<0.0001
-Yes
-2503 (40.3%)
-1812 (44.4%)
-691 (32.3%)
-Drinking status, n (%)
-No
-3729 (60.0%)
-2311 (56.7%)
-1418 (66.3%)
-<0.0001
-Yes
-2489 (40.0%)
-1768 (43.3%)
-721 (33.7%)
-Restriction on ADL, n (%)
-No
-5453 (87.7%)
-3680 (90.2%)
-1773 (82.9%)
-<0.0001
-Yes
-765 (12.3%)
-399 (9.8%)
-366 (17.1%)
-History of stroke, n (%)
-No
-6104 (98.2%)
-4021 (98.6%)
-2083 (97.4%)
-0.0012
-Yes
-114 (1.8%)
-58 (1.4%)
-56 (2.6%)
-Heart disease, n (%)
-Yes
-620 (10.0%)
-329 (8.1%)
-291 (13.6%)
-<0.0001
-No
-5598 (90.0%)
-3750 (91.9%)
-1848 (86.4%)
-BMI (kg/m2), n (%)
-<18.5
-343 (5.5%)
-312 (7.6%)
-31 (1.4%)
-<0.0001
-18.5–23.9
-3235 (52.0%)
-2503 (61.4%)
-732 (34.2%)
-24.0–27.9
-1915 (30.8%)
-990 (24.3%)
-925 (43.2%)
-≥28.0
-725 (11.7%)
-274 (6.7%)
-451 (21.1%)
-Visual impairment, n (%)
-No
-5876 (94.5%)
-3879 (95.1%)
-1997 (93.4%)
-0.0052
-Yes
-342 (5.5%)
-200 (4.9%)
-142 (6.6%)
-Hearing impairment, n (%)
-No
-5796 (93.2%)
-3820 (93.7%)
-1976 (92.4%)
-0.0658
-Yes
-422 (6.8%)
-259 (6.3%)
-163 (7.6%)
-Hb (g/L), mean ± SD
-90.58 ± 8.53
-90.83 ± 8.63
-90.10 ± 8.31
-0.0013
-SD: standard deviation; BMI: body mass index; Hb: Hemoglobin; CircS: Circadian syndrome.
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+genes selected by machine learning, we found that HMOX1 was most 
+significantly expressed in macrophages (Fig. 4C, D). Therefore, we 
+stratified Macrophages into HMOX1-positive (HMOX1 + Macr) and 
+HMOX1-negative (HMOX1- Macr) subpopulations. HMOX1 + Macr had 
+stronger interactions with DC, B cells, NK/T cells, and monocytes 
+(Fig. 4E, S1), indicating that HMOX1 mediated intercellular communi­
+cation. Notably, ANXA1 and MIF signaling pathways were enriched in 
+HMOX1 + Macr, potentially driving macrophage polarization. Path­
+ways such as LGALS9 and TNFSF13B suggested their involvement in 
+immune regulation (Fig. 4F). Pathway analysis highlighted increased 
+activity of pathways such as SPP1, ANNEXIN, and GRN in 
+HMOX1 + Macr (Fig. 4G). HMOX1 + Macr had higher incoming and 
+outgoing interaction strength (Fig. 4H). This indicated that HMOX1 may 
+regulate the function of macrophages and affect their interactions with 
+other cells. Notably, similar to cell communication, GSEA also found 
+that HMOX1 + Macr was associated with the upregulation of M2 
+macrophage polarization (Fig. 4I). These results suggested that HMOX1 
+was closely related to the function and intercellular interactions of 
+macrophages and affected macrophage polarization.
+3.5. Drug-target MR study between HMOX1 and OP
+3.5.1. Preliminary analysis
+To further explore the potential role of HMOX1 in OP, we performed 
+Drug-target MR. After excluding SNPs using strict criteria, we selected 
+IVs that met the standards. The F-values of all IVs were greater than 10, 
+Fig. 2. Network Toxicology for Cadmium and OP. (A)Target genes between cadmium and OP. (B)Enrichment results of GO and KEGG. The circle size reflects the 
+proportion of cells expressing each gene, and the color intensity indicates the level of gene expression. (C)The PPI network for target genes. Greater importance is 
+represented by a darker color. (D)Boxplots showing the expression levels of target genes in the OP and control (CT) groups. Significance is indicated as follows: 
+*p < 0.05, **p < 0.01, ***p < 0.001 and **** p < 0.0001. (E)Volcano plot of target genes. Upregulation is represented in red, while downregulation is shown in blue. 
+(F)Heatmap of target genes. Upregulation is represented in orange, while downregulation is shown in blue. (G)Correlation analysis of the expression levels of target 
+genes. Strong positive correlations are shown in darker red, and strong negative correlations are shown in darker blue.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+6
 
 # Page 7
 
-MA ET AL.
-7 of 16
-FIGURE 1
-UpSet plot displaying the frequency and combinations of the seven components defining circadian syndrome (Sleep↓, reduced
-sleep duration; Glu↑, elevated fasting blood glucose; HDL↓, reduced high-density lipoprotein; TG↑, elevated triglycerides; BP↑, hypertension; CO,
-central obesity).
-and heart disease, Visual impairment, and hemoglobin levels between
-participants with and without CircS.
-The co-occurrence patterns of the seven CircS components are pre-
-sented in Figure 1. The most frequent combinations involved central
-obesity with other metabolic components, while the combination of
-reduced sleep duration and depressive symptoms co-occurred in a
-distinct subgroup.
-Figure S3 presents the distribution of global cognitive scores at
-baseline.
-3.2
-Estimated cognitive aging trajectories
-We evaluated the optimal number of cognitive function trajectories
-necessary to account for the variability in global cognitive scores within
-this population (refer to Table S1). The BIC was lowest for the model
-comprising four trajectories (BIC = 96,886.26); however, the average
-posterior probability for this model was below 0.7. Consequently, we
-determined that the GBTM approach with three trajectories was the
-most suitable. Figure 2 illustrates three longitudinal patterns of cogni-
-tive function, categorized by current age at each assessment, based on
-global cognitive scores: Class 1, “Persistently High” (n = 2505, 40.29%);
-Class 2, “Persistently Moderate” (n = 2722, 43.78%); and Class 3, “Per-
-sistently Low” (n = 991, 15.93%). The trajectories for cognitive function
-domains are presented in the Figure S4.
-FIGURE 2
-Mean trajectories of global cognitive scores by
-increasing age among participants.
-3.3
-Trajectory sub-population characteristics
-As illustrated in Table S2, the baseline characteristics are pre-
-sented in accordance with global cognitive trajectories. A range
-of significant statistical differences were identified in the age,
-gender, place of residence, educational attainment, marital status,
-smoking history, drinking history, ADL ability, BMI, hearing impair-
-ment, and visual impairment among the three cognitive trajectory
-groups.
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+indicating that there were no weak instrumental variables (Table S2-S5). 
+We found that HMOX1 increased FN BMD (β=0.0399, 95 % CI: 
+0.0076–0.0722, p = 1.54E-02) and acted as a protective factor for OP 
+(OR=0.9989, 95 % CI: 0.9979–0.9998, p = 2.32E-02), which was 
+consistent with the results of multivariable logistic regression.
+3.5.2. Replication and meta-analysis
+We performed the analysis in the replication cohort in the same 
+manner to increase the stability of the results (Table S6, S7). We also 
+found that HMOX1 is a protective factor for OP (OR=0.9986, 95 % CI: 
+0.9974–0.9997, p = 1.46E-02). The study results showed no heteroge­
+neity or pleiotropy (Table S8, S9). Leave-one-out analysis, scatter plots, 
+and funnel plots supported the robustness of the MR estimates 
+(Fig. 5A–I). Meta-analysis further revealed that HMOX1 is a protective 
+factor for OP (Fig. 5J). These results further suggest from a genetic 
+perspective that HMOX1 may have a potential protective role in OP.
+3.6. Candidate drug prediction
+3.6.1. Molecular docking
+Based on the results of the drug enrichment analysis, we found that 
+geniposide can target HMOX1. Geniposide and HMOX1 were selected 
+for docking, with a binding energy of −6.9 (kcal/mol), suggesting a 
+good docking result. Hydrogen bonds indicate the binding strength be­
+tween the ligand and the protein. Geniposide and HMOX1 formed 
+hydrogen bonds with HIS-25, TYR-134, SER-142, LYS-179, and ARG- 
+183. These interactions formed the basis for the binding of the small 
+molecule and the protein (Fig. 6A).
+3.6.2. Molecular dynamics simulations
+To further improve the accuracy of the simulation, we performed 
+molecular dynamics simulations based on molecular docking to capture 
+the dynamic behavior and stability of the complex more precisely. We 
+found that the complex reached a stable state after 20 ns, with the root 
+mean square deviation (RMSD) fluctuation range smaller than 1 Å, 
+indicating good stability of the complex (Fig. 6B). The root mean square 
+fluctuation (RMSF) showed an overall fluctuation range between 0.5 Å 
+Fig. 3. Machine Learning Identifies Key Genes. (A) The curve illustrates the error rate of the Random Forest model as the number of decision trees increases. The x- 
+axis represents the number of trees, while the y-axis denotes the corresponding error. (B) Ranking of gene importance in the Random Forest model based on the 
+decrease in the Gini index. (C) Venn diagram indicating that the key genes FOXO3, CCND1, MAP1LC3B, HMOX1, EGFR and MT1G are identified in both the SVM 
+model and the Random Forest model. (D) Odds ratios (OR) and 95 % confidence intervals for the key genes, demonstrating the strength of their association with the 
+model. (E) Internal validation of the model using the receiver operating characteristic (ROC) curve, with an area under the curve (AUC) of 0.883. (F) Distribution of 
+the AUC values for the model. (G) Sensitivity analysis of the AUC curve. (H) Specificity analysis of the AUC curve. (I) Nomogram displaying the contribution of 
+FOXO3, CCND1, MAP1LC3B, HMOX1, EGFR and MT1G to the total risk score, used for outcome prediction. (J) Calibration curve comparing the predicted proba­
+bilities with the observed outcomes, with the mean absolute error reflecting the calibration accuracy of the model. (K) Decision curve analysis (DCA) of the key genes 
+(FOXO3, CCND1, MAP1LC3B, HMOX1, EGFR and MT1G), demonstrating that the combination of these genes outperforms individual genes in improving clinical 
+decision-making.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+7
 
 # Page 8
 
-8 of 16
-MA ET AL.
-TABLE 2
-Multinomial logistic regression analysis for the associations of CircS with the membership to cognitive function trajectory group.
-Persistently low (vs. persistently high)
-Persistently moderate (vs. persistently high)
-OR (95% CI)*
-p value
-OR (95% CI)*
-p value
-Global cognitive scores
-Crude model
-1.40[1.20–1.63]
-<0.001
-1.08[0.96–1.21]
-0.189
-Adjusted model*
-1.27[1.06–1.52]
-0.009
-1.10[0.97–1.26]
-0.132
-Mental intactness scores
-Crude model
-1.31[1.11–1.55]
-0.002
-1.14[1.02–1.28]
-0.026
-Adjusted model*
-1.18[0.97–1.43]
-0.099
-1.09[0.96–1.25]
-0.195
-Episodic memory scores
-Crude model
-1.21[1.02–1.43]
-0.027
-1.10[0.95–1.28]
-0.209
-Adjusted model*
-1.28[1.06–1.55]
-0.012
-1.14[0.96–1.35]
-0.135
-95%CI: 95% confidence interval;
-*Adjusted for age at baseline (continuous), gender (male, female), education (primary school or below, junior high school to high school, undergraduate or
-above), marital status (married, unmarried), residence (urban, rural), smoking (yes, no), drinking (yes, no), body mass index (<18.5, 18.5–23.9, 24.0–27.9,
-≥28.0 kg/m2), restriction on activities of daily living (yes, no), visual impairment (yes, no), hearing impairment (yes, no), stroke (yes, no), heart disease (yes, no),
-and hemoglobin (continuous).
-3.4
-Associations between CircS and cognitive
-trajectories
-The distribution of cognitive trajectories, stratified by CircS status, is
-depicted in Figure S5. A chi-square test revealed a significant asso-
-ciation between CircS status and cognitive trajectory membership
-(p < 0.001). Visually, individuals with CircS were proportionally more
-likely to belong to the “Persistently Low” trajectory and less likely to
-belong to the “Persistently High” trajectory compared to those with-
-out CircS. This preliminary unadjusted association necessitated further
-investigation using multivariable-adjusted models.
-Table 2 presents the findings from the multinomial regression
-analysis examining the association between CircS and cognitive tra-
-jectory membership. Compared to participants without CircS, adults
-with CircS exhibited poorer cognitive trajectories, with multivariable-
-adjusted OR and 95% CI for the “Persistently Low” trajectories of
-global cognitive function being 1.27 [1.06–1.52]. Similarly, adults with
-CircS demonstrated worse cognitive trajectories, with multivariable-
-adjusted OR (95% CI) for the “Persistently Low” trajectories of episodic
-memory being 1.28 [1.06–1.55].
-Comprehensive analyses of interactions identified several signifi-
-cant effect modifiers across various cognitive domains and trajectory
-comparisons. In terms of global cognitive trajectories, significant inter-
-actions were detected between CircS and education level (p = 0.0276)
-in the comparison between “persistently low” and “persistently high”
-trajectories, as well as between CircS and drinking status (p = 0.0167)
-in the comparison between “persistently moderate” and “persistently
-high” trajectories (see Figure 3). Regarding domain-specific trajecto-
-ries, episodic memory (refer to Figure S6) exhibited significant inter-
-actions with drinking status (p = 0.0337) and heart disease (p = 0.04)
-in the comparison between “persistently low” and “persistently high”
-trajectories, while mental intactness (refer to Figure S7) showed a sig-
-nificant interaction with heart disease (p = 0.0309) in the comparison
-between “persistently moderate” and “persistently high” trajectories.
-These findings indicate that the cognitive effects of CircS are influ-
-enced by distinct factors depending on the specific cognitive domain
-and the severity of the trajectory.
-3.5
-Casual forest analysis
-We employed causal forest analysis to estimate the HTEs of CircS on
-distinct cognitive trajectories. The analysis included 6218 participants
-with 2139 individuals diagnosed with CircS and 4079 controls.
-3.5.1
-ATEs
-The ATE of CircS varied across different cognitive trajectories
-(Figure 4A). For the persistently low cognitive trajectory, the ATE was
-0.029 (95% CI: 0.007–0.051), indicating a statistically significant asso-
-ciation. The persistently moderate cognitive trajectory showed an ATE
-of −0.002 (95% CI: −0.031 to 0.028), while the persistently high cog-
-nitive trajectory demonstrated an ATE of −0.029 (95% CI: −0.057 to
-−0.002).
-3.5.2
-Heterogeneity of treatment effects
-Substantial heterogeneity in ITEs was observed in persistently low
-cognitive trajectory (Figure 4A). The standard deviation of ITEs for per-
-sistently low cognitive trajectory was 0.0247, ranging from −0.0639 to
-0.1063. The standard deviation of ITEs for persistently moderate cog-
-nitive trajectory was 0.0429, ranging from −0.1994 to 0.1478 (Figure
-S8). The standard deviation of ITEs for persistently high cognitive
-trajectory was 0.0431, ranging from −0.2279 to 0.1454 (Figure S8).
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+and 2 Å, with two distinct peaks between residues 0–50, indicating 
+higher activity, but no significant conformational changes occurred 
+(Fig. 6C). The radius of gyration (RoG) fluctuation was also stable, 
+further indicating the compact structure of the complex (Fig. 6D). The 
+binding energy calculated using the molecular mechanics generalized 
+born surface area (MM-GBSA) method was −22.78 (kcal/mol) (Table 3). 
+The top ten amino acids contributing to the binding of the protein-ligand 
+complex are shown in Fig. 6E. The docking complex exhibited a stable 
+hydrogen bond pattern (Fig. 6F). Additionally, we extracted the complex 
+conformations at every 10 ns interval during the 0–100 ns process 
+(Figure S2). In conclusion, our results showed that the complex 
+exhibited minimal conformational changes during the simulation and 
+remained stable, indicating that geniposide has the potential to target 
+and bind to HMOX1.
+4. Discussion
+This study aimed to elucidate the key role and biological mechanisms 
+of cadmium exposure in the pathogenesis of OP. Through a cross- 
+sectional study of NHANES, we found a significant negative correla­
+tion between blood cadmium and BMD. Network toxicology was per­
+formed by integrating the CTD and GEO, and a PPI network was 
+constructed. Key genes were further identified through machine 
+learning, and their expression in specific cells was observed using single- 
+cell sequencing analysis. We found that the expression of HMOX1 was 
+significant in macrophages. Cell communication analysis revealed that 
+HMOX1 + Macr had higher communication activity. It was found that 
+HMOX1 + Macr were associated with the upregulation of M2 macro­
+phage polarization through GSEA. MR demonstrated the potential pro­
+tective effect of HMOX1 in OP at the genetic level. Furthermore, 
+molecular docking and molecular dynamics simulations showed that 
+geniposide could specifically target and bind to HMOX1, offering 
+Fig. 4. Single-cell RNA sequencing Analysis of Key Genes in OP. (A)UMAP plot of different cell clusters, indicated by various colors. (B)Single-cell annotation in­
+formation. (C)Expression differences of key genes (FOXO3, CCND1, MAP1LC3B, HMOX1, EGFR and MT1G) in different cell types. The size of the circles represents 
+the proportion of cells expressing the gene, while the color intensity indicates expression levels. (D)Expression of HMOX1 in UMAP plot.The color intensity indicates 
+the density. (E)Left panel: the quantity of interactions between various cell types, with thicker lines represent a higher number of interactions. Right panel: the 
+intensity of communication between cell types, with thicker lines signifying stronger interactions. (F)Communication probability and signaling pathways between 
+HMOX1 + and HMOX1- Macr and other cell types. Red indicates higher probability, blue indicates lower probability, and larger circles indicate smaller P-value. (G) 
+Signaling patterns divided into outgoing and incoming categories. Darker colors indicate higher relative signaling strength, while lighter colors indicate lower 
+relative strength. (H)Comparison of interaction strength. The x-axis represents the outgoing interaction strength, and the y-axis represents the incoming interaction 
+strength. The color indicates cell types and the size of the circles represents the strength. (I) GSEA of differential genes between the HMOX1 + and HMOX1- Macr. 
+Score > 0 indicates that HMOX1 + Macr are associated with upregulation of pathway.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+8
 
 # Page 9
 
-MA ET AL.
-9 of 16
-FIGURE 3
-Stratified analysis of the association between circadian syndrome and global cognitive trajectory membership across all covariates,
-with interaction p-values.
-FIGURE 4
-Heterogeneous treatment effects of circadian syndrome on cognitive trajectories: (A) causal forest analysis of circadian syndrome
-effects on cognitive trajectories; (B) the predictive impact of circadian syndrome on persistently low cognitive trajectories and its relationship with
-age, hemoglobin level, ADL ability, hearing impairment, and body mass index.
-3.5.3
-Variable importance in treatment effect
-heterogeneity
-Variable importance analysis identified key moderators of treatment
-effect heterogeneity for persistently low cognitive trajectory risk
-(Figure 4A). The most influential variables were: (1) Hemoglobin
-(Hb)—Importance score: 0.287; (2) Age—Importance score: 0.252; (3)
-BMI—Importance score: 0.236; (4) ADL—Importance score: 0.058; (5)
-Hearing impairment (Deaf)—Importance score: 0.030. These variables
-accounted for the majority of heterogeneity in how CircS affects cog-
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+potential directions for intervention therapy.
+Cadmium is a commonly found toxic heavy metal in the environ­
+ment, and it has been shown to be closely related to decreased BMD and 
+the onset of OP. Based on the representative sample in NHANES, we 
+found a significant negative correlation between blood cadmium and FN 
+BMD, but the biological mechanisms behind this process remain unclear, 
+with inflammation being a widely discussed factor. An observational 
+study based on electroplating workers found that serum levels of IL-6 
+and TNF-α were significantly higher in the cadmium exposure group 
+compared to the non-exposure group, suggesting that cadmium 
+exposure is closely related to inflammation (Ramadan and Saif Eldin, 
+2022). Cadmium exposure depletes glutathione (GSH) and disrupts the 
+binding of NRF2 with the ARE (Chou and Tsai, 2023). A study has shown 
+that cadmium exposure induces oxidative stress in osteoblasts by 
+inhibiting the NRF2/NQO1 pathway (Jia et al., 2023). In the absence of 
+NRF2, L-NRF1 is compensatorily upregulated, which subsequently in­
+creases the expression of NFATc1, a critical transcription factor in 
+osteoclast differentiation (Liu et al., 2024). The overexpression of 
+NFATc1 enhances RANKL expression and activates NF-κB, thus pro­
+moting osteoclastogenesis. HMOX1 has been shown to alleviate this 
+Fig. 5. Durg-target MR and Meta analysis. (A)Leave−one−out plot of HMOX1 on FNBMD. (B)Scatter plot of HMOX1 on FNBMD. (C)Forest plot of HMOX1 on 
+FNBMD. (D)Leave−one−out plot of HMOX1 on OP in the preliminary analysis. (E)Scatter plot of HMOX1 on OP in the preliminary analysis. (F)Forest plot of HMOX1 
+on OP in the preliminary analysis. (G)Leave−one−out plot of HMOX1 on OP in the replication analysis. (H)Scatter plot of HMOX1 on OP in the replication analysis. 
+(I)Forest plot of HMOX1 on OP in the replication analysis. (J)Meta analysis of different OP cohorts.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+9
 
 # Page 10
 
-10 of 16
-MA ET AL.
-nitive decline risk. Variable importance analysis also identified key
-moderators of treatment effect heterogeneity for persistently mod-
-erate and high cognitive trajectories. The top three variables were
-similarly BMI, Hb, and Age (see Figure S8).
-3.5.4
-Relationship between predicted treatment
-effects and individual characteristics
-The analysis of HTEs revealed distinct patterns between predicted
-effect of CircS and key individual characteristics for persistently low
-cognitive trajectory (Figure 4B). The visualization clearly demarcated
-high-effect (predicted risk increase > 0) and low-effect (predicted risk
-increase ≤0) subgroups across all covariate distributions.
-A moderate negative correlation was observed between age and
-treatment effects (r = −0.33), indicating that older individuals derived
-significantly less treatment effects from CircS. The treatment effects
-showed a clear decreasing trend with advancing age, with the high-
-est treatment effects observed in younger participants. While the
-simple linear correlation between Hb and the CircS effect was negli-
-gible (r = 0.01), the causal forest model, capable of capturing complex,
-nonlinear dependencies, identified Hb as the most important modera-
-tor (variable importance score: 0.287). This apparent discrepancy was
-resolved by visualizing the relationship, which uncovered a distinct
-U-shaped pattern. Specifically, the treatment effects of CircS on persis-
-tently low cognitive trajectory were most pronounced for individuals
-with Hb levels concentrated in a mild-anemia range (approximately
-95 g/L), whereas those at both the lower and upper extremes of the
-Hb distribution exhibited relative resilience. This nonlinear pattern
-underscores that Hb remains a variable of paramount importance
-in moderating the cognitive impact of CircS, even in the absence
-of a strong linear association, and highlights a specific “metabolic-
-vulnerable” phenotypic window at middling Hb levels. A weak negative
-correlation emerged between ADL, hearing impairment and influence
-(r = −0.05), with a slight tendency for individuals without ADL ability
-or with hearing impairment to experience greater treatment effects
-against cognitive decline. A weak positive correlation was observed
-between BMI and the ITE of CircS (r = 0.07), suggesting a tendency
-for individuals with a higher BMI to experience a slightly greater detri-
-mental effect from CircS on the risk of a persistently low cognitive
-trajectory.
-Supplementary analyses examined the heterogeneity of CircS
-effects on the “persistently moderate” and “persistently high” cognitive
-trajectories (Figure S9). Interpretation of the “persistently moderate”
-trajectory was limited, as it was defined relative to both the high
-and low trajectory classes. For the “persistently high” trajectory, the
-moderating effect of age was minimal (r = −0.02), indicating that
-the adverse association between CircS and maintaining high cogni-
-tive function was largely consistent across the studied age range. Hb
-exhibited a near U-shaped relationship with the CircS effect, with peak
-susceptibility observed around 95 g/L, consistent with findings from
-the low-trajectory analysis. BMI also showed a U-shaped moderating
-effect, with the strongest negative effect of CircS on maintaining a
-high trajectory occurring at approximately 24 kg/m2. While this pat-
-tern is not fully aligned with the low-trajectory results, it underscores
-the importance of maintaining a normal BMI for cognitive health.
-3.5.5
-Robustness and calibration
-Model calibration tests confirmed adequate fit for all three cognitive
-trajectories. The heterogeneity coefficients were 1.01 (p = 0.01) for the
-persistently low cognitive trajectory, 0.82 (p = 0.24) for the persistently
-moderate cognitive trajectory, and 0.98 (p = 0.01) for the persistently
-high cognitive trajectory. Sensitivity analyses using reduced tree num-
-bers (5000 trees) yielded consistent results, with ATE differences of
-0.0001, 0.0007, and 0.0005 for the low, moderate, and high cognitive
-trajectories, respectively.
-3.6
-Sensitivity analysis
-3.6.1
-IPW
-The IPW analysis demonstrated adequate covariate balance after
-weighting, with all standardized mean differences below 0.1 (Figure
-S10). The distribution of inverse probability weights showed appropri-
-ate specification with minimal extreme weights (Figure S11).
-In the weighted analysis, the association between CircS and cogni-
-tive trajectories remained consistent with our primary findings. For the
-low versus high trajectory comparison, the weighted OR was 1.31 (95%
-CI: 1.08–1.56). For the moderate versus high trajectory comparison,
-the weighted OR was 1.09 (95% CI: 0.96–1.25). The distribution of cog-
-nitive trajectories before and after weighting demonstrated successful
-balancing of the study population (Figure S12).
-These IPW results confirm the robustness of our primary multino-
-mial logistic regression findings, providing additional evidence for the
-association between CircS and unfavorable cognitive trajectories.
-3.6.2
-LMMs
-The sensitivity analysis using LMMs revealed distinct patterns of cog-
-nitive decline associated with CircS status over time (Figure S13). We
-observed significant interaction effects between CircS and age for both
-global cognitive scores (β = −0.02, p = 0.003) and episodic memory
-(β = −0.01, p = 0.02), indicating that the presence of CircS was asso-
-ciated with an accelerated rate of cognitive decline in these domains as
-age increased.
-In contrast, no significant interaction was found between CircS and
-age for mental intactness scores (β = −0.01, p = 0.054), suggesting that
-the decline in this cognitive domain might follow a similar trajectory
-regardless of CircS status.
-Visual inspection of the predicted trajectories clearly demonstrates
-that participants with CircS (red line) exhibited steeper declines in
-globalcognitionandepisodicmemorycomparedtothosewithoutCircS
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+process (Tan et al., 2022). It is important to note that activated NF-κB 
+also promotes the expression of NFATc1, establishing a positive feed­
+back loop that further accelerates osteoclast differentiation, with reac­
+tive oxygen species (ROS) playing a crucial role in this mechanism. Even 
+low levels of cadmium exposure (blood cadmium <2.40 μg/L) may 
+disrupt redox balance by reducing antioxidant enzyme activity and 
+increasing lipid peroxidation, leading to an increase in ROS, oxidative 
+stress, activation of NF-κB and IL-8 release, and induction of IL-6 and 
+TNF-α release (Freitas and Fernandes, 2011; Goyal et al., 2021). To 
+further explore its specific mechanisms in OP, we conducted network 
+toxicology and identified 24 key genes. Enrichment analysis also 
+revealed that these genes were closely related to NF-κB signaling, in­
+flammatory response, and oxidative phosphorylation in OP. Further 
+single-cell sequencing analysis revealed that HMOX1 was most signifi­
+cant in macrophages.
+HMOX1 is a key enzyme involved in heme catabolism and can pro­
+duce biliverdin and carbon monoxide (Naito et al., 2014). HMOX1 is 
+induced under the stimulation of various stressors, such as oxidative 
+stress and inflammatory cytokines. NRF2 dissociates from KEAP1 in 
+response to stress stimuli, translocates to the nucleus, and interacts with 
+small musculoaponeurotic fibrosarcoma (sMAF) proteins to recognize 
+and bind the ARE sequence, thereby positively promoting the tran­
+scription of HMOX1 (Che et al., 2021). Cells lacking HMOX1 exhibit 
+increased sensitivity to oxidative damage (Tanaka et al., 2011). NRF2 
+activators have been utilized to enhance HMOX1 activity, thus main­
+taining redox homeostasis. BACH1 has been shown to compete with 
+NRF2 for binding to the HMOX1 promoter region, inhibiting its 
+expression and negatively regulating the NRF2 signaling pathway. 
+NF-κB plays a crucial role in bone metabolism; its activation inhibits 
+osteoblast differentiation and promotes osteoclastogenesis, thereby 
+accelerating bone resorption. HMOX1 and its metabolites inhibit the 
+NF-κB signaling pathway through several mechanisms. CO and bili­
+verdin, produced during heme metabolism, play key roles in this pro­
+cess. CO inhibits RANKL-induced osteoclast differentiation by 
+suppressing the ROS/IKK/NF-κB signaling pathway (Bak et al., 2017). 
+Additionally, CO interferes with TLR4 transport and restricts the trans­
+location of NF-κB to the nucleus (Watabe et al., 2025). CO also induces 
+p65 S-glutathionylation, leading to NF-κB inactivation (Yeh et al., 
+2014). CO can activate the NRF2 signaling pathway, induce HMOX1 
+expression, create a positive feedback loop, and promote M2 polariza­
+tion in macrophages (Jin et al., 2022). Biliverdin is converted to bili­
+rubin by biliverdin reductase; both compounds participate in ROS 
+clearance and inhibit oxidative stress-induced NF-κB activation (Huang 
+et al., 2022). Both biliverdin and bilirubin suppress IL-18-mediated 
+NF-κB activation, and bilirubin further inhibits NF-κB pathway activa­
+tion by blocking p65 phosphorylation (Li et al., 2020; Zabalgoitia et al., 
+2008). The schematic diagram of the signaling pathways is shown in 
+Fig. 7. HMOX1 has anti-inflammatory protective effects, and the absence 
+of HMOX1 leads to elevated levels of circulating inflammatory markers 
+such as TNF-α (Chudy et al., 2024). Pre-treatment with CO or bilirubin 
+significantly reduces IL-1B release from macrophages, suggesting the 
+potential role of HMOX1 in inflammatory regulation (Vitali et al., 2020). 
+Activation of the NRF2/HMOX1 pathway can effectively improve 
+inflammation and cell apoptosis induced by heavy metal mixtures 
+(Eddie-Amadi et al., 2022). HMOX1 can inhibit the activity of iNOS 
+(inducible nitric oxide synthase) in macrophages and is associated with 
+an anti-inflammatory macrophage phenotype (Townsend et al., 2014). 
+Fig. 6. Molecular Docking and Molecular Dynamic Simulation between Geniposide and HMOX1. (A)Binding mode of geniposide and HMOX1. The left panel shows 
+the overall binding pose, while the right panel illustrates the interaction details with residues. The blue lines represent hydrogen bonds, and the yellow dashed lines 
+indicate salt bridges. B-D) RMSD, RMSF, Rog of the complex. Smaller fluctuations suggest a more stable structure. (E)The top 10 residues contributing to the binding 
+affinity of the complex. (F)Variation in the number of hydrogen bonds of the complex during molecular dynamics simulations.
+Table 3 
+Binding free energies and energy components predicted by 
+MM/GBSA (kcal/mol).
+System name
+Geniposide/HMOX1
+ΔEvdw
+−27.23 ± 2.19
+ΔEelec
+−11.92 ± 4.21
+ΔGGB
+20.18 ± 4.16
+ΔGSA
+−3.80 ± 0.25
+ΔGbind
+−22.78 ± 2.82
+ΔEvdW: van der Waals energy.
+ΔEelec: electrostatic energy.
+ΔGGB: electrostatic contribution to solvation.
+ΔGSA: non-polar contribution to solvation.
+ΔGbind: binding free energy.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+10
 
 # Page 11
 
-MA ET AL.
-11 of 16
-FIGURE 5
-Dose–response relationships between continuous circadian syndrome score and global cognitive trajectory.
-(blue line). This pattern was consistent with our primary analyses using
-trajectory modeling.
-3.6.3
-Continuous CircS score analysis
-When analyzing CircS as a continuous variable, we observed differ-
-ences from the primary binary analysis (Table S3). For the low versus
-high trajectory comparison, each one-unit increase in the CircS score
-was associated with a 16% increase in odds (adjusted OR = 1.16, 95%
-CI: 1.05–1.18), consistent with the direction of our primary analysis but
-suggesting a more graded dose–response relationship.
-Importantly, for the moderate versus high trajectory comparison,
-the continuous analysis did not reveal a statistically significant associ-
-ation in the primary binary analysis. Each unit increase in CircS score
-was associated with a 7% increase in odds of belonging to the mod-
-erate versus high trajectory (adjusted OR = 1.07, 95% CI: 1.03–1.11).
-This finding suggests that the binary classification of CircS may have
-limited sensitivity to detect more subtle associations with intermediate
-cognitive outcomes, and that circadian dysregulation operates along a
-continuum in its relationship with cognitive trajectories (Figure 5).
-3.6.4
-Sensitivity analysis with additional covariates
-After adjusting for additional covariates, the associationbetweenCircS
-and the “persistently low” global cognitive trajectory remained signif-
-icant, with an adjusted odds ratio of 1.31 (95% CI: 1.09–1.57; Table
-S4). In the causal forest analysis, the ATE of CircS on the “persistently
-low” trajectory was 0.0312 (95% CI: 0.0111–0.0513) [Table S5]. The
-distributions of ITEs are detailed in Table S5 and Figure S14. Variable
-importance analysis (Figure S14) identified Hb, BMI, and age as the
-top three moderators for the “persistently low” trajectory, consistent
-with the primary analysis. Physical activity emerged as the fourth most
-important variable. The relationships of predicted ITEs with Hb, BMI,
-and age in “persistently low” trajectory (Figure S15) remained simi-
-lar to those in the primary analysis. A weak positive correlation was
-observed between physical activity and the ITEs in in “persistently low”
-trajectory (r = 0.09).
-3.6.5
-Sensitivity analysis using multiple imputation
-To evaluate the potential influence of selection bias due to missing
-baseline CircS data, analyses were repeated using multiple imputation.
-The trajectory patterns identified in the imputed data were similar to
-the primary analysis (Figure S16). In the adjusted multinomial logis-
-tic regression model, CircS remained associated with the “persistently
-low” global cognitive trajectory (adjusted OR = 1.13, 95% CI: 1.01–
-1.26; Table S6). Results from the causal forest analysis on the imputed
-data are summarized in Table S7. The ATE of CircS on the “persistently
-low” trajectory was 0.0209 (95% CI: 0.0096–0.0322).
-Variable importance analysis (Figure S17) indicated that age, Hb,
-and BMI remained the three most influential moderators of the CircS
-effect across trajectories. The relationships between predicted ITEs
-and Hb and BMI in “persistently low” global cognitive trajectory (Figure
-S18) were consistent with the primary findings. However, the relation-
-ship with age differed, exhibiting a U-shaped pattern in the imputed
-data, with higher treatment effects observed in both younger and older
-individuals.
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Other research further revealed that HMOX1 not only promotes 
+macrophage polarization towards the M2 subtype but also suppresses 
+pro-inflammatory responses, stimulates IL-10 secretion, and boosts the 
+antioxidant capacity of macrophages (Lv et al., 2023). HMOX1 expres­
+sion was positively correlated with M2 polarization-related markers and 
+could serve as a therapeutic strategy to enhance M2 polarization (Ye 
+et al., 2021). Regulating the M2/M1 macrophage ratio under the NF-κB 
+pathway and inhibiting oxidative stress through the NRF2/HMOX1 
+pathway could effectively alleviate periodontitis and promote new bone 
+formation (Yin et al., 2025). This is similar to our findings. We found 
+that HMOX1 + Macr was associated with the upregulation of M2 
+macrophage polarization, while HMOX1 was downregulated in OP, 
+suggesting that macrophages under cadmium exposure may have 
+stronger pro-inflammatory characteristics, which means that cadmium 
+exposure may promote bone metabolic imbalance and exacerbate OP 
+progression by regulating macrophage polarization.
+HMOX1, as a potential target, plays an important regulatory role in 
+the occurrence and progression of various diseases. A multi-omics study 
+suggested that HMOX1 could be a drug target for upper and lower res­
+piratory diseases (Wang et al., 2025). However, its role in OP remains 
+unclear. We found that HMOX1 has a protective effect in OP through 
+drug-target MR. Further molecular docking showed that geniposide can 
+target and bind to HMOX1, and molecular dynamics simulations 
+confirmed the stability of the binding. Geniposide, an iridoid glycoside 
+derived from the fruit of Gardenia jasminoides (Xiaofeng et al., 2012), 
+has garnered attention for its potential role in the prevention and 
+treatment of OP. Research has demonstrated that geniposide enhances 
+the expression of NRF2 and HMOX1, reducing cadmium-induced 
+oxidative stress damage in osteoblasts (He et al., 2019). The 
+NF-κB/HIF-1α signaling pathway mediated by HMOX1 exerts 
+anti-inflammatory effects (Jin et al., 2021). Upregulating HMOX1 
+through the PI3-kinase-JNK-1/2-Nrf2 pathway can enhance the 
+anti-inflammatory capacity of macrophages (Jeon et al., 2011). This is 
+similar to our findings. In summary, geniposide may regulate bone 
+metabolism by inhibiting inflammation, with targeting HMOX1 being 
+one of its key mechanisms of action.
+Our study presents several limitations that warrant consideration. 
+Firstly, this study used multi-omics analysis to explore the key role of 
+HMOX1 in cadmium exposure. These results suggest correlational, 
+rather than definitive causal, regulatory relationships. Inflammatory 
+responses, M2 macrophage polarization, and other factors exhibit 
+complex interactions in cadmium-induced OP, and their biochemical 
+dynamics require further experimental and systems biology exploration. 
+Secondly, the population in the MR study was focused on the European 
+population, so extrapolating these findings to populations with other 
+genetic backgrounds, such as Asians, should be done with caution. 
+Additionally, computational predictions cannot fully capture the 
+complexity of biological systems, and the anti-inflammatory activity of 
+geniposide in OP still requires multi-level validation. These limitations 
+highlight the need for caution in interpreting our findings and under­
+score the importance of complementary studies to validate and expand 
+upon our conclusions.
+In summary, this study explored the potential mechanisms of 
+cadmium-induced OP through multi-omics analysis and identified po­
+tential drug targets. The study covered cross-sectional analysis, network 
+toxicology, bioinformatics, single-cell sequencing analysis, and drug- 
+target MR, providing multidimensional support and enhancing the 
+reliability of the results. We found that cadmium exposure is a signifi­
+cant risk factor for osteoporosis, HMOX1 may exert a protective effect by 
+regulating M2 macrophage polarization, and geniposide can target and 
+bind to HMOX1. Our findings not only deepened the understanding of 
+bone loss under cadmium exposure but also provided insights for future 
+drug interventions.
+Abbreviation
+Osteoporosis OP
+National Health and Nutrition Examination Survey NHANES
+Gene Set Enrichment Analysis GSEA
+Mendelian randomization MR
+Swedish cohort of the Osteoporotic Fractures in Men Study MrOS
+bone mineral density BMD
+Femoral neck bone mineral density FN BMD
+Dual-energy X-ray absorptiometry DXA
+Fig. 7. Summary diagram of HMOX1-mediated regulation of cadmium-induced OP via NF-κB and NRF2 signaling pathways. Cadmium exposure induces oxidative 
+stress by promoting the production of ROS, which activate the NF-κB signaling pathway and trigger inflammatory responses. ROS promote the release of NRF2 from 
+KEAP1, facilitating its translocation into the nucleus, where it binds to ARE and initiates the transcription of HMOX1. HMOX1 catalyzes the degradation of heme into 
+CO and biliverdin, both of which collaboratively modulate oxidative stress. CO inhibits NF-κB activity by regulating TLR4 and the S-glutathionylation of p65. 
+Biliverdin is further reduced to bilirubin, which suppresses NF-κB activation by downregulating p65 phosphorylation and IL-18. Cadmium exposure inhibits the 
+NRF2/NQO1 pathway, impairs the antioxidant defense response, and facilitates osteoclastogenesis via the NFATc1/RANKL axis, thereby exacerbating OP. 
+Figure created with BioRender (http://biorender.com).
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+11
 
 # Page 12
 
-12 of 16
-MA ET AL.
-3.6.6
-Sensitivity analysis examining collinearity
-and a modified CircS definition
-We conducted two additional sensitivity analyses to examine the
-robustness of our findings regarding BMI as an effect moderator. First,
-VIFs for all covariates, including CircS and BMI, were calculated. All
-VIFs were below 5, indicating no substantial multicollinearity (Figure
-S19).
-Second, we repeated the causal forest analysis using a modified def-
-inition of CircS that excluded the central obesity component. CircS
-was redefined as having ≥3 of the remaining 6 components. The
-association between this modified CircS and the “persistently low” cog-
-nitive trajectory remained significant, with an ATE of 0.0336 (95%
-CI: 0.0147–0.0525). Hemoglobin, age, and BMI were again identi-
-fied as the top three moderators of this effect (Figures S20,21), and
-their moderating patterns were basically consistent with the primary
-analysis.
-3.7
-Extended analysis
-In the extended analysis of cognitive transitions, the association
-between CircS and cognitive decline yielded an adjusted odds ratio
-of 1.04 (95% CI: 0.92–1.17; Table S8). The causal forest analy-
-sis yielded an ATE of 0.0010 (95% CI: −0.0273 to 0.0294). Sub-
-stantial heterogeneity in ITEs was observed (SD = 0.0397; range:
-−0.0994 to 0.169; Figure S22). Variable importance analysis identified
-BMI, hemoglobin, and age as the three most influential moderators,
-and their effect modification patterns (Figure S23) were similar to
-those observed for the “persistently low” trajectory in the primary
-analysis.
-4
-DISCUSSION
-This longitudinal study demonstrates that CircS is significantly asso-
-ciated with unfavorable cognitive trajectories among middle-aged
-and older Chinese adults. After multivariable adjustment, individ-
-uals with CircS had a 27% higher risk of a “persistently low”
-global cognitive trajectory and a 28% higher risk of a “persistently
-low” episodic memory trajectory. Importantly, by utilizing LCGM, we
-showed that CircS predicts distinct long-term cognitive aging pat-
-terns, moving beyond prior cross-sectional evdience.13 These findings
-were consistent in the sensitivity analyses, the latter confirming
-accelerated decline in global cognitive function among individuals
-with CircS. Additionally, causal forest analysis revealed substan-
-tial heterogeneity in the effect of CircS, moderated primarily by
-hemoglobin levels, age, and BMI. Collectively, our findings estab-
-lish CircS as a comprehensive and potent risk factor for cognitive
-decline.
-4.1
-Mechanisms between CircS and cognitive
-trajectory deterioration
-1. Pathophysiological mechanism:
-The pathway through which CircS contributes to cognitive decline
-initiates with the dysregulation of clock genes, such as
-BMAL1 and PER.30–32 This disruption directly compromises
-neuronal plasticity and synaptic functionality. Subsequently,
-it induces the activation of microglial cells, which release
-pro-inflammatory mediators, including IL-6 and TNF-α, and
-results in the accumulation of mitochondrial reactive oxygen
-species (ROS).33,34 Concurrently, metabolic and cerebrovas-
-cular dysfunctions impair cerebral blood flow perfusion and
-compromise the integrity of the blood–brain barrier, culminat-
-ing in white matter lesions and microinfarcts.35 Additionally,
-abnormal melatonin secretion diminishes its neuroprotec-
-tive effects against oxidative stress and Aβ aggregation.36,37
-Ultimately, sleep disturbances hinder the glymphatic sys-
-tem’s ability to clear metabolic waste products, such as
-Aβ and tau, leading to the accumulation of neurodegenera-
-tive pathologies.38,39 These processes are intricately linked
-through CircS disruptions and collectively exacerbate cogni-
-tive decline.
-1. Psychological and Behavioral Mechanisms:
-In addition to the biological pathways, the link between CircS and
-adverse cognitive trajectories may also involve behavioral and
-psychological pathways. Depressive symptoms may serve as
-a crucial mediator. Depression is frequently associated with
-apathy, diminished motivation, and anhedonia, which can lead
-to decreased participation in cognitively stimulating activi-
-ties and social interactions—critical components of cognitive
-reserve.40–42
-4.2
-Heterogeneity analysis
-Causal forest analysis demonstrated significant heterogeneity in the
-influence of CircS on cognitive trajectories, identifying hemoglobin,
-age, and BMI as key moderators. Unlike conventional regression
-approaches, our machine learning method quantified individual-level
-variations and identified a high-treatment-effect subgroup: younger
-individuals with mild-anemia hemoglobin levels (approximately 95 g/L)
-and elevated BMI.
-Hemoglobin emerged as the most influential moderator, exhibit-
-ing a distinct nonlinear relationship with the effects of CircS. Rather
-than a simple linear association, a U-shaped or threshold effect was
-observed: the most pronounced adverse effects of CircS were concen-
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Comparative Toxicogenomics Database CTD
+Gene Expression Omnibus GEO
+Gene Ontology GO
+biological processes BP
+cellular components CC
+molecular functions MF
+Kyoto Encyclopedia of Genes and Genomes KEGG
+Protein-Protein Interaction PPI
+Support Vector Machine - Recursive Feature Elimination SVM-RFE
+odds ratios OR
+confidence intervals CI
+Area Under the Curve AUC
+decision curve analysis DCA
+Principal component analysis PCA
+Molecular Signatures Database MSigDB
+Genetic Factors for Osteoporosis Consortium GEFOS
+UK Biobank UKB
+Instrumental variables IVs
+single nucleotide polymorphisms SNPs
+transcription start site TSS
+Inverse Variance Weighted IVW
+Protein Data Bank PDB
+Hartree-Fock HF
+canonical ensemble NVT
+isothermal-isobaric ensemble NPT
+root mean square deviation RMSD
+root mean square fluctuation RMSF
+radius of gyration RoG
+molecular mechanics generalized born surface area MM-GBSA
+glutathione GSH
+reactive oxygen species ROS
+small musculoaponeurotic fibrosarcoma sMAF
+iNOS
+inducible nitric oxide synthase
+Authors’ contributions
+All authors made a significant contribution to the work reported and 
+agreed to be accountable for all aspects of the work. LYW, ZJH and LG 
+designed the experiments. LYW, RYF and JK carried out data extraction 
+LYW, RYF and LXZ carried out mapping and tabulation LYW, JK and LXZ 
+prepared the initial draft of the manuscript LG gave critical feedback 
+during the study or during the submission of the manuscript. All authors 
+provided final approval of the version to be submitted and agreed on the 
+journal for publication.
+Clinical trial number
+Not applicable.
+Data availability
+Publicly available datasets and materials were analyzed in this study.
+CRediT authorship contribution statement
+Yifa Rong: Visualization, Software. Kai Jiang: Visualization, Soft­
+ware, Data curation. Jiahao Zhang: Data curation, Conceptualization. 
+Gang Li: Writing – review & editing, Writing – original draft, Formal 
+analysis, Data curation, Conceptualization. Yiwei Li: Writing – original 
+draft, Formal analysis, Data curation, Conceptualization. Xuezhen 
+Liang: Software, Formal analysis, Data curation, Conceptualization.
+Consent for publication
+All participating authors give their consent for this work to be 
+published.
+Ethics approval and consent to participate
+All data used in this work are publicly available from studies with 
+relevant participant consent and ethical approval.
+Funding
+We would like to acknowledge the following financial support: Key 
+Technology Research and Development Program of Shandong Province 
+(NO.2021CXGC010501) and Leading Science and Technology Innova­
+tion Team (2024sdskctd-02).
+Declaration of Competing Interest
+The authors declare that they have no known competing financial 
+interests or personal relationships that could have appeared to influence 
+the work reported in this paper.
+Acknowledgements
+We thank all the participants involved in this research for their 
+priceless contribution.
+Appendix A. Supporting information
+Supplementary data associated with this article can be found in the 
+online version at doi:10.1016/j.ecoenv.2025.118502.
+Data availability
+All data used in this work are publicly available from studies with 
+relevant participant consent and ethical approval. I have shared the link 
+of data.
+References
+Adasme, M.F., Linnemann, K.L., Bolz, S.N., Kaiser, F., Salentin, S., Haupt, V.J., 
+Schroeder, M., 2021. PLIP 2021: expanding the scope of the protein–ligand 
+interaction profiler to DNA and RNA. Nucleic Acids Res. 49 (W1), W530–W534. 
+https://doi.org/10.1093/nar/gkab294.
+Bak, S.U., Kim, S., Hwang, H.J., Yun, J.A., Kim, W.S., Won, M.H., Kim, J.Y., Ha, K.S., 
+Kwon, Y.G., Kim, Y.M., 2017. Heme oxygenase-1 (HO-1)/carbon monoxide (CO) axis 
+suppresses RANKL-induced osteoclastic differentiation by inhibiting redox-sensitive 
+NF-kappaB activation. BMB Rep. 50 (2), 103–108. https://doi.org/10.5483/ 
+bmbrep.2017.50.2.220.
+Baran, D.T., Faulkner, K.G., Genant, H.K., Miller, P.D., Pacifici, R., 1997. Diagnosis and 
+management of osteoporosis: guidelines for the utilization of bone densitometry. 
+Calcif. Tissue Int. 61 (6), 433–440. https://doi.org/10.1007/s002239900362.
+Bowden, J., Davey Smith, G., Burgess, S., 2015. Mendelian randomization with invalid 
+instruments: effect estimation and bias detection through Egger regression. Int. J. 
+Epidemiol. 44 (2), 512–525. https://doi.org/10.1093/ije/dyv080.
+Bowden, J., Del Greco, M.F., Minelli, C., Zhao, Q., Lawlor, D.A., Sheehan, N.A., 
+Thompson, J., Davey Smith, G., 2019. Improving the accuracy of two-sample 
+summary-data Mendelian randomization: moving beyond the NOME assumption. 
+Int. J. Epidemiol. 48 (3), 728–742. https://doi.org/10.1093/ije/dyy258.
+Breiman, L., 2001. 2001/10/01). Random Forests. Mach. Learn. 45 (1), 5–32. https:// 
+doi.org/10.1023/A:1010933404324.
+Burgess, S., Bowden, J., Fall, T., Ingelsson, E., Thompson, S.G., 2017. Sensitivity analyses 
+for robust causal inference from mendelian randomization analyses with multiple 
+genetic variants. Epidemiology 28 (1), 30–42. https://doi.org/10.1097/ 
+EDE.0000000000000559.
+Caudill, S.P., Schleicher, R.L., Pirkle, J.L., 2008. Multi-rule quality control for the age- 
+related eye disease study. Stat. Med. 27 (20), 4094–4106. https://doi.org/10.1002/ 
+sim.3222.
+Chang, Y., Jiang, X., Dou, J., Xie, R., Zhao, W., Cao, Y., Gao, J., Yao, F., Wu, D., Mei, H., 
+Zhong, Y., Ge, Y., Xu, H., Jiang, W., Xiao, X., Jiang, Y., Hu, S., Wu, Y., Liu, Y., 2024. 
+Investigating the potential risk of cadmium exposure on seizure severity and anxiety- 
+like behaviors through the ferroptosis pathway in epileptic mice: An integrated 
+multi-omics approach. J. Hazard Mater. 480, 135814. https://doi.org/10.1016/j. 
+jhazmat.2024.135814.
+Che, J., Yang, J., Zhao, B., Shang, P., 2021. HO-1: A new potential therapeutic target to 
+combat osteoporosis. Eur. J. Pharm. 906, 174219. https://doi.org/10.1016/j. 
+ejphar.2021.174219.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+12
 
 # Page 13
 
-MA ET AL.
-13 of 16
-trated among individuals within an intermediate range of hemoglobin
-concentration (approximately 95 g/L), while those at both lower and
-higher extremes demonstrated relative resilience. This complex pat-
-ternindicatesthepresenceofdistinctunderlyingpathophysiology.Low
-hemoglobin may contribute to cognitive impairment primarily through
-chronic cerebral hypoxia43–47—a parallel risk pathway—whereas the
-concentration of risk in the middle range may signify a “metabolically-
-vulnerable” phenotype. In these individuals, subclinical vascular dys-
-function and low-grade inflammation, core components of CircS, likely
-converge to induce cognitive damage without being severe enough to
-manifest as overt anemia.
-Age emerged as the second most significant moderator, exhibiting
-an unexpected direction of effect. Our analysis revealed a negative
-correlation between age and the ITE of CircS, suggesting that the
-adverse impact on cognitive decline was more pronounced among
-younger individuals. This observation may imply the presence of a
-critical period in mid-life during which the intersection of circadian,
-metabolic, and affective disturbances represented by CircS could
-trigger a more rapid and potentially less reversible pathological pro-
-gression, thereby establishing a trajectory for accelerated long-term
-decline.9,48–52 Alternatively, this pattern could reflect a selective sur-
-vival bias, wherein the oldest-old participants who remain in the study
-are inherently more resilient.
-BMI was also a significant moderator, a finding that requires care-
-ful interpretation. It is important to distinguish the role of BMI as a
-moderator from central obesity as a diagnostic component of CircS.
-While central obesity specifically reflects abdominal visceral fat, a key
-driver of cardiometabolic risk within CircS, BMI serves as a broader,
-composite indicator of overall body composition and metabolic load. It
-captures not only adiposity but also aspects of nutritional status and
-chronic, low-grade systemic inflammation—factors implicated in neu-
-roinflammation and cognitive decline through pathways distinct from,
-though often concomitant with, abdominal fat accumulation.53–56
-Therefore, BMI may represent a dimension of generalized metabolic
-vulnerability that extends beyond the specific criterion of central obe-
-sity. The observed moderating effect of BMI likely operates through
-these extended pathways, which may interact synergistically with
-circadian dysfunction to exacerbate cognitive decline. For instance,
-elevated BMI frequently coincides with a state of “metabolically
-unhealthy obesity,” characterized by insulin resistance and altered
-adipokine secretion—conditions that are themselves both causes and
-consequences of circadian disruption.57–60 This bidirectional relation-
-ship suggests a vicious cycle wherein circadian misalignment and
-metabolic dysfunction mutually reinforce each other, creating a com-
-pounded risk for neural integrity. In this context, BMI emerges not
-merely as a correlate of abdominal obesity but as a clinically accessi-
-ble marker of this integrated, pathological network. Thus, its role as
-an effect modifier likely reflects a distinct layer of metabolic suscep-
-tibility that influences an individual’s resilience or vulnerability to the
-cognitive impacts of CircS.
-4.3
-Clinical implications
-Our findings have significant implications for clinical practice and
-public health initiatives aimed at preserving cognitive function. This
-longitudinal study demonstrates that CircS predicts the “persistently
-low” cognitive trajectory. Furthermore, a dose–response relationship
-was observed, wherein a higher CircS score increased the risk of
-belonging to the persistently low cognitive trajectory. The identifi-
-cation of CircS as a strong predictor of adverse cognitive outcomes
-highlights its potential as a clinically actionable screening tool. In pri-
-mary care and geriatric settings, evaluating the composite CircS profile
-could enable the early identification of middle-aged and older adults
-at elevated risk for persistent cognitive decline, thereby facilitat-
-ing timely interventions before substantial neurodegeneration occurs.
-Moreover, the heterogeneity revealed by our causal forest analysis
-strongly supports a stratified and personalized prevention approach.
-Specifically, individuals with mild anemia (hemoglobin levels around
-95 g/L) and those in the younger middle-age bracket emerge as pri-
-ority subgroups who may benefit most from targeted management
-of their circadian and metabolic health. Potential interventions may
-encompass lifestyle modifications aimed at aligning circadian rhythms,
-such as scheduled light exposure and consistent meal and sleep rou-
-tines, as well as strategies for metabolic enhancement. Future research
-ought to prioritize the development and rigorous evaluation of these
-multifaceted interventions, with a particular emphasis on conducting
-randomized controlled trials. Such studies are essential to ascertain
-whether addressing components of CircS factors can effectively slow
-cognitive decline in identified high-risk populations.
-4.4
-Strength and limitation
-This study possesses several methodological strengths. First, the uti-
-lization of a large, nationally representative cohort with four waves
-of longitudinal data allowed us to move beyond cross-sectional snap-
-shots and model the dynamic nature of cognitive change, providing a
-more robust assessment of the exposure–outcome relationship.61,62
-Second, our application of LCGM was pivotal in capturing the inherent
-heterogeneity in cognitive aging, identifying distinct subpopulations
-with “persistently low,” “moderate,” and “high” trajectories that would
-be obscured by analyzing the population average alone.63,64 Third,
-we complemented this group-based trajectory analysis with a cutting-
-edge machine learning technique—causal forest analysis—to estimate
-ITEs. This advanced method allowed us to quantify the substantial
-heterogeneity in how CircS affects cognitive trajectories and to iden-
-tify key moderators and a high-risk subgroup, thereby providing a
-foundation for personalized risk assessment.65,66
-Several limitations should be considered when interpreting our find-
-ings. First, the observational design inherently limits causal inference,
-despite robust sensitivity analyses. Factors like social engagement may
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Chou, L.C., Tsai, C.C., 2023. Assessing the effectiveness of fermented banana peel 
+extracts for the biosorption and removal of cadmium to mitigate inflammation and 
+oxidative stress. Foods 12 (13). https://doi.org/10.3390/foods12132632.
+Chudy, P., Bednarczyk, K., Chatian, E., Krzeptowski, W., Szade, A., Szade, K., ˙Zukowska, 
+M., Wolnik, J., Sokołowski, G., J´ozkowicz, A., & Nowak, W.N. (2024). https://doi. 
+org/10.1101/2024.11.04.620611.
+Cortes, C., Vapnik, V.N., 1995. Support-vector networks. Mach. Learn. 20, 273–297.
+Davis, S., Meltzer, P.S., 2007. GEOquery: a bridge between the Gene Expression Omnibus 
+(GEO) and BioConductor. Bioinformatics 23 (14), 1846–1847. https://doi.org/ 
+10.1093/bioinformatics/btm254.
+Davis, A.P., Wiegers, T.C., Johnson, R.J., Sciaky, D., Wiegers, J., Mattingly, C.J., 2023. 
+Comparative Toxicogenomics Database (CTD): update 2023. Nucleic Acids Res. 51 
+(D1), D1257–D1262. https://doi.org/10.1093/nar/gkac833.
+Delano, W.L., 2002. The PyMOL Molecular Graphics System.
+Donertas, H.M., Fabian, D.K., Valenzuela, M.F., Partridge, L., Thornton, J.M., 2021. 
+Common genetic associations between age-related diseases. Nat. Aging 1 (4), 
+400–412. https://doi.org/10.1038/s43587-021-00051-5.
+Eddie-Amadi, B.F., Ezejiofor, A.N., Orish, C.N., Rovira, J., Allison, T.A., Orisakwe, O.E., 
+2022. Banana peel ameliorated hepato-renal damage and exerted anti-inflammatory 
+and anti-apoptotic effects in metal mixture mediated hepatic nephropathy by 
+activation of Nrf2/ Hmox-1 and inhibition of Nfkb pathway. Food Chem. Toxicol. 
+170, 113471. https://doi.org/10.1016/j.fct.2022.113471.
+Emdin, C.A., Khera, A.V., Kathiresan, S., 2017. Mendelian randomization. JAMA 318 
+(19), 1925–1926. https://doi.org/10.1001/jama.2017.17219.
+Freitas, M., Fernandes, E., 2011. Zinc, cadmium and nickel increase the activation of NF- 
+kappaB and the release of cytokines from THP-1 monocytic cells. Metallomics 3 (11), 
+1238–1243. https://doi.org/10.1039/c1mt00050k.
+Genchi, G., Sinicropi, M.S., Lauria, G., Carocci, A., Catalano, A., 2020. The effects of 
+cadmium toxicity. Int. J. Environ. Res. Public Health 17 (11). https://doi.org/ 
+10.3390/ijerph17113782.
+Goyal, T., Mitra, P., Singh, P., Sharma, P., Sharma, S., 2021. Evaluation of oxidative 
+stress and pro-inflammatory cytokines in occupationally cadmium exposed workers. 
+Work 69 (1), 67–73. https://doi.org/10.3233/WOR-203302.
+Greco, M.F., Minelli, C., Sheehan, N.A., Thompson, J.R., 2015. Detecting pleiotropy in 
+Mendelian randomisation studies with summary data and a continuous outcome. 
+Stat. Med. 34 (21), 2926–2940. https://doi.org/10.1002/sim.6522.
+Guyon, I., Weston, J., Barnhill, S., Vapnik, V., 2002. 2002/01/01). Gene selection for 
+cancer classification using support vector machines. Mach. Learn. 46 (1), 389–422. 
+https://doi.org/10.1023/A:1012487302797.
+He, T., Shen, H., Zhu, J., Zhu, Y., He, Y., Li, Z., Lu, H., 2019. Geniposide attenuates 
+cadmium‑induced oxidative stress injury via Nrf2 signaling in osteoblasts. Mol. Med. 
+Rep. 20 (2), 1499–1508. https://doi.org/10.3892/mmr.2019.10396.
+He, N., Zhang, J., Liu, M., Yin, L., 2024. Elucidating the mechanism of plasticizers 
+inducing breast cancer through network toxicology and molecular docking analysis. 
+Ecotoxicol. Environ. Saf. 284, 116866. https://doi.org/10.1016/j. 
+ecoenv.2024.116866.
+Huang, Y., Li, J., Li, W., Ai, N., Jin, H., 2022. Biliverdin/bilirubin redox pair protects lens 
+epithelial cells against oxidative stress in age-related cataract by regulating NF- 
+kappaB/iNOS and Nrf2/HO-1 pathways. Oxid. Med. Cell Longev. 2022, 7299182. 
+https://doi.org/10.1155/2022/7299182.
+Jeon, W.K., Hong, H.Y., Kim, B.C., 2011. Genipin up-regulates heme oxygenase-1 via PI3- 
+kinase-JNK1/2-Nrf2 signaling pathway to enhance the anti-inflammatory capacity in 
+RAW264.7 macrophages. Arch. Biochem. Biophys. 512 (2), 119–125. https://doi. 
+org/10.1016/j.abb.2011.05.016.
+Jia, L., Ma, T., Lv, L., Yu, Y., Zhao, M., Chen, H., Gao, L., 2023. Endoplasmic reticulum 
+stress mediated by ROS participates in cadmium exposure-induced MC3T3-E1 cell 
+apoptosis. Ecotoxicol. Environ. Saf. 251, 114517. https://doi.org/10.1016/j. 
+ecoenv.2023.114517.
+Jin, S., Guerrero-Juarez, C.F., Zhang, L., Chang, I., Ramos, R., Kuan, C.H., Myung, P., 
+Plikus, M.V., Nie, Q., 2021. Inference and analysis of cell-cell communication using 
+CellChat. Nat. Commun. 12 (1), 1088. https://doi.org/10.1038/s41467-021-21246- 
+9.
+Jin, C., Lin, B.H., Zheng, G., Tan, K., Liu, G.Y., Yao, Z., Xie, J., Chen, W.K., Chen, L., 
+Xu, T.H., Huang, C.B., Wu, Z.Y., Yang, L., 2022. CORM-3 attenuates oxidative stress- 
+induced bone loss via the Nrf2/HO-1 pathway. Oxid. Med. Cell Longev. 2022, 
+5098358. https://doi.org/10.1155/2022/5098358.
+Jin, Z., Zhao, H., Luo, Y., Li, J., Pi, J., He, W., Yan, J., Yang, P., 2021. Geniposide 
+achieved an anti-inflammatory effect through the NF-κB/HIF-1α signaling pathway 
+mediated by VEGFA and HMOX1 genes. SSRN Electron. J.
+Jolliffe, I.T., 2002. Principal Component Analysis. Springer. 〈https://books.google.com. 
+ar/books?id=TtVF-ao4fI8C〉.
+Kanis, J.A., McCloskey, E.V., Johansson, H., Oden, A., Melton, L.J., 3rd, Khaltaev, N., 
+2008. A reference standard for the description of osteoporosis. Bone 42 (3), 
+467–475. https://doi.org/10.1016/j.bone.2007.11.001.
+Kim, E.S., Shin, S., Lee, Y.J., Ha, I.H., 2021. Association between blood cadmium levels 
+and the risk of osteopenia and osteoporosis in Korean post-menopausal women. 
+Arch. Osteoporos. 16 (1), 22. https://doi.org/10.1007/s11657-021-00887-9.
+Kuhn, M., 2008. Building predictive models in R using the caret package. J. Stat. Softw. 
+28, 1–26.
+Kunioka, C.T., Manso, M.C., Carvalho, M., 2022. Association between environmental 
+cadmium exposure and osteoporosis risk in postmenopausal women: a systematic 
+review and meta-analysis. Int. J. Environ. Res. Public Health 20 (1). https://doi.org/ 
+10.3390/ijerph20010485.
+Lei, S.F., Wu, S., Li, L.M., Deng, F.Y., Xiao, S.M., Jiang, C., Chen, Y., Jiang, H., Yang, F., 
+Tan, L.J., Sun, X., Zhu, X.Z., Liu, M.Y., Liu, Y.Z., Chen, X.D., Deng, H.W., 2009. An in 
+vivo genome wide gene expression study of circulating monocytes suggested GBP1, 
+STAT1 and CXCL10 as novel risk genes for the differentiation of peak bone mass. 
+Bone 44 (5), 1010–1014. https://doi.org/10.1016/j.bone.2008.05.016.
+Li, Y., Huang, B., Ye, T., Wang, Y., Xia, D., Qian, J., 2020. Physiological concentrations of 
+bilirubin control inflammatory response by inhibiting NF-κB and inflammasome 
+activation. Int. Immunopharmacol. 84. https://doi.org/10.1016/j. 
+intimp.2020.106520.
+Liaw, A., Wiener, M.C., 2007. Classification and Regression by randomForest.
+Liberzon, A., Birger, C., Thorvaldsdottir, H., Ghandi, M., Mesirov, J.P., Tamayo, P., 2015. 
+The Molecular Signatures Database (MSigDB) hallmark gene set collection. Cell Syst. 
+1 (6), 417–425. https://doi.org/10.1016/j.cels.2015.12.004.
+Liu, Z., Wu, J., Dong, Z., Wang, Y., Wang, G., Chen, C., Wang, H., Yang, Y., Sun, Y., 
+Yang, M., Fu, J., Li, J., Zhang, Q., Xu, Y., Pi, J., 2024. Prolonged cadmium exposure 
+and osteoclastogenesis: a mechanistic mouse and in vitro study. Environ. Health 
+Perspect. 132 (6), 67009. https://doi.org/10.1289/EHP13849.
+Luo, H., Gu, R., Ouyang, H., Wang, L., Shi, S., Ji, Y., Bao, B., Liao, G., Xu, B., 2021. 
+Cadmium exposure induces osteoporosis through cellular senescence, associated 
+with activation of NF-kappaB pathway and mitochondrial dysfunction. Environ. 
+Pollut. 290, 118043. https://doi.org/10.1016/j.envpol.2021.118043.
+Lv, Z., Zhao, B., Hu, L., Pan, J., Li, X., Li, M., Wu, C., & Mao, W. (2023). https://doi.or 
+g/10.21203/rs.3.rs-3268699/v1.
+Ma, W., Li, C., 2024. Enhancing postmenopausal osteoporosis: a study of KLF2 
+transcription factor secretion and PI3K-Akt signaling pathway activation by PIK3CA 
+in bone marrow mesenchymal stem cells. Arch. Med. Sci. 20 (3), 918–937. https:// 
+doi.org/10.5114/aoms/171785.
+Ma, Y., Su, Q., Yue, C., Zou, H., Zhu, J., Zhao, H., Song, R., Liu, Z., 2022. The effect of 
+oxidative stress-induced autophagy by cadmium exposure in kidney, liver, and bone 
+damage, and neurotoxicity. Int. J. Mol. Sci. 23 (21). https://doi.org/10.3390/ 
+ijms232113491.
+McInnes, L., Healy, J., Saul, N., Großberger, L., 2018. UMAP: uniform manifold 
+approximation and projection. J. Open Source Softw. 3, 861.
+Naito, Y., Takagi, T., Higashimura, Y., 2014. Heme oxygenase-1 and anti-inflammatory 
+M2 macrophages. Arch. Biochem. Biophys. 564, 83–88. https://doi.org/10.1016/j. 
+abb.2014.09.005.
+Ougier, E., Fiore, K., Rousselle, C., Assuncao, R., Martins, C., Buekers, J., 2021. Burden of 
+osteoporosis and costs associated with human biomonitored cadmium exposure in 
+three European countries: France, Spain and Belgium. Int. J. Hyg. Environ. Health 
+234, 113747. https://doi.org/10.1016/j.ijheh.2021.113747.
+Ramadan, M.A., Saif Eldin, A.S., 2022. Effect of occupational cadmium exposure on the 
+thyroid gland and associated inflammatory markers among workers of the 
+electroplating industry. Toxicol. Ind. Health 38 (4), 210–220. https://doi.org/ 
+10.1177/07482337221085046.
+Ritchie, M.E., Phipson, B., Wu, D., Hu, Y., Law, C.W., Shi, W., Smyth, G.K., 2015. limma 
+powers differential expression analyses for RNA-sequencing and microarray studies. 
+Nucleic Acids Res. 43 (7), e47. https://doi.org/10.1093/nar/gkv007.
+Salomon-Ferrer, R., G¨otz, A.W., Poole, D., Le Grand, S., Walker, R.C., 2013. Routine 
+microsecond molecular dynamics simulations with AMBER on GPUs. 2. Explicit 
+solvent particle mesh Ewald. J. Chem. Theory Comput. 9 (9), 3878–3888. https:// 
+doi.org/10.1021/ct400314y.
+Satarug, S., Garrett, S.H., Sens, M.A., Sens, D.A., 2010. Cadmium, environmental 
+exposure, and health outcomes. Environ. Health Perspect. 118 (2), 182–190. https:// 
+doi.org/10.1289/ehp.0901234.
+Schwarzer, G., Carpenter, J.R., & Rücker, G. (2015). Meta-Analysis with R. Springer 
+International Publishing. 〈https://books.google.com.ar/books?id=xhvFsgEACAAJ〉.
+Shannon, P., Markiel, A., Ozier, O., Baliga, N.S., Wang, J.T., Ramage, D., Amin, N., 
+Schwikowski, B., Ideker, T., 2003. Cytoscape: a software environment for integrated 
+models of biomolecular interaction networks. Genome Res. 13 (11), 2498–2504. 
+https://doi.org/10.1101/gr.1239303.
+Slob, E.A.W., Burgess, S., 2020. A comparison of robust Mendelian randomization 
+methods using summary data. Genet Epidemiol. 44 (4), 313–329. https://doi.org/ 
+10.1002/gepi.22295.
+Su, J., Song, Y., Zhu, Z., Huang, X., Fan, J., Qiao, J., Mao, F., 2024. Cell-cell 
+communication: new insights and clinical implications. Signal Transduct. Target 
+Ther. 9 (1), 196. https://doi.org/10.1038/s41392-024-01888-z.
+Subramanian, A., Tamayo, P., Mootha, V.K., Mukherjee, S., Ebert, B.L., Gillette, M.A., 
+Paulovich, A., Pomeroy, S.L., Golub, T.R., Lander, E.S., Mesirov, J.P., 2005. Gene set 
+enrichment analysis: a knowledge-based approach for interpreting genome-wide 
+expression profiles. Proc. Natl. Acad. Sci. USA 102 (43), 15545–15550. https://doi. 
+org/10.1073/pnas.0506580102.
+Szklarczyk, D., Kirsch, R., Koutrouli, M., Nastou, K., Mehryary, F., Hachilif, R., Gable, A. 
+L., Fang, T., Doncheva, N.T., Pyysalo, S., Bork, P., Jensen, L.J., von Mering, C., 2023. 
+The STRING database in 2023: protein-protein association networks and functional 
+enrichment analyses for any sequenced genome of interest. Nucleic Acids Res. 51 
+(D1), D638–D646. https://doi.org/10.1093/nar/gkac1000.
+Tan, S., Su, Y., Huang, L., Deng, S., Yan, G., Yang, X., Chen, R., Xian, Y., Liang, J., Liu, Q., 
+Cheng, J., 2022. Corilagin attenuates osteoclastic osteolysis by enhancing HO-1 and 
+inhibiting ROS. J. Biochem. Mol. Toxicol. 36 (7), e23049. https://doi.org/10.1002/ 
+jbt.23049.
+Tanaka, G., Aminuddin, F., Akhabir, L., He, J.Q., Shumansky, K., Connett, J.E., 
+Anthonisen, N.R., Abboud, R.T., Pare, P.D., Sandford, A.J., 2011. Effect of heme 
+oxygenase-1 polymorphisms on lung function and gene expression. BMC Med. Genet 
+12, 117. https://doi.org/10.1186/1471-2350-12-117.
+Tian, J., Li, Z., Wang, L., Qiu, D., Zhang, X., Xin, X., Cai, Z., Lei, B., 2021. Metabolic 
+signatures for safety assessment of low-level cadmium exposure on human 
+osteoblast-like cells. Ecotoxicol. Environ. Saf. 207, 111257. https://doi.org/ 
+10.1016/j.ecoenv.2020.111257.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+13
 
 # Page 14
 
-14 of 16
-MA ET AL.
-have bidirectional relationships with CircS, complicating full adjust-
-ment. Furthermore, the lack of objective measures for conditions like
-sleep apnea in CHARLS means residual confounding cannot be ruled
-out. Thus, our findings, while robust, cannot fully satisfy the assump-
-tion of no unmeasured confounding. Second, the assessment of key
-CircS components, particularly sleep and depressive symptoms, relied
-on self-reports, which may introduce measurement bias. This limita-
-tion is especially pertinent for the sleep component. Our definition
-used sleep duration alone (<6 h), a metric that does not capture other
-core dimensions of sleep health (e.g., regularity, timing).27 Since short
-sleep can arise from diverse causes (e.g., behavior, natural phenotype)
-not specific to circadian dysfunction,67–69 our measure may lead to
-misclassification and potentially underestimate the true association
-between circadian disruption and cognitive trajectories. Future stud-
-ies should employ multidimensional sleep assessments or circadian
-biomarkers to better define this component of the syndrome. Third, the
-generalizability of our findings may be limited to middle-aged and older
-Chinese adults, and replication in other ethnic and younger populations
-is needed. Finally, the conceptual overlap between BMI and the cen-
-tral obesity component of CircS complicates the interpretation of BMI
-as a distinct moderator. Although sensitivity analyses indicated that
-BMI’s moderating role persists even when central obesity is excluded
-from the syndrome definition, BMI likely reflects correlated metabolic
-features of the exposure.
-5
-CONCLUSION
-This study illustrates CircS significantly elevates the risk of adverse
-cognitive trajectories among Chinese middle-aged and older adults.
-Individuals with CircS exhibited a 27% increased risk of persistent
-global cognitive decline and a 28% increased risk of poor episodic
-memory trajectory. Causal forest analysis revealed considerable het-
-erogeneity in individual susceptibility, identifying a high-treatment-
-effect subgroup characterized by younger age, mid-anemia hemoglobin
-levels, and elevated BMI. These findings establish CircS as a signifi-
-cant and modifiable risk factor for cognitive trajectory deterioration.
-Incorporating circadian health assessments into clinical practice could
-facilitate the early identification of at-risk individuals, particularly
-those exhibiting the identified risk profile. Future research should
-prioritize the development of targeted interventions that address cir-
-cadian disruption and its metabolic correlates to mitigate cognitive
-consequences in vulnerable populations.
-AUTHOR CONTRIBUTIONS
-Jiangping Ma: Study design, data collection, formal analysis, visual-
-ization, and writing an original draft. Nan Chen: Study design, data
-collection, formal analysis, visualization, and writing an original draft.
-Jingxuan Huang: Data collection, formal analysis, and writing an
-original draft. Linghao Xu: Writing an original draft. Huifang Shang:
-Supervision, project administration, writing a review & editing. All
-authors read and approved the final manuscript.
-ACKNOWLEDGMENTS
-The authors would like to sincerely thank all the members of CHALRS
-for their valuable contributions and the participants who provided data
-for this study. This work was supported by the Sichuan Science and
-Technology Program (Grant No. 2022ZDZX0023).
-FUNDING INFORMATION
-This work was supported by the Sichuan Science and Technology
-Program (Grant No. 2022ZDZX0023).
-CONFLICT OF INTEREST STATEMENT
-The authors declare no conflicts of interest. Author disclosures are
-available in the supporting information.
-DATA AVAILABILITY STATEMENT
-The datasets utilized in this investigation are available in online reposi-
-tories. The names of the repository and the accession number(s) can be
-found at the following link: http://charls.pku.edu.cn/en.
-ETHICAL APPROVAL
-The protocol received approval from the Ethical Review Committee
-of Peking University (approval numbers: IRB00001052-11015 for the
-main household survey and IRB00001052-11014 for biomarker col-
-lection). The study was conducted in compliance with the Declaration
-of Helsinki principles. All participants signed the informed consent
-and repository consent that permitted their data to be shared after
-a detailed presentation of the risks and benefits related to study
-participation.
-REFERENCES
-1. Rookes T, Frost R, Barrado-Martin Y, et al. Type of goals set and
-progress towards these goals, as part of a behaviour change interven-
-tion, in people with mild cognitive impairment: a secondary analysis.
-Lancet. 2023;402(Suppl 1):S80. doi:10.1016/s0140-6736(23)02112-
-8
-2. Jamil Y, Krishnaswami A, Orkaby AR, et al. The impact of cog-
-nitive impairment on cardiovascular disease. J Am Coll Cardiol.
-2025;85(25):2472-2491. doi:10.1016/j.jacc.2025.04.057
-3. GBD 2023 Demographics Collaborators. Global age-sex-specific all-
-cause mortality and life expectancy estimates for 204 countries
-and territories and 660 subnational locations, 1950-2023: a demo-
-graphic analysis for the global burden of disease study 2023. Lancet.
-2025;406(10513):1731-1810. doi:10.1016/s0140-6736(25)01330-3
-4. Burns DK, Alexander RC, Welsh-Bohmer KA, et al. Safety and effi-
-cacy of pioglitazone for the delay of cognitive impairment in peo-
-ple at risk of Alzheimer’s disease (TOMMORROW): a prognostic
-biomarker study and a phase 3, randomised, double-blind, placebo-
-controlled trial. Lancet Neurol. 2021;20(7):537-547. doi:10.1016/
-s1474-4422(21)00043-0
-5. Neeland IJ, Lim S, Tchernof A, et al. Metabolic syndrome. Nat Rev Dis
-Primers. 2024;10(1):77. doi:10.1038/s41572-024-00563-5
-6. Ng TP, Feng L, Nyunt MS, et al. Metabolic syndrome and the risk
-of mild cognitive impairment and progression to dementia: follow-
-up of the Singapore longitudinal ageing study cohort. JAMA Neurol.
-2016;73(4):456-463. doi:10.1001/jamaneurol.2015.4899
-7. Qureshi D, Topiwala A, Al Abid SU, Allen NE, Kuźma E, Littlejohns TJ.
-Association of metabolic syndrome with neuroimaging and cognitive
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
-
-# Page 15
-
-MA ET AL.
-15 of 16
-outcomes in the UK Biobank. Diabetes Care. 2024;47(8):1415-1423.
-doi:10.2337/dc24-0537
-8. Wang W, Li J, Cui S, et al. Microglial Ffar4 deficiency pro-
-motes
-cognitive
-impairment
-in
-the
-context
-of
-metabolic
-syndrome.
-Sci
-Adv.
-2024;10(5):eadj7813.
-doi:10.1126/sciadv.
-adj7813
-9. Zimmet P, Alberti K, Stern N, et al. The circadian syndrome: is the
-metabolic syndrome and much more!. J Intern Med. 2019;286(2):181-
-191. doi:10.1111/joim.12924
-10. Shi Z, Tuomilehto J, Kronfeld-Schor N, et al. The circadian syndrome
-is a significant and stronger predictor for cardiovascular disease
-than the metabolic syndrome-the NHANES survey during 2005-2016.
-Nutrients. 2022;14(24):5317. doi:10.3390/nu14245317
-11. Shi Z, Tuomilehto J, Kronfeld-Schor N, et al. The circadian syndrome
-predicts cardiovascular disease better than metabolic syndrome in
-Chinese adults. J Intern Med. 2021;289(6):851-860. doi:10.1111/joim.
-13204
-12. Liu Y, Zang B, Shao J, Ning N, He L, Ma Y. Predictor of cognitive
-impairment: metabolic syndrome or circadian syndrome. BMC Geriatr.
-2023;23(1):408. doi:10.1186/s12877-023-03996-x
-13. Shi Z, Stern N, Liu J, et al. The circadian syndrome is a predic-
-tor for cognition impairment in middle-aged adults: comparison with
-the metabolic syndrome. Diabetes/Metab Res Rev. 2024;40(5):e3827.
-doi:10.1002/dmrr.3827
-14. Sharon O, Zhelezniakov V, Gat Y, et al. Slow wave synchrony
-during NREM sleep tracks cognitive impairment in prodromal
-Alzheimer’s
-disease.
-Alzheimers
-Dement.
-2025;21(5):e70247.
-doi:10.1002/alz.70247
-15. Ismail Z, Elbayoumi H, Fischer CE, et al. Prevalence of depres-
-sion in patients with mild cognitive impairment: a systematic review
-and meta-analysis. JAMA Psychiatry. 2017;74(1):58-67. doi:10.1001/
-jamapsychiatry.2016.3162
-16. Yu L, Liu W, Liao C, et al. The interaction between circadian syndrome
-and genetic susceptibility in the risk of incident dementia: a longitu-
-dinal cohort study. J Prev Alzheimers Dis. 2025;12(5):100089. doi:10.
-1016/j.tjpad.2025.100089
-17. Burnham SC, Bourgeat P, Doré V, et al. Clinical and cognitive tra-
-jectories in cognitively healthy elderly individuals with suspected
-non-Alzheimer’s disease pathophysiology (SNAP) or Alzheimer’s dis-
-ease pathology: a longitudinal study. Lancet Neurol. 2016;15(10):1044-
-1053. doi:10.1016/s1474-4422(16)30125-9
-18. Devanarayan V, Donohue MC, Sperling RA, et al. Multimodal prog-
-nostic modeling of individual cognitive trajectories to enhance
-trial efficiency in preclinical Alzheimer’s disease. Alzheimers Dement.
-2025;21(9):e70702. doi:10.1002/alz.70702
-19. Wang T, Keil AP, Kim S, et al. Iterative causal forest: a novel algorithm
-for subgroup identification. Am J Epidemiol. 2024;193(5):764-776.
-doi:10.1093/aje/kwad219
-20. Elek P, Bíró A. Regional differences in diabetes across Europe—
-regression and causal forest analyses. Econ Hum Biol. 2021;40:100948.
-doi:10.1016/j.ehb.2020.100948
-21. Petticrew M, Tugwell P, Kristjansson E, Oliver S, Ueffing E, Welch
-V. Damned if you do, damned if you don’t: subgroup analysis and
-equity. J Epidemiol Community Health. 2012;66(1):95-98. doi:10.1136/
-jech.2010.121095
-22. Assmann SF, Pocock SJ, Enos LE, Kasten LE. Subgroup analysis and
-other (mis)uses of baseline data in clinical trials. Lancet (Lond Engl).
-2000;355(9209):1064-1069. doi:10.1016/s0140-6736(00)02039-0
-23. Elston DM. Selection bias. J Am Acad Dermatol. 2019;S0190-
-9622(19):32775-32776.
-doi:10.1016/j.jaad.2019.09.
-031
-24. Baum A, Scarpa J, Bruzelius E, Tamler R, Basu S, Faghmous J. Target-
-ing weight loss interventions to reduce cardiovascular complications
-of type 2 diabetes: a machine learning-based post-hoc analysis of
-heterogeneous treatment effects in the Look AHEAD trial. lancet Dia-
-betes Endocrinol. 2017;5(10):808-815. doi:10.1016/s2213-8587(17)
-30176-6
-25. Marafino BJ, Schuler A, Liu VX, Escobar GJ, Baiocchi M. Predicting pre-
-ventable hospital readmissions with causal machine learning. Health
-Serv Res. 2020;55(6):993-1002. doi:10.1111/1475-6773.13586
-26. Bonander C, Svensson M. Using causal forests to assess heterogene-
-ity in cost-effectiveness analysis. Health Econ. 2021;30(8):1818-1832.
-doi:10.1002/hec.4263
-27. Buysse DJ. Sleep health: can we define it? does it matter?. Sleep.
-2014;37(1):9-17. doi:10.5665/sleep.3298
-28. Song M, Hu FB, Wu K, et al. Trajectory of body shape in early and mid-
-dle life and all cause and cause specific mortality: results from two
-prospective US cohort studies. BMJ. 2016;353:i2195. doi:10.1136/
-bmj.i2195
-29. Tein JY, Coxe S, Cham H. Statistical power to detect the cor-
-rect number of classes in latent profile analysis. Struct Equ Model.
-2013;20(4):640-657. doi:10.1080/10705511.2013.824781
-30. Maiese K. Cognitive impairment and dementia: gaining insight through
-circadian clock gene pathways. Biomolecules. 2021;11(7):1002. doi:10.
-3390/biom11071002
-31. Hui Y, Zhong Y, Kuang L, et al. O-GlcNAcylation of circadian clock
-protein Bmal1 impairs cognitive function in diabetic mice. Embo J.
-2024;43(22):5667-5689. doi:10.1038/s44318-024-00263-6
-32. Chen M, Zhang L, Shao M, et al. E4BP4 coordinates circadian control
-of cognition in delirium. Adv Sci (Weinh). 2022;9(23):e2200559. doi:10.
-1002/advs.202200559
-33. Huang SY, Yang ZJ, Cheng J, et al. Choline alleviates cognitive impair-
-ment in sleep-deprived young mice via reducing neuroinflammation
-and altering phospholipidomic profile. Redox Biol. 2025;81:103578.
-doi:10.1016/j.redox.2025.103578
-34. d’Avila JC, Siqueira LD, Mazeraud A, et al. Age-related cognitive
-impairment is associated with long-term neuroinflammation and
-oxidative stress in a mouse model of episodic systemic inflammation. J
-Neuroinflammation. 2018;15(1):28. doi:10.1186/s12974-018-1059-y
-35. Oue H, Yamazaki Y, Qiao W, et al. LRP1 in vascular mural cells modu-
-lates cerebrovascular integrity and function in the presence of APOE4.
-JCI Insight. 2023;8(7):e163822. doi:10.1172/jci.insight.163822
-36. Wang X, Wang Z, Cao J, Dong Y, Chen Y. Gut microbiota-derived
-metabolites mediate the neuroprotective effect of melatonin in
-cognitive impairment induced by sleep deprivation. Microbiome.
-2023;11(1):17. doi:10.1186/s40168-022-01452-3
-37. Hu Y, Lv Y, Long X, Yang G, Zhou J. Melatonin attenuates chronic
-sleep deprivation-induced cognitive deficits and HDAC3-Bmal1/clock
-interruption. CNS Neurosci Ther. 2023;30(3):e14474. doi:10.1111/cns.
-14474
-38. Sun H, Cao Q, He X, et al. Melatonin mitigates sleep restriction-
-induced cognitive and glymphatic dysfunction via Aquaporin-4
-polarization. Mol Neurobiol. 2025;62(9):11443-11465. doi:10.1007/
-s12035-025-04992-5
-39. Chen Y, Guo H, Sun X, et al. Melatonin regulates glymphatic function
-to affect cognitive deficits, behavioral issues, and blood-brain barrier
-damage in mice after intracerebral hemorrhage: potential links to cir-
-cadian rhythms. CNS Neurosci Ther. 2025;31(2):e70289. doi:10.1111/
-cns.70289
-40. HorneSJ,ToppTE,QuigleyL.Depressionandthewillingnesstoexpend
-cognitive and physical effort for rewards: a systematic review. Clin
-Psychol Rev. 2021;88:102065. doi:10.1016/j.cpr.2021.102065
-41. Jelsma E, Zhang A, Goosby BJ, Cheadle JE. Sympathetic arousal
-among
-depressed
-college
-students:
-examining
-the
-interplay
-between
-psychopathology
-and
-social
-activity.
-Psychophysiology.
-2024;61(9):e14597. doi:10.1111/psyp.14597
-42. Hung YC, Lao WL, Yeh CJ, MC Lee. The mediating effect of leisure
-activities in the relationship between depression and cognitive decline
-in middle age and older adults in Taiwan. BMC Geriatr. 2023;23(1):315.
-doi:10.1186/s12877-023-03984-1
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
-
-# Page 16
-
-16 of 16
-MA ET AL.
-43. Qin T, Yan M, Fu Z, et al. Association between anemia and cogni-
-tive decline among Chinese middle-aged and elderly: evidence from
-the China health and retirement longitudinal study. BMC Geriatr.
-2019;19(1):305. doi:10.1186/s12877-019-1308-7
-44. Wolters FJ, Zonneveld HI, Licher S, et al. Hemoglobin and ane-
-mia in relation to dementia risk and accompanying changes on
-brain
-MRI.
-Neurology.
-2019;93(9):e917-e926.
-doi:10.1212/wnl.
-0000000000008003
-45. Winchester LM, Newby D, Ghose U, et al. The relationship between
-anaemia, haemoglobin levels, and cognitive function: evidence in two
-population-based cohorts from India and the United States. Neurobiol
-Dis. 2025;216:107112. doi:10.1016/j.nbd.2025.107112
-46. Jung M, Zou L, Yu JJ, et al. Does exercise have a protective effect
-on cognitive function under hypoxia? A systematic review with meta-
-analysis. J Sport Health Sci. 2020;9(6):562-577. doi:10.1016/j.jshs.
-2020.04.004
-47. Winchester LM, Powell J, Lovestone S, Nevado-Holgado AJ. Red blood
-cell indices and anaemia as causative factors for cognitive function
-deficits and for Alzheimer’s disease. Genome Med. 2018;10(1):51.
-doi:10.1186/s13073-018-0556-z
-48. Duncan MJ. Interacting influences of aging and Alzheimer’s disease on
-circadian rhythms. Eur J Neurosci. 2020;51(1):310-325. doi:10.1111/
-ejn.14358
-49. de Souza KA, Jackson M, Chen J, et al. Shift work schedules alter
-immune cell regulation and accelerate cognitive impairment during
-aging. J Neuroinflammation. 2025;22(1):4. doi:10.1186/s12974-024-
-03324-z
-50. Li P, Gao L, Gaba A, et al. Circadian disturbances in Alzheimer’s disease
-progression: a prospective observational cohort study of community-
-based older adults. Lancet Healthy Longev. 2020;1(3):e96-e105. doi:10.
-1016/s2666-7568(20)30015-5
-51. Hoyt KR, Obrietan K. Circadian clocks, cognition, and Alzheimer’s
-disease: synaptic mechanisms, signaling effectors, and chronothera-
-peutics. Mol Neurodegener. 2022;17(1):35. doi:10.1186/s13024-022-
-00537-9
-52. González HM, Tarraf W, Harrison K, et al. Midlife cardiovascular health
-and 20-year cognitive decline: atherosclerosis risk in communities
-study results. Alzheimer’s Dement: J Alzheimer’s Assoc. 2018;14(5):579-
-589. doi:10.1016/j.jalz.2017.11.002
-53. de A Boleti AP, de O Cardoso PH, F Frihling BE, E Silva PS, de Moraes
-LFRN, Migliolo L. Adipose tissue, systematic inflammation, and neu-
-rodegenerative diseases. Neural Regen Res. 2023;18(1):38-46. doi:10.
-4103/1673-5374.343891
-54. Barron AM, Tokunaga M, Zhang MR, Ji B, Suhara T, Higuchi M.
-Assessment of neuroinflammation in a mouse model of obesity andβ-
-amyloidosis using PET. J Neuroinflammation. 2016;13(1):221. doi:10.
-1186/s12974-016-0700-x
-55. Naomi R, Teoh SH, Embong H, et al. The role of oxidative stress and
-inflammation in obesity and its impact on cognitive impairments-a
-narrative review. Antioxidants (Basel). 2023;12(5):1071. doi:10.3390/
-antiox12051071
-56. Ghosh P, Fontanella RA, Scisciola L, et al. Obesity-induced neuronal
-senescence: unraveling the pathophysiological links. Ageing Res Rev.
-2024;101:102533. doi:10.1016/j.arr.2024.102533
-57. Al Haj Ahmad RM, Ababneh NA, Al-Domi HA. Brain insulin resistance
-as a mechanistic mediator links peripheral metabolic disorders with
-declining cognition. Diabetes Metab Syndr. 2022;16(4):102468. doi:10.
-1016/j.dsx.2022.102468
-58. Cadena M, Barreto GE. Exploring the interplay between circadian
-rhythms and obesity: a Boolean network approach to understand-
-ing metabolic dysregulation. PloS One. 2025;20(9):e0331218. doi:10.
-1371/journal.pone.0331218
-59. Lejawa M, Osadnik K, Czuba Z, Osadnik T, Pawlas N. Association of
-metabolically healthy and unhealthy obesity phenotype with markers
-related to obesity, diabetes among young, healthy adult men. analy-
-sis of MAGNETIC study. Life (Basel Switz). 2021;11(12):1350. doi:10.
-3390/life11121350
-60. Sripetchwandee J, Chattipakorn N, Chattipakorn SC. Links between
-obesity-induced brain insulin resistance, brain mitochondrial dysfunc-
-tion, and dementia. Front Endocrinol. 2018;9:496. doi:10.3389/fendo.
-2018.00496
-61. Li C, Bai C, Wang L, et al. Association between healthy lifestyle
-and cognitive decline, all-cause mortality, and mortality from cardio-
-vascular and cerebrovascular diseases: a 10-year population-based
-prospective cohort study. Alzheimer’s Dement: J Alzheimer’s Assoc.
-2025;21(3):e70021. doi:10.1002/alz.70021
-62. Cantuaria ML, Waldorff FB, Wermuth L, et al. Residential exposure to
-transportation noise in Denmark and incidence of dementia: national
-cohort study. BMJ (Clin Res Ed). 2021;374:n1954. doi:10.1136/bmj.
-n1954
-63. Li H, Li C, Wang A, et al. Associations between social and intellectual
-activities with cognitive trajectories in Chinese middle-aged and older
-adults: a nationally representative cohort study. Alzheimer’s Res Ther.
-2020;12(1):115. doi:10.1186/s13195-020-00691-6
-64. de Vos BC, Runhaar J, Verkleij SP, van Middelkoop M, Bierma-Zeinstra
-SM. Latent class growth analysis successfully identified subgroups of
-participants during a weight loss intervention trial. J Clin Epidemiol.
-2014;67(8):947-951. doi:10.1016/j.jclinepi.2014.03.007
-65. Mori Y, Komura T, Adomi M, et al. Heterogeneous cardiovascular
-effects of SGLT2 inhibitors in type 2 diabetes: a causal forest and tar-
-get trial emulation study. Eur J Prev Cardiol. 2025;33(1):80-88. doi:10.
-1093/eurjpc/zwaf539
-66. Liu M, Xu Z, He L, et al. Heterogeneous effects of obesity on all-
-cause mortality: a causal forest analysis of hospitalized patients
-in China. Diabetes Obes Metab. 2025;27(7):3695-3704. doi:10.1111/
-dom.16391
-67. Wheaton AG, Jones SE, Cooper AC, Croft JB. Short sleep dura-
-tion among middle school and high school students—United States,
-2015. MMWR Morb Mortal Wkly Rep. 2018;67(3):85-90. doi:10.15585/
-mmwr.mm6703a1
-68. Ashbrook LH, Krystal AD, Fu YH, Ptáˇcek LJ. Genetics of the
-human circadian clock and sleep homeostat. Neuropsychopharmacol-
-ogy. 2020;45(1):45-54. doi:10.1038/s41386-019-0476-7
-69. Johnson KA, Gordon CJ, Chapman JL, et al. The association of insom-
-nia disorder characterised by objective short sleep duration with
-hypertension, diabetes and body mass index: a systematic review and
-meta-analysis. Sleep Med Rev. 2021;59:101456. doi:10.1016/j.smrv.
-2021.101456
-SUPPORTING INFORMATION
-Additional supporting information can be found online in the Support-
-ing Information section at the end of this article.
-How to cite this article: Ma J, Chen N, Huang J, Xu L, Shang H.
-Circadian syndrome (CircS) and cognitive trajectory
-deterioration in middle-aged and older adults: A national
-cohort study with causal forest analysis. Alzheimer’s Dement.
-2026;22:e71300. https://doi.org/10.1002/alz.71300
- 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Townsend, B.E., Chen, Y.J., Jeffery, E.H., Johnson, R.W., 2014. Dietary broccoli mildly 
+improves neuroinflammation in aged mice but does not reduce lipopolysaccharide- 
+induced sickness behavior. Nutr. Res. 34 (11), 990–999. https://doi.org/10.1016/j. 
+nutres.2014.10.001.
+Trott, O., Olson, A.J., 2010. AutoDock Vina: improving the speed and accuracy of 
+docking with a new scoring function, efficient optimization, and multithreading. 
+J. Comput. Chem. 31 (2), 455–461. https://doi.org/10.1002/jcc.21334.
+Verzelloni, P., Urbano, T., Wise, L.A., Vinceti, M., Filippini, T., 2024. Cadmium exposure 
+and cardiovascular disease risk: A systematic review and dose-response meta- 
+analysis. Environ. Pollut. 345, 123462. https://doi.org/10.1016/j. 
+envpol.2024.123462.
+Vickers, A.J., Elkin, E.B., 2006. Decision curve analysis: a novel method for evaluating 
+prediction models. Med. Decis. Mak. 26 (6), 565–574. https://doi.org/10.1177/ 
+0272989X06295361.
+Vitali, S.H., Fernandez-Gonzalez, A., Nadkarni, J., Kwong, A., Rose, C., Mitsialis, S.A., 
+Kourembanas, S., 2020. Heme oxygenase-1 dampens the macrophage sterile 
+inflammasome response and regulates its components in the hypoxic lung. Am. J. 
+Physiol. Lung Cell Mol. Physiol. 318 (1), L125–L134. https://doi.org/10.1152/ 
+ajplung.00074.2019.
+Vosa, U., Claringbould, A., Westra, H.J., Bonder, M.J., Deelen, P., Zeng, B., Kirsten, H., 
+Saha, A., Kreuzhuber, R., Yazar, S., Brugge, H., Oelen, R., de Vries, D.H., van der 
+Wijst, M.G.P., Kasela, S., Pervjakova, N., Alves, I., Fave, M.J., Agbessi, M., 
+Christiansen, M.W., Jansen, R., Seppala, I., Tong, L., Teumer, A., Schramm, K., 
+Hemani, G., Verlouw, J., Yaghootkar, H., Sonmez Flitman, R., Brown, A., 
+Kukushkina, V., Kalnapenkis, A., Rueger, S., Porcu, E., Kronberg, J., Kettunen, J., 
+Lee, B., Zhang, F., Qi, T., Hernandez, J.A., Arindrarto, W., Beutner, F., 
+Consortium, B., i, Dmitrieva, Q.T.L.C., Elansary, J., Fairfax, M., Georges, B.P., 
+Heijmans, M., Hewitt, B.T., Kahonen, A.W., Kim, M., Knight, Y., Kovacs, J.C., 
+Krohn, P., Li, K., Loeffler, S., Marigorta, M., Mei, U.M., Momozawa, H., Muller- 
+Nurasyid, Y., Nauck, M., Nivard, M., Penninx, M.G., Pritchard, B., Raitakari, J.K., 
+Rotzschke, O.T., Slagboom, O., Stehouwer, E.P., Stumvoll, C.D.A., Sullivan, P., T, M., 
+Hoen, P.A.C., Thiery, J., Tonjes, A., van Dongen, J., van Iterson, M., Veldink, J.H., 
+Volker, U., Warmerdam, R., Wijmenga, C., Swertz, M., Andiappan, A., 
+Montgomery, G.W., Ripatti, S., Perola, M., Kutalik, Z., Dermitzakis, E., Bergmann, S., 
+Frayling, T., van Meurs, J., Prokisch, H., Ahsan, H., Pierce, B.L., Lehtimaki, T., 
+Boomsma, D.I., Psaty, B.M., Gharib, S.A., Awadalla, P., Milani, L., Ouwehand, W.H., 
+Downes, K., Stegle, O., Battle, A., Visscher, P.M., Yang, J., Scholz, M., Powell, J., 
+Gibson, G., Esko, T., Franke, L., 2021. Large-scale cis- and trans-eQTL analyses 
+identify thousands of genetic loci and polygenic scores that regulate blood gene 
+expression. Nat. Genet 53 (9), 1300–1310. https://doi.org/10.1038/s41588-021- 
+00913-z.
+Wallin, M., Andersson, E.M., Engstrom, G., 2024. Blood cadmium is associated with 
+increased fracture risk in never-smokers - results from a case-control study using data 
+from the Malmo Diet and Cancer cohort. Bone 179, 116989. https://doi.org/ 
+10.1016/j.bone.2023.116989.
+Wallin, M., Barregard, L., Sallsten, G., Lundh, T., Sundh, D., Lorentzon, M., Ohlsson, C., 
+Mellstrom, D., 2021. Low-level cadmium exposure is associated with decreased 
+cortical thickness, cortical area and trabecular bone volume fraction in elderly men: 
+the MrOS Sweden study. Bone 143, 115768. https://doi.org/10.1016/j. 
+bone.2020.115768.
+Wang, E., Li, S., Li, Y., Zhou, T., 2025. HMOX1 as a potential drug target for upper and 
+lower airway diseases: insights from multi-omics analysis. Respir. Res. 26 (1), 41. 
+https://doi.org/10.1186/s12931-025-03124-w.
+Wang, Z., Li, X., Yang, J., Gong, Y., Zhang, H., Qiu, X., Liu, Y., Zhou, C., Chen, Y., 
+Greenbaum, J., Cheng, L., Hu, Y., Xie, J., Yang, X., Li, Y., Schiller, M.R., Chen, Y., 
+Tan, L., Tang, S.Y., Shen, H., Xiao, H.M., Deng, H.W., 2021. Single-cell RNA 
+sequencing deconvolutes the in vivo heterogeneity of human bone marrow-derived 
+mesenchymal stem cells. Int. J. Biol. Sci. 17 (15), 4192–4206. https://doi.org/ 
+10.7150/ijbs.61950.
+Wang, H., Peng, C., Hu, G., Chen, W., Hu, Y., Pi, H., 2024. Integrated single-cell RNA-seq 
+and Bulk RNA-seq identify diagnostic biomarkers for Postmenopausal Osteoporosis. 
+Curr. Med. Chem. https://doi.org/10.2174/0109298673343344240930054414.
+Watabe, Y., Giam Chuang, V.T., Sakai, H., Ito, C., Enoki, Y., Kohno, M., Otagiri, M., 
+Matsumoto, K., Taguchi, K., 2025. Carbon monoxide alleviates endotoxin-induced 
+acute lung injury via NADPH oxidase inhibition in macrophages and neutrophils. 
+Biochem. Pharm. 233, 116782. https://doi.org/10.1016/j.bcp.2025.116782.
+Wright, N.C., Looker, A.C., Saag, K.G., Curtis, J.R., Delzell, E.S., Randall, S., Dawson- 
+Hughes, B., 2014. The recent prevalence of osteoporosis and low bone mass in the 
+United States based on bone mineral density at the femoral neck or lumbar spine. 
+J. Bone Min. Res. 29 (11), 2520–2526. https://doi.org/10.1002/jbmr.2269.
+Xiaofeng, Y., Qinren, C., Jingping, H., Xiao, C., Miaomiao, W., Xiangru, F., Xianxing, X., 
+Meixia, H., Jing, L., Jingyuan, W., Xinxin, C., Hongyu, L., Yanhong, D., Lanxiang, J., 
+Xuming, D., 2012. Geniposide, an iridoid glucoside derived from Gardenia 
+jasminoides, protects against lipopolysaccharide-induced acute lung injury in mice. 
+Planta Med. 78 (6), 557–564. https://doi.org/10.1055/s-0031-1298212.
+Ximenez, J.P.B., Zamarioli, A., Kacena, M.A., Barbosa, R.M., Barbosa, F., Jr, 2021. 
+Association of Urinary and Blood Concentrations of Heavy Metals with Measures of 
+Bone Mineral Density Loss: a Data Mining Approach with the Results from the 
+National Health and Nutrition Examination Survey. Biol. Trace Elem. Res. 199 (1), 
+92–101. https://doi.org/10.1007/s12011-020-02150-7.
+Xu, S., Hu, E., Cai, Y., Xie, Z., Luo, X., Zhan, L., Tang, W., Wang, Q., Liu, B., Wang, R., 
+Xie, W., Wu, T., Xie, L., Yu, G., 2024. Using clusterProfiler to characterize 
+multiomics data. Nat. Protoc. 19 (11), 3292–3320. https://doi.org/10.1038/s41596- 
+024-01020-z.
+Ye, W., Liu, Z., Liu, F., Luo, C., 2021. Heme oxygenase-1 predicts risk stratification and 
+immunotherapy efficacy in lower grade gliomas. Front. Cell Dev. Biol. 9, 760800. 
+https://doi.org/10.3389/fcell.2021.760800.
+Yeh, P.Y., Li, C.Y., Hsieh, C.W., Yang, Y.C., Yang, P.M., Wung, B.S., 2014. CO-releasing 
+molecules and increased heme oxygenase-1 induce protein S-glutathionylation to 
+modulate NF-kappaB activity in endothelial cells. Free Radic. Biol. Med. 70, 1–13. 
+https://doi.org/10.1016/j.freeradbiomed.2014.01.042.
+Yin, Y., Weng, Y., Ma, Z., Li, L., 2025. Tectochrysin alleviates periodontitis by 
+modulating M2/M1 macrophage ratio and oxidative stress via nuclear factor Kappa 
+B/heme oxygenase-1/nuclear factor erythroid 2-related factor 2 pathway. Immunol. 
+Invest. 54 (1), 97–111. https://doi.org/10.1080/08820139.2024.2418938.
+Yoo, M., Shin, J., Kim, J., Ryall, K.A., Lee, K., Lee, S., Jeon, M., Kang, J., Tan, A.C., 2015. 
+DSigDB: drug signatures database for gene set analysis. Bioinformatics 31 (18), 
+3069–3071. https://doi.org/10.1093/bioinformatics/btv313.
+Zabalgoitia, M., Colston, J.T., Reddy, S.V., Holt, J.W., Regan, R.F., Stec, D.E., Rimoldi, J. 
+M., Valente, A.J., Chandrasekar, B., 2008. Carbon monoxide donors or heme 
+oxygenase-1 (HO-1) overexpression blocks interleukin-18-mediated NF-kappaB- 
+PTEN-dependent human cardiac endothelial cell death. Free Radic. Biol. Med. 44 
+(3), 284–298. https://doi.org/10.1016/j.freeradbiomed.2007.08.012.
+Zheng, H.F., Forgetta, V., Hsu, Y.H., Estrada, K., Rosello-Diez, A., Leo, P.J., Dahia, C.L., 
+Park-Min, K.H., Tobias, J.H., Kooperberg, C., Kleinman, A., Styrkarsdottir, U., Liu, C. 
+T., Uggla, C., Evans, D.S., Nielson, C.M., Walter, K., Pettersson-Kymmer, U., 
+McCarthy, S., Eriksson, J., Kwan, T., Jhamai, M., Trajanoska, K., Memari, Y., Min, J., 
+Huang, J., Danecek, P., Wilmot, B., Li, R., Chou, W.C., Mokry, L.E., Moayyeri, A., 
+Claussnitzer, M., Cheng, C.H., Cheung, W., Medina-Gomez, C., Ge, B., Chen, S.H., 
+Choi, K., Oei, L., Fraser, J., Kraaij, R., Hibbs, M.A., Gregson, C.L., Paquette, D., 
+Hofman, A., Wibom, C., Tranah, G.J., Marshall, M., Gardiner, B.B., Cremin, K., 
+Auer, P., Hsu, L., Ring, S., Tung, J.Y., Thorleifsson, G., Enneman, A.W., van 
+Schoor, N.M., de Groot, L.C., van der Velde, N., Melin, B., Kemp, J.P., 
+Christiansen, C., Sayers, A., Zhou, Y., Calderari, S., van Rooij, J., Carlson, C., 
+Peters, U., Berlivet, S., Dostie, J., Uitterlinden, A.G., Williams, S.R., Farber, C., 
+Grinberg, D., LaCroix, A.Z., Haessler, J., Chasman, D.I., Giulianini, F., Rose, L.M., 
+Ridker, P.M., Eisman, J.A., Nguyen, T.V., Center, J.R., Nogues, X., Garcia-Giralt, N., 
+Launer, L.L., Gudnason, V., Mellstrom, D., Vandenput, L., Amin, N., van Duijn, C.M., 
+Karlsson, M.K., Ljunggren, O., Svensson, O., Hallmans, G., Rousseau, F., Giroux, S., 
+Bussiere, J., Arp, P.P., Koromani, F., Prince, R.L., Lewis, J.R., Langdahl, B.L., 
+Hermann, A.P., Jensen, J.E., Kaptoge, S., Khaw, K.T., Reeve, J., Formosa, M.M., 
+Xuereb-Anastasi, A., Akesson, K., McGuigan, F.E., Garg, G., Olmos, J.M., 
+Zarrabeitia, M.T., Riancho, J.A., Ralston, S.H., Alonso, N., Jiang, X., Goltzman, D., 
+Pastinen, T., Grundberg, E., Gauguier, D., Orwoll, E.S., Karasik, D., Davey-Smith, G., 
+Consortium, A., Smith, A.V., Siggeirsdottir, K., Harris, T.B., Zillikens, M.C., van 
+Meurs, J.B., Thorsteinsdottir, U., Maurano, M.T., Timpson, N.J., Soranzo, N., 
+Durbin, R., Wilson, S.G., Ntzani, E.E., Brown, M.A., Stefansson, K., Hinds, D.A., 
+Spector, T., Cupples, L.A., Ohlsson, C., Greenwood, C.M., Consortium, U.K., 
+Jackson, R.D., Rowe, D.W., Loomis, C.A., Evans, D.M., Ackert-Bicknell, C.L., 
+Joyner, A.L., Duncan, E.L., Kiel, D.P., Rivadeneira, F., Richards, J.B., 2015. Whole- 
+genome sequencing identifies EN1 as a determinant of bone density and fracture. 
+Nature 526 (7571), 112–117. https://doi.org/10.1038/nature14878.
+Zheng, G.X., Terry, J.M., Belgrader, P., Ryvkin, P., Bent, Z.W., Wilson, R., Ziraldo, S.B., 
+Wheeler, T.D., McDermott, G.P., Zhu, J., Gregory, M.T., Shuga, J., Montesclaros, L., 
+Underwood, J.G., Masquelier, D.A., Nishimura, S.Y., Schnall-Levin, M., Wyatt, P.W., 
+Hindson, C.M., Bharadwaj, R., Wong, A., Ness, K.D., Beppu, L.W., Deeg, H.J., 
+McFarland, C., Loeb, K.R., Valente, W.J., Ericson, N.G., Stevens, E.A., Radich, J.P., 
+Mikkelsen, T.S., Hindson, B.J., Bielas, J.H., 2017. Massively parallel digital 
+transcriptional profiling of single cells. Nat. Commun. 8, 14049. https://doi.org/ 
+10.1038/ncomms14049.
+Zhou, Y., Gao, Y., Xu, C., Shen, H., Tian, Q., Deng, H.W., 2018. A novel approach for 
+correction of crosstalk effects in pathway analysis and its application in osteoporosis 
+research. Sci. Rep. 8 (1), 668. https://doi.org/10.1038/s41598-018-19196-2.
+Zhou, D., Ran, Y., Yu, R., Liu, G., Ran, D., Liu, Z., 2023. SIRT1 regulates osteoblast 
+senescence through SOD2 acetylation and mitochondrial dysfunction in the 
+progression of Osteoporosis caused by Cadmium exposure. Chem. Biol. Inter. 382, 
+110632. https://doi.org/10.1016/j.cbi.2023.110632.
+Zhu, H., Tang, X., Gu, C., Chen, R., Liu, Y., Chu, H., Zhang, Z., 2024. Assessment of 
+human exposure to cadmium and its nephrotoxicity in the Chinese population. Sci. 
+Total Environ. 918, 170488. https://doi.org/10.1016/j.scitotenv.2024.170488.
+Y. Li et al.                                                                                                                                                                                                                                        
+Ecotoxicology and Environmental Safety 301 (2025) 118502 
+14

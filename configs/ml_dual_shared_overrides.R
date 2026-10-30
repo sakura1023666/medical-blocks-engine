@@ -252,14 +252,14 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       restrict_to_train = TRUE,
       force_composite_features = TRUE,
       include_composite_in_ml = TRUE,
-      ## Figure S1：多方法→韦恩；单方法→该方法筛选图（LASSO 两图上下拼）
-      draw_venn = TRUE
+      ## 用户 2026-10-30：交付不再要 Figure S1 韦恩；特征筛选主图走 LASSO 等（如 Fig2）
+      draw_venn = FALSE
     )
   )
   config$feature_selection_venn <- modifyList(
     config$feature_selection_venn %||% list(),
     list(
-      enable = TRUE,
+      enable = FALSE,
       sync_venn_center_to_ml = TRUE,
       require_exposure_in_features = TRUE,
       single_method_use_s2_plot = TRUE

@@ -1,1582 +1,1917 @@
 # Page 1
 
-Clinical Research
-Discontinuation of Renin-Angiotensin System Inhibitors
-during Acute Kidney Injury Episode and All-Cause
-Mortality
-Target Trial Emulation Studies
-Sheng Nie
-, Yanqin Li, Yinfang Sun, Shan Chen, Xian Shao
-, Mingzhen Pang, Shiyu Zhou, Licong Su
-, Ruixuan Chen
-,
-Fan Luo, Xin Xu
-, and Fan Fan Hou
-, on behalf of the CRDS Study Investigators*
-Key Points
-c It is uncertain whether the discontinuation of renin-angiotensin system (RAS) improves prognosis among patients during an
-episode of hospital-acquired AKI.
-c Discontinuation of RAS inhibitors within 2 days after AKI was associated with lower risk of all-cause mortality as
-compared with continuation.
-c Temporary discontinuation of RAS inhibitors during AKI episodes may improve outcomes in long-term users.
-Abstract
-Background Renin-angiotensin system inhibitors (RASis) are widely used among patients with cardiovascular disease,
-diabetes, and CKD, which are high-risk populations for AKI. Evidence for the optimal management of RASi during an
-episode of AKI is lacking.
-Methods We conducted a multidatabase cohort study using sequential target trial emulation framework from the China
-Renal Data System and Medical Information Mart for Intensive Care IV (MIMIC-IV) databases. Adult patients with
-hospital-acquired AKI who had been receiving angiotensin-converting enzyme inhibitors or angiotensin receptor blockers
-treatment for at least 90 days were included. The primary outcomes were 30- and 180-day all-cause mortality. Adjusted
-cumulative incidences and risk differences were estimated using weighted pooled logistic regression models.
-Results A total of 27,003 person-trials were identiﬁed from the China Renal Data System database (median [interquartile
-range] age, 70 [58–78] years; 12,972 [60%] male) and the MIMIC-IV database (median [interquartile range] age, 73 [63–82]
-years; 2825 [53%] male). The adjusted cumulative incidence of 30-day all-cause mortality was lower among person-trials
-with RASi discontinuation within 2 days after the hospital-acquired AKI than continuation (4.36% versus 5.91%), with a
-risk difference of 21.55% (95% conﬁdence interval, 22.43% to 20.55%). Discontinuation of RASi was consistently
-associated with lower risk of all-cause mortality in the MIMIC-IV database, with similar beneﬁcial associations observed
-across stratiﬁed analyses and multiple sensitivity analyses.
-Conclusions In this study, stopping RASi within the ﬁrst 2 days of AKI detection was associated with a lower risk of all-
-cause mortality.
-JASN 00: 1–11, 2025. doi: https://doi.org/10.1681/ASN.0000000775
-Division of Nephrology, State Key Laboratory of Multi-Organ Injury Prevention and Treatment, National Clinical Research Center for Kidney Disease,
-Nanfang Hospital, Southern Medical University, Guangzhou, China
-Correspondence: Prof. Fan Fan Hou or Dr. Xin Xu, email: ffhouguangzhou@163.com or xux007@163.com
-Received: February 16, 2025 Accepted: June 13, 2025
-Published Online Ahead of Print: June 18, 2025
-S.N., Y.L., and Y.S. contributed equally to this work.
-*CRDS Study Investigators: Xin Xu, Sheng Nie, Hong Xu, Bicheng Liu, Jianping Weng, Chen Chunbo, Huafeng Liu, Qiongqiong Yang, Hua Li,
-Yaozhong Kong, Guisen Li, Qijun Wan, Yan Zha, Ying Hu, Gang Xu, Yongjun Shi, Yilun Zhou, Guobin Su, Ying Tang, Jie Shen, Chen Wang, Dehui
-Liu, Yihua Bai, Pengli Luo, Wenli Chen, Jianghua Chen, Chen Lu, Siyuan Teng, Yang Li, and Mengchun Gong.
-JASN ▪: 1–11, ▪▪▪, 2025
-Copyright © 2025 by the American Society of Nephrology
-1
+Wang et al. BMC Medicine          (2025) 23:555  
+https://doi.org/10.1186/s12916-025-04298-2
+RESEARCH
+Open Access
+© The Author(s) 2025. Open Access This article is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 
+International License, which permits any non-commercial use, sharing, distribution and reproduction in any medium or format, as long 
+as you give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons licence, and indicate if 
+you modified the licensed material. You do not have permission under this licence to share adapted material derived from this article or 
+parts of it. The images or other third party material in this article are included in the article’s Creative Commons licence, unless indicated 
+otherwise in a credit line to the material. If material is not included in the article’s Creative Commons licence and your intended use is not 
+permitted by statutory regulation or exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To 
+view a copy of this licence, visit http://creativecommons.org/licenses/by-nc-nd/4.0/.
+BMC Medicine
+Additive effects of depression 
+and abdominal obesity on cognitive function 
+in middle‑aged and older population: evidence 
+from multinational cohorts
+Ruiqi Wang1†, Yalin Chen1†, Kayla M. Teopiz2, Roger S. McIntyre3,4 and Bing Cao1,5* 
+Abstract 
+Background  This study aimed to investigate the joint trajectories of obesity/abdominal obesity and depression, 
+and their association with cognitive function among four nationally representative cohorts.
+Methods  We used data from four nationally representative cohorts (China, UK, USA, and Mexico) in adults 
+over the age of 45, which included a total of 114,633 participants. Kml3D clustering algorithm was conducted to iden-
+tify the potential joint trajectories of obesity/abdominal obesity and depression of homogeneous groups. Generalized 
+Estimating Equations (GEE) were performed to examine the joint trajectory of obesity/abdominal obesity and depres-
+sion in relation to cognitive function.
+Results  In all cohorts, the baseline “Comorbidity” (with both depression and obesity/abdominal obesity) exhib-
+ited significantly poorer performance on subsequent cognitive assessments compared to the “Neither condi-
+tion” group (neither depression nor obesity). Cluster analysis and GEE revealed that when Body Mass Index (BMI) 
+was used as an obesity indicator, individuals in the joint trajectory groups with depression trajectories (regardless 
+of obesity trajectories) across four cohorts exhibited poorer cognitive performance compared to the Normal weight 
+and No depressed group (CHARLS: β =  − 0.35, 95% CI − 0.42 to − 0.28; ELSA: β =  − 0.32, 95% CI − 0.44 to − 0.20; HRS: 
+β =  − 0.20, 95% CI − 0.27 to − 0.13, MHAS: β =  − 0.15, 95% CI − 0.19 to − 0.10; all P < 0.001). Conversely, associations 
+between the joint trajectory groups with obesity trajectories (regardless of depression trajectories) and cogni-
+tive function demonstrated significant heterogeneity across cohorts. Abdominal obesity measures indicated 
+that the abdominal obesity or higher waist-to-height ratio (WHtR) and Depression group significantly contributed 
+to cognitive decline compared to those in the No abdominal obesity and No depression group (CHARLS: β =  − 0.31, 
+95% CI − 0.39 to − 0.23; ELSA: β =  − 0.20, 95% CI 0.29 to − 0.12; HRS: β =  − 0.20, 95% CI − 0.27 to − 0.14, all P < 0.001).
+Conclusions  Abdominal obesity and depression exert independent additive and fluctuating effects on measures 
+of cognition in middle-aged and older persons. Strategies that broadly aim to decrease excess fat, notably abdominal 
+obesity, represent near-term interventions that may beneficially influence aspects of cognition in depression.
+Keywords  Trajectory, Obesity, Abdominal obesity, Depression, Cognitive function, Cohort study
+†Ruiqi Wang and Yalin Chen contributed equally to this work.
+*Correspondence:
+Bing Cao
+bingcao@swu.edu.cn
+Full list of author information is available at the end of the article
 
 # Page 2
 
-Introduction
-AKI is a common and life-threatening complication in
-hospitalized patients, especially in those with cardiovas-
-cular disease, diabetes mellitus, and CKD.1 It has been
-consistently associated with higher short-term and long-
-term risks of mortality. Currently, there are no proven
-effective therapies for AKI, and the optimal management
-strategies for improving outcomes during or after an ep-
-isode of AKI remain poorly deﬁned.
-Renin-angiotensin system inhibitors (RASi), particularly
-angiotensin-converting enzyme inhibitors (ACEIs) and an-
-giotensin receptor blockers (ARBs), are widely used among
-patients with cardiovascular or kidney disease.2–4 The
-management of RASi in patients with AKI remains a topic
-of ongoing research.5 Several studies have reported that
-ACEIs or ARBs therapy after discharge is associated with
-improved outcomes in hospitalized patients with AKI.6–8
-However, there are no published studies that investigate
-the survival beneﬁt or harm of RASi treatment during an
-episode of AKI. It remains inconclusive whether RASi
-should be stopped or continuously used when AKI was
-detected in those patients who had been receiving RASi for
-a long time. This uncertainty represents a common di-
-lemma in clinical practice, where evidence to guide de-
-cision making is limited.
-To address this knowledge gap, we conducted a multi-
-database cohort study using sequential target trial emula-
-tion framework. Adult patients with hospital-acquired AKI
-who had been receiving RASi treatment for at least 90 days
-were included to compare the clinical outcomes between
-those with and without early discontinuation of RASi
-during an episode of AKI.
-Methods
-Target Trial Protocol Overview
-We emulated a sequential target trial9–11 on a daily basis to
-evaluate the association between discontinuation of RASi
-within 2 days after AKI detection with all-cause mortality,
-compared with continuation of RASi, in a multidatabase
-cohort study. The elements of the target and emulation trial
-are presented in Supplemental Table 1. We categorized
-patients into a discontinuation group and a continuation
-group based on their RASi prescription records within
-2 days after the onset of AKI, adhering to the intention-
-to-treat (ITT) principle. Emulation of sequential trials on a
-time window of 24 hours is a valid and efﬁcient procedure
-to mitigate selection and immortal time bias, which was
-successfully applied in previous studies comparing treat-
-ment versus nontreatment.12–14
-Data were extracted from the China Renal Data Sys-
-tem (CRDS) and Medical Information Mart for Intensive
-Care IV (MIMIC-IV version 2.0) databases. CRDS is a
-nationwide database containing clinical data of more
-than 10 million inpatients admitted between January
-2000 and December 2022 across 28 regional medical
-centers in China. This large and high-quality database
-has served as a valuable resource for multiple research
-studies.15–17 The database includes demographic data,
-diagnostic information, operation and procedure records,
-prescription data, laboratory measurements, and imaging
-and histopathologic reports during each inpatient and
-outpatient visit. MIMIC-IV is a large, deidentiﬁed dataset
-of patients admitted to the emergency department or
-intensive care units (ICUs) at the Beth Israel Deaconess
-Medical Center in Boston, Massachusetts, covering data
-for over 65,000 patients admitted to the ICU and over
-200,000 patients admitted to the emergency department.
-MIMIC-IV contains comprehensive information on labo-
-ratory measurements, medications administered, vital
-signs documented, and so on.18,19
-Eligibility Criteria
-Eligible candidates included adult patients who had expe-
-rienced hospital-acquired AKI and who had been using
-RASi for at least 90 days prior to the hospital-acquired
-AKI. We excluded patients with concomitant use of ACEIs
-and ARBs, a baseline eGFR ,30 ml/min per 1.73 m2, or
-vasopressor use. Due to the design of sequential target trial
-emulation, only the ﬁrst 2 days after AKI were considered
-in
-the
-study
-to
-generate
-person-trials
-for
-analyses
-(see details below in the Methods section). The eligibility
-was reassessed repeatedly within the 2-day enrollment
-period on a daily basis of each “trial” since the onset
-date of AKI.
-AKI was deﬁned according to the creatinine criteria of
-Kidney Disease Improving Global Outcomes20: a $0.3 mg/dl
-increase in serum creatinine concentration within 48 hours
-or a $50% increase over baseline serum creatinine within
-7 days. AKI that occurred after 2 days following admis-
-sion was considered as hospital-acquired AKI.21 Patients
-who developed AKI within the ﬁrst 2 days of hospital-
-ization were classiﬁed as having community-acquired
-AKI and were therefore not eligible.
-Treatment Strategies and Treatment Assignment
-Treatment strategies included discontinuation or contin-
-uation of RASi within 2 days after the detection of
-hospital-acquired AKI. To address immortal time bias,
-we employed a sequential target trial emulation on a
-24-hour time interval, starting from the day of AKI
-detection and covering the ﬁrst 2 days thereafter. On
-the ﬁrst day after AKI detection, eligible patients were
-classiﬁed into either the discontinuation or continuation
-group (Supplemental Figure 1). Patients were assigned to
-the discontinuation group if there was no record of RASi
-administration during that time window (i.e., the ﬁrst day
-after AKI onset). Assessment of RASi use was based on
-electronic medical records (only in the CRDS database)
-and prescription information. Following the same princi-
-ple, we replicated this process for the second 24-hour
-interval after AKI detection. Each patient who met the
-eligibility criteria contributed one person-trial per 24-hour
-interval and could contribute up to two person-trials in
-total. Importantly, once a patient was assigned to the
-discontinuation group, they were no longer eligible to be
-included in the continuation group in subsequent inter-
-vals, regardless of whether they restarted RASi therapy
-later. In other words, if a patient was classiﬁed into the
-discontinuation group on day 1, they could not contribute
-a
-person-trial
-on
-day
-2.
-For
-person-trials
-in
-the
-ﬁrst 24-hour interval, the index date was deﬁned as the
-2
-JASN
-CLINICAL RESEARCH
-www.jasn.org
+Page 2 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+Graphical Abstract
+Background
+The widespread nature of depression and obesity car-
+ries considerable public health challenges [1, 2], par-
+ticularly among middle-aged and older adults [3]. 
+Recent US data show that 44.3% of adults aged 40–59 
+were classified as obese during 2017–2020, increas-
+ing to nearly 41.5% among those aged 60 and older [4]. 
+Similarly, a recent study found that 21.3% of adults aged 
+50 and above report depressive symptoms [5].
+Furthermore, both disorders co-occur within indi-
+viduals, with depression conferring a 37% increased 
+risk of obesity and obesity elevating depression risk by 
+40% [1], creating compound impairment in physical 
+and mental health. This interplay is mediated mainly 
+through shared genetic loci [6], neuroendocrine dys-
+function [notably the hypothalamic–pituitary–adrenal 
+(HPA) axis hyperactivity], metabolic disturbances, and 
+chronic inflammation [7]. These interconnected path-
+ways form a self-perpetuating vicious cycle that exac-
+erbates pathological progression in both conditions [8]. 
+Accumulating evidence suggested that the comorbidity 
+of obesity and depression may impair health outcomes 
+in middle-aged and older adults, including increased 
+risks of functional disability, cardiometabolic multi-
+morbidity, and cognitive decline [9–12]. These inter-
+connected health burdens underscore the urgent need 
+for integrated preventive and therapeutic strategies tar-
+geting this vulnerable demographic.
+Cognitive decline is a growing public-health concern. 
+Statistics show that approximately 5–8% of older adults 
+experience cognitive decline annually, which is consid-
+ered a precursor symptom of dementia [13]. Neurode-
+generative processes mediated by chronic inflammation 
+and metabolic disturbances, including cerebrovascular 
+pathology, are key contributors to this decline [14–16]. 
+Given the established mechanistic associations of obesity 
+and depression with chronic inflammation and metabolic 
+dysfunction [17], these conditions may synergistically 
+drive cognitive impairment progression.
+Extensive evidence indicates that depression links to 
+cognitive decline and is a prodrome to dementia [18–20]. 
+Depressive symptoms mediate cognitive impairment via 
+multiple pathways, including the aforementioned HPA 
+axis hyperactivation, inflammation, and hippocam-
+pal atrophy [21–23]. Chronic or recurrent depression 
+particularly impairs attention, executive function, and 
+episodic memory—specific domains critical for daily 
+functioning and predictive of dementia risk [24, 25]. 
+However, the association between obesity and cognitive 
+health in middle-aged and older adults remains unclear 
+[9]. Some studies suggest that obesity may have a protec-
+tive effect on cognitive decline [26, 27], supporting the
 
 # Page 3
 
-day following AKI detection. For person-trials in the
-second 24-hour interval, the index date was deﬁned as
-the second day following AKI detection.
-Baseline serum creatinine was deﬁned as the mean of all
-available serum creatinine levels from 30 days prior to
-admission to the ﬁrst in-hospital serum creatinine test (for
-patients without serum creatinine measurement prior to
-the hospitalization, only in-hospital serum creatinine was
-used).22 All patients were linked to the corresponding
-system, hence, out-of-hospital mortality was available.
-Outcomes and Follow-Up
-The primary outcomes were 30- and 180-day all-cause
-mortality after hospital-acquired AKI. The secondary out-
-come was AKI recovery, deﬁned as a reduction in serum
-creatinine from the peak value by at least 50% of the
-difference between peak and baseline creatinine, along
-with resolution of AKI status—indicated by a creatinine
-level ,150% of baseline or ,baseline10.3 mg/dl.21,23 The
-cause and the date of death in the CRDS database were
-obtained by the national electronic cause-of-death reporting
-system from Chinese Centers for Disease Control and Pre-
-vention.24 Date of death in the MIMIC-IV database was
-extracted from two sources: the hospital information system
-and the Massachusetts State Registry of Vital Records and
-Statistics. Individual patient records from Medical Informa-
-tion Mart for Intensive Care were matched to the vital
-records using a custom algorithm based on identiﬁers in-
-cluding name, social security number, and date of birth. As
-a result of the linkage, out-of-hospital mortality was available
-for MIMIC-IV patients up to 1 year post-hospital discharge.25
-The follow-up period began on the day the treatment strat-
-egy was assigned and ended at death or 1 year.
-Clinical Variables
-Baseline characteristics included age, sex, body mass
-index, stage of AKI, total volume of 24-hour intrave-
-nous
-ﬂuids,
-24-hour
-urine
-output
-(only
-for
-the
-MIMIC-IV database), comorbidities (hypertension, dia-
-betes, cancer, heart failure, stroke, and coronary artery
-disease), comedication (loop diuretics, statins, calcium
-channel blockers, and nonsteroidal anti-inﬂammatory
-drugs, b-blocker, proton pump inhibitors, aminoglyco-
-side, and hypoglycemic agent), and laboratory measure-
-ments (serum creatinine before AKI, hemoglobin, serum
-albumin, serum potassium). Comorbidities were deter-
-mined based on the diagnostic codes using International
-Classiﬁcation of Diseases, 10th Revision codes (CRDS
-database) and International Classiﬁcation of Diseases,
-9th Revision codes (MIMIC-IV database) before the in-
-dex date. The Charlson’s comorbidity index was calcu-
-lated at hospital admission to provide an objective
-metric of comorbidity burden.26 Comedications were
-deﬁned as any prescription of the speciﬁed drugs within
-1 year before the index date. Baseline laboratory mea-
-surements were deﬁned as the most recent value ob-
-tained within 90 days prior to or on the index date. The
-eGFR was calculated using the serum creatinine–based
-CKD Epidemiology Collaboration equation.27 Descrip-
-tion of deﬁnition, source, and use of the variables is
-provided in Supplemental Tables 2 and 3. A directed
-acyclic graph was applied to identify the confounding
-factors (Supplemental Figure 2).
-Statistical Analysis
-The target trial causal contrasts of interest was the mar-
-ginal ITT effect of RASi discontinuation on the cumulative
-incidence of the all-cause mortality compared with contin-
-uation. This marginal effect was deﬁned as the difference
-between the cumulative incidences (risk differences) when
-all individuals in the target trial population were assigned
-to either discontinue or continue RASi treatment at base-
-line.
-To
-ﬂexibly
-model
-time-varying
-covariates
-and
-nonproportional hazards in survival analysis, we applied
-pooled logistic regression to estimate discrete-time hazard,
-treating person-trials from each day as separate observa-
-tions. The model included both ﬁxed baseline variables
-(e.g., sex and baseline diagnoses) and time-varying vari-
-ables (e.g., laboratory measurements and AKI stage). To
-adjust for dependent censoring, we applied stabilized in-
-verse probability of censoring weights (IPCWs). Speciﬁ-
-cally, the stabilized IPCW were constructed as the product
-of conditional probabilities of remaining uncensored at
-each follow-up interval. The numerator of the stabilized
-IPCW represented the probability of being uncensored at
-baseline, modeled using baseline covariates. The denomi-
-nator represented the conditional probability of remaining
-uncensored during follow-up, modeled using time-varying
-covariates and treatment history. Finally, a pooled regres-
-sion model combining person-trials on day 1 and day 2
-was used to estimate 30- and 180-day cumulative inci-
-dences of death, along with the corresponding risk differ-
-ences between the two treatment strategies in the marginal
-structural model. The pooled logistic regression model is
-an approximation to a proportional hazards model when
-time is split into discrete intervals (e.g., by person-days or
-person-months).28 The statistical method used in our
-study
-accommodates
-dynamic
-treatment
-effects
-and
-time-dependent confounding, while using robust sand-
-wich variance estimators to account for intra-individual
-correlation, aligning with the causal inference framework
-for observational data.
-The last observation carried forward method was used
-to ﬁll the missing covariates longitudinally. For each co-
-variate with missing data at baseline, we applied median
-imputation and introduced an indicator variable for the
-missingness.
-Additionally, we performed the per-protocol analyses
-of RASi discontinuation with mortality. In per-protocol
-analyses, follow-up data are artiﬁcially censored upon
-treatment switching/deviation (reinitiating a RASi for
-discontinuation group or stopping a RASi for continua-
-tion group) during the follow-up, and the inverse prob-
-ability of treatment weights (IPTWs) were used to adjust
-for selection bias introduced by treatment switching. The
-covariate sets used for IPCW, IPTW, and the pooled
-logistic regression were identical, encompassing both
-baseline
-and
-time-varying
-covariates
-like
-vital
-sign
-(BP), comedications, and laboratory measurement.
-The treatment effects were estimated and compared
-across subgroups stratiﬁed by age (,70 or $70 years),
-sex, AKI stage, baseline eGFR ($45 or ,45 ml/min per
-JASN ▪: 1–11, ▪▪▪, 2025
-3
-Discontinuation of RASi and Mortality, Nie et al.
+Page 3 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+concept of an “obesity paradox” [28], while others view 
+obesity as a risk factor for cognitive decline [27, 29, 30], 
+necessitating further investigation into their connec-
+tion. Of note, while Body Mass Index (BMI) is a widely 
+accepted indicator for defining obesity, cross-cultural 
+researches have uncovered heterogeneity in its correla-
+tion with cognitive deterioration [9, 31]. Importantly, as 
+a contributing factor to various chronic illnesses includ-
+ing type 2 diabetes, cardiovascular disease, and meta-
+bolic syndrome [32], abdominal obesity (AO)[33]) has 
+been demonstrated by numerous studies to have a robust 
+association with cognitive decline [34–37]. Additionally, 
+considering the comorbid mechanisms between obesity 
+and depression, the joint changes of both conditions over 
+time should not be overlooked.
+To overcome limitations of prior studies using a single 
+obesity indicator and elucidate mechanisms underly-
+ing cognitive decline, this study incorporates BMI and 
+(waist to height ratio) WHtR as predictive indicators in 
+middle-aged and older populations. While prior work 
+often has predominantly examined the effects of a sin-
+gle developmental trajectory of obesity or depression on 
+cognitive decline, it overlooked the combined effects of 
+their joint trajectories. Hence, we conducted a multina-
+tional cohort study to examine the association between 
+comorbid obesity-depression trajectories and cogni-
+tive decline. We hypothesize that individuals exhibiting 
+co-occurring trajectories of persistent obesity/AO and 
+persistent depression demonstrate significantly poorer 
+cognitive performance compared to those who remained 
+consistently non-obese and non-depressed throughout 
+the observation period. Findings aim to identify high-risk 
+populations and inform targeted interventions for age-
+related cognitive impairment.
+Methods
+Study population
+The multinational cohort employed in this survey design 
+comprised four prospective, nationally representative 
+longitudinal studies: the China Health and Retirement 
+Longitudinal Study (CHARLS, China), the English Lon-
+gitudinal Study of Ageing (ELSA, United Kingdom), the 
+Health and Retirement Study (HRS, United States), and 
+the Mexican Health and Aging Study (MHAS, Mexico). 
+All sample population was recruited as part of a strati-
+fied, multistage probability design, with longitudinal 
+follow-up administered by trained research teams. The 
+detailed introduction of each cohort could be found on 
+their websites [CHARLS: https://​charls.​pku.​edu.​cn/​gy/​
+gyxm.​htm [38]; ELSA: https://​ukdat​aserv​ice.​ac.​uk/​about/ 
+[39]; HRS: https://​hrs.​isr.​umich.​edu/​about? [40]; MHAS: 
+https://​www.​mhasw​eb.​org/​Home/​Index.​aspx [41]]. Rele-
+vant ethical review institutes granted our survey’s ethical 
+approval, and all participants signed informed consent 
+forms before the survey.
+According to the current research objectives, we ruled 
+out the impact of COVID-19 and selected the appropri-
+ate waves from the four cohorts. The included waves need 
+to include all the key variables of this study (e.g., BMI, 
+WHtR, depressive symptoms, cognitive function scores, 
+and covariates). Thus, 3 waves (wave1–3: 2011, 2013, and 
+2015) in CHARLS, 3 waves (wave3–5: 2012, 2015, and 
+2018) in MHAS, 4 waves (wave2,4,6,8: 2004, 2008, 2012, 
+and 2016) in ELSA, and 6 waves (wave8–13: 2006–2016) 
+in HRS (participants only received body measurements 
+in odd or even waves, so we merged the odd and even 
+waves into three waves: wave1, wave2, wave3:2006/2008, 
+2010/2012 and 2014/2016) were included in the cur-
+rent study. Our exclusion criteria were as follows: (1) 
+age < 45 years old; (2) participants with cognitive-related 
+disorders (see Additional file  1: Table S1)[42]; (3) cases 
+of missing, unclear responses, and rejections both in 
+baseline and follow-up surveys. Therefore, 114,633 par-
+ticipants from four countries were considered, and after 
+screening, a total of 36,718 participants remained. The 
+comprehensive screening flowchart of participants could 
+be seen in Additional file  1: Fig. S1, with an in-depth 
+description of each cohort’s selecting procedure available 
+in Additional file 1: Fig. S2.
+Obesity and abdominal obesity
+In the main analyses, obesity in middle-aged and older 
+adults was defined by Body Mass Index (BMI), and the 
+calculation of BMI was done by dividing a person’s 
+weight (in kilograms) by the square of their height (in 
+meters). It is worth noting that objectively measured 
+height, weight, and waist circumference (WC) were pro-
+vided only in CHARLS, ELSA, and HRS. MHAS only 
+included self-reported height and weight (no WC data 
+available). Furthermore, because the study population 
+comes from various continents and exhibits variations in 
+ethnicity, physique, culture, and public health priorities, 
+it is considered to adopt distinct body type classification 
+standards [43]. Our study referred to previous research, 
+stipulated the use of the Chinese criteria to classify 
+participants from CHARLS, and obesity is defined as 
+BMI ≥ 28 kg/cm2 [44]. For the population from ELSA, 
+HRS, and MHAS cohorts, the European and American 
+criteria were utilized for classification, and obesity is 
+defined as BMI ≥ 30 kg/cm2 [45] (cut-off values of BMI 
+under different standards were shown in Additional file 1: 
+Table S2) [44].
+Abdominal obesity was defined by waist-to-height ratio 
+(WHtR), which was calculated as WC divided by height 
+(both in centimeters). Considering it is probable that 
+middle-aged and older adults may have an overestimation
 
 # Page 4
 
-1.73 m2), Charlson’s comorbidity index (.6 or #6), base-
-line serum potassium (.5.5 or #5.5 mEq/L), ICU admis-
-sion, presence of diabetes, hypertension, and cancer, and
-use of loop diuretic.
-Seven sensitivity analyses were conducted. First, in the
-pooled logistic regression model, we further adjusted for
-the degree of AKI recovery (deﬁned as the ratio of eGFR
-during follow-up to baseline eGFR) and included it as a
-time-varying covariate in the pooled logistic regression.
-Second, we separated patients into those using ACEIs and
-those using ARBs, and separately investigated the asso-
-ciation between discontinuation versus continuation of
-study drug and mortality within each subgroup. Third,
-we excluded patients with hyperkalemia (baseline serum
-potassium .5.5 mEq/L) at the time of AKI detection.
-Fourth, we further excluded those who died within 5 days
-after AKI detection to preclude the reversal causality.
-Fifth, we explored different time intervals for treatment
-assignment, redeﬁning the windows as #1, #2 (the pri-
-mary analysis time window), and #7 days, and reana-
-lyzed the association between discontinuation versus
-continuation of RASi under each updated treatment strat-
-egy. Sixth, we performed a multiple imputation under a
-missing-at-random framework by chained equations to
-evaluate the robustness of the primary ﬁndings. Seventh,
-we performed a 1:2 propensity score-matched analysis
-(caliper width: 0.25 SDs of logit odds) to balance the
-baseline covariates among RASi discontinuation and con-
-tinuation groups. After matching, the identical approach
-as the primary analysis was applied to the matched
-population. All statistical analyses were conducted sepa-
-rately in the two independent datasets (CRDS and
-MIMIC-IV) using R (version 4.1.2).
-Results
-Study Population and Baseline Characteristics
-A total of 27,003 person-trials were identiﬁed, each in-
-volving patient who had been using RASi for at least
-90 days prior to the onset of hospital-acquired AKI
-(21,680 from the CRDS database and 5323 from the
-MIMIC-IV database; Figure 1). The median age of
-person-trials in the CRDS cohort was 70 (interquartile
-range, 58–78) years, with 60% being male, whereas in the
-MIMIC-IV database, the median age was 73 (interquartile
-range, 63–82) years, with 53% being male (Table 1).
-Baseline
-serum
-creatinine
-measurements
-were
-predominantly obtained on the day of hospital admis-
-sion
-in
-both
-CRDS
-and
-the
-MIMIC-IV
-databases
-(Supplemental Figure 3). Missing data proportions for
-baseline variables in the RASi discontinuation and con-
-tinuation
-groups
-are
-summarized
-in
-Supplemental
-Table 4. RASi were discontinued within 2 days after
-AKI in 2948 (14%) person-trials in the CRDS cohort and
-1468 (28%) in the MIMIC-IV cohort. The doses of RASi at
-the time of discontinuation are detailed in Supplemental
-Table 5. Person-trials in the discontinuation group ex-
-hibited a higher proportion of severe AKI and lower
-baseline eGFR compared with those in the continuation
-group in both databases. Comorbidities and comedication
-usage were generally similar between the discontinuation
-and continuation groups (Table 1). In person-trials who
-discontinued RASi after the AKI, the baseline character-
-istics of these person-trials for those who discontinued on
-the ﬁrst and second day are shown in Supplemental
-Table 6. The departments in which patients experience
-hospital-acquired AKI in the two databases are shown in
-Supplemental Figure 4.
-Discontinuation of RASi and Outcomes
-Among the 21,680 person-trials in the CRDS database
-(Table 2), the cumulative incidence of 30-day all-cause
-mortality was 4.36% (95% conﬁdence interval [CI], 3.51%
-to 6.23%) for those who discontinued RASi compared with
-5.91% (95% CI, 5.42% to 6.92%) for those who continued,
-resulting in a signiﬁcant risk difference of 21.55% (95%
-CI, 22.43% to 20.55%) between the two groups. At the
-180-day follow-up, discontinuation of RASi was associated
-with 23.12% (95% CI, 24.94% to 21.03%) lower risk of all-
-cause mortality compared with the continuation group. In
-the MIMIC-IV database (Table 2), the cumulative inci-
-dences of all-cause mortality within 30 and 180 days
-were higher than that in the CRDS database. However,
-the risk difference at 30 and 180 days between person-trials
-with RASi discontinuation and continuation was attenu-
-ated to 20.79% (95% CI, 21.61% to 20.12%) and 21.98%
-(95% CI, 23.80% to 20.28%), respectively. Figure 2 illus-
-trates the ITT 180-day adjusted cumulative incidence
-curves for the discontinuation versus continuation groups.
-The risk difference associated with RASi discontinuation
-on all-cause mortality was consistent across subgroups
-stratiﬁed by age, sex, baseline eGFR, AKI stage, comor-
-bidity, and loop diuretics, and this consistency was ob-
-served in both databases (Figure 3). Notably, the beneﬁcial
-33,328 Potential person-trials
-(12,754 unique persons)
-21,680 Eligible patient-trials
-11,648 Patients excluded
-  1321 Concomitant use of ACEI and ARB
-   8643 Baseline eGFR<30 ml/min/1.73m2
-  1552 Vasopressor use
-  132 Died at the date of AKI
-2948 Discontinuation of RASi within 2d
-(2948 unique persons)
-2248 on day 1 (2248 unique persons)
-700 on day 2 (700 unique persons)
-18,732 Continuation of RASi within 2d
-(7423 unique persons)
-13548 on day 1 (7423 unique persons)
-5184 on day 2 (5184 unique persons)
-6969 Potential person-trials
-(2954 unique persons)
-5323 Eligible patient-trials
-1646 Patients excluded
-  67 Concomitant use of ACEI and ARB
-  955 Baseline eGFR<30 ml/min/1.73m2
-  609 Vasopressor use
-  15 Died at the date of AKI
-1468 Discontinuation of RASi within 2d
-(1468 unique persons)
-1116 on day 1 (1116 unique persons)
-352 on day 2 (352 unique persons)
-3855 Continuation of RASi within 2d
-(1828 unique persons)
-3029 on day 1 (1828 unique persons)
-826 on day 2 (826 unique persons)
-Patients with hospital-acquired AKI treating
-with RASi for at least 3 months in MIMIC-IV
-Patients with hospital-acquired AKI treating
-with RASi for at least 3 months in CRDS
-Figure 1. Flow chart of study population. ACEI, angiotensin-converting enzyme inhibitor; ARB, angiotensin receptor blockers; CRDS,
-China Renal Data System; MIMIC-IV, Medical Information Mart for Intensive Care IV; RASi, renin-angiotensin system inhibitors.
-4
-JASN
-CLINICAL RESEARCH
-www.jasn.org
+Page 4 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+of abdominal obesity due to height loss [46]. The current 
+study defined 0.6 as the cut-off value of abdominal obe-
+sity [47].
+In addition, we opted to use the Weight-Adjusted Waist 
+Index (WWI) in the secondary analysis to reflect obesity 
+[48]. The WWI standardizes WC with weight, providing 
+a more accurate depiction of adiposity that is unrelated 
+to weight and partially circumvents the “obesity paradox” 
+associated with BMI [49]. It was calculated by dividing 
+WC (in centimeters) by the square root of weight (in kilo-
+grams) (√kg) [50].
+Depressive symptoms assessment
+In all four cohorts, depressive symptoms and depression 
+were evaluated by calculating the total scores of different 
+standardized scales and referring to the corresponding 
+cut-off values. Briefly, in CHARLS, depressive symptoms 
+were measured by the ten-item Center for Epidemiologic 
+Studies Depression Scale (CESD-10); in ELSA and HRS, 
+depressive symptoms were measured by the eight-item 
+version of the Center for Epidemiologic Studies Depres-
+sion Scale (CES-D); in MHAS, depressive symptoms 
+were measured by the nine-item scale modified from 
+the Center for Epidemiological Studies Depression scale 
+(CESD-9). Additional file 1: Table S3 [20, 51–55] provides 
+more information about each scale.
+Empirical classification (secondary analysis): depression 
+and obesity group
+In the baseline and outcome wave, participants’ depres-
+sion and obesity status were divided into four groups 
+based on previous research and empirical criteria: (1) 
+neither depression nor obesity (“Neither condition”); (2) 
+depression without obesity (“Depression alone”); (3) obe-
+sity without depression (“Obesity alone”); (4) with both 
+depression and obesity (“Comorbidity”) (3). Therefore, 
+the changes in the subjects’ depression-obesity status 
+can be further categorized into three groups over time: 
+(1) Stability; (2) Progression; (3) Regression. More details 
+about the grouping criteria are provided in the Addition-
+alfile 1: Fig. S3.
+Cognitive function assessment
+Cognitive function was assessed through face-to-face 
+self-questionnaire, evaluating the response and opera-
+tional performance of participants. Each cohort used 
+different questionnaires and measurement dimensions. 
+Briefly, in CHARLS, the cognitive function was assessed 
+by the Chinese version of the Mini-Mental State Exami-
+nation (MMSE); in ELSA, the cognitive function assess-
+ment was assessed by standardized episodic memory 
+and orientation tests; in HRS, the cognitive function 
+was assessed by the modified version of the Telephone 
+Interview for Cognitive Status (TICS); in MHAS, the 
+cognitive function was assessed by the Cross-Cultural 
+Cognitive Examination (CCCE). In all tests, a higher cog-
+nitive score indicated better cognitive performance. To 
+achieve comparability across different tests, we generated 
+the z-score of cognitive function for each cohort, refer-
+ring to previous research [20]. Details of cognitive assess-
+ments for each cohort and the method for calculating 
+z-score are provided in the Additional file 1: Table S4 and 
+Supplementary Methods1 [20, 42, 56–61].
+Covariates
+Covariate selection was guided by two criteria: (1) avail-
+ability of key demographic variables in the database, and 
+(2) prior empirical evidence from relevant studies [42, 
+62]. The following variables were ultimately incorpo-
+rated as potential confounding factors: age, gender, race, 
+marital status, education level, residential area, house-
+hold financial situation, five doctor-diagnosed health 
+problems (hypertension, diabetes, cancer, stroke and 
+arthritis), smoking and drinking status at baseline. The 
+definition of covariates is reported in the Additionalfile 1: 
+Supplementary Methods2.
+Statistical analysis
+All analyses were conducted based on complete data-
+sets with exclusion of missing data. In the main analy-
+ses, the baseline characteristics of the participants were 
+described as means ± standard deviations (SD) of con-
+tinuous variables and percentages (%) of categorical vari-
+ables. Differences in the characteristics were analyzed 
+using t-tests and chi-square tests. And to better present 
+the transition of depression-obesity status, we depicted 
+Sankey diagrams to visualize the proportion of partici-
+pants transitioning across different groups from baseline 
+to outcome wave.
+To identify the potential joint variable-trajectories of 
+obesity (indicator: BMI and WHtR) and depression of 
+homogeneous groups, the current study used Kml3D, 
+a partitioning clustering algorithm from the package 
+KmL3D [63], which is based on the k-means algorithm 
+[64]. Then, we thoroughly considered both Calinski & 
+Harabasz criterion (high value denoting good partition) 
+[65] and the interpretability of the results to decide the 
+final number of clusters for each cohort; meanwhile, we 
+named the trajectory groups for further analysis. Further 
+explanations on this methodology are provided in the 
+Additionalfile 1: Supplementary Methods3 [66, 67].
+Subsequently, 
+Generalized 
+Estimating 
+Equations 
+(GEE),which are an extension of generalized linear 
+models (GLM) and allow for the resolution of the issue 
+of the correlations between observations in longitu-
+dinal studies [68], were employed to evaluate baseline
 
 # Page 5
 
-Table 1.
-Baseline characteristics of person-trials with hospital-acquired AKI in the emulated target trial
-Characteristics
-CRDS
-MIMIC-IV
-Total (21,680
-Person-Trials)
-Discontinuation of RASi
-(2948 Person-Trials)
-Continuation of RASi
-(18,732 Person-Trials)
-Total (5323
-Person-Trials)
-Discontinuation of RASi
-(1468 Person-Trials)
-Continuation of RASi
-(3855 Person-Trials)
-Age, yr, median (IQR)
-70 (58–78)
-70 (59–79)
-70 (58–78)
-73 (63–82)
-73 (63–83)
-72 (63–82)
-Male, No. (%)
-12,972 (60)
-1793 (61)
-11,179 (60)
-2825 (53)
-810 (55)
-2015 (52)
-BMI, kg/m2, median (IQR)
-21.9 (21.0–26.0)
-22.0 (21.0–26.0)
-22.1 (21.0–26.0)
-29.5 (25.6–34.4)
-29.1 (25.2–33.8)
-29.6 (25.6–34.9)
-AKI stage
-1
-17,240 (80)
-2209 (75)
-15,031 (80)
-4627 (87)
-1253 (85)
-3374 (88)
-2
-3020 (14)
-495 (17)
-2525 (14)
-537 (10)
-151 (10)
-386 (10)
-3
-1420 (6)
-244 (8)
-1176 (6)
-159 (3)
-64 (4)
-95 (2)
-ICU, No. (%)
-5495 (25)
-679 (23)
-4816 (26)
-1400 (26)
-390 (27)
-1010 (26)
-Cardiac operation, No. (%)
-781 (4)
-137 (5)
-644 (3)
-36 (0.7)
-8 (0.5)
-28 (0.7)
-RASi use, No. (%)
-ACEI
-7296 (34)
-988 (33)
-6308 (34)
-3677 (68)
-1027 (69)
-2650 (68)
-ARB
-14,384 (66)
-1960 (67)
-12,424 (66)
-1684 (32)
-452 (31)
-1232 (32)
-Systolic BP, mm Hg, median (IQR)
-125 (113–138)
-123 (110–136)
-125 (113–138)
-123 (107–138)
-122 (105–136)
-123 (108–140)
-Diastolic BP, mm Hg, median (IQR)
-73 (65–80)
-72 (63–80)
-73 (65–80)
-61 (52–73)
-60 (52–71)
-61 (52–73)
-Volume of 24-h intravenous ﬂuids, ml,
-median (IQR)
-257 (100–700)
-435 (100–1100)
-250 (100–620)
-1000 (300–2070)
-1000 (250–1947)
-1000 (314–2100)
-24-h urine output, ml, median (IQR)
-—
-—
-—
-1300 (720–2100)
-1326 (768–2126)
-1300 (714–2063)
-Baseline laboratory parameters
-Baseline serum creatinine before
-AKI, mg/dl, median (IQR)
-0.9 (0.7–1.2)
-1.0 (0.7–1.3)
-0.9 (0.7–1.2)
-1.0 (0.8–1.3)
-1.1 (0.8–1.3)
-1.0 (0.7–1.2)
-Baseline eGFR before AKI, ml/min
-per 1.73 m2, median (IQR)
-77 (53–96)
-72 (50–94)
-77 (53–96)
-66 (49–88)
-61 (46–83)
-68 (51–88)
-Hemoglobin, g/dl, median (IQR)
-11.7 (9.9–13.4)
-11.6 (9.7–13.3)
-11.8 (10.0–13.4)
-10.7 (9.4–12.0)
-10.6 (9.1–12.1)
-10.7 (9.5–12.0)
-Serum albumin, g/dl, median (IQR)
-3.5 (3.1–3.9)
-3.5 (3.0–3.9)
-3.5 (3.1–3.9)
-3.6 (3.2–4.0)
-3.6 (3.2–4.0)
-3.6 (3.2–4.0)
-Serum potassium, mEq/L,
-median (IQR)
-4.0 (3.7–4.4)
-4.1 (3.7–4.5)
-4.0 (3.7–4.4)
-4.2 (3.9–4.5)
-4.2 (3.9–4.6)
-4.2 (3.9–4.5)
-Comorbidity, No. (%)
-Charlson score
-5 (4–7)
-5 (4–7)
-5 (4–7)
-6 (4–8)
-6 (4–8)
-6 (4–8)
-Hypertension
-14,179 (65)
-1950 (66)
-12,229 (65)
-4751 (89)
-1326 (90)
-3425 (89)
-Diabetes
-6734 (31)
-947 (32)
-5787 (31)
-2648 (50)
-725 (49)
-1923 (50)
-Stroke
-4909 (23)
-648 (22)
-4261 (23)
-331 (6)
-89 (6)
-242 (6)
-Cancer
-2254 (10)
-373 (13)
-1881 (10)
-741 (14)
-210 (14)
-531 (14)
-Heart failure
-8882 (41)
-1279 (43)
-7603 (41)
-2566 (48)
-702 (48)
-1864 (48)
-Coronary artery disease
-9924 (46)
-1443 (49)
-8481 (45)
-2101 (40)
-603 (41)
-1498 (39)
-Comedications, No. (%)
-Loop diuretics
-16,432 (76)
-2286 (78)
-14,146 (76)
-3549 (67)
-940 (64)
-2609 (68)
-Statins
-14,495 (67)
-2012 (68)
-12,483 (67)
-4107 (77)
-1118 (76)
-2989 (78)
-CCB
-13,640 (63)
-1775 (60)
-11,865 (63)
-3865 (73)
-1070 (73)
-2795 (72)
-b-blocker
-14,386 (66)
-1937 (66)
-12,449 (66)
-2453 (46)
-663 (45)
-1790 (46)
-NSAIDs
-15,225 (70)
-2113 (72)
-13,112 (70)
-4242 (80)
-1188 (81)
-3054 (79)
-JASN ▪: 1–11, ▪▪▪, 2025
-5
-Discontinuation of RASi and Mortality, Nie et al.
+Page 5 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+depression-obesity status of participants and the joint 
+trajectory of the two in relation to cognitive function 
+(z-score). We set follow-up time as the timescale to cal-
+culate the β with corresponding 95% confidence intervals 
+(CI). GEE was repeated after stratifying by baseline main 
+characteristics.
+In subgroup analyses, we stratified populations based 
+on main demographic variables (e.g., age, sex, educa-
+tional attainment) to examine heterogeneous associations 
+between joint trajectories of BMI/WHtR and depressive 
+symptoms and cognitive function change across distinct 
+population subgroups. The interaction effects between 
+different subgroups and combined trajectory groups 
+were examined. In secondary analyses, we employed 
+various obesity indicators and different grouping strat-
+egies to redefine changes in depression-obesity status, 
+aiming to supplement the main results. (1) Considering 
+that KmL3D is a data-driven clustering algorithm and 
+might ignore practical experience standards, we classified 
+participants into stability groups, progression groups, 
+and regression groups based on a previous classification 
+method and empirical criteria, reflecting the transition 
+between obesity and depression at baseline and outcome 
+waves. We then repeated GEE to explore the association 
+between the transition groups and development of cogni-
+tive function in participants. (2) Used WWI as another 
+obesity indicator and generated joint trajectory groups. 
+Subsequently, replicated the statistics of the main results. 
+We also conducted several sensitivity analyses to test the 
+robustness of our findings: (1) Removed the underweight 
+population (BMI < 18.5) and the statistical approach was 
+consistent with previous work; (2) To ensure joint tra-
+jectories were robust, 20% of the participants were ran-
+domly excluded and repeated the KmL3D cluster analysis 
+[67].
+All analyses were conducted with R (version 4.3.1); spe-
+cifically, we used “kml3d”, “gee”, “geepack” and “ggplot2” 
+packages. Sankey diagrams and forest plots were plot-
+ted by [https://​www.​bioin​forma​tics.​com.​cn] and the 
+CNSknowall platform [https://​cnskn​owall.​com] respec-
+tively. All analyses employed stepwise adjustment for 
+confounding variables, with statistical significance 
+defined as two-tailed P-values < 0.05.
+Results
+Baseline characteristics of the study population
+A total of 36,718 individuals [8286 (22.6%) in CHARLS, 
+5225 (14.2%) in ELSA, 10,849 (29.5%) in HRS and 12,358 
+(33.7%) in MHAS] were included in the study popula-
+tion. The main baseline characteristic distributions of 
+participants and the demographic descriptions stratified 
+by depression status are presented in Fig. 1 and Table 1. 
+The mean follow-up duration across the four cohorts was 
+9 years, with cohort-specific durations as follows: 4 years 
+for CHARLS, 10 years for both ELSA and HRS, and 12 
+years for MHAS. Among the continuous variables, the 
+mean age of participants was 63.69 (SD 9.99) years. The 
+mean of BMI was 27.27 (SD 5.40) and the mean of WHtR 
+was 0.55 (SD 0.10). T-tests and chi-square tests showed 
+participants who had experienced depression tended to 
+have a higher BMI (all P < 0.05) and WHtR in ELSA and 
+HRS and lower baseline cognitive test score in all cohorts 
+(all P < 0.001). In all four studies, age, gender, education 
+status, marital status, hypertension, stroke, drinking 
+status, and smoking status had impacts on depressive 
+symptoms (all P < 0.05). Moreover, Additionalfile 1: Fig. 
+S4 and Fig.S5 shows basic characteristics of the dynamic 
+transition of depression-obesity status from baseline to 
+outcome wave. Overall, the proportion of participants in 
+all studies experiencing a state transition was relatively 
+small.
+Association between baseline depression‑obesity status 
+and changes in cognitive function
+No matter which obesity indicator was adopted, com-
+pared to participants in “Neither condition,” individu-
+als in “Depression alone” and “Comorbidity” at baseline 
+exhibited significantly poorer performance in subsequent 
+cognitive assessments (Fig. 2 and Additional File 1: Table 
+S5). This association persisted even after full adjustment 
+for all covariates, maintaining statistical significance 
+across analytical models (“Depression alone” of Fig. 2A—
+CHARLS: β =  − 0.30, 95% CI − 0.35 to − 0.25; ELSA: 
+β =  − 0.27, 95% CI − 0.40 to − 0.14; HRS: β =  − 0.17, 95% 
+CI − 0.26 to − 0.09; MHAS: β =  − 0.19, 95% CI − 0.23 
+to − 0.14; Fig.  2B: CHARLS: β =  − 0.29, 95% CI − 0.34 
+to − 0.23; ELSA: β =  − 0.24, 95% CI: − 0.37 to − 0.11; 
+HRS: β =  − 0.14, 95% CI − 0.23 to − 0.05; “Comorbidity” 
+of Fig. 2A: CHARLS: β =  − 0.25, 95% CI − 0.42 to − 0.08; 
+ELSA: β =  − 0.26, 95% CI − 0.41 to − 0.11; HRS: β =  − 0.18, 
+95% CI − 0.26 to − 0.10; MHAS: β =  − 0.07, 95% CI − 0.12 
+to − 0.01; Fig.  2B: CHARLS: β =  − 0.34, 95% CI − 0.45 
+to − 0.24; ELSA: β =  − 0.32, 95% CI − 0.48 to − 0.16; HRS: 
+β =  − 0.26, 95% CI − 0.34 to − 0.18, all P < 0.05). When 
+the obesity indicator was BMI, we observed individuals 
+in “Obesity alone” exhibited superior cognitive develop-
+ment in HRS and MHAS (HRS: β = 0.05, 95% CI 0.01 to 
+0.08; MHAS: β = 0.06, 95% CI 0.02 to 0.10, all P < 0.05), 
+whereas ELSA revealed an inverse pattern, with indi-
+viduals with obesity exhibiting comparatively impaired 
+cognitive outcomes (β =  − 0.10, 95% CI − 0.17 to − 0.02, 
+P = 0.012). When the obesity indicator was WHtR, “Obe-
+sity alone” participants demonstrated significantly poorer 
+cognitive performance compared to “Neither condi-
+tion” only in ELSA (β =  − 0.11, 95% CI − 0.18 to − 0.03, 
+P = 0.004).
 
 # Page 6
 
-Table 1.
-Continued
-Characteristics
-CRDS
-MIMIC-IV
-Total (21,680
-Person-Trials)
-Discontinuation of RASi
-(2948 Person-Trials)
-Continuation of RASi
-(18,732 Person-Trials)
-Total (5323
-Person-Trials)
-Discontinuation of RASi
-(1468 Person-Trials)
-Continuation of RASi
-(3855 Person-Trials)
-Proton pump inhibitors
-17,568 (81)
-2414 (82)
-15,154 (81)
-4151 (78)
-1141 (78)
-3010 (78)
-Aminoglycoside
-1214 (6)
-133 (4)
-1081 (6)
-3024 (57)
-860 (59)
-2164 (56)
-Hypoglycemic agent
-11,440 (53)
-1590 (54)
-9850 (53)
-177 (3)
-53 (4)
-124 (3)
-ACEI, angiotensin-converting enzyme inhibitor; ARB, angiotensin receptor blocker; BMI, body mass index; CCB, calcium channel blockers; CRDS, China Renal Data System; ICU, intensive
-care unit; IQR, interquartile range; MIMIC-IV, Medical Information Mart for Intensive Care IV; NSAID, nonsteroidal anti-inﬂammatory drug; RASi, renin-angiotensin system inhibitor.
-6
-JASN
-CLINICAL RESEARCH
-www.jasn.org
+Page 6 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+Cluster analysis and joint trajectories of obesity 
+and depression
+In order to determine the appropriate number of poten-
+tial trajectories of BMI (kg/m2)/WHtR and depressive 
+symptoms groups, our study combined the iterative 
+results of KmL3D (the number of clusters was iteratively 
+increased from 2 to 20), cluster classification metrics, and 
+interpretability of the results [a reference group (Normal 
+weight/No abdominal obesity & No depression) should 
+be defined at least]. Therefore, we identified different 
+numbers of trajectories for different cohorts respectively 
+(Fig. 3, Additional file 1: Table S6 and S7). Furthermore, 
+after randomly excluding 20% of participants and repeat-
+ing the cluster analysis, no substantial differences were 
+found in the newly divided trajectory group (Additional-
+file 1: Fig. S6, Table S6 and S7).
+Association between joint trajectories and changes 
+in cognitive function
+Figure  4 and Additional file  1: Table S8–S9 summa-
+rize the association between joint trajectories (BMI/
+WHtR and depressive symptoms) and changes in cogni-
+tive function. In Fig.  4A (adjusted all covariates), com-
+pared to the reference group (Group1: Normal weight 
+and No depression), participants in the joint trajectory 
+groups with depression (regardless of obesity trajecto-
+ries) had poorer cognitive function [CHARLS (Group2: 
+Normal weight & Depression): β =  − 0.35, 95% CI − 0.42 
+to − 0.28; ELSA (Group2: Overweight & Depression): 
+β =  − 0.32, 95% CI − 0.44 to − 0.20; HRS (Group2: Over-
+weight & Depression): β =  − 0.20, 95% CI − 0.27 to − 0.13, 
+MHAS (Group3: Overweight & Depression): β =  − 0.15, 
+95% CI − 0.19 to − 0.10; all P < 0.001]. However, in other 
+trajectory groups, inconsistent results were observed 
+among the four studies. When compared with the refer-
+ence group, the significantly accelerated cognitive decline 
+was reported in Group 4 (Obesity and No depression) 
+of ELSA (β =  − 0.16, 95% CI − 0.26 to − 0.06, P = 0.002). 
+Additionally, the association between trajectory groups 
+characterized by overweight/obesity and better cogni-
+tive development was observed in HRS and MHAS [HRS 
+(Group3 and Group4: Obesity (I)/Obesity II) and No 
+depression): β = 0.06, 95% CI 0.02 to 0.11; β = 0.10, 95% 
+CI 0.04 to 0.16; MHAS (Group2: Overweight and No 
+depression): β = 0.09, 95% CI 0.04 to 0.13, all P < 0.05]; 
+however, this association was not observed in the 
+CHARLS.
+Figure  4B shows the relationship between the joint 
+trajectory (WHtR and depressive symptoms) and cog-
+nitive changes. In the fully adjusted model (adjusted all 
+Fig. 1  Main baseline characteristics of participants from four cohorts. Abbreviations: CHARLS, China Health and Retirement Longitudinal Study; 
+ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health and Retirement Study
 
 # Page 7
 
-association between discontinuation of RASi and mortality
-was more prominent in patients with high risk of mortality
-(e.g., patients with age $70 years, AKI stage 3, or cancer).
-In the per-protocol analysis, reinitiation of RASi within
-hospitalization occurred in 1346 (45.7%) patients in the
-CRDS database and 609 (41.5%) patients in the MIMIC-
-IV database. Baseline characteristics among patients with
-RASi reinitiation are shown in Supplemental Table 7. After
-applying the IPTW in the pooled logistic regression, the
-beneﬁcial association of RASi discontinuation remained
-(Supplemental Table 8). Regarding secondary outcomes,
-approximately 50% of patients recovered within 7 days
-following AKI, with the estimated risk differences for AKI
-recovery associated with the discontinuation of RASi being
-8.92% (95% CI, 5.17% to 13.13%) in the CRDS database and
-6.51% (95% CI, 3.02% to 9.60%) in the MIMIC-IV database,
-respectively (Supplemental Table 9).
-Sensitivity Analysis
-The association between ACRIs/ARBs discontinuation
-and mortality remained consistent after adjusting for
-AKI recovery (Supplemental Table 10), when stratifying
-by ACEI and ARB users (Supplemental Table 11), after
-excluding patients with AKI accompanied by hyperka-
-lemia (Supplemental Table 12), and after excluding pa-
-tients who died within 5 days after AKI detection
-(Supplemental Table 13), and after multiple imputation
-(Supplemental Table 14) in both the CRDS and MIMIC-
-IV databases. After matching, the baseline covariates were
-well-balanced between the RASi discontinuation and con-
-tinuation groups (Supplemental Table 15). Consistent
-with the primary analysis, these sensitivity analyses dem-
-onstrated that RASi discontinuation was signiﬁcantly
-associated with lower risk of mortality (Supplemental
-Table 16). In the sensitivity analysis using different time
-intervals for deﬁning RASi discontinuation (Supplemental
-Figure 5), we found that person-trials with RASi discon-
-tinuation within the ﬁrst 2 days (including #1 and #2
-days) were associated with lower risk of mortality com-
-pared with continued use of RASi. As the time interval
-for discontinuation extended beyond 2 days, the risk
-differences between the discontinuation and continua-
-tion groups diminished.
-Discussion
-In this multidatabase cohort study, we emulated a se-
-quence of hypothetical randomized trials comparing dis-
-continuation versus continuation of RASi in adults with
-AKI during hospitalization. Our study, consistent across
-both the CRDS and MIMIC-IV databases, found that stop-
-ping RASi within the ﬁrst 2 days after the detection of AKI
-was associated with a signiﬁcantly lower risk of all-cause
-mortality at both 30- and 180-days follow-up. The beneﬁ-
-cial association of early discontinuation of RASi was also
-observed across subgroups stratiﬁed by clinical variable
-and multiple sensitivity analyses. To our knowledge, this is
-the ﬁrst study investigating the relationship between early
-discontinuation or continuation of the prior used RASi
-with all-cause mortality during an episode of AKI.
-There is growing evidence regarding the management of
-RASi in patients with AKI, although most of previous
-studies focused on the associations between the initiation
-or resumption of RASi after discharge and subsequent
-outcomes. Despite the established beneﬁts from the use
-of RASi after discharge,6,7,29–32 evidence remains lacking on
-whether RASi should be temporarily stopped or continu-
-ously used during the episode of AKI. The issue is attract-
-ing much attention as many hospitalized patients with AKI
-are previous RASi users for treating comorbidities, e.g.,
-diabetes, chronic heart failure.33 The theoretical contribu-
-tion of RASi to AKI may lead to the practice of discontin-
-uing RASi during acute illness such as AKI.34 However,
-there is a paucity of evidence to support this experience to
-improve clinically relevant outcomes.35–37 Similarly, the
-Kidney Disease Improving Global Outcomes guidelines
-provide a practice point (consensus-based recommenda-
-tions that reﬂect expert judgment but are not graded),
-suggesting that temporarily withholding RASi in the peri-
-operative or acute settings may help prevent AKI.38 How-
-ever, the supporting evidence is inconsistent, inﬂuenced by
-the small sample sizes and limited scope of existing studies.
-With a rigorous study design, our results showed that
-early discontinuation of RASi during an episode of AKI
-was associated with a lower risk of all-cause mortality
-across 27,003 person-trials from two independent data-
-bases. When considered alongside previous studies dem-
-onstrating lower risk of death with RASi use after AKI
-Table 2.
-Cumulative incidences of all-cause mortality and risk differences among patients with renin-angiotensin system inhibitors
-discontinuation and continuation
-Study Outcome
-CRDS
-MIMIC-IV
-Cumulative Incidence
-(95% CI)
-Risk Difference
-(95% CI)
-Cumulative Incidence
-(95% CI)
-Risk Difference
-(95% CI)
-30-d all-cause
-mortality
-Continuation
-5.91% (5.42 to 6.92)
-0 (Reference)
-6.71% (6.05 to 7.69)
-0 (Reference)
-Discontinuation
-4.36% (3.51 to 6.23)
-21.55% (22.43 to 20.55)
-5.91% (5.27 to 7.03)
-–0.79% (21.61 to 20.12)
-180-d all-cause
-mortality
-Continuation
-13.02% (12.41 to 14.40)
-0 (Reference)
-19.12% (17.91 to 20.78)
-0 (Reference)
-Discontinuation
-9.90% (8.35 to 13.18)
-23.12% (24.94 to 21.03)
-17.14% (15.25 to 19.43)
-21.98% (23.80 to 20.28)
-CI, conﬁdence interval; CRDS, China Renal Data System; MIMIC-IV, Medical Information Mart for Intensive Care IV.
-JASN ▪: 1–11, ▪▪▪, 2025
-7
-Discontinuation of RASi and Mortality, Nie et al.
+Page 7 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+Table 1  Baseline characteristics of participants from four cohorts according to depression status
+Variables
+Overall 
+(Mean ± 
+SD or
+events/n)
+China Health and Retirement Longitudinal 
+Study (CHARLS) 
+(n=8286)
+English Longitudinal Study of Ageing 
+(ELSA)
+(n=5225)
+Health and Retirement Study(HRS)
+(n=10849)
+Mexican Health and Aging Study (MHAS)
+(n=12358)
+No depression 
+(n=5504)
+Depression  
+(n=2782)
+p
+No depression 
+(n=4552)
+Depression 
+(n=673)
+p
+No depression 
+(n=9539)
+Depression 
+(n=1310)
+p
+No depression 
+(n=8591)
+Depression(n=3767)
+p
+Age (years)
+63.69 ± 9.99
+58.12 ± 8.97
+59.13 ± 8.97
+<0.001
+65.39 ± 8.92
+66.26 ± 9.78
+0.200
+66.98 ± 9.56
+65.83 ± 9.97
+<0.001
+63.28 ± 9.77
+64.53 ± 10.20
+<0.001
+BMI (kg/m2)*
+27.27 ± 5.40
+23.82 ± 3.71
+23.20 ± 3.71
+<0.001
+27.88 ± 4.75
+28.37 ± 5.31
+0.014
+29.21 ± 5.71
+30.52 ± 6.67
+<0.001
+27.81 ± 4.56
+27.50 ± 4.71
+0.004
+Underweight
+300/728
+260 (4.7)
+216 (7.8)
+<0.001
+27 (0.6)
+5 (0.7)
+0.041
+53 (0.6)
+10 (0.8)
+<0.001
+88 (1.0)
+69 (1.8)
+<0.001
+Normal weight
+2771/11579
+2811 (51.1)
+1544 (55.5)
+1237 (27.2)
+180 (26.7)
+2152 (22.6)
+257 (19.6)
+2608 (30.4)
+1180 (31.3)
+Overweight
+2838/13889
+1755 (31.9)
+745 (26.8)
+1993 (43.8)
+263 (39.1)
+3575 (37.5)
+416 (31.8)
+3728 (43.4)
+1414 (37.5)
+Obesity
+2233/9952
+678 (12.3)
+277 (10.0)
+1295 (28.4)
+225 (33.4)
+3579 (39.4)
+627 (47.9)
+2167 (25.2)
+1104 (29.3)
+Waist-to-height 
+ratio (WHtR)
+0.55 ± 0.10
+0.54 ± 0.06
+0.54 ± 0.66
+0.305
+0.58 ± 0.07
+0.59 ± 0.08
+<0.001
+0.60 ± 0.09
+0.63 ± 0.10
+<0.001
+NA
+NA
+NA
+No abdominal 
+obesity
+3182/15478
+4557 (82.8)
+2285 (82.1)
+0.455
+2966 (65.2)
+401 (59.6)
+0.005
+4773 (50.0)
+496 (37.9)
+<0.001
+NA
+NA
+NA
+Abdominal 
+obesity
+1583/8882
+947 (17.2)
+497 (17.9)
+1586 (34.8)
+272 (40.4)
+4766 (50.0)
+814 (62.1)
+Gender (%)
+Male
+2955/16614
+3099 (56.3)
+1215 (43.7)
+<0.001
+2247 (49.4)
+226 (33.6)
+<0.001
+4013 (42.1)
+363 (27.7)
+<0.001
+4300 (50.1)
+1151 (30.6)
+<0.001
+Female
+5577/20104
+2405 (43.7)
+1567 (56.3)
+2305 (50.6)
+447 (66.4)
+5526 (57.9)
+947 (72.3)
+4291 (49.9)
+2616 (69.4)
+Race (%)
+White
+1655/14125
+NA
+NA
+NA
+4511 (99.1)
+655 (97.3)
+<0.001
+7959 (83.4)
+1000 (76.3)
+<0.001
+NA
+NA
+NA
+Other
+328/1949
+41 (0.9)
+18 (2.7)
+1580 (16.6)
+310 (23.7)
+Education status 
+(%)
+Less than lower 
+secondary
+6796/21571
+4645 (84.4)
+2588 (93.0)
+<0.001
+1678 (36.9)
+333 (49.5)
+<0.001
+1502 (15.7)
+410 (31.3)
+<0.001
+6950 (80.9)
+3465 (92.0)
+<0.001
+Upper secondary 
+& vocational 
+training
+1395/11285
+734 (13.3)
+177 (6.4)
+2198 (48.3)
+284 (42.2)
+5708 (59.8)
+731 (55.8)
+1250 (14.6)
+203 (5.4)
+Tertiary
+341/3862
+125 (2.3)
+17 (0.6)
+676 (14.9)
+56 (8.3)
+2329 (24.4)
+169 (12.9)
+391 (4.6)
+99 (2.6)
+Residence (%)§
+Type A(Urban)
+5016/24405
+2331 (42.4)
+877 (31.50)
+<0.001
+4374 (96.1)
+632 (93.9)
+0.008
+6381 (66.9)
+912 (69.6)
+0.490
+6303 (73.4)
+2595 (68.9)
+<0.001
+Type B(Rural)
+3516/12313
+3173 (57.6)
+1905 (68.5)
+178 (3.9)
+41 (6.1)
+3158 (33.1)
+398 (30.4)
+2288 (26.6)
+1172 (31.1)
+Marital status (%)
+Living alone（No）
+2670/9025
+462 (8.4)
+419(15.1)
+<0.001
+1085 (23.8)
+293 (43.5)
+<0.001
+2658 (27.9)
+592 (45.2)
+<0.001
+2150 (25.0)
+1366 (36.3)
+<0.001
+Living 
+with partner(Yes)
+5862/27693
+5042 (91.6)
+2363 (84.9)
+3467 (76.2)
+380 (56.5)
+6881 (72.1)
+718 (54.8)
+6441 (75.0)
+2401 (63.7)
+Household eco-
+nomic situation 
+(%)✝
+Low tertile
+3633/12753
+1736 (31.5)
+1023 (36.8)
+<0.001
+1490 (32.7)
+251 (37.3)
+0.062
+2933 (30.7)
+684 (52.2)
+<0.001
+2961 (34.5)
+1675 (44.5)
+<0.001
+Medium tertile
+2678/11751
+1796 (32.6)
+972 (34.9)
+1530 (33.6)
+214 (31.8)
+3243 (34.0)
+378 (28.9)
+2504 (29.1)
+1114 (29.6)
+High tertile
+2221/12214
+1972 (35.8)
+787 (28.3)
+1532 (33.7)
+208 (30.9)
+3363 (35.3)
+248 (18.9)
+3126 (36.4)
+978 (26.0)
+Hypertension (%)
 
 # Page 8
 
-discharge,6,7,29–32 an important and unresolved question
-emerges: What is the optimal timing to initiate or restart
-RASi following AKI? For example, a retrospective cohort
-study from the Alberta Kidney Disease Network found
-that patients who initiated RASi within 90 days post-
-discharge had a higher risk of mortality compared with
-those who started after 90 days (hazard ratio, 1.15; 95% CI,
-1.03 to 1.28).6 While our ﬁndings suggest a potential strat-
-egy for managing RASi during AKI, further prospective
-studies are needed to validate these results and determine
-the safest and most effective timing for RASi reinitiation.
-It is worth noting that our study reported absolute risk
-differences rather than risk ratios, providing a transparent
-depiction of the magnitude of the mortality beneﬁt asso-
-ciated with RASi discontinuation within 2 days after AKI.
-Although the observed absolute reduction in mortality
-risk was modest—approximately 1%–3%—this ﬁnding
-should be interpreted in the context of the relatively
-low baseline mortality in our study population. Speciﬁ-
-cally, the 30-day mortality risk among patients with AKI
-was approximately 5%–6%, and the 180-day mortality
-ranged from 10% to 19%. Against this background,
-even a 1%–3% absolute risk reduction represents a mean-
-ingful proportional improvement in patient outcomes,
-particularly given the high prevalence of AKI and the
-widespread use of RASi in hospitalized settings. There-
-fore, despite the modest numerical value, the observed
-beneﬁt remains clinically relevant.
-The mechanism by which early discontinuation of
-RASi after AKI is associated with a lower risk of death
-remains unclear. One potential explanation, hinted by
-preliminary clinical studies, is that patients using RASi
-may observe a slight increase in GFR after discontinuation
-of such drugs, possibly due to the impact of RASi on
-A
-CRDS
-Follow-up visit, days
-Cumulative incidence
-0.00
-0.05
-0.10
-0.15
-0.20
-0.25
-Continuation
-Discontinuation
-0
-30
-120
-150
-180
-60
-90
-C
-MIMIC-IV
-0.00
-0.05
-0.10
-0.15
-0.20
-0.25
-Follow-up visit, days
-Cumulative incidence
-0
-30
-120
-150
-180
-Continuation
-Discontinuation
-60
-90
-B
-CRDS
-0.00
--0.05
--0.10
-0.05
-0.10
-Follow-up visit, days
-Difference of cumulative incidences
-0
-30
-60
-90
-120
-150
-180
-D
-MIMIC-IV
-0.00
--0.05
--0.10
-0.05
-0.10
-Follow-up visit, days
-Difference of cumulative incidences
-0
-30
-60
-90
-120
-150
-180
-Figure 2. Cumulative incidences and risk differences of patients with RASi discontinuation and continuation within 180 days.
-(A) Cumulative incidence of all-cause mortality in the CRDS database. (B) Risk difference of patients with RASi discontinuation and
-continuation in the CRDS database. (C) Cumulative incidence of all-cause mortality in the MIMIC-IV database. (D) Risk difference of
-patients with RASi discontinuation and continuation in the MIMIC-IV database. Figure 2 can be viewed in color online at www.jasn.org.
-8
-JASN
-CLINICAL RESEARCH
-www.jasn.org
+Page 8 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+Data are presented as means ± standard deviations or number (proportion %)P values were calculated using analysis of t-test and Cchi-square test for continuous and categorical variables, respectively*BMI: In CHARLS: 
+underweight (< 18.5 kg/cm2); normal weight (>= 18.5 kg/cm2 and < 22.9 kg/cm2); overweight (>= 23 kg/cm2 and < 28 kg/cm2); obesity (>= 28kg/cm2). In other databases, underweight (< 18.5 kg/cm2); normal weight 
+(>= 18.5 kg/cm2 and <25 kg/cm2); overweight (>= 25 kg/cm2 and < 30 kg/cm2); obesity (>=30 kg/cm2)§Residence: In CHARLS, HRS and MHAS, type A: Urban area; type B: Rural area. In ELSA, type A: UK; type B: Other 
+area✝Household economic situation: In CHARLS, ELSA and MHAS, Household economic situation was defined by total household per capita consumption. In HRS,Household economic situation was defined by total 
+household income
+Table 1  (continued)
+Variables
+Overall 
+(Mean ± 
+SD or
+events/n)
+China Health and Retirement Longitudinal 
+Study (CHARLS) 
+(n=8286)
+English Longitudinal Study of Ageing 
+(ELSA)
+(n=5225)
+Health and Retirement Study(HRS)
+(n=10849)
+Mexican Health and Aging Study (MHAS)
+(n=12358)
+No depression 
+(n=5504)
+Depression  
+(n=2782)
+p
+No depression 
+(n=4552)
+Depression 
+(n=673)
+p
+No depression 
+(n=9539)
+Depression 
+(n=1310)
+p
+No depression 
+(n=8591)
+Depression(n=3767)
+p
+No
+4317/20672
+4148 (75.4)
+2014 (72.4)
+0.003
+2791 (61.3)
+366 (54.4)
+<0.001
+4723 (49.5)
+544 (41.5)
+<0.001
+4693 (54.6)
+1393 (37.0)
+<0.001
+Yes
+4215/16046
+1356 (24.6)
+768 (27.6)
+1761 (38.7)
+307 (45.6)
+4816 (50.5)
+766 (58.5)
+3898 (45.4)
+2374 (63.0)
+Diabetes (%)
+No
+6758/31007
+5179 (94.1)
+2587 (93.0)
+0.050
+4233 (93.0)
+601 (89.3)
+<0.001
+8076 (84.7)
+955 (76.0)
+<0.001
+6761 (78.7)
+2615 (69.4)
+<0.001
+Yes
+1734/5671
+325 (5.9)
+195 (7.0)
+319 (7.0)
+72 (10.7)
+1463 (15.3)
+315 (24.0)
+1830 (21.3)
+1152 (30.3)
+Cancer (%)
+No
+8147/34546
+5457 (99.1)
+2756 (99.1)
+0.711
+4239 (93.1)
+619 (92.0)
+0.277
+8331 (87.3)
+1169 (89.2)
+0.051
+8372 (97.5)
+3603 (95.6)
+<0.001
+Yes
+385/2172
+47 (0.9)
+26 (0.9)
+313 (6.9)
+54 (8.0)
+1208 (12.7)
+141 (10.8)
+219 (2.5)
+164 (4.4)
+Stroke (%)
+No
+8137/35451
+5422 (98.5)
+2682 (96.4)
+<0.001
+4407 (96.8)
+637 (94.7)
+0.004
+9074 (95.1)
+1218 (93.0)
+0.001
+8411 (97.9)
+3600 (95.6)
+<0.001
+Yes
+395/1267
+82 (1.5)
+100 (3.6)
+145 (3.2)
+36 (5.3)
+465 (4.9)
+92 (7.0)
+180 (2.1)
+167 (4.4)
+Arthritis (%)
+No
+4800/23580
+4078 (74.1)
+1557 (56.0)
+<0.001
+3148 (69.2)
+328 (48.7)
+<0.001
+4515 (47.3)
+418 (31.9)
+<0.001
+7039 (81.9)
+2497 (66.3)
+<0.001
+Yes
+3732/13138
+1426 (25.9)
+1225 (44)
+1404 (30.8)
+345 (51.3)
+5024 (52.7)
+892 (68.1)
+1552 (18.1)
+1270 (33.7)
+Drinking status (%)
+None
+5660/19578
+3134 (56.9)
+1713 (61.6)
+<0.001
+389 (8.5)
+117 (17.4)
+<0.001
+4187 (43.9)
+741 (56.6)
+<0.001
+6208 (72.3)
+3089 (82.0)
+<0.001
+Yes
+2872/17140
+2370 (43.1)
+1069 (38.4)
+4163 (91.5)
+556 (82.6)
+5352 (56.1)
+569 (43.4)
+2383 (27.7)
+678 (18.0)
+Smoking status 
+(%)
+None
+4908/17718
+3042 (55.3)
+1698 (61.0)
+<0.001
+1727 (37.9)
+206 (30.6)
+<0.001
+4249 (44.5)
+537 (41.0)
+0.015
+5136 (59.8)
+2467 (65.5)
+<0.001
+Yes
+3624/18740
+2462 (44.7)
+1084 (39.0)
+2825 (62.1)
+467 (69.4)
+5290 (55.5)
+773 (59.0)
+3455 (40.2)
+1300 (34.5)
+Baseline cognitive
+test score
+NA
+16.65 ± 4.63
+14.33 ± 4.63
+<0.001
+14.25 ± 3.40
+13.42 ± 3.64
+<0.001
+15.92 ± 3.98
+14.29 ± 4.60
+<0.001
+53.22 ± 18.25
+46.71 ± 17.71
+<0.001
 
 # Page 9
 
-glomerular hemodynamics.39 This response might be
-beneﬁcial for alleviating kidney stress during AKI. Be-
-sides, the lower risk of death observed with RASi dis-
-continuation in our study may be secondary to the
-protection of kidney outcomes. Previous studies have
-conﬁrmed that the duration and severity of AKI are
-important risk factors for AKI mortality.21,40–42 Support-
-ing this notion, the rate of AKI recovery before discharge
-in the discontinuation group was signiﬁcantly higher than
-that in the continuation group in both the CRDS and
-MIMIC-IV databases.
-Our study has several strengths. First, it utilizes two
-large real-world databases, allowing for a robust analysis
-based on a substantial sample size that covers a wide
-spectrum of diseases, lending high credibility to our ﬁnd-
-ings. The consistency observed across both independent
-databases further strengthens the robustness of our results.
-Additionally, the comprehensive patient-level data ensures
-the ability to adjust for important confounders such as the
-potential reason for drug discontinuation (e.g., hyperkale-
-mia, severe AKI, ICU admission, and mechanical ventila-
-tion), baseline comorbidities, and other drug use. Second,
-misclassiﬁcation of assignment to treatment strategies
-based on treatment received after eligibility results in
-immortal time when the treatment strategies are not dis-
-tinguishable at the start of follow-up in observational
-study. We employed a sequential target trial emulation
-framework to align eligibility with assignment to treatment
-strategies at time zero, which prevents the selection and
-misclassiﬁcation that can lead to immortal time. Further-
-more, by using mortality as a hard end point, we improved
-the study’s relevance to clinical outcomes.
-Nonetheless, there are some limitations to our analysis.
-First, the observational nature of our study precludes the
-ability to conﬁrm the causality, even though the results are
-consistent in subgroups and multiple sensitive analyses.
-Second, clinicians were more likely to stop RASi in sicker
-patients, such as those with hypovolemic, hyperkalemia,
-and mechanical ventilation. Although we have adjusted
-these common causes of RASi discontinuation, the residual
-unmeasured confounding factors related to the RASi dis-
-continuation may persist as there is no consensus for RASi
-discontinuation. Third, we are not able to determine the
-etiology of AKI, and whether there was any difference in
-the effect of RASi among different types of AKI is unclear.
-Fourth, only a minority of patients had creatinine mea-
-surements in the 30 days prior to admission and, thus,
-most patients had their baseline creatinine deﬁned at hos-
-pital admission.
-In conclusion, early discontinuation of RASi during an
-episode of AKI is associated with a lower all-cause mor-
-tality in patients previously treated with RASi. Further
-research is needed to conﬁrm these ﬁndings and assess
-their applicability in clinical practice with conﬁdence.
-Disclosures
-Disclosure forms, as provided by each author, are available with
-the online version of the article at http://links.lww.com/JSN/F285.
-Author Contributions
-Conceptualization: Sheng Nie, Xin Xu.
-Data curation: Shan Chen, Sheng Nie, Mingzhen Pang, Yinfang Sun.
-Formal analysis: Ruixuan Chen, Yanqin Li, Shiyu Zhou.
-CRDS database
-MIMIC-IV database
-Subgroups
-Age, yr
-Continuation
- 70
-Discontinuation
-< 70
-Risk difference, %
-Sex
-Female
-Male
-1
-2
-3
-AKI stage
-eGFR, ml/min/1.73m2
-45
-< 45
-Charlson score
->6
- 6
-Hypertension
-No
-Yes
-Diabetes
-No
-Yes
-Cancer
-No
-Yes
-Loop diuretics
-No
-Yes
-Serum potassium, mEq/L
-> 5.5
- 5.5
-Intensive care units
-No
-Yes
-9.05(8.33 to 10.68)
-2.85(2.51 to 3.75)
-6.02(5.55 to 7.07)
-5.84(5.21 to 7.06)
-3.77(3.39 to 4.66)
-12.47(11.71 to 14.46)
-16.48(13.65 to 20.65)
-5.56(5.01 to 6.76)
-7.82(6.53 to 10.59)
-9.84(8.60 to 12.05)
-4.49(4.15 to 5.37)
-5.60(4.77 to 6.91)
-6.09(5.34 to 7.48)
-5.96(5.50 to 7.15)
-5.81(5.04 to 7.13)
-5.37(4.90 to 6.40)
-10.46(8.66 to 12.83)
-2.24(1.90 to 3.32)
-7.06(6.37 to 8.28)
-12.4(9.15 to 17.17)
-5.85(5.46 to 6.67)
-5.76(5.31 to 6.75)
-6.71(5.89 to 8.46)
-6.72(5.24 to 9.74)
-2.07(1.59 to 3.27)
-4.43(3.44 to 6.30)
-4.32(3.37 to 5.62)
-2.73(2.16 to 4.03)
-9.34(7.63 to 12.61)
-12.49(9.53 to 17.12)
-4.10(3.17 to 5.89)
-5.78(4.70 to 8.18)
-7.34(5.65 to 11.16)
-3.29(2.60 to 4.45)
-4.12(3.05 to 5.88)
-4.50(3.51 to 6.64)
-4.39(3.47 to 6.17)
-4.30(3.56 to 6.46)
-3.95(3.23 to 5.62)
-7.86(6.18 to 11.00)
-1.62(1.22 to 2.62)
-5.22(3.90 to 7.07)
-9.36(6.80 to 13.42)
-4.22(3.24 to 6.07)
-4.16(3.23 to 5.77)
-4.84(3.52 to 7.17)
--2.34(-3.84 to -0.60)
--0.78(-1.19 to -0.20)
--1.59(-2.74 to -0.35)
--1.52(-2.58 to -0.58)
--1.04(-1.66 to -0.20)
--3.13(-5.17 to -1.10)
--3.98(-6.18 to -1.70)
--1.46(-2.21 to -0.54)
--2.04(-3.35 to -0.53)
--2.51(-4.04 to -0.51)
--1.20(-1.81 to -0.58)
--1.47(-2.32 to -0.51)
--1.59(-2.66 to -0.27)
--1.56(-2.54 to -0.36)
--1.52(-2.45 to -0.31)
--1.42(-2.45 to -0.50)
--2.60(-4.01 to -0.83)
--0.62(-1.05 to -0.24)
--1.84(-2.91 to -0.59)
--3.04(-5.20 to -0.16)
--1.64(-2.67 to -0.27)
--1.60(-2.58 to -0.56)
--1.87(-2.98 to -0.50)
--10
--8
--6
--4
--2
-0
-2
-favor discontinuation
-favor continuation
-30-day all-cause mortality, %
-Continuation
-Discontinuation
-Risk difference, %
-8.60 (7.58 to 10.33)
-3.98 (3.44 to 4.81)
-6.42 (5.52 to 7.54)
-6.95 (6.13 to 8.27)
-5.96 (5.14 to 7.07)
-9.00 (7.27 to 12.18)
-18.2 (13.04 to 25.94)
-6.49 (5.66 to 7.64)
-7.50 (6.38 to 8.75)
-10.83 (9.57 to 12.47)
-4.04 (3.58 to 4.92)
-9.13 (7.55 to 11.78)
-6.42 (5.74 to 7.28)
-7.59 (6.85 to 8.96)
-5.80 (5.28 to 6.89)
-5.21 (4.63 to 6.15)
-15.55 (13.03 to 19.03)
-4.56 (3.56 to 5.78)
-7.34 (6.49 to 8.26)
-8.42(5.97 to 11.14)
-6.68(5.94 to 7.57)
-5.84(5.21 to 6.80)
-8.99(7.52 to 11.00)
-7.59 (6.44 to 9.37)
-3.49 (2.95 to 4.37)
-5.65 (4.68 to 6.81)
-6.14 (5.17 to 7.58)
-5.24 (4.45 to 6.62)
-7.95 (6.21 to 10.63)
-16.34 (11.93 to 24.19)
-5.73 (4.95 to 6.75)
-6.61 (5.67 to 7.58)
-9.58 (8.19 to 11.80)
-3.54 (2.99 to 4.32)
-8.07 (6.40 to 10.61)
-5.66 (4.83 to 6.59)
-6.71 (5.96 to 8.46)
-5.10 (4.33 to 6.22)
-4.57 (3.99 to 5.49)
-13.83 (11.72 to 16.44)
-4.01 (3.06 to 5.26)
-6.47 (5.64 to 7.55)
-7.42(5.05 to 9.98)
-5.89(5.04 to 6.93)
-5.14(4.27 to 6.12)
-7.95(6.62 to 9.54)
--1.01 (-1.88 to -0.09)
--0.48 (-0.88 to -0.14)
--0.77 (-1.57 to -0.14)
--0.82 (-1.68 to -0.09)
--0.72 (-1.42 to -0.01)
--1.05 (-1.81 to -0.24)
--1.85 (-3.39 to -0.34)
--0.77 (-1.36 to 0.01)
--0.89 (-1.64 to -0.15)
--1.25 (-2.24 to 0.08)
--0.50 (-0.85 to -0.05)
--1.06 (-1.91 to 0.07)
--0.76 (-1.58 to -0.08)
--0.89 (-1.75 to -0.03)
--0.70 (-1.34 to -0.02)
--0.64 (-1.22 to 0.00)
--1.72 (-3.26 to -0.58)
--0.55 (-1.09 to -0.06)
--0.87 (-1.56 to -0.09)
--1(-1.91 to -0.1)
--0.79(-1.43 to -0.23)
--0.70(-1.41 to -0.13)
--1.04(-2.32 to -0.11)
--4
--3
--2
--1
-0
-1
-favor discontinuation
-favor continuation
-30-day all-cause mortality, %
-Figure 3. Subgroup analysis for the 30-day risk difference of patients with RASi discontinuation and continuation. Figure 3 can be
-viewed in color online at www.jasn.org.
-JASN ▪: 1–11, ▪▪▪, 2025
-9
-Discontinuation of RASi and Mortality, Nie et al.
+Page 9 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+covariates), compared to the reference group (Group1: 
+No abdominal obesity & No depression), participants 
+in “Abdominal obesity and Depression group” met with 
+more cognitive decline [ELSA (Group2: Abdominal obe-
+sity (I) and Depression): β =  − 0.20, 95% CI 0.29 to − 0.12; 
+HRS (Group2: Abdominal obesity (I) and Depression): 
+β =  − 0.20, 95% CI: − 0.27 to − 0.14, all P < 0.001]. In 
+CHARLS, although no “Abdominal obesity and Depres-
+sion” group was divided, the group containing depression 
+(Group 2: No abdominal obesity (II) and Depression) 
+also had poorer cognitive development than the refer-
+ence group (β =  − 0.31, 95% CI − 0.39 to − 0.23, P < 0.001); 
+meanwhile, participants in this group exhibited a higher 
+WHtR compared to those in the reference group (Addi-
+tionalfile 1: Table S9).
+Subgroup analysis
+We further stratified the population into different sub-
+groups according to main demographic variables (such 
+as age, gender, education status and so on) to assess the 
+heterogeneity of joint trajectories (BMI and Depressive 
+symptoms and WHtR and Depressive symptoms) on 
+changes in cognitive function (Additional file 2: Fig. S7–
+S8, and Table S10). The results were similar to the main 
+results but not consistent in four cohorts.
+Secondary and sensitivity analyses
+The current research further conducted two secondary 
+analyses to supplement the results. (1) We explored the 
+association between the transition in depression-obesity 
+status and development of cognitive function in partici-
+pants. The results indicated that compared to those who 
+maintained neither depression nor obesity, participants 
+in other transition groups may have had worse cognitive 
+function (Additional file 3: Table S11–S13 and Fig. S9). 
+(2) We included Weight-Adjusted Waist Index (WWI) 
+as another measure of obesity. It was observed that indi-
+viduals in the joint trajectory groups with higher WWI 
+and/or depression had poorer cognitive development 
+compared to the reference group (Low WWI and No 
+depression) (Additional file  3: Fig. S10 and Table S14–
+S15). We also conducted a sensitivity analysis (removed 
+566 underweight participants) and obtained results that 
+accorded closely with those of the main analyses (Addi-
+tional file 3: Fig. S11 andTable S16).
+Discussion
+Our analysis of longitudinal data from four multinational 
+cohorts examined the additive and synergistic effects of 
+depression and obesity/abdominal obesity (AO), and 
+their combination, on cognitive function in middle-aged 
+and older adults. Specifically, individuals in “Depression 
+Fig. 2  Associations between joint trajectories and changes in cognitive function A Association between baseline depression-obesity status 
+(Obesity indicator: BMI) and changes in cognitive function. B Association between baseline depression-obesity status (Obesity indicator: WHtR) 
+and changes in cognitive function. All models were adjusted for age, gender, education status, residence, marital status, household economic 
+situation, (race:only in the ELSA, and HRS), hypertension, diabetes, cancer, stroke, arthritis, drinking status, and smoking status. [Standardized β 
+are shown as centers of horizonal bar plots, with error bars representing 95% CI, *P < 0.05, **P < 0.01, ***P < 0.001]. Abbreviations: CHARLS, China 
+Health and Retirement Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health 
+and Retirement Study. Notes: In CHARLS, ELSA, and MHAS, household economic situation was defined by total household per capita consumption. 
+In HRS, household economic situation was defined by total household income
 
 # Page 10
 
-Funding acquisition: Fan Fan Hou.
-Investigation: Yanqin Li, Mingzhen Pang, Yinfang Sun.
-Methodology: Yanqin Li, Mingzhen Pang, Yinfang Sun, Shiyu Zhou.
-Project administration: Sheng Nie, Licong Su.
-Software:
-Ruixuan
-Chen,
-Shan
-Chen,
-Fan
-Luo,
-Licong
-Su, Shiyu Zhou.
-Supervision: Fan Fan Hou, Licong Su, Xin Xu.
-Validation: Fan Fan Hou, Xian Shao.
-Visualization: Xian Shao, Shiyu Zhou.
-Writing – original draft: Ruixuan Chen, Sheng Nie.
-Writing – review & editing: Fan Fan Hou, Xin Xu.
-Funding
-X. Xu: National Key R&D Program of China (2021YFC2500200
-and 2021YFC2500204). F.F. Hou: Key Technologies R&D Pro-
-gram of Guangdong Province (2023B1111030004), Guangdong
-Provincial Clinical Research (2020B1111170013), Program of In-
-troducing Talents of Discipline to Universities (D18005), and
-National Natural Science Foundation of China (82030022). S.
-Nie: National Natural Science Foundation of China (81900626).
-Data Availability Statements
-Partial restrictions to the data and/or materials apply. The data
-that support the ﬁndings of this study are available from the
-National Clinical Research Center for Kidney Disease and CRDS
-by emailing xux007@163.com or niesheng0202@126.com.
-Supplemental Material
-This article contains the following supplemental material online
-at http://links.lww.com/JSN/F286.
-Supplemental Table 1. Speciﬁcation and emulation of tar-
-get trial.
-Supplemental Table 2. Variable deﬁnitions, sources, and use
-in analyses.
-Supplemental Table 3. Deﬁnitions of comorbidities and
-comedications.
-Supplemental Table 4. Missing data in baseline characteristics
-between discontinuation and continuation of RASi.
-Supplemental
-Table
-5.
-Prescription
-doses
-of
-RASi
-at
-discontinuation.
-Supplemental Table 6. The baseline characteristics for person-
-trials with RASi discontinuation at the ﬁrst 2 days.
-Supplemental Table 7. The baseline characteristics for person-
-trials with and without reinitiated RASi after discontinuation.
-Supplemental Table 8. Cumulative incidences of outcomes and
-risk differences among patients with RASi discontinuation and
-continuation in per-protocol analysis.
-Supplemental Table 9. Cumulative incidences of AKI recovery
-and risk differences among patients with RASi discontinuation
-and continuation.
-Supplemental Table 10. Cumulative incidences of outcomes and
-risk differences among patients with RASi discontinuation and
-continuation in sensitivity analysis after adjusting the recov-
-ery of AKI.
-Supplemental Table 11. Cumulative incidences of outcomes and
-risk differences among patients with ACEI and ARB discontinu-
-ation and continuation.
-Supplemental Table 12. Cumulative incidences of outcomes and
-risk differences among patients with RASi discontinuation and
-continuation in sensitivity analysis after excluding patients with
-hyperkalemia at AKI detection.
-Supplemental Table 13. Cumulative incidences of outcomes and
-risk differences among patients with RASi discontinuation and
-continuation in sensitivity analysis after excluding patients who
-died within 5 days after AKI.
-Supplemental Table 14. Cumulative incidences of outcomes and
-risk differences among patients with RASi discontinuation and
-continuation after multiple imputation.
-Supplemental Table 15. Baseline characteristics of person-trials
-with hospital-acquired AKI after propensity score matching.
-Supplemental Table 16. Cumulative incidences of outcomes and
-risk differences among patients with RASi discontinuation and
-continuation after propensity score matching.
-Supplemental Figure 1. Schematic illustration of emulated target
-trial design.
-Supplemental Figure 2. Directed acyclic graph.
-Supplemental Figure 3. Distribution of serum creatinine testing
-times relative to admission.
-Supplemental Figure 4. Departments of patients with RASi
-discontinuation and continuation in the two databases.
-Supplemental Figure 5. Cumulative incidences of 30-day mor-
-tality and risk differences among patients with RASi discontinu-
-ation and continuation at different time periods.
-References
-1. Hoste EAJ, Kellum JA, Selby NM, et al. Global epidemiology
-and outcomes of acute kidney injury. Nat Rev Nephrol. 2018;
-14(10):607–625. doi:10.1038/s41581-018-0052-0
-2. Bangalore S, Fakheri R, Wandel S, Toklu B, Wandel J, Messerli
-FH. Renin angiotensin system inhibitors for patients with stable
-coronary artery disease without heart failure: systematic review
-and meta-analysis of randomized trials. BMJ. 2017;356:j4. doi:
-10.1136/bmj.j4.
-3. Evans M, Carrero JJ, Szummer K, et al. Angiotensin-converting
-enzyme inhibitors and angiotensin receptor blockers in myocar-
-dial infarction patients with renal dysfunction. J Am Coll Cardiol.
-2016;67(14):1687–1697. doi:10.1016/j.jacc.2016.01.050
-4. Kidney Disease Improving Global Outcomes (KDIGO) Blood
-Pressure Work Group. KDIGO 2021 clinical practice guideline
-for the management of blood pressure in chronic kidney dis-
-ease. Kidney Int. 2021;99(3S):S1–S87. doi:10.1016/j.kint.2020.
-11.003
-5. Menez S, Parikh CR. Renin-angiotensin system blockade after
-acute kidney injury: the plot thickens. Clin J Am Soc Nephrol.
-2020;15(1):2–4. doi:10.2215/CJN.13801119
-6. Brar S, Ye F, James MT, Hemmelgarn B, Klarenbach S, Pannu
-N.; Interdisciplinary Chronic Disease Collaboration. Association
-of angiotensin-converting enzyme inhibitor or angiotensin re-
-ceptor blocker use with outcomes after acute kidney injury.
-JAMA Intern Med. 2018;178(12):1681–1690. doi:10.1001/
-jamainternmed.2018.4749
-7. Siew ED, Parr SK, Abdel-Kader K, et al. Renin-angiotensin al-
-dosterone inhibitor use at hospital discharge among patients
-with moderate to severe acute kidney injury and its association
-with recurrent acute kidney injury and mortality. Kidney Int.
-2021;99(5):1202–1212. doi:10.1016/j.kint.2020.08.022
-8. Murphy DP, Wolfson J, Reule S, Johansen KL, Ishani A, Drawz
-PE. Renin-angiotensin-Aldosterone system blockade after AKI
-with or without recovery among US veterans with diabetic
-kidney disease. J Am Soc Nephrol. 2023;34(10):1721–1732.
-doi:10.1681/ASN.0000000000000196
-9. Su L, Rezvani R, Seaman SR, Starr C, Gravestock I. Tri-
-alEmulation: an R package to emulate target trials for causal
-analysis of observational time-to-event data. J Stat Softw. 2024;
-55(2). arXiv:2402.12083[stat.ME]). doi:10.18637/jss.v000.i00
-10. Herna´n MA, Robins JM. Using big data to emulate a target trial
-when a randomized trial is not available. Am J Epidemiol. 2016;
-183(8):758–764. doi:10.1093/aje/kwv254
-11. Hubbard RA, Gatsonis CA, Hogan JW, Hunter DJ, Normand
-SLT, Troxel AB. “Target trial emulation” for observational
-studies – potential and pitfalls. New Engl J Med. 2024;391(21):
-1975–1977. doi:10.1056/NEJMp2407586
-12. Al-Samkari H, Gupta S, Leaf RK, et al. Thrombosis, bleeding,
-and the observational effect of early therapeutic anticoagulation
-10
-JASN
-CLINICAL RESEARCH
-www.jasn.org
+Page 10 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+Fig. 3  Joint trajectories of BMI (kg/m2)/WHtR and depressive symptoms in all waves. Abbreviations: CHARLS, China Health and Retirement 
+Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health and Retirement Study; 
+95% CI, 95% confidence interval. Notes: The different colored lines show the mean of BMI/WHtR and score of depressive symptoms in different 
+trajectory groups; (I) and (II) represent different degrees
 
 # Page 11
 
-on survival in critically ill patients with COVID-19. Ann Intern
-Med. 2021;174(5):622–632. doi:10.7326/m20-6739
-13. Yen FS, Hwu CM, Liu JS, Wu YL, Chong K, Hsu CC. Sodium-
-glucose cotransporter-2 inhibitors and the risk for dialysis and
-cardiovascular disease in patients with stage 5 chronic kidney
-disease. Ann Intern Med. 2024;177(6):693–700. doi:10.7326/
-m23-1874
-14. Herna´n MA, Sterne JAC, Higgins JPT, Shrier I, Herna´ndez-Dı´az
-S. A structural description of biases that generate immortal time.
-Epidemiology. 2025;36(1):107–114. doi:10.1097/ede.
-0000000000001808
-15. Zhou S, Su L, Xu R, et al. Statin initiation and risk of incident
-kidney disease in patients with diabetes. CMAJ. 2023;195(21):
-E729–E738. doi:10.1503/cmaj.230093
-16. Xu X, Nie S, Xu H, et al. Detecting neonatal AKI by serum
-cystatin C. J Am Soc Nephrol. 2023;34(7):1253–1263. doi:10.
-1681/ASN.0000000000000125
-17. Zhou S, Chen R, Liu J, et al. Comparative effectiveness and
-safety of atorvastatin versus rosuvastatin: a multi-database co-
-hort study. Ann Intern Med. 2024;177(12):1641–1651. doi:10.
-7326/m24-0178
-18. Zhou S, Zeng Z, Wei H, Sha T, An S. Early combination of
-albumin with crystalloids administration might be beneﬁcial for
-the survival of septic patients: a retrospective analysis from
-MIMIC-IV database. Ann Intensive Care. 2021;11(1):42. doi:10.
-1186/s13613-021-00830-8
-19. Johnson A, Bulgarelli L, Pollard T, Horng S, Celi LA, Mark R.
-MIMIC-IV (version 2.0). PhysioNet; 2022.
-20. Kidney Disease: Improving Global Outcomes (KDIGO) CKD
-Work Group. Section 2: AKI Deﬁnition. Kidney Int Suppl (2011).
-2012;2(1):19–36. doi:10.1038/kisup.2011.32
-21. Xu X, Nie S, Liu Z, et al. Epidemiology and clinical correlates of
-AKI in Chinese hospitalized adults. Clin J Am Soc Nephrol.
-2015;10(9):1510–1518. doi:10.2215/CJN.02140215
-22. Su L, Li Y, Xu R, et al. Association of ibuprofen prescription with
-acute kidney injury among hospitalized children in China.
-JAMA Netw Open. 2021;4(3):e210775. doi:10.1001/
-jamanetworkopen.2021.0775
-23. Kellum JA, Sileanu FE, Bihorac A, Hoste EA, Chawla LS. Re-
-covery after acute kidney injury. Am J Respir Crit Care Med.
-2017;195(6):784–791. doi:10.1164/rccm.201604-0799OC
-24. Zhou M, Wang H, Zeng X, et al. Mortality, morbidity, and risk
-factors in China and its provinces, 1990–2017: a systematic
-analysis for the Global Burden of Disease Study 2017. Lancet.
-2019;394(10204):1145–1158. doi:10.1016/s0140-6736(19)
-30427-1
-25. Lee H-C, Park Y, Yoon SB, Yang SM, Park D, Jung CW. VitalDB,
-a high-ﬁdelity multi-parameter vital signs database in surgical
-patients. Sci Data. 2022;9(1):279. doi:10.1038/s41597-022-
-01411-5
-26. Charlson ME, Pompei P, Ales KL, MacKenzie CR. A new
-method of classifying prognostic comorbidity in longitudinal
-studies: development and validation. J Chronic Dis. 1987;40(5):
-373–383. doi:10.1016/0021-9681(87)90171-8
-27. Delgado C, Baweja M, Crews DC, et al. A unifying approach for
-GFR estimation: recommendations of the NKF-ASN Task Force
-on Reassessing the Inclusion of Race in Diagnosing Kidney
-Disease. J Am Soc Nephrol. 2021;32(12):2994–3015. doi:10.
-1681/ASN.2021070988
-28. Herna´n MA, Brumback B, Robins JM. Marginal structural
-models to estimate the causal effect of zidovudine on the
-survival of HIV-positive men. Epidemiology. 2000;11(5):
-561–570. doi:10.1097/00001648-200009000-00012
-29. Yang CY, Liu JS, Tseng WC, et al. Effect of renin-angiotensin-
-aldosterone system blockade on long-term outcomes in post-
-acute kidney injury patients with hypertension. Crit Care Med.
-2020;48(12):e1185–e1193. doi:10.1097/ccm.
-0000000000004588
-30. Hsu CY, Liu KD, Yang J, et al. Renin-angiotensin system
-blockade after acute kidney injury (AKI) and risk of recurrent
-AKI. Clin J Am Soc Nephrol. 2020;15(1):26–34. doi:10.2215/
-CJN.05800519
-31. Gayat E, Hollinger A, Cariou A, et al. Impact of angiotensin-
-converting enzyme inhibitors or receptor blockers on post-ICU
-discharge outcome in patients with acute kidney injury. In-
-tensive Care Med. 2018;44(5):598–605. doi:10.1007/s00134-
-018-5160-6
-32. Bidulka P, Fu EL, Leyrat C, et al. Stopping renin-angiotensin
-system blockers after acute kidney injury and risk of adverse
-outcomes: parallel population-based cohort studies in English
-and Swedish routine care. BMC Med. 2020;18(1):195. doi:10.
-1186/s12916-020-01659-x
-33. Mansﬁeld KE, Nitsch D, Smeeth L, Bhaskaran K, Tomlinson LA.
-Prescription of renin-angiotensin system blockers and risk of
-acute kidney injury: a population-based cohort study. BMJ
-Open. 2016;6(12):e012690. doi:10.1136/bmjopen-2016-
-012690
-34. Ostermann M, Bellomo R, Burdmann EA, et al. Controversies in
-acute kidney injury: conclusions from a Kidney Disease: Im-
-proving Global Outcomes (KDIGO) Conference. Kidney Int.
-2020;98(2):294–309. doi:10.1016/j.kint.2020.04.020
-35. Duong H, Tesfaye W, Van C, et al. Sick day management in
-people with chronic kidney disease: a scoping review.
-J Nephrol. 2023;36(5):1293–1306. doi:10.1007/s40620-022-
-01497-5
-36. Fink JC, Maguire RM, Blakeman T, et al. Medication holds in
-CKD during acute volume-depleting illnesses: a randomized
-controlled trial of a “sick-day” protocol. Kidney Med. 2022;4(9):
-100527. doi:10.1016/j.xkme.2022.100527
-37. Watson KE, Dhaliwal K, McMurtry E, et al. Sick Day medication
-guidance for people with diabetes, kidney disease, or cardio-
-vascular disease: a systematic scoping review. Kidney Med.
-2022;4(9):100491. doi:10.1016/j.xkme.2022.100491
-38. Kidney Disease Improving Global Outcomes (KDIGO) CKD
-Work Group. KDIGO 2024 clinical practice guideline for the
-evaluation and management of chronic kidney disease. Kidney
-Int. 2024;105(4s):S117–S314. doi:10.1016/j.kint.2023.10.018
-39. Coca SG, Garg AX, Swaminathan M, et al. Preoperative
-angiotensin-converting enzyme inhibitors and angiotensin re-
-ceptor blocker use and acute kidney injury in patients un-
-dergoing cardiac surgery. Nephrol Dial Transplant. 2013;
-28(11):2787–2799. doi:10.1093/ndt/gft405
-40. Wu C, Zhang Y, Nie S, et al. Predicting in-hospital outcomes of
-patients with acute kidney injury. Nat Commun. 2023;14(1):
-3739. doi:10.1038/s41467-023-39474-6
-41. Yang L, Xing G, Wang L, et al. Acute kidney injury in China: a
-cross-sectional survey. Lancet. 2015;386(10002):1465–1471.
-doi:10.1016/s0140-6736(15)00344-x
-42. Chertow GM, Burdick E, Honour M, Bonventre JV, Bates DW.
-Acute kidney injury, mortality, length of stay, and costs in
-hospitalized patients. J Am Soc Nephrol. 2005;16(11):
-3365–3370. doi:10.1681/ASN.2004090740
-JASN ▪: 1–11, ▪▪▪, 2025
-11
-Discontinuation of RASi and Mortality, Nie et al.
+Page 11 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+alone” or “Comorbidity” at baseline experienced acceler-
+ated cognitive decline compared to those with “Neither 
+condition,” using either BMI or WHtR. We also found the 
+impact of “Obesity alone” was heterogeneous. However, 
+when WHtR defined obesity, “Comorbidity” showed the 
+greatest variance to variance in cognitive development. In 
+cluster analysis, employing BMI to gauge obesity revealed 
+that the joint trajectory of depression and obesity had 
+heterogeneous effects on cognition decline. Nonetheless, 
+all cohorts demonstrated that the trajectory group with 
+depression had quicker cognitive deterioration than the 
+reference group. Notably, in examining AO, a key obesity 
+subtype, all three groups with measured waist circum-
+ference revealed that the “Higher WHtR/AO & Depres-
+sion” group significantly contributed to cognitive decline 
+relative to the reference group. The outcome was further 
+corroborated through the joint trajectory analysis of sec-
+ondary analysis employing WWI.
+Factors influencing the cognitive function of middle-
+aged and older adults have conducted numerous cross-
+cultural longitudinal studies on the relationship between 
+obesity and cognition, as well as depression and cogni-
+tion individually [9, 19, 20, 27, 28, 31]. However, consid-
+ering that obesity and depression may share common 
+pathological pathways [8], and serve as significant factors 
+affecting overall systemic metabolic disorders and qual-
+ity of life [69–74], exerting negative influences on higher-
+order functions of the brain. Therefore, results evaluating 
+only individual factors may be limited and biased, which 
+makes them difficult to interpret and validate [73].
+Replicated evidence indicates a negative relationship 
+exists between cognitive function and depressive disor-
+ders [11, 75–78]. Cognitive decline in middle- and older-
+aged adults with depression may be a consequence of 
+alteration in the structure and function of pathogenetic 
+mechanisms including neurotransmitters, vascular pro-
+cesses, neuroinflammation, and neural networks [79–83].
+The association between obesity and cognition is 
+inconsistent and heterogeneity [26, 27, 84]. Some stud-
+ies have indicated a negative correlation between obesity 
+and cognitive ability [27, 84]. In contrast, other research 
+has shown a positive correlation, implying that obesity 
+may exert a protective effect on cognitive development 
+in middle-aged and older adults. When employing BMI 
+as an indicator of obesity and comprehensively consid-
+ering the depressive symptoms of the participants, our 
+study also reached similar conclusions among the HRS 
+and MHAS populations. This could be explained by 
+the “obesity paradox,” which suggests that compared to 
+underweight individuals, body fat may have a protective 
+Fig. 4  Associations between joint trajectories and changes in cognitive function. A Associations between joint trajectories (BMI and score 
+of depressive symptoms) and changes in cognitive function. B Associations between joint trajectories (WHtR and score of depressive symptoms) 
+and changes in cognitive function. All models were adjusted for age, gender, education status, residence, marital status, household economic 
+situation, race (race:only in the ELSA and HRS), hypertension, diabetes, cancer, stroke, arthritis, drinking status, and smoking status [Standardized β 
+are shown as centers of horizonal bar plots, with error bars representing 95% CI, *P < 0.05, **P < 0.01, ***P < 0.001]. Abbreviations: CHARLS, China 
+Health and Retirement Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health 
+and Retirement Study. Notes: In CHARLS, ELSA, and MHAS, household economic situation was defined by total household per capita consumption. 
+In HRS, household economic situation was defined by total household income. (I) and (II) represented different degrees
+
+# Page 12
+
+Page 12 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+effect on specific health conditions, including cognitive 
+function [85]. This can be explained as higher body fat 
+may protect against frailty, or that people with obesity 
+may have higher energy reserves to buffer the effects of 
+age-related brain atrophy [26, 27]. Additionally, individu-
+als with overweight or obesity may also attempt to lose 
+weight by engaging in physical exercise, and appropri-
+ate physical activity has been shown to improve cogni-
+tive conditions [86, 87]. For underweight individuals, this 
+association may be linked to sarcopenia and malnutrition 
+[88]. Meanwhile, weight loss or localized adipose tissue 
+deficiency is due to reduced food intake and food attrac-
+tiveness [89]. Furthermore, recent research has high-
+lighted that the obesity paradox may be explained by the 
+interaction between obesity and other factors, such as 
+individual genetic, metabolic, and anthropometric fac-
+tors [90–92].
+Agreement exists that BMI is an imprecise estimate 
+of fat mass which may be a source of variance in the 
+reported studies [93]. Differences in body fat distribution 
+exhibit different patterns in relation to cognitive function 
+[94]. As a general measure of body weight, BMI fails to 
+reflect fat distribution. In contrast, the Waist-to-Height 
+Ratio (WHtR) captures central obesity and serves as a 
+surrogate marker for visceral fat accumulation. Visceral 
+fat is closely associated with insulin resistance, endothe-
+lial dysfunction, and elevated levels of pro-inflammatory 
+cytokines such as interleukin-6 (IL-6) and C-reactive 
+protein (CRP), all of which are considered key factors 
+in the pathogenesis of cognitive impairment and neu-
+rodegenerative diseases [95]. Additionally, the Weight-
+Adjusted Waist Index (WWI) provides an adiposity index 
+independent of total body weight. Studies have shown 
+that WWI correlates more strongly with cardiovascular 
+metabolic risk factors, oxidative stress, and inflammatory 
+markers than BMI. Therefore, it is imperative to further 
+investigate the relationship between obesity subtypes or 
+fat distribution and cognitive function. Based on this, 
+the present study also conducted a parallel analysis using 
+the WHtR as a measure of central obesity and obtained 
+relatively consistent results across multinational sam-
+ples. Previous research indicates that AO is a risk factor 
+for cognitive decline in later life [96]. This association 
+may be related to dietary habits, metabolic impairment, 
+lipid disorders and activities, etc. [97–99]. However, the 
+decline in the physical and mental functions of older 
+adults leads to lower levels of leisure activity [100], which 
+may promote the occurrence of AO and further impair 
+their cognitive functions, while there may be a mutually 
+reinforcing relationship between cognitive decline and 
+some of the aforementioned influencing factors. There-
+fore, the relationship between fat distribution/physique 
+and cognition requires further consideration of more 
+specific fields and possibly integrate multiple physiologi-
+cal indicators for exploration. This point has been par-
+tially reflected in this study.
+Overall, obesity and depression are two prevalent and 
+potentially interdependent metabolic disorders, imposing 
+a significant disease burden on the health and well-being 
+of the middle-aged and older population. This study com-
+prehensively examined the impact of the joint trajectories 
+of these two diseases on the cognitive development of the 
+research subjects and, to some extent, revealed the intri-
+cate connections between them and cognitive decline. 
+The comorbidity of obesity (obesity indicator: BMI) and 
+depression at baseline may have a synergistic negative 
+effect on cognitive function. When including the scale 
+of time, the conclusions drawn from different cohorts 
+were inconsistent. These differences may stem from the 
+influence of cultural differences, dietary habits, and the 
+geographical environment [101–103]. For instance, a 
+Mediterranean diet, rich in antioxidants and healthy fats, 
+has been associated with better cognitive function even 
+in people living with obesity, whereas high-fat, high-
+sugar diets common in Western countries may exacer-
+bate cognitive decline [101] Conversely, after conducting 
+a parallel analysis employing WHtR as an obesity indica-
+tor to reflect the accumulation of abdominal fat, we have 
+identified its potential negative impact on cognitive func-
+tion in combination with depression. This may be due to 
+two shared pathways.
+Firstly, both conditions elevate the body’s inflamma-
+tory levels. Depressed individuals have higher levels of 
+inflammatory markers in their blood, such as interleu-
+kin (IL)−1β and C-reactive protein (CRP) [104, 105]. 
+Concurrently, adipose tissue has been identified as a 
+major source of inflammatory molecules [106], and the 
+link between inflammatory cytokines and AO is closer 
+than that with BMI [107], suggesting that the accumu-
+lation of abdominal fat may predispose the body to a 
+pro-inflammatory state [108]. It is worth noting that cir-
+culating pro-inflammatory mediators are associated with 
+neurodegenerative diseases, and peripheral inflamma-
+tion has been shown to negatively impact the develop-
+ment of chronic brain inflammation [109]. These insights 
+imply that depression and AO may jointly contribute to 
+an increase in systemic inflammation, which could sub-
+sequently impair cognitive function in middle-aged and 
+older adults. Additionally, the combined effects of AO 
+and depression are manifested in the elevation of oxi-
+dative stress levels. Secondly, during the aging process, 
+the brain’s antioxidant defense system becomes increas-
+ingly imbalanced, leading to increased oxidative stress, 
+which is one of the primary causes of cognitive decline 
+[110]. It is widely accepted that abdominal fat is a seri-
+ous risk factor for the accumulation of visceral fat, which
+
+# Page 13
+
+Page 13 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+promotes the release of pro-oxidants, pro-inflammatory 
+agents, and reactive oxygen species (ROS) [111, 112]. 
+Studies have also demonstrated that antioxidant defenses 
+are weakened in individuals with depression, thereby 
+increasing oxidative stress [113]. In summary, AO and 
+depression may jointly elevate oxidative stress levels 
+within the body, which can stimulate brain atrophy and 
+morphological changes within the brain that ultimately 
+result in cognitive decline [114].
+This study has several strengths. Firstly, analyzed mul-
+tinational cohorts and a large sample size improve the 
+generalizability of the results. Secondly, advanced and 
+appropriate analytical methods provide a more compre-
+hensive interpretation of the joint contributions of the 
+heterogeneous trajectories of obesity and depression 
+to cognitive function. Additionally, the current study 
+examined multiple obesity-related indicators, which will 
+more accurately assess the interrelationship between 
+obesity and health status comprehensively. Finally, we 
+confirmed the robustness of our findings through vari-
+ous sensitivity analyses. To sum up, our findings under-
+score the importance of early detection and management 
+of both depression and obesity as a potential strategy to 
+mitigate cognitive deterioration. Specifically, clinicians 
+should screen for depressive symptoms alongside obesity 
+assessments (e.g., using BMI or waist-to-height ratio) to 
+identify at-risk individuals early, allowing for timely inter-
+vention. Moreover, an integrated treatment approach can 
+be adopted for patients with obesity-depression comor-
+bidity. Combining pharmacotherapy for depression with 
+lifestyle modifications aimed at weight management and 
+improved physical activity can enhance both mental and 
+physical well-being, thereby potentially slowing cognitive 
+decline.
+Of note, there are several limitations to be acknowl-
+edged. Firstly, there is a potential self-reporting bias. 
+Height and weight data in the MHAS cohort were self-
+reported, potentially misclassifying obesity prevalence 
+and obscuring its relationship with cognitive decline, 
+as BMI accuracy remains unverified. Secondly, there 
+are variations in measurement dimensions of cognitive 
+function across different cohorts. Although the study 
+attempted to standardize scores from each cohort by 
+generating z-scores, it must be acknowledged that dis-
+parities in cognitive measurement instruments and their 
+respective sensitivities may introduce a degree of system-
+atic bias, potentially affecting outcome validity and gen-
+eralizability. Thirdly, there are unmeasured confounding 
+factors. Although the study adjusted for multiple con-
+founding factors, certain variables relevant to cognitive 
+function—such as dietary patterns [101], physical activ-
+ity levels [86], social support networks [115], and sleep 
+quality [116]—were not consistently available across the 
+included cohorts due to limitations in data collection or 
+heterogeneity in measurement methods. The absence of 
+these factors may have influenced the observed associa-
+tions. These constraints suggest that the findings should 
+be generalized with caution to populations with differing 
+sociodemographic characteristics, measurement infra-
+structures, or exposure to unmeasured confounders—
+particularly among groups who may experience difficulty 
+providing accurate and complete data. And to enhance 
+generalizability, future research must prioritize: [1] rep-
+lication in geographically and culturally diverse cohorts, 
+[2] integration of objectively measured variables (e.g., 
+accelerometer-derived physical activity, validated dietary 
+assessments), and [3] systematic inclusion of previously 
+unmeasured confounders. Such efforts are essential to 
+validate the observed associations across heterogeneous 
+populations and real-world clinical contexts.
+Conclusions
+Herein, we observed that the comorbidity of obesity 
+and depression independently and additively negatively 
+affected cognitive function in middle-aged and older 
+people. This advocates for clinical screening to prioritize 
+depression and abdominal obesity beyond BMI, thereby 
+enhancing early identification of high-risk populations. 
+Overall, the critical clinical importance of managing 
+abdominal fat accumulation and maintaining positive 
+emotions to prevent and mitigate cognitive deterioration 
+is emphasized. For comorbid cases, an innovative dual-
+pathway intervention could be considered: combining 
+antidepressant pharmacotherapy with lifestyle-based 
+weight management to simultaneously improve mental/
+physical health and preserve cognition.
+Abbreviations
+AO	
+Abdominal obesity
+BMI	
+Body Mass Index
+CCCE	
+Cross-Cultural Cognitive Examination
+CESD	
+Center for Epidemiologic Studies Depression Scale
+CESD-9	
+9-item version of the CESD (used in MHAS)
+CESD-10	
+10-item version of the CESD (used in CHARLS)
+CHARLS	
+China Health and Retirement Longitudinal Study
+CI	
+Confidence interval
+CRP	
+C-reactive protein
+ELSA	
+English Longitudinal Study of Ageing
+GEE	
+Generalized Estimating Equations
+GLM	
+Generalized linear model
+HPA	
+Hypothalamic-pituitary-adrenal (axis)
+HRS	
+Health and Retirement Study
+IL-6	
+Interleukin-6
+KMl3D	
+K-means longitudinal clustering in 3 dimensions
+MHAS	
+Mexican Health and Aging Study
+MMSE	
+Mini-Mental State Examination
+ROS	
+Reactive oxygen species
+SD	
+Standard deviation
+TICS	
+Telephone Interview for Cognitive Status
+WHtR	
+Waist-to-height ratio
+WHO	
+World Health Organization
+WWI	
+Weight-Adjusted Waist Index
+z-score	
+Standardized score
+
+# Page 14
+
+Page 14 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+Supplementary Information
+The online version contains supplementary material available at https://​doi.​
+org/​10.​1186/​s12916-​025-​04298-2.
+Additional File 1
+Acknowledgements
+All authors thank the the GATEWAY TO GLOBAL AGING DATA for providing 
+the Harmonized Data. We also thank the original data collectors, depositors, 
+copyrightholders, and funders of China Health and Retirement LongitudinaS-
+tudy, English Longitudinal Study of Ageing, Health andRetirement Study, and 
+Mexican Health and Aging Study.
+Authors’ contributions
+RW, YC and BC contributed to the study design. RW analysed the data and RW, 
+YC and BC were involved in data interpretation. RW and YC drafted the first 
+version of the manuscript and prepared tables and figures. KMT, RSM, and BC 
+reviewed and revised the manuscript. All authors were involved in the writing 
+and critical revision of the manuscript. All authors have read and approved the 
+final manuscript.
+Funding
+This work was sponsored by the National Natural Science Foundation of China 
+(No. 32300926). The funding agents had no role in the design and conduct 
+of the study; collection, management, interpretation of the data; preparation, 
+review, or approval of the manuscript.
+Data availability
+The datasets analyzed during the current study are publicly available and can 
+be accessed as follows: CHARLS (China Health and Retirement Longitudinal 
+Study): https://​hrs.​isr.​umich.​edu/​about? ELSA (English Longitudinal Study 
+of Ageing): https://​ukdat​aserv​ice.​ac.​uk/​about/​HRS (Health and Retirement 
+Study): https://​charls.​pku.​edu.​cn/​gy/​gyxm.​htm MHAS (Mexican Health and 
+Aging Study): https://​www.​mhasw​eb.​org/​Home/​Index.​aspx All data are free to 
+access for bona fide research purposes upon registration with the respective 
+study platforms. No personally identifiable information was used. Analysis 
+scripts and processed data files can be requested from the corresponding 
+author.
+Declarations
+Ethics approval and consent to participate
+The China Health and Retirement Longitudinal Study (CHARLS) received 
+approval from the Ethical Review Committee of Peking University 
+(IRB00001052-11015). The English Longitudinal Study of Ageing (ELSA) 
+was approved by the London Multicentre Research Ethics Committee 
+(MREC/01/2/91). The Health and Retirement Study (HRS) was approved by 
+the Institutional Review Board at the University of Michigan and the National 
+Institute on Aging (HUM00061128) and the Mexican Health and Aging Study 
+(MHAS) is partly sponsored by the National Institutes of Health/National 
+Institute on Aging (NIH R01AG018016) in the United States and the Instituto 
+Nacional de Estadística y Geografía (INEGI) in Mexico. All respondents pro-
+vided written informed consent.
+Consent for publication
+Not applicable.
+Competing interests
+Dr. Roger S. McIntyre has received research grant support from CIHR/GACD/
+National Natural Science Foundation of China (NSFC) and the Milken Institute; 
+speaker/consultation fees from Lundbeck, Janssen, Alkermes, Neumora Thera-
+peutics, Boehringer Ingelheim, Sage, Biogen, Mitsubishi Tanabe, Purdue, Pfizer, 
+Otsuka, Takeda, Neurocrine, Neurawell, Sunovion, Bausch Health, Axsome, 
+Novo Nordisk, Kris, Sanofi, Eisai, Intra-Cellular, NewBridge Pharmaceuticals, 
+Viatris, Abbvie and Atai Life Sciences. Kayla M. Teopiz has received fees from 
+Braxia Scientific Corp.All other authors have no conflicts of interest to declare.
+Author details
+1 Key Laboratory of Cognition and Personality, Faculty of Psychology, Ministry 
+of Education, Southwest University, Chongqing 400715, People’s Republic 
+of China. 2 Brain and Cognition Discovery Foundation, Toronto, ON, Canada. 
+3 Department of Psychiatry, University of Toronto, Toronto, ON, Canada. 
+4 Department of Pharmacology and Toxicology, University of Toronto, Toronto, 
+ON, Canada. 5 National Demonstration Center for Experimental Psychology 
+Education, Southwest University, Chongqing 400715, People’s Republic 
+of China. 
+Received: 14 April 2025   Accepted: 24 July 2025
+References
+	
+1.	 Luppino FS, de Wit LM, Bouvy PF, Stijnen T, Cuijpers P, Penninx BW, et al. 
+Overweight, obesity, and depression: a systematic review and meta-
+analysis of longitudinal studies. Arch Gen Psychiatry. 2010;67(3):220–9.
+	
+2.	 McIntyre RS. The co-occurrence of depression and obesity: implications 
+for clinical practice and the discovery of targeted and precise mecha-
+nistically informed therapeutics. J Clin Psychiatry. 2024;85(2):55135.
+	
+3.	 Lin L, Bai S, Qin K, Wong CKH, Wu T, Chen D, et al. Comorbid depres-
+sion and obesity, and its transition on the risk of functional disability 
+among middle-aged and older Chinese: a cohort study. BMC Geriatr. 
+2022;22(1):275.
+	
+4.	 CDC. Obesity prevalence among adults in the United States, 2017-2020. 
+Centers for Disease Control and Prevention (CDC); 2023 [cited 2025 Jun 
+13]. Available from: https://​www.​cdc.​gov/​obesi​ty/​adult-​obesi​ty-​facts/​
+index.​html.
+	
+5.	 Christl J, Grumbach P, Jockwitz C, Wege N, Caspers S, Meisenzahl E. 
+Prevalence of depressive symptoms in people aged 50 years and older: 
+a retrospective cross-sectional study. J Affect Disord. 2025;373:353–63.
+	
+6.	 Zhang H, Zheng R, Yu B, Yu Y, Luo X, Yin S, et al. Dissecting shared 
+genetic architecture between depression and body mass index. BMC 
+Medicine. 2024;22(1):455.
+	
+7.	 Milaneschi Y, Simmons WK, van Rossum EFC, Penninx BWJH. Depression 
+and obesity: evidence of shared biological mechanisms. Mol Psychiatry. 
+2018;24(1):18–33.
+	
+8.	 Mannan M, Mamun A, Doi S, Clavarino A. Is there a bi-directional 
+relationship between depression and obesity among adult men and 
+women? Systematic review and bias-adjusted meta analysis. Asian J 
+Psychiatry. 2016;21:51–66.
+	
+9.	 Grapsa I, Mamalaki E, Ntanasi E, Kosmidis MH, Dardiotis E, Hadjigeorgiou 
+GM, et al. Longitudinal examination of body mass index and cognitive 
+function in older adults: the HELIAD study. Nutrients. 2023;15(7):1795.
+	 10.	 Muhammad T, Meher T. Association of late-life depression with cogni-
+tive impairment: evidence from a cross-sectional study among older 
+adults in India. BMC Geriatr. 2021;21(1):364.
+	 11.	 McIntyre RS, Cha DS, Soczynska JK, Woldeyohannes HO, Gallaugher LA, 
+Kudlow P, et al. Cognitive Deficits and functional outcomes in major 
+depressive disorder: determinants, substrates, and treatment interven-
+tions. Depress Anxiety. 2013;30(6):515–27.
+	 12.	 Lin L, Bai S, Qin K, Wong CKH, Wu T, Chen D, et al. Comorbid depres-
+sion and obesity, and its transition on the risk of functional disability 
+among middle-aged and older Chinese: a cohort study. BMC Geriatrics. 
+2022;22(1):275.
+	 13.	 Collyer TA, Murray AM, Woods RL, Storey E, Chong TTJ, Ryan J, et al. 
+Association of dual decline in cognition and gait speed with risk of 
+dementia in older adults. JAMA Network Open. 2022;5(5).
+	 14.	 Elías-López D, Vargas-Vázquez A, Mehta R, Cruz Bautista I, Del Razo 
+Olvera F, Gómez-Velasco D, et al. Natural course of metabolically 
+healthy phenotype and risk of developing Cardiometabolic diseases: a 
+three years follow-up study. BMC Endocr Disord. 2021;21(1):85.
+	 15.	 Ganguli M, Beer JC, Zmuda JM, Ryan CM, Sullivan KJ, Chang CCH, et al. 
+Aging, diabetes, obesity, and cognitive decline: a population-based 
+study. J Am Geriatr Soc. 2020;68(5):991–8.
+	 16.	 Miller AA, Spencer SJ. Obesity and neuroinflammation: a pathway to 
+cognitive impairment. Brain Behav Immun. 2014;42:10–21.
+
+# Page 15
+
+Page 15 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+	 17.	 Fu X, Wang Y, Zhao F, Cui R, Xie W, Liu Q, et al. Shared biological mecha-
+nisms of depression and obesity: focus on adipokines and lipokines. 
+Aging (Albany NY). 2023;15(12):5917.
+	 18.	 Kaup AR, Byers AL, Falvey C, Simonsick EM, Satterfield S, Ayonayon HN, 
+et al. Trajectories of depressive symptoms in older adults and risk of 
+dementia. JAMA Psychiatry. 2016;73(5):523–31.
+	 19.	 Yang X, Pan A, Gong J, Wen Y, Ye Y, Wu JHY, et al. Prospective associa-
+tions between depressive symptoms and cognitive functions in mid-
+dle-aged and elderly Chinese adults. J Affect Disord. 2020;263:692–7.
+	 20.	 Zhang B, Lin Y, Hu M, Sun Y, Xu M, Hao J, et al. Associations between tra-
+jectories of depressive symptoms and rate of cognitive decline among 
+Chinese middle-aged and older adults: an 8-year longitudinal study. J 
+Psychosom Res. 2022;160:110986.
+	 21.	 Keller J, Gomez R, Williams G, Lembke A, Lazzeroni L, Murphy GM, et al. 
+HPA axis in major depression: cortisol, clinical symptomatology and 
+genetic variation predict cognition. Mol Psychiatry. 2016;22(4):527–36.
+	 22.	 Frank P, Jokela M, Batty GD, Cadar D, Steptoe A, Kivimäki M. Association 
+between systemic inflammation and individual symptoms of depres-
+sion: a pooled analysis of 15 population-based cohort studies. Am J 
+Psychiatry. 2021;178(12):1107–18.
+	 23.	 Videbech P, Ravnkilde B. Hippocampal volume and depression: a meta-
+analysis of MRI studies. Am J Psychiatry. 2004;161(11):1957–66.
+	 24.	 Rock PL, Roiser JP, Riedel WJ, Blackwell AD. Cognitive impairment 
+in depression: a systematic review and meta-analysis. Psychol Med. 
+2013;44(10):2029–40.
+	 25.	 McDermott LM, Ebmeier KP. A meta-analysis of depression severity and 
+cognitive function. J Affect Disord. 2009;119(1–3):1–8.
+	 26.	 Albanese E, Launer LJ, Egger M, Prince MJ, Giannakopoulos P, Wolters 
+FJ, et al. Body mass index in midlife and dementia: systematic review 
+and meta-regression analysis of 589,649 men and women followed in 
+longitudinal studies. Alzheimer’s & Dementia: Diagnosis, Assessment & 
+Disease Monitoring. 2017;8(1):165–78.
+	 27.	 Pedditizi E, Peters R, Beckett N. The risk of overweight/obesity in mid-life 
+and late life for the development of dementia: a systematic review and 
+meta-analysis of longitudinal studies. Age Ageing. 2016;45(1):14–21.
+	 28.	 Kim G, Choi S, Lyu J. Body mass index and trajectories of cogni-
+tive decline among older Korean adults. Aging Ment Health. 
+2019;24(5):758–64.
+	 29.	 McIntyre RS, Rong C, Mansur RB, Brietzke E. Does obesity and diabetes 
+mellitus metastasize to the brain? “Metaboptosis” and implications for 
+drug discovery and development. CNS Spectr. 2019;24(5):467–9.
+	 30.	 Norton S, Matthews FE, Barnes DE, Yaffe K, Brayne C. Potential for 
+primary prevention of Alzheimer’s disease: an analysis of population-
+based data. Lancet Neurol. 2014;13(8):788–94.
+	 31.	 Liang F, Fu J, Moore JB, Zhang X, Xu Y, Qiu N, et al. Body mass index, 
+waist circumference, and cognitive decline among Chinese older 
+adults: a nationwide retrospective cohort study. Front Aging Neurosci. 
+2022;14: 737532.
+	 32.	 Tang X, Zhao W, Lu M, Zhang X, Zhang P, Xin Z, et al. Relationship 
+between central obesity and the incidence of cognitive impairment 
+and dementia from cohort studies involving 5,060,687 participants. 
+Neurosci Biobehav Rev. 2021;130:301–13.
+	 33.	 Tang H, Li Q, Du C. The association between waist-to-height ratio and 
+cognitive function in older adults. Nutr Neurosci. 2024;27(12):1405–12.
+	 34.	 Wang S-H, Su M-H, Chen C-Y, Lin Y-F, Feng Y-CA, Hsiao P-C, et al. 
+Causality of abdominal obesity on cognition: a trans-ethnic Mendelian 
+randomization study. Int J Obes. 2022;46(8):1487–92.
+	 35.	 Ren Z, Li Y, Li X, Shi H, Zhao H, He M, et al. Associations of body mass 
+index, waist circumference and waist-to-height ratio with cognitive 
+impairment among Chinese older adults: based on the CLHLS. J Affect 
+Disord. 2021;295:463–70.
+	 36.	 Dye L, Boyle NB, Champ C, Lawton C. The relationship between obesity 
+and cognitive health and decline. Proc Nutr Soc. 2017;76(4):443–54.
+	 37.	 Li J, Sun J, Zhang Y, Zhang B, Zhou L. Association between weight-
+adjusted-waist index and cognitive decline in US elderly participants. 
+Front Nutr. 2024;11:1390282.
+	 38.	 Team CR. China Health and Retirement Longitudinal Study (CHARLS). 
+Peking University; 2015 [cited 2024 Jul 2]. Available from: https://​charls.​
+pku.​edu.​cn/​gy/​gyxm.​htm.
+	 39.	 Banks J, Batty, G. D., Breedvelt, J., Coughlin, K., Crawford, R., Marmot, 
+M., Nazroo, J., Oldfield, Z., Steel, N., Steptoe, A., Wood, M., Zaninotto, P. 
+English Longitudinal Study of Ageing: Waves 0–10, 1998–2023: UK Data 
+Service; 2024 Available from: https://​ukdat​aserv​ice.​ac.​uk/​about/.
+	 40.	 Health and Retirement Study pud. Health and Retirement Study, public 
+use dataset. University of Michigan; 2016 [cited 2024 Jul 3]. Available 
+from: https://​hrs.​isr.​umich.​edu/​about.
+	 41.	 (MHAS) MHaAS. Mexican Health and Aging Study (MHAS). University of 
+Texas Medical Branch & INEGI; 2018 [cited 2024 Jul 4]. Available from: 
+https://​www.​mhasw​eb.​org/​Home/​Index.​aspx.
+	 42.	 Xu T, Ye X, Lu X, Lan G, Xie M, Huang Z, et al. Association between solid 
+cooking fuel and cognitive decline: three nationwide cohort studies in 
+middle-aged and older population. Environ Int. 2023;173: 107803.
+	 43.	 Tan K. Appropriate body-mass index for Asian populations and 
+its implications for policy and intervention strategies. The lancet. 
+2004;363(9403):157–63.
+	 44.	 Talaei M, Feng L, Barrenetxea J, Yuan J-M, Pan A, Koh W-P. Adiposity, 
+weight change, and risk of cognitive impairment: the Singapore Chi-
+nese Health Study. J Alzheimers Dis. 2020;74(1):319–29.
+	 45.	 Consultation W. Obesity: preventing and managing the global epi-
+demic. World Health Organ Tech Rep Ser. 2000;894:1–253.
+	 46.	 Chan V, Cao L, Wong MMH, Lo K, Tam W. Diagnostic accuracy of waist-
+to-height ratio, waist circumference, and body mass index in identifying 
+metabolic syndrome and its components in older adults: a systematic 
+review and meta-analysis. Curr Dev Nutr. 2024;8(1):102061.
+	 47.	 Konig HH, Lehnert T, Brenner H, Schottker B, Quinzler R, Haefeli WE, et al. 
+Health service use and costs associated with excess weight in older 
+adults in Germany. Age Ageing. 2015;44(4):616–23.
+	 48.	 Ye J, Hu Y, Chen X, Yin Z, Yuan X, Huang L, et al. Association between the 
+weight-adjusted waist index and stroke: a cross-sectional study. BMC 
+Public Health. 2023;23(1):1689.
+	 49.	 Liu H, Zhi J, Zhang C, Huang S, Ma Y, Luo D, et al. Association between 
+weight-adjusted waist index and depressive symptoms: a nationally 
+representative cross-sectional study from NHANES 2005 to 2018. J 
+Affect Disord. 2024;350:49–57.
+	 50.	 Park Y, Kim NH, Kwon TY, Kim SG. A novel adiposity index as an inte-
+grated predictor of cardiometabolic disease morbidity and mortality. 
+Scientific Reports. 2018;8(1):16753.
+	 51.	 Andresen EM, Malmgren JA, Carter WB, Patrick DL. Screening for 
+depression in well older adults: evaluation of. Prev Med. 1994;10:77–84.
+	 52.	 Steffick D. Documentation of affective functioning measures in the 
+Health and Retirement Study. 2000. Available from: https://​hrs.​isr.​umich.​
+edu/​docum​entat​ion/​affec​tive-​funct​ioning.
+	 53.	 Poole L, Jackowska M. The epidemiology of depressive symptoms and 
+poor sleep: findings from the English longitudinal study of ageing 
+(ELSA). Int J Behav Med. 2018;25(2):151–61.
+	 54.	 García-Pérez A, Pineda AEG-A, Sandoval-Bonilla BA, Cruz-Hervert LP. 
+Prevalence and factors associated with depressive symptoms in rural 
+and urban Mexican older adults: evidence from the Mexican Health 
+and Aging Study 2018. salud pública de méxico. 2022;64(4):367–76.
+	 55.	 Cruz-Cruz C, Zamora-Macorra M, Astudillo-García CI, Guerra G. Intersec-
+tionality and depression symptoms in Mexican adults aged≥ 50, MHAS 
+2001 and 2012. salud pública de méxico. 2023;65(5):475–84.
+	 56.	 Palta P, Carlson MC, Crum RM, Colantuoni E, Sharrett AR, Yasar S, 
+et al. Diabetes and cognitive decline in older adults: the ginkgo 
+evaluation of memory study. The Journals of Gerontology: Series A. 
+2018;73(1):123–30.
+	 57.	 Weir D, Faul J, Langa K. Proxy interviews and bias in the distribution 
+of cognitive abilities due to non-response in longitudinal studies: a 
+comparison of HRS and ELSA. Longitudinal and life course studies. 
+2011;2(2):170.
+	 58.	 Langa KM, Llewellyn DJ, Lang IA, Weir DR, Wallace RB, Kabeto MU, 
+et al. Cognitive health among older adults in the United States and in 
+England. BMC Geriatr. 2009;9(1):23.
+	 59.	 Li C, Zhu Y, Ma Y, Hua R, Zhong B, Xie W. Association of cumulative 
+blood pressure with cognitive decline, dementia, and mortality. J Am 
+Coll Cardiol. 2022;79(14):1321–35.
+	 60.	 Barragán-García M, Ramírez-Aldana R, López-Ortega M, Sánchez-
+García S, García-Peña C. Widowhood status and cognitive function in 
+community-dwelling older adults from the Mexican Health and Aging 
+Study (MHAS). J Popul Ageing. 2022;15(3):605–22.
+	 61.	 Zheng F, Yan L, Zhong B, Yang Z, Xie W. Progression of cognitive decline 
+before and after incident stroke. Neurology. 2019;93(1):e20–8.
+
+# Page 16
+
+Page 16 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	 62.	 He D, Wang Z, Li J, Yu K, He Y, He X, et al. Changes in frailty and incident 
+cardiovascular disease in three prospective cohorts. Eur Heart J. 
+2024;45(12):1058–68.
+	 63.	 Genolini C. kml3d: K-Means for Joint Longitudinal Data (p. 2.4.6.1) [Data-
+set]. 2010 [cited 2024 Sep 10]. Available from: https://​cran.r-​proje​ct.​org/​
+web/​packa​ges/​kml3d/​index.​html.
+	 64.	 Hartigan JA, Wong MA. Algorithm AS 136: A k-means clustering algo-
+rithm. J Roy Stat Soc: Ser C (Appl Stat). 1979;28(1):100–8.
+	 65.	 Genolini C, Alacoque X, Sentenac M, Arnaud C. kml and kml3d: R pack-
+ages to cluster longitudinal data. J Stat Softw. 2015;65:1–34.
+	 66.	 Genolini C, Pingault J-B, Driss T, Côté S, Tremblay RE, Vitaro F, et al. 
+KmL3D: a non-parametric algorithm for clustering joint trajectories. 
+Comput Methods Programs Biomed. 2013;109(1):104–11.
+	 67.	 Farrahi V, Rostami M, Dumuid D, Chastin SF, Niemelä M, Korpelainen R, 
+et al. Joint profiles of sedentary time and physical activity in adults and 
+their associations with cardiometabolic health. Med Sci Sports Exerc. 
+2022;54(12):2118.
+	 68.	 Ziegler A, Vens M. Generalized estimating equations. Methods Inf Med. 
+2010;49(05):421–5.
+	 69.	 Graham EA, Deschênes SS, Khalil MN, Danna S, Filion KB, Schmitz N. 
+Measures of depression and risk of type 2 diabetes: a systematic review 
+and meta-analysis. J Affect Disord. 2020;265:224–32.
+	 70.	 Jawad MY, Meshkat S, Tabassum A, McKenzie A, Di Vincenzo JD, Guo 
+Z, et al. The bidirectional association of nonalcoholic fatty liver disease 
+with depression, bipolar disorder, and schizophrenia. CNS Spectr. 
+2022;28(5):541–60.
+	 71.	 Luo H, Li J, Zhang Q, Cao P, Ren X, Fang A, et al. Obesity and the onset of 
+depressive symptoms among middle-aged and older adults in China: 
+evidence from the CHARLS. BMC Public Health. 2018;18(1):909.
+	 72.	 McGrowder DA, Fang T, Zhang Q, Wang Z, Liu J-P. Bidirectional associa-
+tion between depression and diabetic nephropathy by meta-analysis. 
+Plos One. 2022;17(12):e0278489.
+	 73.	 Pu F, Lin J, Wei Y, Li J, Liao X, Shi L, et al. Association of dietary behavior 
+patterns of middle-aged and older adults with their obesity metabolic 
+phenotype: a cross-sectional study. BMC Public Health. 2024;24(1):2311.
+	 74.	 Zhao Q, Tan X, Su Z, Manzi HP, Su L, Tang Z, et al. The relationship 
+between the Dietary Inflammatory Index (DII) and Metabolic Syndrome 
+(MetS) in middle-aged and elderly individuals in the United States. 
+Nutrients. 2023;15(8):1857.
+	 75.	 Hemphill L, Valenzuela Y, Luna K, Szymkowicz SM, Jones JD. Synergistic 
+associations of depressive symptoms and aging on cognitive decline in 
+early Parkinson’s disease. Clin Park Relat Disord. 2023;8:100192.
+	 76.	 Yuan J, Wang Y, Liu Z. Temporal relationship between depression and 
+cognitive decline in the elderly: a two-wave cross-lagged study in a 
+Chinese sample. Aging Ment Health. 2023;27(11):2179–86.
+	 77.	 Zheng F, Zhong B, Song X, Xie W. Persistent depressive symptoms and 
+cognitive decline in older adults. Br J Psychiatry. 2018;213(5):638–44.
+	 78.	 Federman AD, Becker J, Carnavali F, Rivera Mindt M, Cho D, Pandey 
+G, et al. Relationship between cognitive impairment and depression 
+among middle aged and older adults in primary care. Gerontol Geriatr 
+Med. 2024;10:23337214231214216.
+	 79.	 Manning KJ, Steffens DC. Systems Neuroscience in Late-Life Depres-
+sion. Systems Neuroscience in Depression2016. p. 325–40.
+	 80.	 Rieck JR, Baracchini G, Nichol D, Abdi H, Grady CL. Reconfiguration and 
+dedifferentiation of functional networks during cognitive control across 
+the adult lifespan. Neurobiol Aging. 2021;106:80–94.
+	 81.	 Staffaroni AM, Brown JA, Casaletto KB, Elahi FM, Deng J, Neuhaus J, 
+et al. The longitudinal trajectory of default mode network connectiv-
+ity in healthy older adults varies as a function of age and is associated 
+with changes in episodic memory and processing speed. J Neurosci. 
+2018;38(11):2809–17.
+	 82.	 Jellinger KA. Pathomechanisms of Vascular Depression in Older Adults. 
+Int J Mol Sci. 2021;23(1):308.
+	 83.	 Straka K, Tran M-L, Millwood S, Swanson J, Kuhlman KR. Aging as a 
+context for the role of inflammation in depressive symptoms. Front 
+Psychiatry. 2021;11.
+	 84.	 Mina T, Yew YW, Ng HK, Sadhu N, Wansaicheong G, Dalan R, et al. Adi-
+posity impacts cognitive function in Asian populations: an epidemio-
+logical and Mendelian Randomization study. Lancet Reg Health West 
+Pac. 2023;33:100710.
+	 85.	 Liu CR, Wong PY, Chung YL, Chow SKH, Cheung WH, Law SW, et al. 
+Deciphering the “obesity paradox” in the elderly: a systematic review 
+and meta-analysis of sarcopenic obesity. Obes Rev. 2023. https://​doi.​
+org/​10.​1111/​obr.​13534.
+	 86.	 Iso-Markku P, Kujala UM, Knittle K, Polet J, Vuoksimaa E, Waller K. Physical 
+activity as a protective factor for dementia and Alzheimer’s disease: 
+systematic review, meta-analysis and quality assessment of cohort and 
+case–control studies. Br J Sports Med. 2022;56(12):701–9.
+	 87.	 Rodriguez-Ayllon M, Solis-Urra P, Arroyo-Ávila C, Álvarez-Ortega M, 
+Molina-García P, Molina-Hidalgo C, et al. Physical activity and amyloid 
+beta in middle-aged and older adults: a systematic review and meta-
+analysis. J Sport Health Sci. 2024;13(2):133–44.
+	 88.	 Coin A, Veronese N, De Rui M, Mosele M, Bolzetta F, Girardi A, et al. Nutri-
+tional predictors of cognitive impairment severity in demented elderly 
+patients: the key role of BMI. J Nutr Health Aging. 2012;16(6):553–6.
+	 89.	 Hegele RA, Joy TR, Al-Attar SA, Rutt BK. Thematic review series: 
+adipocyte Biology. Lipodystrophies: windows on adipose biology and 
+metabolism. Journal of Lipid Research. 2007;48(7):1433–44.
+	 90.	 Shinohara M, Gheni G, Hitomi J, Bu G, Sato N. APOE genotypes modify 
+the obesity paradox in dementia. J Neurol Neurosurg Psychiatry. 
+2023;94(9):670–80.
+	 91.	 Zhang J, Na X, Li Z, Ji JS, Li G, Yang H, et al. Sarcopenic obesity is 
+part of obesity paradox in dementia development: evidence from a 
+population-based cohort study. BMC Med. 2024;22(1):133.
+	 92.	 Zhang F, Ning Z, Wang C. Body roundness index and cognitive func-
+tion in older adults: a nationwide perspective. Front Aging Neurosci. 
+2024;16:1466464.
+	 93.	 Liang Z, Jin W, Huang L, Chen H. Body mass index, waist circumfer-
+ence, hip circumference, abdominal volume index, and cognitive 
+function in older Chinese people: a nationwide study. BMC Geriatrics. 
+2024;24(1):925.
+	 94.	 Forte R, Pesce C, de Vito G, Boreham CAG. The body fat-cognition 
+relationship in healthy older individuals: does gynoid vs android distri-
+bution matter? J Nutr Health Aging. 2017;21(3):284–92.
+	 95.	 Liu X, Chen X, Hou L, Xia X, Hu F, Luo S, et al. Associations of body mass 
+index, visceral fat area, waist circumference, and waist-to-hip ratio with 
+cognitive function in western China: results from WCHAT study. J Nutr 
+Health Aging. 2021;25(7):903–8.
+	 96.	 Xu S, Wen S, Yang Y, He J, Yang H, Qu Y, et al. Association between body 
+composition patterns, cardiovascular disease, and risk of neurodegen-
+erative disease in the UK Biobank. Neurology. 2024;103(4):e209659.
+	 97.	 Chu C-Q, Yu L-l, Qi G-y, Mi Y-S, Wu W-Q, Lee Y-k, et al. Can dietary pat-
+terns prevent cognitive impairment and reduce Alzheimer’s disease 
+risk: exploring the underlying mechanisms of effects. Neurosci Biobe-
+hav Rev. 2022;135:104556.
+	 98.	 Wei K, Yang J, Lin S, Mei Y, An N, Cao X, et al. Dietary habits modify 
+the association of physical exercise with cognitive impairment in 
+community-dwelling older adults. J Clin Med. 2022;11(17):512.
+	 99.	 Witczak-Sawczuk K, Ostrowska L, Cwalina U, Leszczyńska J, Jastrzębska-
+Mierzyńska M, Hładuński MK. Estimation of the impact of abdominal 
+adipose tissue (subcutaneous and visceral) on the occurrence of car-
+bohydrate and lipid metabolism disorders in patients with obesity—a 
+pilot study. Nutrients. 2024;16(9):1301.
+	100.	 Zhu C-e, Zhou L, Zhang X. Effects of leisure activities on the cognitive 
+ability of older adults: a latent variable growth model analysis. Front 
+Psychol. 2022;13:838878
+	101.	 Scarmeas N, Stern Y, Mayeux R, Luchsinger JA. Mediterranean 
+diet, Alzheimer disease, and vascular mediation. Arch Neurol. 
+2006;63(12):1709–17.
+	102.	 Zhao Y-L, Qu Y, Ou Y-N, Zhang Y-R, Tan L, Yu J-T. Environmental factors 
+and risks of cognitive impairment and dementia: a systematic review 
+and meta-analysis. Ageing Res Rev. 2021;72: 101504.
+	103.	 Lavallee KL, Zhang XC, Schneider S, Margraf J. Obesity and mental 
+health: a longitudinal, cross-cultural examination in Germany and 
+China. Front Psychol. 2021;12:712567.
+	104.	 Johnston JN, Greenwald MS, Henter ID, Kraus C, Mkrtchian A, Clark NG, 
+et al. Inflammation, stress and depression: an exploration of ketamine’s 
+therapeutic profile. Drug Discov Today. 2023;28(4):103518.
+	105.	 Majd M, Saunders EFH, Engeland CG. Inflammation and the dimensions 
+of depression: a review. Front Neuroendocrinol. 2020;56:100800.
+
+# Page 17
+
+Page 17 of 17
+Wang et al. BMC Medicine          (2025) 23:555 
+	
+	106.	 Unamuno X, Gómez-Ambrosi J, Rodríguez A, Becerril S, Frühbeck G, 
+Catalán V. Adipokine dysregulation and adipose tissue inflammation in 
+human obesity. Eur J Clin Invest.  2018;48(9):e12997.
+	107.	 Pou KM, Massaro JM, Hoffmann U, Vasan RS, Maurovich-Horvat P, Larson 
+MG, et al. Visceral and subcutaneous adipose tissue volumes are cross-
+sectionally related to markers of inflammation and oxidative stress. 
+Circulation. 2007;116(11):1234–41.
+	108.	 Lin W-T, Kao Y-H, Li MS, Luo T, Lin H-Y, Lee C-H, et al. Sugar-sweetened 
+beverages intake, abdominal obesity, and inflammation among US 
+adults without and with prediabetes—an NHANES Study. Int J Environ 
+Res Public Health.  2022;20(1):681.
+	109.	 Gonzales MM, Garbarino VR, Pollet E, Palavicini JP, Kellogg DL, Kraig 
+E, et al. Biological aging processes underlying cognitive decline and 
+neurodegenerative disease. J Clin Invest. 2022;132(10):e158453.
+	110.	 Mulè S, Ferrari S, Rosso G, Galla R, Battaglia S, Curti V, et al. The com-
+bined effect of green tea, saffron, resveratrol, and citicoline against 
+neurodegeneration induced by oxidative stress in an in vitro model of 
+cognitive decline. Oxid Med Cell Longev. 2024;2024(1):7465045.
+	111.	 Oyerinde AS, Selvaraju V, Babu JR, Geetha T. Potential role of oxidative 
+stress in the production of volatile organic compounds in obesity. 
+Antioxidants. 2023;12(1):129.
+	112.	 Yeo J, Hwang IC, Ahn HY. Association between oxidative balance 
+score and neck circumference in Korean adults. Obes Res Clin Pract. 
+2022;16(4):343–5.
+	113.	 Sipahi H, Mat AF, Özhan Y, Aydin A. The interrelation between oxidative 
+stress, depression and inflammation through the kynurenine pathway. 
+Curr Top Med Chem. 2023;23(6):415–25.
+	114.	 Naomi R, Teoh SH, Embong H, Balan SS, Othman F, Bahari H, et al. 
+The role of oxidative stress and inflammation in obesity and its 
+impact on cognitive impairments—a narrative review. Antioxidants. 
+2023;12(5):1071.
+	115.	 Kelly ME, Duff H, Kelly S, McHugh Power JE, Brennan S, Lawlor BA, et al. 
+The impact of social activities, social networks, social support and social 
+relationships on the cognitive functioning of healthy older adults: a 
+systematic review. Sys Rev. 2017;6(1):259.
+	116.	 Ma Y, Liang L, Zheng F, Shi L, Zhong B, Xie W. Association between 
+sleep duration and cognitive decline. JAMA Network Open. 
+2020;3(9):e2013573.
+Publisher’s Note
+Springer Nature remains neutral with regard to jurisdictional claims in pub-
+lished maps and institutional affiliations.

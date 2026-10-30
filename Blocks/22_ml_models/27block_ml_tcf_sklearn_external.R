@@ -58,20 +58,29 @@ block_ml_tcf_sklearn_external <- function(ctx, ...) {
   utils::write.csv(ext, ext_csv, row.names = FALSE)
 
   py <- Sys.getenv("MEDICAL_BLOCKS_PYTHON", unset = "")
-  if (!nzchar(py)) py <- Sys.which("python3")
-  if (!nzchar(py)) py <- Sys.which("python")
+  if (!nzchar(py)) {
+    if (.Platform$OS.type == "windows" && file.exists("C:/ProgramData/anaconda3/python.exe")) {
+      py <- "C:/ProgramData/anaconda3/python.exe"
+    } else {
+      py <- Sys.which("python3")
+      if (!nzchar(py)) py <- Sys.which("python")
+    }
+  }
   script <- file.path(root, "python", "ml_tcf", "eval_external_tcf.py")
-  st <- system2(
-    py,
-    args = c(
-      script,
-      "--model-dir", model_dir,
-      "--external", ext_csv,
-      "--out-dir", out_dir,
-      "--outcome", "y"
-    ),
-    stdout = TRUE, stderr = TRUE
+  args_ext <- c(
+    script,
+    "--model-dir", model_dir,
+    "--external", ext_csv,
+    "--out-dir", out_dir,
+    "--outcome", "y"
   )
+  if (.Platform$OS.type == "windows") {
+    args_ext <- vapply(args_ext, function(a) {
+      a <- as.character(a)
+      if (grepl("[[:space:]]", a) || grepl('"', a, fixed = TRUE)) shQuote(a, type = "cmd") else a
+    }, character(1), USE.NAMES = FALSE)
+  }
+  st <- system2(py, args = args_ext, stdout = TRUE, stderr = TRUE)
   writeLines(st, file.path(out_dir, "eval_external.log"))
   if (!is.null(attr(st, "status")) && attr(st, "status") != 0) {
     stop("ml_tcf_sklearn_external 失败\n", paste(st, collapse = "\n"), call. = FALSE)

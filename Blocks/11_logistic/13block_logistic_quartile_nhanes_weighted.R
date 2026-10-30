@@ -217,19 +217,19 @@ block_logistic_quartile_nhanes_weighted <- function(ctx, ...) {
     }
     require_nl <- isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)
     if (isTRUE((cfg$dual_db %||% list())$enable) &&
-        !isFALSE(bl_cfg$dual_db_export_even_if_linear %||% TRUE)) {
+        isTRUE(bl_cfg$dual_db_export_even_if_linear %||% FALSE)) {
       require_nl <- FALSE
     }
     if (isTRUE(require_nl) && is.finite(p_nl_rcs) && p_nl_rcs >= 0.05) {
       ctx$results$logistic_rcs_ns_skipped <- TRUE
       cli::cli_alert_warning(
-        "logistic_quartile_nhanes_weighted_rcs: RCS 非线性 P={round(p_nl_rcs,3)} >= 0.05，按规则不导出 Table S8（RCS cutoff 分组 Logistic）。"
+        "logistic_quartile_nhanes_weighted_rcs: RCS 非线性 P={round(p_nl_rcs,3)} >= 0.05，按规则不导出 Table S-XX（RCS cutoff 分组 Logistic）。"
       )
       return(ctx)
     }
     if (!isTRUE(require_nl) && is.finite(p_nl_rcs) && p_nl_rcs >= 0.05) {
       cli::cli_alert_info(
-        "logistic_quartile_nhanes_weighted_rcs: 双库对齐仍导出 RCS cutoff 表（非线性 P={round(p_nl_rcs, 3)}）"
+        "logistic_quartile_nhanes_weighted_rcs: dual_db_export_even_if_linear=TRUE，仍导出 RCS cutoff 表（非线性 P={round(p_nl_rcs, 3)}）"
       )
     }
   }

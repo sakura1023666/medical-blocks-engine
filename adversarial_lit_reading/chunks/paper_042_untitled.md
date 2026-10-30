@@ -1,1398 +1,1443 @@
 # Page 1
 
-Received: 5 September 2024
-Revised: 17 January 2025
-Accepted: 15 February 2025
-DOI: 10.1002/alz.70090
-R E S E A R C H A R T I C L E
-Healthy lifestyle factors outweigh influence of APOE genetic
-risk on extending cognitively healthy life expectancy among
-Chinese older adults: evidence from a nationwide cohort study
-Longbing Ren1,2,3
-Fan Hu4
-Sebastian Walsh5
-Xurui Jin6
-Yang Hu1,2
-Shaojie Li1,2
-Yuling Jiang1,2
-Mingzhi Yu1,2
-Yifei Wu1,2
-Grace Yuange Zang7
-Keyang Liu8
-Huashuai Chen9
-Jing Sun10
-Yan Zhang11
-Kokoro Shirai8
-Yi Zeng12
-Quincy M. Samus13
-Gill Livingston3
-Yao Yao1,2,12,14,15
-1School of Public Health, Peking University Health Science Center, Beijing, China
-2Center for Healthy Aging Transdisciplinary Sciences, China Center for Health Development Studies, Peking University, Beijing, China
-3Division of Psychiatry, University College London, London, UK
-4Department of Endocrinology, The Second Medical Center & National Clinical Research Center for Geriatric Disease, Chinese PLA General Hospital, Beijing, China
-5Cambridge Public Health, University of Cambridge, Cambridge, UK
-6MindRank AI Ltd., Hangzhou, Zhejiang, China
-7Department of Health Policy and Management, Bloomberg School of Public Health, Johns Hopkins University, Baltimore, Maryland, USA
-8Department of Public Health, Graduate School of Medicine, Osaka University, Suita, Osaka, Japan
-9School of management, Xiangtan University, Xiangtan, Hunan, China
-10School of Nursing, Peking University, Beijing, China
-11School of Health Service Management, Anhui Medical University, Hefei, Anhui, China
-12Center for the Study of Aging and Human Development and Geriatrics Division, Medical School of Duke University, Durham, North Carolina, USA
-13Department of Psychiatry and Behavioral Sciences, School of Nursing, Johns Hopkins School of Medicine, Baltimore, Maryland, USA
-14State Key Laboratory of Vascular Homeostasis and Remodeling, Peking University, Beijing, China
-15Key Laboratory of Epidemiology of Major Diseases (Peking University), Ministry of Education, Beijing, China
-Correspondence
-Yao Yao, School of Public Health, Peking
-University Health Science Center, No. 38,
-Xueyuan Road, Beijing, 100191, China; Center
-for Healthy Aging Transdisciplinary Sciences,
-China Center for Health Development Studies,
-Peking University, Beijing, China.
-Email: yao.yao@bjmu.edu.cn
-Sebastian Walsh, Quincy M. Samus, Gill
-Livingston, and Yao Yao are commissioners of
-the “Dementia Prevention, Intervention, and
-Care: 2024” report of the Lancet standing
-Commission.
+Original Investigation | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function
+Over Time
+Jiamin Yin, MSc; Amber John, PhD; Dorina Cadar, PhD
 Abstract
-INTRODUCTION: Understanding the interplay between genetic factors and lifestyle
-choices in cognitive health is crucial for enhancing late-life quality. This study exam-
-ines the effects of Apolipoprotein E (APOE) genotypes and healthy lifestyles on life
-expectancy with and without cognitive impairment (CI) in Chinese older adults.
-METHODS: Data from 6488 participants aged at least 65 in the Chinese Lon-
-gitudinal Healthy Longevity Survey (CLHLS) were analyzed using continuous-time
-three-state Markov models. Cognitive function was assessed with the Mini-Mental
-State Examination (MMSE).
-Longbing Ren, Fan Hu, and Sebastian Walsh all contributed equally.
-This is an open access article under the terms of the Creative Commons Attribution License, which permits use, distribution and reproduction in any medium, provided
-the original work is properly cited.
-© 2025 The Author(s). Alzheimer’s & Dementia published by Wiley Periodicals LLC on behalf of Alzheimer’s Association.
-Alzheimer’s Dement. 2025;21:e70090.
-wileyonlinelibrary.com/journal/alz
-1 of 12
-https://doi.org/10.1002/alz.70090
+IMPORTANCE Cognitive decline and depressive symptoms often co-occur among older adults, and
+they share several mechanisms. Despite the fact that cognitive dysfunction has been linked to
+increased depressive symptoms, the directionality of this association remains unclear.
+OBJECTIVE To examine whether there is a bidirectional association between depressive symptoms
+and cognitive function in English adults aged 50 years or older throughout a 16-year follow-
+up period.
+DESIGN, SETTING, AND PARTICIPANTS This cohort study included a nationally representative
+sample of community-dwelling English adults aged 50 years or older. The current analysis included
+8268 eligible participants with relevant data. These participants were examined every other year
+from 2002 and 2003 until 2018 and 2019, resulting in a follow-up period of up to 16 years. Data were
+analyzed from July to November 2023.
+MAIN OUTCOMES AND MEASURES The bivariate dual change score models were used to estimate
+the multivariable associations between depressive symptoms and cognitive function, which were
+interchangeably used as exposures and outcomes. Cognitive measures include memory and verbal
+fluency tests, while the Center for Epidemiologic Studies Depression Scale evaluated depressive
+symptoms.
+RESULTS The study population of 8268 participants had a mean (SD) age of 64 (10) years at the
+study baseline, and 4517 participants (55%) were female. Higher depressive symptoms were cross-
+sectionally associated with poorer memory (β intercept, −0.018; standard error [SE], 0.004;
+P < .001) and verbal fluency (β intercept, −0.009; SE, 0.004; P = .02) at study baseline. A steeper
+linear change in depressive symptoms was associated with an accelerated memory change (β
+intercept, −0.253; SE, 0.079; P = .001), and a linear change in memory was associated with an
+acceleration in depressive symptoms over time (β intercept, 0.016; SE, 0.006; P = .005). This
+bidirectional change was not observed with verbal fluency.
+CONCLUSIONS AND RELEVANCE In this study, greater depressive symptoms were associated with
+poorer memory at the study baseline and steeper memory change over time. A gradual linear change
+in depressive symptoms contributed to accelerated memory loss and vice versa, suggesting that
+psychological mood and memory performance are intrinsically associated.
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+Key Points
+Question Are depressive symptoms
+associated with cognitive function
+among adults aged 50 years or older?
+Findings In this longitudinal analysis of
+8268 eligible participants, greater levels
+of depressive symptoms at study
+baseline and an accelerated change in
+depressive symptoms over time were
+associated with faster memory decline.
+In reverse, a steeper change in memory
+was also reciprocally associated with a
+more rapid change in depressive
+symptoms over time.
+Meaning These findings suggest that
+changes in depressive symptoms are
+associated with cognitive performance.
++ Supplemental content
+Author affiliations and article information are
+listed at the end of this article.
+Open Access. This is an open access article distributed under the terms of the CC-BY License.
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+1/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 2
 
-2 of 12
-REN ET AL.
-Funding information
-National Natural Science Foundation of China,
-Grant/Award Numbers: 72374013, 72404010;
-National Key R&D Project of China,
-Grant/Award Number: 2023YFC3606400;
-National Science and Technology Major
-Project for the Prevention and Treatment of
-Cancer, Cardiovascular and Cerebrovascular,
-Respiratory and Metabolic Diseases,
-Grant/Award Number: 2024ZD0524102;
-Joint Program on Health Science & Technology
-Innovation of Hainan Province, Grant/Award
-Number: WSJK2025ZD223
-RESULTS: APOE ε4 allele carriers had a higher risk of transitioning from cogni-
-tively healthy (CH) to impaired, while ε2 carriers had a reduced risk of transitioning
-from healthy to death. Participants with 4 or 5 healthy lifestyle factors experienced
-significant protective effects, extending the cognitively healthy life expectancy.
-DISCUSSION: These findings underscore the importance of promoting healthy
-lifestyles to delay cognitive decline, regardless of genetic predispositions, particularly
-in the Asian context.
-KEYWORDS
-APOE genotype, cognitive impairment, healthy lifestyles, life expectancy, low- and middle-income
-countries
-Highlights
-∙Compared with ε3 homozygotes, APOE ε4 carriers in China have a higher risk of
-transitioning from CH to CI, and APOE ε2 carriers with CH have a lower risk of
-transitioning to death.
-∙Healthy lifestyles can extend life expectancy, primarily extending CH life expectancy.
-∙Healthy lifestyles reduce the risk of CI and delay its onset in later life, regardless of
-APOE genetic risk.
-1
-BACKGROUND
-China has the largest population of individuals with dementia world-
-wide, and this number is expected to continue increasing.1 Apolipopro-
-tein E (APOE) is the most common genetic risk factor for age-related
-cognitive impairment (CI) and dementia.2,3 Carriers of the APOE ε4
-allele exhibit markedly higher rates of early amyloid beta (Aβ) accu-
-mulation, especially those homogeneous for the ε4/ε4 genotype.4
-Conversely, the ε2 allele is associated with lower Aβ accumulation.5,6
-APOE genotypes and cognitive function are influenced by sex and
-ethnicity.7,8 Although the ε4 allele is more common among Black indi-
-viduals, its association with AD risk is stronger among non-Hispanic
-Whites.3,9 Recent research on the ε2 allele around sex-specific effects
-has inconsistent findings, with different ethnic groups with a protective
-effect reported in non-Hispanic White males,10 a female-specific pro-
-tective effect among Whites, and a male-specific one among Blacks.8
-However, Asians, despite having the largest older populations,11 have
-not been included in these studies. To date, no large-scale longitudinal
-studies have investigated the relationship between APOE genotypes
-(particularly APOE ε2) and cognitive function in East Asian older
-generations.
-Recent reports and studies have indicated that maintaining a
-healthylifestylecanslowcognitivedeclineandreducenearlyhalfofthe
-risk of dementia in late life.12–16 Healthy lifestyles can also extend life
-expectancy.17–19 In a study from the United States, healthy lifestyles
-were shown to extend life expectancy and delay the onset of demen-
-tia, indicating that healthy lifestyles may compress the duration of
-life lived with dementia.20 However, the benefits of a healthy lifestyle
-for cognitive health, regardless of APOE ε4 carrier status, remain
-inconclusive.12,21–24 Moreover, these studies often exclude popula-
-tions from developing countries and low- and middle-income regions,
-such as China, where dementia prevalence continues to rise.16 There-
-fore, elucidating the positive impact of healthy lifestyles on cognitive
-function in those regions could provide valuable insights for policymak-
-ers and health administrators in addressing the growing challenge of CI
-and dementia.
-Using data from the nationwide aging cohort (Chinese Longitudinal
-Healthy Longevity Survey [CLHLS]) with up to 15 years of follow-up,
-our study aims to elucidate the impact of healthy lifestyles and APOE
-genotypes on life expectancy with and without CI among Chinese older
-adults.
-2
-METHODS
-2.1
-Study design and samples
-The data of this study were obtained from the CLHLS, a nationally rep-
-resentative, ongoing longitudinal cohort study of older adults in China.
-Initiated in 1998, the CLHLS has conducted follow-up surveys every 2
-to 3 years, completing nine waves of national surveys until now. The
-study population includes participants from 22 out of 31 provinces in
-mainland China, representing approximately 85% of the Chinese popu-
-lation aged 65 and older. No proxy was used for the objective questions
-such as cognitive function and physical performance assessments.
-Detailed information on the sampling procedures and data quality
-has been published elsewhere.25 Ethical approval was obtained from
-the Institutional Review Board of Peking University (IRB00001052-
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Introduction
+Subtle cognitive decline can be observed as a result of age in most older adults.1 However, if cognitive
+deficits are present in 1 or more domains and negatively impact daily life, it could lead to mild
+cognitive impairment (MCI) or dementia.2,3 Due to comorbidity or severe life events like
+bereavement, depressive symptoms are also common among older adults. As a result of high
+underdiagnosis, a significant percentage of patients with depression are left untreated and living
+with a variety of symptoms.4 Cognitive decline and depressive symptoms share some common
+features and regularly co-occur among older adults.5 Depression in early life was shown to be a risk
+factor for dementia, and depression in later life can be considered a prodrome of dementia.6-8 In
+contrast, cognitive dysfunction or dementia could also be attributable to depressive symptoms.9
+This indicates that these are not mutually exclusive and that there may be a bidirectional association.
+To our knowledge, 3 epidemiologic studies have attempted to investigate the bidirectional
+association between depressive symptoms and cognitive function among older adults, but the
+findings are mixed. One study10 identified a bidirectional association between depressive symptoms
+and MCI throughout a 20-year follow-up, while another study11 conducted in the UK reported no
+significant association in any direction during a 6-year follow-up. However, both failed to account for
+the dual changes in depressive symptoms and cognitive function by analyzing different directions
+separately. The third study found a mutual association between depressive symptoms and cognitive
+decline, using latent growth curve modeling.12 By using a global score to measure cognition, these
+studies may have overlooked essential variations in the rate of change and nuances in the nature of
+the association with depressive symptoms across cognitive domains. Furthermore, since a
+bidirectional association between loneliness and memory function has been identified,13 these
+results may be confounded by loneliness. The present study aimed to examine the bidirectional
+association of depressive symptoms and cognitive function during a 16-year follow-up by conducting
+parallel bivariate analyses in a nationally representative sample of the English population aged 50
+years and older living in the community.
+Method
+Study Population
+Data were drawn from the English Longitudinal Study of Aging (ELSA), a panel study of a nationally
+representative sample of adults aged 50 years and older. ELSA collects data on of topics, such as
+health, socioeconomic status, psychological conditions, and cognitive function, every other year. A
+detailed study description can be found elsewhere.14 In this analysis, the study baseline was
+considered the first wave (2002 to 2003), and participants were followed up to wave 9 (2018 to
+2019), which was the latest wave of data available at the time of these analyses, leading to 16 years
+of follow-up. Data at later waves were collected during the COVID-19 pandemic; hence, they were
+excluded to avoid the potential confounding impact of the pandemic.
+The study population was confined to the 11 391 core members at the study baseline. We
+excluded those who had no data at the study baseline or at least 1 follow-up evaluation of cognitive
+function or depressive symptoms. There were 8268 individuals remaining in the analysis. Figure 1
+presents our analytic sample.
+The National Research Ethics Service granted ethics approval for each ELSA wave. All
+participants provided informed consent. This cohort study followed Strengthening the Reporting of
+Observational Studies in Epidemiology (STROBE) reporting guideline.
+Main Outcomes and Measures Ascertainment
+Cognitive Functioning
+Memory was assessed via memory recall tests of 10 unrelated and randomly assigned words.15,16 A
+combination of the numbers of words recalled immediately and after a short delay was used as a
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+2/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 3
 
-REN ET AL.
-3 of 12
-13074). Written informed consent was obtained from all participants
-or their legal representatives at baseline and during follow-up surveys.
-The study was conducted according to the Declaration of Helsinki.
-This longitudinal study assessed genetic data at baseline. We
-selected participants from the fourth wave (2008/2009) survey, who
-were followed up in the 2011, 2014, 2018, and 2021 waves. Our study
-adheres to the Strengthening the Reporting of Genetic Association
-Studies (STREGA) guidelines (eMethod). Among the 7980 participants
-with genetic testing in the fourth wave, we excluded (1) 748 partic-
-ipants who were either younger than 65 years or at least 100 years
-old, (2) 631 participants who had only one record in the database, (3)
-135 participants with the ε2/ε4 genotype (because of the potential
-opposing effects of ε2 and ε4 alleles on Alzheimer’s disease risk10,26),
-and (4) 18 participants with missing data on the Mini-Mental State
-Examination (MMSE) or all lifestyle indicators. Ultimately, 6448 partic-
-ipants aged 65 years and older met the inclusion criteria for this study.
-The detailed participant selection flowchart is provided in Figures A1
-and A2.
-2.2
-APOE genotype
-In the first six waves of the CLHLS surveys (1998, 2000, 2002, 2005,
-2008/2009, and 2011/2012), saliva samples were collected from par-
-ticipants and sent to the Beijing Genomics Institute (BGI) for genetic
-testing in 2014. The study utilized a custom chip targeting approxi-
-mately 27,656 SNPs associated with longevity phenotypes. Detailed
-information on the genetic testing project and quality control proce-
-dures is available in previous publications.27,28 In this study, APOE
-genotypes were defined using the SNPs rs7412 and rs429358. Due
-to the small number of ε2 homozygotes (n = 20) and ε4 homozy-
-gotes (n = 49), all participants were categorized into three groups: ε3
-homozygotes (ε3/ε3), ε2 carriers (ε2/ε3, ε2/ε2), and ε4 carriers (ε3/ε4,
-ε4/ε4). Both APOE SNPs were in Hardy–Weinberg equilibrium (p > .05),
-assessed with PLINK 1.90 beta.29
-2.3
-Assessment of healthy lifestyles
-We considered five lifestyle factors, widely associated with cognitive
-function20,29,30 and memory21: no current smoking, no alcohol con-
-sumption, ideal diet, being physically active, and maintaining active
-cognitive engagement. Never smokers and those who self-reported
-quitting smoking for over 10 years were considered to have a healthy
-lifestyle. Never drinkers and those who self-reported abstaining from
-alcohol for over 10 years were considered healthy.31 Diet diversity
-was assessed using a food frequency questionnaire, recording the daily
-intake of various food items (fruits, vegetables, grains, meat, fish, and
-seafood, eggs, dairy products, legumes, sweets, garlic, nuts, and tea).
-Based on previous research, participants among the top 40% of the diet
-diversity distribution were considered healthy,20,21 and this cut-off
-value of an ideal diet in our study was defined as consuming at least five
-out of 12 food items daily. Being physically active was defined as self-
-RESEARCH IN CONTEXT
-1. Systematic review: There are limited studies examining
-the effect of APOE and healthy lifestyle factors on CI
-risk and its related life expectancy, especially in low- and
-middle-income areas. These studies remain insufficiently
-comprehensive in terms of sample size and follow-up
-duration.
-2. Interpretation: By analyzing cognitive state transitions in
-a large, nationwide sample of older adults in China, we
-identified distinct roles of different APOE genotypes in
-these transitions and highlighted the positive impact of a
-healthier lifestyle on each cognitive state transition and
-life expectancy. These findings are crucial for understand-
-ing how to extend life expectancy without CI in older
-adults and can guide policymakers and healthcare profes-
-sionals in designing policies and interventions to support
-healthier living.
-3. Future directions: Future studies should aim to repli-
-cate and expand upon these findings in larger East Asian
-populations, further examining differences in APOE gene
-expression across sexes and their implications for life
-expectancy.
-reported daily physical activity or participation in outdoor activities
-(replaced by participation in Tai Chi or square dancing from the 2018
-wave onward). Participants engaging in daily physical activity or out-
-door activities were considered to have a healthy lifestyle. Maintaining
-active cognitive engagement were defined through four questions
-on reading newspapers or books, playing cards or mahjong, partici-
-pating in organized social activities, and visiting relatives or friends
-(only included in the questionnaire from the eighth wave onward), and
-engaging in these activities at least twice a week was considered a
-healthy lifestyle, similar to previous studies.21
-We assessed the association between each lifestyle factor and
-cognitive function. To further investigate the relationship between
-lifestyle factors, APOE genotype, and CI, we categorized participants
-into three groups based on the number of healthy lifestyle factors: four
-or five healthy lifestyle factors, two or three healthy lifestyle factors,
-and zero or one healthy lifestyle factor.
-2.4
-Assessment of CI
-Each participant underwent a cognitive function assessment in each
-wave of the survey. Cognitive function was evaluated using the Chi-
-nese version of the MMSE, which consists of 24 items with a total
-score of 30, where higher scores indicate better cognitive function. The
-details and validation of the Chinese version of MMSE questionnaire
-were confirmed in previous studies.25,32 A MMSE score of less than 18
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+continuous measure of memory, leading to a possible score ranging from 0 to 20. Verbal fluency was
+assessed using the animal naming test.17 The total number of nonrepeated animal names produced
+represented a continuous score of verbal fluency. Data for verbal fluency at wave 6 were not
+available. This analysis used continuous scores of both cognitive tests, with higher scores indicating
+a higher level of mental functioning.
+Depressive Symptoms
+Self-reported depressive symptoms during the week prior to interviews were assessed since wave 1
+using the 8-item version of the Centre for Epidemiologic Studies Depression Scale (CES-D).18 Each
+question was coded as 0 (ie, no) or 1 (ie, yes), resulting in a summary score ranging from 0 to 8, with
+higher scores indicating greater severity of depressive symptoms. The 8-item CES-D has been
+validated against the 20-item version and is widely used in aging research. It also shows good
+consistency across waves (α = 0.68).19 The summary score was log-transformed before being added
+to models due to its highly skewed distribution. Depressive symptoms were examined both as an
+estimator and an outcome of memory and verbal fluency during a 16-year follow-up.
+Covariates
+Demographic factors (age, sex, education, and wealth) were included in the study baseline (wave 1).
+Educational attainment was categorized into 3 levels: low (compulsory schooling), medium (up to
+high school diploma), and high (university degree or higher), based on the highest qualifications
+obtained. Total wealth includes the value of the respondent’s home, financial assets, and physical
+wealth, which was divided into tertiles. Information about health status was also collected by asking
+participants if they had any illness or disability that impaired their everyday life over an extended
+period. Self-rated overall health was dichotomized (fair or worse health vs good or better health).
+Lifestyle factors included smoking (current smoker vs nonsmoker), alcohol consumption (daily vs
+less than daily) and physical activity (mild or below vs moderate or above).
+Statistical Analysis
+All variables were descriptively analyzed by wave. We also compared the study baseline
+characteristics of participants with and without complete data during the study period. A set of
+bivariate dual change score models was conducted to assess the cross-sectional association between
+depressive symptoms and cognitive function at the study baseline and the dual parallel changes
+between depressive symptoms and cognitive function during follow-up. Maximum likelihood robust
+estimation was applied during the modeling process, which generates unbiased estimates under the
+assumption of missing at random. Memory and verbal fluency were modeled separately.
+Figure 1. Flowchart of the Selection Process of the Analytical Sample in ELSA
+11 391 Core participants at baseline
+(wave 1, 2002-2003)
+1321 Excluded
+369 Missing baseline evaluation of cognition 
+(memory or verbal fluency)
+126 Missing baseline evaluation of 
+depressive symptoms
+1932 Missing follow-up evaluation of cognition 
+(memory or verbal fluency)
+20 Missing follow-up evaluation of 
+depressive symptoms
+676 Missing covariates (age, sex, education, wealth, 
+limiting longstanding illness, self-rated health, 
+smoking, alcohol consumption, and physical activity)
+8268 Main analytical sample
+ELSA indicates English Longitudinal Study of Aging.
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+3/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 4
 
-4 of 12
-REN ET AL.
-was considered indicative of severe CI. Additionally, participants were
-asked in each survey whether they had been diagnosed with dementia.
-In this study, CI was defined as a MMSE score of less than 1825,29 or a
-self-reported history of dementia.
-2.5
-Covariates
-Sociodemographic factors, physical function, and history of diseases
-can influence individual cognitive function. Therefore, the key sociode-
-mographic information in this study included age, sex (men/women),
-residence (urban/rural), years of schooling (never/1 to 6 years/over 6
-years), living arrangement (lives alone/with family member), and mar-
-ital status (currently married and living together/divorced, widowed,
-never married, or married but not living together). The history of
-disease included 13 common chronic diseases of older adults: hyper-
-tension, diabetes, heart disease, stroke, chronic respiratory diseases,
-tuberculosis, cataracts, glaucoma, cancer, gastric ulcer, Parkinson’s
-disease, bedsores, and arthritis. These conditions were further catego-
-rized based on the number of diseases: none, only one, and comorbidity
-(two or more diseases). Disability status was assessed using the activ-
-ities of daily living (ADL) questionnaire. Participants were considered
-disabled if they required assistance in any of the six activities: bathing,
-dressing, using the toilet, indoor mobility, controlling bowel and blad-
-der, and eating. Economic factors include pension (yes/no), medical
-insurance (yes/no), and able to get to hospital when ill (yes/no).
-2.6
-Statistical analysis
-All statistical analyses were performed using RStudio (version 4.1.2).
-Missing values for covariates were imputed using the nearest-neighbor
-method from adjacent waves, with the proportion of missing val-
-ues provided in Table A.1. To clarify the role of each risk factor and
-its changes during follow-up, a three-state continuous-time Markov
-chain model with covariates was constructed (Figure A.3) to assess
-the hazard ratios (HRs) and 95% confidence intervals of the healthy
-lifestyle, APOE genotype, and their interaction among each state’s
-transitions. In addition, we also estimated the life expectancy for dif-
-ferent subgroups defined by the healthy lifestyle and APOE genotype.
-This method involved two steps. First, the continuous-time Markov
-process allows for four state transitions: (1) from cognitively healthy
-(CH) to CI; (2) from CH to death; (3) from CI to CH; and (4) from CI
-to death. This multi-state Markov model allowed transition hazards to
-change with age and fitted the annual transition probabilities for the
-four state transitions while adjusting for all covariates, including sex,
-year of schooling, residence, living arrangement, marital status, history
-of disease, and economic factors. The age dependency was modeled
-by computing state-specific and marginal life expectancies using the
-Gompertz distribution, a commonly used parametric model for mor-
-tality rates. Second, multi-state life tables were constructed using the
-annual transition probabilities, with maximum likelihood estimators
-as point estimates for the annual transition probabilities and 95%
-confidence interval estimated using 1000 bootstrap resamples. The
-maximum human age was set at 110 years,33 and the expected lifespan
-was calculated for individuals aged 65, 75, and 85 years. Consider-
-ing the differences in life expectancy between sexes, separate models
-were fitted for each sex. Interaction terms between APOE genotype,
-healthy lifestyle, and sex in the first-step model were used to assess the
-differential impacts on state transitions. The annual transition proba-
-bilities and expected lifespan were analyzed using the msm34 and elect
-packages.35 A two-tailed significance level was set at p < .05.
-Several sensitivity analyses were conducted to assess the robust-
-ness of the results. First, we used baseline data to validate the
-robustness of the main results. We bult a generalized linear mixed
-model (GLMM) to assess the association between healthy lifestyle sub-
-groups, APOE genotype, and cognitive function. Cognitive function
-was included as both a binary variable (CI/CH) and a continuous vari-
-able (MMSE score) in two models, with adjustments for all covariates.
-A prespecified interaction term between healthy lifestyle and APOE
-genotype was included to consider whether the association between
-healthy lifestyle and CI differed according to genotype. Corrections for
-multiple comparisons were performed using the Benjamini–Hochberg
-false discovery rate (FDR) procedure,36 accounting for all main effects
-and interactions modeled. The GLMM was analyzed using the lmerTest
-package. Second, based on the aforementioned cross-sectional anal-
-yses, participants who died before 2011 were excluded because an
-earlier death may be related to poorer physical functioning, and poorer
-physical functioning may have interfered with participants’ ability
-to maintain a healthy lifestyle. Third, in the cross-sectional analysis,
-considering that previous studies21 suggested differences in the asso-
-ciation of each healthy lifestyle and cognitive function, a weighted
-Healthy Living Index (HLI) was established and defined as the sum
-of the regression coefficient of each healthy lifestyle (beta) multi-
-plied by each healthy lifestyle (binary), and the HLI was divided into
-three groups based on the tertile method – LOW, MID, and HIGH –
-and care was taken to ensure that each group had a similar number
-of participants. We analyzed the correlation between HLI subgroups
-and cognitive function to assess the robustness of the primary out-
-come. Fourth, considering the variability in follow-up durations, we
-recalibrated life expectancy using monthly rather than yearly transi-
-tion probabilities to maintain the robustness of the main results.37
-Lastly, the life expectancy for different subgroups was re-fitted using
-the Middle Riemann and Simpson methods.
-3
-RESULTS
-3.1
-Demographic characteristics
-The baseline characteristics of all participants are presented in Table 1.
-Among the 6448 participants, 3169 were female (49.1%), with an aver-
-age age of 81.9 years (SD: 9.4). A high proportion of participants had
-never been to school (54.6%), resided in rural areas (65.9%), and lived
-with family members (82.6%). Of the participants, 4386 had the APOE
-ε3/ε3 genotype, 913 were ε2 carriers, and 1149 were ε4 carriers. The
-age- and sex-weighted CI rates for the three genotypes were 3.8%,
-3.5%, and 5.1%, respectively. Most (63.6%) participants had two or
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+The variable for time in the analysis was calculated as years since the study baseline, presenting
+the changes in cognitive function and depressive symptoms every 2 years during the follow-up. The
+follow-up period was up to 16 years when exploring the association of depressive symptoms with
+memory and up to 8 years for the investigation of verbal fluency. All statistical models adjusted for
+age, sex, education, wealth, limiting long-standing illness, self-rated health, smoking, alcohol
+consumption, and physical activity. For the purpose of interpretation, the age was centered at 65
+years. Bayesian information criteria were used for model selection, and based on this, we selected to
+report the current results indicating a quadratic function of change. The outputs of these models
+represent the following:
+1. The estimated average level at the study baseline, the rate of change over time in both linear and
+quadratic terms for depressive symptoms and cognitive scores;
+2. The association between the study baseline level and the speed of change in each outcome;
+3. The impact of covariates on the intercept and linear change in each outcome;
+4. The cross-sectional associations between depressive symptoms and both domains of cognitive
+function at the study baseline;
+5. The prospective impact of depressive symptoms at the study baseline on changes in each domain
+of cognitive function and the prospective impact of each measure of cognitive function at the
+study baseline on changes in depressive symptoms;
+6. Bivariate dual change parallel associations between the linear slope in depressive symptoms and
+nonlinear (quadratic) changes in each cognitive domain and between the linear slope in each
+cognitive domain and the quadratic slope of depressive symptoms.
+We performed 3 sets of sensitivity analyses to assess the robustness of our results. We first
+removed the question about loneliness to exclude the potential overlapping impact of loneliness on
+cognitive functioning. Another study was conducted to examine whether those with low cognition
+drive the observed association by excluding those whose cognition measure at the study baseline
+was in the lowest quintile. We finally repeated the analysis after censoring individuals with diagnoses
+of stroke or dementia. Dementia occurrence was determined at each wave, using an algorithm based
+on a combination of self-reported or informant-reported physician diagnosis of dementia or
+Alzheimer disease or an informant score above the threshold of 3.38 on the 16-question Informant
+Questionnaire on Cognitive Decline in the Elderly.20-23 The hypotheses tests were 2-sided, and a
+significance level of P < .05 was used. All data analyses were conducted using MPlus version 7 (MPlus
+Software). Data were collected from 2002 to 2019 and analyzed from July to November 2023.
+Results
+The study sample included 8268 eligible participants. Table 1 presents the characteristics of the
+sample during the study period. At wave 1, the sample had a mean age of 64 (10) years. Among all
+participants, 3751 (45%) were males, 4517 (55%) were females, and 2070 (25%) had high
+educational levels.
+In the first outcome, participants experienced a nonlinear decline in memory every 2 years (β
+linear slope 1, 0.180; SE, 0.022; P < .001; and β quadratic slope 1, −0.055; SE, 0.003; P < .001)
+(Table 2). Depressive symptoms were negatively associated with memory at the study baseline (β
+intercept, −0.018; SE, 0.004; P < .001) and with the linear slope of memory change (β linear, −0.146;
+SE, 0.023; P < .001). This suggests that higher levels of depressive symptoms were associated with
+lower memory scores at the study baseline and a steeper memory decline over time. There were no
+evident linear or nonlinear changes in verbal fluency (Table 2). Depressive symptoms were negatively
+associated with verbal fluency at the study baseline (β intercept, −0.009; SE, 0.004; P = .02) but
+not significantly associated with linear slope or quadratic slope of change in verbal fluency scores.
+This provides evidence for a cross-sectional association but not for a prospective association of
+higher levels of depressive symptoms at the study baseline with poorer verbal fluency. Investigating
+the parallel change in cognition and depressive symptoms, the linear slope of change in depressive
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+4/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 5
 
-REN ET AL.
-5 of 12
-TABLE 1
-Baseline characteristics of study population.
+symptoms was significantly associated with the nonlinear pattern of change in memory for the
+quadratic slope (β quadratic, −0.253; SE, 0.079; P = .001) but not verbal fluency over time (Table 2).
+Exploring the association between memory at the study baseline and depressive symptoms
+trajectory (Table 3), the participants in this study had a score of depressive symptoms of 0.468 (SE,
+0.048; P < .001) at the study baseline, a linear slope of β linear slope 2 of 0.002 (SE, 0.010; P = .84),
+and a quadratic slope of β quadratic slope 2 of 0.001 (SE, 0.001; P = .39). Memory was found to be
+inversely associated with the levels of depressive symptoms at the study baseline, as previously
+noted and associated with the linear change in depressive symptoms over time (β linear, −0.001; SE,
+0.001; P = .03). Furthermore, investigating the dual changes, the linear slope in memory over time
+was positively associated with the quadratic slope of change in depressive symptoms (β quadratic,
+0.016; SE, 0.006; P = .005), despite that the change in depressive symptoms itself was not
+significant in this study.
+Table 1. Psychosocial and Demographic Characteristics of the Sample at Each Wave of the ELSA
 Variables
-Total
-ε3 homozygote
-ε2 carrier
-ε4 carrier
-Numbers
-6448
-4386 (68.0)
-913 (14.2)
-1149 (17.8)
-MMSE score
-24.11 ± 7.76
-24.21 ± 7.68
-23.90 ± 7.89
-23.89 ± 7.96
-CI, yes
-945 (14.7)
-623 (14.2)
-142 (15.6)
-180 (15.7)
-Weighted percentage of CI (%)
-4.0
-3.8
-3.5
-5.1
-Follow-up time, years
-6.05 ± 3.98
-6.06 ± 3.98
-6.04 ± 4.02
-6.02 ± 3.98
-Death during follow-up
-4047 (62.8)
-2743 (62.5)
-574 (62.9)
-730 (63.0)
-Weighted percentage of death (%)
-40.9
-39.9
-43.7
-42.4
-Sociodemographic characteristics
+Participants, No. (%)
+Wave 1
+(2002-2003)
+Wave 2
+(2004-2005)
+Wave 3
+(2006-2007)
+Wave 4
+(2008-2009)
+Wave 5
+(2010-2011)
+Wave 6
+(2012-2013)
+Wave 7
+(2014-2015)
+Wave 8
+(2016-2017)
+Wave 9
+(2018-2019)
+Participants, No.
+8268
+7841
+6801
+5988
+5653
+5137
+4457
+3857
+3343
+Memory, mean (SD)
+[range]
+9.8 (3.4)
+[0-20]
+10 (3.6)
+[0-20]
+10 (3.7)
+[0-20]
+10 (3.7)
+[0-20]
+10 (3.8)
+[0-20]
+10 (3.8)
+[0-20]
+9.9 (3.8)
+[0-20]
+9.5 (4.4)
+[0-20]
+9.9 (3.8)
+[0-20]
+Verbal fluency, mean (SD)
+[range]
+20 (6.2)
+[0-50]
+20 (6.5)
+[0-63]
+20 (6.7)
+[0-56]
+20 (6.9)
+[0-54]
+20 (6.9)
+[0-51]
+NA [NA]
+20 (7.3)
+[0-67]
+20 (7.4)
+[0-61]
+21 (7.6)
+[0-49]
+Depressive symptoms,
+median (IQR) [range]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+1 (0-2)
+[0-8]
+Age, y
+Mean (SD)
+64 (9.8)
+67 (9.9)
+68 (9.7)
+70 (9.4)
+70 (8.1)
+72 (7.6)
+74 (8.4)
+75 (7.9)
+76 (7.1)
 Sex
-Men
-3279 (50.9)
-2222 (50.7)
-456 (49.9)
-601 (52.3)
-Women
-3169 (49.1)
-2164 (49.3)
-457 (50.1)
-548 (47.7)
-Age group
-65 to 74 years
-1727 (26.8)
-1186 (27.0)
-226 (24.8)
-315 (27.4)
-75 to 84 years
-1968 (30.5)
-1341 (30.6)
-263 (28.8)
-364 (31.7)
-≥85
-2753 (42.7)
-1859 (42.4)
-424 (46.4)
-470 (40.9)
-Years of schooling
-Never
-3520 (54.6)
-2385 (54.4)
-511 (56.0)
-624 (54.3)
-1 to 6 years
-2153 (33.4)
-1470 (33.5)
-308 (33.7)
-375 (32.6)
-Over 6 years
-775 (12.0)
-531 (12.1)
-94 (10.3)
-150 (13.1)
-Residence
-Urban
-2198 (34.1)
-1468 (33.5)
-329 (36.0)
-401 (34.9)
-Rural
-4250 (65.9)
-2918 (66.5)
-584 (64.0)
-748 (65.1)
-Living arrangement
-With family member
-5328 (82.6)
-3623 (82.6)
-736 (80.6)
-969 (84.3)
-Lives alone
-1120 (17.4)
-763 (17.4)
-177 (19.4)
-180 (15.7)
-Marital status
-Currently married and living together
-2793 (43.3)
-1893 (43.2)
-385 (42.2)
-515 (44.8)
-Divorced, widowed, never married, or
-married but not living together
-3655 (56.7)
-2493 (56.8)
-528 (57.8)
-634 (55.2)
-Healthy lifestyle factors
-Ideal dietary intake
-2910 (45.1)
-2030 (46.3)
-408 (44.7)
-472 (41.1)
-Never or quit smoking at least 10 years
-4143 (64.3)
-2838 (64.7)
-597 (65.4)
-708 (61.6)
-Never or quit drinking at least 10 years
-4328 (67.1)
-2953 (67.3)
-617 (67.6)
-758 (66.0)
-Daily exercise
-2063 (32.0)
-1428 (32.6)
-278 (30.4)
-357 (31.1)
-Active cognitive engagement
-2676 (41.5)
-1839 (41.9)
-369 (40.4)
-468 (40.7)
-Numbers of heathy lifestyle factors
-0 or 1
-1130 (17.5)
-742 (16.9)
-164 (18.0)
-224 (19.5)
-2 or 3
-4100 (63.6)
-2782 (63.4)
-578 (63.3)
-740 (64.4)
-4 or 5
-1218 (18.9)
-862 (19.7)
-171 (18.7)
-185 (16.1)
-History of disease
-None
-2730 (42.3)
-1832 (41.8)
-411 (45.0)
-487 (42.4)
-One
-2172 (33.7)
-1510 (34.4)
-298 (32.6)
-364 (31.7)
-Comorbidity
-1546 (24.0)
-1044 (23.8)
-204 (22.3)
-298 (25.9)
-Disability status, yes
-400 (6.2)
-269 (6.2)
-69 (7.5)
-62 (5.4)
-(Continues)
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Male
+3751 (45)
+3553 (45)
+3051 (45)
+2667 (45)
+2505 (44)
+2273 (44)
+1957 (44)
+1700 (44)
+1447 (43)
+Female
+4517 (55)
+4288 (55)
+3750 (55)
+3321 (55)
+3148 (56)
+2864 (56)
+2500 (56)
+2157 (56)
+1896 (57)
+Education
+High
+2070 (25)
+1973 (25)
+1809 (27)
+1645 (27)
+1612 (29)
+1509 (29)
+1355 (30)
+1216 (32)
+1084 (32)
+Medium
+3073 (37)
+2939 (37)
+2557 (38)
+2283 (38)
+2176 (38)
+1982 (39)
+1775 (40)
+1556 (40)
+1375 (41)
+Low
+3125 (38)
+2929 (37)
+2435 (36)
+2060 (34)
+1865 (33)
+1646 (32)
+1327 (30)
+1085 (28)
+884 (26)
+Wealth
+High
+2755 (33)
+2637 (34)
+2369 (35)
+2170 (36)
+2081 (37)
+1953 (38)
+1751 (39)
+1534 (40)
+1378 (41)
+Medium
+2756 (33)
+2627 (34)
+2277 (33)
+1996 (33)
+1934 (34)
+1737 (34)
+1525 (34)
+1332 (35)
+1153 (34)
+Low
+2757 (33)
+2577 (33)
+2155 (32)
+1822 (30)
+1638 (29)
+1447 (28)
+1181 (26)
+991 (26)
+812 (24)
+Limiting long-standing
+illness
+No
+5720 (69)
+5412 (69)
+4750 (70)
+4275 (71)
+4082 (72)
+3776 (74)
+3317 (74)
+2908 (75)
+2536 (76)
+Yes
+2548 (31)
+2429 (31)
+2051 (30)
+1713 (29)
+1571 (28)
+1361 (26)
+1140 (26)
+949 (25)
+807 (24)
+Self-rated health
+Good or better
+6417 (78)
+6081 (78)
+5354 (79)
+4807 (80)
+4575 (81)
+4219 (82)
+3712 (83)
+3240 (84)
+2847 (85)
+Fair or worse
+1851 (22)
+1760 (22)
+1447 (21)
+1181 (20)
+1078 (19)
+918 (18)
+745 (17)
+617 (16)
+496 (15)
+Smoking
+Nonsmoker
+5212 (63)
+4942 (63)
+4247 (62)
+3706 (62)
+3472 (61)
+3135 (61)
+2702 (61)
+2296 (60)
+1962 (59)
+Current
+3056 (37)
+2899 (37)
+2554 (38)
+2282 (38)
+2181 (39)
+2002 (39)
+1755 (39)
+1561 (40)
+1381 (41)
+Alcohol consumption
+Less than daily
+6486 (78)
+6141 (78)
+5304 (78)
+4646 (78)
+4367 (77)
+3949 (77)
+3413 (77)
+2948 (76)
+2534 (76)
+Daily
+1782 (22)
+1700 (22)
+1497 (22)
+1342 (22)
+1286 (23)
+1188 (23)
+1044 (23)
+909 (24)
+809 (24)
+Physical activity
+Moderate or above
+5959 (72)
+5655 (72)
+4983 (73)
+4506 (75)
+4305 (76)
+3983 (78)
+3491 (78)
+3073 (80)
+2690 (80)
+Mild or below
+2309 (28)
+2186 (28)
+1818 (27)
+1482 (25)
+1348 (24)
+1154 (22)
+966 (22)
+784 (20)
+653 (20)
+Abbreviation: ELSA, English Longitudinal Study of Aging.
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+5/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 6
 
-6 of 12
-REN ET AL.
-TABLE 1
-(Continued)
-Variables
-Total
-ε3 homozygote
-ε2 carrier
-ε4 carrier
-Economic factors
-Pension, yes
-1223 (19.0)
-825 (18.8)
-167 (18.3)
-231 (20.1)
-Medical insurance, yes
-4962 (77.0)
-3349 (76.4)
-742 (81.3)
-871 (75.8)
-Can get to hospital when ill, yes
-5975 (92.7)
-4097 (93.0)
-834 (91.3)
-1062 (92.4)
-Abbreviations: CI: cognitive impairment; MMSE, Mini-Mental State Examination.
-TABLE 2
-Adjusted HR of APOE genotype, number of healthy lifestyle factors, and sociodemographic characteristics by each cognitive state
-transition in Markov chain model*.
-Variables
-CH→CI
-CH→Death
-CI→CH
-CI→Death
-APOE genotype
-ε3 homozygote
-Ref.
-Ref.
-Ref.
-Ref.
-ε2 carrier
-1.05 (0.84 to 1.31)
-0.88 (0.79 to 0.98)†
-0.88 (0.58 to 1.36)
-0.97 (0.81 to 1.16)
-ε4 carrier
-1.27 (1.01 to 1.59)†
-1.06 (0.93 to 1.21)
-1.24 (0.86 to 1.78)
-1.01 (0.85 to 1.21)
-Sex (man)
-0.75 (0.60 to 0.92)†
-1.65 (1.46 to 1.86)†
-1.17 (0.82 to 1.68)
-1.16 (0.97 to 1.38)
-Residence (urban)
-0.96 (0.81 to 1.15)
-0.91 (0.82 to 1.01)
-0.92 (0.67 to 1.26)
-1.11 (0.97 to 1.28)
-Lives with spouse
-1.23 (0.99 to 1.52)
-1.18 (1.03 to 1.35)
-1.00 (0.69 to 1.45)
-1.09 (0.91 to 1.31)
-Years of schooling
-Never
-Ref.
-1 to 6 years
-0.75 (0.60 to 0.95)†
-0.90 (0.80 to 1.01)
-1.21 (0.81 to 1.81)
-1.15 (0.84 to 1.40)
-Over 6 years
-0.74 (0.49 to 1.12)
-0.99 (0.83 to 1.18)
-1.18 (0.57 to 2.45)
-1.09 (0.75 to 1.59)
-Healthy lifestyle factors
-0 or 1 healthy lifestyle factor
-Ref.
-Ref.
-Ref.
-Ref.
-2 or 3 healthy lifestyle factors
-0.90 (0.71 to 1.13)
-0.76 (0.67 to 0.86)†
-1.32 (0.86 to 2.01)
-0.68 (0.57 to 0.80)†
-4 or 5 healthy lifestyle factors
-0.73 (0.54 to 0.99)†
-0.57 (0.48 to 0.67)†
-1.73 (1.01 to 2.99)†
-0.37 (0.28 to 0.49)†
-Abbreviations: APOE, apolipoprotein E; CH, cognitively healthy; CI, cognitive impairment; HR, hazard ratio.
-*Adjusted age, history of disease, disability status, and economic factors.
-†Significance was considered to be at p < .05.
-three healthy lifestyle factors. The weighted CI prevalence for the 0–
-1, 2–3, and 4–5 healthy lifestyle groups were 4.4%, 4.8%, and 1.5%,
-respectively. More detailed information about each healthy lifestyle
-group can be found in Table A.2.
-3.2
-Association of APOE genotype and healthy
-lifestyle on CI and its state transitions
-The effects of APOE genotype, healthy lifestyle, and sociodemographic
-factors on cognitive state transitions in a continuous-time Markov
-model are shown in Table 2. Compared to the ε3 homozygote group, ε4
-carriers (HR: 1.23, 95% confidence interval: 1.01 to 1.59) had a higher
-risk of transitioning from a CH state to CI state over the 15-year follow-
-up, and ε2 carriers (HR: 0.88, 95% confidence interval: 0.78 to 0.98) had
-a reduced risk of transitioning from a CH state to death.
-Compared to participants with zero to one healthy lifestyle factor,
-those with —four or five healthy lifestyle factors had a significantly
-lower risk in the transitions of CH state to CI state (HR: 0.73, 95%
-confidence interval: 0.54 to 0.99), CH state to death (HR: 0.57, 95%
-confidence interval: 0.48 to 0.67), and CI state to death (HR: 0.37, 95%
-confidence interval: 0.28 to 0.49), and a higher probability in CI state to
-CH state (HR: 1.73, 95% confidence interval: 1.01 to 2.99).
-Interaction analyses of APOE genotype and healthy lifestyle sub-
-groups are shown in Table 3. Overall, the benefits of maintaining four to
-five healthy lifestyles appeared to be similar across APOE genotypes,
-with no significant interaction between healthy lifestyles and APOE
-genotypes.
-3.3
-Sex-specific associations of APOE genotype
-and healthy lifestyles with life expectancy
-Considering the differences in life expectancy and late-life cognition
-between men and women, Figure 1 presents sex-stratified estimates
-of life expectancy at 65, with and without CI, for different APOE
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+In the model using verbal fluency to estimate depressive symptoms (Table 3), we noticed an
+inverse cross-sectional association which suggested that higher verbal fluency scores at the study
+baseline were associated with less depressive symptoms at the study baseline (β, −0.009; SE,
+0.004; P = .02). However, we did not observe a prospective association between verbal fluency at
+the study baseline and a change in depressive symptoms over time. The linear slope in verbal fluency
+Table 2. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters, Outcome Cognition
+(Memory and Verbal Fluency) (n = 8268)
+Factor
+Exposure: depressive symptoms
+Outcome: memory
+Outcome: verbal fluency
+β (SE)
+P value
+β (SE)
+P value
+Baseline cognition (intercept i1)
+10.595 (0.081)
+<.001
+22.401 (0.182)
+<.001
+Baseline depressive symptoms
+−0.018 (0.004)
+<.001
+−0.009 (0.004)
+.02
+Baseline age
+−0.119 (0.004)
+<.001
+−0.152 (0.007)
+<.001
+Sex (female vs male)
+0.885 (0.057)
+<.001
+−0.110 (0.119)
+.35
+Education
+Medium vs high education
+−0.659 (0.070)
+<.001
+−1.667 (0.160)
+<.001
+Low vs high education
+−1.696 (0.079)
+<.001
+−3.224 (0.170)
+<.001
+Wealth
+Medium vs high-wealth
+−0.358 (0.067)
+<.001
+−0.551 (0.146)
+<.001
+Low vs high-wealth
+−0.771 (0.075)
+<.001
+−1.206 (0.155)
+<.001
+Limiting long-standing illness
+−0.022 (0.070)
+.75
+−0.093 (0.145)
+.52
+Self-rated health
+−0.452 (0.080)
+<.001
+−0.681 (0.166)
+<.001
+Smoking (current vs not current)
+0.035 (0.058)
+.55
+0.263 (0.120)
+.03
+Alcohol (daily vs less)
+0.407 (0.067)
+<.001
+0.607 (0.145)
+<.001
+Physical activity (moderate or above
+vs mild or below)
+−0.238 (0.069)
+<.001
+−0.654 (0.138)
+<.001
+The rate of change in cognition
+Linear slope of cognition (s1)
+0.180 (0.022)
+<.001
+0.094 (0.082)
+.250
+Baseline depressive symptoms
+−0.146 (0.023)
+<.001
+−0.142 (0.206)
+.489
+Baseline age
+−0.015 (0.002)
+<.001
+−0.027 (0.009)
+.003
+Sex (female vs male)
+0.046 (0.011)
+<.001
+0.076 (0.048)
+.111
+Education
+Medium vs high education
+0.008 (0.013)
+.51
+0.012 (0.049)
+.81
+Low vs high education
+0.006 (0.015)
+.68
+−0.026 (0.060)
+.66
+Wealth
+Medium vs high wealth
+−0.012 (0.013)
+.32
+−0.018 (0.058)
+.76
+Low vs high wealth
+−0.023 (0.016)
+.15
+−0.009 (0.089)
+.92
+Limiting long-standing illness
+0.012 (0.015)
+.43
+0.008 (0.092)
+.93
+Self-rated health
+0.010 (0.019)
+.60
+−0.001 (0.139)
+.99
+Smoking (current vs not current)
+−0.012 (0.011)
+.26
+−0.086 (0.040)
+.03
+Alcohol (daily vs less)
+−0.004 (0.012)
+.78
+0.036 (0.047)
+.44
+Physical activity (moderate or above
+vs mild or below)
+−0.008 (0.015)
+.59
+−0.065 (0.074)
+.37
+Quadratic slope of cognition (q1)
+−0.055 (0.003)
+<.001
+−0.051 (0.018)
+.003
+Linear change in depressive
+symptoms
+−0.253 (0.079)
+.001
+0.001 (0.002)
+.71
+Variancea
+In initial status (i1)
+3.914 (0.093)
+<.001
+16.167 (0.404)
+<.001
+In the linear rate of change (s1)
+0.043 (0.011)
+<.001
+0.497 (0.131)
+<.001
+In the quadratic rate of change (q1)
+0.001 (0.001)
+.001
+0.002 (0.011)
+.001
+Goodness of fit
+RMSEA (90% CI)
+0.018 (0.017 to 0.019)
+0.015 (0.013 to 0.017)
+AIC
+322048.818
+263077.115
+BIC
+322610.430
+263582.565
+Abbreviations: AIC, Akaike information criterion; BIC,
+bayesian information criterion; RMSEA, root mean
+square error of approximation.
+a The within-person variance is the overall residual
+variance in cognition (memory or verbal fluency) that
+is not explained by the model. The initial status
+variance component is the variance of individual’s
+intercepts about the intercept of the average person.
+Likewise, the rate of change variance component is
+the variance of individual slopes about the slope of
+the average person.
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+6/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 7
 
-REN ET AL.
-7 of 12
-TABLE 3
-Adjusted HR of APOE genotype across numbers of healthy lifestyle factors based on each cognitive state transition in Markov chain
-model*.
-Analyses
-CH→CI
-CH→Death
-CI→CH
-CI→Death
-APOE genotype × Healthy lifestyle factors
-ε3 homozygote × 0 or 1 healthy lifestyle factor
-Ref.
-Ref.
-Ref.
-Ref.
-ε3 homozygote × 2 or 3 healthy lifestyles
-0.90 (0.70 to 1.16)
-0.89 (0.76 to 1.03)
-1.20 (0.80 to 1.79)
-0.75 (0.61 to 0.91)†
-ε3 homozygote × 4 or 5 healthy lifestyle factors
-0.69 (0.50 to 0.96)†
-0.67 (0.55 to 0.80)†
-1.23 (0.68 to 2.21)
-0.55 (0.40 to 0.75)†
-ε2 carrier × 0 or 1 healthy lifestyle factor
-Ref.
-Ref.
-Ref.
-Ref.
-ε2 carrier × 2 or 3 healthy lifestyle factors
-0.94 (0.57 to 1.54)
-0.64 (0.46 to 0.79)†
-1.02 (0.42 to 2.53)
-0.97 (0.68 to 1.38)
-ε2 carrier × 4 or 5 healthy lifestyle factors
-0.80 (0.66 to 0.97)†
-0.61 (0.41 to 0.92)†
-1.16 (0.15 to 9.13)
-0.55 (0.38 to 0.82)†
-ε4 carrier × 0 or 1 healthy lifestyle factor
-Ref.
-Ref.
-Ref.
-Ref.
-ε4 carrier × 2 or 3 healthy lifestyle factors
-0.98 (0.57 to 1.66)
-0.68 (0.51 to 0.91)†
-1.32 (0.53 to 3.27)
-0.82 (0.49 to 1.07)
-ε4 carrier × 4 or 5 healthy lifestyle factors
-0.88 (0.75 to 1.03)
-0.60 (0.41 to 0.89)†
-1.15 (0.30 to 4.31)
-0.63 (0.36 to 1.10)
-Interaction terms
-2 or 3 healthy lifestyle factors, ε2 carrier interaction
-1.08 (0.63 to 1.85)
-0.93 (0.65 to 1.32)
-0.95 (0.36 to 2.52)
-1.29 (0.87 to 1.91)
-2 or 3 healthy lifestyle factors, ε4 carrier interaction
-1.08 (0.60 to 1.95)
-0.92 (0.67 to 1.28)
-1.11 (0.69 to 3.20)
-1.06 (0.81 to 1.42)
-4 or 5 healthy lifestyle factors, ε2 carrier interaction
-1.12 (0.28 to 4.46)
-0.94 (0.58 to 1.53)
-0.96 (0.43 to 2.11)
-1.02 (0.33 to 2.38)
-4 or 5 healthy lifestyle factors, ε4 carrier interaction
-1.09 (0.51 to 2.34)
-0.86 (0.42 to 1.75)
-1.03 (0.28 to 3.72)
-1.10 (0.72 to 1.69)
-Abbreviations: APOE, apolipoprotein E; CH, cognitively healthy; CI: cognitive impairment; HR, hazard ratio.
-*Adjusted sex, age, years of schooling, residence, living arrangement, marital status, history of disease, disability status, and economic factors.
-†Significance was considered to be at p < .05.
-genotypes and healthy lifestyle subgroups. Women had longer life
-expectancies (in both cognitive states) compared to men across all
-analyses. ε2 carriers had a higher proportion of CH state in total life
-expectancy in both sexes (Table A.3).
-Compared to participants with the ε3 homozygote, men with the
-ε2 genotype experienced increases of 0.76 years (5.2%) in CH life
-expectancy and 0.05 years (5.8%) in CI life expectancy, while men
-with the ε4 genotype had increases of −0.39 years (−2.7%) and 0.03
-years (3.5%), respectively. Women with the ε2 genotype saw increases
-of 0.33 years (2.1%) and 0.01 years (0.5%) in cognitively healthy life
-expectancy and CI life expectancy, respectively, while women with the
-ε4 genotype showed an increase of −0.61 years (3.9%) and 0.04 years
-(2.2%), respectively. This pattern remained consistent at ages 75 and
-85.
-A greater number of healthy lifestyle factors increased both CH and
-CI life expectancy for both sexes. Compared to those with zero or one
-healthy lifestyle factor, participants with four to five healthy lifestyle
-factors had an increase of 4.78 years (37.0%) in CH life expectancy and
-0.08 years (10.3%) in CI life expectancy for men at age 65 years; for
-women the increases were 5.26 years (38.6%) and 0.43 years (25.9%),
-respectively. Both sexes had a higher proportion of CH life expectancy,
-and this trend diminished with age (Table A.4).
-Figure 2 shows CH and cognitively impaired life expectancy at 65,
-stratified by genotype and healthy lifestyle grouping. Overall, healthy
-lifestyle had a higher impact on cognition-related life expectancy than
-APOE genotypes and showed similar results across all APOE genotype
-subgroups. For men, compared to those with —zero or one healthy
-lifestyle factor, participants with four to five healthy lifestyle factors
-had an increase of 5.51 (45.3%) years in CH life expectancy and 0.20
-(26.3%) years in CI life expectancy with the ε3 homozygote geno-
-type, 5.69 (43.8%) years and 0.25 (30.5%) years with the ε2 genotype,
-and 5.55 (46.6%) years and 0.20 (25.0%) years with the ε4 genotype.
-Women with four to five healthy lifestyle factors had an increase of
-5.80 (44.3%) years in CH life expectancy and 0.55 (35.0%) years in CI
-life expectancy for the ε3 homozygote genotype, 5.90 (42.8%) years
-and 0.64 (38.6%) years for the ε2 genotype, and 5.85 (45.9%) years
-and 0.55 (33.5%) years for the ε4 genotype. Regardless of sex and
-APOE genotype, more healthy lifestyle factors significantly increased
-CH life expectancy and its proportion (Figure A.4), though this trend
-diminished with age (Figure A.5 and A.6).
-3.4
-Sensitivity analysis
-Sensitivity analyses were performed on all participants at baseline
-and by excluding participants who died within 3 years of the base-
-line survey. The results remained consistent with the primary findings
-(Tables A.5 and A.6). We also analyzed the association of each num-
-ber of healthy lifestyle factors with CI and MMSE score (Table A.7).
-Additionally, we verified that a healthier integrated lifestyle (HLI) was
-associated with better cognitive functioning (Table A.8). In continuous-
-time Markov models, we additionally analyzed the interaction of APOE
-genotype with sex, which showed no significant interaction (Table
-A.9). For life expectancy modeling, we used monthly transition rates
-(Table A.10) and different fitting methods (Table A.11 and A.12) to
-validate the robustness of our results.
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+Table 3. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters, Outcome Depressive
+Symptoms (n = 8268)
+Factor
+Outcome: depressive symptoms
+Exposure: memory
+Exposure: verbal fluency
+β (SE)
+P value
+β (SE)
+P value
+Baseline depressive symptoms
+(intercept i2)
+0.468 (0.048)
+<.001
+0.473 (0.089)
+<.001
+Baseline memory
+−0.018 (0.004)
+<.001
+NA
+NA
+Baseline verbal fluency
+NA
+NA
+−0.009 (0.004)
+.02
+Baseline age
+−0.003 (0.001)
+<.001
+−0.002 (0.001)
+.02
+Sex (female vs male)
+0.182 (0.012)
+<.001
+0.166 (0.012)
+<.001
+Education
+Medium vs high education
+0.014 (0.014)
+.34
+0.011 (0.017)
+.52
+Low vs high education
+0.044 (0.018)
+.01
+0.046 (0.022)
+.03
+Wealth
+Medium vs high wealth
+0.060 (0.014)
+<.001
+0.065 (0.015)
+<.001
+Low vs high wealth
+0.139 (0.016)
+<.001
+0.148 (0.017)
+<.001
+Limiting long-standing illness
+0.224 (0.015)
+<.001
+0.223 (0.016)
+<.001
+Self-rated health
+0.294 (0.017)
+<.001
+0.310 (0.018)
+<.001
+Smoking (current vs not current)
+0.043 (0.012)
+<.001
+0.042 (0.013)
+.001
+Alcohol (daily vs less)
+−0.019 (0.014)
+.16
+−0.020 (0.015)
+.18
+Physical activity (moderate or
+above vs mild or below)
+0.101 (0.015)
+<.001
+0.108 (0.015)
+<.001
+The rate of change in depressive symptoms
+Linear slope of depressive
+symptoms (s2)
+0.002 (0.010)
+.84
+−0.031 (0.021)
+.15
+Baseline memory
+−0.001 (0.001)
+.03
+NA
+NA
+Baseline verbal fluency
+−0.451 (0.999)
+.65
+Baseline age
+0.004 (0.001)
+<.001
+0.003 (0.001)
+.005
+Sex (female vs male)
+−0.001 (0.002)
+.76
+−0.002 (0.005)
+.75
+Education
+Medium vs high education
+0.001 (0.003)
+.74
+0.001 (0.006)
+.83
+Low vs high education
+−0.001 (0.003)
+.77
+0.001 (0.007)
+.99
+Wealth
+Medium vs high wealth
+0.001 (0.003)
+.68
+−0.002 (0.005)
+.70
+Low vs high wealth
+−0.004 (0.003)
+.18
+−0.008 (0.006)
+.16
+Limiting long-standing illness
+−0.005 (0.003)
+.09
+−0.006 (0.005)
+.31
+Self-rated health
+−0.001 (0.004)
+.83
+−0.012 (0.006)
+.05
+Smoking (current vs not current)
+0.005 (0.002)
+.05
+0.006 (0.006)
+.35
+Alcohol (daily vs less)
+−0.001 (0.003)
+.70
+−0.003 (0.005)
+.52
+Physical activity (moderate or
+above vs mild or below)
+−0.005 (0.003)
+.11
+−0.010 (0.005)
+.06
+Quadratic slope of depressive
+symptoms (q2)
+0.001 (0.001)
+.39
+0.004 (0.002)
+.02
+Linear change in memory
+0.016 (0.006)
+.005
+NA
+NA
+Linear change in verbal fluency
+NA
+NA
+0.004 (0.012)
+.72
+Variancea
+In initial status (i2)
+0.145 (0.005)
+<.001
+0.144 (0.004)
+<.001
+In the linear rate of change
+(s2)
+0.001 (0.001)
+<.001
+0.003 (0.001)
+<.001
+In the quadratic rate of change
+(q2)
+0.001 (0.001)
+.87
+0.001 (0.001)
+.87
+Goodness of fit
+RMSEA (90% CI)
+0.018 (0.017 to 0.019)
+NA
+0.015 (0.013 to 0.017)
+NA
+AIC
+322048.818
+NA
+263077.115
+NA
+BIC
+322610.430
+NA
+263582.565
+NA
+Abbreviations: AIC, Akaike information criterion; BIC,
+bayesian information criterion; NA, not available;
+RMSEA, root mean square error of approximation.
+a The within-person variance is the overall residual
+variance in cognition (memory or verbal fluency) that
+is not explained by the model. The initial status
+variance component is the variance of individual’s
+intercepts about the intercept of the average person.
+Likewise, the rate of change variance component is
+the variance of individual slopes about the slope of
+the average person.
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+7/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 8
 
-8 of 12
-REN ET AL.
-15.23 
-16.17 
-15.84 
-14.32 
-15.47 
-14.71 
-1.86 
-1.83 
-1.82 
-0.89 
-0.91 
-0.86 
-0.00
-2.00
-4.00
-6.00
-8.00
-10.00
-12.00
-14.00
-16.00
-18.00
-20.00
-carrier
-carrier
-homozygote
-carrier
-carrier
-homozygote
-18.90 
-16.04 
-13.64 
-17.68 
-15.16 
-12.90 
-2.09 
-1.96 
-1.66 
-0.86 
-0.87 
-0.78 
-0.00
-2.00
-4.00
-6.00
-8.00
-10.00
-12.00
-14.00
-16.00
-18.00
-20.00
-22.00
-(A)
-(B)
-(C)
-(D)
-Men
-Men
-Women
-Women
-FIGURE 1
-Life expectancy of study population at age 65 by different APOE genotypes and numbers of healthy lifestyle factors among both
-sexes: (A) men with different APOE genotype, (B) women with different APOE genotypes, (C) men with different healthy lifestyle factors, and (D)
-women with different healthy lifestyle factors. APOE, apolipoprotein E.
-4
-DISCUSSION
-Analyzing cognitive state transitions and life expectancy in a large,
-nationwide sample of older adults in China, we identified distinct roles
-of different APOE genotypes and lifestyle factors in these transitions.
-Our findings highlight the positive impact of a healthier lifestyle on
-each cognitive state transition. Moreover, healthy lifestyle factors out-
-weigh the influence of APOE genetic risk on the incidence of CI and
-lifespan. Thus, irrespective of APOE genotype, adhering to a healthy
-lifestyle significantly delays the onset of CI and prolongs the CH life
-expectancy.
-Few studies have focused on the cognitive function of APOE
-genotype within Chinese older people. Consistent with other
-studies,29,38–40 we found that the ε4 genotype was associated
-with a higher risk of CH to CI than the ε3 homozygote. Our study did
-not find a significant difference in the risk of CI between ε2 carriers and
-ε3 homozygous participants. An analysis of 21,852 Asian individuals
-showed no association between the APOE ε2 allele and AD risk in Asian
-and Hispanic populations.41 The reasons for this discrepancy require
-further investigation. Interestingly, the Markov model revealed that
-ε2 carriers had a lower risk of transitioning from a CH state to death.
-This could be due to the ε2 allele’s association with a reduced risk
-of cardiovascular disease and mortality,42–44 resulting in ε2 carriers
-having the longest healthy life expectancy and total life expectancy.
-The positive impact of multiple healthy lifestyle practices on cog-
-nitive state transitions was observed consistently across the overall
-population and different APOE genotype subgroups in Chinese older
-adults, although among e4 carriers, the healthier lifestyle subgroup
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+was not associated with the quadratic slope of change in depressive symptoms either. The results are
+summarized in Figure 2.
+In our first sensitivity analysis, where the item regarding loneliness in CES-D was excluded, the
+results were similar to our main results (eTable 1 and eTable 2 in Supplement 1). The second set of
+sensitivity analyses restricted the analytical sample to individuals whose cognitive function at the
+study baseline was not in the lowest quintile (n = 4469) (eTable 3 and eTable 4 in Supplement 1).
+Depressive symptoms were cross-sectionally associated with memory and verbal fluency at the
+study baseline and associated with faster memory loss over time. However, memory at the study
+baseline no longer seemed to estimate a change in depressive symptoms over time. The results
+appeared similar to the main results after applying censoring at diagnoses of dementia or the first
+occurrence of stroke (eTable 5 and eTable 6 in Supplement 1).
+Discussion
+In this cohort study analyzing a nationally representative sample of English adults aged 50 years or
+older, we found evidence for a bidirectional association between memory and depressive symptoms
+over a 16-year period, but the results for verbal fluency remain inconclusive. Baseline depressive
+symptoms were shown to be cross-sectionally associated with poorer baseline memory and verbal
+fluency. Baseline depressive symptoms were also associated with a faster decline in memory but not
+with verbal fluency throughout the follow-up period. Baseline memory function was significantly
+Figure 2. Observed Bidirectional Associations Between Depressive Symptoms and Cognitive Functioning Over Time in ELSA
+βm = –0.018
+βv = –0.009
+βm = –0.001
+βv = –0.451
+βm = 0.016
+βv = 0.004
+βm = –0.146
+βv = –0.142
+βm = –0.253
+βv = 0.001
+COG1
+W1
+2002-2003
+COG2
+W2
+2004-2005
+COG3
+W3
+2006-2007
+COG4
+W4
+2008-2009
+COG5
+W5
+2010-2011
+COG6
+W6
+2012-2013
+COG7
+W7
+2014-2015
+COG8
+W8
+2016-2017
+COG9
+W9
+2018-2019
+LV
+COG1
+LV
+COG2
+LV
+COG3
+LV
+COG4
+LV
+COG5
+LV
+COG6
+LV
+COG7
+LV
+COG8
+LV
+COG9
+ΔCOG1
+ΔCOG2
+ΔCOG3
+ΔCOG4
+ΔCOG5
+ΔCOG6
+ΔCOG7
+ΔCOG8
+q1
+i2
+q2
+ΔDEP1
+ΔDEP2
+ΔDEP3
+ΔDEP4
+ΔDEP5
+ΔDEP6
+ΔDEP7
+ΔDEP8
+LV
+DEP1
+LV
+DEP2
+LV
+DEP3
+LV
+DEP4
+LV
+DEP5
+LV
+DEP6
+LV
+DEP7
+LV
+DEP8
+LV
+DEP9
+DEP1
+W1
+2002-2003
+DEP2
+W2
+2004-2005
+DEP3
+W3
+2006-2007
+DEP4
+W4
+2008-2009
+DEP5
+W5
+2010-2011
+DEP6
+W6
+2012-2013
+DEP7
+W7
+2014-2015
+DEP8
+W8
+2016-2017
+DEP9
+W9
+2018-2019
+Covariates
+W1
+2002-2003
+i1
+s1
+s2
+βm indicates β for memory; βv, β for verbal fluency; COG, cognitive functioning; DEP, depressive symptoms; ELSA, English Longitudinal Study of Aging; I, intercept; LV, latent variable;
+Q, quadratic slope; S, linear slope; W, wave.
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+8/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 9
 
-REN ET AL.
-9 of 12
-17.46 
-14.74 
-11.91 
-18.69 
-15.92 
-13.00 
-17.65 
-14.96 
-12.14 
-1.00 
-0.95 
-0.80 
-1.07 
-1.00 
-0.82 
-0.96 
-0.91 
-0.76 
-0.00
-2.00
-4.00
-6.00
-8.00
-10.00
-12.00
-14.00
-16.00
-18.00
-20.00
-22.00
-4-5 Healthy lifestyles
-2-3 Healthy lifestyles
-0-1 Healthy lifestyles
-4-5 Healthy lifestyles
-2-3 Healthy lifestyles
-0-1 Healthy lifestyles
-4-5 Healthy lifestyles
-2-3 Healthy lifestyles
-0-1 Healthy lifestyles
-carrier
-carrier
-homozygote
-Cognitively healthy
-Cognitive impairment
-18.59 
-15.14 
-12.74 
-19.68 
-16.19 
-13.78 
-18.89 
-15.47 
-13.09 
-2.19 
-1.94 
-1.64 
-2.30 
-1.99 
-1.66 
-2.12 
-1.87 
-1.57 
-0.00
-2.00
-4.00
-6.00
-8.00
-10.00
-12.00
-14.00
-16.00
-18.00
-20.00
-22.00
-4-5 Healthy lifestyles
-2-3 Healthy lifestyles
-0-1 Healthy lifestyles
-4-5 Healthy lifestyles
-2-3 Healthy lifestyles
-0-1 Healthy lifestyles
-4-5 Healthy lifestyles
-2-3 Healthy lifestyles
-0-1 Healthy lifestyles
-carrier
-carrier
-homozygote
-(A)
-(B)
-Men
-Women
-FIGURE 2
-Life expectancy among APOE genotypes across different healthy lifestyle groups by cognitive status among both sexes at age 65:
-(A) men and (B) women. APOE, apolipoprotein E.
-showed fewer significant benefits in total cognitive state transitions
-compared with other genotypes. Some studies have suggested that
-modifiable lifestyles only benefit ε4 non-carriers,14 but increasing evi-
-dence supports our findings.16 A study involving 29,072 Chinese par-
-ticipants found that those adhering to a similar definition of a healthy
-lifestyle experienced slower memory decline, regardless of APOE ε4
-carrier status.21 Another study based on a similar lifestyle definition in
-an American cohort also showed that more healthy lifestyle practices
-were associated with slower cognitive decline, irrespective of APOE ε4
-allele presence.45 These findings support having an optimistic mindset
-with respect to the notion that maintaining a healthier lifestyle benefits
-delaying CI in late life, regardless of genetic risk.
-By fitting life expectancy with and without CI, the effects of indi-
-vidual risk factors on cognitive health were observed and compared,
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+associated with a linear increase in depressive function. The linear change in depressive symptoms
+was independently associated with a faster decline in memory but not verbal fluency. In contrast, the
+rate of decline in memory was associated with an accelerated change in depressive symptoms, but
+the bidirectional association with verbal fluency remains unclear.
+We found that higher depressive symptoms at baseline were associated with poorer baseline
+memory and faster memory loss over time, which was consistent with previous studies.24-26 Poorer
+baseline memory function was associated with subsequent linear increases in depressive symptoms.
+When examining the dual changes, the rate of change in depressive symptoms was associated with
+faster memory decline while the linear rate of memory change was associated with greater changes
+in depressive symptoms. A previous study27 found an association with baseline cognitive impairment
+and a higher subsequent risk of depressive symptoms in an older US population but did not account
+for dual changes. The association may be only significant when making the comparison between
+those who are cognitively impaired and those who are not. However, we cannot rule out the
+possibility that dual changes in depressive symptoms and cognitive function confounded the
+observed association.
+Biologically, depression has been found to negatively affect cognition via increased cortisol
+levels resulting from dysregulation of the hypothalamic-pituitary–adrenal (HPA) axis.28-30 This
+theory is usually referred to as neurotoxicity. Depressive symptoms were also found to be a risk
+factor for many other health outcomes, including changes in vascular and metabolic systems,
+glucocorticoid levels, chronic inflammation, and immune system impairment.28 These autonomic
+changes and dysfunction of the HPA axis are part of cumulative responses of human bodies to
+external stress stimuli, which is usually referred to as allostatic load.31,32 When the stimuli are within
+certain limits, these reactions are beneficial and adaptive. They can be considered part of daily
+routine to get used to the new external environment or satisfy other essential demands. However, if
+additional stimuli are superimposed and become chronic, allostatic overload occurs, and the
+reactions of human bodies can lead to long-term dysregulation in multiple physiological systems.
+These changes ultimately result in accelerated neurodegeneration, contributing to cognitive
+dysfunction.33 Moreover, having higher depressive symptoms is associated with reduced capability
+of self-regulation, which leads to a greater chance of unhealthy behaviors that have been shown as
+risk factors for cognitive impairment.33
+On the other hand, verbal fluency was only cross-sectionally associated with depressive
+symptoms at baseline. There was no evidence suggesting baseline depressive symptoms estimated
+cognitive change or baseline cognition estimated changes in depressive symptoms. Multiple brain
+regions and various brain processes are involved in performance on verbal fluency tests. Frontal
+lesions34,35 and temporal lesions36,37 have been shown in individuals with impaired fluency.
+Successful performance on category fluency tasks is affected by both executive control ability and
+verbal ability.38 Although function in some cognitive domains, like memory, shows a substantial
+decrease, this is different for other cognitive aspects, such as verbal fluency.39 Mental abilities, like
+vocabulary or calculation, are shown to decline at a much slower rate compared with abilities like
+reasoning skills.40 Furthermore, in our study, verbal fluency results were only available from waves 1
+to 5 and showed little change over this period. If we had data at later waves, it may be possible to
+observe significant differences in verbal fluency function.
+Depressive symptoms have been shown to be closely associated with loneliness,41,42, which was
+found to be bidirectionally associated with cognitive decline.13 They do overlap substantially but are
+indeed distinct constructs.42 The association between depressive symptoms and cognitive function
+seen in this study was not only independent of loneliness but also different from the associations
+between loneliness and cognition observed in the same population.13 This provides additional
+evidence for the distinction between feelings of loneliness and depressive symptoms and suggests
+that they might have different impacts on cognitive functioning.
+Our study has several strengths. We benefitted from longitudinal data from a large nationally
+representative sample of English adults aged 50 years and older throughout a follow-up period of up
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+9/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 10
 
-10 of 12
-REN ET AL.
-but research estimating life expectancy for different APOE geno-
-types and multiple lifestyle subgroups has rarely been reported. A
-study in the Netherlands found that at age 65, ε4 carriers and non-
-carriers had a similar life expectancy with severe CI and AD, but
-there were significant differences in life expectancy with cognitively
-healthy individuals.46 This aligns with our results showing higher CI
-risk and shorter life expectancy among ε4 carriers. Current studies
-on ε2 carriers indicate a correlation between the ε2 allele and longer
-life expectancy.47 Our study supported the idea that ε2 carriers have
-longer CH and total life expectancy and further suggests that this may
-benefit more from the reduced risk of death in the CH population, but
-the exact mechanisms need to be further investigated. Our study did
-not find that a healthy lifestyle could compress the years of life spent
-withCI,assuggestedbyapreviousstudy.20 Onereasonforthisdiscrep-
-ancy could be regional economic and lifestyle differences. For example,
-the ideal dietary intake threshold in our study was lower than that of
-participants from urban populations,21 despite using similar daily diet
-estimation methods. Importantly, there was also no evidence in our
-study for an expansion of this morbidity – healthy lifestyles were asso-
-ciated with proportional increases in both CH and cognitively impaired
-life expectancy.
-Furthermore, our findings are consistent with the observation
-that genetic risk accounts for only about 5% of the variance in life
-expectancy, whereas a healthy lifestyle contributes to over 30% of the
-extension, with a higher proportion affecting CH expectancy. This sug-
-gests that a healthy lifestyle is a potential intervention for delaying
-or preventing CI. However, as CI life expectancy cannot be fully com-
-pressed, the absolute number of older individuals with CI may increase.
-This underscores the need for healthcare professionals to advocate
-for healthy lifestyles while also planning resource allocation to better
-address these challenges.
-Additionally, men have a lower risk of transitioning from CH state
-to CI states. Some studies suggest that hormonal changes in women
-may pose a higher risk of cognitive decline,8,48 but we did not observe
-significant sex-specific differences in the effect of a healthy lifestyle or
-genetics, which suggests that the benefits of a healthy lifestyle on cog-
-nitive health are robust across both sexes. Some previous multiomics
-studiessuggested thatthe APOE gene interacted withsex49;therefore,
-future research with larger, all-age cohorts is needed to confirm sex-
-related risk differences among APOE genotype in the Chinese older
-population.
-However, our research has several limitations. First, all lifestyle
-and disease history data were self-reported, introducing a risk of
-recall bias. Fortunately, the CLHLS questionnaire has been exten-
-sively validated,25 and the rates of logically inconsistent answers and
-incomplete data are low (1% to 3%),50 which can mitigate the effect
-of recall bias. Second, the long intervals between cognitive function
-assessments (2 to 4 years) add to the difficulty of capturing the dif-
-ferences, which at the same time may underestimate the influence
-of lifestyle factors. However, based on prior empirical and simula-
-tion studies, these downward biases are in large part offsetting.51 In
-addition, we used monthly transition rates for life expectancy fitting,
-and the robustness of the results suggests that inconsistent follow-up
-intervals had a low impact on the results. Third, a healthy volunteer
-effect is inevitable in studies of this kind, as individuals with poor health
-may have refused to participate in the study. In the CLHLS survey, the
-interview refusal rate was only around 2%,50 suggesting a very small
-effect on healthy volunteers. Fourth, there was a contentious relation-
-ship between alcohol consumption levels and cognitive health. While
-some studies suggest that participants with light to moderate alcohol
-intake exhibit better cognitive function compared to those who abstain
-or rarely consume alcohol,52,53 a plausible explanation could be the
-presence of reverse causation, where abstainers or non-drinkers may
-have refrained due to disease or unhealthy conditions. To address this,
-we adopted stricter criteria for alcohol consumption. On one hand, we
-extended the abstinence period to 10 years, aiming to mitigate such
-reverse causation effects. On the other hand, some studies suggest that
-any level of alcohol consumption can lead to changes in brain tissue,
-thereby exerting an adverse impact on cognition.31 Lastly, not all par-
-ticipants underwent APOE genetic testing, and we excluded individuals
-with the ε2/ε4 genotype. Although we adjusted for sample weights, fur-
-ther research and validation are needed before generalizing the life
-expectancy estimates to the broader Chinese population.
-5
-CONCLUSIONS
-Our study suggests that modifiable healthy lifestyle factors may delay
-the onset of CI in later life while extending CH life expectancy,
-regardless of the APOE genetic risk. Policymakers and healthcare
-professionals should consider implementing healthy lifestyle interven-
-tions, given the rising trend in the CI-related burden in China and
-globally.
-ACKNOWLEDGMENTS
-Our gratitude extends to the participants of the Chinese Longitudi-
-nal Healthy Longevity Survey (CLHLS) for providing the data for this
-research. The CLHLS is academically coordinated by the Center for
-Healthy Aging and Development Studies at Peking University and
-supported by multiple funding agencies in China. This work was sup-
-ported by the National Natural Science Foundation of China (Grant
-72374013, 2023; 72404010, 2024), National Key R&D Project of
-China (2023YFC3606400, 2023), the National Science and Tech-
-nology Major Project for the Prevention and Treatment of Cancer,
-Cardiovascular and Cerebrovascular, Respiratory and Metabolic Dis-
-eases (2024ZD0524102), and the Joint Program on Health Science
-& Technology Innovation of Hainan Province (WSJK2025ZD223). SW
-is funded by an NIHR Doctoral Fellowship. The funders had no role
-in study design, data collection and analysis, decision to publish, or
-preparation of the manuscript.
-CONFLICT OF INTEREST STATEMENT
-The authors declare no conflicts of interest.
-CONSENT STATEMENT
-All human subjects provided informed consent for this study.
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+to 16 years. The statistical model used was powerful enough to examine the directionality of the
+association of depressive symptoms with memory and verbal fluency.43 To our knowledge, this is the
+first study to explore the dual parallel changes in depressive symptoms and cognitive function.
+Based on the bidirectional association between depressive symptoms and memory, these
+findings suggest that individuals presenting with depressive symptoms should be assessed for
+potential memory deficits over time. Clinicians should consider regular memory assessment as part
+of the evaluation for depressive symptoms. Addressing memory issues in individuals with depression
+may be important for both monitoring cognitive function and improving psychological well-being.
+Similarly, addressing depressive symptoms in individuals with memory loss may help mitigate further
+decline in memory function.
+Finally, our extended follow-up period highlights the need for regular and longitudinal
+monitoring of patients with depressive symptoms or memory loss symptoms. This could allow for
+early detection of changes and appropriate intervention strategies to be implemented and may slow
+the progression of memory decline associated with dementia and improve overall psychological
+well-being. Integrated treatment approaches, including psychotherapy or pharmacotherapy for
+depression and cognitive interventions for memory deficits, could be considered to alleviate the
+decline in mental functioning and psychological well-being in middle-aged and older populations.
+Limitations
+This study has limitations. As with most longitudinal studies of aging, a substantial number of the
+core participants were lost to follow-up, primarily due to death. These participants were older, more
+likely to be men, and less affluent. They had lower educational attainment, limiting long-standing
+illness, fair or worse overall health, milder physical activity and poorer cognition at baseline (eTable 7
+in Supplement 1). This suggests that the observed results may be conservative despite the relatively
+high attrition throughout the follow-up period. The associations might be more robust if data for
+participants who gradually dropped out were available. Although we carried out sensitivity analyses
+in which the loneliness item of the CES-D was excluded, there may be residual confounding due to
+the impact of loneliness. Appropriate adjustment for feelings of loneliness may be desired in future
+studies. Furthermore, depressive symptoms were measured at a syndrome level. Different
+depressive symptoms may represent various domains and have distinct associations with cognitive
+domains.44 The inclusion of measures on different syndromes may help us obtain a better
+understanding of the underlying association and it could provide an improved understanding of the
+bidirectional association of depressive symptoms if other cognitive domains were available. Finally,
+because of the observational nature of this study, the ability to establish clear causality was limited.
+Conclusions
+Depressive symptoms appeared to be associated with poorer memory at baseline and contributed
+to faster memory loss over time. In reverse, poorer memory seemed to be associated with greater
+depressive symptoms at baseline and greater change in depressive symptoms over time. However,
+given the shorter period of follow-up for verbal fluency, our results on the bidirectional association
+between depressive symptoms and verbal fluency remain inconclusive. In summary, these findings
+highlight the complex interplay between depressive symptoms and memory loss, underscoring the
+importance of integrated assessment and treatment approaches in clinical practice and suggesting
+that early intervention in depressive symptoms could provide a timely opportunity to slow down or
+delay memory decline in later life.
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+10/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 11
 
-REN ET AL.
-11 of 12
-ORCID
-LongbingRen
-https://orcid.org/0000-0003-2462-2421
-Yao Yao
-https://orcid.org/0000-0002-6723-6152
+ARTICLE INFORMATION
+Accepted for Publication: April 9, 2024.
+Published: June 11, 2024. doi:10.1001/jamanetworkopen.2024.16305
+Open Access: This is an open access article distributed under the terms of the CC-BY License. © 2024 Yin J et al.
+JAMA Network Open.
+Corresponding Author: Dorina Cadar, PhD, CEDAR Lab, Department of Clinical Neuroscience, Brighton and
+Sussex Medical School, Brighton BN1 9RH, London (d.cadar@bsms.ac.uk).
+Author Affiliations: Department of Epidemiology and Public Health, University College London, London, United
+Kingdom (Yin, Cadar); Department of Behavioural Science in Health, University College London, London, United
+Kingdom (Yin, Cadar); Department of Public Health Sciences, University of Rochester Medical Center, Rochester,
+New York (Yin); ADAPT Lab, Research Department of Clinical, Educational and Health Psychology, UCL, London,
+United Kingdom (John); CEDAR Lab, Department of Neuroscience, Brighton and Sussex Medical School, Sussex,
+United Kingdom (Cadar).
+Author Contributions: Drs Yin and Cadar had full access to all of the data in the study and take responsibility for
+the integrity of the data and the accuracy of the data analysis.
+Concept and design: Yin, Cadar.
+Acquisition, analysis, or interpretation of data: All authors.
+Drafting of the manuscript: Yin.
+Critical review of the manuscript for important intellectual content: All authors.
+Statistical analysis: Yin, Cadar.
+Obtained funding: Cadar.
+Administrative, technical, or material support: All authors.
+Supervision: Cadar.
+Conflict of Interest Disclosures: None reported.
+Funding/Support: Dr Cadar was supported by grant RO1AG017644 from the National Institute on Aging, grants
+ES/T012091/1 and ES/S013830/1 from the Economic and Social Research Council, the National Institute for Health
+and Research, and grant 477 from Alzheimer Society UK. Dr John was supported by grant ARUK-RF2021B-007
+from the Alzheimer’s Research UK Research Fellowship.
+Role of the Funder/Sponsor: The funders had no role in the design and conduct of the study; collection,
+management, analysis, and interpretation of the data; preparation, review, or approval of the manuscript; and
+decision to submit the manuscript for publication.
+Data Sharing Statement: See Supplement 2.
+Additional Contributions: The ELSA study was developed by a team of researchers based at University College
+London, NatCen Social Research, the Institute for Fiscal Studies, the University of Manchester, and the University
+of East Anglia. The data collection was conducted by NatCen Social Research. The ELSA study is funded by the
+National Institute on Aging, a consortium of UK government departments coordinated by the National Institute for
+Health Research, and the Economic and Social Research Council. We wish to thank all study participants who
+contributed to the study. We are grateful to the ELSA team and management committee for coordinating data
+collection and managing data access.
 REFERENCES
-1. Jia LF, Quan MN, Fu Y, et al. Dementia in China: epidemiology, clinical
-management, and research advances. Lancet Neurol. 2020;19(1):81-
-92. doi:10.1016/S1474-4422(19)30290-X
-2. Liu CC, Liu CC, Kanekiyo T, Xu H, Bu G. Apolipoprotein E and
-Alzheimer disease: risk, mechanisms and therapy. Nat Rev Neurol.
-2013;9(2):106-118. doi:10.1038/nrneurol.2012.263
-3. Farrer LA, Cupples LA, Haines JL, et al. Effects of age, sex,
-and
-ethnicity
-on
-the
-association
-between
-apolipoprotein
-E
-genotype
-and
-Alzheimer
-disease.
-A
-meta-analysis.
-APOE
-and
-Alzheimer
-Disease
-Meta
-Analysis
-Consortium.
-JAMA.
-1997;278(16):1349-1356.doi:10.1001/jama.1997.03550160069041
-4. Fortea J, Pegueroles J, Alcolea D, et al. APOE4 homozygozity rep-
-resents a distinct genetic form of Alzheimer’s disease. Nat Med.
-2024;30(5):1284-1291. doi:10.1038/s41591-024-02931-w
-5. Suri S, Heise V, Trachtenberg AJ, Mackay CE. The forgotten APOE
-allele: a review of the evidence and suggested mechanisms for the pro-
-tective effect of APOE varepsilon2. Neurosci Biobehav Rev. 2013;37(10
-Pt 2):2878-2886. doi:10.1016/j.neubiorev.2013.10.010
-6. Reiman EM, Arboleda-Velasquez JF, Quiroz YT, et al. Exceptionally
-low likelihood of Alzheimer’s dementia in APOE2 homozygotes from a
-5,000-person neuropathological study. Nat Commun. 2020;11(1):667.
-doi:10.1038/s41467-019-14279-8
-7. Altmann A, Tian L, Henderson VW, Greicius MD. Alzheimer’s Disease
-neuroimaging initiative I. sex modifies the apoe-related risk of devel-
-oping Alzheimer disease. Ann Neurol. 2014;75(4):563-573. doi:10.
-1002/ana.24135
-8. Walters S, Contreras AG, Eissman JM, et al. Associations of sex,
-race, and apolipoprotein e alleles with multiple domains of cognition
-among older adults. JAMA Neurol. 2023;80(9):929-939. doi:10.1001/
-jamaneurol.2023.2169
-9. Weuve J, Barnes LL, Mendes de Leon CF, et al. Cognitive aging in
-black and white americans: cognition, cognitive decline, and incidence
-of Alzheimer disease dementia. Epidemiology. 2018;29(1):151-159.
-doi:10.1097/EDE.0000000000000747
-10. Wood ME, Xiong LY, Wong YY, et al. Sex differences in associations
-between APOE epsilon2 and longitudinal cognitive decline. Alzheimers
-Dement. 2023;19(10):4651-4661. doi:10.1002/alz.13036
-11. Collaborators GBDDF. Estimation of the global prevalence of demen-
-tia in 2019 and forecasted prevalence in 2050: an analysis for
-the global burden of disease study 2019. Lancet Public Health.
-2022;7(2):e105-e125. doi:10.1016/S2468-2667(21)00249-8
-12. Ngandu T, Lehtisalo J, Solomon A, et al. A 2 year multidomain
-intervention of diet, exercise, cognitive training, and vascular risk
-monitoring versus control to prevent cognitive decline in at-risk
-elderly people (FINGER): a randomised controlled trial. Lancet.
-2015;385(9984):2255-2263. doi:10.1016/S0140-6736(15)60461-5
-13. Lourida I, Hannon E, Littlejohns TJ, et al. Association of lifestyle and
-genetic risk with incidence of dementia. JAMA. 2019;322(5):430-437.
-doi:10.1001/jama.2019.9879
-14. Licher S, Ahmad S, Karamujic-Comic H, et al. Genetic predisposi-
-tion, modifiable-risk-factor profile and long-term dementia risk in
-the general population. Nat Med 2019;25(9):1364-1369. doi:10.1038/
-s41591-019-0547-7
-15. Dhana K, Barnes LL, Liu X, et al. Genetic risk, adherence to a healthy
-lifestyle, and cognitive decline in african americans and european
-americans. Alzheimers Dement. 2022;18(4):572-580. doi:10.1002/alz.
-12435
-16. Livingston G, Huntley J, Liu KY, et al. Dementia prevention, interven-
-tion, and care: 2024 report of the lancet standing commission. Lancet.
-2024;404(10452):572-628. doi:10.1016/S0140-6736(24)01296-0
-17. Li Y, Schoufour J, Wang DD, et al. Healthy lifestyle and life expectancy
-free of cancer, cardiovascular disease, and type 2 diabetes: prospective
-cohort study. BMJ. 2020;368:l6669. doi:10.1136/bmj.l6669
-18. Li Y, Pan A, Wang DD, et al. Impact of healthy lifestyle factors on life
-expectancies in the US population. Circulation. 2018;138(4):345-355.
-doi:10.1161/CIRCULATIONAHA.117.032047
-19. China Kadoorie Biobank Collaborative G. Healthy lifestyle and life
-expectancy free of major chronic diseases at age 40 in China. Nat Hum
-Behav. 2023;7(9):1542-1550. doi:10.1038/s41562-023-01624-7
-20. Dhana K, Franco OH, Ritz EM, et al. Healthy lifestyle and life
-expectancy with and without Alzheimer’s dementia: population
-based cohort study. BMJ. 2022;377:e068390. doi:10.1136/bmj-2021-
-068390
-21. Jia J, Zhao T, Liu Z, et al. Association between healthy lifestyle and
-memory decline in older adults: 10 year, population based, prospec-
-tive cohort study. BMJ. 2023;380:e072691. doi:10.1136/bmj-2022-
-072691
-22. Peters R, Xu Y, Antikainen R, et al. Evaluation of high cholesterol and
-risk of dementia and cognitive decline in older adults using individ-
-ual patient meta-analysis. Dement Geriatr Cogn. 2021;50(4):318-325.
-doi:10.1159/000519452
-23. Shannon OM, Ranson JM, Gregory S, et al. Mediterranean diet
-adherence is associated with lower dementia risk, independent of
-genetic predisposition: findings from the UK biobank prospective
-cohort study. Bmc Medicine. 2023;21(1):81. doi:10.1186/s12916-023-
-02772-3
-24. Solomon A, Turunen H, Ngandu T, et al. Effect of the apolipoprotein e
-genotype on cognitive change during a multidomain lifestyle interven-
-tion a subgroup analysis of a randomized clinical trial. Jama Neurology.
-2018;75(4):462. doi:10.1001/jamaneurol.2017.4365
-25. Zeng Y, Feng Q, Hesketh T, Christensen K, Vaupel JW. Survival,
-disabilities in activities of daily living, and physical and cognitive
-functioning among the oldest-old in China: a cohort study. Lancet.
-2017;389(10079):1619-1629. doi:10.1016/S0140-6736(17)30548-
-2
-26. Qian J, Betensky RA, Hyman BT, Serrano-Pozo A. Association of APOE
-genotype with heterogeneity of cognitive decline rate in Alzheimer
-Disease. Neurology. 2021;96(19):e2414-e2428. doi:10.1212/WNL.
-0000000000011883
-27. Zeng Y, Nie C, Min J, et al. Novel loci and pathways significantly associ-
-ated with longevity. Sci Rep. 2016;6:21243. doi:10.1038/srep21243
-28. Wang J, Chen C, Zhou J, et al. Healthy lifestyle in late-life,
-longevity genes, and life expectancy among older adults: a 20-year,
-population-based, prospective cohort study. Lancet Healthy Longev.
-2023;4(10):e535-e543. doi:10.1016/S2666-7568(23)00140-X
-29. Jin X, He W, Zhang Y, et al. Association of APOE epsilon4 genotype and
-lifestyle with cognitive function among Chinese adults aged 80 years
-and older: a cross-sectional study. PLoS Med. 2021;18(6):e1003597.
-doi:10.1371/journal.pmed.1003597
-30. Duan H, Zhou D, Xu N, et al. Association of unhealthy lifestyle
-and genetic risk factors with mild cognitive impairment in chinese
-older adults. JAMA Netw Open. 2023;6(7):e2324031. doi:10.1001/
-jamanetworkopen.2023.24031
-31. Topiwala A, Allan CL, Valkanova V, et al. Moderate alcohol consump-
-tion as risk factor for adverse brain outcomes and cognitive decline:
-longitudinal cohort study. Bmj-Brit Med J. 2017;357:j2353. doi:10.
-1136/bmj.j2353
-32. An R, Liu GG. Cognitive impairment and mortality among the oldest-
-old Chinese. Int J Geriatr Psychiatry. 2016;31(12):1345-1353. doi:10.
-1002/gps.4442
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+1. Murman DL. The impact of age on cognition. Semin Hear. 2015;36(3):111-121. doi:10.1055/s-0035-1555115
+2. Schievink SHJ, van Boxtel MPJ, Deckers K, van Oostenbrugge RJ, Verhey FRJ, Köhler S. Cognitive changes in
+prevalent and incident cardiovascular disease: a 12-year follow-up in the Maastricht Aging Study (MAAS). Eur Heart
+J. 2022;43(7):e2-e9. doi:10.1093/eurheartj/ehx365
+3. Kaushik M, Kaushik P, Parvez S. Memory related molecular signatures: The pivots for memory consolidation and
+Alzheimer’s related memory decline. Ageing Res Rev. 2022;76:101577. doi:10.1016/j.arr.2022.101577
+4. Rodda J, Walker Z, Carter J. Depression in older adults. BMJ. 2011;343:d5219. doi:10.1136/bmj.d5219
+5. Petersen RC, Lopez O, Armstrong MJ, et al. Practice guideline update summary: Mild cognitive impairment:
+Report of the Guideline Development, Dissemination, and Implementation Subcommittee of the American
+Academy of Neurology. Neurology. 2018;90(3):126-135. doi:10.1212/WNL.0000000000004826
+6. Rubin R. Exploring the relationship between depression and dementia. JAMA. 2018;320(10):961-962. doi:10.
+1001/jama.2018.11154
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+11/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
 
 # Page 12
 
-12 of 12
-REN ET AL.
-33. Dong X, Milholland B, Vijg J. Evidence for a limit to human lifespan.
-Nature. 2016;538(7624):257-259. doi:10.1038/nature19793
-34. Jackson C. Multi-State models for panel data: the msm Package for R.
-J Stat Softw. 2011;38(8):1-28. doi:10.18637/jss.v038.i08
-35. van den Hout A, Sum Chan M, Matthews F. Estimation of life
-expectancies using continuous-time multi-state models. Comput Meth-
-ods Programs Biomed. 2019;178:11-18. doi:10.1016/j.cmpb.2019.06.
-004
-36. Korthauer K, Kimes PK, Duvallet C, et al. A practical guide to meth-
-ods controlling false discoveries in computational biology. Genome Biol.
-2019;20(1):118. doi:10.1186/s13059-019-1716-1
-37. Gao J, Wang Y, Xu J, Jiang J, Yang S, Xiao Q. Life expectancy among
-older adults with or without frailty in China: multistate modelling of a
-national longitudinal cohort study. BMC Med. 2023;21(1):101. doi:10.
-1186/s12916-023-02825-7
-38. Sun S, Fu J, Chen J, et al. ApoE type 4 allele affects cognitive function of
-aged population in Tianjin City, China. Am J Alzheimers Dis Other Demen.
-2015;30(5):503-507. doi:10.1177/1533317514566114
-39. Zhen J, Lin T, Huang X, et al. Association of ApoE genetic polymor-
-phism and type 2 diabetes with cognition in non-demented aging
-chinese adults: a community based cross-sectional study. Aging Dis.
-2018;9(3):346-357. doi:10.14336/AD.2017.0715
-40. Zhang Y, Li X, Hu Y, et al. Evaluation of mild cognitive impairment
-genetic susceptibility risks in a Chinese population. BMC Psychiatry.
-2022;22(1):93. doi:10.1186/s12888-022-03756-y
-41. Belloy ME, Andrews SJ, Le Guen Y, et al. APOE genotype and
-Alzheimer Disease risk across age, sex, and population ancestry. JAMA
-Neurol. 2023;80(12):1284-1294. doi:10.1001/jamaneurol.2023.3599
-42. Rosvall L, Rizzuto D, Wang HX, Winblad B, Graff C, Fratiglioni L,
-APOE-related mortality: effect of dementia, cardiovascular disease
-and gender. Neurobiol Aging. 2009;30(10):1545-1551. doi:10.1016/j.
-neurobiolaging.2007.12.003
-43. Kulminski AM, Culminskaya I, Ukraintseva SV, et al. Trade-off in
-the effects of the apolipoprotein E polymorphism on the ages at
-onset of CVD and cancer influences human lifespan. Aging Cell.
-2011;10(3):533-541. doi:10.1111/j.1474-9726.2011.00689.x
-44. Khan TA, Shah T, Prieto D, et al. Apolipoprotein E genotype, car-
-diovascular biomarkers and risk of stroke: systematic review and
-meta-analysis of 14,015 stroke cases and pooled analysis of pri-
-mary biomarker data from up to 60,883 individuals. Int J Epidemiol.
-2013;42(2):475-492. doi:10.1093/ije/dyt034
-45. Dhana K, Aggarwal NT, Rajan KB, Barnes LL, Evans DA, MC Morris.
-Impact of the apolipoprotein e epsilon4 allele on the relation-
-ship between healthy lifestyle and cognitive decline: a population-
-based study. Am J Epidemiol. 2021;190(7):1225-1233. doi:10.1093/
-aje/kwab033
-46. Vermunt L, Sikkes SAM, van den Hout A, et al. Duration of preclinical,
-prodromal, and dementia stages of Alzheimer’s disease in relation to
-age, sex, and APOE genotype. Alzheimers Dement. 2019;15(7):888-898.
-doi:10.1016/j.jalz.2019.04.001
-47. Sebastiani P, Gurinovich A, Nygaard M, et al. APOE Alleles and
-Extreme Human Longevity. J Gerontol A Biol Sci Med Sci. 2019;74(1):44-
-51. doi:10.1093/gerona/gly174
-48. Bachmann D, Buchmann A, Studer S, et al. Age-, sex-, and pathology-
-related variability in brain structure and cognition. Transl Psychiatry.
-2023;13(1):278. doi:10.1038/s41398-023-02572-6
-49. Guo L, Zhong MRB, Zhang L, Zhang B, Cai DM. Sex differences
-in Alzheimer’s disease: insights from the multiomics landscape.
-Biol
-Psychiat.
-2022;91(1):61-71.
-doi:10.1016/j.biopsych.2021.02.
-968
-50. Zeng Y. Towards deeper research and better policy for healthy aging –
-using the unique data of Chinese longitudinal healthy longevity survey.
-China Economic J. 2012;5(2-3):131-149. doi:10.1080/17538963.2013.
-764677
-51. Wolf DA, Gill TM. Modeling transition rates using panel current-status
-data: how serious is the bias?. Demography. 2009;46(2):371-386.
-doi:10.1353/dem.0.0057
-52. Koch M, Fitzpatrick AL, Rapp SR, et al. Alcohol consumption and risk
-of dementia and cognitive decline among older adults with or without
-mild cognitive impairment. Jama Network Open. 2019;2(9):e1910319.
-doi:10.1001/jamanetworkopen.2019.10319
-53. Cong L, Ren YF, Wang YX, et al. Mild cognitive impairment among
-rural-dwelling older adults in China: a community-based study.
-Alzheimers Dement. 2023;19(1):56-66. doi:10.1002/alz.12629
-SUPPORTING INFORMATION
-Additional supporting information can be found online in the Support-
-ing Information section at the end of this article.
-How to cite this article: Ren L, Hu F, Walsh S, et al. Healthy
-lifestyle factors outweigh influence of APOE genetic risk on
-extending cognitively healthy life expectancy among Chinese
-older adults: evidence from a nationwide cohort study.
-Alzheimer’s Dement. 2025;21:e70090.
-https://doi.org/10.1002/alz.70090
- 15525279, 2025, 4, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.70090 by Hefei University Of Technology, Wiley Online Library on [15/04/2025]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
+7. Schaefer JD, Scult MA, Caspi A, et al Is low cognitive functioning a predictor or consequence of major depressive
+disorder: a test in two longitudinal birth cohorts. Dev Psychopathol. 2017;16:1-15. doi:10.1017/
+S095457941700164X
+8. Lu W, Pai M, Scholes S, Xue B. Do depressive symptoms link chronic diseases to cognition among older adults:
+evidence from the Health and Retirement Study in the United States. J Affect Disord. 2021;294:357-365. doi:10.
+1016/j.jad.2021.07.012
+9. Wraw C, Deary IJ, Gale CR, Der G. Intelligence in youth and health at age 50. Intelligence. 2015;53:23-32. doi:10.
+1016/j.intell.2015.08.001
+10. Guo Y, Pai M, Xue B, Lu W. Bidirectional association between depressive symptoms and mild cognitive
+impairment over 20 years: evidence from the Health and Retirement Study in the United States. J Affect Disord.
+2023;338:449-458. doi:10.1016/j.jad.2023.06.046
+11. Gale CR, Allerhand M, Deary IJ; HALCyon Study Team. Is there a bidirectional relationship between depressive
+symptoms and cognitive ability in older people: a prospective study using the English Longitudinal Study of
+Ageing. Psychol Med. 2012;42(10):2057-2069. doi:10.1017/S0033291712000402
+12. Huang W, Zhu W, Chen H, et al. Longitudinal association between depressive symptoms and cognitive decline
+among middle-aged and elderly population. J Affect Disord. 2022;303:18-23. doi:10.1016/j.jad.2022.01.107
+13. Yin J, Lassale C, Steptoe A, Cadar D. Exploring the bidirectional associations between loneliness and cognitive
+functioning over 10 years: the English longitudinal study of ageing. Int J Epidemiol. 2019;48(6):1937-1948. doi:
+10.1093/ije/dyz085
+14. Steptoe A, Breeze E, Banks J, Nazroo J. Cohort profile: the English longitudinal study of ageing. Int J
+Epidemiol. 2013;42(6):1640-1648. doi:10.1093/ije/dys168
+15. Knopman DS, Ryberg S. A verbal memory test with high predictive accuracy for dementia of the Alzheimer
+type. Arch Neurol. 1989;46(2):141-145. doi:10.1001/archneur.1989.00520380041011
+16. Welsh KA, Butters N, Mohs RC, et al. The Consortium to Establish a Registry for Alzheimer’s Disease (CERAD).
+Part V. a normative study of the neuropsychological battery. Neurology. 1994;44(4):609-614. doi:10.1212/WNL.
+44.4.609
+17. Rosen WG. Verbal fluency in aging and dementia. J Clin Exp Neuropsychol. 1980;2(2):135-146. doi:10.1080/
+01688638008403788
+18. Ls R. The CES-D scale: a self-report depression scale for research in the general population. Appl Psychol Meas.
+1977;1:385-401. doi:10.1177/014662167700100306
+19. Briggs R, Carey D, O’Halloran AM, Kenny RA, Kennelly SP. Validation of the 8-item Centre for Epidemiological
+Studies Depression Scale in a cohort of community-dwelling older people: data from The Irish Longitudinal Study
+on Ageing (TILDA). Eur Geriatr Med. 2018;9(1):121-126. doi:10.1007/s41999-017-0016-0
+20. Cadar D, Lassale C, Davies H, Llewellyn DJ, Batty GD, Steptoe A. Individual and area-based socioeconomic
+factors associated with dementia incidence in England: evidence from a 12-year follow-up in the English
+longitudinal study of ageing. JAMA Psychiatry. 2018;75(7):723-732. doi:10.1001/jamapsychiatry.2018.1012
+21. Jorm AF. A short form of the Informant Questionnaire on Cognitive Decline in the Elderly (IQCODE):
+development and cross-validation. Psychol Med. 1994;24(1):145-153. doi:10.1017/S003329170002691X
+22. Quinn TJ, Fearon P, Noel-Storr AH, Young C, McShane R, Stott DJ. Informant Questionnaire on Cognitive
+Decline in the Elderly (IQCODE) for the diagnosis of dementia within community dwelling populations. Cochrane
+Database Syst Rev. 2014;10:(4):CD010079. doi:10.1002/14651858.CD010079.pub2
+23. Jorm AF, Masaki KH, Davis DG, et al. Memory complaints in nondemented men predict future pathologic
+diagnosis of Alzheimer disease. Neurology. 2004;63(10):1960-1961. doi:10.1212/01.WNL.0000144348.70643.F2
+24. Gatz JL, Tyas SL, St John P, Montgomery P. Do depressive symptoms predict Alzheimer’s disease and
+dementia? J Gerontol A Biol Sci Med Sci. 2005;60(6):744-747. doi:10.1093/gerona/60.6.744
+25. Wilson RS, Mendes De Leon CF, Bennett DA, Bienias JL, Evans DA. Depressive symptoms and cognitive decline
+in a community population of older persons. J Neurol Neurosurg Psychiatry. 2004;75(1):126-129.
+26. Wilson RS, Barnes LL, Mendes de Leon CF, et al. Depressive symptoms, cognitive decline, and risk of AD in
+older persons. Neurology. 2002;59(3):364-370. doi:10.1212/WNL.59.3.364
+27. Guo Y, Pai M, Xue B, Lu W. Bidirectional association between depressive symptoms and mild cognitive
+impairment over 20 years: evidence from the Health and Retirement Study in the United States. J Affect Disord.
+2023;338:449-458. doi:10.1016/j.jad.2023.06.046
+28. Jacobson L, Sapolsky R. The role of the hippocampus in feedback regulation of the hypothalamic-pituitary-
+adrenocortical axis. Endocr Rev. 1991;12(2):118-134. doi:10.1210/edrv-12-2-118
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+12/13
+Downloaded from jamanetwork.com by guest on 11/18/2024
+
+# Page 13
+
+29. Byers AL, Yaffe K. Depression and risk of developing dementia. Nat Rev Neurol. 2011;7(6):323-331. doi:10.
+1038/nrneurol.2011.60
+30. Belvederi Murri M, Pariante C, Mondelli V, et al. HPA axis and aging in depression: systematic review and meta-
+analysis. Psychoneuroendocrinology. 2014;41:46-62. doi:10.1016/j.psyneuen.2013.12.004
+31. McEwen BS. Neurobiological and systemic effects of chronic stress. Chronic Stress (Thousand Oaks). Published
+online April 10, 2017. doi:10.1177/2470547017692328
+32. McEwen BS. Physiology and neurobiology of stress and adaptation: central role of the brain. Physiol Rev.
+2007;87(3):873-904. doi:10.1152/physrev.00041.2006
+33. Cacioppo JT, Hawkley LC. Perceived social isolation and cognition. Trends Cogn Sci. 2009;13(10):447-454.
+doi:10.1016/j.tics.2009.06.005
+34. Coslett HB, Bowers D, Verfaellie M, Heilman KM. Frontal verbal amnesia. Phonological amnesia. Arch Neurol.
+1991;48(9):949-955. doi:10.1001/archneur.1991.00530210075027
+35. Miller E. Verbal fluency as a function of a measure of verbal intelligence and in relation to different types of
+cerebral pathology. Br J Clin Psychol. 1984;23(Pt 1):53-57. doi:10.1111/j.2044-8260.1984.tb00626.x
+36. Corcoran R, Upton D. A role for the hippocampus in card sorting? Cortex. 1993;29(2):293-304. doi:10.1016/
+S0010-9452(13)80182-7
+37. Newcombe F. Missile wounds of the brain: a study of psychological deficits. J Neurol Neurosurg Psychiatry.
+1970;33(4).
+38. Shao Z, Janse E, Visser K, Meyer AS. What do verbal fluency tasks measure: predictors of verbal fluency
+performance in older adults. Front Psychol. 2014;5:772. doi:10.3389/fpsyg.2014.00772
+39. Salthouse T. Consequences of age-related cognitive declines. Annu Rev Psychol. 2012;63:201-226. doi:10.
+1146/annurev-psych-120710-100328
+40. Christensen H. What cognitive changes can be expected with normal ageing? Aust N Z J Psychiatry. 2001;35
+(6):768-775. doi:10.1046/j.1440-1614.2001.00966.x
+41. Lee SL, Pearce E, Ajnakina O, et al. The association between loneliness and depressive symptoms among
+adults aged 50 years and older: a 12-year population-based cohort study. Lancet Psychiatry. 2021;8(1):48-57. doi:
+10.1016/S2215-0366(20)30383-7
+42. Russell DW. UCLA Loneliness Scale (Version 3): reliability, validity, and factor structure. J Pers Assess. 1996;66
+(1):20-40. doi:10.1207/s15327752jpa6601_2
+43. Little RJA, Rubin DB. Statistical Analysis with Missing Data. Vol 793. John Wiley & Sons; 2019.
+44. Bai W, Zhang J, Smith RD, et al. Inter-relationship between cognitive performance and depressive symptoms
+and their association with quality of life in older adults: a network analysis based on the 2017-2018 wave of Chinese
+Longitudinal Healthy Longevity Survey (CLHLS). J Affect Disord. 2023;320:621-627. doi:10.1016/j.jad.2022.09.159
+SUPPLEMENT 1.
+eTable 1. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters Excluding the Item About
+Loneliness in CES-D, Outcome Cognition
+eTable 2. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters Excluding the Item About
+Loneliness in CES-D, Outcome Depressive Symptoms
+eTable 3. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters Excluding Individuals With
+Baseline Cognition in the Lowest Quintile, Outcome Cognition
+eTable 4. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters Excluding Individuals With
+Baseline Cognition in the Lowest Quintile, Outcome Depressive Symptoms
+eTable 5. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters Censoring at Diagnoses of
+Dementia or Stroke, Outcome Cognition
+eTable 6. Bivariate Dual Change Score Model With Bidirectional Coupling Parameters Censoring at Diagnoses of
+Dementia or Stroke, Outcome Depressive Symptoms
+eTable 7. Baseline Characteristics of Participants With Complete Data and Those Lost to Follow-Up
+SUPPLEMENT 2.
+Data Sharing Statement
+JAMA Network Open | Psychiatry
+Bidirectional Associations of Depressive Symptoms and Cognitive Function Over Time
+JAMA Network Open. 2024;7(6):e2416305. doi:10.1001/jamanetworkopen.2024.16305
+(Reprinted)
+June 11, 2024
+13/13
+Downloaded from jamanetwork.com by guest on 11/18/2024

@@ -699,9 +699,27 @@ attrition_key_missing_label_from_index <- function(df, index_name) {
   paste(vapply(bits, function(b) .attrition_wrap_label(b, width), character(1L)), collapse = "\n")
 }
 
+#' Figure 1 库名展示：保留 eICU / MIMIC_IV 等惯用大小写，勿整串 toupper 成 EICU。
+.attrition_pv2_db_display <- function(db) {
+  x <- trimws(as.character(db %||% "")[1L])
+  if (!nzchar(x)) return("Cohort")
+  key <- toupper(gsub("[^A-Za-z0-9]", "", x))
+  map <- c(
+    EICU = "eICU",
+    MIMICIV = "MIMIC_IV",
+    MIMIC = "MIMIC",
+    NHANES = "NHANES",
+    CHARLS = "CHARLS",
+    ELSA = "ELSA",
+    KNHANES = "KNHANES"
+  )
+  if (key %in% names(map)) return(unname(map[[key]]))
+  x
+}
+
 #' 发病 Figure 1：第一框写数据库和年份，第一格排除年龄，其余排除编号放在第二格。
 .attrition_pv2_panel_from_cohort <- function(rows, letter, cohort) {
-  db <- toupper(trimws(as.character(cohort$database %||% "NHANES")[1L]))
+  db <- .attrition_pv2_db_display(cohort$database %||% "NHANES")
   years <- trimws(as.character(cohort$years %||% "")[1L])
   ## 无年份时两行（Participants in DB / n=），与截图版式一致；有年份才三行
   top <- if (nzchar(years)) {
@@ -1121,7 +1139,7 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
       L <- if (i <= length(lab)) lab[[i]] else as.character(i)
       letter_i <- paste(
         L,
-        toupper(trimws(as.character(cohort_i$database)[1L]))
+        .attrition_pv2_db_display(cohort_i$database)
       )
     }
     spec <- .attrition_pv2_panel_spec(

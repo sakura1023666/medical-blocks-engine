@@ -1,1917 +1,1597 @@
 # Page 1
 
-Wang et al. BMC Medicine          (2025) 23:555  
-https://doi.org/10.1186/s12916-025-04298-2
-RESEARCH
-Open Access
-© The Author(s) 2025. Open Access This article is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 
-International License, which permits any non-commercial use, sharing, distribution and reproduction in any medium or format, as long 
-as you give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons licence, and indicate if 
-you modified the licensed material. You do not have permission under this licence to share adapted material derived from this article or 
-parts of it. The images or other third party material in this article are included in the article’s Creative Commons licence, unless indicated 
-otherwise in a credit line to the material. If material is not included in the article’s Creative Commons licence and your intended use is not 
-permitted by statutory regulation or exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To 
-view a copy of this licence, visit http://creativecommons.org/licenses/by-nc-nd/4.0/.
-BMC Medicine
-Additive effects of depression 
-and abdominal obesity on cognitive function 
-in middle‑aged and older population: evidence 
-from multinational cohorts
-Ruiqi Wang1†, Yalin Chen1†, Kayla M. Teopiz2, Roger S. McIntyre3,4 and Bing Cao1,5* 
-Abstract 
-Background  This study aimed to investigate the joint trajectories of obesity/abdominal obesity and depression, 
-and their association with cognitive function among four nationally representative cohorts.
-Methods  We used data from four nationally representative cohorts (China, UK, USA, and Mexico) in adults 
-over the age of 45, which included a total of 114,633 participants. Kml3D clustering algorithm was conducted to iden-
-tify the potential joint trajectories of obesity/abdominal obesity and depression of homogeneous groups. Generalized 
-Estimating Equations (GEE) were performed to examine the joint trajectory of obesity/abdominal obesity and depres-
-sion in relation to cognitive function.
-Results  In all cohorts, the baseline “Comorbidity” (with both depression and obesity/abdominal obesity) exhib-
-ited significantly poorer performance on subsequent cognitive assessments compared to the “Neither condi-
-tion” group (neither depression nor obesity). Cluster analysis and GEE revealed that when Body Mass Index (BMI) 
-was used as an obesity indicator, individuals in the joint trajectory groups with depression trajectories (regardless 
-of obesity trajectories) across four cohorts exhibited poorer cognitive performance compared to the Normal weight 
-and No depressed group (CHARLS: β =  − 0.35, 95% CI − 0.42 to − 0.28; ELSA: β =  − 0.32, 95% CI − 0.44 to − 0.20; HRS: 
-β =  − 0.20, 95% CI − 0.27 to − 0.13, MHAS: β =  − 0.15, 95% CI − 0.19 to − 0.10; all P < 0.001). Conversely, associations 
-between the joint trajectory groups with obesity trajectories (regardless of depression trajectories) and cogni-
-tive function demonstrated significant heterogeneity across cohorts. Abdominal obesity measures indicated 
-that the abdominal obesity or higher waist-to-height ratio (WHtR) and Depression group significantly contributed 
-to cognitive decline compared to those in the No abdominal obesity and No depression group (CHARLS: β =  − 0.31, 
-95% CI − 0.39 to − 0.23; ELSA: β =  − 0.20, 95% CI 0.29 to − 0.12; HRS: β =  − 0.20, 95% CI − 0.27 to − 0.14, all P < 0.001).
-Conclusions  Abdominal obesity and depression exert independent additive and fluctuating effects on measures 
-of cognition in middle-aged and older persons. Strategies that broadly aim to decrease excess fat, notably abdominal 
-obesity, represent near-term interventions that may beneficially influence aspects of cognition in depression.
-Keywords  Trajectory, Obesity, Abdominal obesity, Depression, Cognitive function, Cohort study
-†Ruiqi Wang and Yalin Chen contributed equally to this work.
-*Correspondence:
-Bing Cao
-bingcao@swu.edu.cn
-Full list of author information is available at the end of the article
+Received: 7 November 2025
+Revised: 17 February 2026
+Accepted: 19 February 2026
+DOI: 10.1002/alz.71300
+R E S E A R C H A R T I C L E
+Circadian syndrome (CircS) and cognitive trajectory
+deterioration in middle-aged and older adults: A national
+cohort study with causal forest analysis
+Jiangping Ma1,2
+Nan Chen1,2
+Jingxuan Huang1,2
+Linghao Xu3
+Huifang Shang1,2
+1Department of Neurology, Laboratory of
+Neurodegenerative Disorders, Rare Disease
+Center, West China Hospital, Sichuan
+University, Chengdu, China
+2National Clinical Research Center for
+Geriatric, West China Hospital, Sichuan
+University, Chengdu, China
+3Department of Endocrinology and
+Metabolism, the Affiliated Hospital of
+Southwest Medical University, Luzhou,
+Sichuan, China
+Correspondence
+Huifang Shang, Department of Neurology,
+West China Hospital, Sichuan University,
+Guoxuexiang 37#, Wuhou District, Chengdu
+610041, Sichuan Province, China.
+Email: hfshang2002@126.com
+Jiangping Ma and Nan Chen contributed to the
+work equally and should be regarded as
+co-first authors.
+Funding information
+Sichuan Science and Technology Program,
+Grant/Award Number: 2022ZDZX0023
+Abstract
+INTRODUCTION: Cognitive impairment is a global health challenge. Circadian syn-
+drome (CircS) extends beyond metabolic syndrome to include sleep and mental health,
+but its long-term impact on cognitive trajectories remains unclear.
+METHODS: We analyzed 6218 participants from the China Health and Retirement
+Longitudinal Study (2011–2018). CircS was defined as ≥4 of 7 components. Cogni-
+tive trajectories were identified using latent class growth modeling. Associations were
+assessed via multinomial logistic regression, and heterogeneous effects via causal
+forest analysis.
+RESULTS: Three cognitive trajectories were identified: “persistently high” (40.29%),
+“persistently moderate” (43.78%), and “persistently low” (15.93%). CircS increased
+odds of “persistently low” global cognitive (adjusted OR = 1.27, 95%CI:1.06–1.52) and
+episodic memory (OR = 1.28, 95%CI:1.06–1.55) trajectories. Causal forest identified a
+vulnerable subgroup: younger age, mild anemia (Hb∼95 g/L), and elevated BMI.
+DISCUSSION: CircS is a significant, modifiable risk factor for adverse cognitive trajec-
+tories. Screening for CircS could enable early identification and targeted interventions,
+especially for the identified high-risk subgroup.
+KEYWORDS
+causal forest, circadian syndrome, cognitive trajectory, latent class growth model, longitudinal
+study
+Highlights
+∙Novel integration of latent class growth modeling with causal forest machine
+learning.
+∙Circadian syndrome increases risk of unfavorable cognitive trajectories by 27%–
+28%.
+∙Identification of high-risk subgroup: younger age, mild anemia, elevated BMI.
+∙First longitudinal evidence linking circadian syndrome to low cognitive trajectories.
+∙Circadian syndrome as a modifiable target for early screening and prevention.
+This is an open access article under the terms of the Creative Commons Attribution License, which permits use, distribution and reproduction in any medium, provided
+the original work is properly cited.
+© 2026 The Author(s). Alzheimer’s & Dementia published by Wiley Periodicals LLC on behalf of Alzheimer’s Association.
+Alzheimer’s Dement. 2026;22:e71300.
+wileyonlinelibrary.com/journal/alz
+1 of 16
+https://doi.org/10.1002/alz.71300
 
 # Page 2
 
-Page 2 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Graphical Abstract
-Background
-The widespread nature of depression and obesity car-
-ries considerable public health challenges [1, 2], par-
-ticularly among middle-aged and older adults [3]. 
-Recent US data show that 44.3% of adults aged 40–59 
-were classified as obese during 2017–2020, increas-
-ing to nearly 41.5% among those aged 60 and older [4]. 
-Similarly, a recent study found that 21.3% of adults aged 
-50 and above report depressive symptoms [5].
-Furthermore, both disorders co-occur within indi-
-viduals, with depression conferring a 37% increased 
-risk of obesity and obesity elevating depression risk by 
-40% [1], creating compound impairment in physical 
-and mental health. This interplay is mediated mainly 
-through shared genetic loci [6], neuroendocrine dys-
-function [notably the hypothalamic–pituitary–adrenal 
-(HPA) axis hyperactivity], metabolic disturbances, and 
-chronic inflammation [7]. These interconnected path-
-ways form a self-perpetuating vicious cycle that exac-
-erbates pathological progression in both conditions [8]. 
-Accumulating evidence suggested that the comorbidity 
-of obesity and depression may impair health outcomes 
-in middle-aged and older adults, including increased 
-risks of functional disability, cardiometabolic multi-
-morbidity, and cognitive decline [9–12]. These inter-
-connected health burdens underscore the urgent need 
-for integrated preventive and therapeutic strategies tar-
-geting this vulnerable demographic.
-Cognitive decline is a growing public-health concern. 
-Statistics show that approximately 5–8% of older adults 
-experience cognitive decline annually, which is consid-
-ered a precursor symptom of dementia [13]. Neurode-
-generative processes mediated by chronic inflammation 
-and metabolic disturbances, including cerebrovascular 
-pathology, are key contributors to this decline [14–16]. 
-Given the established mechanistic associations of obesity 
-and depression with chronic inflammation and metabolic 
-dysfunction [17], these conditions may synergistically 
-drive cognitive impairment progression.
-Extensive evidence indicates that depression links to 
-cognitive decline and is a prodrome to dementia [18–20]. 
-Depressive symptoms mediate cognitive impairment via 
-multiple pathways, including the aforementioned HPA 
-axis hyperactivation, inflammation, and hippocam-
-pal atrophy [21–23]. Chronic or recurrent depression 
-particularly impairs attention, executive function, and 
-episodic memory—specific domains critical for daily 
-functioning and predictive of dementia risk [24, 25]. 
-However, the association between obesity and cognitive 
-health in middle-aged and older adults remains unclear 
-[9]. Some studies suggest that obesity may have a protec-
-tive effect on cognitive decline [26, 27], supporting the
+2 of 16
+MA ET AL.
+1
+BACKGROUND
+Cognitive impairment presents a growing global public health chal-
+lenge, particularly for aging populations.1,2 As the demographic trend
+shifts towards an older population structure, the prevalence of cog-
+nitive impairment is rising.3 Given the current lack of curative treat-
+ments, identifying modifiable risk factors for cognitive decline has
+become a critical strategy for early intervention and prevention.4
+Metabolic syndrome (MetS) refers to a cluster of concurrent
+metabolic disorders, mainly including central obesity, hypertension,
+hyperglycemia, and dyslipidemia.5 MetS is a well-established risk fac-
+tors for cognitive impairment which is mediated through pathologic
+changes in the brain, such as reduced brain volume, white matter
+lesions, and vascular pathology.6–8 However, the conventional MetS
+framework does not fully consider other critical risk factors associ-
+ated with cognitive impairment, such as sleep disturbances and mental
+health issues. To address this limitation, the concept of Circadian Syn-
+drome (CircS) has been proposed as a more comprehensive disorder
+characterized by disrupted biological rhythms. CircS encompasses all
+components of MetS while also integrating additional factors such as
+reduced sleep duration and depressive symptoms.9 There is an increas-
+ing consensus that CircS serves as a superior predictor for a range
+of cardiometabolic diseases compared to MetS alone.10,11 Impor-
+tantly, this enhanced predictive utility extends to cognitive health, with
+emerging evidence demonstrating a strong correlation between CircS
+andcognitiveimpairment.12,13 Giventheestablishedindependentlinks
+between sleep, depression and cognitive decline, these findings high-
+light the potential of CircS as a more integrative and sensitive tool for
+identifying individuals at high risk for future cognitive impairment.14,15
+Furthermore, emerging evidence indicates that the association
+between CircS and cognitive outcomes is not uniform but varies
+substantially across subgroups. For instance, the detrimental effect of
+CircS on dementia risk is significantly modified by APOE-ε4 genotype
+and smoking status.16 In addition, female gender has been associated
+with a more pronounced cognitive impairment related to CircS.12 This
+heterogeneity suggests that individual susceptibility to the cognitive
+consequences of circadian and metabolic dysregulation is influenced
+by a complex interplay of genetic, lifestyle, and sociodemographic
+factors.
+Despite these advancements, the majority of previous research
+focuses on snapshots of cognition at a certain point in time, rather
+than its change over time. We still know little about how CircS influ-
+ences the long-term trajectory of cognitive function in middle-aged
+and elderly individuals. Because cognitive decline is a dynamic pro-
+cess, understanding its trajectory is key for early intervention. The
+investigation of cognitive trajectories has advanced by utilizing statis-
+tics that can find different patterns of changes within a cohort. Many
+high-quality longitudinal studies have demonstrated that cognitive tra-
+jectories differ between subgroups and possess predictive value for
+long-term prognosis, such as conversion to Alzheimer’s disease.17,18
+Causal inference methodologies utilizing real-world data provide
+valuable evidence complementary to randomized controlled trials. In
+observational research, the investigation of heterogeneous treatment
+effects (HTEs) is fundamental to personalized risk assessment. Wager
+and Athey advanced this field by developing the causal forest model,
+an extension of the random forest algorithm, to infer HTEs or condi-
+tional average treatment effects (CATEs) from observational data. This
+innovative approach estimates treatment effects tailored to individual
+characteristics, enabling personalized causal inference.19
+Traditional methods for assessing effect heterogeneity, such as
+interaction terms or subgroup analysis, are often limited by multi-
+collinearity, model dependence, or spurious findings.20–23 In contrast,
+the causal forest method offers several advantages: it handles high-
+dimensional covariates and complex interactions without pre-specified
+parametric forms, automatically partitions data based on effect het-
+erogeneity, provides valid confidence intervals (CI), and incorpo-
+rates cross-fitting (“honesty”) and out-of-bag estimation to mitigate
+overfitting.24–26
+In this research, we undertook a nationally representative cohort
+study utilizing four waves of data from the China Health and Retire-
+ment Longitudinal Study (CHARLS) spanning 2011–2018, with the
+objective of investigating the influence of CircS on cognitive aging.
+Through the application of trajectory-based modeling and personal-
+ized effect estimation, this study furnishes novel insights into the role
+of CircS as a modifiable risk factor for cognitive decline and pro-
+poses targeted prevention strategies for populations at heightened
+risk.
+2
+METHODS
+2.1
+Study design and population
+CHARLS constitutes an ongoing, nationally representative longitudi-
+nal survey focusing on adults aged 45 years and older. The primary
+objective of the study is to gather comprehensive data on sociode-
+mographic characteristics, health status, medical conditions, family
+structure, and health-related behaviors. Initiated in 2011, the CHARLS
+survey has been conducted with follow-up assessments occurring bien-
+nially or triennially. To date, CHARLS has produced four waves of
+survey data collected in the years 2011, 2013, 2015, and 2018. The
+research project received approval from the Biomedical Ethics Com-
+mittee of Peking University (IRB00001052-11015). Informed consent
+was obtained from all participants, who also consented to the sharing
+of their data.
+We employed data from the four waves of the CHARLS to identify
+eligible participants according to specific inclusion and exclusion cri-
+teria. Initially, individuals lacking diagnostic information for CircS at
+the baseline year of 2011 were excluded. Subsequently, participants
+with cognitive impairment or Parkinson’s disease/dementia at base-
+line were also removed from the study. Additionally, individuals who
+participated in fewer than two waves of cognitive assessment were
+excluded. Ultimately, the study comprised 6218 subjects, consisting
+of 3054 males and 3164 females. A comprehensive flowchart detail-
+ing the study design and the inclusion and exclusion of participants is
+provided in Figure S1.
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 3
 
-Page 3 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-concept of an “obesity paradox” [28], while others view 
-obesity as a risk factor for cognitive decline [27, 29, 30], 
-necessitating further investigation into their connec-
-tion. Of note, while Body Mass Index (BMI) is a widely 
-accepted indicator for defining obesity, cross-cultural 
-researches have uncovered heterogeneity in its correla-
-tion with cognitive deterioration [9, 31]. Importantly, as 
-a contributing factor to various chronic illnesses includ-
-ing type 2 diabetes, cardiovascular disease, and meta-
-bolic syndrome [32], abdominal obesity (AO)[33]) has 
-been demonstrated by numerous studies to have a robust 
-association with cognitive decline [34–37]. Additionally, 
-considering the comorbid mechanisms between obesity 
-and depression, the joint changes of both conditions over 
-time should not be overlooked.
-To overcome limitations of prior studies using a single 
-obesity indicator and elucidate mechanisms underly-
-ing cognitive decline, this study incorporates BMI and 
-(waist to height ratio) WHtR as predictive indicators in 
-middle-aged and older populations. While prior work 
-often has predominantly examined the effects of a sin-
-gle developmental trajectory of obesity or depression on 
-cognitive decline, it overlooked the combined effects of 
-their joint trajectories. Hence, we conducted a multina-
-tional cohort study to examine the association between 
-comorbid obesity-depression trajectories and cogni-
-tive decline. We hypothesize that individuals exhibiting 
-co-occurring trajectories of persistent obesity/AO and 
-persistent depression demonstrate significantly poorer 
-cognitive performance compared to those who remained 
-consistently non-obese and non-depressed throughout 
-the observation period. Findings aim to identify high-risk 
-populations and inform targeted interventions for age-
-related cognitive impairment.
-Methods
-Study population
-The multinational cohort employed in this survey design 
-comprised four prospective, nationally representative 
-longitudinal studies: the China Health and Retirement 
-Longitudinal Study (CHARLS, China), the English Lon-
-gitudinal Study of Ageing (ELSA, United Kingdom), the 
-Health and Retirement Study (HRS, United States), and 
-the Mexican Health and Aging Study (MHAS, Mexico). 
-All sample population was recruited as part of a strati-
-fied, multistage probability design, with longitudinal 
-follow-up administered by trained research teams. The 
-detailed introduction of each cohort could be found on 
-their websites [CHARLS: https://​charls.​pku.​edu.​cn/​gy/​
-gyxm.​htm [38]; ELSA: https://​ukdat​aserv​ice.​ac.​uk/​about/ 
-[39]; HRS: https://​hrs.​isr.​umich.​edu/​about? [40]; MHAS: 
-https://​www.​mhasw​eb.​org/​Home/​Index.​aspx [41]]. Rele-
-vant ethical review institutes granted our survey’s ethical 
-approval, and all participants signed informed consent 
-forms before the survey.
-According to the current research objectives, we ruled 
-out the impact of COVID-19 and selected the appropri-
-ate waves from the four cohorts. The included waves need 
-to include all the key variables of this study (e.g., BMI, 
-WHtR, depressive symptoms, cognitive function scores, 
-and covariates). Thus, 3 waves (wave1–3: 2011, 2013, and 
-2015) in CHARLS, 3 waves (wave3–5: 2012, 2015, and 
-2018) in MHAS, 4 waves (wave2,4,6,8: 2004, 2008, 2012, 
-and 2016) in ELSA, and 6 waves (wave8–13: 2006–2016) 
-in HRS (participants only received body measurements 
-in odd or even waves, so we merged the odd and even 
-waves into three waves: wave1, wave2, wave3:2006/2008, 
-2010/2012 and 2014/2016) were included in the cur-
-rent study. Our exclusion criteria were as follows: (1) 
-age < 45 years old; (2) participants with cognitive-related 
-disorders (see Additional file  1: Table S1)[42]; (3) cases 
-of missing, unclear responses, and rejections both in 
-baseline and follow-up surveys. Therefore, 114,633 par-
-ticipants from four countries were considered, and after 
-screening, a total of 36,718 participants remained. The 
-comprehensive screening flowchart of participants could 
-be seen in Additional file  1: Fig. S1, with an in-depth 
-description of each cohort’s selecting procedure available 
-in Additional file 1: Fig. S2.
-Obesity and abdominal obesity
-In the main analyses, obesity in middle-aged and older 
-adults was defined by Body Mass Index (BMI), and the 
-calculation of BMI was done by dividing a person’s 
-weight (in kilograms) by the square of their height (in 
-meters). It is worth noting that objectively measured 
-height, weight, and waist circumference (WC) were pro-
-vided only in CHARLS, ELSA, and HRS. MHAS only 
-included self-reported height and weight (no WC data 
-available). Furthermore, because the study population 
-comes from various continents and exhibits variations in 
-ethnicity, physique, culture, and public health priorities, 
-it is considered to adopt distinct body type classification 
-standards [43]. Our study referred to previous research, 
-stipulated the use of the Chinese criteria to classify 
-participants from CHARLS, and obesity is defined as 
-BMI ≥ 28 kg/cm2 [44]. For the population from ELSA, 
-HRS, and MHAS cohorts, the European and American 
-criteria were utilized for classification, and obesity is 
-defined as BMI ≥ 30 kg/cm2 [45] (cut-off values of BMI 
-under different standards were shown in Additional file 1: 
-Table S2) [44].
-Abdominal obesity was defined by waist-to-height ratio 
-(WHtR), which was calculated as WC divided by height 
-(both in centimeters). Considering it is probable that 
-middle-aged and older adults may have an overestimation
+MA ET AL.
+3 of 16
+RESEARCH IN CONTEXT
+1. Systematic review: We reviewed the literature using
+PubMed and other traditional sources. Previous research
+has established links between Metabolic Syndrome and
+cognitive impairment. The novel concept of Circadian
+Syndrome (CircS) extends this framework to include sleep
+and mental health, with emerging evidence suggesting
+its superior predictive value for cardiometabolic diseases
+and cross-sectional cognitive status. However, longitudi-
+nal evidence on how CircS influences long-term cognitive
+trajectories was lacking.
+2. Interpretation: Our findings demonstrate that CircS is
+a significant risk factor for adverse long-term cognitive
+trajectories, increasing the odds of a “persistently low”
+trajectory by 27%–28%. Crucially, by applying causal for-
+est analysis, we move beyond average population risks
+to identify a vulnerable subgroup for whom this effect is
+most pronounced: younger individuals with mild anemia
+and elevated BMI. This establishes CircS as a comprehen-
+sive, modifiable risk factor and underscores the necessity
+for personalized cognitive risk assessment.
+3. Future directions: Future research should: (a) elucidate
+the precise biological mechanisms, particularly the non-
+linear role of hemoglobin, linking CircS to neurodegen-
+eration; (b) develop and test targeted interventions (e.g.,
+circadian rhythm stabilization) through randomized con-
+trolled trials in the identified high-risk subgroup; and (c)
+validate these findings and the generalizability of the
+high-risk profile in diverse ethnic and younger popula-
+tions.
+2.2
+Assessment of CircS
+Venous blood samples were promptly received by the Chinese Cen-
+ter for Disease Control and Prevention in Beijing within two weeks
+after leaving the CDC station. These samples were immediately stored
+and frozen at −20◦C prior to delivery. After necessary analyses in
+the laboratory of China Medical University, they were transferred
+to a deep freezer and maintained at −80◦C. In the clinical labora-
+tory of Youanmen, Capital Medical University, the concentrations of
+biomarkers such as high-density lipoprotein cholesterol (HDL-C), low-
+density lipoprotein cholesterol(LDL-C), triglycerides (TG), and glycated
+hemoglobin (HbA1c) were measured using the enzyme colorimetric
+method.12
+Blood pressure was measured three times by trained nurses using
+a sphygmomanometer, and the average value was calculated. Hyper-
+tension was defined as systolic blood pressure ≥140 mmHg and/or
+diastolic blood pressure ≥90 mmHg or the use of antihypertensive
+medications.
+The Center for Epidemiologic Studies Depression Scale (CES-D)
+(10-item version) was employed to assess depressive symptoms.
+Depression was defined as a CES-D score ≥10 points.13
+Anthropometric measurements were conducted by trained staff.
+Body weight was measured without shoes to an accuracy of 0.1 kg.
+Height was measured using a vertical stadiometer to an accuracy
+of 0.1 cm. Waist circumference was measured at the umbilical level
+to an accuracy of 0.1 cm. Central obesity was defined as a waist
+circumference ≥85 cm in men and ≥80 cm in women.
+Sleep duration was evaluated through personal self-report. A sleep
+duration of less than 6 h was classified as reduced sleep duration. It
+is important to note that sleep health is a multidimensional construct
+encompassing not only duration but also regularity, timing, efficiency,
+and quality.27 The single-item measure of sleep duration used here,
+while practical for large cohort studies and aligned with prior CircS
+research, may not fully distinguish between efficient short sleep and
+sleep disruption stemming from circadian misalignment.
+The concept of CircS was initially derived from MetS and was
+assessed based on the following seven components: reduced sleep
+duration, depression, central obesity, elevated TG (≥150 mg/dL or
+drug treatment for TG elevation), reduced high-density lipoprotein
+(HDL < 40 mg/dL in men; HDL < 50 mg/dL in women; or drug
+treatment for HDL-C reduction), hypertension, and elevated fasting
+blood glucose (≥100 mg/dL or drug treatment for hyperglycemia).
+Participants with four or more components were diagnosed with
+CircS.
+2.3
+Assessment of cognitive function
+Based on prior research utilizing CHARLS, cognitive function was
+assessed using the Chinese adaptation of the Mini-Mental State Exami-
+nation (MMSE), which evaluates two key dimensions: episodic memory
+and mental intactness. Participants were presented with a list of 10
+unrelated Chinese words and were required to recall them immedi-
+ately (immediate word recall) and again after a four-minute interval
+(delayed word recall). The episodic memory score was determined
+by averaging the number of words recalled in both the immediate
+and delayed tasks, with possible scores ranging from 0 to 10. The
+assessment of mental status included tasks such as serial subtrac-
+tion of 7 from 100 (up to five iterations), identifying the current date
+(month, day, and year), naming the day of the week, recognizing the
+current season, and completing an intersecting pentagon copying test.
+Responses to these tasks were aggregated to form a mental intact-
+ness score, which could range from 0 to 11. The overall cognitive score
+was calculated by summing the scores for episodic memory and mental
+intactness, yielding a total score range of 0–21.
+2.4
+Outcome-cognitive trajectories
+The primary outcome was the trajectory of global cognitive scores, and
+the second outcomes were the trajectory of episodic memory and men-
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 4
 
-Page 4 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-of abdominal obesity due to height loss [46]. The current 
-study defined 0.6 as the cut-off value of abdominal obe-
-sity [47].
-In addition, we opted to use the Weight-Adjusted Waist 
-Index (WWI) in the secondary analysis to reflect obesity 
-[48]. The WWI standardizes WC with weight, providing 
-a more accurate depiction of adiposity that is unrelated 
-to weight and partially circumvents the “obesity paradox” 
-associated with BMI [49]. It was calculated by dividing 
-WC (in centimeters) by the square root of weight (in kilo-
-grams) (√kg) [50].
-Depressive symptoms assessment
-In all four cohorts, depressive symptoms and depression 
-were evaluated by calculating the total scores of different 
-standardized scales and referring to the corresponding 
-cut-off values. Briefly, in CHARLS, depressive symptoms 
-were measured by the ten-item Center for Epidemiologic 
-Studies Depression Scale (CESD-10); in ELSA and HRS, 
-depressive symptoms were measured by the eight-item 
-version of the Center for Epidemiologic Studies Depres-
-sion Scale (CES-D); in MHAS, depressive symptoms 
-were measured by the nine-item scale modified from 
-the Center for Epidemiological Studies Depression scale 
-(CESD-9). Additional file 1: Table S3 [20, 51–55] provides 
-more information about each scale.
-Empirical classification (secondary analysis): depression 
-and obesity group
-In the baseline and outcome wave, participants’ depres-
-sion and obesity status were divided into four groups 
-based on previous research and empirical criteria: (1) 
-neither depression nor obesity (“Neither condition”); (2) 
-depression without obesity (“Depression alone”); (3) obe-
-sity without depression (“Obesity alone”); (4) with both 
-depression and obesity (“Comorbidity”) (3). Therefore, 
-the changes in the subjects’ depression-obesity status 
-can be further categorized into three groups over time: 
-(1) Stability; (2) Progression; (3) Regression. More details 
-about the grouping criteria are provided in the Addition-
-alfile 1: Fig. S3.
-Cognitive function assessment
-Cognitive function was assessed through face-to-face 
-self-questionnaire, evaluating the response and opera-
-tional performance of participants. Each cohort used 
-different questionnaires and measurement dimensions. 
-Briefly, in CHARLS, the cognitive function was assessed 
-by the Chinese version of the Mini-Mental State Exami-
-nation (MMSE); in ELSA, the cognitive function assess-
-ment was assessed by standardized episodic memory 
-and orientation tests; in HRS, the cognitive function 
-was assessed by the modified version of the Telephone 
-Interview for Cognitive Status (TICS); in MHAS, the 
-cognitive function was assessed by the Cross-Cultural 
-Cognitive Examination (CCCE). In all tests, a higher cog-
-nitive score indicated better cognitive performance. To 
-achieve comparability across different tests, we generated 
-the z-score of cognitive function for each cohort, refer-
-ring to previous research [20]. Details of cognitive assess-
-ments for each cohort and the method for calculating 
-z-score are provided in the Additional file 1: Table S4 and 
-Supplementary Methods1 [20, 42, 56–61].
+4 of 16
+MA ET AL.
+tal intactness scores. Latent class growth model (LCGM) was used to
+determine the heterogeneity of cognitive trajectories. LCGM was uti-
+lized to identify homogeneous clusters of individuals who follow similar
+developmental trajectories across time.28
+2.5
 Covariates
-Covariate selection was guided by two criteria: (1) avail-
-ability of key demographic variables in the database, and 
-(2) prior empirical evidence from relevant studies [42, 
-62]. The following variables were ultimately incorpo-
-rated as potential confounding factors: age, gender, race, 
-marital status, education level, residential area, house-
-hold financial situation, five doctor-diagnosed health 
-problems (hypertension, diabetes, cancer, stroke and 
-arthritis), smoking and drinking status at baseline. The 
-definition of covariates is reported in the Additionalfile 1: 
-Supplementary Methods2.
+Interviewers systematically gathered and documented data on
+sociodemographic
+characteristics,
+health-related
+behaviors,
+and
+medical information utilizing structured questionnaires. The sociode-
+mographic variables encompassed age, gender (categorized as male
+or female), educational attainment (classified as primary school or
+below, junior high school to high school, and undergraduate or above),
+marital status (dichotomized into married and unmarried), and place of
+residence (rural or urban). Within the marital status classification, indi-
+viduals identified as “married with spouse present” and “married but
+not living with spouse” were grouped under “married,” whereas those
+identified as “separated,” “divorced,” “widowed,” or “never married”
+were categorized as “unmarried.” Health-related behaviors assessed
+included smoking status (yes or no) and alcohol consumption status
+(yes or no). The medical information collected comprised data on
+functional restrictions, self-reported visual and hearing impairments,
+history of stroke, and heart disease, which included conditions such
+as heart attack, coronary heart disease, angina pectoris, congestive
+heart failure, or other cardiac issues. Additionally, measurements
+of hemoglobin levels and body mass index (BMI) were recorded.
+Functional restriction was operationally defined as experiencing
+limitations in any of the five activities of daily living (ADL), namely
+bathing, dressing, eating, transferring in and out of bed, and toileting.
+BMI was calculated as the weight in kilograms divided by the square of
+the height in meters and was categorized as follows: <18.5, 18.5–23.9,
+24.0–27.9, and ≥28.0 kg/m2.
+2.6
 Statistical analysis
-All analyses were conducted based on complete data-
-sets with exclusion of missing data. In the main analy-
-ses, the baseline characteristics of the participants were 
-described as means ± standard deviations (SD) of con-
-tinuous variables and percentages (%) of categorical vari-
-ables. Differences in the characteristics were analyzed 
-using t-tests and chi-square tests. And to better present 
-the transition of depression-obesity status, we depicted 
-Sankey diagrams to visualize the proportion of partici-
-pants transitioning across different groups from baseline 
-to outcome wave.
-To identify the potential joint variable-trajectories of 
-obesity (indicator: BMI and WHtR) and depression of 
-homogeneous groups, the current study used Kml3D, 
-a partitioning clustering algorithm from the package 
-KmL3D [63], which is based on the k-means algorithm 
-[64]. Then, we thoroughly considered both Calinski & 
-Harabasz criterion (high value denoting good partition) 
-[65] and the interpretability of the results to decide the 
-final number of clusters for each cohort; meanwhile, we 
-named the trajectory groups for further analysis. Further 
-explanations on this methodology are provided in the 
-Additionalfile 1: Supplementary Methods3 [66, 67].
-Subsequently, 
-Generalized 
-Estimating 
-Equations 
-(GEE),which are an extension of generalized linear 
-models (GLM) and allow for the resolution of the issue 
-of the correlations between observations in longitu-
-dinal studies [68], were employed to evaluate baseline
+Continuousnormallydistributedvariablesweredescribedusingmeans
+and standard deviations. Non-normally distributed continuous vari-
+ables were described using medians and interquartile ranges. Cate-
+gorical variables were described using frequencies and percentages.
+one-way analysis of variance, rank sum tests, or chi-square tests were
+used to compare baseline differences between groups.
+2.6.1
+Identification of cognitive trajectories
+To capture the heterogeneity in cognitive change over time, we identi-
+fied distinct cognitive trajectories using the LCGM. This method groups
+individuals into homogeneous subpopulations (latent classes) that
+share similar developmental paths of global cognitive scores across the
+study waves. Age in years was used as the timescale. We tested models
+with 2–5 trajectory classes, employing both linear and quadratic func-
+tions. The optimal number and shape of trajectories were determined
+based on the following criteria29: (1) the lowest sample size-adjusted
+Bayesian information criterion (SABIC); (2) an average posterior prob-
+ability of assignment (AvePP) for each trajectory class greater than 0.7,
+indicating adequate class separation; and (3) each trajectory class com-
+prising no less than 5% of the total sample to ensure clinical relevance.
+Detailed statistical methods were provided in the Supplementary File:
+Supplementary Method 1.
+2.6.2
+Association analysis between CircS and
+cognitive trajectories
+Multinomial logistic regression model was used to estimate the associ-
+ation of Circs with the trajectories of the cognitive function measures.
+Odds ratios (OR) and the corresponding 95% CI were reported. To
+preliminarily assess potential effect modification and to examine the
+consistency of the CircS-cognitive trajectory association across key
+demographic and clinical subgroups, we performed stratified analy-
+ses by each of the following baseline covariates: sex (male, female),
+age group (<60, ≥60 years), residence (urban, rural), educational level
+(primary school or below, junior high school to high school, undergrad-
+uate or above), marital status (married, unmarried), smoking status
+(yes/no), drinking status (yes/no), BMI category (<18.5, 18.5–23.9,
+24.0–27.9, ≥28.0 kg/m2), history of stroke (yes/no), history of heart
+disease (yes/no), ADL restriction (yes/no), visual impairment (yes/no),
+hearing impairment (yes/no), and hemoglobin level (split at the median
+into high/low groups). These stratified analyses served a dual purpose:
+(1) as an initial, descriptive exploration of heterogeneity in associa-
+tion strength across subgroups, and (2) as robustness checks to ensure
+the primary association was not driven by a specific subpopulation.
+Subsequently, to formally test for statistically significant effect mod-
+ification, we introduced multiplicative interaction terms (e.g., CircS ×
+sex, CircS × age group) individually into the fully adjusted multinomial
+logistic regression model. The significance of the interaction term was
+assessed using the likelihood ratio test.
+2.6.3
+Causal forest analysis
+To further investigate the HTEs of CircS on cognitive trajectories, we
+employed a causal forest machine learning approach. We constructed
+three separate causal forest models for each cognitive trajectory out-
+come (persistently low, moderate, and high). The analysis included 14
+pre-specified covariates: age, gender, residence, education, marital sta-
+tus, smoking, drinking, heart disease, stroke, hemoglobin, BMI, visual
+impairment, hearing impairment, and ADL ability. Each forest com-
+prised 10,000 trees and utilized honest estimation (50% of the data for
+splitting, 50% for estimation) to minimize overfitting.
+We assessed model calibration and estimated the average treat-
+ment effect (ATE) alongside Individual Treatment Effects (ITEs) to
+quantify effect heterogeneity. Variable importance was analyzed to
+identify key moderators of the CircS effect on cognitive trajectories.
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 5
 
-Page 5 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-depression-obesity status of participants and the joint 
-trajectory of the two in relation to cognitive function 
-(z-score). We set follow-up time as the timescale to cal-
-culate the β with corresponding 95% confidence intervals 
-(CI). GEE was repeated after stratifying by baseline main 
-characteristics.
-In subgroup analyses, we stratified populations based 
-on main demographic variables (e.g., age, sex, educa-
-tional attainment) to examine heterogeneous associations 
-between joint trajectories of BMI/WHtR and depressive 
-symptoms and cognitive function change across distinct 
-population subgroups. The interaction effects between 
-different subgroups and combined trajectory groups 
-were examined. In secondary analyses, we employed 
-various obesity indicators and different grouping strat-
-egies to redefine changes in depression-obesity status, 
-aiming to supplement the main results. (1) Considering 
-that KmL3D is a data-driven clustering algorithm and 
-might ignore practical experience standards, we classified 
-participants into stability groups, progression groups, 
-and regression groups based on a previous classification 
-method and empirical criteria, reflecting the transition 
-between obesity and depression at baseline and outcome 
-waves. We then repeated GEE to explore the association 
-between the transition groups and development of cogni-
-tive function in participants. (2) Used WWI as another 
-obesity indicator and generated joint trajectory groups. 
-Subsequently, replicated the statistics of the main results. 
-We also conducted several sensitivity analyses to test the 
-robustness of our findings: (1) Removed the underweight 
-population (BMI < 18.5) and the statistical approach was 
-consistent with previous work; (2) To ensure joint tra-
-jectories were robust, 20% of the participants were ran-
-domly excluded and repeated the KmL3D cluster analysis 
-[67].
-All analyses were conducted with R (version 4.3.1); spe-
-cifically, we used “kml3d”, “gee”, “geepack” and “ggplot2” 
-packages. Sankey diagrams and forest plots were plot-
-ted by [https://​www.​bioin​forma​tics.​com.​cn] and the 
-CNSknowall platform [https://​cnskn​owall.​com] respec-
-tively. All analyses employed stepwise adjustment for 
-confounding variables, with statistical significance 
-defined as two-tailed P-values < 0.05.
-Results
-Baseline characteristics of the study population
-A total of 36,718 individuals [8286 (22.6%) in CHARLS, 
-5225 (14.2%) in ELSA, 10,849 (29.5%) in HRS and 12,358 
-(33.7%) in MHAS] were included in the study popula-
-tion. The main baseline characteristic distributions of 
-participants and the demographic descriptions stratified 
-by depression status are presented in Fig. 1 and Table 1. 
-The mean follow-up duration across the four cohorts was 
-9 years, with cohort-specific durations as follows: 4 years 
-for CHARLS, 10 years for both ELSA and HRS, and 12 
-years for MHAS. Among the continuous variables, the 
-mean age of participants was 63.69 (SD 9.99) years. The 
-mean of BMI was 27.27 (SD 5.40) and the mean of WHtR 
-was 0.55 (SD 0.10). T-tests and chi-square tests showed 
-participants who had experienced depression tended to 
-have a higher BMI (all P < 0.05) and WHtR in ELSA and 
-HRS and lower baseline cognitive test score in all cohorts 
-(all P < 0.001). In all four studies, age, gender, education 
-status, marital status, hypertension, stroke, drinking 
-status, and smoking status had impacts on depressive 
-symptoms (all P < 0.05). Moreover, Additionalfile 1: Fig. 
-S4 and Fig.S5 shows basic characteristics of the dynamic 
-transition of depression-obesity status from baseline to 
-outcome wave. Overall, the proportion of participants in 
-all studies experiencing a state transition was relatively 
-small.
-Association between baseline depression‑obesity status 
-and changes in cognitive function
-No matter which obesity indicator was adopted, com-
-pared to participants in “Neither condition,” individu-
-als in “Depression alone” and “Comorbidity” at baseline 
-exhibited significantly poorer performance in subsequent 
-cognitive assessments (Fig. 2 and Additional File 1: Table 
-S5). This association persisted even after full adjustment 
-for all covariates, maintaining statistical significance 
-across analytical models (“Depression alone” of Fig. 2A—
-CHARLS: β =  − 0.30, 95% CI − 0.35 to − 0.25; ELSA: 
-β =  − 0.27, 95% CI − 0.40 to − 0.14; HRS: β =  − 0.17, 95% 
-CI − 0.26 to − 0.09; MHAS: β =  − 0.19, 95% CI − 0.23 
-to − 0.14; Fig.  2B: CHARLS: β =  − 0.29, 95% CI − 0.34 
-to − 0.23; ELSA: β =  − 0.24, 95% CI: − 0.37 to − 0.11; 
-HRS: β =  − 0.14, 95% CI − 0.23 to − 0.05; “Comorbidity” 
-of Fig. 2A: CHARLS: β =  − 0.25, 95% CI − 0.42 to − 0.08; 
-ELSA: β =  − 0.26, 95% CI − 0.41 to − 0.11; HRS: β =  − 0.18, 
-95% CI − 0.26 to − 0.10; MHAS: β =  − 0.07, 95% CI − 0.12 
-to − 0.01; Fig.  2B: CHARLS: β =  − 0.34, 95% CI − 0.45 
-to − 0.24; ELSA: β =  − 0.32, 95% CI − 0.48 to − 0.16; HRS: 
-β =  − 0.26, 95% CI − 0.34 to − 0.18, all P < 0.05). When 
-the obesity indicator was BMI, we observed individuals 
-in “Obesity alone” exhibited superior cognitive develop-
-ment in HRS and MHAS (HRS: β = 0.05, 95% CI 0.01 to 
-0.08; MHAS: β = 0.06, 95% CI 0.02 to 0.10, all P < 0.05), 
-whereas ELSA revealed an inverse pattern, with indi-
-viduals with obesity exhibiting comparatively impaired 
-cognitive outcomes (β =  − 0.10, 95% CI − 0.17 to − 0.02, 
-P = 0.012). When the obesity indicator was WHtR, “Obe-
-sity alone” participants demonstrated significantly poorer 
-cognitive performance compared to “Neither condi-
-tion” only in ELSA (β =  − 0.11, 95% CI − 0.18 to − 0.03, 
-P = 0.004).
+MA ET AL.
+5 of 16
+All analyses were performed using R version 4.4.2 with the grf pack-
+age, and a random seed was set for reproducibility. Sensitivity analyses
+with fewer trees were used to confirm the robustness of our results.
+Detailed statistical methods were provided in the Supplementary File:
+Supplementary Method 2.
+2.6.4
+Sensitivity analysis
+1. Inverse Probability Weighting (IPW): We conducted IPW analysis
+to address potential confounding and validate our primary find-
+ings. Propensity scores were estimated using logistic regression
+with CircS as the outcome and all baseline covariates as predictors.
+Stabilized weights were applied to create a balanced pseudo-
+population. Weighted multinomial logistic regression was used to
+estimate the association between CircS and cognitive trajectories.
+2. Linear Mixed-Effects Models (LMMs): We fitted LMMs to directly
+model the repeated measures of global cognitive scores as a con-
+tinuous outcome over time. This approach treats cognitive decline
+as a continuous process and does not presuppose the existence of
+discrete trajectory classes. The core model included fixed effects
+for CircS status (present/absent), time (in years from baseline),
+and their interaction term (CircS × Time). A significant interac-
+tion term would indicate that the rate of cognitive decline (slope)
+differs between individuals with and without CircS. The models
+were adjusted for the same set of baseline covariates used in the
+multinomial logistic regression.
+3. Continuous CircS Score Analysis: As an additional sensitivity analy-
+sis, we examined the association between a continuous CircS score
+(range: 0–7) and cognitive trajectories using multinomial logistic
+regression. This approach treats CircS as a dimensional construct
+rather thana categorical diagnosis, allowing ustoinvestigate poten-
+tial dose–response relationships. Both crude and fully adjusted
+models were fitted using the same covariate sets as the primary
+binary analysis.
+4. Sensitivity Analysis with Additional Covariates: To further address
+concerns regarding potential residual confounding, an extended
+sensitivity analysis was performed. The original set of covari-
+ates was supplemented with five additional baseline variables
+for model refitting: physical activity level (categorized as low,
+moderate, or high), frequency of social activities (categorized
+as none, moderate, or high), use of sleep medication (yes/no),
+use of antidepressant medication (yes/no), and habitual nap-
+ping. Both the multinomial logistic regression models and the
+causal forest analysis were repeated using this extended covariate
+set.
+5. Sensitivity Analysis Using Multiple Imputation: To assess potential
+selection bias arising from missing CircS data at baseline, we con-
+ducted a sensitivity analysis using multiple imputation. All missing
+components defining CircS, along with other baseline covariates,
+were imputed. The complete analytical workflow—including cog-
+nitive trajectory identification, multinomial logistic regression, and
+causal forest analysis—was then performed on the imputed data.
+The pooled results were compared to the primary complete-case
+analysis to evaluate the robustness of the findings.
+6. Sensitivity Analysis Examining Collinearity and a Modified CircS
+Definition: To further assess the robustness of BMI as a poten-
+tial effect moderator, two supplementary analyses were con-
+ducted. First, variance inflation factors (VIFs) were calculated for
+all covariates in the causal forest model to examine potential
+multicollinearity. Second, we repeated the primary causal forest
+analysis using a modified CircS definition, which excluded the
+central obesity component. In this analysis, CircS was defined
+as the presence of ≥3 out of the remaining 6 components. All
+other model specifications were kept identical to the primary
+analysis.
+2.6.5
+Extended analysis
+We conducted an extended analysis using person-specific rates of cog-
+nitive change as the outcome. For each participant, a linear regression
+model was fitted with the global cognitive score as the dependent vari-
+able and time since baseline (in years) as the independent variable. The
+individual-specific slope from this model represented the rate of cogni-
+tive change. Participants were then classified into a binary transition
+outcome: “Cognitive Decline” (slope < 0) versus “Cognitive Stability
+or Improvement” (slope ≥0). The association between CircS and this
+binary transition outcome was examined using a logistic regression
+model, adjusted for the same baseline covariates as in the primary anal-
+ysis. A causal forest analysis was subsequently performed to estimate
+the heterogeneous effects of CircS on the risk of “Cognitive Decline.”
+The above statistical analyses were conducted using SPSS 25.0 and
+R 4.4.2. A two-sided p-value < 0.05 indicated a significant result.
+3
+RESULTS
+3.1
+Population characteristics
+In the study, from the initial cohort of 17,708 participants in
+CHARLS at baseline, individuals lacking CircS information (n = 7313)
+were excluded. Subsequently, participants with cognitive impairment
+(n = 678, Figure S2 presents the age-specific corresponding cog-
+nitive impairment thresholds) or diagnosed with Parkinson’s dis-
+ease/dementia (n = 91) were also excluded. Additionally, those with
+fewer than two waves of cognitive assessment data (n = 3408) were
+removed from the analysis. Ultimately, the final analytical sample
+comprised 6218 subjects. Figure S1 illustrates the study design and
+provides a detailed flowchart of inclusion and exclusion criteria of
+participants.
+Table 1 summarizes the baseline characteristics of the included par-
+ticipants. The mean age of the sample was 57.35 years (SD = 8.65),
+with 3054 (49.1%) being male. Statistically significant differences were
+observed in the age, sex, place of residence, educational level, marital
+status, smoking and drinking history, ADL ability, BMI, history of stroke
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 6
 
-Page 6 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Cluster analysis and joint trajectories of obesity 
-and depression
-In order to determine the appropriate number of poten-
-tial trajectories of BMI (kg/m2)/WHtR and depressive 
-symptoms groups, our study combined the iterative 
-results of KmL3D (the number of clusters was iteratively 
-increased from 2 to 20), cluster classification metrics, and 
-interpretability of the results [a reference group (Normal 
-weight/No abdominal obesity & No depression) should 
-be defined at least]. Therefore, we identified different 
-numbers of trajectories for different cohorts respectively 
-(Fig. 3, Additional file 1: Table S6 and S7). Furthermore, 
-after randomly excluding 20% of participants and repeat-
-ing the cluster analysis, no substantial differences were 
-found in the newly divided trajectory group (Additional-
-file 1: Fig. S6, Table S6 and S7).
-Association between joint trajectories and changes 
-in cognitive function
-Figure  4 and Additional file  1: Table S8–S9 summa-
-rize the association between joint trajectories (BMI/
-WHtR and depressive symptoms) and changes in cogni-
-tive function. In Fig.  4A (adjusted all covariates), com-
-pared to the reference group (Group1: Normal weight 
-and No depression), participants in the joint trajectory 
-groups with depression (regardless of obesity trajecto-
-ries) had poorer cognitive function [CHARLS (Group2: 
-Normal weight & Depression): β =  − 0.35, 95% CI − 0.42 
-to − 0.28; ELSA (Group2: Overweight & Depression): 
-β =  − 0.32, 95% CI − 0.44 to − 0.20; HRS (Group2: Over-
-weight & Depression): β =  − 0.20, 95% CI − 0.27 to − 0.13, 
-MHAS (Group3: Overweight & Depression): β =  − 0.15, 
-95% CI − 0.19 to − 0.10; all P < 0.001]. However, in other 
-trajectory groups, inconsistent results were observed 
-among the four studies. When compared with the refer-
-ence group, the significantly accelerated cognitive decline 
-was reported in Group 4 (Obesity and No depression) 
-of ELSA (β =  − 0.16, 95% CI − 0.26 to − 0.06, P = 0.002). 
-Additionally, the association between trajectory groups 
-characterized by overweight/obesity and better cogni-
-tive development was observed in HRS and MHAS [HRS 
-(Group3 and Group4: Obesity (I)/Obesity II) and No 
-depression): β = 0.06, 95% CI 0.02 to 0.11; β = 0.10, 95% 
-CI 0.04 to 0.16; MHAS (Group2: Overweight and No 
-depression): β = 0.09, 95% CI 0.04 to 0.13, all P < 0.05]; 
-however, this association was not observed in the 
-CHARLS.
-Figure  4B shows the relationship between the joint 
-trajectory (WHtR and depressive symptoms) and cog-
-nitive changes. In the fully adjusted model (adjusted all 
-Fig. 1  Main baseline characteristics of participants from four cohorts. Abbreviations: CHARLS, China Health and Retirement Longitudinal Study; 
-ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health and Retirement Study
+6 of 16
+MA ET AL.
+TABLE 1
+Baseline characteristics (described based on the presence or absence of circadian syndrome).
+Variable
+All (N = 6218)
+No CircS (N = 4079)
+CircS (N = 2139)
+p.overall
+Age (years), mean ± SD
+57.35 ± 8.65
+57.05 ± 8.67
+57.91 ± 8.59
+0.0002
+Sex, n (%)
+<0.0001
+Male sex
+3054 (49.1%)
+2254 (55.3%)
+800 (37.4%)
+Female sex
+3164 (50.9%)
+1825 (44.7%)
+1339 (62.6%)
+Residence, n (%)
+Urban
+2186 (35.2%)
+1362 (33.4%)
+824 (38.5%)
+0.0001
+Rural
+4032 (64.8%)
+2717 (66.6%)
+1315 (61.5%)
+Educational level, n (%)
+Below primary school
+4137 (66.5%)
+2641 (64.7%)
+1496 (69.9%)
+0.0002
+Secondary to vocational school
+2024 (32.6%)
+1400 (34.3%)
+624 (29.2%)
+University and above
+57 (0.9%)
+38 (0.9%)
+19 (0.9%)
+Marital status, n (%)
+Unmarried
+483 (7.8%)
+262 (6.4%)
+221 (10.3%)
+<0.0001
+Married
+5735 (92.2%)
+3817 (93.6%)
+1918 (89.7%)
+Smoking status, n (%)
+No
+3715 (59.7%)
+2267 (55.6%)
+1448 (67.7%)
+<0.0001
+Yes
+2503 (40.3%)
+1812 (44.4%)
+691 (32.3%)
+Drinking status, n (%)
+No
+3729 (60.0%)
+2311 (56.7%)
+1418 (66.3%)
+<0.0001
+Yes
+2489 (40.0%)
+1768 (43.3%)
+721 (33.7%)
+Restriction on ADL, n (%)
+No
+5453 (87.7%)
+3680 (90.2%)
+1773 (82.9%)
+<0.0001
+Yes
+765 (12.3%)
+399 (9.8%)
+366 (17.1%)
+History of stroke, n (%)
+No
+6104 (98.2%)
+4021 (98.6%)
+2083 (97.4%)
+0.0012
+Yes
+114 (1.8%)
+58 (1.4%)
+56 (2.6%)
+Heart disease, n (%)
+Yes
+620 (10.0%)
+329 (8.1%)
+291 (13.6%)
+<0.0001
+No
+5598 (90.0%)
+3750 (91.9%)
+1848 (86.4%)
+BMI (kg/m2), n (%)
+<18.5
+343 (5.5%)
+312 (7.6%)
+31 (1.4%)
+<0.0001
+18.5–23.9
+3235 (52.0%)
+2503 (61.4%)
+732 (34.2%)
+24.0–27.9
+1915 (30.8%)
+990 (24.3%)
+925 (43.2%)
+≥28.0
+725 (11.7%)
+274 (6.7%)
+451 (21.1%)
+Visual impairment, n (%)
+No
+5876 (94.5%)
+3879 (95.1%)
+1997 (93.4%)
+0.0052
+Yes
+342 (5.5%)
+200 (4.9%)
+142 (6.6%)
+Hearing impairment, n (%)
+No
+5796 (93.2%)
+3820 (93.7%)
+1976 (92.4%)
+0.0658
+Yes
+422 (6.8%)
+259 (6.3%)
+163 (7.6%)
+Hb (g/L), mean ± SD
+90.58 ± 8.53
+90.83 ± 8.63
+90.10 ± 8.31
+0.0013
+SD: standard deviation; BMI: body mass index; Hb: Hemoglobin; CircS: Circadian syndrome.
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 7
 
-Page 7 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-Table 1  Baseline characteristics of participants from four cohorts according to depression status
-Variables
-Overall 
-(Mean ± 
-SD or
-events/n)
-China Health and Retirement Longitudinal 
-Study (CHARLS) 
-(n=8286)
-English Longitudinal Study of Ageing 
-(ELSA)
-(n=5225)
-Health and Retirement Study(HRS)
-(n=10849)
-Mexican Health and Aging Study (MHAS)
-(n=12358)
-No depression 
-(n=5504)
-Depression  
-(n=2782)
-p
-No depression 
-(n=4552)
-Depression 
-(n=673)
-p
-No depression 
-(n=9539)
-Depression 
-(n=1310)
-p
-No depression 
-(n=8591)
-Depression(n=3767)
-p
-Age (years)
-63.69 ± 9.99
-58.12 ± 8.97
-59.13 ± 8.97
-<0.001
-65.39 ± 8.92
-66.26 ± 9.78
-0.200
-66.98 ± 9.56
-65.83 ± 9.97
-<0.001
-63.28 ± 9.77
-64.53 ± 10.20
-<0.001
-BMI (kg/m2)*
-27.27 ± 5.40
-23.82 ± 3.71
-23.20 ± 3.71
-<0.001
-27.88 ± 4.75
-28.37 ± 5.31
-0.014
-29.21 ± 5.71
-30.52 ± 6.67
-<0.001
-27.81 ± 4.56
-27.50 ± 4.71
-0.004
-Underweight
-300/728
-260 (4.7)
-216 (7.8)
-<0.001
-27 (0.6)
-5 (0.7)
-0.041
-53 (0.6)
-10 (0.8)
-<0.001
-88 (1.0)
-69 (1.8)
-<0.001
-Normal weight
-2771/11579
-2811 (51.1)
-1544 (55.5)
-1237 (27.2)
-180 (26.7)
-2152 (22.6)
-257 (19.6)
-2608 (30.4)
-1180 (31.3)
-Overweight
-2838/13889
-1755 (31.9)
-745 (26.8)
-1993 (43.8)
-263 (39.1)
-3575 (37.5)
-416 (31.8)
-3728 (43.4)
-1414 (37.5)
-Obesity
-2233/9952
-678 (12.3)
-277 (10.0)
-1295 (28.4)
-225 (33.4)
-3579 (39.4)
-627 (47.9)
-2167 (25.2)
-1104 (29.3)
-Waist-to-height 
-ratio (WHtR)
-0.55 ± 0.10
-0.54 ± 0.06
-0.54 ± 0.66
-0.305
-0.58 ± 0.07
-0.59 ± 0.08
-<0.001
-0.60 ± 0.09
-0.63 ± 0.10
-<0.001
-NA
-NA
-NA
-No abdominal 
-obesity
-3182/15478
-4557 (82.8)
-2285 (82.1)
-0.455
-2966 (65.2)
-401 (59.6)
-0.005
-4773 (50.0)
-496 (37.9)
-<0.001
-NA
-NA
-NA
-Abdominal 
-obesity
-1583/8882
-947 (17.2)
-497 (17.9)
-1586 (34.8)
-272 (40.4)
-4766 (50.0)
-814 (62.1)
-Gender (%)
-Male
-2955/16614
-3099 (56.3)
-1215 (43.7)
-<0.001
-2247 (49.4)
-226 (33.6)
-<0.001
-4013 (42.1)
-363 (27.7)
-<0.001
-4300 (50.1)
-1151 (30.6)
-<0.001
-Female
-5577/20104
-2405 (43.7)
-1567 (56.3)
-2305 (50.6)
-447 (66.4)
-5526 (57.9)
-947 (72.3)
-4291 (49.9)
-2616 (69.4)
-Race (%)
-White
-1655/14125
-NA
-NA
-NA
-4511 (99.1)
-655 (97.3)
-<0.001
-7959 (83.4)
-1000 (76.3)
-<0.001
-NA
-NA
-NA
-Other
-328/1949
-41 (0.9)
-18 (2.7)
-1580 (16.6)
-310 (23.7)
-Education status 
-(%)
-Less than lower 
-secondary
-6796/21571
-4645 (84.4)
-2588 (93.0)
-<0.001
-1678 (36.9)
-333 (49.5)
-<0.001
-1502 (15.7)
-410 (31.3)
-<0.001
-6950 (80.9)
-3465 (92.0)
-<0.001
-Upper secondary 
-& vocational 
-training
-1395/11285
-734 (13.3)
-177 (6.4)
-2198 (48.3)
-284 (42.2)
-5708 (59.8)
-731 (55.8)
-1250 (14.6)
-203 (5.4)
-Tertiary
-341/3862
-125 (2.3)
-17 (0.6)
-676 (14.9)
-56 (8.3)
-2329 (24.4)
-169 (12.9)
-391 (4.6)
-99 (2.6)
-Residence (%)§
-Type A(Urban)
-5016/24405
-2331 (42.4)
-877 (31.50)
-<0.001
-4374 (96.1)
-632 (93.9)
-0.008
-6381 (66.9)
-912 (69.6)
-0.490
-6303 (73.4)
-2595 (68.9)
-<0.001
-Type B(Rural)
-3516/12313
-3173 (57.6)
-1905 (68.5)
-178 (3.9)
-41 (6.1)
-3158 (33.1)
-398 (30.4)
-2288 (26.6)
-1172 (31.1)
-Marital status (%)
-Living alone（No）
-2670/9025
-462 (8.4)
-419(15.1)
-<0.001
-1085 (23.8)
-293 (43.5)
-<0.001
-2658 (27.9)
-592 (45.2)
-<0.001
-2150 (25.0)
-1366 (36.3)
-<0.001
-Living 
-with partner(Yes)
-5862/27693
-5042 (91.6)
-2363 (84.9)
-3467 (76.2)
-380 (56.5)
-6881 (72.1)
-718 (54.8)
-6441 (75.0)
-2401 (63.7)
-Household eco-
-nomic situation 
-(%)✝
-Low tertile
-3633/12753
-1736 (31.5)
-1023 (36.8)
-<0.001
-1490 (32.7)
-251 (37.3)
-0.062
-2933 (30.7)
-684 (52.2)
-<0.001
-2961 (34.5)
-1675 (44.5)
-<0.001
-Medium tertile
-2678/11751
-1796 (32.6)
-972 (34.9)
-1530 (33.6)
-214 (31.8)
-3243 (34.0)
-378 (28.9)
-2504 (29.1)
-1114 (29.6)
-High tertile
-2221/12214
-1972 (35.8)
-787 (28.3)
-1532 (33.7)
-208 (30.9)
-3363 (35.3)
-248 (18.9)
-3126 (36.4)
-978 (26.0)
-Hypertension (%)
+MA ET AL.
+7 of 16
+FIGURE 1
+UpSet plot displaying the frequency and combinations of the seven components defining circadian syndrome (Sleep↓, reduced
+sleep duration; Glu↑, elevated fasting blood glucose; HDL↓, reduced high-density lipoprotein; TG↑, elevated triglycerides; BP↑, hypertension; CO,
+central obesity).
+and heart disease, Visual impairment, and hemoglobin levels between
+participants with and without CircS.
+The co-occurrence patterns of the seven CircS components are pre-
+sented in Figure 1. The most frequent combinations involved central
+obesity with other metabolic components, while the combination of
+reduced sleep duration and depressive symptoms co-occurred in a
+distinct subgroup.
+Figure S3 presents the distribution of global cognitive scores at
+baseline.
+3.2
+Estimated cognitive aging trajectories
+We evaluated the optimal number of cognitive function trajectories
+necessary to account for the variability in global cognitive scores within
+this population (refer to Table S1). The BIC was lowest for the model
+comprising four trajectories (BIC = 96,886.26); however, the average
+posterior probability for this model was below 0.7. Consequently, we
+determined that the GBTM approach with three trajectories was the
+most suitable. Figure 2 illustrates three longitudinal patterns of cogni-
+tive function, categorized by current age at each assessment, based on
+global cognitive scores: Class 1, “Persistently High” (n = 2505, 40.29%);
+Class 2, “Persistently Moderate” (n = 2722, 43.78%); and Class 3, “Per-
+sistently Low” (n = 991, 15.93%). The trajectories for cognitive function
+domains are presented in the Figure S4.
+FIGURE 2
+Mean trajectories of global cognitive scores by
+increasing age among participants.
+3.3
+Trajectory sub-population characteristics
+As illustrated in Table S2, the baseline characteristics are pre-
+sented in accordance with global cognitive trajectories. A range
+of significant statistical differences were identified in the age,
+gender, place of residence, educational attainment, marital status,
+smoking history, drinking history, ADL ability, BMI, hearing impair-
+ment, and visual impairment among the three cognitive trajectory
+groups.
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 8
 
-Page 8 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Data are presented as means ± standard deviations or number (proportion %)P values were calculated using analysis of t-test and Cchi-square test for continuous and categorical variables, respectively*BMI: In CHARLS: 
-underweight (< 18.5 kg/cm2); normal weight (>= 18.5 kg/cm2 and < 22.9 kg/cm2); overweight (>= 23 kg/cm2 and < 28 kg/cm2); obesity (>= 28kg/cm2). In other databases, underweight (< 18.5 kg/cm2); normal weight 
-(>= 18.5 kg/cm2 and <25 kg/cm2); overweight (>= 25 kg/cm2 and < 30 kg/cm2); obesity (>=30 kg/cm2)§Residence: In CHARLS, HRS and MHAS, type A: Urban area; type B: Rural area. In ELSA, type A: UK; type B: Other 
-area✝Household economic situation: In CHARLS, ELSA and MHAS, Household economic situation was defined by total household per capita consumption. In HRS,Household economic situation was defined by total 
-household income
-Table 1  (continued)
-Variables
-Overall 
-(Mean ± 
-SD or
-events/n)
-China Health and Retirement Longitudinal 
-Study (CHARLS) 
-(n=8286)
-English Longitudinal Study of Ageing 
-(ELSA)
-(n=5225)
-Health and Retirement Study(HRS)
-(n=10849)
-Mexican Health and Aging Study (MHAS)
-(n=12358)
-No depression 
-(n=5504)
-Depression  
-(n=2782)
-p
-No depression 
-(n=4552)
-Depression 
-(n=673)
-p
-No depression 
-(n=9539)
-Depression 
-(n=1310)
-p
-No depression 
-(n=8591)
-Depression(n=3767)
-p
-No
-4317/20672
-4148 (75.4)
-2014 (72.4)
-0.003
-2791 (61.3)
-366 (54.4)
+8 of 16
+MA ET AL.
+TABLE 2
+Multinomial logistic regression analysis for the associations of CircS with the membership to cognitive function trajectory group.
+Persistently low (vs. persistently high)
+Persistently moderate (vs. persistently high)
+OR (95% CI)*
+p value
+OR (95% CI)*
+p value
+Global cognitive scores
+Crude model
+1.40[1.20–1.63]
 <0.001
-4723 (49.5)
-544 (41.5)
-<0.001
-4693 (54.6)
-1393 (37.0)
-<0.001
-Yes
-4215/16046
-1356 (24.6)
-768 (27.6)
-1761 (38.7)
-307 (45.6)
-4816 (50.5)
-766 (58.5)
-3898 (45.4)
-2374 (63.0)
-Diabetes (%)
-No
-6758/31007
-5179 (94.1)
-2587 (93.0)
-0.050
-4233 (93.0)
-601 (89.3)
-<0.001
-8076 (84.7)
-955 (76.0)
-<0.001
-6761 (78.7)
-2615 (69.4)
-<0.001
-Yes
-1734/5671
-325 (5.9)
-195 (7.0)
-319 (7.0)
-72 (10.7)
-1463 (15.3)
-315 (24.0)
-1830 (21.3)
-1152 (30.3)
-Cancer (%)
-No
-8147/34546
-5457 (99.1)
-2756 (99.1)
-0.711
-4239 (93.1)
-619 (92.0)
-0.277
-8331 (87.3)
-1169 (89.2)
-0.051
-8372 (97.5)
-3603 (95.6)
-<0.001
-Yes
-385/2172
-47 (0.9)
-26 (0.9)
-313 (6.9)
-54 (8.0)
-1208 (12.7)
-141 (10.8)
-219 (2.5)
-164 (4.4)
-Stroke (%)
-No
-8137/35451
-5422 (98.5)
-2682 (96.4)
-<0.001
-4407 (96.8)
-637 (94.7)
-0.004
-9074 (95.1)
-1218 (93.0)
-0.001
-8411 (97.9)
-3600 (95.6)
-<0.001
-Yes
-395/1267
-82 (1.5)
-100 (3.6)
-145 (3.2)
-36 (5.3)
-465 (4.9)
-92 (7.0)
-180 (2.1)
-167 (4.4)
-Arthritis (%)
-No
-4800/23580
-4078 (74.1)
-1557 (56.0)
-<0.001
-3148 (69.2)
-328 (48.7)
-<0.001
-4515 (47.3)
-418 (31.9)
-<0.001
-7039 (81.9)
-2497 (66.3)
-<0.001
-Yes
-3732/13138
-1426 (25.9)
-1225 (44)
-1404 (30.8)
-345 (51.3)
-5024 (52.7)
-892 (68.1)
-1552 (18.1)
-1270 (33.7)
-Drinking status (%)
-None
-5660/19578
-3134 (56.9)
-1713 (61.6)
-<0.001
-389 (8.5)
-117 (17.4)
-<0.001
-4187 (43.9)
-741 (56.6)
-<0.001
-6208 (72.3)
-3089 (82.0)
-<0.001
-Yes
-2872/17140
-2370 (43.1)
-1069 (38.4)
-4163 (91.5)
-556 (82.6)
-5352 (56.1)
-569 (43.4)
-2383 (27.7)
-678 (18.0)
-Smoking status 
-(%)
-None
-4908/17718
-3042 (55.3)
-1698 (61.0)
-<0.001
-1727 (37.9)
-206 (30.6)
-<0.001
-4249 (44.5)
-537 (41.0)
-0.015
-5136 (59.8)
-2467 (65.5)
-<0.001
-Yes
-3624/18740
-2462 (44.7)
-1084 (39.0)
-2825 (62.1)
-467 (69.4)
-5290 (55.5)
-773 (59.0)
-3455 (40.2)
-1300 (34.5)
-Baseline cognitive
-test score
-NA
-16.65 ± 4.63
-14.33 ± 4.63
-<0.001
-14.25 ± 3.40
-13.42 ± 3.64
-<0.001
-15.92 ± 3.98
-14.29 ± 4.60
-<0.001
-53.22 ± 18.25
-46.71 ± 17.71
-<0.001
+1.08[0.96–1.21]
+0.189
+Adjusted model*
+1.27[1.06–1.52]
+0.009
+1.10[0.97–1.26]
+0.132
+Mental intactness scores
+Crude model
+1.31[1.11–1.55]
+0.002
+1.14[1.02–1.28]
+0.026
+Adjusted model*
+1.18[0.97–1.43]
+0.099
+1.09[0.96–1.25]
+0.195
+Episodic memory scores
+Crude model
+1.21[1.02–1.43]
+0.027
+1.10[0.95–1.28]
+0.209
+Adjusted model*
+1.28[1.06–1.55]
+0.012
+1.14[0.96–1.35]
+0.135
+95%CI: 95% confidence interval;
+*Adjusted for age at baseline (continuous), gender (male, female), education (primary school or below, junior high school to high school, undergraduate or
+above), marital status (married, unmarried), residence (urban, rural), smoking (yes, no), drinking (yes, no), body mass index (<18.5, 18.5–23.9, 24.0–27.9,
+≥28.0 kg/m2), restriction on activities of daily living (yes, no), visual impairment (yes, no), hearing impairment (yes, no), stroke (yes, no), heart disease (yes, no),
+and hemoglobin (continuous).
+3.4
+Associations between CircS and cognitive
+trajectories
+The distribution of cognitive trajectories, stratified by CircS status, is
+depicted in Figure S5. A chi-square test revealed a significant asso-
+ciation between CircS status and cognitive trajectory membership
+(p < 0.001). Visually, individuals with CircS were proportionally more
+likely to belong to the “Persistently Low” trajectory and less likely to
+belong to the “Persistently High” trajectory compared to those with-
+out CircS. This preliminary unadjusted association necessitated further
+investigation using multivariable-adjusted models.
+Table 2 presents the findings from the multinomial regression
+analysis examining the association between CircS and cognitive tra-
+jectory membership. Compared to participants without CircS, adults
+with CircS exhibited poorer cognitive trajectories, with multivariable-
+adjusted OR and 95% CI for the “Persistently Low” trajectories of
+global cognitive function being 1.27 [1.06–1.52]. Similarly, adults with
+CircS demonstrated worse cognitive trajectories, with multivariable-
+adjusted OR (95% CI) for the “Persistently Low” trajectories of episodic
+memory being 1.28 [1.06–1.55].
+Comprehensive analyses of interactions identified several signifi-
+cant effect modifiers across various cognitive domains and trajectory
+comparisons. In terms of global cognitive trajectories, significant inter-
+actions were detected between CircS and education level (p = 0.0276)
+in the comparison between “persistently low” and “persistently high”
+trajectories, as well as between CircS and drinking status (p = 0.0167)
+in the comparison between “persistently moderate” and “persistently
+high” trajectories (see Figure 3). Regarding domain-specific trajecto-
+ries, episodic memory (refer to Figure S6) exhibited significant inter-
+actions with drinking status (p = 0.0337) and heart disease (p = 0.04)
+in the comparison between “persistently low” and “persistently high”
+trajectories, while mental intactness (refer to Figure S7) showed a sig-
+nificant interaction with heart disease (p = 0.0309) in the comparison
+between “persistently moderate” and “persistently high” trajectories.
+These findings indicate that the cognitive effects of CircS are influ-
+enced by distinct factors depending on the specific cognitive domain
+and the severity of the trajectory.
+3.5
+Casual forest analysis
+We employed causal forest analysis to estimate the HTEs of CircS on
+distinct cognitive trajectories. The analysis included 6218 participants
+with 2139 individuals diagnosed with CircS and 4079 controls.
+3.5.1
+ATEs
+The ATE of CircS varied across different cognitive trajectories
+(Figure 4A). For the persistently low cognitive trajectory, the ATE was
+0.029 (95% CI: 0.007–0.051), indicating a statistically significant asso-
+ciation. The persistently moderate cognitive trajectory showed an ATE
+of −0.002 (95% CI: −0.031 to 0.028), while the persistently high cog-
+nitive trajectory demonstrated an ATE of −0.029 (95% CI: −0.057 to
+−0.002).
+3.5.2
+Heterogeneity of treatment effects
+Substantial heterogeneity in ITEs was observed in persistently low
+cognitive trajectory (Figure 4A). The standard deviation of ITEs for per-
+sistently low cognitive trajectory was 0.0247, ranging from −0.0639 to
+0.1063. The standard deviation of ITEs for persistently moderate cog-
+nitive trajectory was 0.0429, ranging from −0.1994 to 0.1478 (Figure
+S8). The standard deviation of ITEs for persistently high cognitive
+trajectory was 0.0431, ranging from −0.2279 to 0.1454 (Figure S8).
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 9
 
-Page 9 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-covariates), compared to the reference group (Group1: 
-No abdominal obesity & No depression), participants 
-in “Abdominal obesity and Depression group” met with 
-more cognitive decline [ELSA (Group2: Abdominal obe-
-sity (I) and Depression): β =  − 0.20, 95% CI 0.29 to − 0.12; 
-HRS (Group2: Abdominal obesity (I) and Depression): 
-β =  − 0.20, 95% CI: − 0.27 to − 0.14, all P < 0.001]. In 
-CHARLS, although no “Abdominal obesity and Depres-
-sion” group was divided, the group containing depression 
-(Group 2: No abdominal obesity (II) and Depression) 
-also had poorer cognitive development than the refer-
-ence group (β =  − 0.31, 95% CI − 0.39 to − 0.23, P < 0.001); 
-meanwhile, participants in this group exhibited a higher 
-WHtR compared to those in the reference group (Addi-
-tionalfile 1: Table S9).
-Subgroup analysis
-We further stratified the population into different sub-
-groups according to main demographic variables (such 
-as age, gender, education status and so on) to assess the 
-heterogeneity of joint trajectories (BMI and Depressive 
-symptoms and WHtR and Depressive symptoms) on 
-changes in cognitive function (Additional file 2: Fig. S7–
-S8, and Table S10). The results were similar to the main 
-results but not consistent in four cohorts.
-Secondary and sensitivity analyses
-The current research further conducted two secondary 
-analyses to supplement the results. (1) We explored the 
-association between the transition in depression-obesity 
-status and development of cognitive function in partici-
-pants. The results indicated that compared to those who 
-maintained neither depression nor obesity, participants 
-in other transition groups may have had worse cognitive 
-function (Additional file 3: Table S11–S13 and Fig. S9). 
-(2) We included Weight-Adjusted Waist Index (WWI) 
-as another measure of obesity. It was observed that indi-
-viduals in the joint trajectory groups with higher WWI 
-and/or depression had poorer cognitive development 
-compared to the reference group (Low WWI and No 
-depression) (Additional file  3: Fig. S10 and Table S14–
-S15). We also conducted a sensitivity analysis (removed 
-566 underweight participants) and obtained results that 
-accorded closely with those of the main analyses (Addi-
-tional file 3: Fig. S11 andTable S16).
-Discussion
-Our analysis of longitudinal data from four multinational 
-cohorts examined the additive and synergistic effects of 
-depression and obesity/abdominal obesity (AO), and 
-their combination, on cognitive function in middle-aged 
-and older adults. Specifically, individuals in “Depression 
-Fig. 2  Associations between joint trajectories and changes in cognitive function A Association between baseline depression-obesity status 
-(Obesity indicator: BMI) and changes in cognitive function. B Association between baseline depression-obesity status (Obesity indicator: WHtR) 
-and changes in cognitive function. All models were adjusted for age, gender, education status, residence, marital status, household economic 
-situation, (race:only in the ELSA, and HRS), hypertension, diabetes, cancer, stroke, arthritis, drinking status, and smoking status. [Standardized β 
-are shown as centers of horizonal bar plots, with error bars representing 95% CI, *P < 0.05, **P < 0.01, ***P < 0.001]. Abbreviations: CHARLS, China 
-Health and Retirement Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health 
-and Retirement Study. Notes: In CHARLS, ELSA, and MHAS, household economic situation was defined by total household per capita consumption. 
-In HRS, household economic situation was defined by total household income
+MA ET AL.
+9 of 16
+FIGURE 3
+Stratified analysis of the association between circadian syndrome and global cognitive trajectory membership across all covariates,
+with interaction p-values.
+FIGURE 4
+Heterogeneous treatment effects of circadian syndrome on cognitive trajectories: (A) causal forest analysis of circadian syndrome
+effects on cognitive trajectories; (B) the predictive impact of circadian syndrome on persistently low cognitive trajectories and its relationship with
+age, hemoglobin level, ADL ability, hearing impairment, and body mass index.
+3.5.3
+Variable importance in treatment effect
+heterogeneity
+Variable importance analysis identified key moderators of treatment
+effect heterogeneity for persistently low cognitive trajectory risk
+(Figure 4A). The most influential variables were: (1) Hemoglobin
+(Hb)—Importance score: 0.287; (2) Age—Importance score: 0.252; (3)
+BMI—Importance score: 0.236; (4) ADL—Importance score: 0.058; (5)
+Hearing impairment (Deaf)—Importance score: 0.030. These variables
+accounted for the majority of heterogeneity in how CircS affects cog-
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 10
 
-Page 10 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Fig. 3  Joint trajectories of BMI (kg/m2)/WHtR and depressive symptoms in all waves. Abbreviations: CHARLS, China Health and Retirement 
-Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health and Retirement Study; 
-95% CI, 95% confidence interval. Notes: The different colored lines show the mean of BMI/WHtR and score of depressive symptoms in different 
-trajectory groups; (I) and (II) represent different degrees
+10 of 16
+MA ET AL.
+nitive decline risk. Variable importance analysis also identified key
+moderators of treatment effect heterogeneity for persistently mod-
+erate and high cognitive trajectories. The top three variables were
+similarly BMI, Hb, and Age (see Figure S8).
+3.5.4
+Relationship between predicted treatment
+effects and individual characteristics
+The analysis of HTEs revealed distinct patterns between predicted
+effect of CircS and key individual characteristics for persistently low
+cognitive trajectory (Figure 4B). The visualization clearly demarcated
+high-effect (predicted risk increase > 0) and low-effect (predicted risk
+increase ≤0) subgroups across all covariate distributions.
+A moderate negative correlation was observed between age and
+treatment effects (r = −0.33), indicating that older individuals derived
+significantly less treatment effects from CircS. The treatment effects
+showed a clear decreasing trend with advancing age, with the high-
+est treatment effects observed in younger participants. While the
+simple linear correlation between Hb and the CircS effect was negli-
+gible (r = 0.01), the causal forest model, capable of capturing complex,
+nonlinear dependencies, identified Hb as the most important modera-
+tor (variable importance score: 0.287). This apparent discrepancy was
+resolved by visualizing the relationship, which uncovered a distinct
+U-shaped pattern. Specifically, the treatment effects of CircS on persis-
+tently low cognitive trajectory were most pronounced for individuals
+with Hb levels concentrated in a mild-anemia range (approximately
+95 g/L), whereas those at both the lower and upper extremes of the
+Hb distribution exhibited relative resilience. This nonlinear pattern
+underscores that Hb remains a variable of paramount importance
+in moderating the cognitive impact of CircS, even in the absence
+of a strong linear association, and highlights a specific “metabolic-
+vulnerable” phenotypic window at middling Hb levels. A weak negative
+correlation emerged between ADL, hearing impairment and influence
+(r = −0.05), with a slight tendency for individuals without ADL ability
+or with hearing impairment to experience greater treatment effects
+against cognitive decline. A weak positive correlation was observed
+between BMI and the ITE of CircS (r = 0.07), suggesting a tendency
+for individuals with a higher BMI to experience a slightly greater detri-
+mental effect from CircS on the risk of a persistently low cognitive
+trajectory.
+Supplementary analyses examined the heterogeneity of CircS
+effects on the “persistently moderate” and “persistently high” cognitive
+trajectories (Figure S9). Interpretation of the “persistently moderate”
+trajectory was limited, as it was defined relative to both the high
+and low trajectory classes. For the “persistently high” trajectory, the
+moderating effect of age was minimal (r = −0.02), indicating that
+the adverse association between CircS and maintaining high cogni-
+tive function was largely consistent across the studied age range. Hb
+exhibited a near U-shaped relationship with the CircS effect, with peak
+susceptibility observed around 95 g/L, consistent with findings from
+the low-trajectory analysis. BMI also showed a U-shaped moderating
+effect, with the strongest negative effect of CircS on maintaining a
+high trajectory occurring at approximately 24 kg/m2. While this pat-
+tern is not fully aligned with the low-trajectory results, it underscores
+the importance of maintaining a normal BMI for cognitive health.
+3.5.5
+Robustness and calibration
+Model calibration tests confirmed adequate fit for all three cognitive
+trajectories. The heterogeneity coefficients were 1.01 (p = 0.01) for the
+persistently low cognitive trajectory, 0.82 (p = 0.24) for the persistently
+moderate cognitive trajectory, and 0.98 (p = 0.01) for the persistently
+high cognitive trajectory. Sensitivity analyses using reduced tree num-
+bers (5000 trees) yielded consistent results, with ATE differences of
+0.0001, 0.0007, and 0.0005 for the low, moderate, and high cognitive
+trajectories, respectively.
+3.6
+Sensitivity analysis
+3.6.1
+IPW
+The IPW analysis demonstrated adequate covariate balance after
+weighting, with all standardized mean differences below 0.1 (Figure
+S10). The distribution of inverse probability weights showed appropri-
+ate specification with minimal extreme weights (Figure S11).
+In the weighted analysis, the association between CircS and cogni-
+tive trajectories remained consistent with our primary findings. For the
+low versus high trajectory comparison, the weighted OR was 1.31 (95%
+CI: 1.08–1.56). For the moderate versus high trajectory comparison,
+the weighted OR was 1.09 (95% CI: 0.96–1.25). The distribution of cog-
+nitive trajectories before and after weighting demonstrated successful
+balancing of the study population (Figure S12).
+These IPW results confirm the robustness of our primary multino-
+mial logistic regression findings, providing additional evidence for the
+association between CircS and unfavorable cognitive trajectories.
+3.6.2
+LMMs
+The sensitivity analysis using LMMs revealed distinct patterns of cog-
+nitive decline associated with CircS status over time (Figure S13). We
+observed significant interaction effects between CircS and age for both
+global cognitive scores (β = −0.02, p = 0.003) and episodic memory
+(β = −0.01, p = 0.02), indicating that the presence of CircS was asso-
+ciated with an accelerated rate of cognitive decline in these domains as
+age increased.
+In contrast, no significant interaction was found between CircS and
+age for mental intactness scores (β = −0.01, p = 0.054), suggesting that
+the decline in this cognitive domain might follow a similar trajectory
+regardless of CircS status.
+Visual inspection of the predicted trajectories clearly demonstrates
+that participants with CircS (red line) exhibited steeper declines in
+globalcognitionandepisodicmemorycomparedtothosewithoutCircS
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 11
 
-Page 11 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-alone” or “Comorbidity” at baseline experienced acceler-
-ated cognitive decline compared to those with “Neither 
-condition,” using either BMI or WHtR. We also found the 
-impact of “Obesity alone” was heterogeneous. However, 
-when WHtR defined obesity, “Comorbidity” showed the 
-greatest variance to variance in cognitive development. In 
-cluster analysis, employing BMI to gauge obesity revealed 
-that the joint trajectory of depression and obesity had 
-heterogeneous effects on cognition decline. Nonetheless, 
-all cohorts demonstrated that the trajectory group with 
-depression had quicker cognitive deterioration than the 
-reference group. Notably, in examining AO, a key obesity 
-subtype, all three groups with measured waist circum-
-ference revealed that the “Higher WHtR/AO & Depres-
-sion” group significantly contributed to cognitive decline 
-relative to the reference group. The outcome was further 
-corroborated through the joint trajectory analysis of sec-
-ondary analysis employing WWI.
-Factors influencing the cognitive function of middle-
-aged and older adults have conducted numerous cross-
-cultural longitudinal studies on the relationship between 
-obesity and cognition, as well as depression and cogni-
-tion individually [9, 19, 20, 27, 28, 31]. However, consid-
-ering that obesity and depression may share common 
-pathological pathways [8], and serve as significant factors 
-affecting overall systemic metabolic disorders and qual-
-ity of life [69–74], exerting negative influences on higher-
-order functions of the brain. Therefore, results evaluating 
-only individual factors may be limited and biased, which 
-makes them difficult to interpret and validate [73].
-Replicated evidence indicates a negative relationship 
-exists between cognitive function and depressive disor-
-ders [11, 75–78]. Cognitive decline in middle- and older-
-aged adults with depression may be a consequence of 
-alteration in the structure and function of pathogenetic 
-mechanisms including neurotransmitters, vascular pro-
-cesses, neuroinflammation, and neural networks [79–83].
-The association between obesity and cognition is 
-inconsistent and heterogeneity [26, 27, 84]. Some stud-
-ies have indicated a negative correlation between obesity 
-and cognitive ability [27, 84]. In contrast, other research 
-has shown a positive correlation, implying that obesity 
-may exert a protective effect on cognitive development 
-in middle-aged and older adults. When employing BMI 
-as an indicator of obesity and comprehensively consid-
-ering the depressive symptoms of the participants, our 
-study also reached similar conclusions among the HRS 
-and MHAS populations. This could be explained by 
-the “obesity paradox,” which suggests that compared to 
-underweight individuals, body fat may have a protective 
-Fig. 4  Associations between joint trajectories and changes in cognitive function. A Associations between joint trajectories (BMI and score 
-of depressive symptoms) and changes in cognitive function. B Associations between joint trajectories (WHtR and score of depressive symptoms) 
-and changes in cognitive function. All models were adjusted for age, gender, education status, residence, marital status, household economic 
-situation, race (race:only in the ELSA and HRS), hypertension, diabetes, cancer, stroke, arthritis, drinking status, and smoking status [Standardized β 
-are shown as centers of horizonal bar plots, with error bars representing 95% CI, *P < 0.05, **P < 0.01, ***P < 0.001]. Abbreviations: CHARLS, China 
-Health and Retirement Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health 
-and Retirement Study. Notes: In CHARLS, ELSA, and MHAS, household economic situation was defined by total household per capita consumption. 
-In HRS, household economic situation was defined by total household income. (I) and (II) represented different degrees
+MA ET AL.
+11 of 16
+FIGURE 5
+Dose–response relationships between continuous circadian syndrome score and global cognitive trajectory.
+(blue line). This pattern was consistent with our primary analyses using
+trajectory modeling.
+3.6.3
+Continuous CircS score analysis
+When analyzing CircS as a continuous variable, we observed differ-
+ences from the primary binary analysis (Table S3). For the low versus
+high trajectory comparison, each one-unit increase in the CircS score
+was associated with a 16% increase in odds (adjusted OR = 1.16, 95%
+CI: 1.05–1.18), consistent with the direction of our primary analysis but
+suggesting a more graded dose–response relationship.
+Importantly, for the moderate versus high trajectory comparison,
+the continuous analysis did not reveal a statistically significant associ-
+ation in the primary binary analysis. Each unit increase in CircS score
+was associated with a 7% increase in odds of belonging to the mod-
+erate versus high trajectory (adjusted OR = 1.07, 95% CI: 1.03–1.11).
+This finding suggests that the binary classification of CircS may have
+limited sensitivity to detect more subtle associations with intermediate
+cognitive outcomes, and that circadian dysregulation operates along a
+continuum in its relationship with cognitive trajectories (Figure 5).
+3.6.4
+Sensitivity analysis with additional covariates
+After adjusting for additional covariates, the associationbetweenCircS
+and the “persistently low” global cognitive trajectory remained signif-
+icant, with an adjusted odds ratio of 1.31 (95% CI: 1.09–1.57; Table
+S4). In the causal forest analysis, the ATE of CircS on the “persistently
+low” trajectory was 0.0312 (95% CI: 0.0111–0.0513) [Table S5]. The
+distributions of ITEs are detailed in Table S5 and Figure S14. Variable
+importance analysis (Figure S14) identified Hb, BMI, and age as the
+top three moderators for the “persistently low” trajectory, consistent
+with the primary analysis. Physical activity emerged as the fourth most
+important variable. The relationships of predicted ITEs with Hb, BMI,
+and age in “persistently low” trajectory (Figure S15) remained simi-
+lar to those in the primary analysis. A weak positive correlation was
+observed between physical activity and the ITEs in in “persistently low”
+trajectory (r = 0.09).
+3.6.5
+Sensitivity analysis using multiple imputation
+To evaluate the potential influence of selection bias due to missing
+baseline CircS data, analyses were repeated using multiple imputation.
+The trajectory patterns identified in the imputed data were similar to
+the primary analysis (Figure S16). In the adjusted multinomial logis-
+tic regression model, CircS remained associated with the “persistently
+low” global cognitive trajectory (adjusted OR = 1.13, 95% CI: 1.01–
+1.26; Table S6). Results from the causal forest analysis on the imputed
+data are summarized in Table S7. The ATE of CircS on the “persistently
+low” trajectory was 0.0209 (95% CI: 0.0096–0.0322).
+Variable importance analysis (Figure S17) indicated that age, Hb,
+and BMI remained the three most influential moderators of the CircS
+effect across trajectories. The relationships between predicted ITEs
+and Hb and BMI in “persistently low” global cognitive trajectory (Figure
+S18) were consistent with the primary findings. However, the relation-
+ship with age differed, exhibiting a U-shaped pattern in the imputed
+data, with higher treatment effects observed in both younger and older
+individuals.
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 12
 
-Page 12 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-effect on specific health conditions, including cognitive 
-function [85]. This can be explained as higher body fat 
-may protect against frailty, or that people with obesity 
-may have higher energy reserves to buffer the effects of 
-age-related brain atrophy [26, 27]. Additionally, individu-
-als with overweight or obesity may also attempt to lose 
-weight by engaging in physical exercise, and appropri-
-ate physical activity has been shown to improve cogni-
-tive conditions [86, 87]. For underweight individuals, this 
-association may be linked to sarcopenia and malnutrition 
-[88]. Meanwhile, weight loss or localized adipose tissue 
-deficiency is due to reduced food intake and food attrac-
-tiveness [89]. Furthermore, recent research has high-
-lighted that the obesity paradox may be explained by the 
-interaction between obesity and other factors, such as 
-individual genetic, metabolic, and anthropometric fac-
-tors [90–92].
-Agreement exists that BMI is an imprecise estimate 
-of fat mass which may be a source of variance in the 
-reported studies [93]. Differences in body fat distribution 
-exhibit different patterns in relation to cognitive function 
-[94]. As a general measure of body weight, BMI fails to 
-reflect fat distribution. In contrast, the Waist-to-Height 
-Ratio (WHtR) captures central obesity and serves as a 
-surrogate marker for visceral fat accumulation. Visceral 
-fat is closely associated with insulin resistance, endothe-
-lial dysfunction, and elevated levels of pro-inflammatory 
-cytokines such as interleukin-6 (IL-6) and C-reactive 
-protein (CRP), all of which are considered key factors 
-in the pathogenesis of cognitive impairment and neu-
-rodegenerative diseases [95]. Additionally, the Weight-
-Adjusted Waist Index (WWI) provides an adiposity index 
-independent of total body weight. Studies have shown 
-that WWI correlates more strongly with cardiovascular 
-metabolic risk factors, oxidative stress, and inflammatory 
-markers than BMI. Therefore, it is imperative to further 
-investigate the relationship between obesity subtypes or 
-fat distribution and cognitive function. Based on this, 
-the present study also conducted a parallel analysis using 
-the WHtR as a measure of central obesity and obtained 
-relatively consistent results across multinational sam-
-ples. Previous research indicates that AO is a risk factor 
-for cognitive decline in later life [96]. This association 
-may be related to dietary habits, metabolic impairment, 
-lipid disorders and activities, etc. [97–99]. However, the 
-decline in the physical and mental functions of older 
-adults leads to lower levels of leisure activity [100], which 
-may promote the occurrence of AO and further impair 
-their cognitive functions, while there may be a mutually 
-reinforcing relationship between cognitive decline and 
-some of the aforementioned influencing factors. There-
-fore, the relationship between fat distribution/physique 
-and cognition requires further consideration of more 
-specific fields and possibly integrate multiple physiologi-
-cal indicators for exploration. This point has been par-
-tially reflected in this study.
-Overall, obesity and depression are two prevalent and 
-potentially interdependent metabolic disorders, imposing 
-a significant disease burden on the health and well-being 
-of the middle-aged and older population. This study com-
-prehensively examined the impact of the joint trajectories 
-of these two diseases on the cognitive development of the 
-research subjects and, to some extent, revealed the intri-
-cate connections between them and cognitive decline. 
-The comorbidity of obesity (obesity indicator: BMI) and 
-depression at baseline may have a synergistic negative 
-effect on cognitive function. When including the scale 
-of time, the conclusions drawn from different cohorts 
-were inconsistent. These differences may stem from the 
-influence of cultural differences, dietary habits, and the 
-geographical environment [101–103]. For instance, a 
-Mediterranean diet, rich in antioxidants and healthy fats, 
-has been associated with better cognitive function even 
-in people living with obesity, whereas high-fat, high-
-sugar diets common in Western countries may exacer-
-bate cognitive decline [101] Conversely, after conducting 
-a parallel analysis employing WHtR as an obesity indica-
-tor to reflect the accumulation of abdominal fat, we have 
-identified its potential negative impact on cognitive func-
-tion in combination with depression. This may be due to 
-two shared pathways.
-Firstly, both conditions elevate the body’s inflamma-
-tory levels. Depressed individuals have higher levels of 
-inflammatory markers in their blood, such as interleu-
-kin (IL)−1β and C-reactive protein (CRP) [104, 105]. 
-Concurrently, adipose tissue has been identified as a 
-major source of inflammatory molecules [106], and the 
-link between inflammatory cytokines and AO is closer 
-than that with BMI [107], suggesting that the accumu-
-lation of abdominal fat may predispose the body to a 
-pro-inflammatory state [108]. It is worth noting that cir-
-culating pro-inflammatory mediators are associated with 
-neurodegenerative diseases, and peripheral inflamma-
-tion has been shown to negatively impact the develop-
-ment of chronic brain inflammation [109]. These insights 
-imply that depression and AO may jointly contribute to 
-an increase in systemic inflammation, which could sub-
-sequently impair cognitive function in middle-aged and 
-older adults. Additionally, the combined effects of AO 
-and depression are manifested in the elevation of oxi-
-dative stress levels. Secondly, during the aging process, 
-the brain’s antioxidant defense system becomes increas-
-ingly imbalanced, leading to increased oxidative stress, 
-which is one of the primary causes of cognitive decline 
-[110]. It is widely accepted that abdominal fat is a seri-
-ous risk factor for the accumulation of visceral fat, which
+12 of 16
+MA ET AL.
+3.6.6
+Sensitivity analysis examining collinearity
+and a modified CircS definition
+We conducted two additional sensitivity analyses to examine the
+robustness of our findings regarding BMI as an effect moderator. First,
+VIFs for all covariates, including CircS and BMI, were calculated. All
+VIFs were below 5, indicating no substantial multicollinearity (Figure
+S19).
+Second, we repeated the causal forest analysis using a modified def-
+inition of CircS that excluded the central obesity component. CircS
+was redefined as having ≥3 of the remaining 6 components. The
+association between this modified CircS and the “persistently low” cog-
+nitive trajectory remained significant, with an ATE of 0.0336 (95%
+CI: 0.0147–0.0525). Hemoglobin, age, and BMI were again identi-
+fied as the top three moderators of this effect (Figures S20,21), and
+their moderating patterns were basically consistent with the primary
+analysis.
+3.7
+Extended analysis
+In the extended analysis of cognitive transitions, the association
+between CircS and cognitive decline yielded an adjusted odds ratio
+of 1.04 (95% CI: 0.92–1.17; Table S8). The causal forest analy-
+sis yielded an ATE of 0.0010 (95% CI: −0.0273 to 0.0294). Sub-
+stantial heterogeneity in ITEs was observed (SD = 0.0397; range:
+−0.0994 to 0.169; Figure S22). Variable importance analysis identified
+BMI, hemoglobin, and age as the three most influential moderators,
+and their effect modification patterns (Figure S23) were similar to
+those observed for the “persistently low” trajectory in the primary
+analysis.
+4
+DISCUSSION
+This longitudinal study demonstrates that CircS is significantly asso-
+ciated with unfavorable cognitive trajectories among middle-aged
+and older Chinese adults. After multivariable adjustment, individ-
+uals with CircS had a 27% higher risk of a “persistently low”
+global cognitive trajectory and a 28% higher risk of a “persistently
+low” episodic memory trajectory. Importantly, by utilizing LCGM, we
+showed that CircS predicts distinct long-term cognitive aging pat-
+terns, moving beyond prior cross-sectional evdience.13 These findings
+were consistent in the sensitivity analyses, the latter confirming
+accelerated decline in global cognitive function among individuals
+with CircS. Additionally, causal forest analysis revealed substan-
+tial heterogeneity in the effect of CircS, moderated primarily by
+hemoglobin levels, age, and BMI. Collectively, our findings estab-
+lish CircS as a comprehensive and potent risk factor for cognitive
+decline.
+4.1
+Mechanisms between CircS and cognitive
+trajectory deterioration
+1. Pathophysiological mechanism:
+The pathway through which CircS contributes to cognitive decline
+initiates with the dysregulation of clock genes, such as
+BMAL1 and PER.30–32 This disruption directly compromises
+neuronal plasticity and synaptic functionality. Subsequently,
+it induces the activation of microglial cells, which release
+pro-inflammatory mediators, including IL-6 and TNF-α, and
+results in the accumulation of mitochondrial reactive oxygen
+species (ROS).33,34 Concurrently, metabolic and cerebrovas-
+cular dysfunctions impair cerebral blood flow perfusion and
+compromise the integrity of the blood–brain barrier, culminat-
+ing in white matter lesions and microinfarcts.35 Additionally,
+abnormal melatonin secretion diminishes its neuroprotec-
+tive effects against oxidative stress and Aβ aggregation.36,37
+Ultimately, sleep disturbances hinder the glymphatic sys-
+tem’s ability to clear metabolic waste products, such as
+Aβ and tau, leading to the accumulation of neurodegenera-
+tive pathologies.38,39 These processes are intricately linked
+through CircS disruptions and collectively exacerbate cogni-
+tive decline.
+1. Psychological and Behavioral Mechanisms:
+In addition to the biological pathways, the link between CircS and
+adverse cognitive trajectories may also involve behavioral and
+psychological pathways. Depressive symptoms may serve as
+a crucial mediator. Depression is frequently associated with
+apathy, diminished motivation, and anhedonia, which can lead
+to decreased participation in cognitively stimulating activi-
+ties and social interactions—critical components of cognitive
+reserve.40–42
+4.2
+Heterogeneity analysis
+Causal forest analysis demonstrated significant heterogeneity in the
+influence of CircS on cognitive trajectories, identifying hemoglobin,
+age, and BMI as key moderators. Unlike conventional regression
+approaches, our machine learning method quantified individual-level
+variations and identified a high-treatment-effect subgroup: younger
+individuals with mild-anemia hemoglobin levels (approximately 95 g/L)
+and elevated BMI.
+Hemoglobin emerged as the most influential moderator, exhibit-
+ing a distinct nonlinear relationship with the effects of CircS. Rather
+than a simple linear association, a U-shaped or threshold effect was
+observed: the most pronounced adverse effects of CircS were concen-
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 13
 
-Page 13 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-promotes the release of pro-oxidants, pro-inflammatory 
-agents, and reactive oxygen species (ROS) [111, 112]. 
-Studies have also demonstrated that antioxidant defenses 
-are weakened in individuals with depression, thereby 
-increasing oxidative stress [113]. In summary, AO and 
-depression may jointly elevate oxidative stress levels 
-within the body, which can stimulate brain atrophy and 
-morphological changes within the brain that ultimately 
-result in cognitive decline [114].
-This study has several strengths. Firstly, analyzed mul-
-tinational cohorts and a large sample size improve the 
-generalizability of the results. Secondly, advanced and 
-appropriate analytical methods provide a more compre-
-hensive interpretation of the joint contributions of the 
-heterogeneous trajectories of obesity and depression 
-to cognitive function. Additionally, the current study 
-examined multiple obesity-related indicators, which will 
-more accurately assess the interrelationship between 
-obesity and health status comprehensively. Finally, we 
-confirmed the robustness of our findings through vari-
-ous sensitivity analyses. To sum up, our findings under-
-score the importance of early detection and management 
-of both depression and obesity as a potential strategy to 
-mitigate cognitive deterioration. Specifically, clinicians 
-should screen for depressive symptoms alongside obesity 
-assessments (e.g., using BMI or waist-to-height ratio) to 
-identify at-risk individuals early, allowing for timely inter-
-vention. Moreover, an integrated treatment approach can 
-be adopted for patients with obesity-depression comor-
-bidity. Combining pharmacotherapy for depression with 
-lifestyle modifications aimed at weight management and 
-improved physical activity can enhance both mental and 
-physical well-being, thereby potentially slowing cognitive 
-decline.
-Of note, there are several limitations to be acknowl-
-edged. Firstly, there is a potential self-reporting bias. 
-Height and weight data in the MHAS cohort were self-
-reported, potentially misclassifying obesity prevalence 
-and obscuring its relationship with cognitive decline, 
-as BMI accuracy remains unverified. Secondly, there 
-are variations in measurement dimensions of cognitive 
-function across different cohorts. Although the study 
-attempted to standardize scores from each cohort by 
-generating z-scores, it must be acknowledged that dis-
-parities in cognitive measurement instruments and their 
-respective sensitivities may introduce a degree of system-
-atic bias, potentially affecting outcome validity and gen-
-eralizability. Thirdly, there are unmeasured confounding 
-factors. Although the study adjusted for multiple con-
-founding factors, certain variables relevant to cognitive 
-function—such as dietary patterns [101], physical activ-
-ity levels [86], social support networks [115], and sleep 
-quality [116]—were not consistently available across the 
-included cohorts due to limitations in data collection or 
-heterogeneity in measurement methods. The absence of 
-these factors may have influenced the observed associa-
-tions. These constraints suggest that the findings should 
-be generalized with caution to populations with differing 
-sociodemographic characteristics, measurement infra-
-structures, or exposure to unmeasured confounders—
-particularly among groups who may experience difficulty 
-providing accurate and complete data. And to enhance 
-generalizability, future research must prioritize: [1] rep-
-lication in geographically and culturally diverse cohorts, 
-[2] integration of objectively measured variables (e.g., 
-accelerometer-derived physical activity, validated dietary 
-assessments), and [3] systematic inclusion of previously 
-unmeasured confounders. Such efforts are essential to 
-validate the observed associations across heterogeneous 
-populations and real-world clinical contexts.
-Conclusions
-Herein, we observed that the comorbidity of obesity 
-and depression independently and additively negatively 
-affected cognitive function in middle-aged and older 
-people. This advocates for clinical screening to prioritize 
-depression and abdominal obesity beyond BMI, thereby 
-enhancing early identification of high-risk populations. 
-Overall, the critical clinical importance of managing 
-abdominal fat accumulation and maintaining positive 
-emotions to prevent and mitigate cognitive deterioration 
-is emphasized. For comorbid cases, an innovative dual-
-pathway intervention could be considered: combining 
-antidepressant pharmacotherapy with lifestyle-based 
-weight management to simultaneously improve mental/
-physical health and preserve cognition.
-Abbreviations
-AO	
-Abdominal obesity
-BMI	
-Body Mass Index
-CCCE	
-Cross-Cultural Cognitive Examination
-CESD	
-Center for Epidemiologic Studies Depression Scale
-CESD-9	
-9-item version of the CESD (used in MHAS)
-CESD-10	
-10-item version of the CESD (used in CHARLS)
-CHARLS	
-China Health and Retirement Longitudinal Study
-CI	
-Confidence interval
-CRP	
-C-reactive protein
-ELSA	
-English Longitudinal Study of Ageing
-GEE	
-Generalized Estimating Equations
-GLM	
-Generalized linear model
-HPA	
-Hypothalamic-pituitary-adrenal (axis)
-HRS	
-Health and Retirement Study
-IL-6	
-Interleukin-6
-KMl3D	
-K-means longitudinal clustering in 3 dimensions
-MHAS	
-Mexican Health and Aging Study
-MMSE	
-Mini-Mental State Examination
-ROS	
-Reactive oxygen species
-SD	
-Standard deviation
-TICS	
-Telephone Interview for Cognitive Status
-WHtR	
-Waist-to-height ratio
-WHO	
-World Health Organization
-WWI	
-Weight-Adjusted Waist Index
-z-score	
-Standardized score
+MA ET AL.
+13 of 16
+trated among individuals within an intermediate range of hemoglobin
+concentration (approximately 95 g/L), while those at both lower and
+higher extremes demonstrated relative resilience. This complex pat-
+ternindicatesthepresenceofdistinctunderlyingpathophysiology.Low
+hemoglobin may contribute to cognitive impairment primarily through
+chronic cerebral hypoxia43–47—a parallel risk pathway—whereas the
+concentration of risk in the middle range may signify a “metabolically-
+vulnerable” phenotype. In these individuals, subclinical vascular dys-
+function and low-grade inflammation, core components of CircS, likely
+converge to induce cognitive damage without being severe enough to
+manifest as overt anemia.
+Age emerged as the second most significant moderator, exhibiting
+an unexpected direction of effect. Our analysis revealed a negative
+correlation between age and the ITE of CircS, suggesting that the
+adverse impact on cognitive decline was more pronounced among
+younger individuals. This observation may imply the presence of a
+critical period in mid-life during which the intersection of circadian,
+metabolic, and affective disturbances represented by CircS could
+trigger a more rapid and potentially less reversible pathological pro-
+gression, thereby establishing a trajectory for accelerated long-term
+decline.9,48–52 Alternatively, this pattern could reflect a selective sur-
+vival bias, wherein the oldest-old participants who remain in the study
+are inherently more resilient.
+BMI was also a significant moderator, a finding that requires care-
+ful interpretation. It is important to distinguish the role of BMI as a
+moderator from central obesity as a diagnostic component of CircS.
+While central obesity specifically reflects abdominal visceral fat, a key
+driver of cardiometabolic risk within CircS, BMI serves as a broader,
+composite indicator of overall body composition and metabolic load. It
+captures not only adiposity but also aspects of nutritional status and
+chronic, low-grade systemic inflammation—factors implicated in neu-
+roinflammation and cognitive decline through pathways distinct from,
+though often concomitant with, abdominal fat accumulation.53–56
+Therefore, BMI may represent a dimension of generalized metabolic
+vulnerability that extends beyond the specific criterion of central obe-
+sity. The observed moderating effect of BMI likely operates through
+these extended pathways, which may interact synergistically with
+circadian dysfunction to exacerbate cognitive decline. For instance,
+elevated BMI frequently coincides with a state of “metabolically
+unhealthy obesity,” characterized by insulin resistance and altered
+adipokine secretion—conditions that are themselves both causes and
+consequences of circadian disruption.57–60 This bidirectional relation-
+ship suggests a vicious cycle wherein circadian misalignment and
+metabolic dysfunction mutually reinforce each other, creating a com-
+pounded risk for neural integrity. In this context, BMI emerges not
+merely as a correlate of abdominal obesity but as a clinically accessi-
+ble marker of this integrated, pathological network. Thus, its role as
+an effect modifier likely reflects a distinct layer of metabolic suscep-
+tibility that influences an individual’s resilience or vulnerability to the
+cognitive impacts of CircS.
+4.3
+Clinical implications
+Our findings have significant implications for clinical practice and
+public health initiatives aimed at preserving cognitive function. This
+longitudinal study demonstrates that CircS predicts the “persistently
+low” cognitive trajectory. Furthermore, a dose–response relationship
+was observed, wherein a higher CircS score increased the risk of
+belonging to the persistently low cognitive trajectory. The identifi-
+cation of CircS as a strong predictor of adverse cognitive outcomes
+highlights its potential as a clinically actionable screening tool. In pri-
+mary care and geriatric settings, evaluating the composite CircS profile
+could enable the early identification of middle-aged and older adults
+at elevated risk for persistent cognitive decline, thereby facilitat-
+ing timely interventions before substantial neurodegeneration occurs.
+Moreover, the heterogeneity revealed by our causal forest analysis
+strongly supports a stratified and personalized prevention approach.
+Specifically, individuals with mild anemia (hemoglobin levels around
+95 g/L) and those in the younger middle-age bracket emerge as pri-
+ority subgroups who may benefit most from targeted management
+of their circadian and metabolic health. Potential interventions may
+encompass lifestyle modifications aimed at aligning circadian rhythms,
+such as scheduled light exposure and consistent meal and sleep rou-
+tines, as well as strategies for metabolic enhancement. Future research
+ought to prioritize the development and rigorous evaluation of these
+multifaceted interventions, with a particular emphasis on conducting
+randomized controlled trials. Such studies are essential to ascertain
+whether addressing components of CircS factors can effectively slow
+cognitive decline in identified high-risk populations.
+4.4
+Strength and limitation
+This study possesses several methodological strengths. First, the uti-
+lization of a large, nationally representative cohort with four waves
+of longitudinal data allowed us to move beyond cross-sectional snap-
+shots and model the dynamic nature of cognitive change, providing a
+more robust assessment of the exposure–outcome relationship.61,62
+Second, our application of LCGM was pivotal in capturing the inherent
+heterogeneity in cognitive aging, identifying distinct subpopulations
+with “persistently low,” “moderate,” and “high” trajectories that would
+be obscured by analyzing the population average alone.63,64 Third,
+we complemented this group-based trajectory analysis with a cutting-
+edge machine learning technique—causal forest analysis—to estimate
+ITEs. This advanced method allowed us to quantify the substantial
+heterogeneity in how CircS affects cognitive trajectories and to iden-
+tify key moderators and a high-risk subgroup, thereby providing a
+foundation for personalized risk assessment.65,66
+Several limitations should be considered when interpreting our find-
+ings. First, the observational design inherently limits causal inference,
+despite robust sensitivity analyses. Factors like social engagement may
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 14
 
-Page 14 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Supplementary Information
-The online version contains supplementary material available at https://​doi.​
-org/​10.​1186/​s12916-​025-​04298-2.
-Additional File 1
-Acknowledgements
-All authors thank the the GATEWAY TO GLOBAL AGING DATA for providing 
-the Harmonized Data. We also thank the original data collectors, depositors, 
-copyrightholders, and funders of China Health and Retirement LongitudinaS-
-tudy, English Longitudinal Study of Ageing, Health andRetirement Study, and 
-Mexican Health and Aging Study.
-Authors’ contributions
-RW, YC and BC contributed to the study design. RW analysed the data and RW, 
-YC and BC were involved in data interpretation. RW and YC drafted the first 
-version of the manuscript and prepared tables and figures. KMT, RSM, and BC 
-reviewed and revised the manuscript. All authors were involved in the writing 
-and critical revision of the manuscript. All authors have read and approved the 
-final manuscript.
-Funding
-This work was sponsored by the National Natural Science Foundation of China 
-(No. 32300926). The funding agents had no role in the design and conduct 
-of the study; collection, management, interpretation of the data; preparation, 
-review, or approval of the manuscript.
-Data availability
-The datasets analyzed during the current study are publicly available and can 
-be accessed as follows: CHARLS (China Health and Retirement Longitudinal 
-Study): https://​hrs.​isr.​umich.​edu/​about? ELSA (English Longitudinal Study 
-of Ageing): https://​ukdat​aserv​ice.​ac.​uk/​about/​HRS (Health and Retirement 
-Study): https://​charls.​pku.​edu.​cn/​gy/​gyxm.​htm MHAS (Mexican Health and 
-Aging Study): https://​www.​mhasw​eb.​org/​Home/​Index.​aspx All data are free to 
-access for bona fide research purposes upon registration with the respective 
-study platforms. No personally identifiable information was used. Analysis 
-scripts and processed data files can be requested from the corresponding 
-author.
-Declarations
-Ethics approval and consent to participate
-The China Health and Retirement Longitudinal Study (CHARLS) received 
-approval from the Ethical Review Committee of Peking University 
-(IRB00001052-11015). The English Longitudinal Study of Ageing (ELSA) 
-was approved by the London Multicentre Research Ethics Committee 
-(MREC/01/2/91). The Health and Retirement Study (HRS) was approved by 
-the Institutional Review Board at the University of Michigan and the National 
-Institute on Aging (HUM00061128) and the Mexican Health and Aging Study 
-(MHAS) is partly sponsored by the National Institutes of Health/National 
-Institute on Aging (NIH R01AG018016) in the United States and the Instituto 
-Nacional de Estadística y Geografía (INEGI) in Mexico. All respondents pro-
-vided written informed consent.
-Consent for publication
-Not applicable.
-Competing interests
-Dr. Roger S. McIntyre has received research grant support from CIHR/GACD/
-National Natural Science Foundation of China (NSFC) and the Milken Institute; 
-speaker/consultation fees from Lundbeck, Janssen, Alkermes, Neumora Thera-
-peutics, Boehringer Ingelheim, Sage, Biogen, Mitsubishi Tanabe, Purdue, Pfizer, 
-Otsuka, Takeda, Neurocrine, Neurawell, Sunovion, Bausch Health, Axsome, 
-Novo Nordisk, Kris, Sanofi, Eisai, Intra-Cellular, NewBridge Pharmaceuticals, 
-Viatris, Abbvie and Atai Life Sciences. Kayla M. Teopiz has received fees from 
-Braxia Scientific Corp.All other authors have no conflicts of interest to declare.
-Author details
-1 Key Laboratory of Cognition and Personality, Faculty of Psychology, Ministry 
-of Education, Southwest University, Chongqing 400715, People’s Republic 
-of China. 2 Brain and Cognition Discovery Foundation, Toronto, ON, Canada. 
-3 Department of Psychiatry, University of Toronto, Toronto, ON, Canada. 
-4 Department of Pharmacology and Toxicology, University of Toronto, Toronto, 
-ON, Canada. 5 National Demonstration Center for Experimental Psychology 
-Education, Southwest University, Chongqing 400715, People’s Republic 
-of China. 
-Received: 14 April 2025   Accepted: 24 July 2025
-References
-	
-1.	 Luppino FS, de Wit LM, Bouvy PF, Stijnen T, Cuijpers P, Penninx BW, et al. 
-Overweight, obesity, and depression: a systematic review and meta-
-analysis of longitudinal studies. Arch Gen Psychiatry. 2010;67(3):220–9.
-	
-2.	 McIntyre RS. The co-occurrence of depression and obesity: implications 
-for clinical practice and the discovery of targeted and precise mecha-
-nistically informed therapeutics. J Clin Psychiatry. 2024;85(2):55135.
-	
-3.	 Lin L, Bai S, Qin K, Wong CKH, Wu T, Chen D, et al. Comorbid depres-
-sion and obesity, and its transition on the risk of functional disability 
-among middle-aged and older Chinese: a cohort study. BMC Geriatr. 
-2022;22(1):275.
-	
-4.	 CDC. Obesity prevalence among adults in the United States, 2017-2020. 
-Centers for Disease Control and Prevention (CDC); 2023 [cited 2025 Jun 
-13]. Available from: https://​www.​cdc.​gov/​obesi​ty/​adult-​obesi​ty-​facts/​
-index.​html.
-	
-5.	 Christl J, Grumbach P, Jockwitz C, Wege N, Caspers S, Meisenzahl E. 
-Prevalence of depressive symptoms in people aged 50 years and older: 
-a retrospective cross-sectional study. J Affect Disord. 2025;373:353–63.
-	
-6.	 Zhang H, Zheng R, Yu B, Yu Y, Luo X, Yin S, et al. Dissecting shared 
-genetic architecture between depression and body mass index. BMC 
-Medicine. 2024;22(1):455.
-	
-7.	 Milaneschi Y, Simmons WK, van Rossum EFC, Penninx BWJH. Depression 
-and obesity: evidence of shared biological mechanisms. Mol Psychiatry. 
-2018;24(1):18–33.
-	
-8.	 Mannan M, Mamun A, Doi S, Clavarino A. Is there a bi-directional 
-relationship between depression and obesity among adult men and 
-women? Systematic review and bias-adjusted meta analysis. Asian J 
-Psychiatry. 2016;21:51–66.
-	
-9.	 Grapsa I, Mamalaki E, Ntanasi E, Kosmidis MH, Dardiotis E, Hadjigeorgiou 
-GM, et al. Longitudinal examination of body mass index and cognitive 
-function in older adults: the HELIAD study. Nutrients. 2023;15(7):1795.
-	 10.	 Muhammad T, Meher T. Association of late-life depression with cogni-
-tive impairment: evidence from a cross-sectional study among older 
-adults in India. BMC Geriatr. 2021;21(1):364.
-	 11.	 McIntyre RS, Cha DS, Soczynska JK, Woldeyohannes HO, Gallaugher LA, 
-Kudlow P, et al. Cognitive Deficits and functional outcomes in major 
-depressive disorder: determinants, substrates, and treatment interven-
-tions. Depress Anxiety. 2013;30(6):515–27.
-	 12.	 Lin L, Bai S, Qin K, Wong CKH, Wu T, Chen D, et al. Comorbid depres-
-sion and obesity, and its transition on the risk of functional disability 
-among middle-aged and older Chinese: a cohort study. BMC Geriatrics. 
-2022;22(1):275.
-	 13.	 Collyer TA, Murray AM, Woods RL, Storey E, Chong TTJ, Ryan J, et al. 
-Association of dual decline in cognition and gait speed with risk of 
-dementia in older adults. JAMA Network Open. 2022;5(5).
-	 14.	 Elías-López D, Vargas-Vázquez A, Mehta R, Cruz Bautista I, Del Razo 
-Olvera F, Gómez-Velasco D, et al. Natural course of metabolically 
-healthy phenotype and risk of developing Cardiometabolic diseases: a 
-three years follow-up study. BMC Endocr Disord. 2021;21(1):85.
-	 15.	 Ganguli M, Beer JC, Zmuda JM, Ryan CM, Sullivan KJ, Chang CCH, et al. 
-Aging, diabetes, obesity, and cognitive decline: a population-based 
-study. J Am Geriatr Soc. 2020;68(5):991–8.
-	 16.	 Miller AA, Spencer SJ. Obesity and neuroinflammation: a pathway to 
-cognitive impairment. Brain Behav Immun. 2014;42:10–21.
+14 of 16
+MA ET AL.
+have bidirectional relationships with CircS, complicating full adjust-
+ment. Furthermore, the lack of objective measures for conditions like
+sleep apnea in CHARLS means residual confounding cannot be ruled
+out. Thus, our findings, while robust, cannot fully satisfy the assump-
+tion of no unmeasured confounding. Second, the assessment of key
+CircS components, particularly sleep and depressive symptoms, relied
+on self-reports, which may introduce measurement bias. This limita-
+tion is especially pertinent for the sleep component. Our definition
+used sleep duration alone (<6 h), a metric that does not capture other
+core dimensions of sleep health (e.g., regularity, timing).27 Since short
+sleep can arise from diverse causes (e.g., behavior, natural phenotype)
+not specific to circadian dysfunction,67–69 our measure may lead to
+misclassification and potentially underestimate the true association
+between circadian disruption and cognitive trajectories. Future stud-
+ies should employ multidimensional sleep assessments or circadian
+biomarkers to better define this component of the syndrome. Third, the
+generalizability of our findings may be limited to middle-aged and older
+Chinese adults, and replication in other ethnic and younger populations
+is needed. Finally, the conceptual overlap between BMI and the cen-
+tral obesity component of CircS complicates the interpretation of BMI
+as a distinct moderator. Although sensitivity analyses indicated that
+BMI’s moderating role persists even when central obesity is excluded
+from the syndrome definition, BMI likely reflects correlated metabolic
+features of the exposure.
+5
+CONCLUSION
+This study illustrates CircS significantly elevates the risk of adverse
+cognitive trajectories among Chinese middle-aged and older adults.
+Individuals with CircS exhibited a 27% increased risk of persistent
+global cognitive decline and a 28% increased risk of poor episodic
+memory trajectory. Causal forest analysis revealed considerable het-
+erogeneity in individual susceptibility, identifying a high-treatment-
+effect subgroup characterized by younger age, mid-anemia hemoglobin
+levels, and elevated BMI. These findings establish CircS as a signifi-
+cant and modifiable risk factor for cognitive trajectory deterioration.
+Incorporating circadian health assessments into clinical practice could
+facilitate the early identification of at-risk individuals, particularly
+those exhibiting the identified risk profile. Future research should
+prioritize the development of targeted interventions that address cir-
+cadian disruption and its metabolic correlates to mitigate cognitive
+consequences in vulnerable populations.
+AUTHOR CONTRIBUTIONS
+Jiangping Ma: Study design, data collection, formal analysis, visual-
+ization, and writing an original draft. Nan Chen: Study design, data
+collection, formal analysis, visualization, and writing an original draft.
+Jingxuan Huang: Data collection, formal analysis, and writing an
+original draft. Linghao Xu: Writing an original draft. Huifang Shang:
+Supervision, project administration, writing a review & editing. All
+authors read and approved the final manuscript.
+ACKNOWLEDGMENTS
+The authors would like to sincerely thank all the members of CHALRS
+for their valuable contributions and the participants who provided data
+for this study. This work was supported by the Sichuan Science and
+Technology Program (Grant No. 2022ZDZX0023).
+FUNDING INFORMATION
+This work was supported by the Sichuan Science and Technology
+Program (Grant No. 2022ZDZX0023).
+CONFLICT OF INTEREST STATEMENT
+The authors declare no conflicts of interest. Author disclosures are
+available in the supporting information.
+DATA AVAILABILITY STATEMENT
+The datasets utilized in this investigation are available in online reposi-
+tories. The names of the repository and the accession number(s) can be
+found at the following link: http://charls.pku.edu.cn/en.
+ETHICAL APPROVAL
+The protocol received approval from the Ethical Review Committee
+of Peking University (approval numbers: IRB00001052-11015 for the
+main household survey and IRB00001052-11014 for biomarker col-
+lection). The study was conducted in compliance with the Declaration
+of Helsinki principles. All participants signed the informed consent
+and repository consent that permitted their data to be shared after
+a detailed presentation of the risks and benefits related to study
+participation.
+REFERENCES
+1. Rookes T, Frost R, Barrado-Martin Y, et al. Type of goals set and
+progress towards these goals, as part of a behaviour change interven-
+tion, in people with mild cognitive impairment: a secondary analysis.
+Lancet. 2023;402(Suppl 1):S80. doi:10.1016/s0140-6736(23)02112-
+8
+2. Jamil Y, Krishnaswami A, Orkaby AR, et al. The impact of cog-
+nitive impairment on cardiovascular disease. J Am Coll Cardiol.
+2025;85(25):2472-2491. doi:10.1016/j.jacc.2025.04.057
+3. GBD 2023 Demographics Collaborators. Global age-sex-specific all-
+cause mortality and life expectancy estimates for 204 countries
+and territories and 660 subnational locations, 1950-2023: a demo-
+graphic analysis for the global burden of disease study 2023. Lancet.
+2025;406(10513):1731-1810. doi:10.1016/s0140-6736(25)01330-3
+4. Burns DK, Alexander RC, Welsh-Bohmer KA, et al. Safety and effi-
+cacy of pioglitazone for the delay of cognitive impairment in peo-
+ple at risk of Alzheimer’s disease (TOMMORROW): a prognostic
+biomarker study and a phase 3, randomised, double-blind, placebo-
+controlled trial. Lancet Neurol. 2021;20(7):537-547. doi:10.1016/
+s1474-4422(21)00043-0
+5. Neeland IJ, Lim S, Tchernof A, et al. Metabolic syndrome. Nat Rev Dis
+Primers. 2024;10(1):77. doi:10.1038/s41572-024-00563-5
+6. Ng TP, Feng L, Nyunt MS, et al. Metabolic syndrome and the risk
+of mild cognitive impairment and progression to dementia: follow-
+up of the Singapore longitudinal ageing study cohort. JAMA Neurol.
+2016;73(4):456-463. doi:10.1001/jamaneurol.2015.4899
+7. Qureshi D, Topiwala A, Al Abid SU, Allen NE, Kuźma E, Littlejohns TJ.
+Association of metabolic syndrome with neuroimaging and cognitive
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 15
 
-Page 15 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-	 17.	 Fu X, Wang Y, Zhao F, Cui R, Xie W, Liu Q, et al. Shared biological mecha-
-nisms of depression and obesity: focus on adipokines and lipokines. 
-Aging (Albany NY). 2023;15(12):5917.
-	 18.	 Kaup AR, Byers AL, Falvey C, Simonsick EM, Satterfield S, Ayonayon HN, 
-et al. Trajectories of depressive symptoms in older adults and risk of 
-dementia. JAMA Psychiatry. 2016;73(5):523–31.
-	 19.	 Yang X, Pan A, Gong J, Wen Y, Ye Y, Wu JHY, et al. Prospective associa-
-tions between depressive symptoms and cognitive functions in mid-
-dle-aged and elderly Chinese adults. J Affect Disord. 2020;263:692–7.
-	 20.	 Zhang B, Lin Y, Hu M, Sun Y, Xu M, Hao J, et al. Associations between tra-
-jectories of depressive symptoms and rate of cognitive decline among 
-Chinese middle-aged and older adults: an 8-year longitudinal study. J 
-Psychosom Res. 2022;160:110986.
-	 21.	 Keller J, Gomez R, Williams G, Lembke A, Lazzeroni L, Murphy GM, et al. 
-HPA axis in major depression: cortisol, clinical symptomatology and 
-genetic variation predict cognition. Mol Psychiatry. 2016;22(4):527–36.
-	 22.	 Frank P, Jokela M, Batty GD, Cadar D, Steptoe A, Kivimäki M. Association 
-between systemic inflammation and individual symptoms of depres-
-sion: a pooled analysis of 15 population-based cohort studies. Am J 
-Psychiatry. 2021;178(12):1107–18.
-	 23.	 Videbech P, Ravnkilde B. Hippocampal volume and depression: a meta-
-analysis of MRI studies. Am J Psychiatry. 2004;161(11):1957–66.
-	 24.	 Rock PL, Roiser JP, Riedel WJ, Blackwell AD. Cognitive impairment 
-in depression: a systematic review and meta-analysis. Psychol Med. 
-2013;44(10):2029–40.
-	 25.	 McDermott LM, Ebmeier KP. A meta-analysis of depression severity and 
-cognitive function. J Affect Disord. 2009;119(1–3):1–8.
-	 26.	 Albanese E, Launer LJ, Egger M, Prince MJ, Giannakopoulos P, Wolters 
-FJ, et al. Body mass index in midlife and dementia: systematic review 
-and meta-regression analysis of 589,649 men and women followed in 
-longitudinal studies. Alzheimer’s & Dementia: Diagnosis, Assessment & 
-Disease Monitoring. 2017;8(1):165–78.
-	 27.	 Pedditizi E, Peters R, Beckett N. The risk of overweight/obesity in mid-life 
-and late life for the development of dementia: a systematic review and 
-meta-analysis of longitudinal studies. Age Ageing. 2016;45(1):14–21.
-	 28.	 Kim G, Choi S, Lyu J. Body mass index and trajectories of cogni-
-tive decline among older Korean adults. Aging Ment Health. 
-2019;24(5):758–64.
-	 29.	 McIntyre RS, Rong C, Mansur RB, Brietzke E. Does obesity and diabetes 
-mellitus metastasize to the brain? “Metaboptosis” and implications for 
-drug discovery and development. CNS Spectr. 2019;24(5):467–9.
-	 30.	 Norton S, Matthews FE, Barnes DE, Yaffe K, Brayne C. Potential for 
-primary prevention of Alzheimer’s disease: an analysis of population-
-based data. Lancet Neurol. 2014;13(8):788–94.
-	 31.	 Liang F, Fu J, Moore JB, Zhang X, Xu Y, Qiu N, et al. Body mass index, 
-waist circumference, and cognitive decline among Chinese older 
-adults: a nationwide retrospective cohort study. Front Aging Neurosci. 
-2022;14: 737532.
-	 32.	 Tang X, Zhao W, Lu M, Zhang X, Zhang P, Xin Z, et al. Relationship 
-between central obesity and the incidence of cognitive impairment 
-and dementia from cohort studies involving 5,060,687 participants. 
-Neurosci Biobehav Rev. 2021;130:301–13.
-	 33.	 Tang H, Li Q, Du C. The association between waist-to-height ratio and 
-cognitive function in older adults. Nutr Neurosci. 2024;27(12):1405–12.
-	 34.	 Wang S-H, Su M-H, Chen C-Y, Lin Y-F, Feng Y-CA, Hsiao P-C, et al. 
-Causality of abdominal obesity on cognition: a trans-ethnic Mendelian 
-randomization study. Int J Obes. 2022;46(8):1487–92.
-	 35.	 Ren Z, Li Y, Li X, Shi H, Zhao H, He M, et al. Associations of body mass 
-index, waist circumference and waist-to-height ratio with cognitive 
-impairment among Chinese older adults: based on the CLHLS. J Affect 
-Disord. 2021;295:463–70.
-	 36.	 Dye L, Boyle NB, Champ C, Lawton C. The relationship between obesity 
-and cognitive health and decline. Proc Nutr Soc. 2017;76(4):443–54.
-	 37.	 Li J, Sun J, Zhang Y, Zhang B, Zhou L. Association between weight-
-adjusted-waist index and cognitive decline in US elderly participants. 
-Front Nutr. 2024;11:1390282.
-	 38.	 Team CR. China Health and Retirement Longitudinal Study (CHARLS). 
-Peking University; 2015 [cited 2024 Jul 2]. Available from: https://​charls.​
-pku.​edu.​cn/​gy/​gyxm.​htm.
-	 39.	 Banks J, Batty, G. D., Breedvelt, J., Coughlin, K., Crawford, R., Marmot, 
-M., Nazroo, J., Oldfield, Z., Steel, N., Steptoe, A., Wood, M., Zaninotto, P. 
-English Longitudinal Study of Ageing: Waves 0–10, 1998–2023: UK Data 
-Service; 2024 Available from: https://​ukdat​aserv​ice.​ac.​uk/​about/.
-	 40.	 Health and Retirement Study pud. Health and Retirement Study, public 
-use dataset. University of Michigan; 2016 [cited 2024 Jul 3]. Available 
-from: https://​hrs.​isr.​umich.​edu/​about.
-	 41.	 (MHAS) MHaAS. Mexican Health and Aging Study (MHAS). University of 
-Texas Medical Branch & INEGI; 2018 [cited 2024 Jul 4]. Available from: 
-https://​www.​mhasw​eb.​org/​Home/​Index.​aspx.
-	 42.	 Xu T, Ye X, Lu X, Lan G, Xie M, Huang Z, et al. Association between solid 
-cooking fuel and cognitive decline: three nationwide cohort studies in 
-middle-aged and older population. Environ Int. 2023;173: 107803.
-	 43.	 Tan K. Appropriate body-mass index for Asian populations and 
-its implications for policy and intervention strategies. The lancet. 
-2004;363(9403):157–63.
-	 44.	 Talaei M, Feng L, Barrenetxea J, Yuan J-M, Pan A, Koh W-P. Adiposity, 
-weight change, and risk of cognitive impairment: the Singapore Chi-
-nese Health Study. J Alzheimers Dis. 2020;74(1):319–29.
-	 45.	 Consultation W. Obesity: preventing and managing the global epi-
-demic. World Health Organ Tech Rep Ser. 2000;894:1–253.
-	 46.	 Chan V, Cao L, Wong MMH, Lo K, Tam W. Diagnostic accuracy of waist-
-to-height ratio, waist circumference, and body mass index in identifying 
-metabolic syndrome and its components in older adults: a systematic 
-review and meta-analysis. Curr Dev Nutr. 2024;8(1):102061.
-	 47.	 Konig HH, Lehnert T, Brenner H, Schottker B, Quinzler R, Haefeli WE, et al. 
-Health service use and costs associated with excess weight in older 
-adults in Germany. Age Ageing. 2015;44(4):616–23.
-	 48.	 Ye J, Hu Y, Chen X, Yin Z, Yuan X, Huang L, et al. Association between the 
-weight-adjusted waist index and stroke: a cross-sectional study. BMC 
-Public Health. 2023;23(1):1689.
-	 49.	 Liu H, Zhi J, Zhang C, Huang S, Ma Y, Luo D, et al. Association between 
-weight-adjusted waist index and depressive symptoms: a nationally 
-representative cross-sectional study from NHANES 2005 to 2018. J 
-Affect Disord. 2024;350:49–57.
-	 50.	 Park Y, Kim NH, Kwon TY, Kim SG. A novel adiposity index as an inte-
-grated predictor of cardiometabolic disease morbidity and mortality. 
-Scientific Reports. 2018;8(1):16753.
-	 51.	 Andresen EM, Malmgren JA, Carter WB, Patrick DL. Screening for 
-depression in well older adults: evaluation of. Prev Med. 1994;10:77–84.
-	 52.	 Steffick D. Documentation of affective functioning measures in the 
-Health and Retirement Study. 2000. Available from: https://​hrs.​isr.​umich.​
-edu/​docum​entat​ion/​affec​tive-​funct​ioning.
-	 53.	 Poole L, Jackowska M. The epidemiology of depressive symptoms and 
-poor sleep: findings from the English longitudinal study of ageing 
-(ELSA). Int J Behav Med. 2018;25(2):151–61.
-	 54.	 García-Pérez A, Pineda AEG-A, Sandoval-Bonilla BA, Cruz-Hervert LP. 
-Prevalence and factors associated with depressive symptoms in rural 
-and urban Mexican older adults: evidence from the Mexican Health 
-and Aging Study 2018. salud pública de méxico. 2022;64(4):367–76.
-	 55.	 Cruz-Cruz C, Zamora-Macorra M, Astudillo-García CI, Guerra G. Intersec-
-tionality and depression symptoms in Mexican adults aged≥ 50, MHAS 
-2001 and 2012. salud pública de méxico. 2023;65(5):475–84.
-	 56.	 Palta P, Carlson MC, Crum RM, Colantuoni E, Sharrett AR, Yasar S, 
-et al. Diabetes and cognitive decline in older adults: the ginkgo 
-evaluation of memory study. The Journals of Gerontology: Series A. 
-2018;73(1):123–30.
-	 57.	 Weir D, Faul J, Langa K. Proxy interviews and bias in the distribution 
-of cognitive abilities due to non-response in longitudinal studies: a 
-comparison of HRS and ELSA. Longitudinal and life course studies. 
-2011;2(2):170.
-	 58.	 Langa KM, Llewellyn DJ, Lang IA, Weir DR, Wallace RB, Kabeto MU, 
-et al. Cognitive health among older adults in the United States and in 
-England. BMC Geriatr. 2009;9(1):23.
-	 59.	 Li C, Zhu Y, Ma Y, Hua R, Zhong B, Xie W. Association of cumulative 
-blood pressure with cognitive decline, dementia, and mortality. J Am 
-Coll Cardiol. 2022;79(14):1321–35.
-	 60.	 Barragán-García M, Ramírez-Aldana R, López-Ortega M, Sánchez-
-García S, García-Peña C. Widowhood status and cognitive function in 
-community-dwelling older adults from the Mexican Health and Aging 
-Study (MHAS). J Popul Ageing. 2022;15(3):605–22.
-	 61.	 Zheng F, Yan L, Zhong B, Yang Z, Xie W. Progression of cognitive decline 
-before and after incident stroke. Neurology. 2019;93(1):e20–8.
+MA ET AL.
+15 of 16
+outcomes in the UK Biobank. Diabetes Care. 2024;47(8):1415-1423.
+doi:10.2337/dc24-0537
+8. Wang W, Li J, Cui S, et al. Microglial Ffar4 deficiency pro-
+motes
+cognitive
+impairment
+in
+the
+context
+of
+metabolic
+syndrome.
+Sci
+Adv.
+2024;10(5):eadj7813.
+doi:10.1126/sciadv.
+adj7813
+9. Zimmet P, Alberti K, Stern N, et al. The circadian syndrome: is the
+metabolic syndrome and much more!. J Intern Med. 2019;286(2):181-
+191. doi:10.1111/joim.12924
+10. Shi Z, Tuomilehto J, Kronfeld-Schor N, et al. The circadian syndrome
+is a significant and stronger predictor for cardiovascular disease
+than the metabolic syndrome-the NHANES survey during 2005-2016.
+Nutrients. 2022;14(24):5317. doi:10.3390/nu14245317
+11. Shi Z, Tuomilehto J, Kronfeld-Schor N, et al. The circadian syndrome
+predicts cardiovascular disease better than metabolic syndrome in
+Chinese adults. J Intern Med. 2021;289(6):851-860. doi:10.1111/joim.
+13204
+12. Liu Y, Zang B, Shao J, Ning N, He L, Ma Y. Predictor of cognitive
+impairment: metabolic syndrome or circadian syndrome. BMC Geriatr.
+2023;23(1):408. doi:10.1186/s12877-023-03996-x
+13. Shi Z, Stern N, Liu J, et al. The circadian syndrome is a predic-
+tor for cognition impairment in middle-aged adults: comparison with
+the metabolic syndrome. Diabetes/Metab Res Rev. 2024;40(5):e3827.
+doi:10.1002/dmrr.3827
+14. Sharon O, Zhelezniakov V, Gat Y, et al. Slow wave synchrony
+during NREM sleep tracks cognitive impairment in prodromal
+Alzheimer’s
+disease.
+Alzheimers
+Dement.
+2025;21(5):e70247.
+doi:10.1002/alz.70247
+15. Ismail Z, Elbayoumi H, Fischer CE, et al. Prevalence of depres-
+sion in patients with mild cognitive impairment: a systematic review
+and meta-analysis. JAMA Psychiatry. 2017;74(1):58-67. doi:10.1001/
+jamapsychiatry.2016.3162
+16. Yu L, Liu W, Liao C, et al. The interaction between circadian syndrome
+and genetic susceptibility in the risk of incident dementia: a longitu-
+dinal cohort study. J Prev Alzheimers Dis. 2025;12(5):100089. doi:10.
+1016/j.tjpad.2025.100089
+17. Burnham SC, Bourgeat P, Doré V, et al. Clinical and cognitive tra-
+jectories in cognitively healthy elderly individuals with suspected
+non-Alzheimer’s disease pathophysiology (SNAP) or Alzheimer’s dis-
+ease pathology: a longitudinal study. Lancet Neurol. 2016;15(10):1044-
+1053. doi:10.1016/s1474-4422(16)30125-9
+18. Devanarayan V, Donohue MC, Sperling RA, et al. Multimodal prog-
+nostic modeling of individual cognitive trajectories to enhance
+trial efficiency in preclinical Alzheimer’s disease. Alzheimers Dement.
+2025;21(9):e70702. doi:10.1002/alz.70702
+19. Wang T, Keil AP, Kim S, et al. Iterative causal forest: a novel algorithm
+for subgroup identification. Am J Epidemiol. 2024;193(5):764-776.
+doi:10.1093/aje/kwad219
+20. Elek P, Bíró A. Regional differences in diabetes across Europe—
+regression and causal forest analyses. Econ Hum Biol. 2021;40:100948.
+doi:10.1016/j.ehb.2020.100948
+21. Petticrew M, Tugwell P, Kristjansson E, Oliver S, Ueffing E, Welch
+V. Damned if you do, damned if you don’t: subgroup analysis and
+equity. J Epidemiol Community Health. 2012;66(1):95-98. doi:10.1136/
+jech.2010.121095
+22. Assmann SF, Pocock SJ, Enos LE, Kasten LE. Subgroup analysis and
+other (mis)uses of baseline data in clinical trials. Lancet (Lond Engl).
+2000;355(9209):1064-1069. doi:10.1016/s0140-6736(00)02039-0
+23. Elston DM. Selection bias. J Am Acad Dermatol. 2019;S0190-
+9622(19):32775-32776.
+doi:10.1016/j.jaad.2019.09.
+031
+24. Baum A, Scarpa J, Bruzelius E, Tamler R, Basu S, Faghmous J. Target-
+ing weight loss interventions to reduce cardiovascular complications
+of type 2 diabetes: a machine learning-based post-hoc analysis of
+heterogeneous treatment effects in the Look AHEAD trial. lancet Dia-
+betes Endocrinol. 2017;5(10):808-815. doi:10.1016/s2213-8587(17)
+30176-6
+25. Marafino BJ, Schuler A, Liu VX, Escobar GJ, Baiocchi M. Predicting pre-
+ventable hospital readmissions with causal machine learning. Health
+Serv Res. 2020;55(6):993-1002. doi:10.1111/1475-6773.13586
+26. Bonander C, Svensson M. Using causal forests to assess heterogene-
+ity in cost-effectiveness analysis. Health Econ. 2021;30(8):1818-1832.
+doi:10.1002/hec.4263
+27. Buysse DJ. Sleep health: can we define it? does it matter?. Sleep.
+2014;37(1):9-17. doi:10.5665/sleep.3298
+28. Song M, Hu FB, Wu K, et al. Trajectory of body shape in early and mid-
+dle life and all cause and cause specific mortality: results from two
+prospective US cohort studies. BMJ. 2016;353:i2195. doi:10.1136/
+bmj.i2195
+29. Tein JY, Coxe S, Cham H. Statistical power to detect the cor-
+rect number of classes in latent profile analysis. Struct Equ Model.
+2013;20(4):640-657. doi:10.1080/10705511.2013.824781
+30. Maiese K. Cognitive impairment and dementia: gaining insight through
+circadian clock gene pathways. Biomolecules. 2021;11(7):1002. doi:10.
+3390/biom11071002
+31. Hui Y, Zhong Y, Kuang L, et al. O-GlcNAcylation of circadian clock
+protein Bmal1 impairs cognitive function in diabetic mice. Embo J.
+2024;43(22):5667-5689. doi:10.1038/s44318-024-00263-6
+32. Chen M, Zhang L, Shao M, et al. E4BP4 coordinates circadian control
+of cognition in delirium. Adv Sci (Weinh). 2022;9(23):e2200559. doi:10.
+1002/advs.202200559
+33. Huang SY, Yang ZJ, Cheng J, et al. Choline alleviates cognitive impair-
+ment in sleep-deprived young mice via reducing neuroinflammation
+and altering phospholipidomic profile. Redox Biol. 2025;81:103578.
+doi:10.1016/j.redox.2025.103578
+34. d’Avila JC, Siqueira LD, Mazeraud A, et al. Age-related cognitive
+impairment is associated with long-term neuroinflammation and
+oxidative stress in a mouse model of episodic systemic inflammation. J
+Neuroinflammation. 2018;15(1):28. doi:10.1186/s12974-018-1059-y
+35. Oue H, Yamazaki Y, Qiao W, et al. LRP1 in vascular mural cells modu-
+lates cerebrovascular integrity and function in the presence of APOE4.
+JCI Insight. 2023;8(7):e163822. doi:10.1172/jci.insight.163822
+36. Wang X, Wang Z, Cao J, Dong Y, Chen Y. Gut microbiota-derived
+metabolites mediate the neuroprotective effect of melatonin in
+cognitive impairment induced by sleep deprivation. Microbiome.
+2023;11(1):17. doi:10.1186/s40168-022-01452-3
+37. Hu Y, Lv Y, Long X, Yang G, Zhou J. Melatonin attenuates chronic
+sleep deprivation-induced cognitive deficits and HDAC3-Bmal1/clock
+interruption. CNS Neurosci Ther. 2023;30(3):e14474. doi:10.1111/cns.
+14474
+38. Sun H, Cao Q, He X, et al. Melatonin mitigates sleep restriction-
+induced cognitive and glymphatic dysfunction via Aquaporin-4
+polarization. Mol Neurobiol. 2025;62(9):11443-11465. doi:10.1007/
+s12035-025-04992-5
+39. Chen Y, Guo H, Sun X, et al. Melatonin regulates glymphatic function
+to affect cognitive deficits, behavioral issues, and blood-brain barrier
+damage in mice after intracerebral hemorrhage: potential links to cir-
+cadian rhythms. CNS Neurosci Ther. 2025;31(2):e70289. doi:10.1111/
+cns.70289
+40. HorneSJ,ToppTE,QuigleyL.Depressionandthewillingnesstoexpend
+cognitive and physical effort for rewards: a systematic review. Clin
+Psychol Rev. 2021;88:102065. doi:10.1016/j.cpr.2021.102065
+41. Jelsma E, Zhang A, Goosby BJ, Cheadle JE. Sympathetic arousal
+among
+depressed
+college
+students:
+examining
+the
+interplay
+between
+psychopathology
+and
+social
+activity.
+Psychophysiology.
+2024;61(9):e14597. doi:10.1111/psyp.14597
+42. Hung YC, Lao WL, Yeh CJ, MC Lee. The mediating effect of leisure
+activities in the relationship between depression and cognitive decline
+in middle age and older adults in Taiwan. BMC Geriatr. 2023;23(1):315.
+doi:10.1186/s12877-023-03984-1
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License
 
 # Page 16
 
-Page 16 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	 62.	 He D, Wang Z, Li J, Yu K, He Y, He X, et al. Changes in frailty and incident 
-cardiovascular disease in three prospective cohorts. Eur Heart J. 
-2024;45(12):1058–68.
-	 63.	 Genolini C. kml3d: K-Means for Joint Longitudinal Data (p. 2.4.6.1) [Data-
-set]. 2010 [cited 2024 Sep 10]. Available from: https://​cran.r-​proje​ct.​org/​
-web/​packa​ges/​kml3d/​index.​html.
-	 64.	 Hartigan JA, Wong MA. Algorithm AS 136: A k-means clustering algo-
-rithm. J Roy Stat Soc: Ser C (Appl Stat). 1979;28(1):100–8.
-	 65.	 Genolini C, Alacoque X, Sentenac M, Arnaud C. kml and kml3d: R pack-
-ages to cluster longitudinal data. J Stat Softw. 2015;65:1–34.
-	 66.	 Genolini C, Pingault J-B, Driss T, Côté S, Tremblay RE, Vitaro F, et al. 
-KmL3D: a non-parametric algorithm for clustering joint trajectories. 
-Comput Methods Programs Biomed. 2013;109(1):104–11.
-	 67.	 Farrahi V, Rostami M, Dumuid D, Chastin SF, Niemelä M, Korpelainen R, 
-et al. Joint profiles of sedentary time and physical activity in adults and 
-their associations with cardiometabolic health. Med Sci Sports Exerc. 
-2022;54(12):2118.
-	 68.	 Ziegler A, Vens M. Generalized estimating equations. Methods Inf Med. 
-2010;49(05):421–5.
-	 69.	 Graham EA, Deschênes SS, Khalil MN, Danna S, Filion KB, Schmitz N. 
-Measures of depression and risk of type 2 diabetes: a systematic review 
-and meta-analysis. J Affect Disord. 2020;265:224–32.
-	 70.	 Jawad MY, Meshkat S, Tabassum A, McKenzie A, Di Vincenzo JD, Guo 
-Z, et al. The bidirectional association of nonalcoholic fatty liver disease 
-with depression, bipolar disorder, and schizophrenia. CNS Spectr. 
-2022;28(5):541–60.
-	 71.	 Luo H, Li J, Zhang Q, Cao P, Ren X, Fang A, et al. Obesity and the onset of 
-depressive symptoms among middle-aged and older adults in China: 
-evidence from the CHARLS. BMC Public Health. 2018;18(1):909.
-	 72.	 McGrowder DA, Fang T, Zhang Q, Wang Z, Liu J-P. Bidirectional associa-
-tion between depression and diabetic nephropathy by meta-analysis. 
-Plos One. 2022;17(12):e0278489.
-	 73.	 Pu F, Lin J, Wei Y, Li J, Liao X, Shi L, et al. Association of dietary behavior 
-patterns of middle-aged and older adults with their obesity metabolic 
-phenotype: a cross-sectional study. BMC Public Health. 2024;24(1):2311.
-	 74.	 Zhao Q, Tan X, Su Z, Manzi HP, Su L, Tang Z, et al. The relationship 
-between the Dietary Inflammatory Index (DII) and Metabolic Syndrome 
-(MetS) in middle-aged and elderly individuals in the United States. 
-Nutrients. 2023;15(8):1857.
-	 75.	 Hemphill L, Valenzuela Y, Luna K, Szymkowicz SM, Jones JD. Synergistic 
-associations of depressive symptoms and aging on cognitive decline in 
-early Parkinson’s disease. Clin Park Relat Disord. 2023;8:100192.
-	 76.	 Yuan J, Wang Y, Liu Z. Temporal relationship between depression and 
-cognitive decline in the elderly: a two-wave cross-lagged study in a 
-Chinese sample. Aging Ment Health. 2023;27(11):2179–86.
-	 77.	 Zheng F, Zhong B, Song X, Xie W. Persistent depressive symptoms and 
-cognitive decline in older adults. Br J Psychiatry. 2018;213(5):638–44.
-	 78.	 Federman AD, Becker J, Carnavali F, Rivera Mindt M, Cho D, Pandey 
-G, et al. Relationship between cognitive impairment and depression 
-among middle aged and older adults in primary care. Gerontol Geriatr 
-Med. 2024;10:23337214231214216.
-	 79.	 Manning KJ, Steffens DC. Systems Neuroscience in Late-Life Depres-
-sion. Systems Neuroscience in Depression2016. p. 325–40.
-	 80.	 Rieck JR, Baracchini G, Nichol D, Abdi H, Grady CL. Reconfiguration and 
-dedifferentiation of functional networks during cognitive control across 
-the adult lifespan. Neurobiol Aging. 2021;106:80–94.
-	 81.	 Staffaroni AM, Brown JA, Casaletto KB, Elahi FM, Deng J, Neuhaus J, 
-et al. The longitudinal trajectory of default mode network connectiv-
-ity in healthy older adults varies as a function of age and is associated 
-with changes in episodic memory and processing speed. J Neurosci. 
-2018;38(11):2809–17.
-	 82.	 Jellinger KA. Pathomechanisms of Vascular Depression in Older Adults. 
-Int J Mol Sci. 2021;23(1):308.
-	 83.	 Straka K, Tran M-L, Millwood S, Swanson J, Kuhlman KR. Aging as a 
-context for the role of inflammation in depressive symptoms. Front 
-Psychiatry. 2021;11.
-	 84.	 Mina T, Yew YW, Ng HK, Sadhu N, Wansaicheong G, Dalan R, et al. Adi-
-posity impacts cognitive function in Asian populations: an epidemio-
-logical and Mendelian Randomization study. Lancet Reg Health West 
-Pac. 2023;33:100710.
-	 85.	 Liu CR, Wong PY, Chung YL, Chow SKH, Cheung WH, Law SW, et al. 
-Deciphering the “obesity paradox” in the elderly: a systematic review 
-and meta-analysis of sarcopenic obesity. Obes Rev. 2023. https://​doi.​
-org/​10.​1111/​obr.​13534.
-	 86.	 Iso-Markku P, Kujala UM, Knittle K, Polet J, Vuoksimaa E, Waller K. Physical 
-activity as a protective factor for dementia and Alzheimer’s disease: 
-systematic review, meta-analysis and quality assessment of cohort and 
-case–control studies. Br J Sports Med. 2022;56(12):701–9.
-	 87.	 Rodriguez-Ayllon M, Solis-Urra P, Arroyo-Ávila C, Álvarez-Ortega M, 
-Molina-García P, Molina-Hidalgo C, et al. Physical activity and amyloid 
-beta in middle-aged and older adults: a systematic review and meta-
-analysis. J Sport Health Sci. 2024;13(2):133–44.
-	 88.	 Coin A, Veronese N, De Rui M, Mosele M, Bolzetta F, Girardi A, et al. Nutri-
-tional predictors of cognitive impairment severity in demented elderly 
-patients: the key role of BMI. J Nutr Health Aging. 2012;16(6):553–6.
-	 89.	 Hegele RA, Joy TR, Al-Attar SA, Rutt BK. Thematic review series: 
-adipocyte Biology. Lipodystrophies: windows on adipose biology and 
-metabolism. Journal of Lipid Research. 2007;48(7):1433–44.
-	 90.	 Shinohara M, Gheni G, Hitomi J, Bu G, Sato N. APOE genotypes modify 
-the obesity paradox in dementia. J Neurol Neurosurg Psychiatry. 
-2023;94(9):670–80.
-	 91.	 Zhang J, Na X, Li Z, Ji JS, Li G, Yang H, et al. Sarcopenic obesity is 
-part of obesity paradox in dementia development: evidence from a 
-population-based cohort study. BMC Med. 2024;22(1):133.
-	 92.	 Zhang F, Ning Z, Wang C. Body roundness index and cognitive func-
-tion in older adults: a nationwide perspective. Front Aging Neurosci. 
-2024;16:1466464.
-	 93.	 Liang Z, Jin W, Huang L, Chen H. Body mass index, waist circumfer-
-ence, hip circumference, abdominal volume index, and cognitive 
-function in older Chinese people: a nationwide study. BMC Geriatrics. 
-2024;24(1):925.
-	 94.	 Forte R, Pesce C, de Vito G, Boreham CAG. The body fat-cognition 
-relationship in healthy older individuals: does gynoid vs android distri-
-bution matter? J Nutr Health Aging. 2017;21(3):284–92.
-	 95.	 Liu X, Chen X, Hou L, Xia X, Hu F, Luo S, et al. Associations of body mass 
-index, visceral fat area, waist circumference, and waist-to-hip ratio with 
-cognitive function in western China: results from WCHAT study. J Nutr 
-Health Aging. 2021;25(7):903–8.
-	 96.	 Xu S, Wen S, Yang Y, He J, Yang H, Qu Y, et al. Association between body 
-composition patterns, cardiovascular disease, and risk of neurodegen-
-erative disease in the UK Biobank. Neurology. 2024;103(4):e209659.
-	 97.	 Chu C-Q, Yu L-l, Qi G-y, Mi Y-S, Wu W-Q, Lee Y-k, et al. Can dietary pat-
-terns prevent cognitive impairment and reduce Alzheimer’s disease 
-risk: exploring the underlying mechanisms of effects. Neurosci Biobe-
-hav Rev. 2022;135:104556.
-	 98.	 Wei K, Yang J, Lin S, Mei Y, An N, Cao X, et al. Dietary habits modify 
-the association of physical exercise with cognitive impairment in 
-community-dwelling older adults. J Clin Med. 2022;11(17):512.
-	 99.	 Witczak-Sawczuk K, Ostrowska L, Cwalina U, Leszczyńska J, Jastrzębska-
-Mierzyńska M, Hładuński MK. Estimation of the impact of abdominal 
-adipose tissue (subcutaneous and visceral) on the occurrence of car-
-bohydrate and lipid metabolism disorders in patients with obesity—a 
-pilot study. Nutrients. 2024;16(9):1301.
-	100.	 Zhu C-e, Zhou L, Zhang X. Effects of leisure activities on the cognitive 
-ability of older adults: a latent variable growth model analysis. Front 
-Psychol. 2022;13:838878
-	101.	 Scarmeas N, Stern Y, Mayeux R, Luchsinger JA. Mediterranean 
-diet, Alzheimer disease, and vascular mediation. Arch Neurol. 
-2006;63(12):1709–17.
-	102.	 Zhao Y-L, Qu Y, Ou Y-N, Zhang Y-R, Tan L, Yu J-T. Environmental factors 
-and risks of cognitive impairment and dementia: a systematic review 
-and meta-analysis. Ageing Res Rev. 2021;72: 101504.
-	103.	 Lavallee KL, Zhang XC, Schneider S, Margraf J. Obesity and mental 
-health: a longitudinal, cross-cultural examination in Germany and 
-China. Front Psychol. 2021;12:712567.
-	104.	 Johnston JN, Greenwald MS, Henter ID, Kraus C, Mkrtchian A, Clark NG, 
-et al. Inflammation, stress and depression: an exploration of ketamine’s 
-therapeutic profile. Drug Discov Today. 2023;28(4):103518.
-	105.	 Majd M, Saunders EFH, Engeland CG. Inflammation and the dimensions 
-of depression: a review. Front Neuroendocrinol. 2020;56:100800.
-
-# Page 17
-
-Page 17 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-	106.	 Unamuno X, Gómez-Ambrosi J, Rodríguez A, Becerril S, Frühbeck G, 
-Catalán V. Adipokine dysregulation and adipose tissue inflammation in 
-human obesity. Eur J Clin Invest.  2018;48(9):e12997.
-	107.	 Pou KM, Massaro JM, Hoffmann U, Vasan RS, Maurovich-Horvat P, Larson 
-MG, et al. Visceral and subcutaneous adipose tissue volumes are cross-
-sectionally related to markers of inflammation and oxidative stress. 
-Circulation. 2007;116(11):1234–41.
-	108.	 Lin W-T, Kao Y-H, Li MS, Luo T, Lin H-Y, Lee C-H, et al. Sugar-sweetened 
-beverages intake, abdominal obesity, and inflammation among US 
-adults without and with prediabetes—an NHANES Study. Int J Environ 
-Res Public Health.  2022;20(1):681.
-	109.	 Gonzales MM, Garbarino VR, Pollet E, Palavicini JP, Kellogg DL, Kraig 
-E, et al. Biological aging processes underlying cognitive decline and 
-neurodegenerative disease. J Clin Invest. 2022;132(10):e158453.
-	110.	 Mulè S, Ferrari S, Rosso G, Galla R, Battaglia S, Curti V, et al. The com-
-bined effect of green tea, saffron, resveratrol, and citicoline against 
-neurodegeneration induced by oxidative stress in an in vitro model of 
-cognitive decline. Oxid Med Cell Longev. 2024;2024(1):7465045.
-	111.	 Oyerinde AS, Selvaraju V, Babu JR, Geetha T. Potential role of oxidative 
-stress in the production of volatile organic compounds in obesity. 
-Antioxidants. 2023;12(1):129.
-	112.	 Yeo J, Hwang IC, Ahn HY. Association between oxidative balance 
-score and neck circumference in Korean adults. Obes Res Clin Pract. 
-2022;16(4):343–5.
-	113.	 Sipahi H, Mat AF, Özhan Y, Aydin A. The interrelation between oxidative 
-stress, depression and inflammation through the kynurenine pathway. 
-Curr Top Med Chem. 2023;23(6):415–25.
-	114.	 Naomi R, Teoh SH, Embong H, Balan SS, Othman F, Bahari H, et al. 
-The role of oxidative stress and inflammation in obesity and its 
-impact on cognitive impairments—a narrative review. Antioxidants. 
-2023;12(5):1071.
-	115.	 Kelly ME, Duff H, Kelly S, McHugh Power JE, Brennan S, Lawlor BA, et al. 
-The impact of social activities, social networks, social support and social 
-relationships on the cognitive functioning of healthy older adults: a 
-systematic review. Sys Rev. 2017;6(1):259.
-	116.	 Ma Y, Liang L, Zheng F, Shi L, Zhong B, Xie W. Association between 
-sleep duration and cognitive decline. JAMA Network Open. 
-2020;3(9):e2013573.
-Publisher’s Note
-Springer Nature remains neutral with regard to jurisdictional claims in pub-
-lished maps and institutional affiliations.
+16 of 16
+MA ET AL.
+43. Qin T, Yan M, Fu Z, et al. Association between anemia and cogni-
+tive decline among Chinese middle-aged and elderly: evidence from
+the China health and retirement longitudinal study. BMC Geriatr.
+2019;19(1):305. doi:10.1186/s12877-019-1308-7
+44. Wolters FJ, Zonneveld HI, Licher S, et al. Hemoglobin and ane-
+mia in relation to dementia risk and accompanying changes on
+brain
+MRI.
+Neurology.
+2019;93(9):e917-e926.
+doi:10.1212/wnl.
+0000000000008003
+45. Winchester LM, Newby D, Ghose U, et al. The relationship between
+anaemia, haemoglobin levels, and cognitive function: evidence in two
+population-based cohorts from India and the United States. Neurobiol
+Dis. 2025;216:107112. doi:10.1016/j.nbd.2025.107112
+46. Jung M, Zou L, Yu JJ, et al. Does exercise have a protective effect
+on cognitive function under hypoxia? A systematic review with meta-
+analysis. J Sport Health Sci. 2020;9(6):562-577. doi:10.1016/j.jshs.
+2020.04.004
+47. Winchester LM, Powell J, Lovestone S, Nevado-Holgado AJ. Red blood
+cell indices and anaemia as causative factors for cognitive function
+deficits and for Alzheimer’s disease. Genome Med. 2018;10(1):51.
+doi:10.1186/s13073-018-0556-z
+48. Duncan MJ. Interacting influences of aging and Alzheimer’s disease on
+circadian rhythms. Eur J Neurosci. 2020;51(1):310-325. doi:10.1111/
+ejn.14358
+49. de Souza KA, Jackson M, Chen J, et al. Shift work schedules alter
+immune cell regulation and accelerate cognitive impairment during
+aging. J Neuroinflammation. 2025;22(1):4. doi:10.1186/s12974-024-
+03324-z
+50. Li P, Gao L, Gaba A, et al. Circadian disturbances in Alzheimer’s disease
+progression: a prospective observational cohort study of community-
+based older adults. Lancet Healthy Longev. 2020;1(3):e96-e105. doi:10.
+1016/s2666-7568(20)30015-5
+51. Hoyt KR, Obrietan K. Circadian clocks, cognition, and Alzheimer’s
+disease: synaptic mechanisms, signaling effectors, and chronothera-
+peutics. Mol Neurodegener. 2022;17(1):35. doi:10.1186/s13024-022-
+00537-9
+52. González HM, Tarraf W, Harrison K, et al. Midlife cardiovascular health
+and 20-year cognitive decline: atherosclerosis risk in communities
+study results. Alzheimer’s Dement: J Alzheimer’s Assoc. 2018;14(5):579-
+589. doi:10.1016/j.jalz.2017.11.002
+53. de A Boleti AP, de O Cardoso PH, F Frihling BE, E Silva PS, de Moraes
+LFRN, Migliolo L. Adipose tissue, systematic inflammation, and neu-
+rodegenerative diseases. Neural Regen Res. 2023;18(1):38-46. doi:10.
+4103/1673-5374.343891
+54. Barron AM, Tokunaga M, Zhang MR, Ji B, Suhara T, Higuchi M.
+Assessment of neuroinflammation in a mouse model of obesity andβ-
+amyloidosis using PET. J Neuroinflammation. 2016;13(1):221. doi:10.
+1186/s12974-016-0700-x
+55. Naomi R, Teoh SH, Embong H, et al. The role of oxidative stress and
+inflammation in obesity and its impact on cognitive impairments-a
+narrative review. Antioxidants (Basel). 2023;12(5):1071. doi:10.3390/
+antiox12051071
+56. Ghosh P, Fontanella RA, Scisciola L, et al. Obesity-induced neuronal
+senescence: unraveling the pathophysiological links. Ageing Res Rev.
+2024;101:102533. doi:10.1016/j.arr.2024.102533
+57. Al Haj Ahmad RM, Ababneh NA, Al-Domi HA. Brain insulin resistance
+as a mechanistic mediator links peripheral metabolic disorders with
+declining cognition. Diabetes Metab Syndr. 2022;16(4):102468. doi:10.
+1016/j.dsx.2022.102468
+58. Cadena M, Barreto GE. Exploring the interplay between circadian
+rhythms and obesity: a Boolean network approach to understand-
+ing metabolic dysregulation. PloS One. 2025;20(9):e0331218. doi:10.
+1371/journal.pone.0331218
+59. Lejawa M, Osadnik K, Czuba Z, Osadnik T, Pawlas N. Association of
+metabolically healthy and unhealthy obesity phenotype with markers
+related to obesity, diabetes among young, healthy adult men. analy-
+sis of MAGNETIC study. Life (Basel Switz). 2021;11(12):1350. doi:10.
+3390/life11121350
+60. Sripetchwandee J, Chattipakorn N, Chattipakorn SC. Links between
+obesity-induced brain insulin resistance, brain mitochondrial dysfunc-
+tion, and dementia. Front Endocrinol. 2018;9:496. doi:10.3389/fendo.
+2018.00496
+61. Li C, Bai C, Wang L, et al. Association between healthy lifestyle
+and cognitive decline, all-cause mortality, and mortality from cardio-
+vascular and cerebrovascular diseases: a 10-year population-based
+prospective cohort study. Alzheimer’s Dement: J Alzheimer’s Assoc.
+2025;21(3):e70021. doi:10.1002/alz.70021
+62. Cantuaria ML, Waldorff FB, Wermuth L, et al. Residential exposure to
+transportation noise in Denmark and incidence of dementia: national
+cohort study. BMJ (Clin Res Ed). 2021;374:n1954. doi:10.1136/bmj.
+n1954
+63. Li H, Li C, Wang A, et al. Associations between social and intellectual
+activities with cognitive trajectories in Chinese middle-aged and older
+adults: a nationally representative cohort study. Alzheimer’s Res Ther.
+2020;12(1):115. doi:10.1186/s13195-020-00691-6
+64. de Vos BC, Runhaar J, Verkleij SP, van Middelkoop M, Bierma-Zeinstra
+SM. Latent class growth analysis successfully identified subgroups of
+participants during a weight loss intervention trial. J Clin Epidemiol.
+2014;67(8):947-951. doi:10.1016/j.jclinepi.2014.03.007
+65. Mori Y, Komura T, Adomi M, et al. Heterogeneous cardiovascular
+effects of SGLT2 inhibitors in type 2 diabetes: a causal forest and tar-
+get trial emulation study. Eur J Prev Cardiol. 2025;33(1):80-88. doi:10.
+1093/eurjpc/zwaf539
+66. Liu M, Xu Z, He L, et al. Heterogeneous effects of obesity on all-
+cause mortality: a causal forest analysis of hospitalized patients
+in China. Diabetes Obes Metab. 2025;27(7):3695-3704. doi:10.1111/
+dom.16391
+67. Wheaton AG, Jones SE, Cooper AC, Croft JB. Short sleep dura-
+tion among middle school and high school students—United States,
+2015. MMWR Morb Mortal Wkly Rep. 2018;67(3):85-90. doi:10.15585/
+mmwr.mm6703a1
+68. Ashbrook LH, Krystal AD, Fu YH, Ptáˇcek LJ. Genetics of the
+human circadian clock and sleep homeostat. Neuropsychopharmacol-
+ogy. 2020;45(1):45-54. doi:10.1038/s41386-019-0476-7
+69. Johnson KA, Gordon CJ, Chapman JL, et al. The association of insom-
+nia disorder characterised by objective short sleep duration with
+hypertension, diabetes and body mass index: a systematic review and
+meta-analysis. Sleep Med Rev. 2021;59:101456. doi:10.1016/j.smrv.
+2021.101456
+SUPPORTING INFORMATION
+Additional supporting information can be found online in the Support-
+ing Information section at the end of this article.
+How to cite this article: Ma J, Chen N, Huang J, Xu L, Shang H.
+Circadian syndrome (CircS) and cognitive trajectory
+deterioration in middle-aged and older adults: A national
+cohort study with causal forest analysis. Alzheimer’s Dement.
+2026;22:e71300. https://doi.org/10.1002/alz.71300
+ 15525279, 2026, 3, Downloaded from https://alz-journals.onlinelibrary.wiley.com/doi/10.1002/alz.71300, Wiley Online Library on [24/04/2026]. See the Terms and Conditions (https://onlinelibrary.wiley.com/terms-and-conditions) on Wiley Online Library for rules of use; OA articles are governed by the applicable Creative Commons License

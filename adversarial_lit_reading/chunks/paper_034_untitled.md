@@ -1,1422 +1,1301 @@
 # Page 1
 
-RESEARCH
-Open Access
-© The Author(s) 2024. Open Access  This article is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 
-International License, which permits any non-commercial use, sharing, distribution and reproduction in any medium or format, as long as you 
-give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons licence, and indicate if you modified the 
-licensed material. You do not have permission under this licence to share adapted material derived from this article or parts of it. The images or 
-other third party material in this article are included in the article’s Creative Commons licence, unless indicated otherwise in a credit line to the 
-material. If material is not included in the article’s Creative Commons licence and your intended use is not permitted by statutory regulation or 
-exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To view a copy of this licence, visit ​h​t​t​p​:​/​/​c​r​e​a​t​i​
-v​e​c​o​m​m​o​n​s​.​o​r​g​/​l​i​c​e​n​s​e​s​/​b​y​-​n​c​-​n​d​/​4​.​0​/​.​
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-https://doi.org/10.1186/s12967-024-05975-1
-Journal of Translational 
-Medicine
-*Correspondence:
-Wei Hu
-huwei@hospital.westlake.edu.cn
-Mengyuan Diao
-diaomengyuan@hospital.westlake.edu.cn
-Full list of author information is available at the end of the article
-Abstract
-Introduction  Cardiac arrest (CA), characterized by its heterogeneity, poses challenges in patient management. This 
-study aimed to identify clinical subphenotypes in CA patients to aid in patient classification, prognosis assessment, 
-and treatment decision-making.
-Methods  For this study, comprehensive data were extracted from the Medical Information Mart for Intensive Care 
-IV (MIMIC-IV) 2.0 database. We excluded patients under 18 years old, those not initially admitted to the intensive 
-care unit (ICU), or treated in the ICU for less than 72 h. A total of 57 clinical parameters relevant to CA patients were 
-selected for analysis. These included demographic data, vital signs, and laboratory parameters. After an extensive 
-literature review and expert consultations, key factors such as temperature (T), sodium (Na), creatinine (CR), glucose 
-(GLU), heart rate (HR), PaO2/FiO2 ratio (P/F), hemoglobin (HB), mean arterial pressure (MAP), platelets (PLT), and white 
-blood cell count (WBC) were identified as the most significant for cluster analysis. Consensus cluster analysis was 
-utilized to examine the mean values of these routine clinical parameters within the first 24 h post-ICU admission 
-to categorize patient classes. Furthermore, in-hospital and 28-day mortality rates of patients across different CA 
-subphenotypes were assessed using multivariate logistic and Cox regression analysis.
-Results  After applying exclusion criteria, 719 CA patients were included in the study, with a median age of 
-67.22 years (IQR: 55.50-79.34), of whom 63.28% were male. The analysis delineated two distinct subphenotypes: 
-Subphenotype 1 (SP1) and Subphenotype 2 (SP2). Compared to SP1, patients in SP2 exhibited significantly higher 
-levels of P/F, HB, MAP, PLT, and Na, but lower levels of T, HR, GLU, WBC, and CR. SP2 patients had a notably higher 
-in-hospital mortality rate compared to SP1 (53.01% for SP2 vs. 39.36% for SP1, P < 0.001). 28-day mortality decreased 
-continuously for both subphenotypes, with a more rapid decline in SP2. These differences remained significant 
-after adjusting for potential covariates (adjusted OR = 1.82, 95% CI: 1.26–2.64, P = 0.002; HR = 1.84, 95% CI: 1.40–2.41, 
-P < 0.001).
-Machine learning derivation of two cardiac 
-arrest subphenotypes with distinct responses 
-to treatment
-Weidong Zhang1, Chenxi Wu1, Peifeng Ni2, Sheng Zhang3, Hongwei Zhang4, Ying Zhu1,4, Wei Hu1,4* and 
-Mengyuan Diao1,4*
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+548
+nature mental health
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+Network temperature as a metric of stability 
+in depression symptoms across adolescence
+ 
+Poppy Z. Grimes 
+  1 
+, Aja L. Murray2, Keith Smith3, Andrea G. Allegrini 
+  4,5, 
+Giulia G. Piazza 
+  4, Henrik Larsson 
+  6,7, Sacha Epskamp8,11, 
+Heather C. Whalley 
+  1,9,11 & Alex S. F. Kwong1,10,11
+Depression is characterized by diverse symptom combinations that can be 
+represented as dynamic networks. While previous research has focused on 
+central symptoms for targeted interventions, less attention has been given 
+to whole-network properties. Here we show that ‘network temperature’, 
+a novel measure of psychological network stability, captures symptom 
+alignment across adolescence—a critical period for depression onset. 
+Network temperature reflects system stability, with higher values indicating 
+less symptom alignment and greater variability. In three large longitudinal 
+adolescent cohorts (total N = 35,901), we found that network temperature 
+decreases across adolescence, with the steepest decline during early 
+adolescence, particularly in males. This suggests that depression symptom 
+networks stabilize throughout development via increased symptom 
+alignment, potentially explaining why adolescence is a crucial period 
+for depression onset. These findings highlight early adolescence as a key 
+intervention window and underscore the importance of sex-specific and 
+personalized interventions.
+The network theory of psychopathology conceptualizes depression 
+as emerging from the interactions among its composing symptoms1. 
+Network science has provided an alternative approach to psychiatric 
+conditions that allows us to tease apart symptom-level heterogeneity 
+for more precise etiological understanding and intervention insights2. 
+Though most studies have examined cross-sectional adult symptom 
+networks, interpretation of these is limited, as depression symptoms 
+evolve and fluctuate in severity and interconnectedness over time, 
+forming a dynamic temporal network1,3. Intraindividual networks are 
+particularly important to examine across adolescence, where depres-
+sion onset is most severe and symptoms follow diverse trajectories, 
+but intervention may be most fruitful4–7.
+In both cross-sectional and longitudinal networks, network evalu-
+ation is focused on centrality estimates—measures of node importance 
+in the network8. Commonly reported estimates are node strength, 
+closeness and betweenness. However, centrality estimates were origi-
+nally developed for social network analysis and have more limited 
+interpretability within psychological networks due to issues such as 
+node indistinctiveness (symptom overlap) and the lack of considera-
+tion for symptom severity9.
+Network studies also allude to individual symptoms as treatment 
+targets5,10–13. However, targeting a specific node (symptom) may not 
+have the desired effect, potentially failing to address system comple­
+xity. For example, a symptom might appear central and be targeted for 
+Received: 9 August 2024
+Accepted: 19 March 2025
+Published online: 29 April 2025
+ Check for updates
+1Division of Psychiatry, Centre for Clinical Brain Sciences, University of Edinburgh, Edinburgh, UK. 2Department of Psychology, University of Edinburgh, 
+Edinburgh, UK. 3Computer and Information Sciences, University of Strathclyde, Glasgow, UK. 4Department of Clinical, Educational and Health 
+Psychology, Division of Psychology and Language Sciences, University College London, London, UK. 5Social, Genetic and Developmental Psychiatry 
+Centre, Institute of Psychiatry, Psychology and Neuroscience, King’s College London, London, UK. 6Department of Medical Epidemiology and 
+Biostatistics, Karolinska Institute, Stockholm, Sweden. 7School of Medical Sciences, Örebro University, Örebro, Sweden. 8Department of Psychology, 
+National University of Singapore, Singapore, Singapore. 9Generation Scotland, Centre for Genomic and Experimental Medicine, Institute of Genetics and 
+Molecular Medicine, University of Edinburgh, Edinburgh, UK. 10MRC Integrative Epidemiology Unit, University of Bristol, Bristol, UK. 11These authors jointly 
+supervised this work: Sacha Epskamp, Heather C. Whalley, Alex S. F. Kwong. 
+ e-mail: p.grimes@ed.ac.uk
 
 # Page 2
 
-Page 2 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-Introduction
-The latest statistics from the American Heart Associa­
-tion (AHA) indicate that the incidence of out-of-hospital 
-cardiac arrest (OHCA) stands at 140.7 cases per 100,000 
-population, while in-hospital cardiac arrest (IHCA) 
-occurs at a rate of 17.16 cases per 1,000 hospitalized 
-patients [1]. Cardiac arrest (CA) is a significant health 
-concern, causing nearly 370,000 deaths annually in the 
-United States [1] and almost 1 million deaths each year 
-in China [2]. These numbers have been rising, especially 
-in the period following the COVID-19 pandemic [1]. The 
-high mortality rate associated with CA is largely attrib­
-uted to its heterogeneity, making the identification of 
-specific CA subphenotypes critical for the development 
-of precise and effective treatment plans.
-Now, there remains ambiguity about the various 
-terms created to classify and study CA, and consen­
-sus documents from various cardiovascular societies 
-characterize them distinctively [3–5]. North American 
-(American Heart Association/Heart Rhythm Society/
-American Council of Cardiology), European (European 
-Heart Society), and Asian-Pacific (Asia-Pacific Heart 
-Rhythm Society) all have unique definitions of CA [6]. 
-They differed in whether the emphasis is placed on tim­
-ing, etiology, or situational context surrounding the car­
-diac arrest. However, the above-mentioned traditional 
-classification methods inevitably have the following prob­
-lems: (1) Unable to accurately reflect the pathophysiolog­
-ical state: The pathophysiological state of each patient 
-after CA can be significantly different, but these classifi­
-cation criteria do not accurately reflect these differences; 
-(2) Inability to provide effective support for treatment 
-decisions: Different types of cardiac arrest require differ­
-ent treatment strategies. The above classification meth­
-ods ignore individual differences and cannot provide 
-enough clinical information to guide treatment. There­
-fore, this study focused on the above two issues, hoping 
-to use a new tool to derive a new clinical classification 
-method for CA patients. This classification method does 
-not rely on external factors such as timing, etiology, 
-or situational context surrounding the CA, but uses 
-demographic variables, severity scores, comorbidities, 
-vital signs, laboratory parameters, medication, and spe­
-cial treatments to depict the high-latitude stereoscopic 
-characteristics of each CA patient, and uses computer 
-tools to classify them in high-latitude digital space. This 
-classification method is based on the pathophysiological 
-state of CA patients, which can evaluate the prognosis of 
-patients and help with clinical treatment decisions.
-The machine learning (ML) classifier model has 
-become one of the most indispensable tools in modern 
-medical research for identifying various disease sub­
-phenotypes. Among them, consensus cluster analysis is 
-a suitable clustering method that has been widely used 
-to identify sepsis [7] and acute respiratory distress syn­
-drome (ARDS) subphenotypes [8]. Until the initiation of 
-this study, the application of similar methods for identify­
-ing clinical subphenotype models in CA patients had not 
-been widely explored by researchers. This study sought 
-to develop a consensus cluster analysis approach to iden­
-tify clinical subphenotypes of CA patients based on data 
-collected within 24 h of admission to the intensive care 
-unit (ICU). This methodology aims to assist clinicians in 
-classifying and assessing the prognosis of CA patients, 
-thereby enabling the potential for early warning and pre­
-cise interventions for CA in the future.
-Methods
-Data source
-All the data were extracted from the Medical Infor­
-mation Mart for Intensive Care IV (MIMIC-IV) 2.0 
-database, which contained all medical record num­
-bers corresponding to patients admitted to the ICU or 
-emergency department between 2008 and 2019 in the 
-Beth Israel Deaconess Medical Center (BIDMC). Access 
-to the database was granted following the completion 
-of NIH-required online training by one of the authors 
-(Mengyuan Diao, with certification ID: 1630201). The 
-Institutional Review Board (IRB) at BIDMC provided a 
-waiver for informed consent and approved the use of this 
-resource for research purposes. Consequently, the study 
-was conducted using publicly available and anonymized 
-data, negating the need for individual patient consent.
-Study population and outcome
-In this study, patients who experienced CA were included 
-as research participants, regardless of the cause of the 
-arrest. However, the study excluded patients who were 
-under 18 years of age, as well as those who were either 
-initially admitted to the ICU or treated in the ICU for less 
-than 72 h. A flow diagram detailing the study design and 
-participant selection is presented in Fig. 1. The primary 
-Conclusions  The study successfully identified two distinct clinical subphenotypes of CA by analyzing routine clinical 
-data from the first 24 h following ICU admission. SP1 was characterized by a lower rate of in-hospital and 28-day 
-mortality when compared to SP2. This differentiation could play a crucial role in tailoring patient care, assessing 
-prognosis, and guiding more targeted treatment strategies for CA patients.
-Keywords  Cardiac arrest, Machine learning, Subphenotypes, Precision medicine, Critically illness, Latent class analysis, 
-Mortality
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+549
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+system dynamics such as stability and variability20. Just as adverse 
+symptoms can propagate and negatively reinforce a tightly connected 
+network, ‘good’ resilience could also propagate in a positively reinfor­
+cing network19,21.
+A potentially more valuable metric is network temperature22. 
+Network temperature is analogous to physical temperature in the 
+solid → liquid → gas energetic state transition described by statistical 
+mechanics, which can be modeled using the Ising model23,24. In the Ising 
+model, temperature refers to the level of randomness in the possible 
+states (for example, on or off, 1 or −1 and present or absent) that nodes 
+can take25. In depression networks, this randomness can be interpreted 
+as symptom fluctuation. Entropy measures the disorder or uncer-
+tainty in the system: high entropy in depression networks indicates 
+a wider and more unpredictable variation in symptoms, whereas low 
+entropy suggests more consistent and predictable symptoms. There-
+fore, temperature influences global entropy and can provide insights 
+into network or depression stability22. When considering a network as 
+an interdependent energetic system, temperature tells us about the 
+energetic organization.
+At low network temperatures, the node states are aligned with 
+a low number of possible configurations (within-person variability), 
+resulting in low entropy and stable, predictable symptom patterns in 
+depression networks. Conversely, high network temperatures lead 
+intervention, but if it is actually a common effect of other symptoms, 
+intervening on it may not disrupt the overall network, as it does not 
+influence other nodes14. Effective intervention must also consider 
+timing, hence the importance of longitudinal investigation. Conse-
+quently, estimating node centrality becomes less relevant longitudi-
+nally as symptoms fluctuate. Instead, it is suggested that we disregard 
+centrality estimates and refocus on global measures that observe the 
+network as a complex system, such as network structure comparison 
+and global connectivity2,9,15,16. As such, while centrality measures may 
+be useful for questions based on symptom-specific insights, such as 
+identifying the most strongly connected symptoms, further examina-
+tion of network-wide characteristics to better understand depression 
+as a system is needed.
+According to symptom network theory, more densely connected 
+networks tend to be associated with poorer outcomes1,17. Persistent 
+depression is thought to arise from a feedback loop of reinforcing 
+connected symptoms. Supporting this, more densely connected net-
+works were observed in individuals with persistent major depression 
+versus those who remitted12. Contrastingly, however, major depres-
+sion treatment responders showed a larger increase in connectivity 
+after treatment than nonresponders for both pharmacological18 and 
+therapeutic interventions19. Increased network connectivity may there-
+fore not necessarily be ‘bad’ or pathological but tell us about overall 
+Low temperature
+Two polarized stable states (bimodal)
+Stable
+depressed
+Stable
+healthy
+Higher temperature
+One intermediate unstable state (unimodal)
+Higher
+symptoms
+Lower
+symptoms
+T
+Colder
+Hotter
+β
+β = 
+1
+kBT
+a
+b
+c
+–
+–
+–
+–
+–
+–
+–
+–
+–
+–
++
++
++
++
++
+–
+–
+–
+–
+–
+Fig. 1 | The temperature parameter controlling network behavior in 
+depression. a, A lower temperature (higher β) characterizes more stable 
+networks with a greater alignment of node states, leading to less variability 
+in symptom configurations. b, Low-temperature networks occupy two stable 
+states: one corresponding to a healthy (nondepressed) state and the other to a 
+high-depression state, resulting in a bimodal distribution. c, High-temperature 
+networks exhibit greater within-person variability, existing in a single, 
+intermediate unstable state with more fluctuation in symptom configurations.
 
 # Page 3
 
-Page 3 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-outcome measured in the study was in-hospital mortal­
-ity, while the secondary outcome focused on the 28-day 
-mortality.
-Data extraction and variable selection
-The extracted data for this study encompassed a com­
-prehensive range of parameters including demographic 
-variables, severity scores, comorbidities, vital signs, 
-laboratory parameters, medication, and special treat­
-ments. The demographic variables considered were age, 
-race, sex, and body mass index (BMI). Comorbidities 
-included in the data were hypertension, heart failure, 
-cerebral infarction, chronic obstructive pulmonary dis­
-ease (COPD), cirrhosis of the liver, chronic kidney dis­
-ease, malignant cancer, diabetes, myocardial infarction, 
-arrhythmia, coronary heart disease, and cardiomyopa­
-thy. Vital signs incorporated into the study were heart 
-rate (HR), systolic blood pressure (SBP), diastolic blood 
-pressure (DBP), mean arterial pressure (MAP), respira­
-tory rate (RR), temperature (T), PaO2/FiO2(P/F), SPO2, 
-and total input and output values. Laboratory param­
-eters consisted of hemoglobin (HB), platelets (PLT), 
-white blood cells (WBC), bicarbonate, chloride, creati­
-nine (CR), glucose (GLU), sodium (Na), potassium, bili­
-rubin, pH levels, PO2, PCO2, international normalized 
-ratio (INR), base excess (BE), alanine aminotransferase 
-(ALT), aspartate transaminase (AST), blood urea nitro­
-gen (BUN), and lactate (LAC). Severity scoring included 
-the Charlson score and the Sequential Organ Failure 
-Assessment (SOFA) score. The medications considered 
-were vasoactive drugs, antiarrhythmics, glucocorticoids, 
-and sodium bicarbonate. Special treatments accounted 
-for were positive end-expiratory pressure (PEEP), percu­
-taneous transluminal coronary intervention (PCI), extra­
-corporeal membrane oxygenation (ECMO), continuous 
-renal replacement therapy (CRRT), intra-aortic balloon 
-pump (IABP), and mechanical ventilation. All these 
-parameters were average values within the first 24 h post-
-ICU admission, except for input and output, which were 
-cumulative totals within the same timeframe.
-For feature selection, variables with a missing fraction 
-exceeding 30% were excluded. Data were imputed with 
-the use of multiple imputation for variables that were 
-missing by less than 30%. The proportion of missing data 
-is detailed in supplementary Fig. 1 (sFigure 1). Selection 
-of variables was informed by prior literature and their 
-potential association with the onset and progression of 
-CA, as identified through literature review and expert 
-discussions. The final variables chosen for consensus 
-cluster analysis included T, Na, CR, GLU, HR, P/F, HB, 
-MAP, PLT, and WBC. The consensus clustering analysis 
-utilized the k-means clustering method as its internal 
-algorithm, with each variable representing a different 
-physiological system or function. Correlations between 
-the selected parameters were generally low, as indicated 
-in supplementary Fig. 2 (sFigure 2), with the highest cor­
-relation observed between HB and MAP (r = 0.4).
-Subphenotype classification
-In this study, consensus cluster analysis was employed to 
-identify clinical subphenotypes of CA in ICU patients. 
-The analysis utilized a pre-defined subsampling param­
-eter set at 80%, with 50 iterations. The potential num­
-ber of clusters (k) was limited to a range from 2 to 6, 
-Fig. 1  Flow chart of patient selection. Ultimately, 719 patients with cardiac arrest (CA) from the intensive care unit (ICU) were enrolled in this study
-MIMIC-IV, Medical Information Mart for Intensive Care-IV; ICU, intensive care unit; CA, cardiac arrest
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+550
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+to more random activation patterns, higher entropy and less stable 
+symptom profiles. In this case, symptoms might vary unpredictably 
+over time, reflecting a system susceptible to change (Fig. 1a).
+Network temperature has emerged in causal attitude networks 
+(for example, political attitudes where nodes represent thoughts and 
+feelings)26–28 and cognitive belief networks29 that apply the Ising model 
+representation of nodes in binary states24. These systems tend toward 
+an overall low-energy state of node alignment, where the probability 
+of the overall network state depends on the amount of energy within 
+the network. In attitude networks, directed attention (lower tempera-
+ture) results in lower attitudinal entropy and increased stability27. For 
+example, when a political voter directs their cognitive attention on a 
+specific issue, such as healthcare reform, the variability (entropy) of 
+their attitude toward this issue decreases, leading to a more stable and 
+consistent stance. In belief networks, individuals with high dissonance 
+(belief inconsistency) are associated with low-temperature networks, 
+where tightly connected beliefs amplify the drive to reduce dissonance 
+by changing specific beliefs. Conversely, high temperature networks 
+are characterized by a more malleable belief system but less pressure 
+to resolve inconsistencies29. Consequently, temperature represents a 
+global parameter of the network state, scaling both the connectedness 
+of the network, which indicates a general predisposition to an attitude 
+or belief and the thresholds of the network, reflecting external influ-
+ences on thoughts.
+We can bring this idea to psychological symptom networks. The 
+concepts of network temperature and entropy may be valuable in bet-
+ter describing stability in depression and enhancing understanding of 
+risk and resilience. The model of psychiatric disorders as dynamical 
+systems parallels this theory by describing two alternative ‘basins of 
+attraction’ characterized by a resilient healthy and resilient disorder 
+state in early and recent work15,21,30. The theory would suggest that both 
+someone who is persistently depressed and someone who never expe-
+riences depressive symptoms have low temperature, stable networks 
+in more fixed states (Fig. 1b). Conversely, someone with consistently 
+fluctuating depression state or symptoms would have a high tempera-
+ture network which exhibits increased variability (Fig. 1c).
+We explore the hypothesis that symptom networks stabilize across 
+adolescence. Research shows that emotional regulation improves with 
+age31, while emotional fluctuations are pronounced during puberty 
+and adolescence32. Depression trajectories also reveal increased symp-
+tom heterogeneity during adolescence, but as individuals approach 
+adulthood, they tend to diverge toward two groups: nondepressed 
+and persistently depressed4,7,33, suggesting that individual symptoms 
+stabilize over time.
+The purpose of this work is to gain insight into the underlying 
+dynamics of adolescent depression by integrating network analysis 
+with longitudinal data. For the first time, we formalize the concept of 
+network temperature in psychological symptom networks and assess 
+its utility for network comparison using a novel approach of multigroup 
+Ising models. We examine how network temperature changes across 
+the development of adolescent depression in three large, independent 
+cohorts, providing a robust understanding of temporal changes. This 
+approach may identify critical developmental periods for intervention. 
+In addition, as a further illustration of this method, we investigate how 
+temperature changes under sex stratification. Sex is a key predictor 
+of depression, with females suffering higher rates and severity across 
+development34. This demonstrates the potential application of network 
+temperature to different subgroups or risk factors.
+Table 1 | Preimputed and complete case sample characteristics
+Wave
+Demographics
+1
+2
+3
+4
+5
+6
+7
+8
+ABCD
+N
+11,232
+10,568
+10,977
+10,510
+9,952
+9,985
+8,218
+4,648
+Mean age (years)
+10.4
+10.9
+11.4
+12
+12.4
+12.9
+13.4
+14.1
+Female (%)
+47.68
+47.75
+47.66
+47.63
+47.84
+47.37
+47.59
+47.56
+BPM, mean
+1.82
+1.74
+1.54
+1.81
+1.83
+2.02
+2.2
+2.27
+BPM, s.d.
+2.09
+2.11
+1.94
+2.23
+2.29
+2.38
+2.6
+2.56
+Complete cases, 
+mean
+1.58
+1.56
+1.32
+1.64
+1.69
+1.9
+2.01
+2.2
+Complete cases, s.d.
+1.89
+1.97
+1.77
+2.08
+2.19
+2.27
+2.47
+2.54
+ALSPAC
+N
+7,364
+6,716
+6,019
+4,997
+4,497
+3,335
+Mean age (years)
+10.7
+12.8
+13.8
+16.7
+17.8
+18.7
+Female (%)
+50.56
+51.2
+51.52
+58.82
+56.94
+63.83
+SMFQ, mean
+4.04
+3.97
+4.92
+5.91
+6.59
+6.83
+SMFQ, s.d.
+3.51
+3.86
+4.49
+5.64
+5.25
+5.93
+Complete cases, 
+mean
+3.77
+3.96
+4.85
+5.53
+6.11
+6.33
+Complete cases, s.d.
+3.24
+3.74
+4.4
+5.16
+4.9
+5.58
+MCS
+N (complete)
+10,680
+9,378
+7,139
+Mean age (years)
+11.2
+13.8
+16.7
+Female (%)
+51.39
+50.85
+51.97
+SDQ Emotional, 
+mean
+1.88
+2.04
+2.03
+SDQ, s.d.
+2
+2.13
+2.23
+Complete cases, 
+mean
+1.82
+1.99
+2.03
+Complete cases, s.d.
+1.98
+2.11
+2.24
+N, number of individuals at each wave; s.d., standard deviation.
 
 # Page 4
 
-Page 4 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-ensuring that the number of clusters remained clinically 
-manageable and relevant. The optimal number of clus­
-ters was determined through a comprehensive examina­
-tion of various metrics. These included the consensus 
-matrix (CM) heat map, the cumulative distribution func­
-tion (CDF), and cluster-consensus plots that focused 
-on within-cluster consensus scores. The proportion of 
-ambiguously clustered pairs (PAC) and the Bayesian 
-information criterion (BIC) also played a crucial role in 
-this determination. The within-cluster consensus score, 
-which varies between 0 and 1, represented the average 
-consensus value for all pairs of individuals within the 
-same cluster. A score closer to 1 indicated greater sta­
-bility and homogeneity within that cluster. PAC, calcu­
-lated in the range of 0 to 0.9, measured the proportion 
-of sample pairs with consensus values within pre-set 
-boundaries. A lower PAC value signified improved clus­
-ter stability. Lastly, the BIC, ranging between 20,000 and 
-20,500, served as a criterion for the selection of the num­
-ber of clusters, with lower BIC values indicating a more 
-parsimonious model.
-Statistical analysis
-Statistical analyses in this study were conducted using the 
-R software tool, version 4.1.2. After the CA patients clus­
-ters were identified, the differences between these clus­
-ters were analyzed. Measurement data were represented 
-as medians with their interquartile ranges (IQR), and 
-the nonparametric rank sum test was used to compare 
-these measurements across different groups. Counting 
-data, such as frequencies, were expressed in percent­
-ages, and the Chi-square test was employed to compare 
-these frequencies between groups. For multivariable 
-logistic regression, four distinct models were developed, 
-each adjusted for different confounding variables. Model 
-1 served as the baseline with no adjustments. Model 2 
-included adjustments from Model 1, plus factors such as 
-age and sex. Model 3 built upon Model 2 by also adjust­
-ing for the Charlson score. Finally, Model 4 included all 
-adjustments from Model 3, with the addition of the SOFA 
-score. The odds ratios (ORs) and their 95% confidence 
-intervals (CIs) were calculated using logistic regression to 
-assess the prognosis for different patient classes. In this 
-analysis, a p-value of less than 0.05 (two-tailed) was con­
-sidered to indicate statistical significance.
-Fig. 2  (A) Consensus matrix legend. (B) Consensus matrix (k = 2). (C) Consensus matrix (k = 3). (D) Consensus matrix (k = 4). (E) Consensus matrix (k = 5). 
-(F) Consensus matrix (k = 6)
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+551
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+Results
+Sample characteristics
+The imputed sample sizes for each cohort were N = 11,726 in the Ado-
+lescent Brain and Cognitive Development Study (ABCD), N = 9,217 in 
+the Avon Longitudinal Study of Parents and Children Study (ALSPAC) 
+and N = 14,958 in the Millennium Cohort Study (MCS) for individuals 
+with at least one depression measure. ABCD is an ethnically diverse 
+cohort and observed self-reported ethnicity of 250 Asian, 1,743 Black, 
+2,364 Hispanic, 6,134 White and 1,234 other individuals. ALSPAC and 
+MCS are White European cohorts.
+Preimputation sample demographics, attrition information for 
+each cohort at each wave and complete case statistics are reported 
+in Table 1. Both the depression summary score means and standard 
+deviations increase with age in the original missing data and complete 
+case samples, indicating an increase in between-person depression 
+score variability. Preimputation symptom frequencies are provided in 
+Supplementary Tables 8–10. Missing symptom data rates were 28.8% 
+in ABCD, 40.1% in ALSPAC and 32.6% in MCS. For ABCD and ALSPAC, 
+the missingness patterns indicated unit nonresponse, whereas in MCS, 
+there was a general pattern of missingness. Full information on missing 
+data patterns is shown in Supplementary Figs. 1–3.
+Network structure
+Networks were estimated at multiple waves across adolescent devel-
+opment and constructed from Ising models of binary symptoms. For 
+all cohorts, a dense network structure with fixed edge weights that 
+allowed external fields and temperature to vary over time provided 
+the best model fit. The network structures are depicted in Fig. 2a. The 
+full model fit results for models increasing in constraint are reported in 
+Supplementary Tables 11–13. The network model covariance matrices 
+are provided in Supplementary Tables 14–16.
+Network temperature
+The results are reported as T for temperature with the 95% confidence 
+intervals (CI). Across all three cohorts, the network temperature 
+decreased across adolescence, albeit at different rates (Fig. 2b). Tem-
+perature decrease indicates an increase in node state alignment in 
+the network as the system becomes more ordered (less random), and 
+the symptoms tend to ‘all on’ or ‘all off’. In ABCD, the sharpest drop in 
+temperature was between 10.5 (T = 1) and 11 years (T = 0.87 (0.85–0.88)), 
+with continued cooling to age 14 years (T = 0.60 (0.59–0.61)). In ALSPAC, 
+we observed the sharpest drop in temperature between 11 (T = 1) and 
+13 years (T = 0.89 (0.88–0.90)) and a consistent cooling between 13 and 
+19 years (T = 0.70 (0.69–0.71)). In MCS, we saw a consistent cooling rate 
+between age 11 (T = 1) and 17 years (T = 0.75 (0.74–0.76)).
+Network entropy decreased consistently with temperature cooling 
+across cohorts, reflecting reduced instability through increased node 
+state alignment (Supplementary Fig. 4). The mean symptom scores and 
+symptom variance showed distinct patterns (increasing in ALSPAC but 
+decreasing in ABCD and MCS), indicating that network-level changes 
+(temperature and entropy) provide insights beyond static symptom 
+measures (Supplementary Tables 17–19).
+ABCD, N = 11,726
+ALSPAC, N = 9,217
+MCS, N = 14,958
+a
+b
+0.6
+0.7
+0.8
+0.9
+1.0
+10.5
+11.0
+11.5
+12.0
+12.5
+13.0
+13.5
+14.0
+Age (years)
+Temperature
+0.6
+0.7
+0.8
+0.9
+1.0
+11
+13
+14
+17
+18
+19
+Age (years)
+Temperature
+0.6
+0.7
+0.8
+0.9
+1.0
+11
+14
+17
+Age (years)
+Temperature
+CI type
+Analytical 95% CIs
+Bootstrapped 95% CIs
+Worthless
+Anxious
+Guilty
+Self-conscious
+Unhappy
+Worry
+Unhappy
+Anhedonia
+Apathetic
+Restless
+Worthless
+Tearful
+Distracted
+Self-loathing
+Guilty
+Isolated
+Unloved
+Inadequate
+Incompetent
+Malaise
+Worries
+Unhappy
+Anxiety
+Fears
+Fig. 2 | Depression symptom network temperature change across adolescence 
+in three cohorts. a, The estimated Ising model networks with equal edges 
+constrained over time. ABCD: N = 11,726; ALPSAC: N = 9,217; MCS: N = 14,958.  
+b, The network temperature values were derived from the Ising model at each age, 
+with the first occasion in each cohort fixed to 1 for identification. The error bars 
+represent the 95% CIs around the network temperature parameter estimate, with 
+purple indicating the analytical CIs and yellow indicating the bootstrapped CIs.
 
 # Page 5
 
-Page 5 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-Results
-Characteristics of the cohorts
-In this study, a total of 76,540 ICU patients from the 
-MIMIC-IV database were initially considered. After 
-applying the exclusion criteria, 719 patients who experi­
-enced CA were ultimately enrolled. The patient cohort in 
-this study had a median age of 67.2 years, with an inter­
-quartile range (IQR) of 55.5 to 79.3 years. Among these 
-patients, 63.2% (455 out of 719) were male. The racial 
-demographics were predominantly white (389/719, 
-54.1%), followed by black (81/719, 11.2%), and oth­
-ers (249/719, 34.6%). The most common comorbidities 
-among the patients were hypertension (489/719, 68.0%), 
-heart failure (265/719, 36.8%), and chronic kidney disease 
-(176/719, 24.4%). These demographic details are further 
-outlined in Table 1.
-Regarding treatments within the first 24  h post-ICU 
-admission, a significant proportion of the patients 
-received vasoactive drugs (74.4%, 535/719), and nearly all 
-were put on ventilation on the first day (99.0%, 712/719). 
-Additionally, 29.7% (214/719) received antiarrhythmic 
-drugs, and 29.2% (210/719) were administered sodium 
-bicarbonate during the same period. The median Sequen­
-tial Organ Failure Assessment (SOFA) score across the 
-patient cohort was 7 (IQR: 4–9), indicative of a generally 
-severe level of illness among these patients.
-Among 
-included 
-patients, 
-74.4%(535/719) 
-were 
-administered vasoactive agents dose within 24 h of ICU 
-admission, 99.0%(712/719) received mechanical ventila­
-tion, 29.7%(214/719) were given antiarrhythmic agents 
-dose, and 29.2%(210/719) were treated with sodium 
-bicarbonate. Across the dataset, Charlson score had a 
-median score of 6 (IQR: 4–8), indicating a high risk of 
-comorbidity.
-Derivation of two subphenotypes
-The CDF plot (sFigure 3A) shows the consensus distri­
-butions for each cluster, where the curve had negligible 
-variation when k = 2. The relative change in the area 
-under the CDF curve is shown in the delta plot (sFigure 
-3B), revealing significant differences in area when k = 3 
-or 4, indicating the relative increased area became con­
-siderably small. The mean cluster consensus score was 
-comparable between a scenario of two clusters (sFigure 
-3C), and the two clusters showed favorably low PACs by 
-the criteria (take [0, 0.9] as the predetermined boundary, 
-sFigure 3D). Then, we computed the optimal BIC values 
-using Least Common Ancestors analysis (LCA), which 
-was found to be minimum (20100) when k = 2, indicat­
-ing the model reached the optimal clustering number 
-(sFigure 4). The consensus matrix (CM) heatmap (Fig. 2) 
-shows that consensus cluster analysis identifies clusters 2 
-and 4 with clear boundaries, indicating good cluster sta­
-bility over repeated iterations.
-Through consensus clustering analysis, two distinct 
-patient groups emerged from the parameters of CA 
-patients within the first 24  h of their admission to the 
-ICU. For simplicity, we referred to the two classes as 
-subphenotype 1 (SP1) and subphenotype 2 (SP2), fol­
-lowed by creating 2D images using t-distributed stochas­
-tic neighbor embedding (t-SNE) to mark the differences 
-between before and after clustering (Fig.  3A) for easier 
-exploration and visualization of two subphenotypes. 
-Abnormal clinical variables of the two subphenotypes are 
-shown in Fig. 4.
-Characteristics of two subphenotypes
-Patients within both subphenotypes were of similar age. 
-Among those with SP1, 57.6% were males. These patients 
-also had lower Charlson Comorbidity Index and SOFA 
-scores, and they required fewer vasoactive drugs and 
-CRRT. In terms of laboratory parameters, patients in 
-SP1 exhibited elevated levels of HB, Bicarbonate, Chlo­
-ride, pH, PO2, and BE, contrasted with diminished levels 
-of Potassium, Bilirubin, INR, and LAC. Similarly, 73.8% 
-were male in SP2. However, patients in SP2 showed 
-higher PEEP and a higher comorbidities burden. In addi­
-tion, SP2 patients demonstrated elevated GLU, BUN, 
-ALT and AST levels (Table 1). The distinct variables of 
-both subphenotypes are depicted in Fig. 3B. In compari­
-son to SP2, SP1 is distinguished by markedly higher levels 
-of P/F, HB, MAP, PLT and Na, alongside lower values of 
-T, HR, GLU, WBC and CR.
-Clinical outcomes of two subphenotypes
-As shown in Fig. 5A, SP1 had a lower proportion of in-
-hospital mortality than SP2, where KM survival curves 
-showed that SP1 had a lower 28-day mortality than 
-SP2 (P < 0.001) (Fig.  5B). The univariate model 1 was 
-adjusted three times by including different parameters 
-and analyzed using multivariate logistic and COX regres­
-sion analysis, respectively. Results showed that in either 
-model, the in-hospital mortality (OR = 1.82, 95% CI: 
-1.26–2.64, p = 0.002) and 28-day mortality (HR = 1.84, 
-95% CI: 1.40–2.41, p < 0.001) of SP2 patients were higher 
-than SP1 (Table 2).
-We also analyzed the relationship between different 
-vital signs and mortality (Table  3), and results showed 
-that patients with MAP ≥ 65mmHg had lower mor­
-tality than those with MAP < 65mmHg, independent 
-of a whole group or in SP1 or SP2 individually. The in-
-hospital mortality and 28-day mortality of SP1 patients 
-with temperature 32 ∼ 36℃ were lower than those with 
-temperature 36 ∼ 37.5℃(OR = 2.91, 95% Cl: 1.46–5.78], 
-HR = 2.37 [95% Cl: 1.52–3.69]). However, the analyses for 
-SP2 patients were not significantly different for patients 
-with temperature 36–37.5  °C and others. In the whole 
-cohort, patients also tended to have a lower mortality
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+552
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+Sex differences in depression temperature across adolescence
+The sex stratification of network temperature revealed an overall trend 
+of faster cooling and lower temperature in males than females across 
+adolescence in all three cohorts (Fig. 3). Female temperature was higher 
+across adolescence, indicating increased symptom variability and, 
+therefore, reduced network stability. This means females observed 
+a longer period of high temperature where the network is more sus-
+ceptible to change, for example, potential impact by environmental 
+stressors acting as the thresholds.
+In the ABCD cohort, temperature decreased at a similar rate for 
+both sexes until mid-adolescence. By age 12.5 years, males exhibited 
+a slightly faster cooling trend compared with females. At this age, 
+the temperatures showed a near identical decrease (males, T = 0.76 
+(0.75–0.77); females, T = 0.77 (0.75–0.78)). By age 13 years, the females 
+showed a minor increase in temperature to T = 0.80 (0.78–0.82), while 
+the temperature of the males remained stable. By age 14 years, both 
+sexes demonstrated rapid cooling. The males exhibited the greatest 
+cooling rate, with a decrease of T = 0.59 (0.58–0.60) compared with 
+the females (T = 0.63 (0.62–0.64)). The effect size of the interaction 
+between age and sex was −0.0108, indicating a trend toward faster 
+cooling in males. The evidence for this effect was modest (P = 0.050).
+In the ALSPAC cohort, the males displayed a rapid cooling rate 
+from age 11 (T = 1) to age 14 years (T = 0.82 (0.81–0.84)), continuing into 
+late adolescence (T = 0.63 (0.62–0.64) at age 19 years). In contrast, the 
+females showed a slower rate of cooling, with temperatures decreas-
+ing to T = 0.90 (0.88–0.91) by age 14 years. By age 19 years, the rela-
+tive temperature for the females remained higher compared with the 
+males, at T = 0.79 (0.75–0.77), exhibiting less stability in their networks. 
+The effect size of the interaction between age and sex was −0.0140, 
+indicating a faster cooling trend in males, with the evidence supporting 
+this observation being robust (P = 0.025).
+In the MCS cohort, both the male and female networks exhib-
+ited cooling, though males at a slightly faster rate. The difference 
+was most apparent between ages 11 and 14 years, with males cooling 
+to T = 0.88 (0.86–0.91) and females to T = 0.92 (0.89–0.94). By age 
+17 years, both sexes reached similar temperatures (males, T = 0.75 
+(0.83–0.76); females, T = 0.75 (0.74–0.77)). The effect size for the inter-
+action between age and sex was −0.00162, suggesting a trend toward 
+faster cooling in males. The evidence for this effect was weak (P = 0.769).
+Sensitivity analyses
+Estimated network structures remained consistent when analyzing 
+nonimputed data (complete cases) only, with the maximum-likelihood 
+estimator (Supplementary Tables 20–22 and Supplementary Figs. 5–7). 
+The network temperature also decreased across all cohorts, albeit to a 
+lesser extent than with the imputed samples. As expected, the network 
+structure remained equivalent with [0,1] encoding. Surprisingly, we 
+also saw consistent results for the temperature parameter suggesting 
+either encoding approach is suitable for analysis of network tempera-
+ture (Supplementary Tables 23–25 and Supplementary Figs. 8–10). The 
+global network connectivity was approximately proportional to the 
+product of connectivity at the first time point and beta (Supplementary 
+Tables 26–28). The minor discrepancies of calculated values prob-
+ably reflect numerical variations arising from parameter estimation, 
+aggregation or rounding effects. The overall patterns demonstrate that 
+connectivity is scaled by beta, reinforcing that temperature captures 
+distinct information on system dynamics beyond what connectivity 
+alone can reveal.
+Discussion
+For the first time, we apply the concept of network temperature to 
+psychological symptom networks. Specifically, we observed a decrease 
+in the temperature of depressive symptom networks across adolescent 
+development, indicating increased stability and decreased variability of 
+symptoms. While earlier studies have begun to interpret mental health 
+networks as complex systems, moving away from node-focused evalu-
+ations, these studies typically identify cross-sectional differences such 
+as network structure or density. We demonstrate network temperature 
+as a novel metric that captures network dynamics over time, a measure 
+currently missing from symptom network studies and which can be 
+applied to group comparisons of network stability.
+In three adolescent cohorts with three different depression scales, 
+we show a consistent pattern of network temperature decrease across 
+adolescence. This ‘cooling’ indicates increased within-person depres-
+sion stability as symptoms become more aligned and less variable with 
+age. This finding is supported by previous work that found global con-
+nectivity of depression–anxiety networks increased from childhood 
+through adolescence35.
+Our results confirm that network temperature and entropy 
+decrease together, supporting the hypothesis of reduced instability 
+as networks settle into fewer configurations. Importantly, changes 
+in symptom variance were cohort specific, highlighting that network 
+temperature provides unique insights into system dynamics not cap-
+tured by symptom variability alone.
+To illustrate these cohort-specific patterns, we observed that 
+symptom variation decreased in ABCD and MCS, suggesting increas-
+ing synchronization of symptoms across individuals and more homo-
+geneous samples. In contrast, the increase in symptom variance 
+in ALSPAC indicates greater heterogeneity in symptom dynamics, 
+potentially reflecting a polarization into two subgroups: individuals 
+0.6
+0.7
+0.8
+0.9
+1.0
+10.5 11.0
+11.5
+12.0 12.5 13.0 13.5 14.0
+Age (years)
+Temperature
+ABCD
+0.6
+0.7
+0.8
+0.9
+1.0
+11
+13
+14
+17
+18
+19
+Age (years)
+Temperature
+ALSPAC
+0.6
+0.7
+0.8
+0.9
+1.0
+11
+14
+17
+Age (years)
+Temperature
+MCS
+Sex
+Females
+Males
+Fig. 3 | Sex-stratified depression network temperature change across three 
+cohorts. The error bar plots show the relative rate of temperature decrease with 
+age, with the first occasion in each cohort fixed to 1 for identification. ABCD: 
+N = 5,603 (females), N = 6,120 (males); ALSPAC: N = 4,784 (females), N = 4,417 
+(males); MCS: N = 6,382 (females), N = 6,442 (males). The error bars represent the 
+analytical 95% CIs around the network temperature parameter estimate. The lines 
+illustrate relative rates of cooling across age, not absolute temperature values.
 
 # Page 6
 
-Page 6 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-Variables
-Total (n = 719)
-Subphenotype 1 (n = 470)
-Subphenotype 2 (n = 249)
-p
-statistic
-Demographic variables
-Age
-67.221 (55.509, 79.34)
-66.695 (54.815, 79.3)
-67.594 (56.261, 79.337)
-0.478
--0.71
-Sex, male
-455 (63.282)
-271 (57.66)
-184 (73.896)
-< 0.001
-17.774
-Race, n (%)
-0.207
-3.152
-  black
-81 (11.266)
-46 (9.787)
-35 (14.056)
-  white
-389 (54.103)
-256 (54.468)
-133 (53.414)
-  other
-249 (34.631)
-168 (35.745)
-81 (32.53)
-BMI
-27.758 (24.504, 32.162)
-27.618 (24.07, 31.867)
-28.395 (25.381, 33.333)
-0.014
--2.469
-Comorbidities
-Hypertension, n (%)
-489 (68.011)
-305 (64.894)
-184 (73.896)
-0.017
-5.656
-Heart failure, n (%)
-265 (36.857)
-154 (32.766)
-111 (44.578)
-0.002
-9.258
-Cerebral infarction, n (%)
-80 (11.127)
-56 (11.915)
-24 (9.639)
-0.424
-0.638
-COPD, n (%)
-114 (15.855)
-79 (16.809)
-35 (14.056)
-0.393
-0.729
-Cirrhosis of liver, n (%)
-27 (3.755)
-10 (2.128)
-17 (6.827)
-0.003
-8.689
-Chronic kidney disease, n (%)
-176 (24.478)
-48 (10.213)
-128 (51.406)
-< 0.001
-147.182
-Malignant cancer, n (%)
-75 (10.431)
-43 (9.149)
-32 (12.851)
-0.156
-2.008
-Diabetes, n (%)
-236 (32.823)
-130 (27.66)
-106 (42.57)
-< 0.001
-15.743
-Myocardial infarction, n (%)
-213 (29.624)
-122 (25.957)
-91 (36.546)
-0.004
-8.253
-Arrhythmia, n (%)
-600 (83.449)
-392 (83.404)
-208 (83.534)
-1
-< 0.001
-Coronary heart disease, n (%)
-347 (48.261)
-213 (45.319)
-134 (53.815)
-0.037
-4.371
-Cardiomyopathy, n (%)
-72 (10.014)
-47 (10)
-25 (10.04)
-1
-< 0.001
-Severity scores
-Charlson score
-6 (4, 8)
-5 (4, 7)
-7 (5, 9)
-< 0.001
--7.15
-SOFA
-7 (4, 9)
-5 (3, 8)
-9 (7, 11)
-< 0.001
--12.41
-Vital signs
-Temperature
-36.746 (36.234, 37.154)
-36.763 (36.236, 37.175)
-36.714 (36.24, 37.097)
-0.838
-0.204
-Heart rate
-81.88 (70.212, 95.651)
-80.58 (68.613, 92.982)
-84.22 (72.958, 99.438)
-0.002
--3.141
-Respiratory rate
-20.122 (17.565, 23.575)
-19.561 (17.101, 22.645)
-21.379 (18.293, 24.875)
-< 0.001
--4.143
-MAP
-78.219 (71.845, 84.728)
-79.321 (72.876, 86.13)
-74.852 (69.609, 82.232)
-< 0.001
-4.938
-SBP
-112.4 (105.069, 122.858)
-113.19 (106.026, 124.572)
-110.417 (103.409, 119.333)
-0.001
-3.198
-DBP
-62.692 (55.506, 69.929)
-63.698 (57.122, 71.012)
-60.097 (53.821, 68.5)
-0.001
-3.417
-PaO2/FiO2
-229.3 (145.7, 333.6)
-249.9 (164, 356.4)
-181.4 (120.2, 265.3)
-< 0.001
-6.39
-spo2
-98 (96.37, 99.197)
-98.217 (96.767, 99.396)
-97.484 (95.783, 98.889)
-< 0.001
-4.36
-Input
-6000 (3395, 9620)
-5940 (3400, 9199.25)
-6250 (3280, 10720)
-0.269
--1.106
-Output
-1847 (1015.5, 3094)
-2178.5 (1391, 3416.5)
-1125 (502, 2125)
-< 0.001
-9.62
-Laboratory parameters
-Hemoglobin
-11 (9.4, 13.115)
-11.5 (9.79, 13.388)
-10.3 (8.65, 12.35)
-< 0.001
-5.384
-WBC
-13.05 (9.31, 17.45)
-12.49 (9.232, 16.488)
-14.8 (9.7, 19.1)
-0.001
--3.303
-Platelets
-183.5 (138.07, 245.29)
-194 (144, 248.625)
-170 (125.25, 236.67)
-0.001
-3.209
-INR
-1.3 (1.15, 1.6)
-1.25 (1.105, 1.465)
-1.47 (1.2, 1.85)
-< 0.001
--7.203
-ALT
-73 (32, 188.75)
-63 (31, 163)
-96.5 (38, 309)
-< 0.001
--3.947
-AST
-129.5 (48, 307)
-106 (45.5, 243)
-182 (56.2, 448)
-< 0.001
--4.345
-Bilirubin
-0.6 (0.4, 1.14)
-0.6 (0.377, 0.95)
-0.7 (0.4, 1.55)
-< 0.001
--3.556
-BUN
-23.75 (16.708, 36.5)
-19 (14.5, 24.65)
-42 (29.5, 60)
-< 0.001
--17.587
-Creatinine
-1.2 (0.83, 1.99)
-0.95 (0.732, 1.2)
-2.46 (1.93, 3.6)
-< 0.001
--21.701
-Glucose
-153.6 (123.5, 201.25)
-149.585 (122, 190.188)
-161.2 (128.5, 224.4)
-0.001
--3.282
-Sodium
-139 (136.5, 141.67)
-139.33 (137.05, 141.95)
-138.5 (135.33, 141)
-0.001
-3.317
-Potassium
-4.13 (3.85, 4.55)
-4.05 (3.8, 4.358)
-4.45 (4, 4.95)
-< 0.001
--7.971
-Chloride
-105.33 (101.55, 108.5)
-106 (103, 109.75)
-103 (98.5, 107)
-< 0.001
-7.085
-pH
-7.35 (7.3, 7.4)
-7.36 (7.31, 7.4)
-7.32 (7.27, 7.38)
-< 0.001
-5.087
-po2
-122 (86.8, 164.105)
-132 (94.082, 173.31)
-106.29 (76.21, 143)
-< 0.001
-5.206
-pco2
-39 (34.805, 43.84)
-39 (34.842, 43.53)
-39.33 (34.78, 44.36)
-0.875
--0.157
-Bicarbonate
-21.25 (18.5, 24)
-22 (19.25, 24.5)
-20 (16.75, 23)
-< 0.001
-5.425
-Table 1  Baseline characteristics between different Subphenotypes (median [Q1, Q3]/ n [%])
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+553
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+with persistently high symptoms and those stabilizing at low levels. 
+This aligns with the theory of low-temperature network states, where 
+symptoms converge into ‘all-on’ or ‘all-off’ configurations, consistent 
+with prior trajectory findings in this cohort7,33,36.
+Temperature may explain why we see strongly connected net-
+works in both depression patients and healthy individuals—offering a 
+dynamical explanation for the conflicting evidence as to whether con-
+nectivity is ‘good’ or ‘bad’. Rather than being pathological in symptom 
+networks, as previously thought15, increased connectivity may instead 
+represent lower temperature and increased homogeny of symptom 
+states within a group.
+In the study suggesting connectivity as pathological, the indi-
+viduals with persistent depression had a higher network connectivity 
+compared with those whose depression had remitted12. This difference 
+may be due to persisters having stable low-temperature networks, 
+while remitters exhibit higher temperatures and more symptom 
+heterogeneity.
+In the study that saw increased connectivity as a marker of 
+improvement, major depression treatment responders had a weaker 
+baseline network connectivity than nonresponders but then saw the 
+greatest increase in connectivity with treatment19. This could be under-
+stood as treatment responders initially having less stable, ‘hotter’ 
+networks, which were more susceptible to intervention. This increased 
+system randomness may have enabled treatment to tip them into a 
+positive stable state, heightening stability or connectivity, whereas the 
+nonresponders began with lower temperature networks and remained 
+‘stuck’ in these negative low-temperature states.
+Connectivity and temperature are conceptually distinct measures 
+in network dynamics. Connectivity quantifies the aggregate strength 
+of pairwise interactions in a static network, while temperature governs 
+the system’s stability and susceptibility to fluctuations, reflecting its 
+dynamism and likelihood of transitioning between configurations. By 
+influencing edge weights and thresholds (external fields), temperature 
+shapes the probability distribution of node states, making it espe-
+cially relevant in psychological networks where symptom instability 
+is critical.
+While connectivity captures the overall strength of relationships, 
+temperature highlights fluctuations and transitions in symptom pat-
+terns, offering a nuanced perspective on system dynamics. This dis-
+tinction is particularly valuable when sudden changes or instability 
+are key phenomena. By identifying temperature and enabling group 
+comparisons, our study complements traditional connectivity meas-
+ures and provides new insights into psychological network behavior.
+Our findings are also consistent with research on longitudinal 
+depression trajectories. Across adolescence, studies observe two 
+stable groups: one displaying persistent symptoms (stable high) and 
+a second with low or no symptoms (stable low)7,33,37. Individuals in both 
+of these stable groups would be characterized by low-temperature 
+networks. The individuals belonging to more intermediate trajectories 
+(increasing and decreasing) who experience fluctuating symptom 
+patterns eventually converge into one of these stable high- or stable 
+low-trajectory groups by early adulthood. This aligns with the theory 
+of statistical thermodynamics for complex systems tending to lower-
+energy states. As adolescents age, within-individual networks homo­
+genize, and the symptom states align.
+Conversely, between-individual networks exhibited increased vari-
+ation across development, as individuals tend toward either pole of the 
+depression spectrum. We observed this polarization as the increased 
+variance in depression summary scores. This supports the theory of 
+depression as a bistable system with two attractor states15,21. The novelty 
+that we propose is that these attractor states are both characterized 
+by low-energy states but at opposite poles of the depression spectrum 
+(symptoms ‘all on’ or ‘all off’), as depicted in Fig. 1.
+Importantly, both the pattern of network temperature cooling and 
+increased polarization drive home the cruciality of early intervention 
+for mitigating depression onset. The sharp changes in temperature 
+between early to mid-adolescence indicate that when the system is 
+at higher temperatures and displays the most randomness, we are 
+presented with a critical period for intervention before network states 
+become ‘stuck’. Etiologically, this period corresponds to the onset of 
+puberty and hormone changes, synaptic pruning of neural connections 
+and social changes, such as the transition to secondary education38.
+While our study emphasizes network dynamics over structure, 
+we observed consistent network structure across all cohorts and time 
+points. However, since our model tests are frequentist, this consistency 
+suggests a lack of evidence for differences rather than definitive equal-
+ity. Nonetheless, the large sample sizes bolster the evidence for truly 
+equal network structures. We found the observed data fit best models 
+with constrained edges but allowing thresholds and temperature to 
+vary with time. This consistent equality was also found in a longitudinal 
+network of depressed mothers39. The equal network structure means 
+centrality estimates are also equal over time. The consistency of cen-
+trality across development, as indicated by stable network structures 
+over time, supports the transition from a node-focused approach 
+to overall properties of the network, which offers further insight for 
+psychological network analysis.
+We also observed sex differences in the temperature of depression 
+networks across adolescence. The males generally exhibited faster 
+cooling and lower temperatures across adolescence compared with the 
+females, though this sex difference was not significant in all cohorts. 
+This pattern suggests that the symptom networks of the males stabilize 
+earlier, while the symptom networks of the females remain more vari-
+able and unstable, potentially contributing to higher rates of depres-
+sion observed in adolescent females34. Our findings are supported by 
+longitudinal work in depressive symptoms that show females follow 
+more heterogeneous trajectory patterns with higher peaks across 
+adolescence40. Clinically, this may highlight an even stronger need to 
+intervene early in males and continuously in females.
+Sex is one predictor of mental health trait differences, but there 
+are many other risk and protective factors that could make use of this 
+analytical approach in either a cross-sectional two-group approach or 
+longitudinally. For example, how does temperature differ in someone 
+with poor sleep versus good sleep? How does temperature vary with 
+substance use? How does temperature respond to depression inter-
+ventions? These are opportunities for future work to explore both for 
+depression and other psychological conditions.
+Our study emphasizes the unique contributions of network 
+models to understanding psychological systems. Unlike traditional 
+approaches such as structural equation modeling, which infer latent 
+constructs from aggregated questionnaire responses, network models 
+focus on dynamic interrelations between individual symptoms, making 
+them useful for exploring the structure and behavior of psychological 
+systems.
+While structural equation modeling relies on acyclic (no loops), 
+theory-driven path models41, network approaches such as the Ising 
+model can capture potentially cyclic and data-driven dynamics, offer-
+ing new insights such as network temperature to enrich our under-
+standing of system behavior.
+This study had a few limitations. As expected with longitudinal 
+research, there were many missing symptom observations (Table 1). 
+Though our approach to handling missing data using multiple imputa-
+tion and pooling mode symptom combinations is appropriate for the 
+nature of the data, we cannot guarantee data are missing at random. 
+For example, it is known that those with severe depression are less 
+likely to complete longitudinal follow-up, thus leading to selective 
+attrition bias in the imputed data42. Imputation for network analysis 
+data, particularly longitudinal, is still a gap in the methodology litera-
+ture43,44. However, our sensitivity analyses with complete cases only 
+found consistent results for both the model selection and pattern of 
+temperature decrease, albeit less steep, across cohorts (Supplementary
 
 # Page 7
 
-Page 7 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-rate when PO2 ≥ 80mmHg. Nevertheless, PO2 ≥ 80mmHg 
-showed the opposite outcome in SP2 as in SP1. Similarly, 
-compared to patients with PCO2 < 35mmHg, those with 
-35mmHg ≤ PCO2 ≤ 45mmHg or PCO2 ≥ 45mmHg had 
-lower mortality, independent of a whole group or in SP1 
-or SP2.
-Discussion
-In medicine, subphenotype and disease stage are two dis­
-tinct concepts that can sometimes be difficult to distin­
-guish. Is it possible that the discrimination that is being 
-observed simply reflects two different stages of progres­
-sion rather than separate clusters? Let me begin with 
-our answer - “NO”. The two subphenotypes that have 
-been identified are clearly not two stages of CA progres­
-sion, but rather refer to a group of CA patients who are 
-further subdivided according to different characteristics 
-or responses. The stages of CA progression can include 
-prodromal phase, onset phase, CA phase, and biological 
-death phase. The subphenotypes identified in this study 
-are certainly in one of these stages of development, but 
-it is more of a coexisting condition. The identification 
-of subphenotypes usually relies on in-depth analysis of 
-patient clinical characteristics (such as symptoms and 
-signs) and biomarkers (such as specific molecules in 
-blood and urine). These features and markers can help 
-physicians classify patients into subgroups with similar 
-Fig. 3  (A) T-distributed stochastic neighbor embedding (t-SNE) plot. This nonlinear dimension reduction technique is used to visualize high-latitude data. 
-(B) Selected variables by subphenotype in CA and the differences in the standardized values of each variable by subphenotype. All continuous variables 
-were transformed into z-scores (mean: 0, standard deviation: −1 to 1)
-WBC, white blood cell count; MAP, mean arterial pressure
- 
-Variables
-Total (n = 719)
-Subphenotype 1 (n = 470)
-Subphenotype 2 (n = 249)
-p
-statistic
-Base excess
--3 (-5.895, -0.15)
--2.29 (-4.8, 0)
--4.57 (-8, -0.75)
-< 0.001
-5.418
-Lactate
-2.4 (1.655, 3.8)
-2.2 (1.6, 3.475)
-2.929 (1.8, 5.142)
-< 0.001
--4.975
-Medication
-Vasoactive, n (%)
-535 (74.409)
-327 (69.574)
-208 (83.534)
-< 0.001
-15.932
-Antiarrhythmic, n (%)
-214 (29.764)
-143 (30.426)
-71 (28.514)
-0.654
-0.2
-Glucocorticoids, n (%)
-26 (3.616)
-21 (4.468)
-5 (2.008)
-0.141
-2.164
-Sodium bicarbonate, n (%)
-210 (29.207)
-100 (21.277)
-110 (44.177)
-< 0.001
-40.182
-Special treatments
-PEEP
-5.96 (5, 9.38)
-5.535 (5, 8.552)
-7.57 (5.18, 10.32)
-< 0.001
--4.911
-PCI, n (%)
-38 (5.285)
-26 (5.532)
-12 (4.819)
-0.817
-0.053
-ECOM, n (%)
-16 (2.225)
-12 (2.553)
-4 (1.606)
-0.58
-0.306
-CRRT, n (%)
-93 (12.935)
-25 (5.319)
-68 (27.309)
-< 0.001
-67.952
-IABP, n (%)
-38 (5.285)
-20 (4.255)
-18 (7.229)
-0.128
-2.312
-Ventilation, n (%)
-712 (99.026)
-466 (99.149)
-246 (98.795)
-0.698
-Fisher
-Continuous variables were reported as medians (interquartile range [IQR]), categorical variables as count (percentage [%]). Abbreviations: BMI, body mass index; 
-WBC, white blood cell; INR, international normalized ratio; ALT, alanine aminotransferase; AST, aspartate transaminase; BUN, blood urea nitrogen; SBP, systolic 
-blood pressure; DBP, diastolic blood pressure; MAP, mean arterial pressure; PEEP, positiveend-expiratorypressure; SOFA, sequential organ failure assessment; PCI, 
-percutaneous transluminal coronary intervention; ECMO, extracorporeal membrane oxygenation; CRRT, continuous renal replacement therapy; IABP, intra-aortic 
-ballon pump; COPD, chronic obstructive pulmonary disease
-Table 1  (continued)
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+554
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+Tables 20–22 and Supplementary Figs. 5–7). Though these approaches 
+all have their own biases, the consistent general pattern of results 
+provides robustness.
+We leveraged three adolescent cohorts with different symptom 
+scales (Short Mood and Feelings Questionnaire (SMFQ), Strength and 
+Difficulties Questionnaire (SDQ) and Brief Problem Monitoring Youth 
+Scale (BPM)), which had a mix of self-report (ABCD and ALSPAC) and 
+parent report (MCS) and included individuals born in different genera-
+tions and from different countries. Despite this heterogeneity, we show 
+replicated results of decreasing temperature and sex differences in 
+depression networks strengthening the generalizability of our findings. 
+The diversity in the ABCD cohort allows for broader generalizability 
+across different ethnic groups.
+Conclusions
+Overall, our work provides more evidence for the emerging dynami-
+cal systems perspective of psychological disorders. We demonstrate 
+network temperature as a novel parameter for assessing the stability of 
+symptom networks over time and reveal early adolescence as a critical 
+window for intervention. Sex differences exemplify how temperature 
+may provide more specificity of subgroup-based dynamics and preven-
+tion approaches.
+Methods
+Sample and depression phenotype
+The participants were from the ABCD45,46 study from the USA, the 
+ALSPAC47,48 study from the UK and the MCS49–51 study from the UK.
+We included all individuals with at least one completed validated 
+depression questionnaire. The longitudinal symptom data availa-
+ble for each cohort differed in measure, frequency and age range. In 
+ABCD, the self-report depression symptoms were acquired from the 
+internalizing subscale of the self-report BPM (six items) collected at 
+eight waves between the ages of 10 and 14 years. In ALSPAC, we used 
+the SMFQ (13 items) collected at six waves between the ages of 11 and 
+19 years. In MCS, we used the emotional problems subscale from the 
+parent-report SDQ (five items) collected at three waves between the 
+ages of 11 and 17 years. Full information on cohorts, questionnaires and 
+validation of methods can be found in Supplementary Information and 
+Supplementary Tables 1–6.
+Symptom cleaning and multiple imputation
+The symptom data for all three cohorts was scored on a three-point 
+Likert scale (not true, sometimes and true). However, due to the Ising 
+model specification, we binarize symptoms to [−1, 1] encoding with −1 
+meaning ‘not true’ and 1 meaning ‘true’, where ‘sometimes’ is subsumed 
+into ‘true’. Using the MICE R package, we used multiple imputations by 
+chained equations with predictive mean matching to impute missing 
+symptom data with m imputed datasets, where m is the percentage of 
+missing data and 20 iterations. The imputed datasets were aggregated 
+and pooled point estimates of the mode symptom combination were 
+selected for the final imputed dataset. To determine the impact of both 
+attrition and imputation, we estimated the networks and extracted 
+temperature change for all cohorts with nonimputed (complete cases) 
+datasets using the maximum-likelihood estimator.
+The Ising model
+The Ising model provides a framework to understand the probability 
+distribution of different configurations in a network based on the 
+interactions between nodes (symptoms) and external (environmental) 
+influences. It captures how aligned node states (lower energy) are more 
+probable and how temperature affects the randomness in the system. 
+The Ising model equation is given by equation (1) (ref. 25)
+P (X = x) = e−βH(x)
+Z
+,
+(1)
+where P (X = x) is the probability of the network nodes being in a 
+specific configuration. A configuration x represents a specific state of 
+all nodes in the network, where each node xi can be in one of two states 
+(for example, −1 or 1). H(x) is the potential function, which measures 
+the energy of the configuration x with lower-energy configurations 
+more likely to occur. The potential function captures the effect of 
+external fields on nodes and the interactions between connected 
+nodes. β is the inverse temperature parameter that scales the influence 
+of H(x) on the probability. A high β (low temperature) means that the 
+system favors lower-energy states and less randomness. Z is the parti-
+tion function, which sums over all possible network configurations to 
+ensure probabilities sum to 1, acting as a normalization constant.
+Network temperature
+Network formulation requires all parameters—edge weights, thresh-
+olds and temperature—to be estimated in a series of cross-sectional 
+networks across time. In the first group (time point), β (inverse tem-
+perature) is unidentified, so we fix it to 1—analogous to the latent vari-
+able identification in structural equation modeling52. Adding equality 
+constraints to the groups (here, the model at different time points) 
+means that temperature becomes identified from the second group 
+onwards (t2:tn). Consequently, temperature can increase or decrease 
+relative to this starting value. To determine network temperature 
+change, we extracted the thermodynamic β value from the best-fitting 
+Ising model output at each time point. Thermodynamic β is the inverse 
+of the temperature of the network represented in the Ising model given 
+by equation (2) (ref. 53)
+β =
+1
+kBT ,
+(2)
+where T is the temperature and kB is the Boltzmann constant53,54. β is also 
+termed the ‘dependence parameter’, as it scales the configuration and, 
+thus, entropy of the Ising model27,54. As β increases, the probability of 
+the network configuration depends more on its energy, thus resulting 
+in a higher configuration stability and lower within-system variability. 
+The system tends toward lower Gibbs entropy due to the reduced 
+likelihood of higher-energy configurations. Conversely, when β is at 
+its lowest, all network configurations are equally probable, indicating 
+a maximum Gibbs entropy.
+We computed temperature as 1/β and plot the change in tempera-
+ture across adolescence for each cohort. Importantly, temperature and 
+entropy, while related, are distinct: temperature reflects the stability 
+of the system and can fluctuate independently of overall entropy. For 
+example, even if temperature increases (indicating higher instability), 
+it does not necessarily imply an increase in the system’s Gibbs entropy 
+if the overall distribution of configurations remains relatively stable.
+We performed 1,000 bootstraps of network temperature esti-
+mates to derive bootstrapped 95% CIs in addition to analytical CIs.
+Network estimation and model selection
+Depression networks were estimated using multigroup Ising models of 
+binary symptoms. We used the Ising model function in the psychonet-
+rics R package to estimate network models independently at different 
+time points. We estimated four network models in each cohort in an 
+iterative approach with increasing constraints: (1) fully saturated with 
+all parameters free; (2) set omega equal between groups for equal 
+edges (structure) over time; (3) set omega and tau equal between 
+groups for equal edges and external information (thresholds) over 
+time, respectively; and (4) set omega, tau and beta equal between 
+groups for equal edges, thresholds and temperature over time, respec-
+tively (Supplementary Table 7). For each of these four models, we also 
+tested both a dense network (all nodes connected) and a sparse network 
+(pruning of edges) structure, resulting in eight models estimated for 
+each cohort. This approach has been detailed in previous Ising model
 
 # Page 8
 
-Page 8 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-Table 2  The associations of subphenotype and outcomes
-Hospital mortality
-28-day mortality
-OR
-95%CI
-P
-HR
-95%CI
-P
-Model 1
-Subphenotype 1
-Ref
-Ref
-Subphenotype 2
-1.73
-1.27–2.37
-< 0.001
-1.59
-1.28–1.99
-< 0.001
-Model 2
-Subphenotype 1
-Ref
-Ref
-Subphenotype 2
-1.83
-1.33–2.52
-< 0.001
-1.64
-1.31–2.05
-< 0.001
-Model 3
-Subphenotype 1
-Ref
-Ref
-Subphenotype 2
-1.79
-1.28–2.50
-< 0.001
-1.74
-1.37–2.20
-< 0.001
-Model 4
-Subphenotype 1
-Ref
-Ref
-Subphenotype 2
-1.82
-1.26–2.64
-0.002
-1.84
-1.40–2.41
-< 0.001
-Fig. 5  (A) Hospital mortality among different subphenotypes of ICU patients with CA. (B) 28-day mortality among different subphenotypes of ICU 
-patients with CA
- 
-Fig. 4  Chord diagram showing abnormal clinical variables by suphenotype. In (A), the ribbons connect an individual subphenotype to an organ or 
-system if the group mean is greater or less than the overall mean for the entire cohort. For example, subphenotype 1 (light blue) is more likely to have 
-patients with acid–base imbalance (the ribbons connect to these portions of the circle) than patients with subphenotype 2 (light red), who are more 
-likely to have cardiovascular, pulmonary, and hepatic dysfunction. In (B) and (C), each subphenotype is highlighted separately, and the ribbons connect 
-to different patterns of clinical variables and organ or system dysfunctions located at the top of the circle
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+555
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+methodology22. The estimated network structures were plotted with 
+the qgraph R package.
+The best model was selected on the basis of fit parameters includ-
+ing low Akaike information criterion, low Bayesian information cri-
+terion, root mean square error of approximation <0.05 and P value 
+(α = 0.05) of the chi-squared test. The root mean square error of approx-
+imation compares subsequent models of increasing constraints with 
+the fully connected (saturated) Ising model of pairwise interactions, 
+which has 0 degrees of freedom. This approach is analogous to struc-
+tural equation modeling. We performed a pairwise nested comparison 
+between dense and sparse networks, where model 1 is the reference 
+model. The model descriptions and nesting structure are detailed in 
+the Supplementary Table 7.
+We derived network entropy using the IsingSampler::IsingEntropy 
+R package and function and calculated the mean symptom scores and 
+variance across time to compare observable symptom changes with 
+temperature and entropy.
+Stratification application and sex differences
+We computed the temperature change independently in males and 
+females for the three cohorts to provide an example of how network 
+temperature can be investigated in stratified groups. The networks 
+were estimated, and the temperature was extracted as described for 
+the main analysis.
+We used a linear mixed-effects regression model with tempera-
+ture as the outcome, age, sex and their interaction (age × sex) as fixed 
+effects, and a random intercept for age to examine the interaction 
+between age and sex on network temperature. This allowed us to exam-
+ine how the rate of change in network temperature differs between 
+males and females over time. The P values are two-sided with α = 0.05.
+Sensitivity analyses
+The classical Ising model denotes binary nodes as [−1, 1]; however, net-
+work psychometricians often prefer [0, 1] encoding where symptoms 
+are conceptualized as present or absent15. Though differently encoded 
+networks can be transformed to produce statistically equivalent mod-
+els, network parameters generate different dynamical interpretations55. 
+Under [−1, 1] encoding, the dependence parameter (β) controls the 
+probability of node state alignment. As β increases, the probability of 
+nodes aligning as [1, 1] or [−1, −1] increases if these nodes are connected 
+positively in the network. However, under [0, 1] encoding, only the 
+probability of [1, 1] increases with β, not [0, 0]. We tested the impact of 
+[0, 1] encoding on temperature to determine whether this parameter 
+requires specific encoding. We followed advised reporting methods 
+for psychological network analysis where applicable56.
+We used the NetworkComparisonTest R package to derive global 
+network connectivity and compare it with temperature across time 
+points to further assess the validity and novelty of temperature. Since 
+the networks in our analysis are structurally identical with equal edge 
+weights, we expect connectivity to provide no additional information, 
+with any observed differences driven by beta (inverse temperature). If 
+network structures differed, connectivity could vary independently of 
+temperature, with temperature potentially amplifying or suppressing 
+connectivity effects.
+Reporting summary
+Further information on research design is available in the Nature 
+Portfolio Reporting Summary linked to this article.
+Data availability
+The ALSPAC study website contains details of all the data that are avail-
+able through a fully searchable data dictionary at http://www.bristol.
+ac.uk/alspac/researchers/access/. Permission to use the ALSPAC data is 
+obtained through a proposal system managed by the ALSPAC executive. 
+The ABCD data used in the preparation of this article were obtained 
+from the ABCD study at https://abcdstudy.org, held in the NIMH Data 
+Archive. The ABCD data repository grows and changes over time. The 
+ABCD data used in this report came from the NIMH Data Archive at 
+https://doi.org/10.15154/8873-zj65. The DOIs can be found at https://
+nda.nih.gov/abcd/. The MCS data are freely available and can be down-
+loaded on the UK Data Service website at https://ukdataservice.ac.uk/.
+Code availability
+All code and analysis scripts are available via GitHub at https://github.
+com/poppyzenzi/network_temperature.
+References
+1.	
+Borsboom, D. A network theory of mental disorders. World 
+Psychiatry 16, 5–13 (2017).
+2.	
+van Borkulo, C. D. et al. Comparing network structures on three 
+aspects: a permutation test. Psychol. Methods 28, 1273–1285 (2023).
+3.	
+Borsboom, D. & Cramer, A. O. J. Network analysis: an integrative 
+approach to the structure of psychopathology. Annu. Rev. Clin. 
+Psychol. 9, 91–121 (2013).
+4.	
+Costello, D. M., Swendsen, J., Rose, J. S. & Dierker, L. C. Risk and 
+protective factors associated with trajectories of depressed mood 
+from adolescence to early adulthood. J. Consult. Clin. Psychol. 76, 
+173–183 (2008).
+5.	
+Rubin, M. et al. Distinct trajectories of depression symptoms 
+in early and middle adolescence: preliminary evidence from 
+longitudinal network analysis. J. Psychiatric Res. 142, 198–203 
+(2021).
+6.	
+Adkins, D. E., Wang, V., Dupre, M. E., van den Oord, E. J. C. G. & 
+Elder, G. H. Jr. Structure and stress: trajectories of depressive 
+symptoms across adolescence and young adulthood. Soc. Forces 
+88, 31–60 (2009).
+7.	
+Kwong, A. S. F. et al. Genetic and environmental risk factors 
+associated with trajectories of depression symptoms from 
+adolescence to young adulthood. JAMA Netw. Open 2, e196587 
+(2019).
+8.	
+Epskamp, S., Borsboom, D. & Fried, E. I. Estimating psychological 
+networks and their accuracy: a tutorial paper. Behav. Res. 50, 
+195–212 (2018).
+9.	
+Bringmann, L. F. et al. What do centrality measures measure 
+in psychological networks? J. Abnorm. Psychol. 128, 892–903 
+(2019).
+10.	 Bringmann, L. F., Lemmens, L. H. J. M., Huibers, M. J. H., 
+Borsboom, D. & Tuerlinckx, F. Revealing the dynamic network 
+structure of the Beck Depression Inventory-II. Psychol. Med. 45, 
+747–757 (2015).
+11.	
+Mullarkey, M. C., Marchetti, I. & Beevers, C. G. Using network 
+analysis to identify central symptoms of adolescent depression.  
+J. Clin. Child Adolesc. Psychol. 48, 656–668 (2019).
+12.	 van Borkulo, C. et al. Association of symptom network structure 
+with the course of depression. JAMA Psychiatry 72, 1219–1226 
+(2015).
+13.	 Wang, K. et al. Network analysis links adolescent depression with 
+childhood, peer, and family risk environment factors. J. Affect. 
+Disord. 330, 165–172 (2023).
+14.	 Epskamp, S. Network Psychometrics (Univ. Amsterdam, 2017).
+15.	 Cramer, A. O. J. et al. Major depression as a complex dynamic 
+system. PLoS ONE 11, e0167490 (2016).
+16.	 Öngür, D. & Paulus, M. P. Embracing complexity in psychiatry—
+from reductionistic to systems approaches. Lancet Psychiatry 12, 
+220–227 (2025).
+17.	 Cramer, A. O. J. & Borsboom, D. Problems attract problems: a 
+network perspective on mental disorders. in Emerging Trends 
+in the Social and Behavioral Sciences: An Interdisciplinary, 
+Searchable, and Linkable Resource (eds Scott, R. A. et al.) 1–15 
+(Wiley, 2015).
 
 # Page 9
 
-Page 9 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-pathophysiological mechanisms or different responses to 
-therapy.
-The analysis of CA patient data identified two distinct 
-clinical subphenotypes, referred to as SP1 and SP2. This 
-was achieved through the use of consensus cluster analy­
-sis, employing a range of variables for the study, including 
-T, Na, CR, GLU, HR, P/F, HB, MAP, PLT, and WBC. 
-Results showed that both subphenotypes differed in sev­
-eral dimensions, such as demographics, vital signs, labo­
-ratory results, and organ dysfunction, which differs from 
-how patients are grouped using traditional methods. 
-Furthermore, we refined the parameters of the univariate 
-Table 3  The associations of various vital signs and outcome in different populations
-Hospital mortality
-28-day mortality
-OR
-95%CI
-P
-HR
-95%CI
-P
-The whole cohort
-MAP
-< 65 mmHg
-Ref
-Ref
-≥ 65 mmHg
-0.56
-0.3–1.04
-0.066
-0.76
-0.5–1.14
-0.185
-Temperature
-32–36 ℃
-Ref
-Ref
-36–37.5 ℃
-2.73
-1.56–4.77
-< 0.001
-2.13
-1.52-3
-< 0.001
-other
-1.35
-0.88–2.06
-0.166
-1.33
-0.98–1.81
-0.068
-PO2
-< 80 mmHg
-Ref
-Ref
-≥ 80 mmHg
-0.86
-0.56–1.33
-0.509
-0.85
-0.62–1.15
-0.293
-PCO2
-< 35 mmHg
-Ref
-Ref
-35–45mmHg
-0.46
-0.3–0.69
-< 0.001
-0.61
-0.46–0.8
-< 0.001
-≥ 45 mmHg
-0.47
-0.29–0.76
-0.002
-0.59
-0.42–0.83
-0.002
-Subphenotype 1
-MAP
-< 65 mmHg
-Ref
-Ref
-≥ 65 mmHg
-0.62
-0.25–1.53
-0.302
-0.78
-0.41–1.51
-0.467
-Temperature
-32–36 ℃
-Ref
-Ref
-36–37.5 ℃
-2.91
-1.46–5.78
-0.002
-2.37
-1.52–3.69
-< 0.001
-other
-1.54
-0.92–2.57
-0.100
-1.47
-0.99–2.16
-0.053
-PO2
-< 80 mmHg
-Ref
-Ref
-≥ 80 mmHg
-0.89
-0.48–1.63
-0.699
-0.94
-0.59–1.5
-0.802
-PCO2
-< 35 mmHg
-Ref
-Ref
-35–45 mmHg
-0.37
-0.22–0.63
-< 0.001
-0.54
-0.38–0.78
-0.001
-≥ 45 mmHg
-0.43
-0.23–0.8
-0.007
-0.54
-0.35–0.83
-0.005
-Subphenotype 2
-MAP
-< 65 mmHg
-Ref
-Ref
-≥ 65 mmHg
-0.58
-0.23–1.43
-0.233
-0.82
-0.48–1.4
-0.461
-Temperature
-32–36 ℃
-Ref
-Ref
-36–37.5 ℃
-2.65
-0.98–7.18
-0.055
-1.89
-1.1–3.23
-0.021
-other
-1.05
-0.48–2.26
-0.909
-1.19
-0.71–1.99
-0.507
-PO2
-< 80 mmHg
-Ref
-Ref
-≥ 80 mmHg
-1.16
-0.6–2.22
-0.662
-1.00
-0.66–1.54
-0.984
-PCO2
-< 35 mmHg
-Ref
-Ref
-35–45 mmHg
-0.71
-0.36–1.37
-0.306
-0.74
-0.49–1.12
-0.153
-≥ 45 mmHg
-0.53
-0.24–1.18
-0.122
-0.68
-0.4–1.16
-0.157
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+556
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+18.	 Bos, F. M. et al. Cross-sectional networks of depressive symptoms 
+before and after antidepressant medication treatment. Soc. 
+Psychiatry Psychiatr. Epidemiol. 53, 617–627 (2018).
+19.	 McElroy, E., Napoleone, E., Wolpert, M. & Patalay, P. Structure and 
+connectivity of depressive symptom networks corresponding to 
+early treatment response. eClin. Med. 8, 29–36 (2019).
+20.	 Kelley, S. W. et al. Elevated emotion network connectivity is 
+associated with fluctuations in depression. Proc. Natl Acad. Sci. 
+USA 120, e2216499120 (2023).
+21.	 Scheffer, M. et al. A dynamical systems view of psychiatric 
+disorders—theory: a review. JAMA Psychiatry 81, 618–623 (2024).
+22.	 Borsboom, D. et al. Network analysis of multivariate data in 
+psychological science. Nat. Rev. Methods Primers 1, 58 (2021).
+23.	 BRUSH, S. G. History of the Lenz–Ising Model. Rev. Mod. Phys. 39, 
+883–893 (1967).
+24.	 van Borkulo, C. D. et al. A new method for constructing networks 
+from binary data. Sci. Rep. 4, 5918 (2014).
+25.	 Finnemann, A., Borsboom, D., Epskamp, S. & van der Maas, H. L. J. 
+The theoretical and statistical ising model: a practical guide in R. 
+Psych 3, 593–617 (2021).
+26.	 Dalege, J., Borsboom, D., van Harreveld, F., Waldorp, L. J. & 
+van der Maas, H. L. J. Network structure explains the impact of 
+attitudes on voting decisions. Sci. Rep. 7, 4909 (2017).
+27.	 Dalege, J., Borsboom, D., van Harreveld, F. & van der Maas, H. L. J.  
+The attitudinal entropy (AE) framework as a general theory of 
+individual attitudes. Psychol. Inquiry 29, 175–193 (2018).
+28.	 Dalege, J., Borsboom, D., van Harreveld, F. & van der Maas, H. L. J.  
+A network perspective on attitude strength: testing the 
+connectivity hypothesis. Soc. Psychol. Personal. Sci. 10, 746–756 
+(2019).
+29.	 Dalege, J. & van der Does, T. Using a cognitive network model 
+of moral and social beliefs to explain belief change. Sci. Adv. 8, 
+eabm0137 (2022).
+30.	 Schmittmann, V. D. et al. Deconstructing the construct: a network 
+perspective on psychological phenomena. New Ideas Psychol. 31, 
+43–53 (2013).
+31.	 Silvers, J. A. Adolescence as a pivotal period for emotion 
+regulation development. Curr. Opin. Psychol. 44, 258–263  
+(2022).
+32.	 Bailen, N. H., Green, L. M. & Thompson, R. J. Understanding 
+emotion in adolescents: a review of emotional frequency, 
+intensity, instability, and clarity. Emotion Rev. 11, 63–73 (2019).
+33.	 Grimes, P. Z. et al. Genetic architectures of adolescent depression 
+trajectories in 2 longitudinal population cohorts. JAMA Psychiatry 
+81, 807–816 (2024).
+34.	 Thapar, A., Eyre, O., Patel, V. & Brent, D. Depression in young 
+people. Lancet 400, 617–631 (2022).
+35.	 McElroy, E., Fearon, P., Belsky, J., Fonagy, P. & Patalay, P. Networks 
+of depression and anxiety symptoms across development. J. Am. 
+Acad. Child Adolesc. Psychiatry 57, 964–973 (2018).
+36.	 López-López, J. A. et al. Trajectories of depressive symptoms and 
+adult educational and employment outcomes. BJPsych Open 6, 
+e6 (2020).
+37.	 Rice, F. et al. Characterizing developmental trajectories and 
+the role of neuropsychiatric genetic risk variants in early-onset 
+depression. JAMA Psychiatry 76, 306–313 (2019).
+38.	 Blakemore, S.-J. Adolescence and mental health. Lancet 393, 
+2030–2031 (2019).
+39.	 Santos, H. P. Jr, Kossakowski, J. J., Schwartz, T. A., Beeber, L. &  
+Fried, E. I. Longitudinal network structure of depression 
+symptoms and self-efficacy in low-income mothers. PLoS ONE 13, 
+e0191675 (2018).
+40.	 Kwong, A. S. F. et al. Identifying critical points of trajectories of 
+depressive symptoms from childhood to young adulthood.  
+J. Youth Adolesc. 48, 815–827 (2019).
+41.	 Epskamp, S., Rhemtulla, M. & Borsboom, D. Generalized network 
+psychometrics: combining network and latent variable models. 
+Psychometrika 82, 904–927 (2017).
+42.	 Taylor, A. E. et al. Exploring the association of genetic factors 
+with participation in the Avon Longitudinal Study of Parents and 
+Children. Int. J. Epidemiol. 47, 1207–1216 (2018).
+43.	 Huisman, M. Imputation of missing network data: some simple 
+procedures. J. Soc. Struct. 10, 1–29 (2009).
+44.	 Huisman, M. & Steglich, C. Treatment of non-response in 
+longitudinal network studies. Soc. Netw. 30, 297–308 (2008).
+45.	 Volkow, N. D. et al. The conception of the ABCD study: from 
+substance use to a broad NIH collaboration. Dev. Cogn. Neurosci. 
+32, 4–7 (2018).
+46.	 Jernigan, T. L., Brown, S. A. & Dowling, G. J. The Adolescent Brain 
+Cognitive Development Study. J. Res. Adolesc. 28, 154–156 (2018).
+47.	 Fraser, A. et al. Cohort profile: the Avon Longitudinal Study of 
+Parents and Children: ALSPAC mothers cohort. Int. J. Epidemiol. 
+42, 97–110 (2013).
+48.	 Boyd, A. et al. Cohort profile: the ‘children of the 90s’—the index 
+offspring of the Avon Longitudinal Study of Parents and Children. 
+Int. J. Epidemiol. 42, 111–127 (2013).
+49.	 Connelly, R. & Platt, L. Cohort profile: UK Millennium Cohort 
+Study (MCS). Int. J. Epidemiol. 43, 1719–1725 (2014).
+50.	 Joshi, H. E. & Fitzsimons, E. The UK Millennium Cohort: the making 
+of a multipurpose resource for social science and policy. Longit. 
+Life Course Stud. 7, 409–430 (2016).
+51.	 University College London, UCL Social Research Institute, Centre 
+for Longitudinal Studies. Millennium Cohort Study. UK Data 
+Service https://beta.ukdataservice.ac.uk/datacatalogue/series/
+series?id=2000031 (2024).
+52.	 Kline, R. B. Principles and Practice of Structural Equation Modeling 
+(Guilford Publications, 2023).
+53.	 Meixner, J. Coldness and temperature. Arch. Rational Mech. Anal. 
+57, 281–290 (1975).
+54.	 Kindermann, R. & Snell, J. L. Markov Random Fields and Their 
+Applications (American Mathematical Society, 1980).
+55.	 Haslbeck, J. M. B., Epskamp, S., Marsman, M. & Waldorp, L. J. 
+Interpreting the Ising model: the input matters. Multivar. Behav. 
+Res. 56, 303–313 (2021).
+56.	 Burger, J. et al. Reporting standards for psychological network 
+analyses in cross-sectional data. Psychol. Methods https://doi.org/ 
+10.1037/met0000471 (2022).
+Acknowledgements
+This work has made use of the resources provided by the Edinburgh 
+Compute and Data Facility, 2023 (http://www.ecdf.ed.ac.uk/). 
+We are extremely grateful to all the families who took part in the 
+ALSPAC study, the midwives for their help in recruiting them and 
+the whole ALSPAC team, which includes interviewers, computer 
+and laboratory technicians, clerical workers, research scientists, 
+volunteers, managers, receptionists and nurses. The ABCD is a 
+multisite, longitudinal study designed to recruit more than 10,000 
+children aged 9–10 years and follow them over 10 years into early 
+adulthood. The ABCD is supported by the National Institutes of 
+Health and additional federal partners (award nos. U01DA041048, 
+U01DA050989, U01DA051016, U01DA041022, U01DA051018, 
+U01DA051037, U01DA050987, U01DA041174, U01DA041106, 
+U01DA041117, U01DA041028, U01DA041134, U01DA050988, 
+U01DA051039, U01DA041156, U01DA041025, U01DA041120, 
+U01DA051038, U01DA041148, U01DA041093, U01DA041089, 
+U24DA041123 and U24DA041147). A full list of supporters is available at 
+https://abcdstudy.org/federal-partners.html. A listing of participating 
+sites and a complete listing of the study investigators is available 
+at https://abcdstudy.org/consortium_members/. ABCD consortium 
+investigators designed and implemented the study and/or provided
 
 # Page 10
 
-Page 10 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-model on three separate occasions. It was consistently 
-observed that patients categorized under the SP2 had 
-higher in-hospital and 28-day mortality rates compared 
-to those with the SP1. The findings of this study are antic­
-ipated to serve as a vital reference for clinicians in clas­
-sifying patients, assessing their prognosis, and making 
-informed treatment decisions for CA patients.
-ML has been widely used for classifying various disease 
-subphenotypes, among which consensus cluster analy­
-sis is one of the most popular ML clustering algorithms, 
-and has been widely used for identifying subphenotypes 
-of diseases such as ARDS [8], sepsis [9], septic acute kid­
-ney injury (septic-AKI) [10], and liver dysfunction [11]. 
-Under comprehensive consideration, consensus cluster 
-analysis was selected for defining CA subphenotypes. CA 
-subphenotypes can be determined after medical informa­
-tion collection and routine examination of patients fol­
-lowing their admission, which is helpful for the timing 
-of advanced treatment intervention, flexible adjustment 
-of treatment plans, and screening of clinical trial sub­
-jects. After two critical care medicine experts discussed 
-and reached a consensus, 52 relevant parameters were 
-screened following the patient’s admission to the ICU. 
-To avoid excessive confounding leading to decreased 
-clinical utility, we selected the most representative 10 
-parameters (T, Na, CR, GLU, HR, P/F, HB, MAP, PLT, 
-and WBC) for cluster analysis. Only the mean values 
-within 24 h after ICU admission were selected to achieve 
-the early differentiation of clinical subphenotypes of CA 
-patients. Although previous studies have shown that 
-some new parameters can achieve considerable predic­
-tion results, it wasn’t easy to carry out in practical clini­
-cal work [8, 12]. To achieve the study objective, clinically 
-available data was used in the cluster model and two sub­
-phenotypes were derived. In these two phenotypes, SP2 
-patients were most closely associated with abnormalities 
-in organs or systems, notably including the cardiovascu­
-lar and hematologic systems, as well as hepatic dysfunc­
-tion. Conversely, SP1 patients exhibited considerably 
-more favorable characteristics than SP2. Since the statis­
-tical analysis showed that SP1 patients had overall fewer 
-clinical anomalies despite a high proportion of acid-base 
-imbalance, we may be able to classify patients with CA 
-more quickly based on limited laboratory tests. The mul­
-tiple cluster analyses showed consistency across clinical 
-subphenotypes, which could help identify patients who 
-would benefit from future intervention. Nonetheless, 
-further understanding of the pathophysiological mecha­
-nisms underlying CA subphenotypes is necessary.
-Among the 10 most representative parameters, there 
-were 5 parameters which were higher or lower than 
-SP2 patients, respectively. Results showed that patients 
-with SP2 had higher HR and lower MAP than those 
-with SP1, in addition to significant history of underlying 
-hypertension, heart failure, and a higher proportion 
-of vasoactive drug use. A higher MAP within a specific 
-range refers to better perfusion, leading to a better prog­
-nosis. A study recently reported an insignificant dif­
-ference in outcome between the MAP of patients with 
-CA between 77mmHg and 63mmHg [13]. However, the 
-grouping method used in above study was fundamen­
-tally different from the subphenotypes classification 
-method used in our study. Patients were grouped based 
-on different target blood pressure in above study and ML 
-was applied to cluster and classify patients under multi-
-parameter conditions in our study, which could be the 
-primary reason why the results of the two studies are par­
-tially biased. Additionally, patients with potentially poor 
-long-term outcomes were excluded from the sample. 
-Hence, the influence of MAP on CA patients’ outcome 
-remains to be determined. Na was used in this study as a 
-representative of electrolytes. The Na levels in both sub­
-phenotypes were similar and within the normal range but 
-were slightly lower in SP2 patients than in SP1. More­
-over, hypo- and hypernatremia were associated with a 
-decreased probability of favorable neurological outcomes 
-compared with normal Na [14]. It should also be noted 
-that SP2 patients had lower Na even though they used 
-sodium bicarbonate at a higher rate than SP1, suggest­
-ing that Na in SP2 patients might be lower before the use 
-of sodium bicarbonate, and the difference between the 
-two groups may be more significant. The main function 
-of PLT is coagulation and hemostasis, and they are often 
-used to evaluate the coagulation function of patients in 
-clinic. The PLT of two subphenotypes in this study was 
-within the normal range but slightly reduced in SP2 than 
-in SP1. According to the neurologic outcome at 6 months 
-post-CA, patients with good prognosis had a mean PLT 
-of 230.31*10^9/L at admission, and patients with poor 
-prognosis had a mean PLT of 197.30*10^9/L at admission 
-[15], which were similar to our results and end outcomes. 
-P/F is an important indicator of respiratory function 
-and is widely used to distinguish high-risk patients with 
-adverse clinical outcomes [16]. Our results showed that 
-SP2 patients had lower P/F than SP1, suggesting that SP2 
-patients had poor respiratory function and more severe 
-organ or tissue ischemia and hypoxia. Multiple factors 
-could contribute to a lower P/F in CA patients, such as 
-aspiration pneumonia, pulmonary embolism, systemic 
-inflammatory reaction, pulmonary exudation, and ARDS, 
-among which some were also common CA causes.
-Furthermore, our results showed that patients with SP2 
-had abnormally high levels of CR, while patients with SP1 
-had normal levels of CR, which suggesting worse renal 
-function in SP2 patients. Meanwhile, SP2 patients had 
-a higher proportion of chronic kidney disease comor­
-bidities. A decrease in CR of > 0.2 mg/dl in the first 24 h 
-may indicate a good prognosis, while a constant or even
+Nature Mental Health | Volume 3 | May 2025 | 548–557
+557
+Article
+https://doi.org/10.1038/s44220-025-00415-5
+data but did not necessarily participate in the analysis or writing of this 
+report. This paper reflects the views of the authors and may not reflect 
+the opinions or views of the NIH or ABCD consortium investigators. We 
+are grateful for the cooperation of the MCS families who voluntarily 
+participated in the study. We are grateful to the Centre for Longitudinal 
+Studies, UCL Social Research Institute, for the use of the MCS data and 
+to the UK Data Service for making them available. However, neither the 
+Centre for Longitudinal Studies nor the UK Data Service bears  
+any responsibility for the analysis or interpretation of these data.  
+This work was funded by a UKRI Medical Research Council grant  
+for the Precision Medicine MRC DTP awarded to P.Z.G. (grant no.  
+MR/W006804/1). The UK Medical Research Council and Wellcome 
+(grant no. 217065/Z/19/Z) and the University of Bristol provide core 
+support for ALSPAC. A.S.F.K. is supported by a Wellcome Early Career 
+Award (grant no. 227063/Z/23/Z). This publication is the work of the 
+authors, and P.Z.G. and A.S.F.K. serve as guarantors for the contents 
+of this study.
+Author contributions
+P.Z.G. proposed and designed the study, analyzed the data and wrote 
+the paper. S.E. and A.L.M. helped to conceive the experimental 
+design. S.E. designed the implementation model and contributed 
+to the code. S.E., A.S.F.K., H.C.W., A.L.M. and K.S. contributed to the 
+interpretation of results and gave conceptual advice. S.E., A.S.F.K. 
+and H.C.W. supervised the study. All authors (including H.L., A.G.A. 
+and G.G.P.) contributed to the editing and revising of the paper and 
+approved the final version.
+Competing interests
+H.L. reports receiving grants from Shire Pharmaceuticals; personal 
+fees from and serving as a speaker for Medice, Shire/Takeda 
+Pharmaceuticals and Evolan Pharma AB, all outside the submitted 
+work. H.L. is Editor-in-Chief of JCPP Advances. The other authors 
+declare no competing interests.
+Additional information
+Supplementary information The online version  
+contains supplementary material available at  
+https://doi.org/10.1038/s44220-025-00415-5.
+Correspondence and requests for materials should be addressed to 
+Poppy Z. Grimes.
+Peer review information Nature Mental Health thanks Jonas 
+Dalege, Haibo Yang and the other, anonymous reviewer(s) for their 
+contribution to the peer review of this work.
+Reprints and permissions information is available at  
+www.nature.com/reprints.
+Publisher’s note Springer Nature remains neutral with regard  
+to jurisdictional claims in published maps and institutional  
+affiliations.
+Open Access This article is licensed under a Creative Commons 
+Attribution 4.0 International License, which permits use, sharing, 
+adaptation, distribution and reproduction in any medium or format, 
+as long as you give appropriate credit to the original author(s) and the 
+source, provide a link to the Creative Commons licence, and indicate 
+if changes were made. The images or other third party material in this 
+article are included in the article’s Creative Commons licence, unless 
+indicated otherwise in a credit line to the material. If material is not 
+included in the article’s Creative Commons licence and your intended 
+use is not permitted by statutory regulation or exceeds the permitted 
+use, you will need to obtain permission directly from the copyright 
+holder. To view a copy of this licence, visit http://creativecommons.
+org/licenses/by/4.0/.
+© The Author(s) 2025
 
 # Page 11
 
-Page 11 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-elevated serum CR level suggests a poor prognosis [17]. 
-Excessively high GLU can lead to immunosuppression 
-and oxidative stress, leading to poor patient outcomes. 
-A study reported that higher GLU levels were associ­
-ated with poor neurological outcomes in those patients 
-with CA treated with targeted temperature management 
-(TTM) [18]. Our data showed that SP2 patients had 
-higher GLU than SP1. The statistical analysis revealed 
-infection as the most significant difference between the 
-two subphenotypes since SP2 patients had a higher WBC 
-than SP1, indicating a severe infection. However, it could 
-have happened before CA onset, or the infection could 
-be the cause of CA. Furthermore, a study reported that 
-WBC had no significant ability to distinguish infectio­
-nin in CA patients receiving TTM [19]. Although WBC 
-showed apparent difference between the two subphe­
-notypes, but its reliability needs to be demonstrated by 
-more clinical practice in the future. The temperature 
-between the two subphenotypes not statistically signifi­
-cant, which was related to the TTM commonly adopted 
-in clinical practice. Despite some controversy, TTM at 
-32–36 °C for at least 24 h post-CA remained the primary 
-neuroprotective approach following OHCA or IHCA, 
-consistent with AHA recommendations [20–22]. The 
-results of COX and multivariate logistic analysis in this 
-study showed that, in the whole population, the in-hos­
-pital and 28-day mortality of patients with T of 32–36 °C 
-were lower than those of 36–37.5 °C, which indicated the 
-benifet of TTM for the prognosis of CA patients.
-CA patients are classified into two subphenotypes (SP1 
-and SP2) on the basis of different clinical features and 
-physiological responses (on the basis of 10 vital signs and 
-laboratory parameters that represent the pathophysi­
-ology of CA). Compared with the previous classifica­
-tion methods, these subphenotypes are more helpful for 
-doctors to diagnose, treat and predict the prognosis of 
-patients more accurately. The variables used for cluster­
-ing can be obtained quickly after the patient is admitted 
-to the hospital, so that clinicians can quickly identify the 
-patient’s subphenotype (SP1 or SP2). Clinicians can then 
-tailor treatment to patients on the basis of the patho­
-physiological features of the subphenotypes that we have 
-so far clustered. SP1 is more likely to have patients with 
-acid–base imbalance than SP2 patients, who are more 
-likely to have cardiovascular, pulmonary, and hepatic dys­
-function. Therefore, attention to acid-base balance (e.g., 
-an aggressive adjunctive CRRT strategy) is warranted 
-beyond usual care in SP1 patients. For SP2 patients, we 
-should be alert to the occurrence of multiple organ dys­
-function syndrome (MODS). This may be because: 1. 
-Poor basic organ function; 2. CA has a greater impact on 
-the organs of patients. Active intra-aortic ballon pump 
-(IABP), extracorporeal membrane oxygenation (ECMO) 
-and artificial liver support system (ALSS) may be helpful 
-for patients with organ support. In-hospital and 28-day 
-mortality were lower with SP1 than with SP2. We can 
-make a preliminary prognosis assessment of CA patients 
-according to the classification of patients after admission. 
-This can be used as a theoretical basis for prognosis pre­
-diction in conversation with the patient’s family.
-Translating theoretical research results into clinical 
-practice is a significant challenge faced by the major­
-ity of researchers. While previous studies found some 
-critical factors in subphenotypes identification for ARDS 
-and septic AKI, but these indicators have not been pop­
-ularized because of the difficulty in extracting these 
-indicators in clinical practice [8, 12, 23]. However, this 
-challenge also exists in the classification of CA subphe­
-notypes. Unlike previous research [12, 23], we used 10 
-conventional clinical variables to derive clinical CA sub­
-phenotypes, which were more straightforward and easier 
-to obtain, and their values reflected the functional states 
-of different systems or organs, making our cluster analy­
-sis more representative and universal. In the future, we 
-aimed to conduct an external multicenter validation to 
-refine the underlying model.
-This study had several limitations. Firstly, since CA 
-causes are numerous and complex, using the currently 
-known disease patterns to identify all subphenotypes 
-might not be sufficient. We should examine the hetero­
-geneity of CA from a higher latitude. This puts forward 
-higher requirements for researchers’ ability to multi-
-system joint thinking. Secondly, the two experts believed 
-that age is an important factor affecting the survival rate 
-of patients with CA since younger tends to mean fewer 
-underlying diseases, stronger immunity, and a better 
-prognosis. Considering that the potential influence of 
-age on patients with CA is fundamental and multifac­
-eted, this study was not temporarily included. Thirdly, 
-including more potential variables, such as shock type 
-and microbiological data et cetera could provide new 
-insights. However, these were not present in the MINIC-
-IV 2.0 database. Lastly, the variables for clinical subphe­
-notypes in this study were derived from a single-center 
-retrospective database in the United States. Therefore, 
-whether these subphenotypes can be generalized to more 
-diverse populations of severely ill patients with CA in 
-other parts of the world remains to be seen. We would 
-invest more time and energy to verify and adjust it fur­
-ther. In the next few years, we planned to collect patients 
-with CA information from multiple centers to establish 
-the CA database of ICU patients in China.
-Conclusions
-Analysis of CA patients data retrieved from the MIMIC-
-IV 2.0 database revealed two clinical subphenotypes of 
-CA, namely SP1 and SP2. Consensus cluster analysis was 
-performed using the mean values of clinical, vital signs,
+
 
 # Page 12
 
-Page 12 of 12
-Zhang et al. Journal of Translational Medicine           (2025) 23:16 
-and laboratory indicators as the analysis variables. The 
-SP1 ad considerably higher levels of P/F, HB, MAP, PLT, 
-and Na, and lower T, HR, GLU, WBC, and CR levels than 
-SP2. The in-hospital and 28-day mortality of patients 
-with SP2 was higher than patients with SP1. The study 
-outcomes are envisaged to provide helpful information to 
-the clinicians regarding patient classification, prognosis 
-evaluation, and making treatment decisions for prospec­
-tive CA patients.
-Supplementary Information
-The online version contains supplementary material available at ​h​t​t​p​s​:​/​/​d​o​i​.​o​r​
-g​/​1​0​.​1​1​8​6​/​s​1​2​9​6​7​-​0​2​4​-​0​5​9​7​5​-​1​.​
-Supplementary Material 1
-Supplementary Material 2
-Supplementary Material 3
-Supplementary Material 4
-Supplementary Material 5
-Supplementary Material 6
-Author contributions
-The specifc division of labor was as follows: Conception, WZ; Funding, WH, and 
-MD; Investigations, WZ; Methods, WZ, CW, and PN; Project management, SZ, 
-HZ, and YZ.
-Funding
-1. Zhejiang Provincial Medical and Health Technology Project (grant. 
-WKJ-ZJ-2315).
-2. The Construction Fund of Key Medical Disciplines of Hangzhou 
-(OO20200485).
-3. Science and Technology Development Project of Hangzhou (grant. 
-202204A10).
-Declarations
-Conflict of interest
-The authors declare that there are no competing interests.
-Author details
-1Fourth Clinical Medical College of Zhejiang Chinese Medical University, 
-Zhejiang 310006, Hangzhou, China
-2Zhejiang University School of Medicine, Zhejiang 310006, Hangzhou, 
-China
-3Department of Critical Care Medicine, Ruijin Hospital, Shanghai Jiao Tong 
-University School of Medicine, Shanghai 200000, China
-4Department of Critical Care Medicine, Hangzhou First People’s Hospital, 
-West Lake University School of Medicine, Zhejiang 310006, Hangzhou, 
-China
-Received: 24 February 2024 / Accepted: 13 December 2024
-References
-1.	
-Tsao CW, et al. Heart disease and stroke statistics-2022 update: a report from 
-the American Heart Association. Circulation. 2022;145(8):e153–639.
-2.	
-Gu XM, et al. Meta-analysis of the success rate of heartbeat recovery in 
-patients with prehospital cardiac arrest in the past 40 years in China. Mil Med 
-Res. 2020;7(1):34.
-3.	
-Al-Khatib SM, et al. 2017 AHA/ACC/HRS guideline for management of 
-patients with ventricular arrhythmias and the prevention of sudden cardiac 
-death: a report of the American College of Cardiology/American Heart 
-Association Task Force on Clinical Practice Guidelines and the Heart Rhythm 
-Society. Circulation. 2018;138(13):e272–391.
-4.	
-Priori SG et al. 2015 ESC guidelines for the management of patients with 
-ventricular arrhythmias and the prevention of sudden cardiac death: the task 
-force for the management of patients with ventricular arrhythmias and the 
-prevention of sudden cardiac death of the European Society of Cardiology 
-(ESC). Endorsed by: Association for European Paediatric and Congenital 
-Cardiology (AEPC). Eur Heart J. 2015;36(41):2793–2867.
-5.	
-Stiles MK, et al. 2020 APHRS/HRS expert consensus statement on the inves­
-tigation of decedents with sudden unexplained death and patients with 
-sudden cardiac arrest, and of their families. Heart Rhythm. 2021;18(1):e1–50.
-6.	
-Elfassy MD, et al. Understanding etiologies of cardiac arrest: seeking defini­
-tional clarity. Can J Cardiol. 2022;38(11):1715–8.
-7.	
-Seymour CW, et al. Derivation, validation, and potential treatment implica­
-tions of novel clinical phenotypes for sepsis. JAMA. 2019;321(20):2003–17.
-8.	
-Maddali MV, et al. Validation and utility of ARDS subphenotypes identified by 
-machine-learning models using clinical data: an observational, multicohort, 
-retrospective analysis. Lancet Respir Med. 2022;10(4):367–77.
-9.	
-Hu C, et al. Application of machine learning for clinical subphenotype identi­
-fication in sepsis. Infect Dis Ther. 2022;11(5):1949–64.
-10.	 Chaudhary K, et al. Utilization of deep learning for subphenotype identi­
-fication in sepsis-associated acute kidney injury. Clin J Am Soc Nephrol. 
-2020;15(11):1557–65.
-11.	 Miao H, et al. Identification of subphenotypes of sepsis-associated liver 
-dysfunction using cluster analysis. Shock. 2023;59(3):368–74.
-12.	 Wiersema R, et al. Two subphenotypes of septic acute kidney injury are 
-associated with different 90-day mortality and renal recovery. Crit Care. 
-2020;24(1):150.
-13.	 Roedl K, Kluge S. Blood-pressure targets in comatose survivors of cardiac 
-arrest. N Engl J Med. 2023;388(3):285.
-14.	 Shida H, et al. Early prognostic impact of serum sodium level among out-of-
-hospital cardiac arrest patients: a nationwide multicentre observational study 
-in Japan (the JAAM-OHCA registry). Heart Vessels. 2022;37(7):1255–64.
-15.	 Kim HJ, et al. Time course of platelet counts in relation to the neurologic 
-outcome in patients undergoing targeted temperature management after 
-cardiac arrest. Resuscitation. 2019;140:113–9.
-16.	 Villar J, et al. A universal definition of ARDS: the PaO2/FiO2 ratio under a stan­
-dard ventilatory setting–a prospective, multicenter validation study. Intensive 
-Care Med. 2013;39(4):583–92.
-17.	 Hasper D, et al. Changes in serum creatinine in the first 24 hours after 
-cardiac arrest indicate prognosis: an observational cohort study. Crit Care. 
-2009;13(5):R168.
-18.	 Daviaud F, et al. Blood glucose level and outcome after cardiac arrest: 
-insights from a large registry in the hypothermia era. Intensive Care Med. 
-2014;40(6):855–62.
-19.	 Schuetz P, et al. Serum procalcitonin, C-reactive protein and white blood 
-cell levels following hypothermia after cardiac arrest: a retrospective cohort 
-study. Eur J Clin Invest. 2010;40(4):376–81.
-20.	 Andersen LW, et al. In-hospital cardiac arrest: a review. JAMA. 
-2019;321(12):1200–10.
-21.	 Mody P, et al. Targeted temperature management for cardiac arrest. Prog 
-Cardiovasc Dis. 2019;62(3):272–8.
-22.	 Sandroni C, et al. ERC-ESICM guidelines on temperature control after cardiac 
-arrest in adults. Intensive Care Med. 2022;48(3):261–9.
-23.	 Sinha P, et al. Development and validation of parsimonious algorithms to 
-classify acute respiratory distress syndrome phenotypes: a secondary analysis 
-of randomised controlled trials. Lancet Respir Med. 2020;8(3):247–57.
-Publisher’s note
-Springer Nature remains neutral with regard to jurisdictional claims in 
-published maps and institutional affiliations.
+
+
+# Page 13
+
+
+
+# Page 14

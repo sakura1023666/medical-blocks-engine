@@ -10,8 +10,9 @@ alwaysApply: true
 ## 铁律
 
 1. **Gate A 同生共死**：次库 Table1 / S1 / S3 等展示列不得残留 Residence/Familysize/HR/CRP 等次库独有列（除非显式 `keep_secondary_only_table1_cols=TRUE`）。实现：`dual_db_compute_gate_a` / `incidence_batch_gate_a_from_clean` 须从 `keep_mimic` **真正剔除**，不能只打日志。
-2. **S 角色双库同号**：关联=S8、中介=S9、RCS=S-XX、NHANES 不加权基线=S10、不加权 logistic=S11（或课题编号规则一致）。禁止对根 `Tables` 盲目 `compact_supp_s_numbers` 把双库同角色拆成错位编号。S8 变量名单须同一实验室池（见中介关联表铁律），禁止一侧人口学、一侧血检。
+2. **S 角色双库同号**：关联=S8、中介=S9、RCS=S-XX、NHANES 不加权基线=S10、不加权 logistic=S11（或课题编号规则一致）。禁止对根 `Tables` 盲目 `compact_supp_s_numbers` 把双库同角色拆成错位编号。S8 变量名单须同一实验室池（见中介关联表铁律），禁止一侧人口学、一侧血检；双库 S8 行为**可用列交集**（`dual_db_lock_shared_lab_indicator_pool` / remirror `incidence_batch_harmonize_dual_lab_assoc_varnames`）。
 2a. **S6 临床交集空 ⇒ 省略 S5/S6 并顺延**：只要两库多因素-VIF final 临床交集为空（无论走 auto 回退、`covariate_source="vif_screen"`，还是 `lock_covariates_preset` 锁 Age+X），发表表一律不出「多因素(S5)」与「VIF final(S6)」，Final harmonized 顶替为 S5。实现：`dual_db_try_sync_gate_b` lock 路径也探测并写 `omit_multivariate_and_vif_final_tables`；`incidence_batch_realign_dual_supp_tables` 删除+顺延。禁止 lock 预设时残留 S5/S6。
+2b. **S-XX 任一侧 RCS 非线性 NS ⇒ 双侧省略**：Fig2 任一面板 Model2 `P-nonlinear >= 0.05`（或仅一侧有 S-XX 文件）时，**两侧** Table S-XX 全部删除，禁止为「对齐」保留单侧。引擎默认 `dual_db_export_even_if_linear = FALSE`（勿再默认 force-export）；收口 `incidence_batch_omit_dual_sxx_if_either_ns`（挂在 `incidence_batch_realign_dual_supp_tables`）。
 3. **表内外标题一致**：`incidence_batch_sync_supp_table_title` 写 A1 时 caption 必须 `trimws`（避免 `Table S8-NHANES.  xxx` 双空格）；文件名与 A1 须同号同库标签。
 4. **结局 0/1 编码**：`analysis_group` 可为 `"1"`，但数据经 `pipeline_relabel_binary_outcome_column` 后常为疾病显示名。单因素 / logistic GLM 必须走 `pipeline_outcome_as_01` / `pipeline_outcome_case_label`，禁止 `x == "1"` 直接比显示标签。
 5. **亚组 Age / Smoke**：森林图 Age 用 `age_cutoff` 二分类 `Age_Group`；`Smoke`↔`Smoking` 别名两边都要挂。

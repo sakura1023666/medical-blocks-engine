@@ -246,6 +246,8 @@ if (identical(config$project$study_type, "prognosis")) {
 config$feature_selection_venn <- modifyList(
   config$feature_selection_venn %||% list(),
   list(
+    ## 用户 2026-10-30：之后 ML 双库交付默认不出 Figure S1 韦恩
+    enable = FALSE,
     supp_figure_slot = 1L,
     venn_filename = "Figure S1.Venn.pdf",
     upset_filename = "Figure S1.Upset.pdf",
@@ -269,6 +271,8 @@ config$dual_db <- list(
   mirror_aggregate_prefix_db = prefix_db,
   merge_dual_db_tables = merge_tables,
   workflow = "primary_full_secondary_ml",
+  ## 人少库做主库时须在 .study 写 allow_primary_smaller_n=TRUE（否则 worker 硬停）
+  allow_primary_smaller_n = isTRUE(.study$allow_primary_smaller_n %||% FALSE),
   checkpoint_base = .batch_ck_root,
   harmonization_dir = file.path(.batch_ck_root, "_global_harmonization"),
   current_db = NULL,

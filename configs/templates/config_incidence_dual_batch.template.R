@@ -503,7 +503,9 @@ config <- list(
     dual_library_lm_screen = TRUE, lm_screen_alpha = 0.05,
     lm_screen_require_nonneg_beta = TRUE,
     fallback_single_library_model2 = TRUE, auto_covariate_search = FALSE,
-    # 与 CHARLS mediation_incidence 共用 .mi02_resolve_lab_indicator_pool
+    # 与 CHARLS mediation_incidence 共用 .mi02_resolve_lab_indicator_pool + 双库共享交集池
+    also_include_lm_sig_mediators = NULL,  # NULL=双库默认 TRUE
+    mediators_strict_only = FALSE,
     mediator_extra_vars = NULL,
     path_use_covariates = TRUE,
     mediation_path_alpha = 0.05, diagram_enable = TRUE, pause_enable = FALSE
@@ -617,7 +619,13 @@ config <- list(
     bootstrap_iter = 100L, auto_covariate_search = FALSE,
     dual_library_lm_screen = TRUE,
     # S8 候选池由引擎 .mi02_resolve_lab_indicator_pool 决定（血检+mediator_extra_vars+best_mediator）
-    # lm_screen_exclude_vars 只作额外黑名单，不能再靠它从「全列」里抠实验室指标
+    # 双库再经 dual_db_lock_shared_lab_indicator_pool 取两侧可用列交集
+    # mediators=NULL → LM 显著集；若锁 mediators/best_mediator，双库默认 also_include_lm_sig_mediators
+    # mediators_strict_only=TRUE 才只跑预设名单
+    also_include_lm_sig_mediators = NULL,  # NULL=双库默认 TRUE
+    mediators_strict_only = FALSE,
+    # lm_screen_exclude_vars 只作额外黑名单，不能再靠它从「全列」里抠实验室指标；
+    # 勿把对侧仍有的血检（BUN/Creatinine 等）写成单库 asymmet ric 黑名单
     lab_indicator_vars = NULL,
     mediator_extra_vars = NULL,
     lm_screen_exclude_vars = c(

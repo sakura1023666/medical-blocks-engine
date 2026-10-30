@@ -226,6 +226,8 @@ block_feature_selection_entropy_stepwise <- function(ctx, ...) {
 
   paper_preprocess <- isTRUE(cfg_blk$paper_preprocess %||% TRUE)
   dual_intersect <- isTRUE(cfg_blk$dual_db_intersect %||% TRUE)
+  ## TRUE=原文顺序（相关→熵逐步）；FALSE=双库池上先扫满路径再 argmax（相关不挡路径）
+  corr_before_stepwise <- isTRUE(cfg_blk$corr_before_stepwise %||% TRUE)
   miss_thr <- as.numeric(cfg_blk$missing_threshold %||% 0.30)[1L]
   mode_max <- as.numeric(cfg_blk$boolean_mode_max %||% 0.90)[1L]
   corr_thr <- as.numeric(cfg_blk$corr_threshold %||% 0.70)[1L]
@@ -294,16 +296,32 @@ block_feature_selection_entropy_stepwise <- function(ctx, ...) {
     )
     cli::cli_alert_info("TCF FS (3) 插补：已由上游 imputation 完成，本块跳过")
 
+    ## 相关过滤时机（用户 2026-10-30 SA-AKI TCF）：
+    ## - before_stepwise（默认/原文）：先 |r| 去冗再熵逐步（池子可能缩到路径终点=峰）
+    ## - after_path_select：先在双库∩布尔池上扫满 k=2,4,…,min(50,n) 再 argmax；
+    ##   入模后再对入选集做相关去冗（Fig2 可过峰；与「相关前扫满」一致）
+    ## - none：不做相关过滤
+    corr_when <- as.character(
+      cfg_blk$corr_when %||%
+        if (isFALSE(cfg_blk$corr_before_stepwise %||% TRUE)) "after_path_select" else "before_stepwise"
+    )[1L]
+    audit$corr_when <- corr_when
     y <- .fsent11_outcome01(data, outcome_col, ana)
-    m4 <- .fsent11_corr_auc_filter(data, cand, y, corr_thr)
-    cand <- m4$keep
-    audit$corr_dropped <- m4$dropped
-    audit$corr_pairs <- m4$pairs
-    audit$univ_auc <- m4$univ_auc
-    audit$n_after_corr <- length(cand)
-    cli::cli_alert_info(
-      "TCF FS (4) |r|>={corr_thr} 成对留高 AUC: 剔除 {length(m4$dropped)}，剩余 {length(cand)}"
-    )
+    if (identical(corr_when, "before_stepwise")) {
+      m4 <- .fsent11_corr_auc_filter(data, cand, y, corr_thr)
+      cand <- m4$keep
+      audit$corr_dropped <- m4$dropped
+      audit$corr_pairs <- m4$pairs
+      audit$univ_auc <- m4$univ_auc
+      audit$n_after_corr <- length(cand)
+      cli::cli_alert_info(
+        "TCF FS (4) |r|>={corr_thr} 成对留高 AUC（逐步前）: 剔除 {length(m4$dropped)}，剩余 {length(cand)}"
+      )
+    } else {
+      cli::cli_alert_info(
+        "TCF FS (4) 相关过滤延后（corr_when={corr_when}）：先在当前池 n={length(cand)} 上熵逐步扫满"
+      )
+    }
   }
 
   if (length(cand) < 2L) {
@@ -320,8 +338,13 @@ block_feature_selection_entropy_stepwise <- function(ctx, ...) {
 
   step <- as.integer(cfg_blk$step %||% 2L)[1L]
   max_k <- as.integer(cfg_blk$max_k %||% 50L)[1L]
+  ## 对齐原文 np.arange(2, 52, 2)：扫到 min(50, 池大小)；池<50 则扫满池
   max_k <- max(2L, min(max_k, length(ordered)))
   ks <- seq(from = max(2L, step), to = max_k, by = step)
+  ## 若池长奇数/步进导致末点未纳入，强制加上 length(ordered) 以便扫满
+  if (length(ordered) >= 2L && !length(ordered) %in% ks) {
+    ks <- sort(unique(c(ks, length(ordered))))
+  }
   if (!length(ks)) ks <- max_k
   aucs <- numeric(length(ks))
   for (i in seq_along(ks)) {
@@ -359,9 +382,39 @@ block_feature_selection_entropy_stepwise <- function(ctx, ...) {
   if (!length(best_i) || !is.finite(aucs[[best_i]])) best_i <- length(ks)
   best_k <- ks[[best_i]]
   final <- ordered[seq_len(min(best_k, length(ordered)))]
-  audit$n_final <- length(final)
+  audit$n_path_pool <- length(ordered)
+  audit$n_final_pre_corr <- length(final)
   audit$best_k <- best_k
   audit$best_auc <- aucs[[best_i]]
+
+  ## 路径选定后再相关：默认只审计；corr_apply_to_final=TRUE 才改入模集
+  corr_when <- as.character(audit$corr_when %||% "before_stepwise")[1L]
+  if (corr_when %in% c("after_path_select", "none") && length(final) >= 2L) {
+    ## none：仍可算一对审计表，便于补充材料；不改 final
+    m4b <- tryCatch(
+      .fsent11_corr_auc_filter(data, if (identical(corr_when, "none")) ordered else final, y, corr_thr),
+      error = function(e) NULL
+    )
+    if (!is.null(m4b)) {
+      audit$corr_dropped <- m4b$dropped
+      audit$corr_pairs <- m4b$pairs
+      audit$univ_auc <- m4b$univ_auc
+      audit$n_after_corr <- length(m4b$keep)
+    }
+    apply_corr <- isTRUE(cfg_blk$corr_apply_to_final %||% FALSE) &&
+      identical(corr_when, "after_path_select")
+    if (apply_corr && !is.null(m4b) && length(m4b$keep) >= 2L) {
+      cli::cli_alert_info(
+        "TCF FS (4b) 路径 argmax 后应用相关去冗: {length(final)} → {length(m4b$keep)}（路径星标 k={best_k}）"
+      )
+      final <- ordered[ordered %in% m4b$keep]
+    } else if (identical(corr_when, "after_path_select")) {
+      cli::cli_alert_info(
+        "TCF FS (4b) 相关仅审计（corr_apply_to_final=FALSE）：入模=路径 argmax 全集 k={best_k}, n={length(final)}"
+      )
+    }
+  }
+  audit$n_final <- length(final)
 
   ctx$results$feature_selection_entropy_path <- data.frame(k = ks, AUC = aucs)
   ctx$results$feature_selection_final <- final

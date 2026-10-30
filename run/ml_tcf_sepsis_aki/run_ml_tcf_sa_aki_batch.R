@@ -21,9 +21,29 @@ Sys.setenv(MEDICAL_BLOCKS_ROOT = root)
 Sys.setenv(MEDICAL_BLOCKS_SKIP_PIPELINE_GUARD = "1")
 
 args <- commandArgs(trailingOnly = TRUE)
-cfg_default <- "G:/02block_result/42_AKI_spesis/multi-algorithm fusion_40295871/config_ml_tcf_sa_aki.R"
+## 优先 config/ 下 linux 版（unify-first FS）；兼容根目录旧副本
+.cfg_candidates <- c(
+  "/mnt/g/02block_result/42_AKI_spesis/multi-algorithm fusion_40295871/config/config_ml_tcf_sa_aki_linux.R",
+  "G:/02block_result/42_AKI_spesis/multi-algorithm fusion_40295871/config/config_ml_tcf_sa_aki_linux.R",
+  "/mnt/g/02block_result/42_AKI_spesis/multi-algorithm fusion_40295871/config_ml_tcf_sa_aki.R",
+  "G:/02block_result/42_AKI_spesis/multi-algorithm fusion_40295871/config_ml_tcf_sa_aki.R"
+)
+cfg_default <- NA_character_
+for (.c in .cfg_candidates) {
+  if (file.exists(.c)) {
+    cfg_default <- .c
+    break
+  }
+}
+if (!nzchar(cfg_default) || is.na(cfg_default)) {
+  cfg_default <- .cfg_candidates[[1L]]
+}
+## 若 argv 已有 --config，以其为准；否则注入默认
 if (!"--config" %in% args) {
   args <- c("--config", cfg_default, args)
+} else {
+  .i <- match("--config", args)
+  if (!is.na(.i) && length(args) >= .i + 1L) cfg_default <- args[[.i + 1L]]
 }
 ## 含空格路径：同时写环境变量，避免 WSL↔Windows Rscript argv 截断
 Sys.setenv(MEDICAL_BLOCKS_CONFIG = cfg_default)

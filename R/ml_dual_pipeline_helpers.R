@@ -755,8 +755,12 @@ inject_feature_selection_compound_indices <- function(cx, db_tag = "DB") {
 ml_dual_assert_primary_larger_n <- function(config, ix = NULL, stop_on_fail = TRUE) {
   dual <- config$dual_db %||% list()
   if (!isTRUE(dual$enable %||% FALSE)) return(invisible(NULL))
-  ## 课题显式授权「人少库做主库」（如加权 NHANES 主分析）时可放行，仅警告不硬停
-  if (isTRUE(dual$allow_primary_smaller_n %||% FALSE)) {
+  ## 课题显式授权「人少库做主库」（如加权 NHANES 主分析 / MIMIC 开发 eICU 外验）时可放行，仅警告不硬停
+  allow_smaller <- isTRUE(dual$allow_primary_smaller_n %||% FALSE) ||
+    isTRUE((config$ml_batch %||% list())$allow_primary_smaller_n %||% FALSE) ||
+    isTRUE((config$project %||% list())$allow_primary_smaller_n %||% FALSE) ||
+    isTRUE((config$.study %||% list())$allow_primary_smaller_n %||% FALSE)
+  if (isTRUE(allow_smaller)) {
     stop_on_fail <- FALSE
   }
   bc <- config$ml_batch %||% config$incidence_batch %||% list()

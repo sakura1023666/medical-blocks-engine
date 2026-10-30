@@ -9,18 +9,36 @@
 
 .mltcf26_python <- function() {
   root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  ## Windows R 不能执行 Linux .venv/bin/python（E: 上 file.exists 仍为 TRUE）
   venv_py <- if (nzchar(root)) {
-    file.path(root, ".venv", "bin", "python")
+    if (.Platform$OS.type == "windows") {
+      file.path(root, ".venv", "Scripts", "python.exe")
+    } else {
+      file.path(root, ".venv", "bin", "python")
+    }
   } else {
     ""
+  }
+  win_fallback <- if (.Platform$OS.type == "windows") {
+    c(
+      "C:/ProgramData/anaconda3/python.exe",
+      "C:/ProgramData/Anaconda3/python.exe"
+    )
+  } else {
+    character(0)
   }
   cands <- c(
     Sys.getenv("MEDICAL_BLOCKS_PYTHON", unset = ""),
     venv_py,
+    win_fallback,
     Sys.which("python3"),
     Sys.which("python")
   )
   cands <- cands[nzchar(cands) & file.exists(cands)]
+  if (.Platform$OS.type == "windows") {
+    ## 再挡一层：Unix shebang 路径
+    cands <- cands[!grepl("/bin/python3?$", cands, ignore.case = TRUE)]
+  }
   if (!length(cands)) stop("ml_tcf_sklearn_rscv: 找不到 python3", call. = FALSE)
   cands[[1L]]
 }
@@ -123,7 +141,18 @@ block_ml_tcf_sklearn_rscv <- function(ctx, ...) {
   } else {
     py <- .mltcf26_python()
     cli::cli_alert_info("ml_tcf_sklearn_rscv: {py} RandomizedSearchCV cv={cv} n_jobs={n_jobs} SMOTE={do_smote}")
-    st <- system2(py, args = args, stdout = TRUE, stderr = TRUE)
+    ## 课题路径含空格（multi-algorithm fusion_*）时 Windows system2 须逐参加引号
+    args_run <- if (.Platform$OS.type == "windows") {
+      vapply(args, function(a) {
+        a <- as.character(a)
+        if (grepl("[[:space:]]", a) || grepl('"', a, fixed = TRUE)) {
+          shQuote(a, type = "cmd")
+        } else a
+      }, character(1), USE.NAMES = FALSE)
+    } else {
+      args
+    }
+    st <- system2(py, args = args_run, stdout = TRUE, stderr = TRUE)
     writeLines(st, file.path(out_dir, "train_tcf_bundle.log"))
     if (!is.null(attr(st, "status")) && attr(st, "status") != 0) {
       stop("ml_tcf_sklearn_rscv: python 失败\n", paste(st, collapse = "\n"), call. = FALSE)

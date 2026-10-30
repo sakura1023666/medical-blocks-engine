@@ -1,1319 +1,845 @@
 # Page 1
 
-h i g h l i g h t s
-
- The associations between depression,
-cognitive function, and frailty vary
- Sarcopenia is not only associated with
-g r a p h i c a l a b s t r a c t
-a r t i c l e
-i n f o
-Article history:
-Received 20 October 2024
-Revised 14 December 2024
-a b s t r a c t
-Background: Despite earlier research indicating a potential link between the development of sarcopenia
-and an elevated risk of frailty, the lack of comprehensive prospective data on the correlation between sar-
-copenia and frailty incidence leaves open the question of whether depression and cognitive function
-mediate this association.
-Journal of Advanced Research 76 (2025) 605–613 
-Contents lists available at ScienceDirect 
-Journal of Advanced Research 
-journal homepage: www.elsevier.com/locate/jare 
-Exploring the mediating roles of depression and cognitive function in the 
-association between sarcopenia and frailty: A Cox survival analysis 
-approach 
-Yan Zhu a,1 , 
-a Department of Hepatobiliary Surgery, Neijiang First People’s Hospital, Neijiang, China 
-Haojie Yin b,1 , 
-b Department of Respiratory and Critical Care Medicine, Neijiang First People’s Hospital, Neijiang, China 
-Xianli Zhong a , Qin Zhang c , 
-c Department of Day Surgery Ward, Sichuan Academy of Medical Sciences, Sichuan Provincial People’s Hospital, Chengdu, China 
-Li Wang d,⇑, 
-d Department of NICU, Sichuan Academy of Medical Sciences, Sichuan Provincial People’s Hospital, Chengdu, China 
-Rong Lu e,⇑, 
-e Department of Neurosurgery, Sichuan Academy of Medical Sciences, Sichuan Provincial People’s Hospital, Chengdu, China 
-Ping Jia f,⇑ 
-f Department of NICU, Sichuan Academy of Medical Sciences and Sichuan Provincial People’s Hospital, School of Medicine, University of Electronic Science and Technology of 
-China, Chengdu, Sichuan, China 
-Baseline sarcopenia, depression, and 
-cognitive function were signiﬁcantly 
-associated with the onset of new-
-onset frailty. 
-across different sarcopenia statuses. 
-frailty through depression and 
-cognitive function separately but also 
-affects frailty via the chain-mediated 
-effects of depression and cognitive 
-function.
-⇑ Corresponding authors. 
-E-mail addresses: 630235290@qq.com (L. Wang), 1294110986@qq.com (R. Lu), aonejia@126.com (P. Jia). 
-1 These authors contributed equally to this work. 
-https://doi.org/10.1016/j.jare.2024.12.021 
-2090-1232/© 2024 Published by Elsevier B.V. on behalf of Cairo University. 
-This is an open access article under the CC BY-NC-ND license (http://creativecommons.org/licenses/by-nc-nd/4.0/).
+RESEARCH
+Breast Cancer Research and Treatment          (2026) 217:32 
+https://doi.org/10.1007/s10549-026-07981-x
+Yizi Jin, Huiyue Li and Zhaozhi Yang contributed equally to this 
+work.
+	
+ Jennifer K. Plichta
+jennifer.plichta@duke.edu
+	
+ Jian Zhang
+syner2000@163.com
+1	
+Phase I Unit, Fudan University Shanghai Cancer Center, No. 
+270, Dong’an Road, Shanghai 200032, China
+2	
+Department of Oncology, Shanghai Medical College, Fudan 
+University, No. 130, Dong’an Road, Shanghai 200032, China
+3	
+Department of Biostatistics and Bioinformatics, Duke 
+University Medical Center, Durham, NC, USA
+4	
+Department of Radiation Oncology, Fudan University 
+Shanghai Cancer Center, Shanghai, China
+5	
+Clinical Research Center for Radiation Oncology, Shanghai 
+Key Laboratory of Radiation Oncology, Shanghai, China
+6	
+Department of Biostatistics, St Jude Children’s Research 
+Hospital, Memphis, TN, USA
+7	
+Duke Cancer Institute, Duke University Medical Center, 
+Durham, NC 27710, USA
+8	
+Department of Population Health Sciences, Duke University 
+School of Medicine, Durham, NC 27710, USA
+9	
+Department of Surgery, Duke University School of Medicine, 
+Durham, NC 27710, USA
+Abstract
+Purpose  This study aims to determine the potential association of postmastectomy radiotherapy and survival in patients with 
+clinically node-positive axillary breast cancer who achieved ypN0 after neoadjuvant chemotherapy.
+Methods  We conducted a retrospective cohort study using the National Cancer Database. Eligible patients were women 
+aged 18–80 with cT1-2, cN+ invasive breast cancer and achieving ypN0 status. Inverse probability weighting (IPW)-based 
+analyses were used to assess the differences in overall survival (OS) between the radiotherapy and no radiotherapy groups. 
+Absolute 5-year OS rates between the two groups were analyzed by nonparametric sliding-window subpopulation treatment 
+effect pattern plot (STEPP) analysis. Sensitivity analyses were conducted using multivariable Cox regressions.
+Results  We identified 3,351 patients who met eligibility criteria, of whom 57.0% (N = 1,910) did not receive radiotherapy 
+and 43.0% (N = 1,441) did receive radiotherapy. No significant differences in OS were observed between the radiotherapy 
+and non-radiotherapy groups after adjustment (hazard ratio = 1.01, P = .96). The STEPP analysis demonstrated no significant 
+differences between the RT and no RT groups, regardless of the composite risk. Subgroup analyses showed that the differ­
+ence in OS rates between the two groups was significantly correlated with cN category, and the advantage associated with 
+radiotherapy receipt was only observed in cN2-3 patients but not in cN1 patients (hazard ratio = 0.55; P-interaction = 0.024).
+Conclusions  This study further supports the NSABP B51 findings, suggesting that omitting postmastectomy radiotherapy 
+may be reasonable for cT1-2N1M0 patients who achieved ypN0. However, postmastectomy radiotherapy may be a consid­
+eration for patients with more advanced nodal disease (cN2-3) who achieve ypN0 status after NAC, indicating that a more 
+tailored approach may be warranted.
+Keywords  Breast cancer · Postmastectomy radiotherapy · Survival benefit · Inverse probability weighting · Neoadjuvant 
+chemotherapy
+Received: 12 December 2025 / Accepted: 15 April 2026
+© The Author(s), under exclusive licence to Springer Science+Business Media, LLC, part of Springer Nature 2026
+Exploring the potential of postmastectomy radiotherapy in cN + and 
+ypN0 breast cancer patients following neoadjuvant chemotherapy
+Yizi Jin1,2 · Huiyue Li3 · Zhaozhi Yang2,4,5 · Sheng Luo3 · Songyun Zhang3 · Li Tang6 · Samantha M. Thomas3,7 · 
+Jennifer K. Plichta7,8,9 · Jian Zhang1,2
 
 # Page 2
 
-Accepted 16 December 2024
-Available online 17 December 2024
-Keywords:
-Sarcopenia
-Depression
-Cognitive function
-Frailty
-(95 % CI: 1.156, 1.586) and 1.514 (95 % CI: 1.203, 1.907), respectively. Stratiﬁed analyses by different sta-
-tuses of sarcopenia further revealed that the signiﬁcant effect of depression on frailty was present across
-po
-on frailty was limited to the n
-ated
-med
-as
-usc
-ehe
-on,
-ng
-o re
-ier
-leading to speciﬁc impairments in attention, interpretation, and
-with physical frailty but also with cognitive impairment. Multiple
-studies have conﬁrmed that individuals with depression are at a
-higher risk of cognitive decline[27–29]. Additionally, depression
-often co-occurs with sarcopenia[16,30], suggesting a bidirectional
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-all groups (nonsarcopenia, 
-that sarcopenia was correl 
-but also through a chain-
-Conclusions: Sarcopenia is 
-mediating roles. Frailty’s s 
-status. Therefore, compr 
-improvements in depressi 
-more effective in preventi 
-aged and older adults wh
-© 2024 Published by Elsev 
-Introduction 
-In the context of a globally aging population, a prevalent geri-
-atric syndrome referred to as frailty is surfacing as a signiﬁcant 
-health burden[1,2]. This frailty represents a multidimensional 
-physiological state involving declines in physical, immune, and 
-metabolic functions[3], thereby elevating the susceptibility of 
-older adults to diverse negative health outcomes and health-
-related incidents, such as falls, hospitalizations, heightened mor-
-tality rates, and diminished quality of life[1]. Globally, the inci-
-dence of frailty markedly escalates as individuals grow older. 
-According to research employing the National Health and Nutrition 
-Examination Survey (NHANES) in the United States, approximately 
-5–10 % of individuals who are 65 years of age and older exhibit 
-frailty, 
-whereas 
-the 
-prevalence 
-of 
-prefrailty 
-reaches 
-levels 
-approaching 40–60 %[4]. A large multinational cohort study 
-demonstrated notable variations in the prevalence of frailty across 
-various nations, but the overall trend parallels closely with the 
-ﬁndings documented in the United States[5]. Although the inci-
-dence of frailty does indeed increase with age, it is viewed as a pro-
-nounced manifestation of the typical aging process, suggesting that 
-frailty may be preventable[1]. More importantly, an increasing 
-body of evidence indicates that frailty can be reversed through 
-appropriate interventions[6,7]. Therefore, identifying modiﬁable 
-factors that could aid in preventing and slowing the progression 
-of frailty is crucial. 
-Sarcopenia, a condition marked by the progressive deterioration 
-of muscle mass, strength, and functionality as one ages, signiﬁ-
-cantly impairs the quality of life and independence of elderly indi-
-viduals[8]. Based on the deﬁnitions provided by the International 
-Working Group on Sarcopenia (IWGS), sarcopenia involves reduced 
-muscle mass, diminished muscle strength, and/or impaired physi-
-cal performance[9]. Insights from a comprehensive meta-analysis 
-indicated that the prevalence of sarcopenia varies between 10 % 
-and 27 %, with severe sarcopenia affecting 2 % to 9 % of the popu-
-lation[10]. These ﬁgures are anticipated to steadily increase as the 
-global population continues to age[11]. Numerous studies have 
-linked sarcopenia to various negative health outcomes, including 
-functional decline, physical disability, falls, prolonged hospital 
-stays, and frailty in older adults[12–14]. Furthermore, sarcopenia 
-not only affects physiological functions but is also closely associ-
-ssible sarcopenia and sarcopenia), whereas the effect of cognitive function 
-on-sarcopenia and possible sarcopenia groups. Mediation analysis showed 
-not only with frailty through depression and cognitive function separately 
-iated effect of depression and cognitive function together. 
-sociated with frailty, depression and cognitive function playing partial, 
-eptibility to depression and cognitive function differs based on sarcopenia 
-nsive interventions that include sarcopenia screening, interventions, 
-the promotion of mental health, and delays in cognitive decline will be 
-and delaying frailty. This effectiveness is particularly relevant for middle-
-side in China. 
-B.V. on behalf of Cairo University. This is an open access article under the CC 
-BY-NC-ND license (http://creativecommons.org/licenses/by-nc-nd/4.0/). 
-ated with mental health and cognitive function. According to 
-Chang et al., sarcopenia is independently linked to depression, 
-which could directly lead to depressive symptoms[15]. Sarcopenia 
-may inﬂuence mood states indirectly by disrupting the balance of 
-the neuroendocrine system, particularly through the modulation of 
-inﬂammatory responses in muscle tissue[16]. In terms of cognitive 
-function, sarcopenia may negatively impact cognition by affecting 
-cerebral blood supply and neuroplasticity[17]. Additionally, sar-
-copenia is known to increase the levels of inﬂammatory markers 
-within the body, including interleukin-6 (IL-6) and tumour necro-
-sis factor-alpha (TNF-a), which are associated with cognitive 
-decline[17,18]. 
-Previous studies have indicated that the existence of sarcopenia 
-considerably heightens the likelihood of individuals developing 
-frailty. Research conducted by Cruz-Jentoft et al. in 2010 high-
-lighted that sarcopenia represents a multifaceted condition charac-
-terized by numerous contributing risk elements, which increase 
-the risk of frailty through intricate pathways[14]. As proposed by 
-Fried et al., sarcopenia occupies a vital pathogenic function in the 
-progression of frailty and is a key factor in explaining many aspects 
-of the frail state[3]. However, these studies have not explored the 
-factors that might explain the link between sarcopenia and frailty. 
-Current evidence suggests that sarcopenia signiﬁcantly increases 
-the likelihood of depression and cognitive decline[16], and both 
-depression and cognitive decline are recognized as signiﬁcant pre-
-dictors that contribute to a heightened likelihood of experiencing 
-frailty in older individuals[19]. Speciﬁcally, depression can lead 
-to reduced physical activity[20], malnutrition[21], and impaired 
-social participation[22], all of which are known risk factors for 
-frailty[3,23,24]. Simultaneously, according to Beck’s cognitive 
-model of depression[25], once activated by stressors, depressive 
-schemas can inﬂuence the processing of incoming information, 
-606
-Objective: The principal aim of the current investigation was to evaluate the intricate interplay among 
-sarcopenia, depression, and cognitive function collectively inﬂuence the risk of developing frailty. 
-Methods: The participants included in this study were obtained from three waves of the China Health and 
-Retirement Longitudinal Study (CHARLS), which collectively encompassed a total of 3,108 participants. 
-To examine the interrelationships among sarcopenia, depression, cognitive function, and the incidence 
-of frailty, we employed Cox regression models along with structural equation modelling, while making 
-necessary adjustments for baseline demographic characteristics and various lifestyle factors. 
-Results: During a 4-year follow-up, we documented 753 frailty events. Compared to those with nonsar-
-copenia, those with possible sarcopenia and sarcopenia presented risk ratios for frailty events of 1.354
-memory[26]. Therefore, depression may be not only associated 
-relationship that could potentially amplify frailty risk. Moreover, 
-based on the previous studies, sarcopenia causes brain atrophy, 
-which leads to cognitive deterioration. However, cognitive impair-
+1 3
+   32 
+ 
+Page 2 of 10
+Breast Cancer Research and Treatment          (2026) 217:32 
+Introduction
+Several randomized clinical trials and meta-analyses have 
+established that adjuvant postmastectomy radiotherapy 
+(PMRT) improves overall survival (OS) in patients with 
+stage II-III breast cancer [1–4]. Two randomized clinical 
+trials have verified that regional nodal irradiation (RNI) sig­
+nificantly improves disease-free survival (DFS) in patients 
+with N1 or high-risk node-negative breast cancer [5, 6]. 
+Furthermore, a recent individual patient data meta-analysis 
+by EBCTCG indicated that RNI can reduce breast cancer 
+mortality and all-cause mortality in trials conducted after 
+the 1980s [7].
+However, the use of neoadjuvant chemotherapy (NAC) 
+prior to mastectomy has created substantial controversy 
+regarding the identification of patient subgroups that might 
+benefit from PMRT. NAC can reduce the size and extent 
+of locally advanced breast cancer. Pathological complete 
+response (pCR) has been recognized as a surrogate endpoint 
+for predicting long-term clinical outcomes, such as DFS 
+and OS [8]. In modern systemic treatment settings, the axil­
+lary pCR rate varies between 13 and 60% across different 
+breast cancer subtypes with clinically positive nodes [9]. 
+Although the EBCTCG meta-analyses showed that PMRT 
+did not benefit patients with pathological N0 (pN0) disease 
+at initial surgery [10], omitting PMRT by extrapolation in 
+clinical node positive (cN+) and ypN0 patients after NAC 
+and mastectomy remains controversial.
+Combined analysis of NSABP B18 and B27 revealed that 
+T1-3N1 patients achieving pCR after NAC had less than a 
+10% local-regional recurrence (LRR) rate, suggesting that 
+radiotherapy may result in a negligible absolute reduction in 
+the long-term risk of breast cancer mortality [11]. Many ret­
+rospective studies have demonstrated that PMRT does not 
+reduce the risk of distant metastasis or OS in cN+ patients 
+achieving pCR after NAC [12–16]. However, McGuire 
+et al. reported that PMRT did reduce the risk of LRR and 
+improved the disease-specific survival and OS in stage III 
+(especially cN2-N3 involvement) breast cancer [12]. Simi­
+larly, Rusthoven et al. found that PMRT was independently 
+associated with improved OS in clinically T1-3N1M0 and 
+ypN0 patients after NAC and mastectomy, based on a 
+National Cancer Database (NCDB) analysis from 2003 to 
+2011 [17].
+NSABP B51/RTOG 1304 aimed to test whether radio­
+therapy improves the breast cancer recurrence-free interval 
+rate in women with biopsy-proven clinical T1-3N1 disease 
+before NAC and then become pathologically-node nega­
+tive at the time of surgery. The study reported a 5-year esti­
+mated invasive recurrence-free interval rate of 91.8% in the 
+non-RT group and 92.7% in the RT group, with no statis­
+tically significant difference observed [18, 19]. This study 
+demonstrated that RNI did not notably improve oncologic 
+outcomes in the NAC setting. However, the potential benefit 
+of PMRT for patients initially with clinical N2-N3 disease 
+who achieve ypN0 status after NAC remains uncertain. To 
+this end, we retrospectively analyzed a large NCDB cohort 
+to assess whether PMRT is associated with survival in breast 
+cancer patients with clinically node-positive axillary disease 
+who convert to ypN0 after NAC.
+Methods
+Study cohort
+The NCDB is a hospital-based cancer registry that includes 
+data from more than 1500 accredited facilities and repre­
+sents over 70% of newly diagnosed malignancies and ~ 
+80% of all breast malignancies in the United States [20]. 
+The NCDB was queried for eligible patients who were (1) 
+women aged from 18 to 80; (2) diagnosed with cT1-2, cN+ 
+invasive breast cancer between 2010 and 2018; (3) patho­
+logical node negative (ypN0) after NAC and mastectomy. 
+The exclusion criteria included: (1) patients with distant 
+metastases or multiple malignancies; (2) patients with post­
+operative T category upstaging; (3) patients who received 
+other types of neoadjuvant therapy except NAC ± neoadju­
+vant anti-ERBB2 therapy1; (4) received radiotherapy to ana­
+tomical sites other than the breast, chest wall, and regional 
+lymph nodes (i.e., non-PMRT radiation); (5) patients who 
+had missing values on baseline characteristics, or had unre­
+alistic surgery dates such as indication of surgery after last 
+contact or death. Details of patient selection are listed in 
+Fig. 1.
+Study variables and outcomes
+The baseline clinicopathological variables of interest were 
+extracted, including age at diagnosis, ethnicity (non-His­
+panic White, non-Hispanic Black, Hispanic, non-Hispanic 
+other), pathological T category, grade, hormone receptor 
+(HR) status, ERBB2 status, histopathological classifica­
+tion, Charlson-Deyo score (0, 1, 2+), diagnosis year, clini­
+cal T and N category. When estrogen receptor (ER) status, 
+and/or progesterone receptor (PR) status were positive, HR 
+was defined as positive, whereas both ER and PR status 
+being negative was defined as HR-negative. Of note, anti-
+ERBB2 directed therapy is included as immunotherapy in 
+1  In NCDB, anti-ERBB2 therapy was recorded as chemotherapy 
+before 2013 and was reclassified as BRM/immunotherapy after 2013. 
+Therefore, we excluded patients treated with neoadjuvant BRM/
+immunotherapy or hormone therapy before 2013. We also excluded 
+patients treated with neoadjuvant hormone therapy after 2013.
 
 # Page 3
 
-approach is essential for improving the quality of life and func-
-Data source
-This investigation was carried out in accordance with all appli-
-cable ethical standards. The Institutional Review Board of Peking
-inant and nondominant hands, with the highest value from two
-ment can worsen sarcopenia, producing a vicious cycle, further 
-complicating the relationship between these conditions. Given 
-these observations, it is plausible to hypothesize that depression 
-and cognitive function may act as mediating factors in the relation-
-ship between sarcopenia and frailty. By investigating the relation-
-ships between sarcopenia, depression, cognitive function, and 
-frailty, this study aims to uncover the underlying pathways 
-through which these factors interact. Understanding these path-
-ways is critical for developing targeted interventions to prevent 
-or mitigate frailty in older adults. The ﬁndings of this study could 
-inform the creation of comprehensive care strategies that address 
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-not only the physical aspects of sarcopenia but also the psycholog-
-ical and cognitive function that contribute to frailty. This holistic 
-tional status of older adults at risk of frailty. Consequently, the 
-aims of this investigation were twofold: (1) to investigate the rela-
-tionships between sarcopenia, depression, cognitive function, and 
-frailty, and (2) to explore the possible pathways from sarcopenia, 
-depression, and cognitive function to frailty. 
-Methods 
-The data utilized in our research was derived from the China 
-Health and Retirement Longitudinal Study (CHARLS). Additional 
-information concerning the recruitment strategies and sampling 
-methods employed in CHARLS is available in earlier publications 
-[31]. The data from the 2011–2015 were employed in this research. 
-The criteria for exclusion were deﬁned in the following manner: 
-(1) participants who did not undergo an assessment for frailty in 
-Wave 1 (2011); (2) those identiﬁed as frail in Wave 1; (3) subjects 
-who were not successfully followed up for frailty measurement in 
-Wave 2 (2013); and (4) participants who did not have successful 
-follow-up frailty measurements in Wave 3 (2015). The analysis 
-included a total of 3,108 participants who were 45 years of age 
-or older, selected according to the predeﬁned inclusion criteria. A 
-thorough overview of the participant selection process is illus-
-trated in Fig. 1. 
-Fig. 1. Flow diagram for participants included in the study. 
-607
-Ethics statement 
-University (IRB00001052-11015) conducted a thorough review 
-and granted approval for the study. Prior to their participation, 
-each individual provided informed consent, ensuring their willing-
-ness to be included in the research. 
-Measures 
-Sarcopenia 
-The evaluation of sarcopenia status was conducted via the 
-AWGS2019 algorithm, which consists of three key components: 
-muscle strength, appendicular skeletal muscle mass (ASM), and 
-physical performance[32]. Muscle strength was quantiﬁed through 
-a grip strength assessment employing a Yuejian TM WL-1000 grip 
-dynamometer. During this test, each participant was instructed to 
-hold the dynamometer at a right angle with both hands while per-
-forming the assessment. Measurements were taken for both dom-
-attempts recorded. If the measurement of one hand could not be 
-performed for certain reasons, the highest value obtained from 
-the alternate hand was documented. As per the AWGS 2019 guide-
+1 3
+Page 3 of 10 
+   32 
+Breast Cancer Research and Treatment          (2026) 217:32 
+the NCDB, and prior to 2013, it was classified as a type of 
+chemotherapy.
+Statistical analysis
+Baseline characteristics were compared between patients 
+who did and did not receive radiotherapy. The balance in 
+baseline characteristics was evaluated by the standardized 
+mean difference (SMD), and a threshold of 0.1 was used to 
+indicate an acceptable balance of the factors between the 
+two groups.
+To control for confounding, we implemented inverse 
+probability weighting (IPW) to adjust for the observed dif­
+ferences in baseline characteristics. Based on a multivari­
+able logistic regression incorporating all eleven potential 
+confounders as shown in Table 1, we first estimated the pro­
+pensity scores (PSs), yielding the conditional probability of 
+receiving radiotherapy. We then conducted IPW using esti­
+mated PS to weigh each patient and for balancing baseline 
+characteristics across the two groups (no radiotherapy vs. 
+radiotherapy).
+The primary outcome of interest was OS, defined as the 
+time interval between the date of initial diagnosis and the 
+date of last contact or death. We analyzed OS by investigat­
+ing IPW-adjusted Kaplan-Meier (KM) curves and log-rank 
+tests, as well as IPW-adjusted Cox proportional hazards 
+models. In addition, we performed subgroup IPW-adjusted 
+analyses to test for differences in OS between patients with 
+and without radiotherapy according to age, ethnicity (non-
+Hispanic White and non-Hispanic Black), pT category, 
+HR status, ERBB2 status, grade (grade I-II and grade III), 
+molecular subtype (triple-negative breast cancer, HR-pos­
+itive/ERBB2-negative breast cancer, and ERBB2-positive 
+breast cancer), and cN category (cN1 and cN2-3) follow­
+ing the previously described methods, to ensure all the rel­
+evant baseline characteristics were rebalanced within each 
+subgroup. If post-weighting balance could not be reached 
+in a certain subgroup, multivariable regression models were 
+subsequently applied for covariate adjustments. We also 
+conducted interaction tests between receipt of radiotherapy 
+and these baseline characteristics to evaluate the heteroge­
+neity of the prognostic impact of radiotherapy across the 
+subgroups.
+Absolute 5-year OS rates between non-radiotherapy and 
+radiotherapy arms were analyzed by nonparametric sliding-
+window subpopulation treatment effect pattern plot (STEPP) 
+analysis following procedure in a previous report [21–23]. 
+Briefly, six parameters (age at diagnosis, pT category, HR 
+status, ERBB2 status, cT category, and cN category) were 
+chosen to construct a Cox proportional hazards model defin­
+ing the composite risk. Then, the value of the composite 
+risk of each patient was calculated by summing the model 
+parameter estimates according to the observed prognostic 
+factor values. Nonparametric sliding-window STEPP analy­
+sis was used to investigate the patterns of absolute treatment 
+effect between the two arms, as measured by Kaplan-Meier 
+estimates of 5-year OS (y-axis) across the continuum of val­
+ues of composite risk (x-axis).
+Furthermore, we conducted sensitivity analyses using 
+multivariable Cox regressions with the aforementioned risk 
+Fig. 1  Consolidated standards 
+of reporting trials (CONSORT) 
+diagram
 
 # Page 4
 
-comes obtained through dual-energy X-ray absorptiometry (DXA)
-[34]. Consistent with prior studies[35,36], the threshold for identi-
-the AWGS 2019 guidelines, a duration of 12 s or more in the ﬁve-
-physical performance.
-In this research, the identiﬁcation of potential sarcopenia was
-can range from 0 to 30, where elevated scores indicate a greater
-Cognitive function
-the immediate recall and delayed recall tasks, with each recalled
-accordance with the standardized procedures that have been pre-
-represented in terms of percentages. The baseline characteristics
-chi-square tests and t-tests for comparison. Cox regression models
-demographic and lifestyle variables were controlled. In the sensi-
-binary logistic regression, revealing an impactful interaction
-lines, the threshold for low grip strength was set at under 28 kg for 
-males and under 18 kg for females. The ASM for Chinese residents 
-was estimated via validated anthropometric equations[33]: 
-ASM ¼ 0:193  weight kg
-ð
- Þ þ
- 
-0:107  height cm
-ð
- Þ  4:157  sex
- 0:037  age years
-ð
-Þ  2:631
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-The ASM derived from the formula closely matched the out-
-fying low muscle mass was established by evaluating the lowest 
-20 % of sex-speciﬁc height-adjusted muscle mass (ASM/Ht2 ) within 
-the population under investigation. Within the framework of our 
-study, ASM/Ht2 values that fell below 5.29 kg/m2 for females and 
-below 7.01 kg/m2 for males were deemed indicative of low muscle 
-mass. To evaluate physical performance, the ﬁve-time chair stand 
-test was employed, wherein we measured the duration, expressed 
-in seconds, that participants took to rise from a chair with their 
-arms crossed and complete ﬁve consecutive times. In the analysis, 
-patients who attempted the chair stand test but were unable to ﬁn-
-ish it were categorized as having low physical performance. As per 
-time chair stand test was used as the threshold to classify low 
-based on the observation of diminished muscle strength, which 
-may occur either in the absence of or alongside reduced physical 
-performance. The deﬁnition of sarcopenia is deﬁned to include 
-not only a decrease in muscle mass but also the coexistence of 
-low muscle strength or impaired physical performance. Partici-
-pants who exhibited no manifestations of weak muscle strength, 
-diminished muscle mass, or poor physical performance were des-
-ignated ‘‘nonsarcopenia”[37]. Consequently, the entire group of 
-participants was segmented into three distinct categories: nonsar-
-copenia, possible sarcopenia, and sarcopenia. 
-Depression 
-The Centre for Epidemiological Studies Depression Scale (CESD-
-10) was utilized to evaluate depression, demonstrating strong 
-validity and favourable psychometric properties among elderly 
-adults in China[38]. This scale serves as a streamlined self-report 
-tool for assessing depressive symptoms, aimed at gauging an indi-
-vidual’s depressive experiences over the past week. The CESD-10 is 
-comprised of 10 individual items, each with four response options 
-representing varying frequencies (from ‘‘rarely” or ‘‘none of the 
-time” to ‘‘most” or ‘‘all of the time”). Items 5 and 8 are scored in 
-reverse, contributing to the overall assessment. The total score 
-severity of depressive symptoms. 
-To assess cognitive function, the approach utilized in the Amer-
-ican Health and Retirement Study (HRS) was adopted, where the 
-applied methodology formed the basis of evaluation[39]. The 
-assessment extended across multiple facets of cognitive abilities, 
-speciﬁcally covering four distinct domains: orientation, memory, 
-calculation, and drawing. The orientation dimension included ﬁve 
-items (year, month, day, day of the week, and season), with each 
-assigned a value of one point, for a total of ﬁve points. For calcula-
-tion, participants were instructed to subtract 7 from 100 in a con-
-tinuous sequence ﬁve times, and each successful subtraction 
-earning one point. Immediate memory was assessed by reading 
-ten random words to each participant and counting the number 
-of words they could recall at once. The assessment of delayed recall 
-took place following the subjects’ completion of the depression 
-608
-scale survey, calculation, and drawing tests. The memory dimen-
-sion score was determined by combining the results from both 
-word earning one point, for a total of 20 points. Finally, partici-
-pants were presented with an image of two overlapping penta-
-grams and were tasked with creating an appropriate pentagram 
-to assess their drawing skills, with one point granted for each accu-
-rate representation. The overall score for cognitive function varied 
-from 0 to 31, where higher scores reﬂected superior cognitive 
-performance. 
-Frailty 
-Frailty was evaluated through the Frailty Index (FI), a metric 
-derived from the aggregation of various health deﬁcits associated 
-with aging. In this study, the FI was meticulously developed in 
-viously outlined, where an index containing 30–40 variables have 
-been shown to be sufﬁcient for accurately predicting adverse out-
-comes[40]. Therefore, this study selected 36 items to construct the 
-FI, encompassing aspects of disease, disability, activities of daily 
-living, and mobility. The 36 health variables were assigned values 
-of 0 or 1 (where 0 signiﬁes the absence of a health deﬁcit and 1 
-indicates the presence of a health deﬁcit). The FI derives from the 
-calculation of the ratio of the total number of current health deﬁ-
-cits to 36, with a score ranging from 0 to 1. According to previous 
-research, an FI  0.25 was deﬁned as frailty[41]. The speciﬁc items 
-used to construct the FI are detailed in Table S1. 
-Covariates 
-The covariates considered in our research encompassed both 
-demographic characteristics and lifestyle variables. The demo-
-graphic characteristics consisted of age, sex, educational level, 
-marital status, and current hukou status, whereas the lifestyle vari-
-ables encompassed smoking habits, alcohol consumption, and 
-sleep duration. In alignment with ﬁndings from earlier research 
-[42], sleep duration was classiﬁed among three distinct groups: 
-short sleep duration (6h or fewer per night), normal sleep duration 
-(between 7h and 9h per night), and long sleep duration (10h or 
-more per night). The coding details for all the variables are pre-
-sented in Table S2. 
-Statistical analysis 
-In the context of descriptive statistics, continuous variables take 
-the form of means ± standard deviations (SDs) or medians accom-
-panied by interquartile ranges, whereas categorical variables are 
-of the nonfrail and frail study populations were assessed using 
-served the purpose of analyzing the relationships between sar-
-copenia, depression, cognitive function, and the incidence of frailty, 
-with hazard ratios (HRs) and their 95 % conﬁdence intervals (CIs). 
-The calculation of the follow-up duration was based on the inter-
-view year and month provided by the CHARLS. Within the frame-
-work 
-of 
-the 
-multivariate 
-Cox 
-regression 
-model, 
-baseline 
-tivity analyses, adjustments were made to account for demo-
-graphic and lifestyle factors. Interaction effects were analysed via 
-between sarcopenia and depression/cognitive function in terms 
-of frailty status (Table S3). Consequently, stratiﬁed analyses were 
-performed according to sarcopenia categories, and associations
+1 3
+   32 
+ 
+Page 4 of 10
+Breast Cancer Research and Treatment          (2026) 217:32 
+factors (i.e., adjustment for eleven baseline characteristics) 
+to further confirm our findings.
+All the analyses were performed by R version 4.2.3. And 
+two-sided P < .05 was considered statistically significant. 
+No adjustments were made for multiple comparisons.
+Results
+We identified 3,351 patients who met eligibility criteria, of 
+whom 57.0% (N = 1,910) did not receive radiotherapy and 
+43.0% (N = 1,441) did receive radiotherapy (Fig. 1). Com­
+pared with non-radiotherapy patients, patients receiving 
+Table 1  Baseline characteristics among the NCDB breast cancer patients diagnosed between 2010 and 2018 with cN+ disease who convert to 
+ypN0 after NAC
+Characteristic
+Overall 
+(N = 3,351)
+No Radiotherapy 
+(N = 1,910)
+Radiotherapy 
+(N = 1,441)
+P1
+Standardized Mean 
+Difference
+No. (%)
+Unweighted
+Weighted2
+Age
+0.002
+0.12
+0.005
+  20–40
+894 (26.7)
+472 (24.7)
+422 (29.3)
+  40–60
+1,894 (56.5)
+1,089 (57.0)
+805 (55.9)
+  60+
+563 (16.8)
+349 (18.3)
+214 (14.9)
+Ethnicity
+0.21
+0.07
+0.010
+  Non-Hispanic White
+2,207 (65.9)
+1,267 (66.3)
+940 (65.2)
+  Non-Hispanic Black
+572 (17.1)
+335 (17.5)
+237 (16.4)
+  Hispanic
+364 (10.9)
+189 (9.9)
+175 (12.1)
+  Non-Hispanic Other
+208 (6.2)
+119 (6.2)
+89 (6.2)
+pT category
+0.011
+0.10
+0.004
+  pT0/IS
+1,851 (55.2)
+1,096 (57.4)
+755 (52.4)
+  pT1
+1,208 (36.0)
+649 (34.0)
+559 (38.8)
+  pT2
+292 (8.7)
+165 (8.6)
+127 (8.8)
+Grade
+0.14
+0.07
+0.004
+  Grade I
+70 (2.1)
+46 (2.4)
+24 (1.7)
+  Grade III
+2,452 (73.2)
+1,409 (73.8)
+1,043 (72.4)
+  Grade II
+829 (24.7)
+455 (23.8)
+374 (26.0)
+Hormone receptor status
+0.002
+0.11
+0.003
+  Negative
+1,706 (50.9)
+1,016 (53.2)
+690 (47.9)
+  Positive
+1,645 (49.1)
+894 (46.8)
+751 (52.1)
+ERBB2 status
+0.010
+0.09
+0.002
+  Negative
+1,859 (55.5)
+1,023 (53.6)
+836 (58.0)
+  Positive
+1,492 (44.5)
+887 (46.4)
+605 (42.0)
+Histopathological classification
+0.82
+0.02
+0.004
+  Ductal
+3,051 (91.0)
+1,744 (91.3)
+1,307 (90.7)
+  Lobular
+203 (6.1)
+113 (5.9)
+90 (6.2)
+  Other
+97 (2.9)
+53 (2.8)
+44 (3.1)
+Charlson-Deyo score
+0.26
+0.06
+0.004
+  0
+3,005 (89.7)
+1,700 (89.0)
+1,305 (90.6)
+  1
+284 (8.5)
+175 (9.2)
+109 (7.6)
+  >=2
+62 (1.9)
+35 (1.8)
+27 (1.9)
+Diagnosis year
+< 0.001
+0.14
+0.007
+  2010–2012
+624 (18.6)
+323 (16.9)
+301 (20.9)
+  2013–2015
+1,391 (41.5)
+843 (44.1)
+548 (38.0)
+  2016–2018
+1,336 (39.9)
+744 (39.0)
+592 (41.1)
+cT category
+0.011
+0.09
+0.004
+  cT1
+716 (21.4)
+438 (22.9)
+278 (19.3)
+  cT2
+2,635 (78.6)
+1,472 (77.1)
+1,163 (80.7)
+cN category
+< 0.001
+0.41
+0.003
+  cN1
+2,840 (84.8%)
+1,734 (90.8%)
+1,106 (76.8%)
+  cN2
+296 (8.8%)
+124 (6.5%)
+172 (11.9%)
+  cN3
+215 (6.4%)
+52 (2.7%)
+163 (11.3%)
+1Pearson’s Chi-squared test
+2The weighted cohort indicated that assigning weights to each patient by inverse probability weighting
 
 # Page 5
 
-m
-diation eff
-explore pos
-sible pathways from sarcopenia, depression, and cognitive function
-to
-rsion 25.0)
-SS v4.1 plu
-gi
-odel 6 wh
-rap sampl
-co
-0. The pres
-ﬁcant medi
-ation effect was considered when the 95 % CI failed to include the
-value of 0 [43]. All analyses were two-sided, with p-values that fell
-b
-Results
-P
-Table 1 provides an overview of the baseline characteristics of
-the nonfrail and frail study populations. The average age of the
-3
-15 (SD =
-with 1,93
-(6
-t the cours
-r follow-u
-duration, 753 participants developed frailty (294 cases of newly
-occurring frailty at Wave 2 and 459 cases at Wave 3).
-A
-fr
-In the Cox regression analysis, we estimated three distinct
-m
-rude mode
-ntrolled fo
-d
-and Mode
-ntrolled fo
-lifestyle variables on the basis of Model 2. The data presented in
-Table 2 demonstrate that, sarcopenia, depression, and cognitive
-fu
-signiﬁcantl
-he onset o
-een depress
-on, and fra
-penia statu
-Table 3 presents the associations between depression, cognitive
-function, and frailty categorized according to. In the cohort of indi-
-at
-g-
-nitive function [HR (95 % CI): 0.975 (0.955, 0.995)] were signiﬁ-
-cantly and independently linked to the development of frailty. In
-those dia
-openia at
-e,
-ined signi
-endently l
-o
-ty [HR (95
-8, 1.085)],
-as
-cognitive function failed to demonstrate a signiﬁcant association
-with the onset of frailty.
-rcopenia st
-d cognitive
-n
-to frailty
-al
-ng the met
-Hayes et al
-we
-mmy variab
-sarcopenia
-2
-(sarcopenia), with nonsarcopenia as the control group. Table 4
-and Fig. 2 illustrate an illustration of the relative direct and indirect
-with thes
-bles, with
-r-
-being de
-gate of the
-ve
-direct, as well as the indirect effects. Relative to the nonsarcopenia
-group, both the relative direct and indirect effects of possible sar-
-Table 1
-Baseline characteristics of participants grouped by frailty status.
-Classiﬁcation of sarcopenia
-< 0.001
-No sarcopenia
-1955 (62.9)
-1554 (79.5)
-401 (20.5)
-(9.0)
-96 (3
-(IQR)
-5, 14)
-11 (6
-median (I
-(10, 17)
-12 (9
-Demographic characteristics
-Partnered
-2574 (82.8)
-1961 (76.2)
-613 (23.8)
-Educational level
-< 0.001
-715
-61 (
-79 (
-944
-11 (
-No
-2050 (66.0)
-1545 (75.4)
-505 (24.6)
-10 (
-711
-Yes
-824 (26.5)
-644 (78.2)
-180 (21.8)
-267
-98 (
-0 (7
-Primary school or less
-2326 (74.8)
-1 
-Middle school
-557 (17.9)
-4 
-High school or above
-225 (7.2)
-1 
-Current Hukou status 
-Agricultural Hukou
-2583 (83.1)
-1 
-Non-Agricultural Hukou
-525 (16.9)
-4 
-Lifestyle characteristics 
-Smoking 
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-between depression, cognitive function, and frailty status within 
-different sarcopenia strata were estimated. Structural equation 
-frailty. These associations remained robust despite the adjust-
-ments 
-made 
-for 
-demographic 
-characteristics 
-and 
-lifestyle 
-odelling was utilized for me
-ect analysis to
--
-variables. 
-frailty status. IBM SPSS (Ve
-and the PROCE
--
-Associations betw
-ion, cognitive functi
-ilty 
-n were used, selecting M
-ere the bootst
-e
-stratiﬁed by sarco
-s 
-unt was established at 5,00
-ence of a signi
--
-articipant characteristics
-contrast, among
-gnosed with sarc
-baselin 
-depression rema
-ﬁcantly and indep
-inked t 
-the onset of frail
-% CI): 1.051 (1.01
-where 
-,108 participants was 60.
-9.07) years,
-7 
-2.3 %) females. Throughou
-e of the 4-yea
-p 
-Pathways from sa
-atus, depression, an
-functio 
-ailty
-variable. Followi
-hod proposed by
-.[44], 
-created two du
-les, D1 (possible
-) and D 
-odels: Model 1 was the c
-l, Model 2 co
-r 
-emographic characteristics,
-l 3 further co
-r
-effects associated
-e two dummy varia
-the ove 
-all relative effect
-ﬁned as the aggre
-relati 
-nction were found to be
-y related to t
-f 
-Characteristics
-Total (N = 3108)
-Nonfrail group (N = 2355)
-Frail group (N = 753)
-P value 
-sarcopenia
-280
-184 (65.7)
-4.3) 
-Depression, median
-9 (
-8 (4, 13)
-, 15)
-< 0.001 
-Cognitive function,
-QR)
-13
-14 (10, 18)
-, 16)
-< 0.001 
-Covariates 
-Age (Mean ± SD)
-60.15 ± 9.07
-59.41 ± 8.96
-62.48 ± 9.02
-< 0.001 
-Sex
-0.149 
-Female
-1937 (62.3)
-1451 (74.9)
-486 (25.1) 
-Male
-1171 (37.7)
-904 (77.2)
-267 (22.8) 
-Marital status
-0.238 
-Single
-534 (17.2)
-394 (73.8)
-140 (26.2) 
-Yes
-1058 (34.0)
-8 
-Alcohol drinking 
-No
-2284 (73.5)
-1 
-Sleep duration 
-Short sleep
-1721 (55.4)
-1 
-Normal sleep
-1268 (40.8)
-9 
-Long sleep
-119 (3.8)
-9 
-Abbreviations: SD, standard deviation. 
-(73.7)
-611 (26.3) 
-82.8)
-96 (17.2) 
-79.6)
-46 (20.4) 
-0.14 
-(75.3)
-639 (24.7) 
-78.3)
-114 (21.7) 
-0.462 
-609
-76.6)
-248 (23.4) 
-0.063 
-(74.9)
-573 (25.1) 
-0.006 
-(73.6)
-454 (26.4) 
-78.7)
-270 (21.3) 
-5.6)
-29 (24.4)
+1 3
+Page 5 of 10 
+   32 
+Breast Cancer Research and Treatment          (2026) 217:32 
+radiotherapy were more likely to be diagnosed at 20–40 
+years old (29.3% vs. 24.7%), have pT1-2 (47.6% vs. 
+42.6%), cT2 (80.7% vs. 77.1%), cN2-3 (23.2% vs. 9.2%), 
+and ERBB2-negative status (58.0% vs. 53.6%) as shown in 
+Table 1. Additionally, compared with Hispanic patients, of 
+whom 48.0% received radiotherapy, non-Hispanic White 
+(42.6%), non-Hispanic Black (41.4%) and non-Hispanic 
+Other (42.8%) patients had lower proportions of receiving 
+radiotherapy.
+After IPW adjustment, SMDs were smaller than 0.1 for 
+all baseline characteristics (Table 1 and Supplementary Fig­
+ure S1) indicating that the weighted populations in the two 
+subgroups were generally comparable.
+The median follow-up time was 60.8 months (interquar­
+tile range [IQR] 44.3 to 81.2). Before and after IPW adjust­
+ment, no significant OS differences were observed between 
+patients with and without radiotherapy (unweighted 5-year 
+OS rate: 93.6% vs. 92.4%, log-rank P = .25; weighted 5-year 
+OS rate: 92.7% vs. 92.6%, IPW-adjusted log-rank P = .96; 
+IPW-adjusted hazard ratio = 1.01 [95% CI 0.77 to 1.32], 
+P = .96; Fig.  2 and Supplementary Figure S2). Subgroup 
+analyses based on cN category demonstrated that differ­
+ences in OS rates between the two groups (with and without 
+RT) were significantly correlated with cN category, and an 
+OS advantage was associated with RT receipt only among 
+cN2-3 patients but not cN1 patients (cN1: hazard ratio = 1.26 
+[95% CI 0.94 to 1.70] vs. cN2-3: hazard ratio = 0.55 [95% 
+CI 0.31 to 0.97]; P-interaction = 0.024; Fig. 3). The Kaplan-
+Meier curves for the cN1 and cN2-3 subgroups are shown 
+in Fig. 4. No significant heterogeneity for the differences 
+in OS between the two groups based on age, ethnicity, pT 
+category, HR status, ERBB2 status, grade, and molecular 
+subtype was observed (all P-interaction > 0.05; Fig. 3).
+All 3,351 patients were included in the STEPP analysis, 
+and the results defining the composite risk, thus validating 
+the findings from the Cox model, are presented in Supple­
+mentary Table S1 and Figure S3. The STEPP analysis dem­
+onstrated no significant differences between the RT and no 
+RT groups, regardless of the composite risk (Fig. 5).
+In addition, the sensitivity analysis from multivariable 
+Cox regressions with nine selected risk factors showed con­
+sistent results with the above IPW-adjusted results (hazard 
+ratio = 1.05 [95% CI 0.79 to 1.39], P = .74).
+Fig. 2  Kaplan-Meier curves of radiotherapy versus no radiotherapy after IPW among the NCDB breast cancer patients diagnosed between 2010 and 
+2018 with cN+ disease who convert to ypN0 after NAC. Abbreviations: IPW, inverse probability weighting; OS, overall survival; RT, radiotherapy
 
 # Page 6
 
-ef
-0
-6,
-0.8359)]
-The
-relative
-direct
-effect
-of
-sarcopen
-ty
-[b
-n
-8
-l-
-at
-e total effec
-ve
-m
-nitive functi
-al
-and cognitive function, accounting for 0.6 % of the total effect.
-0.5934)
-y sarco
-Possible sarcopenia HR (95 %CI)
-Sarcope
-1.024 (1.006, 1.043)*
-1.051 (1
-0.971 (0.947, 0.995)*
-1.011 (0.971, 1.054)
-lifesty
-Model 1Ⅰ
-HR (95 %
-HR (95 %
-HR (95 %CI)
-1.372 (1.
-1.363 (1.
-1.354 (1.156,
-ⅠModel 1 was crude model.
-ⅡModel 2 was was adjusted for demographic characteristics.
-istic
-Table 4 
-The pathways from dummy variables (D1and D2), depression and cognitive function 
-to frailty status. 
-Pathways
-Path 
-coefﬁcient 
-(b) 
-Bootstrap95% 
-CI 
-Table 3 
-The relationships among depression, cognitive function, and frailty status stratiﬁed b 
-Variables
-Sarcopenia status 
-No sarcopenia HR (95 %CI) 
-Depression
-1.034 (1.017, 1.051)*** 
-Cognitive function
-0.975 (0.955, 0.995)* 
-Note: Multivariate Cox proportional hazards model adjusted for demographics and 
-* p < 0.05. 
-** P < 0.01. 
-*** p < 0.001. 
-Ⅲ Model 3 was adjusted as model 2 with further adjustment for lifestyle character 
-** P < 0.01. 
-*** P < 0.001.
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-Table 2 
-The associations between sarcopenia, depression, cognitive function, and frailty status. 
-Ⅱ 
-Ⅲ 
-CI)
-P value
-CI)
-P value
-P value 
-No sarcopenia 
-Possible sarcopenia
-172, 1.606)
-*** 
-164, 1.596)
-*** 
-1.586)
-** 
-sarcopenia
-1.560 (1.241, 1.961)
-*** 
-1.537 (1.222, 1.934)
-*** 
-1.514 (1.203, 1.907)
-*** 
-***
-***
-*** 
-Depression
-1.036 (1.024, 1.047)
-1.035 (1.023, 1.046)
-1.033 (1.021, 1.044) 
-***
-***
-*** 
-Cognitive function
-0.973 (0.960, 0.986)
-0.977 (0.963, 0.991)
-0.977 (0.963, 0.991) 
-Note: HR, Hazard ratios. 
-Relative direct effect 
-Sarcopenia
-Reference
-Reference 
-D1 ? Frailty
-0.4108*
-(0.2187, 
-D2 ? Frailty
-0.5638*
-(0.2666, 
-0.8359) 
-Relative indirect effect 
-D1 ? Depression ? Frailty
-0.0457*
-(0.0204, 
-0.0757) 
-D1 ? Cognitive function ? Frailty
-0.0242*
-(0.0083, 
-0.0468) 
-D1 ? Depression ? Cognitive 
-function ? Frailty<entry align="char" 
-char=.">0.0044* 
-(0.0015, 
-0.0082) 
-D2 ? Depression ? Frailty
-0.0458*
-(0.0075, 
-0.0898) 
-D2 ? Cognitive function ? Frailty
-0.1066*
-(0.0497, 
-0.1703) 
-D2 ? Depression ? Cognitive 
-function ? Frailty 
-0.0044*
-(0.0006, 
-0.0094) 
-copenia on frailty were signiﬁcant (the 95 % CI of each effect did 
-not include 0). The relative direct effect of possible sarcopenia on 
-frailty [b = 0.4108, 95 % CI (0.2178, 0.5934)] constituted 83.4 % of 
-the relative total effect. The relative mediation effects of depres-
-sion and cognitive function on the total relative effect of possible 
-sarcopenia on frailty were 9.3 % and 4.9 %, respectively, with an 
-effect value of 0.0044 through depression and cognitive function, 
-accounting for 0.9 % of the total effect. Similarly, both the relative 
-direct and indirect effects of sarcopenia on frailty were signiﬁcant 
-relative to those of the nonsarcopenia group. The relative direct 
-* P < 0.05. 
-Discussion 
-This research represents the pioneering prospective investiga-
-tion into the correlations among sarcopenia, depression, cognitive 
-function, and the occurrence of frailty in middle-aged and older 
-individuals. Through the use of a sample that is nationally repre-
-sentative, the research yielded several notable ﬁndings. First, base-
-line 
-sarcopenia, 
-depression, 
-and 
-cognitive 
-function 
-were 
-signiﬁcantly connected to the onset of new-onset frailty. Second, 
-the relationships among depression, cognitive function, and frailty 
-differ depending on the various statuses of sarcopenia. Third, path 
-analysis showed that relative to nonsarcopenia, possible sarcope-
-nia/sarcopenia was associated with frailty through depression 
-and cognitive function, respectively, and sequentially through 
-depression and cognitive function. 
-The ﬁndings presented in this research demonstrate that after 
-adjusting for various demographic and lifestyle factors, sarcopenia 
-is signiﬁcantly linked to frailty, aligning with the ﬁndings of a prior 
-study[45]. Although sarcopenia and frailty are classiﬁed as distinct 
-conditions, they share many similarities in aetiology and symp-
-610
-s. 
-nia HR (95 %CI) 
-.018, 1.085)** 
-le characteristics. 
-% CI (0.266 
-ia 
-on 
-frail 
-fect of sarcopenia on frailty [b = 
-.5638, 95 
-.2 % of the re
-= 0.5638, 95 % CI (0.2666, 0.8359)] co stituted 7 
-ive total effect. 78.2 % of the relativ 
-ediation effects of depression and cog 
-t. The relati 
-on on the tot 
-relative effect of sarcopenia on frailty were 6.3 % and 14.7 %, 
-respectively, with an effect value of 0.0044 through depression 
-tomatology[46], as do common metabolic, haematological, and 
-inﬂammatory biomarkers[47]. Consequently, sarcopenia is closely 
-linked to frailty and may exert a regulatory inﬂuence over the tran-
-sition to a state of increased frailty[48]. These results align with the 
-‘‘frailty cycle” theory proposed by Fried et al., which posits that sar-
-copenia, characterized by muscle loss and altered physical func-
-tion, 
-may 
-be 
-a 
-pivotal 
-factor 
-in 
-both 
-the 
-initiation 
-and 
-advancement of frailty[3]. Furthermore, our ﬁndings concerning
+1 3
+   32 
+ 
+Page 6 of 10
+Breast Cancer Research and Treatment          (2026) 217:32 
+Discussion
+For patients with cN+ axillary disease that are down-staged 
+to ypN0 at surgery, the controversy regarding the utility 
+of PMRT after NAC persists. In this study, we evaluated 
+the association between PMRT and survival among breast 
+cancer patients with cN+ disease who achieved ypN0 after 
+NAC, drawing on NCDB data from 2010 to 2018. Overall, 
+we found no significant difference in OS between the RT 
+and no RT groups. However, for patients with cN2-3 disease 
+who converted to ypN0 after NAC, our findings suggest that 
+radiotherapy may be potentially associated with improved 
+OS, although further investigation is required.
+In an era of taxane/anthracycline-based chemotherapy 
+without targeted drugs for specific molecular subtypes, 
+combined analysis of NSABP B18 and B27 demonstrated 
+that patients with cN1 disease achieving pCR had a low 
+LRR rate, suggesting that PMRT may provide minimal ben­
+efit in terms of long-term survival [11]. McGuire et al. also 
+reported the 10-year LRR rate was zero for clinical stage I-II 
+patients achieving both breast and axillary lymph node pCR 
+[12]. In the study by Scodan et al., they found that PMRT 
+had no significant effect on the LRR or OS in patients with 
+clinical stage II-III disease at diagnosis achieving pCR in 
+both the breast and axillary lymph nodes [13]. However, a 
+trend was shown towards worse OS among patients who did 
+not achieve a pCR in the breast after NAC (HR 6.65; 95% CI 
+0.82 to 54.12; P = .076). Shim et al. reported a multicenter, 
+retrospective study in Korea (KROG 12 − 05), finding that 
+PMRT in ypN0 patients after NAC for clinical stage II-III 
+breast cancer showed no correlation with differences in DFS 
+or OS in multivariable analysis [14]. Recently, Huang et al. 
+reported a multicenter, retrospective study of Chinese breast 
+cancer patients with clinical T1-4N1-2M0 who underwent 
+NAC and mastectomy. In 490 patients who were ypN0, 
+47% received PMRT. They also found no significant differ­
+ences in DFS and OS between the RT and no RT groups 
+before and after propensity score matching (PSM) [15]. A 
+pooled analysis of two prospective trials focusing on the 
+ERBB2-positive breast cancer subtype revealed that 55% 
+of patients achieved nodal pCR with anti-ERBB2 targeted 
+treatment, and those with axillary ypN0 disease had a 5-year 
+Fig. 3  Overall survival analyses based on multivariable Cox Propor­
+tional Hazards modeling by receipt of radiotherapy among the NCDB 
+breast cancer patients diagnosed between 2010 and 2018 with cN+ 
+disease who convert to ypN0 after NAC. Post-weighting balance was 
+not achieved in the age 20–40, age 60+, non-Hispanic Black, pT1, 
+pT2, HR-positive, grade I-II, TNBC, HR+/ERBB2- BC, cN2, and cN3 
+subgroups; therefore, multivariable Cox regression based on imputed 
+datasets was instead applied. Other subgroup analyses still applied 
+IPW method. P-interaction<0.05, implied significant heterogeneity in 
+the survival impact of receiving radiotherapy within subgroups of a 
+specific variable. The multivariable Cox models were adjusted for age 
+at diagnosis, ethnicity, pT category, tumor grade, HR status, ERBB2 
+status, histopathological classification, Charlson-Deyo score, diagno­
+sis year, cT and cN category. Abbreviations: HR, hormone receptor; 
+BC, breast cancer; TNBC, triple-negative breast cancer; NAC, neoad­
+juvant chemotherapy; NCDB, National Cancer Data Base
 
 # Page 7
 
-nia individuals, with an overall occurrence rate of 28 %[30], and
-There are still several noteworthy limitations in the current
-tors such as frequency of drinking, quantity consumed, or the pres-
-more, both the assessment of depressive symptoms and the con-
-the relationships among depression, cognitive function, and frailty 
-suggest that the impacts of depression and cognitive function on 
-frailty vary across different statuses of sarcopenia. Depression 
-has a signiﬁcant effect on frailty across all groups (nonsarcopenia, 
-possible sarcopenia, and sarcopenia), with multiple studies indi-
-cating that baseline depression may precipitate adverse health out-
-comes during follow-up, including frailty[49]. This association may 
-be due to shared pathological pathways, such as inﬂammation, 
-associated with both depression and frailty[50,51]. The protective 
-effect of cognitive function against frailty, however, is observed 
-only in nonsarcopenic and possibly sarcopenic individuals, with 
-no signiﬁcant protective effect in sarcopenic individuals. Research 
-by Panza et al.[52] suggested that a heightened risk of functional 
-disability in older individuals is linked to cognitive decline, which 
-in turn accelerates frailty. Thus, maintaining good cognitive func-
-tion may help preserve physical function and slow the progression 
-of frailty. The reason for the lack of a notable protective inﬂuence 
-on cognitive function among individuals with sarcopenia remains 
-speculative: the decline in muscle function may be the predomi-
-nant factor inﬂuencing frailty status in this group, potentially 
-diminishing the relative impact of cognitive function. The mecha-
-nisms underlying this phenomenon warrant further investigation. 
-Path analysis revealed that depression, cognitive function, and 
-their serial mediation partially clarify the relationship between 
-sarcopenia and frailty. This ﬁnding extends beyond previous stud-
-ies by providing a comprehensive framework that integrates mul-
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-Fig. 2. The path coefﬁcient (b) from dummy variables, depression and cognitive function to frailty status. 
-tiple pathways linking sarcopenia to frailty. While earlier research 
-has established a higher prevalence of depression among sarcope-
-Chen’s cohort study conﬁrmed sarcopenia as a distinct indepen-
-dent risk factor for depression[53], our study uniquely explores 
-the serial mediation role of depression and cognitive function in 
-this relationship. Furthermore, our ﬁndings align with and expand 
-upon the work of Arts et al., who suggested that depression is 
-linked to both frailty and cognitive impairment, which may persist 
-even during periods of emotional remission[54]. However, our 
-study goes a step further by demonstrating how cognitive dysfunc-
-tion, often associated with depression, serves as a critical factor in 
-the development of frailty. This connection is not only explained by 
-overlapping mechanisms such as chronic inﬂammation, oxidative 
-stress, 
-mitochondrial 
-dysfunction, 
-and 
-dysregulation 
-of 
-the 
-hypothalamic–pituitary–adrenal (HPA) axis[49], but also by the 
-serial mediation model we propose, which highlights the sequen-
-tial interplay between sarcopenia, depression, and cognitive func-
-tion. In summary, our study signiﬁcantly advances the current 
-understanding of the complex relationships among sarcopenia, 
-depression, cognitive function, and frailty. By uncovering these 
-serial mediation pathways, we provide novel insights into the 
-underlying mechanisms driving these interconnections. This not 
-only reinforces the importance of addressing depression and cogni-
-tive function in sarcopenia management but also offers a theoret-
-ical foundation for early identiﬁcation, targeted intervention, and 
-continuous monitoring of vulnerable middle-aged and elderly Chi-
-nese populations. Such approaches hold the potential to reduce 
-frailty incidence and improve quality of life, thereby ﬁlling a criti-
-cal gap in the current evidence base. 
-611
-Limitations 
-study. To begin with, although a wide range of variables inﬂuenc-
-ing depression, cognitive function, and frailty were incorporated 
-into the model, certain additional confounding factors, such as 
-nutrition, exercise, and social participation, were neither measured 
-nor adjusted for during the analysis, which could potentially intro-
-duce bias. Additionally, alcohol use (and misuse) is highly impor-
-tant covariate, which may impact cognition, and be linked with 
-depression symptoms[55], the study’s binary classiﬁcation of par-
-ticipants based solely on alcohol consumption, without differenti-
-ating between occasional drinkers, heavy drinkers, or those with 
-alcohol misuse or addiction issues, may have overlooked the vary-
-ing degrees of impact that different levels of alcohol consumption 
-can have on cognition and depression symptoms. This simpliﬁca-
-tion could obscure more detailed associations between speciﬁc 
-patterns of alcohol use and cognitive outcomes, and it precludes 
-the exploration of potential moderating or mediating effects of fac-
-ence of alcohol dependence, which are crucial for understanding 
-the full spectrum of alcohol’s effects on cognitive health. Further-
-struction of the frailty index in this research were reliant on self-
-reported data, suggesting that future studies should consider 
-employing more objective and standardized measurement tech-
-niques. Finally, missing values were excluded from the present 
-study, and no imputation methods—despite their effectiveness— 
-were utilized, potentially contributing to some degree of bias into 
-the outcomes. 
-Conclusion 
-In summary, we found that sarcopenia, depression, cognitive 
-function, and frailty are interrelated; sarcopenia is not only associ-
+1 3
+Page 7 of 10 
+   32 
+Breast Cancer Research and Treatment          (2026) 217:32 
+locoregional recurrence-free survival rate of 97%. PMRT 
+had no effect on LRR or progression-free survival [16]. 
+These findings collectively support the notion that PMRT 
+may be reasonably considered for omission in patients with 
+cN1 disease who achieve ypN0 status after NAC, as our 
+IPW-based analysis also demonstrated no significant OS 
+differences in this subgroup.
+Another important randomized clinical trial, NSABP 
+B51/RTOG 1304, established high level of evidence that 
+supports PMRT omission in patients with cN1 disease [18, 
+19]. From 2013 to 2020, 1,641 patients with cT1-3N1M0 
+disease were randomized. After a median follow-up of 59.5 
+months, the estimated 5-year invasive breast cancer-free 
+interval rate was 91.8% for the no RNI group and 92.7% 
+for the RNI group (HR 0.88, 95%CI 0.60 to 1.29; P = 
+.60). There was no significant difference in DFS and OS 
+between the RNI and no RNI groups. However, this study 
+did not specifically address the potential benefit of PMRT in 
+Fig. 4  Kaplan-Meier curves of 
+overall survival for cN1 and 
+cN2-3 subgroups. Panel A shows 
+the Kaplan-Meier curves for the 
+subgroup including patients with 
+cN1 breast cancer. Panel B shows 
+the Kaplan-Meier curves for the 
+subgroup including patients with 
+cN2 or cN3 breast cancer. Abbre­
+viations: OS, overall survival
 
 # Page 8
 
-rately but also affects frailty via the chain-mediated roles of both
-ble sarcopenia, and sarcopenia, comprehensive therapies aimed at
-health issues with measures to slow cognitive decline to prevent
-cal standards. The study was reviewed and approved by the Insti-
-This work was supported by the Health Commission of Sichuan
-Pro
-in the study design, data collection and analysis, publication
-dec
-Dat
-http
-Dec
-cial
-nﬂuence the work reported in this paper.
-nowledgment
-and
-endix A. Supplementary material
-http
-erences
-[1]
-[12]
-[13]
-[25]
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-ated with frailty through depression and cognitive function sepa-
-depression and cognitive function in tandem. The varying impact 
-exerted by depression and cognitive function on frailty varies 
-across different statuses of sarcopenia, which could assist in shap-
-ing more speciﬁcally tailored strategies. For nonsarcopenia, possi-
-promoting mental health and alleviating depressive symptoms are 
-critical for preventing frailty. While the assessment and improve-
-ment of cognitive function may be of greater signiﬁcance in non-
-sarcopenia and possible sarcopenia, we advocate for a holistic 
-approach that integrates interventions for sarcopenia or mental 
-frailty. 
-Compliance with ethics requirements 
-This study was conducted in compliance with all relevant ethi-
-tutional Review Board of Peking University (IRB00001052-11015). 
-Each participant provided informed consent prior to their inclusion 
-in the study. 
-Funding 
-vince (grant numbers 2023YFS0070). The funders played no 
-role 
-ision, or manuscript preparation. 
-a availability statement 
-For access to the original data, please refer to the following link: 
-s://charls.pku.edu.cn/. 
-laration of competing interest 
-The authors declare that they have no known competing ﬁnan-
-interests or personal relationships that could have appeared 
-to i 
-Ack 
-We are grateful to all volunteers and staff who participated in 
-China Health and Retirement Longitudinal Study for collecting 
-providing data. 
-App 
-Supplementary data to this article can be found online at 
-s://doi.org/10.1016/j.jare.2024.12.021. 
-Ref 
-Hoogendijk EO, Aﬁlalo J, Ensrud KE, Kowal P, Onder G, Fried LP. Frailty: 
-implications 
-for 
-clinical 
-practice 
-and 
-public 
-health. 
-Lancet 
-2019;394 
-(10206):1365–75. 
-[2] Walston J, Robinson TN, Zieman S, McFarland F, Carpenter CR, Althoff KN, et al. 
-Integrating frailty research into the medical specialties—report from a U13 
-conference. J Am Geriatr Soc 2017;65(10):2134–9. 
-[3] Fried LP, Tangen CM, Walston J, Newman AB, Hirsch C, Gottdiener J, et al. 
-Frailty in older adults evidence for a phenotype. J Gerontol: Med Sci 2001;56 
-(3):M146–56. 
-[4] Bandeen-Roche K, Xue Q-L, Ferrucci L, Walston J, Guralnik JM, Chaves P, et al. 
-Phenotype of frailty characterization in the women’s health and aging studies. 
-J Gerontol: Med Sci 2006;61(3):262–6. 
-612
-[5] Collard RM, Boter H, Schoevers RA, Oude Voshaar RC. Prevalence of frailty in 
-community-dwelling older persons: a systematic review. J Am Geriatr Soc 
-2012;60(8):1487–92. 
-Quach J, Theou O, Pérez-Zepeda MU, Godin J, Rockwood K, Kehler DS. Effect of a
-[6] 
-physical activity intervention and frailty on frailty trajectory and major 
-mobility disability. J Am Geriatr Soc 2022;70(10):2915–24. 
-Travers 
-J, 
-Romero-Ortuno 
-R, 
-Langan 
-J, 
-MacNamara 
-F, 
-McCormack 
-D,
-[7] 
-McDermott C, et al. Building resilience and reversing frailty: a randomised 
-controlled trial of a primary care intervention for older adults. Age Ageing 
-2023;52(2). 
-[8] Cruz-Jentoft AJ, Bahat G, Bauer J, Boirie Y, Bruyère O, Cederholm T, et al. 
-Sarcopenia: revised European consensus on deﬁnition and diagnosis. Age 
-Ageing 2019;48(1):16–31. 
-[9] Morley JE, Anker SD, von Haehling S. Prevalence, incidence, and clinical impact 
-of sarcopenia: facts, numbers, and epidemiology—update 2014. J Cachexia 
-Sarcopenia Muscle 2014;5(4):253–9. 
-[10] Petermann-Rocha F, Balntzi V, Gray SR, Lara J, Ho FK, Pell JP, et al. Global 
-prevalence of sarcopenia and severe sarcopenia: a systematic review and 
-meta-analysis. J Cachexia Sarcopenia Muscle 2021;13(1):86–99. 
-Dennison EM, Sayer AA, Cooper C. Epidemiology of sarcopenia and insight into
-[11] 
-possible therapeutic targets. Nat Rev Rheumatol 2017;13(6):340–7. 
-Janssen I, 
-Heymsﬁeld SB, 
-Ross R. 
-Low relative 
-skeletal 
-muscle mass 
-(Sarcopenia) in older persons is associated with functional impairment and 
-physical disability. J Am Geriatr Soc 2002;50(5):889–96. 
-Yuan S, Larsson SC. Epidemiology of sarcopenia: prevalence, risk factors, and 
-consequences. Metabolism 2023;144. 
-[14] Cruz-Jentoft AJ, Landi F, Topinková E, Michel J-P. Understanding sarcopenia as 
-a geriatric syndrome. Curr Opin Clin Nutr Metab Care 2010;13(1):1–7. 
-Chang K-V, Hsu T-H, Wu W-T, Huang K-C, Han D-S. Is sarcopenia associated
-[15] 
-with depression? a systematic review and meta-analysis of observational 
-studies. Age Ageing 2017;46(5):738–46. 
-Yang J, Jiang F, Yang M, Chen Z. Sarcopenia and nervous system disorders. J
-[16] 
-Neurol 2022;269(11):5787–97. 
-Jo D, Yoon G, Kim OY, Song J. A new paradigm in sarcopenia: Cognitive
-[17] 
-impairment 
-caused 
-by 
-imbalanced 
-myokine 
-secretion 
-and 
-vascular 
-dysfunction. Biomed Pharmacother 2022;147. 
-Tuttle CSL, Thang LAN, Maier AB. Markers of inﬂammation and their
-[18] 
-association with muscle strength and mass: A systematic review and meta-
-analysis. Ageing Research Reviews. 2020;64. 
-Deng M-G, Liu F, Liang Y, Wang K, Nie J-Q, Liu J. Association between frailty
-[19] 
-and depression: A bidirectional Mendelian randomization study. Science 
-Advances. 2023;9(38):eadi3902. 
-Ramsey CM, Lynch KG, Gehrman PR, Vairavan S, Narayan VA, Li QS, et al. Daily
-[20] 
-steps and depressive symptoms: a longitudinal evaluation of patients with 
-major depressive disorder in the precision medicine in mental health care 
-study. J Affect Disord 2022;300:334–40. 
-[21] Ghimire S, Baral BK, Pokhrel BR, Pokhrel A, Acharya A, Amatya D, et al. 
-Depression, malnutrition, and health-related quality of life among Nepali older 
-patients. BMC Geriatr 2018;18(1). 
-Ding Y, Chen L, Zhang Z. The relationship between social participation and
-[22] 
-depressive symptoms among Chinese middle-aged and older adults: a cross-
-lagged panel analysis. Frontiers. Public Health 2022;10. 
-Ni Lochlainn M, Cox NJ, Wilson T, Hayhoe RPG, Ramsay SE, Granic A, et al.
-[23] 
-Nutrition and frailty: opportunities for prevention and treatment. Nutrients 
-2021;13(7). 
-Ge L, Yap CW, Heng BH. Associations of social isolation, social participation,
-[24] 
-and loneliness with frailty in older adults in Singapore: a panel data analysis. 
-BMC Geriatr 2022;22(1). 
-Beck AT. The evolution of the cognitive model of depression and its 
-neurobiological correlates. Am J Psychiaty 2008;165(8):969–77. 
-[26] Disner SG, Beevers CG, Haigh EAP, Beck AT. Neural mechanisms of the 
-cognitive model of depression. Nat Rev Neurosci 2011;12(8):467–77. 
-[27] Ly M, Karim HT, Becker JT, Lopez OL, Anderson SJ, Aizenstein HJ, et al. Late-life 
-depression and increased risk of dementia: a longitudinal cohort study. Transl 
-Psychiatry 2021;11(1). 
-[28] Formánek T, Csajbók Z, Wolfová K, Kucˇera M, Tom S, Aarsland D, et al. 
-Trajectories of depressive symptoms and associated patterns of cognitive 
-decline. Sci Rep 2020;10(1). 
-[29] Mehta K, Thandavan SP, Mohebbi M, Pasco JA, Williams LJ, Walder K, et al. 
-Depression and bone loss as risk factors for cognitive decline: a systematic 
-review and meta-analysis. Ageing Res Rev 2022;76. 
-Li Z, Tong X, Ma Y, Bao T, Yue J. Prevalence of depression in patients with
-[30] 
-sarcopenia and correlation between the two diseases: systematic review and 
-meta-analysis. J Cachexia Sarcopenia Muscle 2022;13(1):128–44. 
-[31] Zhao Y, Hu Y, Smith JP, Strauss J, Yang G. Cohort proﬁle: the China Health and 
-Retirement Longitudinal Study (CHARLS). Int J Epidemiol 2012;43(1):61–8. 
-Chen L-K, Woo J, Assantachai P, Auyeung T-W, Chou M-Y, Iijima K, et al. Asian
-[32] 
-Working Group for Sarcopenia: 2019 consensus update on sarcopenia 
-diagnosis and treatment. J Am Med Dir Assoc 2020;21(3):300–307.e2. 
-Wen X, Wang M, Jiang C-M, Zhang Y-M. Anthropometric equation for
-[33] 
-estimation of appendicular skeletal muscle mass in Chinese adults. Asia Pac 
-J Clin Nutr 2011;20(4):551–6. 
-Yang M, Hu X, Wang H, Zhang L, Hao Q, Dong B. Sarcopenia predicts
-[34] 
-readmission and mortality in elderly patients in acute care wards: a 
-prospective study. J Cachexia Sarcopenia Muscle 2016;8(2):251–8.
+1 3
+   32 
+ 
+Page 8 of 10
+Breast Cancer Research and Treatment          (2026) 217:32 
+patients with cN2-3 disease who achieve ypN0 status after 
+NAC, which remains an area of controversy.
+Evidence for cN2-3 patients was so far established on 
+retrospective studies. McGuire et al. reported that PMRT 
+reduced the LRR and improved the disease-specific survival 
+and OS in stage III breast cancer, particularly in patients 
+with cN2-N3 involvement [12]. Huang et al. reported that 
+PMRT tended to improve DFS in cN2 patients who achieved 
+ypN0 after NAC and mastectomy, but with no statistical sig­
+nificance (5-year DFS for No-PMRT vs. PMRT: 74.3% vs. 
+88.7%, P = .086) [15]. In this study, we observed a signifi­
+cant OS advantage associated with RT receipt in the cN2-3 
+subgroup with a sample size of 511 patients. Our STEPP 
+analysis showed a similar trend in patients with a higher 
+composite risk, although this was not significant. Overall, 
+our findings suggest that PMRT may be a consideration for 
+patients with more advanced nodal disease (cN2-3) who 
+achieve ypN0 status after NAC, indicating that a more tai­
+lored approach to PMRT application may be warranted.
+There are several limitations in this study. First, this is a 
+retrospective cohort study based on data from the NCDB, 
+which is a hospital-based tumor registry. Although it cap­
+tures approximately 80% of all breast cancer diagnoses in 
+the United States [24], it may not be fully representative 
+of the entire breast cancer population, potentially introduc­
+ing selection bias. Second, as an inherent limitation of the 
+NCDB, we were unable to obtain detailed radiation therapy 
+parameters, including dose prescription, irradiated volumes, 
+and delivery techniques. These are fundamental factors 
+known to significantly influence treatment outcomes [25], 
+and the lack of these data limits the robustness of our con­
+clusions regarding the efficacy of PMRT. Third, the NCDB 
+does not capture treatment-related toxicity data, which pre­
+vents us from weighing the potential survival benefits of 
+PMRT against the risk of adverse effects, a critical consid­
+eration for clinical decision-making. Forth, the sample size 
+of cN2-3 patients is relatively small due to the rarity of this 
+subgroup, and the upper bound of the 95% CI for the HR in 
+this subgroup is 0.97, indicating that the observed potential 
+benefit should be interpreted with caution.
+In conclusion, this comprehensive analysis provides 
+additional evidence consistent with the NSABP B51 find­
+ings, suggesting that PMRT may not be necessary for all 
+ypN0 patients, particularly those initially diagnosed with 
+cN1 disease. In comparison, PMRT may still be considered 
+for those with initial cN2-3 disease who convert to ypN0, 
+as there may be a potential survival benefit in this specific 
+subgroup. These results indicate a potential need for a more 
+tailored approach to the application of PMRT for patients 
+with cN+ disease achieving ypN0 after NAC. However, due 
+to the aforementioned limitations, our conclusions should 
+be interpreted cautiously. Further prospective studies with 
+larger cohorts are needed to refine guidelines for PMRT 
+Fig. 5  Subpopulation treatment 
+effect pattern plot (STEPP) of 
+5-year overall survival rates. The 
+error bars indicate the 95% CI
 
 # Page 9
 
-[36]
-[38]
-1994;10(2):77–84.
-[39] Crimmins EM, Kim JK, Langa KM, Weir DR. Assessment of cognition using
-surveys and neuropsychological assessment: the health and retirement study
-and the aging, demographics, and memory study. J Gerontol B Psychol Sci Soc
-Sci 2011;66B(Supplement 1):i162–71.
-[40] Searle SD, Mitnitski A, Gahbauer EA, Gill TM, Rockwood K. A standard
-procedure for creating a frailty index. BMC Geriatr 2008;8(1).
-[41] Fan J, Yu C, Guo Y, Bian Z, Sun Z, Yang L, et al. Frailty index and all-cause and
-cause-speciﬁc mortality in Chinese adults: a prospective cohort study. Lancet
-Public Health 2020;5(12):e650–60.
-[42] Liu H, Li D, Zhao X, Fang B, Zhang Q, Li T. Longitudinal impact of frailty states
-and sleep duration on subsequent depressive symptoms of older adults. J Am
-Geriatr Soc 2021;69(4):1003–11.
-[43] Xiao P, Zhu K, Liu Q, Xie X, Jiang Q, Feng Y, et al. Association between
-developmental dyslexia and anxiety/depressive symptoms among children in
-China: the chain mediating of time spent on homework and stress. J Affect
-Disord 2022;297:495–501.
-[44] Hayes AF, Preacher KJ. Statistical mediation analysis with a multicategorical
-independent variable. Br J Math Stat Psychol 2013;67(3):451–70.
-[48]
-Artalejo F, Rodríguez-Mañas L, et al. Role of sarcopenia in the frailty transitions
-in older adults: a population-based cohort study. J Cachexia Sarcopenia Muscle
-2022;13(5):2352–60.
-[49] Soysal P, Veronese N, Thompson T, Kahl KG, Fernandes BS, Prina AM, et al.
-Relationship between depression and frailty in older adults: a systematic
-review and meta-analysis. Ageing Res Rev 2017;36:78–87.
-[50] Ferrucci
-L,
-Fabbri
-E.
-Inﬂammageing:
-chronic
-inﬂammation
-in
-ageing,
-cardiovascular disease, and frailty. Nat Rev Cardiol 2018;15(9):505–22.
-[51] Beurel E, Toups M, Nemeroff CB. The bidirectional relationship of depression
-and inﬂammation: double trouble. Neuron 2020;107(2):234–56.
-[52] Panza F, Lozupone M, Solfrizzi V, Sardone R, Dibello V, Di Lena L, et al. Different
-cognitive frailty models and health- and cognitive-related outcomes in older
-age: from epidemiology to prevention. J Alzheimers Dis 2018;62(3):993–1012.
-[53] Chen X, Guo J, Han P, Fu L, Jia L, Yu H, et al. Twelve-month incidence of
-depressive symptoms in suburb-dwelling Chinese older adults: role of
-Sarcopenia. J Am Med Dir Assoc 2019;20(1):64–9.
-[54] Arts MHL, Collard RM, Comijs HC, Zuidersma M, de Rooij SE, Naarding P, et al.
-Physical frailty and cognitive functioning in depressed older adults: ﬁndings
-from the NESDO study. J Am Med Dir Assoc 2016;17(1):36–43.
-[55] Peshkovskaya A. Cognitive alterations associated with remission and alcohol
-dependence severity in ethnically diverse patients of Siberia. Clin Pract
-Epidemiol Mental Health 2024;20(1).
-Y. Zhu, H. Yin, X. Zhong et al.
-Journal of Advanced Research 76 (2025) 605–613
-[35] Hu Y, Peng W, Ren R, Wang Y, Wang G. Sarcopenia and mild cognitive 
-impairment among elderly adults: the ﬁrst longitudinal evidence from 
-CHARLS. J Cachexia Sarcopenia Muscle 2022;13(6):2944–52. 
-Gao K, Cao L-F, Ma W-Z, Gao Y-J, Luo M-S, Zhu J, et al. Association between 
-sarcopenia and cardiovascular disease among middle-aged and older adults: 
-Findings 
-from 
-the 
-China 
-health 
-and 
-retirement 
-longitudinal 
-study. 
-eClinicalMedicine. 2022;44. 
-[37] Sanada K, Wu X, Li X, Xu M, Zhang Z, He L, et al. Sarcopenia prevalence and 
-associated factors among older Chinese population: Findings from the China 
-Health and Retirement Longitudinal Study. PLoS One 2021;16(3). 
-Andresen EM, Malmgren JA, Carter WB, Patrick DL. Screening for depression in 
-well older adults: evaluation of a short form of the CES-D. Am J Prev Med 
-613
-[45] Chew J, Yeo A, Yew S, Tan CN, Lim JP, Haﬁzah Ismail N, et al. Nutrition mediates 
-the relationship between osteosarcopenia and frailty: a pathway analysis. 
-Nutrients 2020;12(10). 
-[46] Mori H,TokudaY.Differences and overlapbetween sarcopeniaandphysical frailty 
-in older community-dwelling Japanese. Asia Pac J Clin Nutr 2019;28(1):157–65. 
-Picca A, Coelho-Junior HJ, Calvani R, Marzetti E, Vetrano DL. Biomarkers shared
-[47] 
-by frailty and sarcopenia in older adults: a systematic review and meta-
-analysis. Ageing Res Rev 2022;73. 
-Álvarez-Bustos A, Carnicero-Carreño JA, Davies B, Garcia-Garcia FJ, Rodríguez-
+1 3
+Page 9 of 10 
+   32 
+Breast Cancer Research and Treatment          (2026) 217:32 
+use, ensuring optimal outcomes for all breast cancer patient 
+subgroups.
+Supplementary 
+Information  The 
+online 
+version 
+contains 
+supplementary material available at ​h​t​t​p​s​:​/​/​d​o​i​.​o​r​g​/​1​0​.​1​0​0​7​/​s​1​0​5​4​9​-​0​
+2​6​-​0​7​9​8​1​-​x​.​
+Acknowledgements  The authors thank Ms. Li Kong, President 
+of Academy of Clinical Research and Study, for coordinating this 
+research work and communication.
+Author contributions  Conceptualization, Y.J. and J.Z.; Methodology, 
+Y.J., H.L., Z.Y., S.L., S.Z., L.T., S.T., J.P. and J.Z.; Validation, Y.J., 
+Z.Y. and J.P.; Formal Analysis, Y.J., H.L., Z.Y.; Investigation, Y.J., 
+H.L., Z.Y.; Resources, J.P. and S.L.; Data Curation, H.L.; Writing 
+– Original Draft, Y.J., H.L., Z.Y.; Writing – Review & Editing, Y.J., 
+H.L., Z.Y., S.L., L.T., S.T., J.P., and J.Z.; Supervision, J.P. and J.Z. All 
+authors reviewed and approved the manuscript.
+Funding  None.
+Data availability  The data that support the findings of this study are 
+available in National Cancer Database.
+Declarations
+Ethical approval  The study was conducted in accordance with the 
+1964 Helsinki Declaration and its later amendments or comparable 
+ethical standards. The data used in this study was obtained from the 
+National Cancer Database (NCDB). The NCDB is a joint project of the 
+American College of Surgeons and the American Cancer Society. The 
+data is de-identified and aggregated, and its use for research purposes 
+is in compliance with the Health Insurance Portability and Account­
+ability Act (HIPAA) regulations. Ethical approval was not required 
+for this study as the data does not contain any personally identifiable 
+information. We have adhered to the highest ethical standards in the 
+conduct of this research, including the responsible use and interpreta­
+tion of the data.
+Disclosures  None.
+Competing interests  The authors declare no competing interests.
+References
+1.	
+Overgaard M, Hansen PS, Overgaard J, Rose C, Andersson M, 
+Bach F et al (1997) Postoperative radiotherapy in high-risk pre­
+menopausal women with breast cancer who receive adjuvant che­
+motherapy. Danish Breast Cancer Cooperative Group 82b Trial. 
+N Engl J Med 337(14):949–955
+2.	
+Ragaz J, Jackson SM, Le N, Plenderleith IH, Spinelli JJ, Basco 
+VE et al (1997) Adjuvant radiotherapy and chemotherapy in 
+node-positive premenopausal women with breast cancer. N Engl 
+J Med 337(14):956–962
+3.	
+Overgaard M, Jensen MB, Overgaard J, Hansen PS, Rose C, 
+Andersson M et al (1999) Postoperative radiotherapy in high-risk 
+postmenopausal breast-cancer patients given adjuvant tamoxifen: 
+Danish Breast Cancer Cooperative Group DBCG 82c randomised 
+trial. Lancet 353(9165):1641–1648
+4.	
+Clarke M, Collins R, Darby S, Davies C, Elphinstone P, Evans 
+V et al (2005) Effects of radiotherapy and of differences in the 
+extent of surgery for early breast cancer on local recurrence and 
+15-year survival: an overview of the randomised trials. Lancet 
+366(9503):2087–2106
+5.	
+Whelan TJ, Olivotto IA, Parulekar WR, Ackerman I, Chua BH, 
+Nabid A et al (2015) Regional Nodal Irradiation in Early-Stage 
+Breast Cancer. N Engl J Med 373(4):307–316
+6.	
+Poortmans PM, Collette S, Kirkove C, Van Limbergen E, Budach 
+V, Struikmans H et al (2015) Internal Mammary and Medial 
+Supraclavicular Irradiation in Breast Cancer. N Engl J Med 
+373(4):317–327
+7.	
+Early Breast Cancer Trialists’, Collaborative G (2023) Radio­
+therapy to regional nodes in early breast cancer: an individual 
+patient data meta-analysis of 14 324 women in 16 trials. Lancet 
+402(10416):1991–2003
+8.	
+Cortazar P, Zhang L, Untch M, Mehta K, Costantino JP, Wolmark 
+N et al (2014) Pathological complete response and long-term 
+clinical benefit in breast cancer: the CTNeoBC pooled analysis. 
+Lancet 384(9938):164–172
+9.	
+Samiei S, Simons JM, Engelen SME, Beets-Tan RGH, Classe 
+JM, Smidt ML et al (2021) Axillary Pathologic Complete 
+Response After Neoadjuvant Systemic Therapy by Breast Can­
+cer Subtype in Patients With Initially Clinically Node-Positive 
+Disease: A Systematic Review and Meta-analysis. JAMA Surg 
+156(6):e210891
+10.	 Ebctcg MGP, Taylor C, Correa C, Cutter D, Duane F et al (2014) 
+Effect of radiotherapy after mastectomy and axillary surgery on 
+10-year recurrence and 20-year breast cancer mortality: meta-
+analysis of individual patient data for 8135 women in 22 ran­
+domised trials. Lancet 383(9935):2127–2135
+11.	 Mamounas EP, Anderson SJ, Dignam JJ, Bear HD, Julian TB, 
+Geyer CE Jr. et al (2012) Predictors of locoregional recurrence 
+after neoadjuvant chemotherapy: results from combined analysis 
+of National Surgical Adjuvant Breast and Bowel Project B-18 and 
+B-27. J Clin Oncol 30(32):3960–3966
+12.	 McGuire SE, Gonzalez-Angulo AM, Huang EH, Tucker SL, Kau 
+SW, Yu TK et al (2007) Postmastectomy radiation improves the 
+outcome of patients with locally advanced breast cancer who 
+achieve a pathologic complete response to neoadjuvant chemo­
+therapy. Int J Radiat Oncol Biol Phys 68(4):1004–1009
+13.	 Le Scodan R, Selz J, Stevens D, Bollet MA, de la Lande B, Dav­
+eau C et al (2012) Radiotherapy for stage II and stage III breast 
+cancer patients with negative lymph nodes after preoperative 
+chemotherapy and mastectomy. Int J Radiat Oncol Biol Phys 
+82(1):e1–7
+14.	 Shim SJ, Park W, Huh SJ, Choi DH, Shin KH, Lee NK et al 
+(2014) The role of postmastectomy radiation therapy after neoad­
+juvant chemotherapy in clinical stage II-III breast cancer patients 
+with pN0: a multicenter, retrospective study (KROG 12 – 05). Int 
+J Radiat Oncol Biol Phys 88(1):65–72
+15.	 Huang Z, Zhu L, Huang XB, Tang Y, Rong QL, Shi M et al (2020) 
+Postmastectomy Radiation Therapy Based on Pathologic Nodal 
+Status in Clinical Node-Positive Stage II to III Breast Cancer 
+Treated with Neoadjuvant Chemotherapy. Int J Radiat Oncol Biol 
+Phys 108(4):1030–1039
+16.	 Saifi O, Bachir B, Panoff J, Poortmans P, Zeidan YH (2023) Post-
+mastectomy radiation therapy in HER-2 positive breast cancer 
+after primary systemic therapy: Pooled analysis of TRYPHAENA 
+and NeoSphere trials. Radiother Oncol 184:109668
+17.	 Rusthoven CG, Rabinovitch RA, Jones BL, Koshy M, Amini A, 
+Yeh N et al (2016) The impact of postmastectomy and regional 
+nodal radiation after neoadjuvant chemotherapy for clinically 
+lymph node-positive breast cancer: a National Cancer Database 
+(NCDB) analysis. Ann Oncol 27(5):818–827
+18.	 Mamounas E, Bandos HWJ et al (2023) Loco-regional irradia­
+tion in patients with biopsy-proven axillary node involvement 
+at presentation who become pathologically node-negative after
+
+# Page 10
+
+1 3
+   32 
+ 
+Page 10 of 10
+Breast Cancer Research and Treatment          (2026) 217:32 
+neoadjuvant chemotherapy: primary outcomes of NRG Oncol­
+ogy/NSABP B-51/RTOG 1304. SABCS
+19.	 Mamounas EP, Bandos H, White JR, Julian TB, Khan AJ, 
+Shaitelman SF et al (2025) Omitting Regional Nodal Irradiation 
+after Response to Neoadjuvant Chemotherapy. N Engl J Med 
+392(21):2113–2124
+20.	 Mallin K, Browner A, Palis B, Gay G, McCabe R, Nogueira L et al 
+(2019) Incident Cases Captured in the National Cancer Database 
+Compared with Those in U.S. Population Based Central Cancer 
+Registries in 2012–2014. Ann Surg Oncol 26(6):1604–1612
+21.	 Yip WK, Bonetti M, Cole BF, Barcella W, Wang XV, Lazar A et 
+al (2016) Subpopulation Treatment Effect Pattern Plot (STEPP) 
+analysis for continuous, binary, and count outcomes. Clinical tri­
+als (London, England) 13(4):382 – 90
+22.	 Zhang J, Lin Y, Sun XJ, Wang BY, Wang ZH, Luo JF et al (2018) 
+Biomarker assessment of the CBCSG006 trial: a randomized 
+phase III trial of cisplatin plus gemcitabine compared with pacli­
+taxel plus gemcitabine as first-line therapy for patients with meta­
+static triple-negative breast cancer. Ann Oncol 29(8):1741–1747
+23.	 Regan MM, Francis PA, Pagani O, Fleming GF, Walley BA, Viale 
+G et al (2016) Absolute Benefit of Adjuvant Endocrine Therapies 
+for Premenopausal Women With Hormone Receptor-Positive, 
+Human Epidermal Growth Factor Receptor 2-Negative Early 
+Breast Cancer: TEXT and SOFT Trials. J Clin oncology: official 
+J Am Soc Clin Oncol 34(19):2221–2231
+24.	 Habermann EB, Day CN, Palis BE, Plichta JK, Wasif N, Wei­
+gel RJ et al (2025) American college of surgeons cancer program 
+annual report from 2021 participant user file. J Am Coll Surg 
+240(1):95–110
+25.	 Nielsen AWM, Thorsen LBJ, Özcan D, Matthiessen LW, Maae 
+E, Milo MLH et al (2025) Internal mammary node irradiation 
+in 4541 node-positive breast cancer patients treated with newer 
+systemic therapies and 3D-based radiotherapy (DBCG IMN2): a 
+prospective, nationwide, population-based cohort study. Lancet 
+Reg Health Eur 49:101160
+Publisher’s note  Springer Nature remains neutral with regard to juris­
+dictional claims in published maps and institutional affiliations.
+Springer Nature or its licensor (e.g. a society or other partner) holds 
+exclusive rights to this article under a publishing agreement with the 
+author(s) or other rightsholder(s); author self-archiving of the accepted 
+manuscript version of this article is solely governed by the terms of 
+such publishing agreement and applicable law.
