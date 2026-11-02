@@ -25,7 +25,7 @@ for (nm in names(dbs)) {
 
 # ---- Fig 2 ----
 src <- readLines(file.path(engine, "run/prognosis_v2/redraw_pub_figures.R"), warn = FALSE)
-i0 <- grep("^theme_pub\\s*<-|^pv2_fig2_database\\s*<-", src)[1]
+i0 <- grep("^theme_pub\\s*<-|^pv2_fig2_lab_disp\\s*<-|^pv2_fig2_database\\s*<-", src)[1]
 i1 <- grep('^message\\("KM', src)[1] - 1L
 eval(parse(text = paste(src[i0:i1], collapse = "\n")), envir = .GlobalEnv)
 bor_obj <- readRDS(pv2_artifact("Boruta_objects.rds"))

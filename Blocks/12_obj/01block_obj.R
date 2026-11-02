@@ -149,24 +149,36 @@
     if (is.null(out) || !wt_col %in% names(out)) return(NULL)
     w <- suppressWarnings(as.numeric(out[[wt_col]]))
     src <- if ("Source_File" %in% names(out)) as.character(out$Source_File) else character(0)
-    src_pool <- if (index_var %in% (fasting_only %||% nhanes_fasting_only_indices())) {
-      c("WTSAF2YR", "WTSAF4YR")
-    } else {
-      c("WTMEC2YR", "WTMEC4YR")
-    }
-    scale_4yr <- any(grepl("1999|2001", stats::na.omit(src)))
+    cycles <- unique(stats::na.omit(src))
+    is_fasting <- index_var %in% (fasting_only %||% nhanes_fasting_only_indices())
+    wt2 <- if (is_fasting) "WTSAF2YR" else "WTMEC2YR"
+    wt4 <- if (is_fasting) "WTSAF4YR" else "WTMEC4YR"
+    # 与 compute_nhanes_new_weight 同口径：仅当数据含 1999/2001 才用 4YR
+    has_four_year <- length(cycles) > 0L && any(grepl("1999|2001", cycles))
+    has_two_year <- length(cycles) == 0L || any(!grepl("1999|2001", cycles))
+    src_used <- c(
+      if (isTRUE(has_two_year)) wt2 else character(0),
+      if (isTRUE(has_four_year)) wt4 else character(0)
+    )
+    if (!length(src_used)) src_used <- wt2
+    n_cyc <- if (length(cycles)) length(cycles) else NA_integer_
     n_drop_wt <- sum(!is.finite(w) | w <= 0, na.rm = TRUE)
     list(
       weight_col   = wt_col,
       index_var    = index_var,
-      source       = if (length(src_pool) == 1L) src_pool[[1L]] else
-        paste0(src_pool, collapse = " / "),
-      source_desc  = paste0(
-        if (length(src_pool) > 1L && scale_4yr) "4-year cycles" else "2-year cycles",
-        ", scaled by 1/number of cycles"
-      ),
-      n_cycles     = if (length(src)) length(unique(stats::na.omit(src))) else NA_integer_,
-      cycles       = paste(sort(unique(stats::na.omit(src))), collapse = ", "),
+      source       = paste(src_used, collapse = " / "),
+      source_desc  = if (isTRUE(has_four_year) && isTRUE(has_two_year)) {
+        sprintf(
+          "2-year (%s/C) + 4-year (%s×2/C); C=%s cycles",
+          wt2, wt4, as.character(n_cyc)
+        )
+      } else if (isTRUE(has_four_year)) {
+        sprintf("4-year cycles only: %s×2/C; C=%s", wt4, as.character(n_cyc))
+      } else {
+        sprintf("2-year cycles only: %s/C; C=%s", wt2, as.character(n_cyc))
+      },
+      n_cycles     = n_cyc,
+      cycles       = paste(sort(cycles), collapse = ", "),
       n_used       = sum(is.finite(w) & w > 0, na.rm = TRUE),
       n_dropped    = n_drop_wt,
       dropped_any  = n_drop_wt > 0L,

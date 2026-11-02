@@ -365,8 +365,21 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
   )
   # presence flag from any source
   present_fu <- do.call(rbind, lapply(fu_years, function(y) {
-    data.frame(ID = present_ids_by_year[[as.character(y)]], year = y, present = 1L, stringsAsFactors = FALSE)
+    ids <- present_ids_by_year[[as.character(y)]] %||% character(0)
+    if (!length(ids)) {
+      return(data.frame(
+        ID = character(0), year = integer(0), present = integer(0),
+        stringsAsFactors = FALSE
+      ))
+    }
+    data.frame(ID = ids, year = as.integer(y), present = 1L, stringsAsFactors = FALSE)
   }))
+  if (is.null(present_fu) || !nrow(present_fu)) {
+    present_fu <- data.frame(
+      ID = character(0), year = integer(0), present = integer(0),
+      stringsAsFactors = FALSE
+    )
+  }
   present_fu <- present_fu[present_fu$ID %in% eligible_ids, , drop = FALSE]
 
   wave2_info <- lapply(eligible_ids, function(id) {
@@ -615,10 +628,23 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
     m2_lock
   ))
   med_out <- w1m[, intersect(med_cov_prefer, names(w1m)), drop = FALSE]
+  # ELSA 等：HSCRP → CRP（中介名统一 CRP）
+  if (identical(med_var, "CRP") && !"CRP" %in% names(med_out) && "HSCRP" %in% names(med_out)) {
+    med_out$CRP <- as.numeric(med_out$HSCRP)
+  }
+  if (identical(med_var, "CRP") && !"CRP" %in% names(med_out) && "HSCRP" %in% names(w1m)) {
+    med_out$CRP <- as.numeric(w1m$HSCRP[match(med_out$ID, w1m$ID)])
+  }
   # 中介=FI 且暴露不是 FI：用随访波 FI（中间/同期波），保留基线为 FI_T1
   if (identical(med_var, "FI") && !identical(treat_var, "FI") && "FI" %in% names(w2m)) {
     med_out$FI_T1 <- med_out$FI
     med_out$FI <- w2m$FI[match(med_out$ID, w2m$ID)]
+  }
+  # 可选变换（如 CRP → log1p）
+  med_xf <- as.character(ctx$config$mediation_longitudinal$mediator_transform %||% "")[1L]
+  if (nzchar(med_xf) && identical(med_xf, "log1p") && med_var %in% names(med_out)) {
+    med_out[[med_var]] <- log1p(pmax(as.numeric(med_out[[med_var]]), 0))
+    cli::cli_alert_info("{cohort}: mediation mediator {med_var} transformed with log1p")
   }
   med_out <- merge(med_out, w2m[, c("ID", "Disease_Group", "time"), drop = FALSE], by = "ID", all = FALSE)
 

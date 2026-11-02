@@ -161,6 +161,11 @@ Fix:
 | 根 Table2 Model2 脚注协变量 ≠ step 源表 / ≠ 中介脚注（如删 Diabetes 只改脚注） | P0 | 脚注与 OR 字符串与 step 源表对齐；见 `pub_nhanes_incidence_p0_gate` |
 | 主文加权分位与 S1/不加权敏感性中位数混用且不披露 | P0 | 主链锁加权；另一套脚注 unweighted |
 | Methods 缺公式出处 / MICE(m,seed,结局是否入模) / new_Weight+PSU | P0 | 按实补 Methods（轨道 B 可只改文） |
+| Methods 权重只写 “cycle scaling”、无 `WTMEC*/C`；或无 Fig1 起点↔定义池桥接；或无 RCS knots/竖线语义 | P0 | 写实公式与桥接（cute_ran HHR 2026-11） |
+| 交付根 Table3 与 Table2 逐格相同（仅表题编号不同） | P0 | 删重复主表；中期连续编号与叙事对齐，勿用副本圆谎 |
+| 横断面课题脚注残留 Cox/KM；或中介比例为正仍留 negative-proportion 模板句 | P0/P1 | 外科改脚注；见 `pub_nhanes_incidence_p0_gate` §6 |
+| H1/Methods P0 已勾，但现行 Methods 被重传短稿冲掉仍报 PASS | P0 | 勾清前 `rg` 现行 Methods；重传后重检 |
+| S5 全模型暴露 NS、缩减 Model2 显著却 Methods 不披露 | P0 | 点名 + Limitations 承认筛选 |
 | ROC 或 fig md 自曝内部算法试验（训练抬高、CV 掉下去所以不用） | P0 | 只报图面 AUC；删自曝句 |
 | 图面 NE，fig md 仍抄 0.00 或 1e-07 伪 CI | P0 | md/正文以图面为准；NE 事实句 |
 | 脚注写 mean (SE) or median，表内全是 median | P1 | 改单口径 |

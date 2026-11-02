@@ -882,6 +882,31 @@ pipeline_outcome_reference_label <- function(cfg) {
 #' 铁律：单因素 / logistic GLM·clogit 等在 `analysis_group="1"` 但列已是
 #' 疾病显示名（Diabetes / No Diabetes）时，**必须**调用本函数（或
 #' `pipeline_outcome_case_label` 取阳性名），禁止 `x == cfg$project$analysis_group`。
+pipeline_outcome_level_map <- function(cfg = NULL) {
+  if (is.null(cfg) || !is.list(cfg)) return(character(0))
+  prj <- cfg$project %||% list()
+  dat <- cfg$data %||% list()
+  raw <- prj$outcome_level_map %||% dat$outcome_level_map %||% character(0)
+  if (!length(raw)) return(character(0))
+  if (is.list(raw) && !is.null(names(raw))) raw <- unlist(raw, use.names = TRUE)
+  if (is.null(names(raw)) || !length(names(raw))) return(character(0))
+  out <- trimws(as.character(raw))
+  names(out) <- trimws(as.character(names(raw)))
+  out[nzchar(names(out)) & nzchar(out)]
+}
+
+pipeline_apply_outcome_level_map <- function(x, cfg = NULL) {
+  mp <- pipeline_outcome_level_map(cfg)
+  if (!length(mp)) return(x)
+  xc <- trimws(as.character(x))
+  hit <- xc %in% names(mp)
+  if (any(hit, na.rm = TRUE)) xc[hit] <- unname(mp[xc[hit]])
+  if (is.factor(x)) {
+    return(factor(xc, levels = unique(c(levels(x), xc[!is.na(xc)]))))
+  }
+  xc
+}
+
 pipeline_outcome_as_01 <- function(x, cfg = NULL, case_label = NULL) {
   if (is.null(x)) return(x)
   if (is.numeric(x) || is.integer(x) || is.logical(x)) {
@@ -889,6 +914,9 @@ pipeline_outcome_as_01 <- function(x, cfg = NULL, case_label = NULL) {
     if (length(ux) && all(ux %in% c(0, 1))) {
       return(as.numeric(x))
     }
+  }
+  if (!is.null(cfg) && length(pipeline_outcome_level_map(cfg))) {
+    x <- pipeline_apply_outcome_level_map(x, cfg)
   }
   xc <- trimws(as.character(x))
   ux_c <- unique(xc[!is.na(xc) & nzchar(xc)])
@@ -907,7 +935,23 @@ pipeline_outcome_as_01 <- function(x, cfg = NULL, case_label = NULL) {
     }
   }
   lbl <- as.character(lbl)[1L]
-  as.numeric(xc == lbl | xc == "1")
+  pos_aliases <- unique(c(
+    lbl, "1",
+    as.character((cfg$project %||% list())$outcome_positive_aliases %||% character(0))
+  ))
+  pos_aliases <- pos_aliases[nzchar(pos_aliases)]
+  y <- as.numeric(xc %in% pos_aliases)
+  # 硬闸：有非缺失结局却 0 事件，且水平与目标阳性名对不上 → 禁止静默交差
+  if (length(ux_c) && sum(y, na.rm = TRUE) == 0 && any(!is.na(xc))) {
+    stop(
+      "pipeline_outcome_as_01: 0 events after encoding; observed levels=[",
+      paste(ux_c, collapse = ", "),
+      "] expected positive=[", paste(pos_aliases, collapse = ", "),
+      "]. Set project$outcome_level_map (old→display) or fix disease/analysis labels.",
+      call. = FALSE
+    )
+  }
+  y
 }
 
 pipeline_normalize_project_outcome_labels <- function(cfg) {
@@ -928,6 +972,7 @@ pipeline_relabel_binary_outcome_column <- function(data, cfg, col = NULL, extra_
   raw_ref <- trimws(as.character(prj$reference_group %||% character(0))[1L])
   code_labels <- unique(c("0", "1", raw_ana, raw_ref))
   code_labels <- code_labels[.pipeline_is_binary_code_label(code_labels)]
+  level_map <- pipeline_outcome_level_map(cfg)
 
   cols <- unique(c(
     as.character(col %||% (cfg$data %||% list())$outcome_column %||% "Disease")[1L],
@@ -942,6 +987,9 @@ pipeline_relabel_binary_outcome_column <- function(data, cfg, col = NULL, extra_
       return(if (v == 1L) lbl$analysis else lbl$reference)
     }
     xc <- trimws(as.character(v))
+    if (length(level_map) && xc %in% names(level_map)) {
+      xc <- unname(level_map[[xc]])
+    }
     if (xc %in% c("1", lbl$analysis) || (length(code_labels) && xc %in% code_labels && xc == "1")) {
       return(lbl$analysis)
     }
@@ -962,6 +1010,8 @@ pipeline_relabel_binary_outcome_column <- function(data, cfg, col = NULL, extra_
     needs <- needs || all(char_vals %in% c("0", "1"))
     needs <- needs || all(char_vals %in% c("Yes", "No"))
     needs <- needs || (length(code_labels) && all(char_vals %in% code_labels))
+    needs <- needs || (length(level_map) && any(char_vals %in% names(level_map)))
+    needs <- needs || all(char_vals %in% c(lbl$analysis, lbl$reference))
     if (!needs) next
     new_x <- vapply(x, .to_case_lbl, character(1L))
     data[[cn]] <- factor(new_x, levels = c(lbl$reference, lbl$analysis))
@@ -4933,6 +4983,7 @@ export_sci_table <- function(df, filepath, title = "", sheet = "Table",
                              row_top_borders_idx = NULL,
                              header_row1 = NULL,
                              header_row2 = NULL,
+                             header_row3 = NULL,
                              latex_align = NULL,
                              latex_use_longtable = TRUE,
                              excel_use_prepared = TRUE,
@@ -4940,7 +4991,9 @@ export_sci_table <- function(df, filepath, title = "", sheet = "Table",
                              table1_render_spec = NULL,
                              table_footnotes = NULL,
                              excel_level_row_idx = NULL,
-                             blank_na_cells = TRUE) {
+                             blank_na_cells = TRUE,
+                             col_widths = NULL,
+                             body_center_all = FALSE) {
   title <- pub_caption_strip_parentheses(as.character(title %||% "")[1L])
   filepath <- .inject_db_into_pub_filepath(filepath)
   title <- .inject_db_into_pub_label(title, sanitize_for_file = FALSE)
@@ -4970,6 +5023,7 @@ export_sci_table <- function(df, filepath, title = "", sheet = "Table",
     row_top_borders_idx = row_top_borders_idx,
     header_row1 = header_row1,
     header_row2 = header_row2,
+    header_row3 = header_row3,
     latex_align = latex_align,
     latex_use_longtable = latex_use_longtable %||% TRUE,
     excel_use_prepared = excel_use_prepared,
@@ -4977,7 +5031,9 @@ export_sci_table <- function(df, filepath, title = "", sheet = "Table",
     table1_render_spec = table1_render_spec,
     table_footnotes = table_footnotes,
     excel_level_row_idx = excel_level_row_idx,
-    blank_na_cells = isTRUE(blank_na_cells)
+    blank_na_cells = isTRUE(blank_na_cells),
+    col_widths = col_widths,
+    body_center_all = isTRUE(body_center_all)
   )
   .table_queue_env$items <- q
   cli::cli_alert_info("Queued table task: {.file {basename(filepath)}}")
@@ -6035,8 +6091,11 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
 }
 
 # 双行表头 xlsx：与队列中 flatten/merge 逻辑一致；footnotes 在表体底线下方、跨列左对齐（同 Table 1）
+# h2=NA 的列垂直合并两行表头（Variable 1 / Final retained）；h1 同名连续列水平合并（如 AUC|AUC）
+# col_widths: 数值向量时覆盖 auto（脚注跨列会使 auto 把第 1 列撑到 100+）
 .sci_xlsx_double_header_booktabs <- function(filepath, title, df_body, h1, h2, sheet = "Table",
-                                              footnotes = NULL) {
+                                              footnotes = NULL, col_widths = NULL,
+                                              body_center_all = FALSE) {
   df_body <- as.data.frame(df_body, stringsAsFactors = FALSE)
   df_body <- .table1_blank_na_cells(df_body)
   df_body <- .table1_strip_underscores_display(df_body)
@@ -6053,14 +6112,23 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
     textDecoration = "bold"
   )
   h1_line_style <- openxlsx::createStyle(
-    fontSize = 12, fontName = "Times New Roman", halign = "center",
+    fontSize = 12, fontName = "Times New Roman", halign = "center", valign = "center",
     textDecoration = "bold",
-    border = c("top", "bottom"), borderStyle = c("thick", "thin")
+    border = c("top", "bottom"), borderStyle = c("thick", "thin"),
+    wrapText = TRUE
   )
   h2_line_style <- openxlsx::createStyle(
-    fontSize = 12, fontName = "Times New Roman", halign = "center",
+    fontSize = 12, fontName = "Times New Roman", halign = "center", valign = "center",
     textDecoration = "bold",
-    border = "bottom", borderStyle = "thin"
+    border = "bottom", borderStyle = "thin",
+    wrapText = TRUE
+  )
+  ## 垂直跨两行的表头：顶粗 + 底细（不要在中间再画线）
+  h_span_style <- openxlsx::createStyle(
+    fontSize = 12, fontName = "Times New Roman", halign = "center", valign = "center",
+    textDecoration = "bold",
+    border = c("top", "bottom"), borderStyle = c("thick", "thin"),
+    wrapText = TRUE
   )
   body_center_plain <- openxlsx::createStyle(
     fontSize = 12, fontName = "Times New Roman", halign = "center"
@@ -6092,47 +6160,84 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
     # 表头紧贴标题下一行（勿用 r_h1=3，否则第 2 行为全表空白行）
     r_h1 <- 2L
   }
+  r_h2 <- r_h1 + 1L
 
   h1_flat <- .flatten_header_row_for_xlsx(h1)
   h2_flat <- vapply(h2, function(x) if (is.na(x)) "" else as.character(x), character(1))
   openxlsx::writeData(wb, sheet = sh, matrix(h1_flat, nrow = 1L), startRow = r_h1, colNames = FALSE)
-  openxlsx::writeData(wb, sheet = sh, matrix(h2_flat, nrow = 1L), startRow = r_h1 + 1L, colNames = FALSE)
+  openxlsx::writeData(wb, sheet = sh, matrix(h2_flat, nrow = 1L), startRow = r_h2, colNames = FALSE)
+
+  ## 水平合并：h1 同名连续列（AUC|AUC）
+  h_merge_cols <- integer(0)
   for (ab in .header_merge_col_ranges(h1)) {
     openxlsx::mergeCells(wb, sheet = sh, rows = r_h1, cols = ab[1]:ab[2])
+    h_merge_cols <- c(h_merge_cols, seq.int(ab[1], ab[2]))
   }
+
+  ## 垂直合并：h2 为 NA 且该列不在 h1 水平合并区内 → Variable 1 / Final retained 跨两行
+  v_span_cols <- integer(0)
+  for (j in seq_len(nc)) {
+    if (!is.na(h2[[j]])) next
+    if (is.na(h1[[j]]) || !nzchar(trimws(as.character(h1[[j]])))) next
+    if (j %in% h_merge_cols) next
+    openxlsx::mergeCells(wb, sheet = sh, rows = r_h1:r_h2, cols = j)
+    v_span_cols <- c(v_span_cols, j)
+  }
+
   openxlsx::writeData(
     wb, sheet = sh, x = df_body, startRow = r_h1 + 2L, startCol = 1L,
     colNames = FALSE, rowNames = FALSE
   )
 
-  openxlsx::addStyle(
-    wb, sheet = sh, style = h1_line_style,
-    rows = r_h1, cols = seq_len(nc), gridExpand = TRUE
-  )
-  openxlsx::addStyle(
-    wb, sheet = sh, style = h2_line_style,
-    rows = r_h1 + 1L, cols = seq_len(nc), gridExpand = TRUE
-  )
+  ## 表头样式：跨行列用 span；其余 h1/h2 分行
+  for (j in seq_len(nc)) {
+    if (j %in% v_span_cols) {
+      openxlsx::addStyle(
+        wb, sheet = sh, style = h_span_style,
+        rows = r_h1:r_h2, cols = j, gridExpand = TRUE
+      )
+    } else {
+      openxlsx::addStyle(
+        wb, sheet = sh, style = h1_line_style,
+        rows = r_h1, cols = j, gridExpand = TRUE
+      )
+      openxlsx::addStyle(
+        wb, sheet = sh, style = h2_line_style,
+        rows = r_h2, cols = j, gridExpand = TRUE
+      )
+    }
+  }
 
   n_body <- nrow(df_body)
   last_data_row <- r_h1 + 1L + n_body
   if (n_body > 0L) {
-    openxlsx::addStyle(
-      wb, sheet = sh, style = body_center_plain,
-      rows = (r_h1 + 2L):last_data_row, cols = 2L:nc, gridExpand = TRUE
-    )
-    openxlsx::addStyle(
-      wb, sheet = sh, style = body_left_plain,
-      rows = (r_h1 + 2L):last_data_row, cols = 1L, gridExpand = TRUE
-    )
-    openxlsx::addStyle(
-      wb, sheet = sh, style = body_last_row_bottom_c,
-      rows = last_data_row, cols = 2L:nc, gridExpand = TRUE
-    )
-    openxlsx::addStyle(
-      wb, sheet = sh, style = body_last_row_bottom_l,
-      rows = last_data_row, cols = 1L, gridExpand = TRUE
-    )
+    if (isTRUE(body_center_all)) {
+      openxlsx::addStyle(
+        wb, sheet = sh, style = body_center_plain,
+        rows = (r_h1 + 2L):last_data_row, cols = seq_len(nc), gridExpand = TRUE
+      )
+      openxlsx::addStyle(
+        wb, sheet = sh, style = body_last_row_bottom_c,
+        rows = last_data_row, cols = seq_len(nc), gridExpand = TRUE
+      )
+    } else {
+      openxlsx::addStyle(
+        wb, sheet = sh, style = body_center_plain,
+        rows = (r_h1 + 2L):last_data_row, cols = 2L:nc, gridExpand = TRUE
+      )
+      openxlsx::addStyle(
+        wb, sheet = sh, style = body_left_plain,
+        rows = (r_h1 + 2L):last_data_row, cols = 1L, gridExpand = TRUE
+      )
+      openxlsx::addStyle(
+        wb, sheet = sh, style = body_last_row_bottom_c,
+        rows = last_data_row, cols = 2L:nc, gridExpand = TRUE
+      )
+      openxlsx::addStyle(
+        wb, sheet = sh, style = body_last_row_bottom_l,
+        rows = last_data_row, cols = 1L, gridExpand = TRUE
+      )
+    }
   }
 
   if (!is.null(footnotes)) {
@@ -6172,7 +6277,14 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
     }
   }
 
-  openxlsx::setColWidths(wb, sheet = sh, cols = seq_len(nc), widths = "auto")
+  if (!is.null(col_widths) && length(col_widths) >= 1L) {
+    cw <- as.numeric(col_widths)
+    if (length(cw) == 1L) cw <- rep(cw, nc)
+    if (length(cw) < nc) cw <- c(cw, rep(cw[length(cw)], nc - length(cw)))
+    openxlsx::setColWidths(wb, sheet = sh, cols = seq_len(nc), widths = cw[seq_len(nc)])
+  } else {
+    openxlsx::setColWidths(wb, sheet = sh, cols = seq_len(nc), widths = "auto")
+  }
   fd <- dirname(filepath)
   if (nzchar(fd) && !dir.exists(fd)) dir.create(fd, recursive = TRUE, showWarnings = FALSE)
   save_fp <- filepath
@@ -6525,7 +6637,9 @@ render_queued_tables <- function(ctx) {
         if (isTRUE(use_dbl_xlsx)) {
           .sci_xlsx_double_header_booktabs(
             it$filepath, title_render, df_x, h1_x, h2_x, sheet = sh,
-            footnotes = if (length(tf) > 0L) tf else NULL
+            footnotes = if (length(tf) > 0L) tf else NULL,
+            col_widths = it$col_widths %||% NULL,
+            body_center_all = isTRUE(it$body_center_all %||% FALSE)
           )
         } else {
           lr_x <- if (length(lr_resolved)) lr_resolved else NULL

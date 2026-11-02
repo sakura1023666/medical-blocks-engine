@@ -572,7 +572,14 @@
   fun_arg <- bl_cfg$fun %||% "pct"
   if (identical(fun_arg, "none") || identical(fun_arg, NULL)) fun_arg <- NULL
 
-  xlab <- bl_cfg$xlab %||% km_cfg$xlab %||% "Follow-up time (days)"
+  ## 横轴单位跟 time_var / config；禁止默认 Time (d) 却在 RFS_Months 上画 0–60
+  .kms02_default_xlab <- function(tv) {
+    tv <- tolower(as.character(tv %||% "")[1L])
+    if (grepl("month", tv, fixed = TRUE)) return("Time (months)")
+    if (grepl("year", tv, fixed = TRUE)) return("Time (years)")
+    "Follow-up time (days)"
+  }
+  xlab <- bl_cfg$xlab %||% km_cfg$xlab %||% .kms02_default_xlab(time_col)
   ylab <- bl_cfg$ylab %||% km_cfg$ylab %||% "Survival probability (%)"
   time_axis <- .kms02_resolve_time_axis(fit, rt_plot, time_col, time_div, bl_cfg, km_cfg)
   km_xlim <- time_axis$xlim

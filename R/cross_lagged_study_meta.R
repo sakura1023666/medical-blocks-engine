@@ -30,7 +30,9 @@ cross_lagged_read_panel_assigns <- function(study_root) {
     grouping = grp,
     dbs = dbs,
     exposure_label = as.character(e$.circadian_exposure_label %||% idx)[1L],
+    mediator_var = as.character(e$.circadian_mediator_var %||% "FI")[1L],
     mediator_label = as.character(e$.circadian_mediator_label %||% "Frailty Index")[1L],
+    mediator_transform = as.character(e$.circadian_mediator_transform %||% "")[1L],
     outcome_label = as.character(e$.circadian_outcome_label %||% "Circadian disorder")[1L],
     change_index_stem = if (identical(idx, "Leisure_score")) idx else "FI",
     change_index_display = if (identical(idx, "Leisure_score")) {
@@ -63,8 +65,19 @@ cross_lagged_study_is_dementia <- function(study_root) {
 }
 
 cross_lagged_discover_phase1_dbs <- function(study_root) {
-  dn <- list.dirs(study_root, recursive = FALSE, full.names = FALSE)
-  xs <- dn[grepl("^phase1_", dn) & !grepl("Pooled", dn, ignore.case = TRUE)]
+  dn <- list.dirs(study_root, recursive = FALSE, full.names = TRUE)
+  bn <- basename(dn)
+  keep <- grepl("^phase1_", bn) & !grepl("Pooled", bn, ignore.case = TRUE)
+  dn <- dn[keep]
+  # 空壳目录（仅有空 Tables/Figures）不算有效 phase1，避免误开 NHANES 外验
+  ok <- vapply(dn, function(p) {
+    has_ck <- dir.exists(file.path(p, "checkpoints")) &&
+      length(list.files(file.path(p, "checkpoints"), pattern = "\\.rds$")) > 0L
+    has_d01 <- file.exists(file.path(p, "D01_AfterMI_Data.RData"))
+    has_tab <- length(list.files(file.path(p, "Tables"), pattern = "\\.xlsx$", recursive = TRUE)) > 0L
+    isTRUE(has_ck || has_d01 || has_tab)
+  }, logical(1))
+  xs <- basename(dn[ok])
   xs <- sub("^phase1_", "", xs)
   xs <- sub("_allages$", "", xs)
   unique(xs[nzchar(xs)])

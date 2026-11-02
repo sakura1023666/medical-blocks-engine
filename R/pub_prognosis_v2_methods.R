@@ -79,7 +79,7 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
   )[1L]
   grouping <- as.character(
     proj$grouping %||%
-      "five mutually exclusive categories (<5 h, 5-6 h, 6-7 h, 7-8 h, >=9 h; reference 7-8 h)"
+      "five mutually exclusive categories (<5 h, 5-6 h, 6-7 h, 7-<9 h i.e. [7, 9) hours, >=9 h; reference 7-<9 h)"
   )[1L]
   sens <- as.character(
     proj$sensitivity %||%
@@ -97,7 +97,7 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
       cohort, dbs, primary, validation, outcome
     ),
     sprintf(
-      "The exposure was %s, analysed as a continuous variable (per 1 SD within each cohort) and as %s. Extreme short-sleep contrasts (<5 h and <6 h versus 7-8 h) and a clinical cut-point of 465 minutes (7.75 h) were reported as supplementary analyses and did not replace the pre-specified five-level grouping.",
+      "The exposure was %s, analysed as a continuous variable (per 1 SD within each cohort) and as %s. Extreme short-sleep contrasts (<5 h and <6 h versus 7–<9 h) and binary contrasts at each cohort's own Model 3 RCS minimum-risk cutoff (Table S10) were reported as supplementary analyses and did not replace the pre-specified five-level grouping. An external 465-minute threshold was not used.",
       exposure, grouping
     ),
     "Candidate covariates were screened with Boruta and SHAP on the primary cohorts only; multicollinearity was assessed with variance inflation factors (VIF < 5 considered acceptable). The intersection of Boruta-confirmed covariates across primary cohorts with VIF < 5 defined Model 3.",
@@ -115,7 +115,7 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
       mediator
     ),
     sprintf(
-      "Sensitivity analyses included %s. Additional clinical explorations used RCS-derived minimum-risk cutoffs (Table S10), multi-horizon prediction (Table S11 / Figure S1), and a 465-minute (7.75 h) package comprising Cox with population attributable risk (Table S12), diagnostic yield (Table S13) and joint stratification with age and hypertension (Table S14).",
+      "Sensitivity analyses included %s. Cohort-specific RCS minimum-risk cutoffs (Table S10) were then used for Cox models with population attributable risk (Table S12), diagnostic yield (Table S13) and joint stratification with age and hypertension (Table S14); multi-horizon prediction is in Table S11 / Figure S1. Cutoffs are estimated within each cohort and are not borrowed from external studies.",
       sens
     ),
     "Proportional hazards assumptions were assessed with Schoenfeld residuals (cox.zph; Table S15).",

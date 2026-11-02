@@ -118,3 +118,87 @@ pub_xlsx_verify <- function(path) {
   list(readable = identical(as.integer(bad), 0L), corrupt_cells = bad,
        styles = nst, rows = nrow(d))
 }
+
+#' 以文件名为准，把 xlsx A1 / sharedStrings 表内标题同步到 stem（数值零改动）
+#'
+#' 修复「文件名 Table S2、内题 Table S5」类错位（ML 补充表常见）。
+#' 优先走 python/pub_sync_xlsx_a1_to_filename.py（sharedStrings 外科替换）。
+pub_sync_xlsx_a1_titles_to_filenames <- function(tab_dir, recursive = FALSE) {
+  tab_dir <- as.character(tab_dir %||% "")[1L]
+  if (!nzchar(tab_dir) || !dir.exists(tab_dir)) {
+    return(invisible(list(n = 0L, files = character(0))))
+  }
+  files <- list.files(
+    tab_dir, pattern = "\\.xlsx$", full.names = TRUE,
+    ignore.case = TRUE, recursive = isTRUE(recursive)
+  )
+  files <- files[!grepl("/~\\$", basename(files))]
+  if (!length(files)) {
+    return(invisible(list(n = 0L, files = character(0))))
+  }
+  eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(eng)) eng <- getwd()
+  py_script <- file.path(eng, "python", "pub_sync_xlsx_a1_to_filename.py")
+  py <- if (nzchar(Sys.which("python3"))) {
+    Sys.which("python3")
+  } else if (nzchar(Sys.which("python"))) {
+    Sys.which("python")
+  } else {
+    ""
+  }
+  done <- character(0)
+  if (nzchar(py) && file.exists(py_script)) {
+    ## 文件名含括号/空格：逐文件调用，避免 system2 在 sh 下拆坏 argv
+    st <- character(0)
+    for (f in files) {
+      one <- tryCatch(
+        system2(
+          py,
+          args = c(shQuote(py_script), shQuote(normalizePath(f, winslash = "/", mustWork = TRUE))),
+          stdout = TRUE,
+          stderr = TRUE
+        ),
+        error = function(e) paste0(basename(f), ": error")
+      )
+      st <- c(st, one)
+    }
+    done <- character(0)
+    for (line in st %||% character(0)) {
+      if (grepl(": (set ->|already)", line)) {
+        bn <- sub(":.*$", "", line)
+        fp <- files[basename(files) == bn]
+        if (length(fp)) done <- c(done, fp[[1L]])
+      }
+    }
+    done <- unique(done)
+  }
+  ## 回退：openxlsx 写 A1（可能丢部分样式，仅当 python 失败时）
+  left <- setdiff(files, done)
+  for (f in left) {
+    new_title <- tools::file_path_sans_ext(basename(f))
+    ok <- tryCatch({
+      if (!requireNamespace("openxlsx", quietly = TRUE)) return(FALSE)
+      cur <- as.character(
+        openxlsx::read.xlsx(f, colNames = FALSE, rows = 1L, cols = 1L)[1, 1]
+      )
+      if (identical(trimws(cur %||% ""), new_title)) return(TRUE)
+      if (exists("pub_xlsx_edit_cells", mode = "function")) {
+        pub_xlsx_edit_cells(f, data.frame(row = 1L, col = 1L, value = new_title))
+        TRUE
+      } else {
+        wb <- openxlsx::loadWorkbook(f)
+        sh <- openxlsx::sheets(wb)[1L]
+        openxlsx::writeData(wb, sh, new_title, startCol = 1L, startRow = 1L, colNames = FALSE)
+        openxlsx::saveWorkbook(wb, f, overwrite = TRUE)
+        TRUE
+      }
+    }, error = function(e) FALSE)
+    if (isTRUE(ok)) done <- c(done, f)
+  }
+  if (requireNamespace("cli", quietly = TRUE) && length(done)) {
+    cli::cli_alert_success(
+      "表内标题已与文件名对齐: {length(done)}/{length(files)} @ {tab_dir}"
+    )
+  }
+  invisible(list(n = length(done), files = done))
+}

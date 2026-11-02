@@ -1096,6 +1096,49 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
       )
     }
   }
+  ## 发表表去重 + 单库 ML summary_results 白名单收口（每次跑完自动）
+  tryCatch({
+    dedup_src <- file.path(engine_root, "R/pub_dedup_identical_tables.R")
+    if (file.exists(dedup_src)) source(dedup_src, local = FALSE)
+    tab_root <- file.path(out_root, "Tables")
+    if (dir.exists(tab_root) && exists("pub_dedup_identical_tables", mode = "function")) {
+      pub_dedup_identical_tables(tab_root, dry_run = FALSE)
+    }
+  }, error = function(e) cli::cli_alert_warning("发表表去重跳过: {e$message}"))
+  tryCatch({
+    ml_sum_src <- file.path(engine_root, "R/ml_index_summary_results.R")
+    if (file.exists(ml_sum_src)) source(ml_sum_src, local = FALSE)
+    want_sum <- isTRUE((config$pub %||% list())$write_summary_results %||% FALSE) ||
+      isTRUE((config$ml_batch %||% list())$write_index_summary_results %||% FALSE) ||
+      isTRUE((config$pub %||% list())$write_index_summary_results %||% FALSE) ||
+      ## 单库 ML 预后 / 发病平链：默认写 summary_results（可用 write_summary_results=FALSE 关）
+      (
+        is.null((config$pub %||% list())$write_summary_results) &&
+          identical(tolower(as.character(config$project$study_type %||% "")[1L]), "prognosis") &&
+          any(grepl("^ml_|performance_ml|shap", as.character(pipeline$blocks %||% character(0))))
+      )
+    if (isTRUE(want_sum) && exists("ml_finalize_index_summary_results", mode = "function")) {
+      config2 <- config
+      config2$`_pipeline_blocks` <- as.character(pipeline$blocks %||% character(0))
+      ## 确保根 Figures 四目录存在后再 sync
+      fig_flat <- file.path(out_root, "pdf")
+      fig_std <- file.path(out_root, "Figures")
+      if (!dir.exists(fig_std) && dir.exists(fig_flat)) {
+        dir.create(file.path(fig_std, "pdf"), recursive = TRUE, showWarnings = FALSE)
+        for (f in list.files(fig_flat, pattern = "\\.pdf$", full.names = TRUE)) {
+          file.copy(f, file.path(fig_std, "pdf", basename(f)), overwrite = TRUE)
+        }
+      }
+      if (exists("pub_figure_ensure_formats", mode = "function") &&
+          dir.exists(fig_std)) {
+        tryCatch(
+          pub_figure_ensure_formats(fig_std, config = config2),
+          error = function(e) NULL
+        )
+      }
+      ml_finalize_index_summary_results(out_root, config = config2)
+    }
+  }, error = function(e) cli::cli_alert_warning("summary_results 收口跳过: {e$message}"))
   # Phase 6：发表质控骨架（Agent 须继续 nature-statistics / nature-figure）
   tryCatch({
     qc_src <- file.path(engine_root, "R/pub_qc_after_finalize.R")

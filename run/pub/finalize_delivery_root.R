@@ -161,7 +161,7 @@ if (grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE)) {
     )
     config$project$grouping <- .env_chr(
       "PV2_GROUPING",
-      "five mutually exclusive categories (<5 h, 5-6 h, 6-7 h, 7-8 h, >=9 h; reference 7-8 h)"
+      "five mutually exclusive categories (<5 h, 5-6 h, 6-7 h, 7-<9 h [7 to <9 hours], >=9 h; reference 7-<9 h)"
     )
     config$project$sensitivity <- .env_chr(
       "PV2_SENSITIVITY",

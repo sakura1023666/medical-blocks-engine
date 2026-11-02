@@ -507,9 +507,35 @@ block_rcs_prognosis <- function(ctx, ...) {
         "rcs_prognosis: 无 pdftools，仅保留首页；共 {length(page_pdfs)} 页在 {tmp_dir}"
       )
     } else {
-      cli::cli_alert_success(
-        "Saved multipage RCS ({length(page_pdfs)} pages): {basename(outfile)}"
-      )
+      # 铁律：多页 RCS 堆成单页，避免 ensure_formats / PNG 只渲首页（EMs 2026-11）
+      stacked <- FALSE
+      if (exists("pub_figure_normalize_pdf", mode = "function") &&
+          length(page_pdfs) > 1L) {
+        stacked <- isTRUE(tryCatch(
+          pub_figure_normalize_pdf(
+            outfile,
+            max_edge_in = as.numeric(
+              ctx$config$pub_figures$max_edge_in %||% 11
+            )[1L],
+            stack_pages = TRUE
+          ),
+          error = function(e) FALSE
+        ))
+      }
+      if (isTRUE(stacked)) {
+        cli::cli_alert_success(
+          "Saved stacked single-page RCS ({length(page_pdfs)} panels): {basename(outfile)}"
+        )
+      } else {
+        cli::cli_alert_success(
+          "Saved multipage RCS ({length(page_pdfs)} pages): {basename(outfile)}"
+        )
+        if (length(page_pdfs) > 1L) {
+          cli::cli_alert_warning(
+            "rcs_prognosis: 未能堆叠为单页；pub_figure_ensure_formats 导出时会再尝试 stack"
+          )
+        }
+      }
       if (exists("pub_mirror_saved", mode = "function")) {
         pub_mirror_saved(ctx, outfile)
       }

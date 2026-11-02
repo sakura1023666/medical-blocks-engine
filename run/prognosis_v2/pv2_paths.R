@@ -77,12 +77,14 @@ pv2_artifact_save <- function(obj, name) {
 }
 
 # 睡眠五分组（互斥）：含 <5 h 与 5-6 h（合起来即 <6 h 信息）
-# Cox 参考水平放第一：7-8
+# 内部水平码仍用 "7-8"（Cox 项名 Sleep_Group7-8 保持稳定）；
+# 展示标签为 "7-<9 h"，因切点是 [7, 9) 小时。
 pv2_sleep_levels_cox <- c("7-8", "<5", "5-6", "6-7", ">=9")
 pv2_sleep_levels_display <- c("<5", "5-6", "6-7", "7-8", ">=9")
 pv2_sleep_labels <- c(
-  "<5" = "<5 h", "5-6" = "5-6 h", "6-7" = "6-7 h", "7-8" = "7-8 h", ">=9" = ">=9 h"
+  "<5" = "<5 h", "5-6" = "5-6 h", "6-7" = "6-7 h", "7-8" = "7-<9 h", ">=9" = ">=9 h"
 )
+pv2_sleep_ref_label <- unname(pv2_sleep_labels[["7-8"]])
 
 pv2_sleep_group5 <- function(hours, ref_first = TRUE) {
   h <- suppressWarnings(as.numeric(hours))

@@ -115,11 +115,11 @@ sub_tab <- do.call(rbind, sub_rows)
 fwrite(sub_tab, file.path(ckpt, "Subgroup_rows.csv"))
 
 sg <- sub_tab
-sg$contrast <- ifelse(grepl("<5", sg$term, fixed = TRUE), "<5 h vs 7-8 h",
-               ifelse(grepl("5-6", sg$term, fixed = TRUE), "5-6 h vs 7-8 h",
-               ifelse(grepl("6-7", sg$term, fixed = TRUE), "6-7 h vs 7-8 h",
-               ifelse(grepl(">=9", sg$term, fixed = TRUE), ">=9 h vs 7-8 h",
-               ifelse(grepl("<7", sg$term, fixed = TRUE), "<7 h vs 7-8 h", sg$term)))))
+sg$contrast <- ifelse(grepl("<5", sg$term, fixed = TRUE), "<5 h vs 7-<9 h",
+               ifelse(grepl("5-6", sg$term, fixed = TRUE), "5-6 h vs 7-<9 h",
+               ifelse(grepl("6-7", sg$term, fixed = TRUE), "6-7 h vs 7-<9 h",
+               ifelse(grepl(">=9", sg$term, fixed = TRUE), ">=9 h vs 7-<9 h",
+               ifelse(grepl("<7", sg$term, fixed = TRUE), "<7 h vs 7-<9 h", sg$term)))))
 sg$stratum <- gsub("_", " ", sg$stratum)
 sg$row <- paste0(sg$stratum, ": ", sg$level)
 sg$HR[!sg$estimable] <- NA_real_

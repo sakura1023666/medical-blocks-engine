@@ -28,7 +28,7 @@ critic: rounds/B_attack_tree_paper_013_Q8.md（glm provenance 已核验）
 |---|---|---|---|
 | E1a | L261–268 + Fig1 | 序贯纳排链 9432→1808 | 可迁移骨架 |
 | E1b | L180–182 | 公开数据+伦理声明 | 不可迁移(数据权属) |
-| E1c | L186–196 | TyG=ln(TG×glucose/2)；非空腹近似 | 公式可迁/来源按库 |
+| E1c | Intro L130–131; Methods L192–194, L278–279 | TyG=ln[fasting TG(mg/dL)×fasting glucose(mg/dL)/2]；ELSA 空腹血样仅偶数波护士访采集 | 公式可迁/来源按库 |
 | E1d | L283–310 | flexmix GBMTM 双结局 z 标准化 K=2–6、MAP 参照 | 方法块 |
 | E1e | L229–257 | 协变量先验清单+MICE m=20 | 清单固定/获取改写 |
 | E1f | L312–350 | 嵌套 Cox+Schoenfeld+交互 LRT | 引擎已有 |

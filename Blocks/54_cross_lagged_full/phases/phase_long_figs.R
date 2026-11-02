@@ -44,6 +44,8 @@ study_root <- "/mnt/g/02block_result/16_Hip fracture/cross-laged_40595747"
 sims <- 200L
 only_dbs <- NULL
 change_only <- FALSE
+corr_mediation_only <- FALSE
+pooled_mediation_only <- FALSE
 .scheme_override <- NULL
 rescreen_med_covars <- FALSE
 # 纵向/交叉滞后默认三库；Pooled 仅主文 logistic 阶段保留（加 --with-pooled 才跑）
@@ -58,6 +60,14 @@ while (i <= length(args)) {
     only_dbs <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
   } else if (args[[i]] %in% c("--change-only", "--only-change")) {
     change_only <- TRUE; i <- i + 1L
+  } else if (args[[i]] %in% c("--corr-mediation-only", "--only-corr-mediation")) {
+    corr_mediation_only <- TRUE; i <- i + 1L
+  } else if (args[[i]] %in% c("--pooled-mediation-only", "--only-pooled-mediation")) {
+    # 定点：prepare 两库 → 合并中介表（库内百分位）→ 只跑 Pooled 中介 → Table S9.2
+    pooled_mediation_only <- TRUE
+    run_pooled_long <- TRUE
+    corr_mediation_only <- TRUE
+    i <- i + 1L
   } else if (args[[i]] == "--scheme" && i < length(args)) {
     .scheme_override <- tolower(trimws(args[[i + 1L]])); i <- i + 2L
   } else if (args[[i]] %in% c("--rescreen-mediation-covars", "--rescreen-med-covars")) {
@@ -81,6 +91,7 @@ source(file.path(root, "R/cross_lagged_covariate_lock.R"))
 source(file.path(root, "R/cross_lagged_mediation_covar_select.R"))
 source(file.path(root, "R/cross_lagged_fi_item_labels.R"))
 source(file.path(root, "R/cross_lagged_study_meta.R"))
+source(file.path(root, "Blocks/54_cross_lagged_full/13block_cross_lagged_pooled_bind.R"))
 source(file.path(root, "Blocks/54_cross_lagged_full/14block_cross_lagged_long_prepare.R"))
 source(file.path(root, "Blocks/54_cross_lagged_full/15block_cross_lagged_corr_table.R"))
 source(file.path(root, "Blocks/54_cross_lagged_full/16block_cross_lagged_forest_or.R"))
@@ -248,6 +259,34 @@ if (exists(".circadian_index_var", inherits = TRUE)) {
   .ev_ag <- "Circadian_Disorder"
   .ev_rg <- "No_Disorder"
 }
+# 昼夜中介变量：默认 FI；课题可设 .circadian_mediator_var = "CRP"
+.circ_med_var <- if (exists(".circadian_mediator_var", inherits = TRUE) &&
+                    nzchar(as.character(.circadian_mediator_var)[1L])) {
+  as.character(.circadian_mediator_var)[1L]
+} else if (exists(".circadian_index_var", inherits = TRUE)) {
+  "FI"
+} else {
+  "Depression_cont"
+}
+.circ_med_xf <- if (exists(".circadian_mediator_transform", inherits = TRUE) &&
+                   nzchar(as.character(.circadian_mediator_transform)[1L])) {
+  as.character(.circadian_mediator_transform)[1L]
+} else {
+  ""
+}
+# 中介/相关回归可从 Table2 Model2 剔除变量（如 CRP 中介时踢 WBC）；Change/Table2 仍用完整 .lock_m2
+.med_exclude_covars <- if (exists(".circadian_mediation_exclude_covars", inherits = TRUE)) {
+  unique(as.character(.circadian_mediation_exclude_covars))
+} else {
+  character(0)
+}
+.med_exclude_covars <- .med_exclude_covars[nzchar(.med_exclude_covars) & !is.na(.med_exclude_covars)]
+.pooled_harm <- if (exists(".circadian_pooled_harmonize", inherits = TRUE) &&
+                    nzchar(as.character(.circadian_pooled_harmonize)[1L])) {
+  tolower(as.character(.circadian_pooled_harmonize)[1L])
+} else {
+  ""
+}
 .change_leisure <- exists(".circadian_index_var", inherits = TRUE) &&
   identical(as.character(.circadian_index_var)[1L], "Leisure_score")
 .change_mean_lab <- if (isTRUE(.change_leisure)) paste("Mean", .circ_exp_lab) else "Mean FI"
@@ -279,11 +318,14 @@ load_ck <- function(db) {
 .med_lock_txt <- file.path(study_root, "mediation_depression_covar_lock.txt")
 .med_lock <- NULL
 
-.resolve_db_covars <- function(db, fallback_m1 = .lock_m1, fallback_m2 = .lock_m2) {
-  # 优先：三库统一锁定；忽略按库不同的筛选项（除非用户显式 rescreen 且已写出）
+.resolve_db_covars <- function(db, fallback_m1 = .lock_m1, fallback_m2 = .lock_m2,
+                               for_mediation = TRUE) {
+  # 中介/相关：优先用 .med_lock（已剔 .circadian_mediation_exclude_covars）
+  # Change 等仍可传 for_mediation=FALSE 用完整 Table2 Model2
   m2 <- fallback_m2
   m1 <- fallback_m1
-  if (!is.null(.med_lock) && isTRUE(rescreen_med_covars)) {
+  use_lock <- !is.null(.med_lock) && (isTRUE(for_mediation) || isTRUE(rescreen_med_covars))
+  if (isTRUE(use_lock)) {
     if (is.list(.med_lock$model2_by_db) && db %in% names(.med_lock$model2_by_db)) {
       m2 <- as.character(.med_lock$model2_by_db[[db]] %||% m2)
     } else if (is.list(.med_lock$covariates_by_db) && db %in% names(.med_lock$covariates_by_db)) {
@@ -293,12 +335,16 @@ load_ck <- function(db) {
       m1 <- as.character(.med_lock$model1_by_db[[db]] %||% m1)
     }
   }
+  if (isTRUE(for_mediation) && length(.med_exclude_covars)) {
+    m2 <- setdiff(as.character(m2), .med_exclude_covars)
+  }
   m2 <- m2[!is.na(m2) & nzchar(m2)]
   m1 <- m1[!is.na(m1) & nzchar(as.character(m1))]
   if (!length(m1)) m1 <- "Age"
   if (!length(m2)) m2 <- unique(c(as.character(m1), "Alcohol_drinking"))
   if (length(setdiff(m2, m1)) == 0L) {
-    m2 <- unique(c(m1, "Alcohol_drinking"))
+    # 仅 Age 时不要硬塞 Alcohol_drinking（可能不在数据）；保留 m1
+    m2 <- unique(as.character(m1))
   }
   list(m1 = m1, m2 = m2)
 }
@@ -309,18 +355,22 @@ run_blocks_after_prepare <- function(ctx) {
              error = function(e) cli::cli_alert_warning("change: {e$message}"))
     return(ctx)
   }
-  tryCatch({ ctx <- block_cross_lagged_forest_or(ctx) },
-           error = function(e) cli::cli_alert_warning("forest: {e$message}"))
+  if (!isTRUE(corr_mediation_only)) {
+    tryCatch({ ctx <- block_cross_lagged_forest_or(ctx) },
+             error = function(e) cli::cli_alert_warning("forest: {e$message}"))
+  }
   tryCatch({ ctx <- block_cross_lagged_corr_table(ctx) },
            error = function(e) cli::cli_alert_warning("corr: {e$message}"))
-  tryCatch({ ctx <- block_cross_lagged_country_year_bar(ctx) },
-           error = function(e) cli::cli_alert_warning("country_year: {e$message}"))
-  tryCatch({ ctx <- block_cross_lagged_fig1_group(ctx) },
-           error = function(e) cli::cli_alert_warning("fig1: {e$message}"))
-  tryCatch({ ctx <- block_cross_lagged_network(ctx) },
-           error = function(e) cli::cli_alert_warning("network: {e$message}"))
-  tryCatch({ ctx <- block_cross_lagged_change_logistic(ctx) },
-           error = function(e) cli::cli_alert_warning("change: {e$message}"))
+  if (!isTRUE(corr_mediation_only)) {
+    tryCatch({ ctx <- block_cross_lagged_country_year_bar(ctx) },
+             error = function(e) cli::cli_alert_warning("country_year: {e$message}"))
+    tryCatch({ ctx <- block_cross_lagged_fig1_group(ctx) },
+             error = function(e) cli::cli_alert_warning("fig1: {e$message}"))
+    tryCatch({ ctx <- block_cross_lagged_network(ctx) },
+             error = function(e) cli::cli_alert_warning("network: {e$message}"))
+    tryCatch({ ctx <- block_cross_lagged_change_logistic(ctx) },
+             error = function(e) cli::cli_alert_warning("change: {e$message}"))
+  }
   if (!is.null(ctx$data$longitudinal_mediation) && nrow(ctx$data$longitudinal_mediation) >= 30L) {
     tryCatch({
       ctx$config$mediation_longitudinal$sims <- sims
@@ -381,8 +431,9 @@ for (db in dbs) {
       incidence = list(index_var = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
       mediation_longitudinal = list(
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
-        # 昼夜：中介=FI；虚弱常规/抑郁×高血压：中介=中间波抑郁连续分
-        mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
+        # 昼夜默认 FI；可由 .circadian_mediator_var 覆盖（如 CRP）
+        mediator = .circ_med_var,
+        mediator_transform = .circ_med_xf,
         outcome = "Disease_Group",
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         sims = sims,
@@ -440,9 +491,15 @@ if (!isTRUE(change_only)) {
       )
     }
   } else {
-    # 三库同一套锁定协变量（与 relock / Table 2 一致），禁止各库再筛不同集
+    # 三库同一套：Table2 Model2 减去 .circadian_mediation_exclude_covars（默认不剔）
     common_cov <- as.character(.lock_m2)
     if (!length(common_cov)) common_cov <- c("Age", "Alcohol_drinking")
+    table2_cov <- common_cov
+    if (length(.med_exclude_covars)) {
+      common_cov <- setdiff(common_cov, .med_exclude_covars)
+      if (!length(common_cov)) common_cov <- setdiff(table2_cov, .med_exclude_covars)
+      if (!length(common_cov)) common_cov <- c("Age")
+    }
     locks <- setNames(replicate(3L, common_cov, simplify = FALSE), c("CHARLS", "ELSA", "HRS"))
     m1s <- setNames(replicate(3L, as.character(.lock_m1 %||% "Age"), simplify = FALSE),
                     c("CHARLS", "ELSA", "HRS"))
@@ -450,12 +507,16 @@ if (!isTRUE(change_only)) {
       covariates_by_db = locks,
       model2_by_db = locks,
       model1_by_db = m1s,
-      source = "vif_triple_intersect_lock"
+      table2_model2 = table2_cov,
+      exclude_covars = .med_exclude_covars,
+      source = "table2_model2_minus_mediation_exclude"
     )
     saveRDS(.med_lock, .med_lock_rds)
     writeLines(c(
-      paste0("# Mediation covariates = Table2 locked Model2 (三库共用)"),
+      paste0("# Mediation/corr covariates = Table2 Model2 minus exclude (三库共用)"),
       paste0("# Generated: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+      paste0("Table2_Model2=", paste(table2_cov, collapse = "+")),
+      paste0("Exclude=", if (length(.med_exclude_covars)) paste(.med_exclude_covars, collapse = "+") else "(none)"),
       paste0("Model1=", paste(.lock_m1, collapse = "+")),
       paste0("Model2=", paste(common_cov, collapse = "+")),
       "CHARLS_Model2=", paste(common_cov, collapse = "+"),
@@ -463,7 +524,7 @@ if (!isTRUE(change_only)) {
       "HRS_Model2=", paste(common_cov, collapse = "+")
     ), .med_lock_txt)
     cli::cli_alert_success(
-      "抑郁中介协变量与 Table2 锁定一致（三库共用）: {paste(common_cov, collapse='+')}"
+      "中介/相关协变量（三库共用）: {paste(common_cov, collapse='+')}{if (length(.med_exclude_covars)) paste0('；已剔 ', paste(.med_exclude_covars, collapse='+')) else ''}"
     )
   }
   for (db in names(.med_lock$covariates_by_db %||% list())) {
@@ -474,13 +535,22 @@ if (!isTRUE(change_only)) {
 }
 
 # ── Pass 2：用锁定协变量跑图/表/中介 ─────────────────────────────────────────
+# pooled-mediation-only：跳过分库 Pass2，避免冲掉已定稿 S8/S9；只用 Pass1 的 med 表合并
+if (isTRUE(pooled_mediation_only)) {
+  cli::cli_alert_info("pooled-mediation-only：跳过分库 Pass2（corr/中介/图），直接合并跑 Pooled 中介")
+}
 for (db in dbs) {
+  if (isTRUE(pooled_mediation_only)) next
   cli::cli_h1("Cross-lagged figs: {db}")
   out_dir <- file.path(study_root, paste0("phase3_long_", db))
-  cv <- .resolve_db_covars(db)
-  m1 <- cv$m1
-  m2 <- cv$m2
-  cli::cli_alert_info("{db} corr/mediation covars: M1={paste(m1, collapse='+')}; M2={paste(m2, collapse='+')}")
+  cv_med <- .resolve_db_covars(db, for_mediation = TRUE)
+  cv_tab <- .resolve_db_covars(db, for_mediation = FALSE)
+  m1 <- cv_med$m1
+  m2_med <- cv_med$m2
+  m2_tab <- cv_tab$m2
+  cli::cli_alert_info(
+    "{db} corr/mediation M2={paste(m2_med, collapse='+')}; change/Table2 M2={paste(m2_tab, collapse='+')}"
+  )
 
   ctx <- list(
     data = list(
@@ -492,7 +562,7 @@ for (db in dbs) {
     ),
     results = list(
       Model1Factors = m1,
-      Model2Factors = m2,
+      Model2Factors = m2_tab,
       logistic_grouping_scheme = .lock_scheme,
       mediation_covars_by_db = .med_lock$covariates_by_db %||% NULL
     ),
@@ -506,9 +576,9 @@ for (db in dbs) {
       data = list(outcome_column = "Disease_Group", id_column = "ID"),
       incidence = list(index_var = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
       cross_lagged_corr_table = list(
-        model1 = m1, model2 = m2,
+        model1 = m1, model2 = m2_med,
         exposure = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
-        mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
+        mediator = .circ_med_var,
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         exposure_label = if (exists(".circadian_index_var", inherits = TRUE)) .circ_exp_lab else "Frailty Index",
         mediator_label = .circ_med_lab,
@@ -531,7 +601,7 @@ for (db in dbs) {
       cross_lagged_fig1_group = list(year_col = "Year"),
       cross_lagged_change_logistic = list(
         scheme = .lock_scheme,
-        covariates = m2,
+        covariates = m2_tab,
         fi_t1 = paste0("T1_", if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
         fi_t2 = paste0("T2_", if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI"),
         mean_section = .change_mean_lab,
@@ -540,13 +610,14 @@ for (db in dbs) {
       ),
       mediation_longitudinal = list(
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
-        mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
+        mediator = .circ_med_var,
+        mediator_transform = .circ_med_xf,
         outcome = "Disease_Group",
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         sims = sims, seed = 40595747L,
         diagram_enable = TRUE,
         path_use_covariates = TRUE,
-        covariates = setdiff(as.character(m2), c("Age", "SBP", "DBP", "MBP")),
+        covariates = setdiff(as.character(m2_med), c("Age", "SBP", "DBP", "MBP")),
         covariates_by_db = .med_lock$covariates_by_db %||% NULL,
         treat_label = .circ_exp_lab,
         mediator_label = .circ_med_lab,
@@ -582,11 +653,31 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
   long_p <- .align_bind(all_long)
   wide_p <- .align_bind(all_wide)
   med_p <- .align_bind(all_med)
+  # 暴露量纲跨库不可比（如 Leisure_score CHARLS 0–11 vs ELSA 0–26）：
+  # 按课题 .circadian_pooled_harmonize 在合并前做库内百分位/z，再标 Cohort=Pooled
+  .treat_p <- if (exists(".circadian_index_var", inherits = TRUE)) {
+    as.character(.circadian_index_var)[1L]
+  } else {
+    "FI"
+  }
+  if (!is.null(med_p) && nrow(med_p) && nzchar(.pooled_harm) &&
+      !identical(.pooled_harm, "none") && .treat_p %in% names(med_p) &&
+      "Cohort" %in% names(med_p)) {
+    med_p[[.treat_p]] <- ave(
+      suppressWarnings(as.numeric(med_p[[.treat_p]])),
+      as.character(med_p$Cohort),
+      FUN = function(x) cross_lagged_harmonize_exposure(x, .pooled_harm)
+    )
+    cli::cli_alert_info(
+      "Pooled mediation: {(.treat_p)} harmonized within Cohort by {(.pooled_harm)}"
+    )
+  }
   # 合并表强制单一 Cohort，避免 mediation 按原子库拆分拟合
   if (!is.null(med_p) && nrow(med_p)) {
     med_p$Cohort <- "Pooled"
-    if (!"Country" %in% names(med_p) && "Cohort" %in% names(med_p)) {
-      # Country 已在 align 中；保留
+    if (!"Country" %in% names(med_p)) {
+      # Country 应已在各库 med 表；缺则按 Cohort 名映射会在 mediation 块丢弃
+      cli::cli_alert_warning("Pooled mediation: med 表缺 Country 列")
     }
   }
 
@@ -649,7 +740,7 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
         model1 = m1p,
         model2 = m2p,
         exposure = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
-        mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
+        mediator = .circ_med_var,
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         exposure_label = .circ_exp_lab,
         mediator_label = .circ_med_lab,
@@ -661,7 +752,8 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
       ),
       mediation_longitudinal = list(
         treat = if (exists(".circadian_index_var", inherits = TRUE)) .circadian_index_var else "FI",
-        mediator = if (exists(".circadian_index_var", inherits = TRUE)) "FI" else "Depression_cont",
+        mediator = .circ_med_var,
+        mediator_transform = .circ_med_xf,
         outcome = "Disease_Group",
         outcome_event_level = if (exists(".circadian_index_var", inherits = TRUE)) "Circadian_Disorder" else .ev_ag,
         sims = sims, seed = 40595747L,
@@ -692,6 +784,13 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
   if (isTRUE(change_only)) {
     tryCatch({ ctxp <- block_cross_lagged_change_logistic(ctxp) },
              error = function(e) cli::cli_alert_warning("Pooled change: {e$message}"))
+  } else if (isTRUE(pooled_mediation_only)) {
+    if (!is.null(med_p) && nrow(med_p) >= 30L) {
+      tryCatch({ ctxp <- block_mediation_longitudinal(ctxp) },
+               error = function(e) cli::cli_alert_warning("Pooled mediation: {e$message}"))
+    } else {
+      cli::cli_alert_warning("Pooled mediation 跳过（med 表过小或缺失）")
+    }
   } else {
     tryCatch({ ctxp <- block_cross_lagged_corr_table(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled corr: {e$message}"))
     tryCatch({ ctxp <- block_cross_lagged_country_year_bar(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled bar: {e$message}"))
@@ -702,6 +801,45 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
       tryCatch({ ctxp <- block_mediation_longitudinal(ctxp) },
                error = function(e) cli::cli_alert_warning("Pooled mediation: {e$message}"))
     }
+  }
+
+  # Table S9.2：Pooled 纵向中介（独立表，不冲 S9 分库结果）
+  .pooled_med_rds <- file.path(out_dir, "Tables", "Table_Mediation_Longitudinal_pub.rds")
+  if (file.exists(.pooled_med_rds) &&
+      (isTRUE(pooled_mediation_only) || isTRUE(run_pooled_long))) {
+    .s92_arrow <- intToUtf8(0x2192L)
+    .s92_name <- paste0(
+      "Table S9.2. Longitudinal mediation ",
+      as.character(.circ_exp_lab %||% "Exposure")[1L], .s92_arrow,
+      as.character(.circ_med_lab %||% "Mediator")[1L], .s92_arrow,
+      as.character(.circ_out_lab %||% "Outcome")[1L],
+      " (Pooled).xlsx"
+    )
+    .s92_out <- file.path(study_root, "summary_result", "table", .s92_name)
+    tryCatch({
+      dir.create(dirname(.s92_out), recursive = TRUE, showWarnings = FALSE)
+      old_s92 <- list.files(
+        dirname(.s92_out),
+        pattern = "^Table S9\\.2\\. Longitudinal mediation ",
+        full.names = TRUE
+      )
+      old_s92 <- old_s92[basename(old_s92) != basename(.s92_out)]
+      if (length(old_s92)) unlink(old_s92)
+      res_s92 <- cross_lagged_mediation_build_table_s7(
+        .pooled_med_rds, .s92_out,
+        cohorts = "Pooled",
+        title = sub("\\.xlsx$", "", .s92_name)
+      )
+      # 脚注补充：暴露库内百分位 + Country 调整
+      if (nzchar(.pooled_harm) && !identical(.pooled_harm, "none")) {
+        cli::cli_alert_info(
+          "S9.2 暴露口径: within-cohort {(.pooled_harm)}; covariates 含 Country"
+        )
+      }
+      cli::cli_alert_success(
+        "Table S9.2 已生成: {basename(.s92_out)}; cohorts={paste(res_s92$cohorts, collapse=', ')}"
+      )
+    }, error = function(e) cli::cli_alert_warning("Table S9.2 合并失败: {e$message}"))
   }
 
   # pooled flowchart PDF：各队列 final N 主列（发病 CONSORT 风格；汇总主文 Fig1 仍用分库三拼）
@@ -786,7 +924,7 @@ s5_out <- file.path(
     "Table S5. Change analysis Mean FI and FI change.xlsx"
   }
 )
-if (any(file.exists(s5_rds))) {
+if (!isTRUE(corr_mediation_only) && any(file.exists(s5_rds))) {
   tryCatch({
     dir.create(dirname(s5_out), recursive = TRUE, showWarnings = FALSE)
     res_s5 <- cross_lagged_change_build_table_s5(
@@ -802,6 +940,7 @@ if (any(file.exists(s5_rds))) {
 }
 
 # ── Table S5.1：全库强制 two_wave（敏感性；与 S5 一并进汇总）────────────────
+if (!isTRUE(corr_mediation_only)) {
 cli::cli_h1("Table S5.1: force two_wave for all cohorts")
 .run_change_twowave <- function(ctx_in, db_lab) {
   if (is.null(ctx_in) || is.null(ctx_in$data$longitudinal_wide)) {
@@ -935,55 +1074,116 @@ if (any(file.exists(s51_rds))) {
     )
   }, error = function(e) cli::cli_alert_warning("Table S5.1 合并失败: {e$message}"))
 }
+} # end !corr_mediation_only (S5.1)
 
-# ── Table S6：相关回归（三库合并）────────────────────────────────────────────
+# ── Table S6/S8：相关回归（三库合并；有 MV/VIF 槽位时写 S8）────────────────
+# pooled-mediation-only：S9.2 已单独写出；勿重拼 S8/S9 以免把分库定稿冲成含 Pooled
+if (isTRUE(pooled_mediation_only)) {
+  cli::cli_alert_info("pooled-mediation-only：跳过 Table S8/S9 重拼（保留分库定稿）")
+}
 s6_rds <- file.path(
   study_root,
   paste0("phase3_long_", .long_cohorts),
   "Tables", "Table3_Correlation_Regression_pub.rds"
 )
-s6_out <- file.path(study_root, "summary_result", "table",
-                    "Table S6. Correlation regression FI Depression Hip fracture.xlsx")
-if (any(file.exists(s6_rds))) {
+.has_mv_slots <- length(list.files(
+  file.path(study_root, "summary_result", "table"),
+  pattern = "^Table S5-.*Multivariable", full.names = FALSE
+)) > 0L
+.s6_slot <- if (isTRUE(.has_mv_slots)) "S8" else "S6"
+.s6_title_core <- if (exists(".circadian_index_var", inherits = TRUE)) {
+  paste(
+    as.character(.circ_exp_lab %||% "Exposure")[1L],
+    as.character(.circ_med_lab %||% "Mediator")[1L],
+    as.character(.circ_out_lab %||% "Outcome")[1L]
+  )
+} else {
+  "FI Depression Hip fracture"
+}
+.s6_fname <- paste0("Table ", .s6_slot, ". Correlation regression ", .s6_title_core, ".xlsx")
+.s6_title <- paste0(
+  "Table ", .s6_slot, ". Correlation regression of ",
+  if (exists(".circadian_index_var", inherits = TRUE)) {
+    paste(
+      as.character(.circ_exp_lab)[1L], ",",
+      as.character(.circ_med_lab)[1L], "and",
+      as.character(.circ_out_lab)[1L]
+    )
+  } else {
+    "Frailty Index, Depression and Hip fracture"
+  }
+)
+s6_out <- file.path(study_root, "summary_result", "table", .s6_fname)
+if (!isTRUE(pooled_mediation_only) && any(file.exists(s6_rds))) {
   tryCatch({
     dir.create(dirname(s6_out), recursive = TRUE, showWarnings = FALSE)
-    res_s6 <- cross_lagged_corr_build_table_s6(s6_rds, s6_out, cohorts = .long_cohorts)
-    cli::cli_alert_success(
-      "Table S6 已生成: cohorts={paste(res_s6$cohorts, collapse=', ')}"
+    # 清掉旧 FI 误标文件名，避免与 CRP 并存
+    if (exists(".circadian_index_var", inherits = TRUE)) {
+      old_corr <- list.files(
+        dirname(s6_out),
+        pattern = paste0("^Table S[68]\\. Correlation regression .*"),
+        full.names = TRUE
+      )
+      old_corr <- old_corr[basename(old_corr) != basename(s6_out)]
+      if (length(old_corr)) unlink(old_corr)
+    }
+    res_s6 <- cross_lagged_corr_build_table_s6(
+      s6_rds, s6_out, cohorts = .long_cohorts, title = .s6_title
     )
-  }, error = function(e) cli::cli_alert_warning("Table S6 合并失败: {e$message}"))
+    cli::cli_alert_success(
+      "Table { .s6_slot } 已生成: cohorts={paste(res_s6$cohorts, collapse=', ')}"
+    )
+  }, error = function(e) cli::cli_alert_warning("Table 相关回归合并失败: {e$message}"))
 }
 
-# ── Table S7：纵向中介（三库合并）────────────────────────────────────────────
+# ── Table S7/S9：纵向中介（三库合并；有 MV/VIF 槽位时写 S9）────────────────
 s7_rds <- file.path(
   study_root,
   paste0("phase3_long_", .long_cohorts),
   "Tables", "Table_Mediation_Longitudinal_pub.rds"
 )
 .s7_arrow <- intToUtf8(0x2192L)
+.s7_slot <- if (isTRUE(.has_mv_slots)) "S9" else "S7"
 .s7_name <- if (exists(".circadian_index_var", inherits = TRUE)) {
   paste0(
-    "Table S7. Longitudinal mediation ",
+    "Table ", .s7_slot, ". Longitudinal mediation ",
     as.character(.circ_exp_lab %||% "Exposure")[1L], .s7_arrow,
     as.character(.circ_med_lab %||% "FI")[1L], .s7_arrow,
     as.character(.circ_out_lab %||% "Circadian disorder")[1L], ".xlsx"
   )
 } else {
   paste0(
-    "Table S7. Longitudinal mediation Frailty Index", .s7_arrow,
+    "Table ", .s7_slot, ". Longitudinal mediation Frailty Index", .s7_arrow,
     "Depression", .s7_arrow, "Hip fracture.xlsx"
   )
 }
+.s7_title <- sub("\\.xlsx$", "", .s7_name)
 s7_out <- file.path(study_root, "summary_result", "table", .s7_name)
-if (any(file.exists(s7_rds))) {
+if (!isTRUE(pooled_mediation_only) && any(file.exists(s7_rds))) {
   tryCatch({
     dir.create(dirname(s7_out), recursive = TRUE, showWarnings = FALSE)
-    res_s7 <- cross_lagged_mediation_build_table_s7(s7_rds, s7_out, cohorts = .long_cohorts)
-    cli::cli_alert_success(
-      "Table S7 已生成: cohorts={paste(res_s7$cohorts, collapse=', ')}"
+    if (exists(".circadian_index_var", inherits = TRUE)) {
+      old_med <- list.files(
+        dirname(s7_out),
+        pattern = paste0("^Table S[79]\\. Longitudinal mediation "),
+        full.names = TRUE
+      )
+      old_med <- old_med[basename(old_med) != basename(s7_out)]
+      if (length(old_med)) unlink(old_med)
+    }
+    res_s7 <- cross_lagged_mediation_build_table_s7(
+      s7_rds, s7_out, cohorts = .long_cohorts, title = .s7_title
     )
-  }, error = function(e) cli::cli_alert_warning("Table S7 合并失败: {e$message}"))
+    cli::cli_alert_success(
+      "Table { .s7_slot } 已生成: cohorts={paste(res_s7$cohorts, collapse=', ')}"
+    )
+  }, error = function(e) cli::cli_alert_warning("Table 中介合并失败: {e$message}"))
 }
 
 cli::cli_alert_success("纵向交叉滞后完成 → phase3_long_CHARLS/ELSA/HRS")
-source(file.path(root, "Blocks/54_cross_lagged_full/phases/auto_collect_summary.inc.R"), local = FALSE)
+# corr/mediation 定点返工勿整包 collect（会冲掉已 renumber 的 MV/VIF/S 号）
+if (!isTRUE(corr_mediation_only) && !isTRUE(change_only)) {
+  source(file.path(root, "Blocks/54_cross_lagged_full/phases/auto_collect_summary.inc.R"), local = FALSE)
+} else {
+  cli::cli_alert_info("跳过 auto_collect（corr-mediation-only / change-only）")
+}

@@ -49,7 +49,7 @@ for (nm in names(dbs)) {
     footnotes = c(
       sprintf("Analytic N=%d, deaths=%d after excluding deaths in year 1.", nrow(d5), sum(d5$fustatus == 1)),
       paste0("Model 3 adjusted by: ", paste(m3, collapse = ", "), "."),
-      "Sleep groups: <5 h, 5-6 h, 6-7 h, 7-8 h (reference) and >=9 h.",
+      "Sleep groups: <5 h, 5-6 h, 6-7 h, 7-<9 h (reference; [7, 9) hours) and >=9 h.",
       sprintf("Cohort role: %s.", pv2_role_label(nm))
     )
   )
@@ -91,7 +91,7 @@ for (nm in names(dbs)) {
     footnotes = c(
       "Events after 5 years are censored at 5 years.",
       paste0("Model 3 covariates: ", paste(m3, collapse = ", "), "."),
-      "Sleep groups: <5 h, 5-6 h, 6-7 h, 7-8 h (reference) and >=9 h."
+      "Sleep groups: <5 h, 5-6 h, 6-7 h, 7-<9 h (reference; [7, 9) hours) and >=9 h."
     )
   )
   message("S3 ", nm)

@@ -67,7 +67,7 @@
   # 综合
   "PNI",          # 10*Albumin + 5*Lymphocytes
   "EASIX",        # LD * Creatinine / Platelet_Count
-  "SOSM",         # 1.86*(Na+K) + 1.15*Glucose/18 + BUN*0.375 + 14
+  "SOSM",         # 1.86*(Na+K) + 1.15*Glucose/18 + BUN*0.357 + 14
   # 人体测量（两库均有 BMI）
   "BMI"           # Weight / (Height/100)^2
 )

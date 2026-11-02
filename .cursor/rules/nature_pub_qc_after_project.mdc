@@ -19,6 +19,8 @@ alwaysApply: true
 
 **预后 v2 / Cox 加检（用户 2026-10-26；Hip AKI）：** 另须过 checklist **§B4** 与规则 `prognosis_v2_pub_p0_gate.mdc`，并跑 `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear、禁下划线、PH 表、Methods 取材/MICE）。无预后 Cox 可 N/A。
 
+**双库 ML dev_ext 加检（用户 2026-11-02；AKI_TX BUN_Cr）：** 另须过规则 `ml_dual_dev_ext_pub_p0_gate.mdc`（Fig1 诚实排除+短标签+无图底长脚注、主模型≠裸 best、S 表 A1=文件名、Model2 筛源写实、图带库/集标签、summary_results 五件套）。无双库 ML 可 N/A。
+
 ## 强制技能（只审发表产物）
 
 1. **`nature-statistics`**（`.cursor/skills/nature-statistics/SKILL.md`，个人副本 `~/.cursor/skills/nature-statistics/`）  
@@ -39,7 +41,7 @@ alwaysApply: true
 | 来源 | 视为 P0 |
 |------|---------|
 | nature-statistics | 标签为 **P0** 的条目（能推翻中心结论的统计报告/分析逻辑问题） |
-| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读、**定稿 png/tiff 嵌入 DPI &lt; 600 或缺元数据**（`pub_figure_formats_status()$bad_dpi` 非空） |
+| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读；**仅当** `config$pub_figures$export_png/tiff=TRUE` 时，定稿栅格 DPI&lt;600 / stale_raster 才算 P0（2026-11-02 起默认只交 PDF，缺 png/tiff 不再 P0） |
 
 **铁律：**
 

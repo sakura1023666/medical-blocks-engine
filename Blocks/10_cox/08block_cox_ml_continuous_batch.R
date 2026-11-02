@@ -373,9 +373,15 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
   out <- do.call(rbind, parts)
   rownames(out) <- NULL
   ncol_out <- ncol(out)
+  ## all-vars ML：无主暴露 → 列头/脚注用 predictor，避免因果暴露口吻
+  .pred_mode <- identical(
+    tolower(as.character((cfg$capability %||% list())$exposure_mode %||% "")[1L]),
+    "all_ml_features"
+  ) || isTRUE(bl$predictor_wording %||% FALSE)
+  .cut_lab <- if (isTRUE(.pred_mode)) "Predictor cutoff" else "Exposure cutoff"
   h1 <- c("", "", "", "", "Crude Model", "", "", "Model1", "", "", "Model2", "")
   h2 <- c(
-    "Characteristic", "Exposure cutoff", "N (%)", "HR", "95%CI", "P-value",
+    "Characteristic", .cut_lab, "N (%)", "HR", "95%CI", "P-value",
     "HR", "95%CI", "P-value", "HR", "95%CI", "P-value"
   )
   if (length(h1) != ncol_out) h1 <- c(h1, rep("", ncol_out - length(h1)))[seq_len(ncol_out)]
@@ -394,11 +400,22 @@ block_cox_ml_continuous_batch <- function(ctx, ...) {
     model2_factors = model2_fixed, exposure_cont = exposure_cont,
     excl_cont_exp = excl_cont_exp
   )
+  if (isTRUE(.pred_mode)) {
+    footnotes <- gsub("Exposure ", "Predictor ", footnotes, fixed = TRUE)
+    footnotes <- gsub("index variable", "predictor variable", footnotes, fixed = TRUE)
+    footnotes <- c(
+      footnotes,
+      "Associations are descriptive of model-captured structure among selected continuous predictors; estimates are not causal exposure effects."
+    )
+  }
   if (exists("mi_append_table_footnotes", mode = "function")) {
     footnotes <- mi_append_table_footnotes(footnotes, ctx)
   }
   ctx$results$cox_ml_continuous_model2_factors <- if (length(model2_fixed)) model2_fixed else NULL
-  pub <- pub_paths(ctx, tbl_dir, "supp_table", cap, "xlsx")
+  ## 默认主文表（避免与同内容 Table S* 双落）；显式 table_kind=supp_table 可改回补充表
+  .tk <- as.character(bl$table_kind %||% "main_table")[1L]
+  if (!.tk %in% c("main_table", "supp_table")) .tk <- "main_table"
+  pub <- pub_paths(ctx, tbl_dir, .tk, cap, "xlsx")
   export_sci_table(
     out, pub$filepath, title = pub$title, table_footnotes = footnotes,
     header_row1 = h1, header_row2 = h2, latex_include_colnames = FALSE

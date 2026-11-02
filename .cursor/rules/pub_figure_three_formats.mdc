@@ -1,48 +1,51 @@
 ---
-description: 发表图必须 pdf/png/tiff/image_information 四目录（含 TST）
+description: 发表图默认 pdf + image_information（png/tiff 仅显式开启）
 alwaysApply: true
 ---
 
-# 发表图四目录铁律（全项目复用）
+# 发表图格式铁律（全项目复用）
 
-所有发病 / 预后 / ML / 竞争风险 / **两阶段 Transformer（TST）** 等指标汇总 `Figures/` 必须含 **pdf / png / tiff / image_information** 四目录。禁止只留根目录平铺 `Figure*.pdf`。
+所有发病 / 预后 / ML / 竞争风险 / **两阶段 Transformer（TST）** 等指标汇总 `Figures/` **默认只导出 PDF + image_information**。禁止只留根目录平铺 `Figure*.pdf`。
 
-## 铁律
+## 铁律（2026-11-02）
 
-1. **落盘结构**（指标根，如 `by_index/【success】INDEX/Figures/` 或 TST `summary_results/Figures/`）：
+1. **默认落盘结构**（指标根 / `summary_results/Figures/`）：
    - `pdf/Figure ….pdf`
-   - `png/Figure ….png`
-   - `tiff/Figure ….tiff`
    - `image_information/Figure ….md`
-2. **唯一写出入口**：`R/pub_figure_export.R` → `export_pub_figures()` / `pub_figure_ensure_formats()`。
-3. **finalize 必挂**：
-   - 发病/预后：`incidence_batch_finalize_index_outputs()` → `incidence_batch_ensure_index_pub_figure_formats()`
-   - TST：`tst_summary_results` 在 `build_summary_results.py` 之后必须调用 `export_pub_figures(summary_results/Figures)`
-4. **手工改图后必重导**：重跑中介 / 亚组 / 只拷 PDF / 重画 Fig2 后，必须再跑 `pub_figure_ensure_formats(Figures目录)`，禁止只更新一个 pdf。
-5. **校验**：`pub_figure_formats_status()` 要求每张 pdf 都有对应 png+tiff（**0 字节/过小 TIFF 视为缺失**），且 Figures 根目录无残留 `Figure*.pdf`。
-6. **TIFF 非零兜底（SMB/WSL 坑）**：Windows python/PIL 直写 SMB 常落 0 字节；`pub_figure_ensure_tiff_from_png()` 已三层兜底（PIL → R 原生 png+tiff::writeTIFF LZW → magick），`.pub_figure_rasterize_one()` 自动调用。批量修旧结果：`Rscript run/pub/repair_zero_tiffs.R --dir .../Figures` 或 `--root /mnt/g/02block_result`。禁止再手写 `tmp_tiff_fix.R`。
-7. **定稿 png/tiff 必须 600 dpi（全项目铁律）**：默认 `config$pub_figures$dpi = 600`（引擎强制下限）；栅格须写入嵌入 DPI 元数据。缺元数据 / dpi&lt;600 / 垃圾值（如 1）视为不合格，触发 `pub_figure_ensure_formats` 重导。Nature 审图（Layer D）每次必检此项。
-8. **PNG 的 599.9988 不算 600**：pHYs 只能存整数像素/米，`round(600/0.0254)=23622` 读回 599.9988，资源管理器显示 599。写出必须走 `python/pub_figure_rasterize.py` 的 `png_save_dpi()`（读回 ≥600）。`pub_figure_formats_status` 不再用「600 减 5」放行。
-9. **禁止导出后再覆盖栅格**：`pub_figure_ensure_formats` 之后不得 `ggsave` / `png(res=200|300)` / `tiff::writeTIFF` 覆盖 `png/`、`tiff/`。裁白边只许发生在 PDF 定稿之前；低分辨率 PNG 只能当裁切中间稿。
+2. **不再默认导出** `png/`、`tiff/`。期刊若仍要栅格，课题显式：
+   `config$pub_figures$export_png = TRUE` 和/或 `export_tiff = TRUE`（须嵌入 DPI ≥ 600）。
+3. **唯一写出入口**：`R/pub_figure_export.R` → `export_pub_figures()` / `pub_figure_ensure_formats()`。
+4. **finalize 必挂**：发病/预后 / TST / pipeline 收尾仍调用 `export_pub_figures` / `pub_figure_ensure_formats`（默认 PDF-only）。
+5. **手工改图后**：重跑中介 / 亚组 / remirror 覆盖 PDF 后，必须再跑 `pub_figure_ensure_formats(Figures目录)`，保证 `pdf/` 与 `image_information` 同源；开启栅格时同步重导 png/tiff。
+6. **校验**：`pub_figure_formats_status(config=…)` 默认只要求每张 pdf 存在、根目录无残留；`missing_png/missing_tiff/bad_dpi/stale_raster` 仅在 `export_png/export_tiff=TRUE` 时计失败。另检：
+   - **`bad_pdf_geometry`**：多页未堆叠、或长边 > `max_edge_in`（默认 11 in）一律不合格。
+7. **交付清理**：默认模式会 `pub_figure_drop_raster_dirs()` 删掉遗留 `png/`/`tiff/`，避免客户目录残留旧栅格。
+8. **多页必须堆叠成单页**（若仍导出栅格或做几何检）：`pub_figure_normalize_pdf(..., stack_pages=TRUE)`。
+9. **超大页限幅**：`config$pub_figures$max_edge_in`（默认 11）。
 
 ## Agent / 手工操作禁令
 
 - ❌ 只把 `Figure S3….pdf` 拷到 `Figures/` 根目录就结束
-- ❌ 在指标根旁建空的 `pdf/` `png/` `tiff/`（必须在 `Figures/` 下）
-- ❌ 因 `mirror_aggregate=FALSE` 就跳过四目录导出
-- ❌ TST `summary_results/Figures` 只留平铺 PDF
+- ❌ 因「不要 png/tiff」就跳过 `export_pub_figures`（仍须收进 `pdf/` + 写 image_information）
+- ❌ 默认课题再强制出 600 dpi png/tiff 当交付硬门槛
 - ✅ 改完图后：`pub_figure_ensure_formats(file.path(index_root, "Figures"), config = config)`
 
 ## 实现入口
 
-- `R/pub_figure_export.R`：`export_pub_figures` / `pub_figure_ensure_formats` / `pub_figure_formats_status`
-- `R/incidence_dual_batch_runner.R`：`incidence_batch_ensure_index_pub_figure_formats` + finalize 挂点
-- `Blocks/71_two_stage_transformer_stroke/12block_tst_summary_results.R`：TST 汇总后四目录
-- `R/pipeline_runner.R`：流水线收尾对非分库槽位 Figures 补齐
+- `R/pub_figure_export.R`：`export_pub_figures` / `pub_figure_ensure_formats` / `pub_figure_formats_status` / `pub_figure_drop_raster_dirs`
+- `R/incidence_dual_batch_runner.R`：finalize 挂点
+- `Blocks/71_two_stage_transformer_stroke/12block_tst_summary_results.R`
+- `R/pipeline_runner.R`
 
 ## 检查清单
 
-- [ ] `Figures/pdf|png|tiff` 三目录存在且图数量一致
+- [ ] `Figures/pdf` 存在且与 image_information 图数一致（或 md 可缺但 pdf 齐）
 - [ ] `Figures/` 根目录无 `Figure*.pdf` 平铺残留
-- [ ] 中介 / 亚组 / TST Fig2 重跑后四目录已刷新（含新图）
-- [ ] 定稿 png/tiff 嵌入 DPI ≥ 600（`pub_figure_formats_status()$bad_dpi` 为空；PNG 读回 599.9988 算不合格）
+- [ ] 默认交付无 `png/`、`tiff/`（除非 config 显式开启）
+- [ ] 无多页 PDF（`bad_pdf_geometry` 空）；长边 ≤ `max_edge_in`
+
+## 反例（禁止）
+
+- 只更新根目录 PDF、不跑 ensure_formats
+- 默认模式仍把缺 png/tiff 判为 P0
+- 交付 `summary_results/Figures` 仍堆满无用的旧 png/tiff

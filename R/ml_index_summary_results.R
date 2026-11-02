@@ -12,9 +12,131 @@
 #    config$pub$index_summary_results_dir = "summary_results"  # 或 summary_result
 ###############################################################################
 
+#' TCF / 多算法融合（sklearn RSCV + TOPSIS）Methods 正文
+ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
+  cfg <- config %||% list()
+  proj <- cfg$project %||% list()
+  pmid <- as.character(proj$literature_pmid %||% "")[1L]
+  mi <- cfg$imputation %||% list()
+  m <- suppressWarnings(as.integer(mi$m %||% 5L)[1L])
+  if (!is.finite(m) || m < 1L) m <- 5L
+  mi_method <- as.character(mi$method %||% "mice")[1L]
+  fit_on <- tolower(trimws(as.character(mi$fit_on %||% "train")[1L]))
+  seed_split <- suppressWarnings(as.integer(
+    (cfg$train_validation %||% list())$seed %||%
+      (cfg$splitting %||% list())$seed %||% 42L
+  )[1L])
+  train_ratio <- suppressWarnings(as.numeric(
+    (cfg$train_validation %||% list())$train_ratio %||%
+      (cfg$splitting %||% list())$train_ratio %||% 0.8
+  )[1L])
+  rscv <- cfg$ml_tcf_sklearn_rscv %||% list()
+  cv <- suppressWarnings(as.integer(rscv$cv %||% 5L)[1L])
+  thr <- suppressWarnings(as.numeric(rscv$threshold %||% 0.5)[1L])
+  smote <- !isFALSE(rscv$smote %||% TRUE)
+  miss_thr <- suppressWarnings(as.numeric(mi$missing_col_threshold %||% 0.30)[1L])
+  primary <- as.character((cfg$dual_db$primary %||% list())$name %||% "MIMIC")[1L]
+  secondary <- as.character((cfg$dual_db$secondary %||% list())$name %||% "eICU")[1L]
+  outcome_note <- as.character(
+    (cfg$methods %||% list())$outcome_definition %||%
+      "ICU admission–anchored 28-day all-cause death among sepsis-associated AKI (SA-AKI)"
+  )[1L]
+  pmid_note <- if (nzchar(pmid)) paste0(" (index PMID ", pmid, ")") else ""
+  c(
+    "# Statistical analysis",
+    "",
+    "## Study design and cohort",
+    "",
+    paste0(
+      "This was a dual-database prognostic prediction study of SA-AKI", pmid_note, ". ",
+      primary, " served as the development cohort (training + internal validation); ",
+      secondary, " was used only for external validation without retraining. ",
+      "Cohort construction and exclusions follow Figure 1."
+    ),
+    "",
+    "## Exposure and outcome",
+    "",
+    paste0(
+      "The clinical endpoint was ", outcome_note, ". ",
+      "Candidate predictors were clinical and laboratory variables available after ",
+      "analysis exclusions (disease-severity and severity scores removed from the covariate pool). ",
+      "There was no single causal exposure index; the modelling target was multivariable risk prediction."
+    ),
+    "",
+    "## Missing data and split",
+    "",
+    paste0(
+      "Columns with missingness >", sprintf("%.0f", 100 * miss_thr),
+      "% were dropped. Remaining missing values were handled by multiple imputation ",
+      "(method = `", mi_method, "`, m = ", m, ", seed = ",
+      as.integer(mi$seed %||% 42L), "). ",
+      if (identical(fit_on, "train")) {
+        "The imputation model was fit on the training set and applied to validation/external sets. "
+      } else {
+        "Imputation fit_on followed the study configuration. "
+      },
+      "Operational tables/figures used the first completed dataset (complete_action = 1). ",
+      "Development patients were randomly split ",
+      sprintf("%.0f/%.0f", 100 * train_ratio, 100 * (1 - train_ratio)),
+      " into training/internal validation with stratification on the outcome (seed = ",
+      seed_split, ")."
+    ),
+    "",
+    "## Feature selection",
+    "",
+    paste0(
+      "Entropy-based stepwise feature selection was run on the development data; ",
+      "the final feature set was restricted to the dual-database computable intersection ",
+      "so that external validation used the same predictors without silent column dropout."
+    ),
+    "",
+    "## Machine learning (TCF)",
+    "",
+    paste0(
+      "Seven base classifiers (decision tree, random forest, support-vector machine, ",
+      "naive Bayes, gradient boosting, XGBoost, LightGBM) were tuned by RandomizedSearchCV ",
+      "(", cv, "-fold CV", if (isTRUE(smote)) "; training MinMax scaling + SMOTE" else "",
+      ") inside the Python TCF bundle. ",
+      "TOPSIS fused the seven probability outputs into the TCF score using development-set ",
+      "weights that were frozen for external scoring. ",
+      "Classification used probability threshold ", thr,
+      ". Discrimination metrics (AUC, ACC, PRE, SEN, SPE, F1) with bootstrap 95% CIs ",
+      "(n_boot = 400, seed = 42) are reported for internal validation and external cohorts. ",
+      "SHAP explanations used the best-performing base learner on the internal validation set."
+    ),
+    "",
+    "## Limitations (apparent training performance)",
+    "",
+    paste0(
+      "Because SMOTE and deep tree learners were fit on the development training set, ",
+      "in-sample fused TCF predictions can yield an apparent training AUC near 1.000. ",
+      "That row is disclosed in Table S10 as apparent/in-sample only and is omitted from ",
+      "the main forest figure of cohort metrics. Primary discrimination claims use the ",
+      "internal validation set and the external database (including planned strata). ",
+      "Figure ROC legend AUC confidence intervals are bootstrap-locked to the TCF performance ",
+      "tables (n_boot = 400; shared stratum seeds)."
+    ),
+    "",
+    "## Software",
+    "",
+    "Package versions are listed in Methods_software_versions.txt and the Software subsection below.",
+    ""
+  )
+}
+
 #' ML 指标交付 Methods 正文（从 config 填疾病 / 库 / 暴露）
 ml_index_methods_statistical_lines <- function(config = NULL) {
   cfg <- config %||% list()
+  ## TCF / 多算法融合：禁止走默认 Cox/LASSO 预后模板
+  is_tcf <- isTRUE((cfg$ml_tcf_sklearn_rscv %||% list())$enable) ||
+    identical(tolower(as.character((cfg$methods %||% list())$kind %||% "")[1L]), "tcf") ||
+    grepl("tcf|topsis|multi.?algorithm", tolower(paste(
+      (cfg$project %||% list())$name %||% "",
+      (cfg$project %||% list())$disease %||% ""
+    )), perl = TRUE)
+  if (isTRUE(is_tcf)) {
+    return(ml_index_methods_statistical_lines_tcf(cfg))
+  }
   proj <- cfg$project %||% list()
   mb <- cfg$ml_batch %||% cfg$incidence_batch %||% list()
   st <- tolower(trimws(as.character(proj$study_type %||% "")[1L]))
@@ -43,13 +165,35 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   event_var <- as.character(surv$event_var %||% disease)[1L]
   horiz <- suppressWarnings(as.numeric((cfg$performance_ml %||% list())$surv_horizon %||% NA_real_)[1L])
   horiz_u <- as.character((cfg$performance_ml %||% list())$surv_horizon_unit %||% "month")[1L]
-  best_metric <- tolower(trimws(as.character(
-    (cfg$ml_aggregate %||% list())$best_metric %||%
+  best_metric_raw <- tolower(trimws(as.character(
+    (cfg$methods %||% list())$primary_ml_metric %||%
+      (cfg$ml_aggregate %||% list())$best_metric %||%
       (cfg$ml_best %||% list())$metric %||%
-      if (is_prog) "c_index" else "roc_auc"
+      if (is_prog) "td_auc_bootstrap" else "roc_auc"
   )[1L]))
-  if (best_metric %in% c("auc", "roc_auc")) best_metric <- "validation AUC"
-  if (identical(best_metric, "c_index")) best_metric <- "validation C-index"
+  best_metric <- if (best_metric_raw %in% c("td_auc_bootstrap", "bootstrap_td_auc", "td-auc")) {
+    paste0(
+      if (is.finite(suppressWarnings(as.numeric((cfg$performance_ml %||% list())$surv_horizon %||% NA_real_)[1L]))) {
+        paste0(
+          as.integer((cfg$performance_ml %||% list())$surv_horizon), "-",
+          as.character((cfg$performance_ml %||% list())$surv_horizon_unit %||% "month"), " "
+        )
+      } else {
+        ""
+      },
+      "bootstrap time-dependent AUC / C-index on the validation set"
+    )
+  } else if (best_metric_raw %in% c("auc", "roc_auc")) {
+    "validation single-cutpoint ROC AUC (overview only)"
+  } else if (identical(best_metric_raw, "c_index")) {
+    "validation C-index"
+  } else {
+    best_metric_raw
+  }
+  shap_rationale <- as.character(
+    (cfg$methods %||% list())$shap_model_rationale %||%
+      (cfg$shap %||% list())$selection_rationale %||% ""
+  )[1L]
   wt <- as.character((cfg$nhanes %||% list())$survey_weight %||% "")[1L]
   db_type <- tolower(trimws(as.character(proj$database_type %||% "")[1L]))
   ## 模板常残留 nhanes$survey_weight；仅当库名/类型真是 NHANES 才写调查权重
@@ -70,12 +214,36 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   m <- suppressWarnings(as.integer(mi$m %||% 5L)[1L])
   if (!is.finite(m) || m < 1L) m <- 5L
   rubin <- isTRUE(mi$rubin_pool %||% TRUE)
+  fit_on <- tolower(trimws(as.character(mi$fit_on %||% "all")[1L]))
+  pipe_blocks <- as.character((cfg$pipeline %||% list())$blocks %||% character(0))
+  ## 若调用方把 pipeline 放在外层，finalize 时也可从 config$`_pipeline_blocks` 传入
+  if (!length(pipe_blocks)) {
+    pipe_blocks <- as.character(cfg$`_pipeline_blocks` %||% character(0))
+  }
+  mi_before_split <- isTRUE((cfg$methods %||% list())$mi_before_split %||% FALSE) ||
+    (identical(fit_on, "all") &&
+       length(pipe_blocks) >= 2L &&
+       any(pipe_blocks == "imputation") &&
+       any(pipe_blocks == "train_validation") &&
+       which(pipe_blocks == "imputation")[1L] < which(pipe_blocks == "train_validation")[1L])
+  mi_order_note <- if (isTRUE(mi_before_split)) {
+    paste0(
+      "Multiple imputation was performed on the pooled analytic cohort before the random ",
+      "training/validation split; therefore validation metrics may be mildly optimistic ",
+      "(information leakage via the shared imputation model). "
+    )
+  } else if (identical(fit_on, "train")) {
+    "The imputation model was fit on the training set and applied to the held-out validation set. "
+  } else {
+    ""
+  }
   mi_note <- if (identical(as.character(mi$method %||% ""), "none")) {
     "Analyses used complete cases without multiple imputation."
   } else {
     paste0(
       "Missing covariates were handled with multiple imputation by chained equations ",
       "(m = ", m, "). ",
+      mi_order_note,
       if (isTRUE(rubin)) {
         if (is_prog) {
           "Cox regression estimates were pooled across imputations with Rubin's rules. "
@@ -88,41 +256,98 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
       "Operational steps (feature selection, KM/RCS/SHAP plots, descriptive tables) used the first completed dataset."
     )
   }
+  lim_lines <- character(0)
+  if (isTRUE(mi_before_split)) {
+    lim_lines <- c(
+      "",
+      "## Limitations (missing data / split)",
+      "",
+      paste0(
+        "Because imputation preceded splitting, validation discrimination may be slightly ",
+        "optimistic relative to a train-only imputation workflow; absolute differences are ",
+        "typically small when missingness is modest, but PROBAST/TRIPOD reviewers should be ",
+        "told this order explicitly."
+      )
+    )
+  }
+  pred_mode <- identical(
+    tolower(as.character((cfg$capability %||% list())$exposure_mode %||% "")[1L]),
+    "all_ml_features"
+  )
   if (is_prog) {
     design_line <- paste0(
       "This was a prognostic survival analysis of ", disease,
       " in ", db, ".", age_note,
       " The analytic sample followed the study inclusion flowchart (Figure 1). ",
-      "Overall survival time was recorded in `", time_var,
+      "Follow-up time was recorded in `", time_var,
       "` with event indicator `", event_var, "`."
     )
-    exposure_line <- paste0(
-      "Candidate clinical, imaging, and treatment variables entered feature selection. ",
-      "Continuous features retained after selection were analysed with Cox proportional hazards models ",
-      "(continuous and quartile forms; lowest quartile as reference) and Kaplan–Meier curves. ",
-      "Restricted cubic splines and subgroup forests focused on Age when that exposure was significant. ",
-      if (is.finite(horiz)) {
-        paste0("Machine-learning discrimination was summarised at a ", horiz, "-", horiz_u, " horizon where applicable. ")
-      } else {
-        ""
-      },
-      "The clinical endpoint was ", disease, "."
-    )
-    assoc_line <- paste0(
-      "Cox models reported hazard ratios (HRs) with 95% confidence intervals. ",
-      "Model 1 and Model 2 covariates follow the regression table footnotes ",
-      "(Age was not used as a covariate when Age was the exposure). ",
-      "Restricted cubic splines described the Age–mortality dose–response. ",
-      "Subgroup forests estimated the highest-versus-lowest Age quartile contrast ",
-      "within strata on the full analytic sample."
-    )
+    exposure_line <- if (isTRUE(pred_mode)) {
+      paste0(
+        "This study is a multivariable prediction model without a single causal exposure. ",
+        "Candidate clinical variables entered feature selection. Continuous predictors retained ",
+        "after selection were summarised with Cox models (continuous and quartile forms; ",
+        "lowest quartile as reference), Kaplan–Meier curves, restricted cubic splines, and ",
+        "subgroup forests as dose–response / robustness descriptions of associations captured ",
+        "by the model (not causal exposure effects). ",
+        if (is.finite(horiz)) {
+          paste0(
+            "Primary machine-learning discrimination used a ", horiz, "-", horiz_u,
+            " horizon (bootstrap TD-AUC / C-index); single-cutpoint ROC AUC tables are overview only. "
+          )
+        } else {
+          ""
+        },
+        "The clinical endpoint was ", disease, "."
+      )
+    } else {
+      paste0(
+        "Candidate clinical, imaging, and treatment variables entered feature selection. ",
+        "Continuous features retained after selection were analysed with Cox proportional hazards models ",
+        "(continuous and quartile forms; lowest quartile as reference) and Kaplan–Meier curves. ",
+        "Restricted cubic splines and subgroup forests focused on Age when that exposure was significant. ",
+        if (is.finite(horiz)) {
+          paste0("Machine-learning discrimination was summarised at a ", horiz, "-", horiz_u, " horizon where applicable. ")
+        } else {
+          ""
+        },
+        "The clinical endpoint was ", disease, "."
+      )
+    }
+    assoc_line <- if (isTRUE(pred_mode)) {
+      paste0(
+        "Cox models reported hazard ratios (HRs) with 95% confidence intervals as adjusted associations ",
+        "among selected predictors. Model 1 and Model 2 covariates follow the regression table footnotes. ",
+        "Restricted cubic splines and subgroup forests for representative continuous predictors ",
+        "(for example AMH) are descriptive of model-captured structure."
+      )
+    } else {
+      paste0(
+        "Cox models reported hazard ratios (HRs) with 95% confidence intervals. ",
+        "Model 1 and Model 2 covariates follow the regression table footnotes ",
+        "(Age was not used as a covariate when Age was the exposure). ",
+        "Restricted cubic splines described the Age–mortality dose–response. ",
+        "Subgroup forests estimated the highest-versus-lowest Age quartile contrast ",
+        "within strata on the full analytic sample."
+      )
+    }
+    shap_note <- if (nzchar(shap_rationale)) {
+      paste0(" SHAP / Shiny used ", shap_rationale, ".")
+    } else {
+      paste0(
+        " The primary ranking metric for discrimination was ", best_metric,
+        "; SHAP/Shiny may follow a separately declared calibration or auto-best rule ",
+        "and must not be labelled simply as \"the best model\" without that rule."
+      )
+    }
     ml_line <- paste0(
       "Participants were randomly split into training and validation sets for supervised survival prediction of ",
       disease, ". ",
       "Feature selection used univariate Cox screening, VIF filtering, and LASSO-Cox. ",
-      "Multiple survival learners were trained; the primary model for SHAP explanation and the Shiny tool ",
-      "was the learner with the highest ", best_metric, " on the validation set. ",
-      "Discrimination (AUC, C-index), calibration, and decision-curve analyses are reported in the performance tables."
+      "Multiple survival learners were trained. Primary comparative performance used ",
+      best_metric, ".",
+      shap_note,
+      " Discrimination (AUC, C-index), calibration, and decision-curve analyses are reported in the performance tables."
     )
   } else {
     design_line <- paste0(
@@ -193,7 +418,8 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
     "## Software",
     "",
     "Package versions are listed in Methods_software_versions.txt and the Software subsection below.",
-    ""
+    "",
+    lim_lines
   )
 }
 
@@ -471,12 +697,37 @@ ml_finalize_index_summary_results <- function(index_root,
   dir.create(tab_dst, recursive = TRUE, showWarnings = FALSE)
   dir.create(fig_dst, recursive = TRUE, showWarnings = FALSE)
 
-  ## Tables：只同步发表 xlsx
+  ## Tables：只同步发表 xlsx；先把指标根内题与文件名对齐（防 S* 错号）
+  if (!exists("pub_sync_xlsx_a1_titles_to_filenames", mode = "function")) {
+    .ml_src("R/pub_xlsx_surgical.R")
+  }
+  if (dir.exists(tab_src) &&
+      exists("pub_sync_xlsx_a1_titles_to_filenames", mode = "function")) {
+    tryCatch(
+      pub_sync_xlsx_a1_titles_to_filenames(tab_src),
+      error = function(e) {
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_warning("summary_results: 表题同步失败: {e$message}")
+        }
+      }
+    )
+  }
   if (dir.exists(tab_src)) {
+    if (!exists("pub_dedup_identical_tables", mode = "function")) {
+      .ml_src("R/pub_dedup_identical_tables.R")
+    }
+    if (exists("pub_dedup_identical_tables", mode = "function")) {
+      tryCatch(pub_dedup_identical_tables(tab_src, dry_run = FALSE), error = function(e) NULL)
+    }
     xlsx <- list.files(tab_src, pattern = "\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+    xlsx <- xlsx[!grepl("/_archive", xlsx)]
     for (f in xlsx) {
       file.copy(f, file.path(tab_dst, basename(f)), overwrite = TRUE)
     }
+  }
+  if (dir.exists(tab_dst) &&
+      exists("pub_sync_xlsx_a1_titles_to_filenames", mode = "function")) {
+    tryCatch(pub_sync_xlsx_a1_titles_to_filenames(tab_dst), error = function(e) NULL)
   }
 
   ## Figures：整树同步（含 pdf/png/tiff/image_information）
@@ -484,6 +735,25 @@ ml_finalize_index_summary_results <- function(index_root,
     unlink(fig_dst, recursive = TRUE, force = TRUE)
     ## file.copy(src_dir, parent) → parent/basename(src_dir)
     file.copy(fig_src, sum_root, recursive = TRUE, overwrite = TRUE)
+  }
+
+  ## Shiny：指标根 Shiny/（或根级 ShinyApp/）→ summary_results（交付白名单保留）
+  shiny_src <- file.path(index_root, "Shiny")
+  shiny_app_src <- file.path(index_root, "ShinyApp")
+  if (dir.exists(shiny_src)) {
+    shiny_dst <- file.path(sum_root, "Shiny")
+    if (dir.exists(shiny_dst)) unlink(shiny_dst, recursive = TRUE, force = TRUE)
+    ok_sh <- isTRUE(file.copy(shiny_src, sum_root, recursive = TRUE, overwrite = TRUE))
+    if (isTRUE(ok_sh) && requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_success("summary_results: 已同步 Shiny/")
+    }
+  } else if (dir.exists(shiny_app_src)) {
+    shiny_dst <- file.path(sum_root, "ShinyApp")
+    if (dir.exists(shiny_dst)) unlink(shiny_dst, recursive = TRUE, force = TRUE)
+    ok_sh <- isTRUE(file.copy(shiny_app_src, sum_root, recursive = TRUE, overwrite = TRUE))
+    if (isTRUE(ok_sh) && requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_success("summary_results: 已同步 ShinyApp/")
+    }
   }
 
   ## 同步后再剥一次库名（防止 copy 带回旧 -NPC 名）
@@ -547,7 +817,18 @@ ml_finalize_index_summary_results <- function(index_root,
     }
     if (exists("pub_write_methods_software_section", mode = "function")) {
       st <- tolower(trimws(as.character((config$project %||% list())$study_type %||% "")[1L]))
-      roles <- if (identical(st, "prognosis")) {
+      is_tcf_soft <- isTRUE((config$ml_tcf_sklearn_rscv %||% list())$enable) ||
+        identical(tolower(as.character((config$methods %||% list())$kind %||% "")[1L]), "tcf")
+      roles <- if (isTRUE(is_tcf_soft)) {
+        c(
+          mice = "Multiple imputation (logistic_mi / MICE; train-fit)",
+          ggplot2 = "Publication figures",
+          patchwork = "Multi-panel layout",
+          openxlsx = "SCI three-line tables",
+          pROC = "ROC helpers (where used)",
+          dplyr = "Data wrangling"
+        )
+      } else if (identical(st, "prognosis")) {
         c(
           mice = "Multiple imputation (m=5; Rubin pool for Cox)",
           survival = "Cox proportional hazards / Kaplan-Meier",

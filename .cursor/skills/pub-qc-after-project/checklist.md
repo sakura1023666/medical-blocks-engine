@@ -60,7 +60,7 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 - [ ] 全部发表 xlsx `pub_xlsx_verify`：readable 且 corrupt_cells=0
 - [ ] 项目说明人数与图面人数不一致时，已标明以哪份为准；未画进流程图的排除步骤已写入 Methods
 
-## §B3 NHANES / 发病交付漏检（2026-10 银屑病 eGDR；未勾不得 PASS）
+## §B3 NHANES / 发病交付漏检（2026-10 银屑病 eGDR + 2026-11 cute_ran HHR；未勾不得 PASS）
 
 规则全文：`.cursor/rules/pub_nhanes_incidence_p0_gate.mdc`。无 NHANES / 无加权发病时可整节 `N/A`。
 
@@ -69,7 +69,9 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 - [ ] **硬门控** 主文/Table1/Table2 分位 = **调查加权**；S1/不加权基线/不加权 GLM 若另一套中位数或切点 → 脚注写 unweighted 且不可与 Table2 互换
 - [ ] **硬门控** 中介 Total effect 与 Table2 最高分位 OR：同调整集已声明；数值不同须脚注「不必逐字相同」，禁止正文硬拗一致
 - [ ] **硬门控** 中介路径图数字 = 中介表对应行；实现口径写 `svyglm`/PSU bootstrap（B、seed），勿假写未用的包
-- [ ] **硬门控** Methods 含：暴露公式+出处、MICE(m/method/seed/结局是否入模/complete)、`new_Weight`+层/PSU、终模路径（S3–S7 或等价）；S5 暴露效应消失须点名不藏
+- [ ] **硬门控** Methods 含：暴露公式+定名、MICE(m/method/seed/**结局是否入预测矩阵**/complete)、权重**具体公式**（禁只写 cycle scaling）、Fig1 起点↔定义池桥接、RCS knots/竖线语义、终模路径（S3–S7）；S5 暴露效应消失须点名不藏
+- [ ] **硬门控** 无内容全等的 Table2≡Table3（或其它重复主表）；横断面脚注无 `Cox/`、`KM/`
+- [ ] **硬门控** H1/Methods P0 勾清后，现行 Methods 文件仍含上述关键句（防重传短稿冲掉仍报 PASS）
 - [ ] **硬门控** ROC/`image_information` **无**「惩罚/GBM 训练 AUC 抬高、CV 掉下去所以图上不用」类自曝句；只报图面 AUC
 - [ ] **硬门控** 亚组图面 NE ↔ fig md NE；禁止 md 残留 `0.00`+假小 CI；NE 须有图注/脚注事实句
 - [ ] 描述脚注若写 mean (SE) or median，表内须真有 mean；否则改单口径（median only）
@@ -78,7 +80,8 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 冲突记录格式：`左侧来源 | 数值 | 右侧来源 | 数值 | 差分说明`
 
 > 踩坑：VitalDB AKI Sodium 2026-10 — Table3/Fig3 仍 N=6037 而 Fig1=3522；规则见 `.cursor/rules/pub_qc_denominator_crosscheck.mdc`。  
-> 踩坑：Psoriasis eGDR 2026-10 — Table2 无 Diabetes OR=0.528 vs 引擎含 Diabetes 0.487≈中介总效应；加权 9.39 vs 不加权 9.318；Fig3 md 抄旧伪 CI。
+> 踩坑：Psoriasis eGDR 2026-10 — Table2 无 Diabetes OR=0.528 vs 引擎含 Diabetes 0.487≈中介总效应；加权 9.39 vs 不加权 9.318；Fig3 md 抄旧伪 CI。  
+> 踩坑：cute_ran HHR 2026-11 — Table3≡Table2 副本；Methods 只写 cycle scaling / 无 knots·结局入模·起点桥接；S5 NS 不披露；横断面脚注 Cox/KM；H1 已勾但重传后 Methods 变短。
 
 ## §B4 预后 v2 / Cox 文献发表漏检（2026-10 Hip AKI；未勾不得 PASS）
 

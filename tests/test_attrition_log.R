@@ -47,7 +47,7 @@ stopifnot(any(vapply(ctx2$results$attrition$log, function(x) identical(x$step_id
 ctx_w <- ctx
 ctx_w$results$attrition <- list(log = list())
 ctx_w$results$nhanes_weight_info <- list(
-  weight_col = "new_Weight", source = "WTMEC2YR / WTMEC4YR", n_dropped = 4L
+  weight_col = "new_Weight", source = "WTMEC2YR", n_dropped = 4L
 )
 ctx_w <- attrition_record_survey_weight_step(ctx_w, design_n = 6L)
 weight_idx <- which(vapply(
@@ -66,7 +66,7 @@ ctx_w0 <- ctx
 ctx_w0$results$attrition <- list(log = list())
 ctx_w0 <- attrition_record(ctx_w0, "after_imputation", "After imputation", 10L)
 ctx_w0$results$nhanes_weight_info <- list(
-  weight_col = "new_Weight", source = "WTMEC2YR / WTMEC4YR", n_dropped = 0L
+  weight_col = "new_Weight", source = "WTMEC2YR", n_dropped = 0L
 )
 ctx_w0 <- attrition_record_survey_weight_step(ctx_w0, design_n = 10L)
 stopifnot(any(vapply(

@@ -15,16 +15,22 @@
     file.path(project_root, "summary_results", "Figures"),
     file.path(project_root, "Figures")
   )
+  # 指标级 summary_results（ML/TCF 常见）
+  by_index <- file.path(project_root, "by_index")
+  if (dir.exists(by_index)) {
+    hits <- list.files(by_index, pattern = "^\u3010success\u3011", full.names = TRUE)
+    pub_cands <- c(
+      pub_cands,
+      file.path(hits, "summary_results", "Figures"),
+      file.path(hits, "summary_result", "Figures")
+    )
+  }
   pub_hit <- unique(pub_cands[dir.exists(pub_cands)])
-  # 仅当尚无 summary 定稿时，才扫 【success】 指标/单元（避免双库 unit 草稿 DPI 拖垮定稿 QC）
-  has_summary <- any(dir.exists(c(
-    file.path(project_root, "summary_result", "Figures"),
-    file.path(project_root, "summary_results", "Figures")
-  )))
+  # 仅当尚无 summary 定稿时，才扫 【success】 指标/单元草稿 Figures
+  has_summary <- length(pub_hit) > 0L
   if (isTRUE(has_summary)) return(pub_hit)
 
   cands <- pub_hit
-  by_index <- file.path(project_root, "by_index")
   if (dir.exists(by_index)) {
     hits <- list.files(by_index, pattern = "^\u3010success\u3011", full.names = TRUE)
     cands <- c(cands, file.path(hits, "Figures"))
@@ -37,11 +43,11 @@
   unique(cands[dir.exists(cands)])
 }
 
-.pub_qc_scan_figures <- function(figures_dir) {
+.pub_qc_scan_figures <- function(figures_dir, config = list()) {
   if (!exists("pub_figure_formats_status", mode = "function")) {
     return(list(ok = NA, note = "pub_figure_export not loaded"))
   }
-  pub_figure_formats_status(figures_dir)
+  pub_figure_formats_status(figures_dir, config = config %||% list())
 }
 
 #' 结构 QC：四目录 + DPI≥600；写 reports/pub_qc_*.md（已有正式报告不覆盖正文时可 append stub）
@@ -87,15 +93,26 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     }
   }
   scans <- lapply(fig_roots, function(d) {
-    st <- tryCatch(.pub_qc_scan_figures(d), error = function(e) list(ok = FALSE, error = e$message))
+    st <- tryCatch(
+      .pub_qc_scan_figures(d, config = config %||% list()),
+      error = function(e) list(ok = FALSE, error = e$message)
+    )
     list(dir = d, status = st)
   })
 
   n_fail <- sum(vapply(scans, function(x) {
     st <- x$status
-    isFALSE(st$ok) || length(st$bad_dpi %||% character(0)) > 0 ||
-      length(st$missing_png %||% character(0)) > 0 ||
-      length(st$missing_tiff %||% character(0)) > 0
+    # 2026-11-02：默认不要求 png/tiff；仅当 status 声明 require_png/tiff 时计缺栅格为失败
+    raster_req <- isTRUE(st$require_png) || isTRUE(st$require_tiff)
+    isFALSE(st$ok) ||
+      length(st$flat_leftovers %||% character(0)) > 0 ||
+      length(st$bad_pdf_geometry %||% character(0)) > 0 ||
+      (raster_req && (
+        length(st$bad_dpi %||% character(0)) > 0 ||
+          length(st$stale_raster %||% character(0)) > 0 ||
+          length(st$missing_png %||% character(0)) > 0 ||
+          length(st$missing_tiff %||% character(0)) > 0
+      ))
   }, logical(1)))
 
   reports <- file.path(project_root, "reports")
@@ -113,7 +130,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("- 审阅结论：**", if (n_fail == 0L) "STRUCT_OK" else "STRUCT_FAIL", "**（仅 Layer A 结构；Nature Layer D 须 Agent 填实）"),
     paste0("- Figures 根数：", length(fig_roots), "；结构失败：", n_fail),
     "",
-    "## Layer A — 四目录 + DPI≥600",
+    "## Layer A — pdf + image_information（默认不要求 png/tiff）",
     ""
   )
   for (sc in scans) {
@@ -123,8 +140,16 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
       lines,
       paste0("### `", sc$dir, "`"),
       paste0("- ok=", st$ok %||% NA, "; stems=", length(st$stems %||% character(0)),
-             "; bad_dpi=", bad, "; require_dpi=", st$require_dpi %||% 600L),
+             "; require_png=", isTRUE(st$require_png),
+             "; require_tiff=", isTRUE(st$require_tiff),
+             "; bad_dpi=", bad,
+             "; stale_raster=", length(st$stale_raster %||% character(0)),
+             "; bad_pdf_geometry=", length(st$bad_pdf_geometry %||% character(0)),
+             "; require_dpi=", st$require_dpi %||% 600L),
       if (bad > 0L) paste0("- bad_dpi 样例：", paste(utils::head(st$bad_dpi, 5L), collapse = "; ")) else NULL,
+      if (length(st$stale_raster %||% character(0)) > 0L)
+        paste0("- stale_raster 样例：", paste(utils::head(st$stale_raster, 5L), collapse = "; "))
+      else NULL,
       ""
     )
   }
@@ -135,7 +160,8 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("- 若尚无正式报告，请按 `.cursor/skills/pub-qc-after-project` 填实："),
     paste0("  - `", basename(nature_fig), "`"),
     paste0("  - `", basename(nature_stat), "`"),
-    "- **png/tiff 嵌入 DPI < 600 或缺元数据 = P0**，当场 `pub_figure_ensure_formats`。",
+    "- **默认交付仅 PDF**：缺 png/tiff 不再算 P0；仅当 `config$pub_figures$export_png/tiff=TRUE` 时 DPI/stale_raster 才为 P0。",
+    "- **根目录平铺 Figure*.pdf 或 bad_pdf_geometry = P0**，当场 `pub_figure_ensure_formats`。",
     ""
   )
 

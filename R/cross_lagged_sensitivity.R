@@ -202,23 +202,24 @@ cross_lagged_sens_table_basename <- function(scenario, kind, db = NULL,
                                              grouping = "tertile",
                                              change_index_display = NULL) {
   # kind: baseline | logistic | change | change_twowave
+  # 编号：S5 多因素 / S6 VIF final 进汇总后，敏感性从 S11 起（原 S9–S17.1 顺延）
   map <- list(
     exclude_chronic_ge2 = list(
-      baseline = "S9", logistic = "S10", change = "S11", change_twowave = "S11.1",
+      baseline = "S11", logistic = "S12", change = "S13", change_twowave = "S13.1",
       tag = "Sensitivity exclude chronic ge2"
     ),
     complete_case = list(
-      baseline = "S12", logistic = "S13", change = "S14", change_twowave = "S14.1",
+      baseline = "S14", logistic = "S15", change = "S16", change_twowave = "S16.1",
       tag = sprintf(
         "Sensitivity complete case unimputed listwise"
       )
     ),
     exclude_event_le_2y = list(
-      baseline = "S15", logistic = "S16", change = "S17", change_twowave = "S17.1",
+      baseline = "S17", logistic = "S18", change = "S19", change_twowave = "S19.1",
       tag = "Sensitivity exclude event within 2y"
     ),
     external_validation = list(
-      baseline = "S18", logistic = "S19",
+      baseline = "S20", logistic = "S21",
       tag = "External validation locked covariates CHARLS+ELSA"
     )
   )

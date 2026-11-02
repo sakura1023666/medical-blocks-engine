@@ -444,9 +444,25 @@ ml_assoc_locked_preset_models <- function(ctx) {
   am <- cfg$analysis_models %||% list()
 
   # 0) 外验 / 次库已继承主库训练集 M1/M2（禁止再用空 UV 解析成只剩 Age）
+  #    定向续跑若从旧 ml_inherit_* checkpoint 起步，ctx 可能仍是陈旧 Albumin 截断集；
+  #    有 assoc_covariates_primary.rds 时强制按主库落盘刷新。
   if (identical(ctx$results$assoc_covariates_inherited_from, "primary")) {
     m1 <- unique(as.character(ctx$results$assoc_model1_factors %||% character(0)))
     m2 <- unique(as.character(ctx$results$assoc_model2_factors %||% character(0)))
+    if (exists("pipeline_load_primary_assoc_covariates", mode = "function")) {
+      root <- ctx$config$paths$project_root %||%
+        ctx$config$project$project_root %||%
+        ctx$results$project_root %||%
+        NULL
+      loaded <- tryCatch(
+        pipeline_load_primary_assoc_covariates(root, cfg, must_exist = FALSE),
+        error = function(e) NULL
+      )
+      if (!is.null(loaded)) {
+        m1 <- unique(as.character(loaded$model1 %||% m1))
+        m2 <- unique(as.character(loaded$model2 %||% m2))
+      }
+    }
     m3 <- unique(as.character(
       ctx$results$assoc_model3_factors %||%
         ctx$results$Model3Factors %||%
@@ -462,7 +478,7 @@ ml_assoc_locked_preset_models <- function(ctx) {
         extras = setdiff(unique(c(m2, m3)), m1),
         dropped_in_ml = character(0), allow_m2_eq_m1 = TRUE,
         scheme = ctx$results$assoc_covariate_scheme %||% "default",
-        note = ctx$results$assoc_covariate_note %||% sprintf(
+        note = sprintf(
           "继承主库训练集 Model1=%s; Model2=%s",
           paste(m1, collapse = "+"), paste(unique(c(m1, m2)), collapse = "+")
         ),

@@ -165,8 +165,17 @@ config <- list(
   ml_naive_bayes = list(enable = TRUE),
   ml_gbdt = list(enable = TRUE, n_trees = 100L, learning_rate = 0.1),
   ml_eval_external = list(enable = TRUE),
-  pub_figures = list(formats_dir = TRUE, dpi = 600L, tiff_compression = "lzw",
-                     write_image_information = TRUE),
+  ## Methods 模板走 TCF（勿落到 Cox 预后默认文案）
+  methods = list(kind = "tcf"),
+  ## 默认 PDF + image_information；期刊要栅格再开 export_png/tiff
+  pub_figures = list(
+    formats_dir = TRUE,
+    dpi = 600L,
+    tiff_compression = "lzw",
+    write_image_information = TRUE,
+    export_png = FALSE,
+    export_tiff = FALSE
+  ),
   pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L,
                     int_big_mark = TRUE, desc_trim = TRUE),
   feishu = list(

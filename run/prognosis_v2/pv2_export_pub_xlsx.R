@@ -388,7 +388,7 @@ for (nm in dbs_nm) {
   body_rows <- list(
     row_of("Sleep duration", "", lapply(c("Model1", "Model2", "Model3"), function(md) c("", ""))),
     row_of("  per 1 SD", as.character(n_all), lapply(c("Model1", "Model2", "Model3"), cell_sd)),
-    row_of("  7-8 h", sprintf("%d (%.2f%%)", n_of("7-8"), 100 * n_of("7-8") / n_all),
+    row_of(paste0("  ", pv2_sleep_ref_label), sprintf("%d (%.2f%%)", n_of("7-8"), 100 * n_of("7-8") / n_all),
            lapply(c("Model1", "Model2", "Model3"), function(md) c("Reference", "")))
   )
   for (g in c("<5", "5-6", "6-7", ">=9")) {
@@ -491,7 +491,7 @@ fg_one <- function(d, nm) {
   body_rows <- list(
     row_of("Sleep duration", lapply(mds, function(md) c("", ""))),
     row_of("  per 1 SD", lapply(mds, function(md) cell(md, "sd", "sleep_sd"))),
-    row_of("  7-8 h", lapply(mds, function(md) c("Reference", "")))
+    row_of(paste0("  ", pv2_sleep_ref_label), lapply(mds, function(md) c("Reference", "")))
   )
   for (g in c("<5", "5-6", "6-7", ">=9")) {
     body_rows[[length(body_rows) + 1L]] <- row_of(

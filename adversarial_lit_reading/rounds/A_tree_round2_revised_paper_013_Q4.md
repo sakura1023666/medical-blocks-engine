@@ -33,7 +33,7 @@ critic: rounds/B_attack_tree_paper_013_Q4.md（glm provenance 已核验）
 | E4 | Table 1 vs L333 | 婚姻等展示不入模，标准未述 | 取舍缺口 |
 | E5 | L330–345 | 主模型加性主效应；亚组交互=全样本 LRT | 模型形式 |
 | E6 | L251–258 | MICE m=20 + Rubin；CC 为敏感性(4) | 缺失处理 |
-| E7 | Discussion L2073–2082 | 承认未测量混杂（体力/膳食/药类） | 局限侧证 |
+| E7 | Discussion L2078–2084 | 承认未测量混杂（体力活动/心肺适能/膳食/降压药类） | 局限侧证 |
 
 ## 2. Decision Tree - Mermaid（终版）
 
@@ -60,7 +60,7 @@ flowchart TD
 | N1 | method | a priori 外部知识选择，无数据驱动筛选 | L229–231 | 明示（"预先确定"依据原文措辞） | high | |
 | N2 | method | 四层嵌套加性 Cox | L333–342 | 顺序固定呈现 | high | |
 | N3 | method | 关键协变量数据源逐一点名 | L234–250 | 限定"关键" | high | |
-| N4 | uncertainty | 婚姻不入模无标准；未测候选未列理由 | Table1; L2073–2082 | 原文沉默 | low | 证据不足 |
+| N4 | uncertainty | 婚姻不入模无标准；未测候选未列理由 | Table1; L2078–2084 | 原文沉默 | low | 证据不足 |
 | N5 | method | 加性主效应；非线性未报告；交互=全样本 LRT | L330–350 | 措辞修正后 | high | |
 | N6 | limitation | 无 DAG；完备性靠引文 | L229 | 降级表述 | medium | 逻辑跳跃 |
 | N7 | evidence | 敏感性按 5 类分层复核 | L350–368 | 重组后 | high | |

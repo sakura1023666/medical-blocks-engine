@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# phase_sensitivity.R — 发病敏感性（S8 之后：S9–S17.1）
+# phase_sensitivity.R — 发病敏感性（S10 CLPN 之后：S11–S19.1）
 # 场景：exclude_chronic_ge2 | complete_case | exclude_event_le_2y
 # 跳过 competing_risk（无死亡变量；配置占位 competing_risk=FALSE）
 # Usage:
@@ -36,6 +36,8 @@ only_scen <- NULL
 no_sync <- FALSE
 baseline_only <- FALSE
 change_only <- FALSE
+logistic_only <- FALSE
+grouping_override <- NULL
 i <- 1L
 while (i <= length(args)) {
   if (args[[i]] == "--study-root" && i < length(args)) {
@@ -48,12 +50,16 @@ while (i <= length(args)) {
     only_dbs <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
   } else if (args[[i]] == "--scenario" && i < length(args)) {
     only_scen <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]]); i <- i + 2L
+  } else if (args[[i]] == "--grouping" && i < length(args)) {
+    grouping_override <- tolower(trimws(args[[i + 1L]]))[1L]; i <- i + 2L
   } else if (args[[i]] %in% c("--no-sync")) {
     no_sync <- TRUE; i <- i + 1L
   } else if (args[[i]] %in% c("--baseline-only")) {
     baseline_only <- TRUE; i <- i + 1L
   } else if (args[[i]] %in% c("--change-only")) {
     change_only <- TRUE; i <- i + 1L
+  } else if (args[[i]] %in% c("--logistic-only")) {
+    logistic_only <- TRUE; i <- i + 1L
   } else i <- i + 1L
 }
 study_root <- normalizePath(study_root, winslash = "/", mustWork = TRUE)
@@ -88,6 +94,15 @@ source(file.path(root, "Blocks/54_cross_lagged_full/20block_cross_lagged_change_
 .meta <- cross_lagged_study_meta(study_root)
 .is_dementia <- identical(.meta$kind, "dementia")
 .is_circadian <- identical(.meta$kind, "circadian")
+if (!is.null(grouping_override) && nzchar(grouping_override)) {
+  if (!grouping_override %in% c("tertile", "quartile", "binary")) {
+    stop("--grouping 仅支持 tertile / quartile / binary，收到: ", grouping_override, call. = FALSE)
+  }
+  .meta$grouping <- grouping_override
+  cli::cli_alert_info(paste0(
+    "敏感性分位覆盖: grouping=", .meta$grouping, "（主文 meta 不变，仅本趟）"
+  ))
+}
 
 options(warn = 1, cli.hyperlink = FALSE)
 if (!exists("%||%", mode = "function")) {
@@ -115,7 +130,20 @@ if (!is.null(only_dbs) && length(only_dbs)) {
 }
 .scenarios <- c("exclude_chronic_ge2", "complete_case", "exclude_event_le_2y")
 if (.is_circadian && length(.validation_cohorts)) {
-  .scenarios <- c(.scenarios, "external_validation")
+  # 仅当验证库确有插补后数据时才跑 external_validation（空 phase1_NHANES 目录不触发）
+  .nhanes_ok <- vapply(.validation_cohorts, function(db) {
+    d1 <- file.path(study_root, paste0("phase1_", db), "D01_AfterMI_Data.RData")
+    d1b <- file.path(study_root, paste0("phase1_", db, "_allages"), "D01_AfterMI_Data.RData")
+    file.exists(d1) || file.exists(d1b)
+  }, logical(1))
+  if (any(.nhanes_ok)) {
+    .scenarios <- c(.scenarios, "external_validation")
+  } else {
+    cli::cli_alert_warning(
+      "跳过 external_validation：验证队列 {paste(.validation_cohorts, collapse=', ')} 无 D01_AfterMI_Data.RData"
+    )
+    .validation_cohorts <- character(0)
+  }
 }
 if (!is.null(only_scen) && length(only_scen)) .scenarios <- intersect(.scenarios, only_scen)
 
@@ -132,7 +160,11 @@ dir.create(.out_root, recursive = TRUE, showWarnings = FALSE)
 dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
 
 .make_base_config <- function(db, out_dir, scenario_tag) {
-  idx_disp <- if (.is_dementia) .meta$index_display else if (.is_circadian) "ePWV" else "Frailty Index"
+  # 昼夜 Leisure / ePWV 均走 meta$index_display（禁止写死 ePWV）
+  idx_disp <- as.character(
+    .meta$index_display %||% .meta$exposure_label %||%
+      (if (.is_dementia) "Leisure activities" else if (.is_circadian) "Leisure activity score" else "Frailty Index")
+  )[1L]
   grp <- as.character(.meta$grouping %||% "tertile")[1L]
   cfg <- list(
     project = list(
@@ -342,20 +374,24 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     file.path(out_dir, "FILTER_NOTE.txt")
   )
 
-  cli::cli_h2("{scenario} / {db} — Table 1 (n={nrow(data_df)})")
-  ctx <- tryCatch(block_baseline_binary(ctx), error = function(e) {
-    cli::cli_alert_warning("baseline_binary 失败: {e$message}")
-    ctx
-  })
-  if (exists("flush_pub_output_queues", mode = "function")) {
-    ctx <- tryCatch(flush_pub_output_queues(ctx), error = function(e) ctx)
-  }
-  # 提升为固定 S 编号
-  t1_dest <- file.path(ctx$output_dir_tables, base_name)
-  if (!cross_lagged_sens_promote_table1(ctx$output_dir_tables, t1_dest)) {
-    cli::cli_alert_warning("未找到 Table 1 产出，跳过 promote")
+  if (!isTRUE(logistic_only)) {
+    cli::cli_h2("{scenario} / {db} — Table 1 (n={nrow(data_df)})")
+    ctx <- tryCatch(block_baseline_binary(ctx), error = function(e) {
+      cli::cli_alert_warning("baseline_binary 失败: {e$message}")
+      ctx
+    })
+    if (exists("flush_pub_output_queues", mode = "function")) {
+      ctx <- tryCatch(flush_pub_output_queues(ctx), error = function(e) ctx)
+    }
+    # 提升为固定 S 编号
+    t1_dest <- file.path(ctx$output_dir_tables, base_name)
+    if (!cross_lagged_sens_promote_table1(ctx$output_dir_tables, t1_dest)) {
+      cli::cli_alert_warning("未找到 Table 1 产出，跳过 promote")
+    } else {
+      .copy_to_summary(t1_dest, base_name)
+    }
   } else {
-    .copy_to_summary(t1_dest, base_name)
+    cli::cli_alert_info("{scenario} / {db}: --logistic-only，跳过 Table 1")
   }
 
   if (isTRUE(baseline_only)) return(invisible(TRUE))
@@ -703,7 +739,7 @@ for (sc in .scenarios) {
     )
   }
 
-  if (isTRUE(baseline_only)) next
+  if (isTRUE(baseline_only) || isTRUE(logistic_only)) next
 
   if (identical(sc, "external_validation")) next
 
@@ -748,20 +784,20 @@ writeLines(c(
   paste0("cohorts_xs=", paste(.meta$cohorts_xs, collapse = ",")),
   paste0("cohorts_long=", paste(.meta$cohorts_long, collapse = ",")),
   paste0("logistic_grouping=", .meta$grouping),
-  "Sensitivity tables continue after Table S8 (CLPN). Required for every cross-lagged study.",
-  "S9–S11.1: exclude baseline chronic comorbidities >=2 (lit-aligned).",
+  "Sensitivity tables continue after Table S10 (CLPN). Required for every cross-lagged study.",
+  "S11–S13.1: exclude baseline chronic comorbidities >=2 (lit-aligned).",
   sprintf(
     paste0(
-      "S12–S14.1 (group B): UNIMPUTED dabiao + listwise complete.cases on ",
+      "S14–S16.1 (group B): UNIMPUTED dabiao + listwise complete.cases on ",
       "%s+Disease_Group+Model2; no MI; N may be < AfterMI; ",
       "Change keeps listwise IDs only; FILTER_NOTE has n_before/n_after/n_excluded."
     ),
     .meta$index_var
   ),
-  "S15–S17.1: exclude incident event within 2 years of baseline survey year (longitudinal cohorts only).",
+  "S17–S19.1: exclude incident event within 2 years of baseline survey year (longitudinal cohorts only).",
   if (.is_circadian && length(.validation_cohorts)) {
     paste0(
-      "S18–S19: external_validation — ",
+      "S20–S21: external_validation — ",
       paste(.validation_cohorts, collapse = ","),
       " AfterMI with locked Model2 from CHARLS+ELSA (no re-screen)."
     )

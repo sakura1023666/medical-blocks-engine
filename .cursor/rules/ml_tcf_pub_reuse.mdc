@@ -1,0 +1,35 @@
+---
+description: TCF/多算法融合发表重建上收引擎（禁止课题 scripts 堆完整逻辑）
+alwaysApply: true
+---
+
+# TCF 发表重建复用铁律（全项目）
+
+沉淀自 Wang 2025 SA-AKI TCF（2026-11-02）。**新 TCF 课题直接走引擎**，勿在结果目录堆完整 rebuild。
+
+## 已进引擎（勿课题私改绕过）
+
+| 能力 | 入口 |
+|------|------|
+| 图重建 Fig1–6+S1–S7 | `python/ml_tcf/pub/rebuild_wang2025_figures.py` |
+| 表 payload 计算 | `python/ml_tcf/pub/rebuild_wang2025_tables_compute.py` |
+| 分层 bootstrap 种子 | `python/ml_tcf/pub/bootstrap.py` |
+| 表 xlsx | `run/ml_tcf_sepsis_aki/rebuild_wang2025_tables_core.R` |
+| 入口 | `run/ml_tcf_sepsis_aki/rebuild_wang2025_{figures,tables}.R` |
+| Methods TCF | `config$methods$kind = "tcf"` → `ml_index_methods_statistical_lines_tcf` |
+| PDF-only 默认 | `pub_figures$export_png/tiff = FALSE` |
+| 复用地图 | `docs/reuse/2026-11-02-tcf-pub-pdf-only-delivery-reuse-map.md` |
+
+## 铁律
+
+1. 课题 `scripts/rebuild_wang2025_tcf_*` **只能**薄 redirect；改逻辑只改引擎。
+2. Table2 / S10 / Fig5 / Fig6 Internal AUC CI **同源**（`bootstrap.py` 种子）；禁止 `seed+day` 分叉。
+3. Fig6 **禁止**画 Training 表观 AUC；Methods Limitations 写清。
+4. Methods 必须 `kind=tcf`，禁止落到 Cox 默认模板。
+5. 交付默认 PDF + image_information；白名单见 `pub_delivery_whitelist`。
+
+## 反例
+
+- 在 G:`scripts/` 继续改业务逻辑，引擎副本落后
+- Methods 写成 Cox/landmark 却跑 TCF+TOPSIS
+- Fig5 与 S10 用不同 stratum offset

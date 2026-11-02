@@ -1,11 +1,12 @@
 ---
-description: NHANES/发病发表交付 P0 铁律（银屑病 eGDR 2026-10 教训；防再被审出）
+description: NHANES/发病发表交付 P0 铁律（eGDR 2026-10 + cute_ran HHR 2026-11；防再被审出）
 alwaysApply: true
 ---
 
-# NHANES / 发病发表 P0 铁律（eGDR 374 教训）
+# NHANES / 发病发表 P0 铁律（eGDR 374 + cute_ran HHR 教训）
 
-凡 **NHANES 加权发病 / dual-batch 含 NHANES / 复合指标 logistic** 在质控、Methods 补写、表图返工时必须遵守。踩坑课题：`06_Psoriasis/incidence_38341157`【success】eGDR。
+凡 **NHANES 加权发病 / dual-batch 含 NHANES / 复合指标 logistic** 在质控、Methods 补写、表图返工时必须遵守。  
+踩坑：`06_Psoriasis/incidence_38341157`【success】eGDR；`22_depression/incidence_cute_ran`【success】HHR（2026-11-02 §8.5）。
 
 与 `pub-qc-after-project/checklist.md` **§B3**、`nature-statistics/.../common-failure-modes.md`「Medical Blocks 交付漏检」同步；未逐条过不得 PASS。
 
@@ -30,17 +31,22 @@ alwaysApply: true
 3. **禁止**把中介 Total CI 写成「即 Table 2 Model 2」。路径实现写实：`svyglm` + PSU cluster bootstrap（B、seed）；勿写未使用的 `mediation` 包拟合叙事。
 4. Fig S* 路径数字须与 S12 对应行逐值一致（a/b/直接/比例）。
 
-## 4. Methods 必写实（防零文档）
+## 4. Methods 必写实（防零文档 / 防「cycle scaling」空话）
 
 交付 `Methods_statistical_analysis.md`（或合并 Software 后的方法文）缺任一项 → **P0（轨道 B 可只改文案）**：
 
 | 项 | 最低内容 |
 |----|----------|
 | 复合指标公式 | 完整式 + 系数出处（如 eGDR SEARCH/Williams）；成人外推一句 |
-| MICE | method、m、maxit、seed、结局是否入插补模型、complete_action / 操作层 vs Rubin |
-| 调查权重 | `new_Weight` 来源（WTMEC2YR/4YR 等）、按周期缩放、`SDMVSTRA`/`SDMVPSU` |
-| 协变量路径 | S3→S4→S5→S7（或课题等价）；若 S5 暴露效应消失须如实点名，不藏 |
+| 暴露定名 | 全套 Methods/表/图同一缩写（如 **HHR**）；禁止项目信息写 HRR、图表写 HHR |
+| MICE | method、m、maxit、seed、**结局是否入预测矩阵**、complete_action / 操作层 vs Rubin |
+| 调查权重 | **具体公式**（如 `new_Weight = WTMEC2YR / C`，写明 C=周期数、有无 4YR 行）；**禁止**只写 “with cycle scaling” |
+| Fig1 起点桥接 | 若起点 n ≠ 疾病定义可判池：Methods + Fig1 md 必须写差额原因（哪一周期/哪次 join） |
+| RCS | 结点数与分位（如 3 knots @ P10/P50/P90）、`ref.zero`、竖线=primary cutoff 规则（唯一 OR=1 / 多根取 peak）；S-XX 省略时仍须解释竖线或去线 |
+| 协变量路径 | S3→S4→S5→S7（或课题等价）；若 **S5 暴露不显著、缩减 Model2 显著** 须点名 + Limitations 承认筛选 |
 | ROC | 只报图上 AUC；**禁止** fig md / Methods 写惩罚回归·GBM「训练抬高、CV 掉下去所以不用」自曝句 |
+
+**H1 闭环铁律**：勾「Methods P0 已清」前必须 `rg` 现行 `Methods_statistical_analysis.md` 含上表关键句；**禁止** H1 全勾但 Methods 被重传短稿冲掉后仍宣称 PASS。
 
 ## 5. 图 md 与图面（防陈旧抄录）
 
@@ -48,14 +54,24 @@ alwaysApply: true
 2. 脚注声称 `weighted mean (SE) or median (IQR)` 但表内全是 median → **改单口径**（P1，交付前必改）。
 3. 表题写「participants with \<Disease\>」实为全队列 → 改题名（P1）。
 
+## 6. 主表去重 + 横断面脚注模板（cute_ran HHR 2026-11）
+
+1. **禁止交付根同时存在内容全等的 Table 2 与 Table 3**（仅表题编号不同也算）。交付前逐格比对；重复 → **删多余编号**，主文只留 Table 1–2（除非第三表确有不同分析）。
+2. 中期 PDF 连续编号（T1-N/T1-C/T2-N → 表1/2/3）与正文「表 2」叙事冲突时，**改叙述对齐连续号**，勿误留重复 xlsx「圆谎」。
+3. **横断面 / 无生存课题**：表脚注禁止残留 `Cox/`、`KM/RCS`；改为 `logistic` / `RCS plots`。中介比例均为正时，删 “negative proportion mediated…” 模板句。
+4. Path a 与 S8 β 标度不同时，脚注必须写清（如 path a=连续暴露单位、S8=per 1-SD），禁止两处都写 per 1-SD 却数值不可互推。
+5. `Methods_software_versions.txt` 与 Methods 软件表并集；无对应分析实体的 survival/cmprsk/glmnet 等 **不得**在正文/清单冒充本分析所用。
+
 ## Agent 检查清单（每次 NHANES 发病 QC）
 
 ```
 [ ] 根 Table2 M2 脚注变量 = step 源表 = 中介/RCS/S8/S10 脚注（同集）
 [ ] 根 Table2 M2 OR 字符串 = step 源表（无「只改脚注」漂移）
 [ ] 主切点=加权；S1/S9/S10 若另一套已标 unweighted
-[ ] S12 总效应与 Table2 关系已脚注；路径数=图
-[ ] Methods：公式出处、MICE、权重、终模路径、无 ROC 自曝
+[ ] S12/S9 总效应与 Table2 关系已脚注；路径数=图
+[ ] Methods：公式、定名、MICE(含结局是否入模)、权重**公式**、Fig1 起点桥接、RCS knots/竖线、终模路径、无 ROC 自曝
+[ ] 无 Table2≡Table3 重复主表；横断面脚注无 Cox/KM
+[ ] H1 勾清后 Methods 文件仍含上述句（防重传冲掉）
 [ ] Fig md NE/数字 = pdftotext 图面；无伪 0.00 CI
 [ ] 描述脚注口径与单元格一致；表题=内容
 ```
@@ -67,3 +83,7 @@ alwaysApply: true
 - 正文写中介总效应「与 Table 2 一致」但 0.489 ≠ 0.528
 - Methods 不写 m/seed；fig md 自曝过拟合试验
 - Fig3 Yes=NE，md 仍写 0.00 (4.57e-07–…)
+- Methods 只写 “cycle scaling”，无 `WTMEC2YR/C`
+- Table 3-NHANES 与 Table 2 逐格相同仍交付；中期把副本标成「表3」
+- 横断面表脚注残留 Cox/KM；H1 已勾但重传后 Methods 又变短仍报 PASS
+- S5 全模型暴露 NS、缩减 Model2 显著，Methods 不提筛选

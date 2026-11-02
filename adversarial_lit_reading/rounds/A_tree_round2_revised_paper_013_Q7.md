@@ -24,7 +24,7 @@ critic: rounds/B_attack_tree_paper_013_Q7.md（glm provenance 已核验）
 | evidence_id | location | evidence_summary | role |
 |---|---|---|---|
 | E1 | Methods L261–268; L382–387; L2038–2044 | 9432→1808(19.2%)：−89年龄<50、−4125 TyG缺失(最大项)、−1058 BMI、−868 WHtR、−1484 基线CVD（链为序贯，逐项非可换序） | 选择量级 |
-| E2 | L816–828 | 未测混杂：膳食、体力活动、FVC 外心肺适能、药类/剂量 | 混杂局限 |
+| E2 | Discussion L2078–2084 | 未测混杂：习惯性体力活动、FVC 外心肺适能、膳食模式、降压药类别异质性（原文自认 cannot be excluded） | 混杂局限 |
 | E3 | L219–228 | 事件=自报医生诊断，波次报告 | 错分来源 |
 | E4 | Methods L186–196; L2073–2083; Table1 | TyG 依赖空腹 TG/葡萄糖；ELSA 非空腹采集→静脉采样近似；作者自认 | 空腹局限 |
 | E5a | L312–320; L548–577 | 中位随访 6.0 年，波次区间 | 区间删失来源 |
@@ -64,7 +64,7 @@ flowchart TD
 | N1 | limitation | 19.2% 保留；TyG 缺失 4125 为最大项（序贯链） | E1 | 数字以正文 L261–268 为准 | high | |
 | N1c | limitation | ELSA 非空腹→TyG 用静脉血近似（选择+测量双重） | E4 | 归位修正 | high | |
 | N2a | limitation | 自报错分 | E3 | 拆分保留 | medium | |
-| N3 | claim | 辩护三级：稳健带有效/交叉分类反证基线分层/年龄辩护削弱立论 | E8; L2013–2027 | **重写核心** | high | 因果过度→已修 |
+| N3 | claim | 辩护三级：稳健带有效/交叉分类反证基线分层/年龄辩护削弱立论 | E8; L1265–1273 | **重写核心** | high | 因果过度→已修 |
 | N3b | evidence | 区间删失已缓解 | E5b | cloglog 一致 | high | |
 | N4 | claim | 混杂需很强才翻 | E2 | **AI-A 外部推断**标注 | medium | 因果过度 |
 | N6 | limitation | 卒中功效独立不足 | E6 | 新增 | high | |

@@ -598,7 +598,8 @@ subgroup_prepare_forest_plot_df <- function(res, effect_sym = "OR") {
     ifelse(
       bad_est,
       "NE",
-      sprintf("%.2f (%.2f-%.2f)", plot_df$"Point Estimate", plot_df$Lower, plot_df$Upper)
+      ## 发表口径：效应量/CI 固定 3 位（与 pub_digits$est 一致）
+      sprintf("%.3f (%.3f-%.3f)", plot_df$"Point Estimate", plot_df$Lower, plot_df$Upper)
     )
   )
   if (any(bad_est, na.rm = TRUE)) {
@@ -776,6 +777,23 @@ subgroup_build_one_forest <- function(plot_df, final_subgroup_vars, sub_cfg,
     if (from %in% names(disp) && !to %in% names(disp)) {
       names(disp)[names(disp) == from] <- to
     }
+  }
+  ## N 列千分位（与 pub_format_int / 表内人数口径一致）
+  if ("N" %in% names(disp)) {
+    nn <- disp$N
+    disp$N <- vapply(seq_along(nn), function(i) {
+      x <- nn[[i]]
+      if (is.null(x) || length(x) == 0L) return(" ")
+      if (is.character(x) && !nzchar(trimws(x))) return(" ")
+      if (is.character(x) && grepl(",", x, fixed = TRUE)) return(as.character(x))
+      xv <- suppressWarnings(as.numeric(x))
+      if (!is.finite(xv)) return(as.character(x))
+      if (exists("pub_format_int", mode = "function")) {
+        pub_format_int(as.integer(round(xv)))
+      } else {
+        format(as.integer(round(xv)), big.mark = ",", scientific = FALSE)
+      }
+    }, character(1L))
   }
   if (!" " %in% names(disp)) {
     disp$` ` <- NA_character_

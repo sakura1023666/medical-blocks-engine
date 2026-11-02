@@ -57,6 +57,15 @@ if [[ -f "$STUDY/README_DEPRESSION_HTN_FRAILTY.txt" ]] || \
   IS_DEP_HTN=1
 fi
 
+# 中介展示名：读 config .circadian_mediator_label（默认 FI）
+MED_LAB="FI"
+if [[ -f "$STUDY/config_long_panel.R" ]]; then
+  _ml=$(grep -E '^\s*\.circadian_mediator_label\s*<-' "$STUDY/config_long_panel.R" 2>/dev/null | head -1 | sed -E 's/.*<-[[:space:]]*["'\'']([^"'\'']+)["'\''].*/\1/')
+  if [[ -n "${_ml:-}" && "$_ml" != *circadian_mediator_label* ]]; then
+    MED_LAB="$_ml"
+  fi
+fi
+
 if [[ "$IS_CIRC" == "1" && "$IS_LEISURE" == "1" ]]; then
   XS=(CHARLS ELSA NHANES)
   T1_SUF="Baseline characteristics of Circadian disorder.xlsx"
@@ -64,11 +73,11 @@ if [[ "$IS_CIRC" == "1" && "$IS_LEISURE" == "1" ]]; then
   FIG2_SUF="RCS plot between Leisure activity score and Circadian Disorder.pdf"
   FIG3_SUF="Subgroup Forest analyses of Leisure activity score.pdf"
   FIG4_SUF="CLPN network of circadian conditions.pdf"
-  S3_SUF="Longitudinal mediation path diagram of Leisure activity score FI and circadian disorder.pdf"
+  S3_SUF="Longitudinal mediation path diagram of Leisure activity score ${MED_LAB} and circadian disorder.pdf"
   S4_SUF="Mean Leisure activity score by Year and Disease.pdf"
   S5_NAME="Figure S5. Mean Leisure activity score by Country and Disease.pdf"
-  S6_NAME="Table S6. Correlation regression Leisure activity score FI Circadian disorder.xlsx"
-  S7_NAME="Table S7. Longitudinal mediation Leisure activity score→FI→Circadian disorder.xlsx"
+  S6_NAME="Table S6. Correlation regression Leisure activity score ${MED_LAB} Circadian disorder.xlsx"
+  S7_NAME="Table S7. Longitudinal mediation Leisure activity score→${MED_LAB}→Circadian disorder.xlsx"
   FIG_S6_ROC="Figure S6. ROC of Leisure activity score for Circadian Disorder.pdf"
 elif [[ "$IS_CIRC" == "1" ]]; then
   XS=(CHARLS ELSA NHANES)
@@ -304,23 +313,35 @@ have <- all_cohorts[dir.exists(file.path(study, paste0("phase3_long_", all_cohor
   readLines(file.path(study, "config_long_panel.R"), warn = FALSE) else character(0)
 is_circ <- length(.cfg_lines) && any(grepl("circadian_index_var|ePWV", .cfg_lines))
 is_leisure <- length(.cfg_lines) && any(grepl("Leisure_score", .cfg_lines))
+.med_lab <- "FI"
+.ml_hit <- grep("^\\s*\\.circadian_mediator_label\\s*<-", .cfg_lines, value = TRUE)
+if (length(.ml_hit)) {
+  .m <- regmatches(.ml_hit[[1]], regexpr("[\"'][^\"']+[\"']", .ml_hit[[1]]))
+  if (length(.m)) .med_lab <- gsub("[\"']", "", .m[[1]])
+}
+# 有 MV/VIF 槽位时 corr/mediation 为 S8/S9（PUBLICATION_SLOTS）
+.has_mv <- length(list.files(file.path(study, "summary_result", "table"),
+                             pattern = "^Table S5-.*Multivariable")) > 0L ||
+  length(list.files(out_dir, pattern = "^Table S5-.*Multivariable")) > 0L
+.corr_slot <- if (isTRUE(.has_mv)) "S8" else "S6"
+.med_slot <- if (isTRUE(.has_mv)) "S9" else "S7"
 # 节律病节点：Pooled 单独收（其 pub.rds 与各库同名，但 db 字段为 "Pooled"）
 if (is_circ && dir.exists(file.path(study, "phase3_long_Pooled")))
   have <- c(have, "Pooled")
 arrow <- intToUtf8(0x2192L)
 s6 <- if (is_leisure) {
-  "Table S6. Correlation regression Leisure activity score FI Circadian disorder.xlsx"
+  paste0("Table ", .corr_slot, ". Correlation regression Leisure activity score ", .med_lab, " Circadian disorder.xlsx")
 } else if (is_circ) {
-  "Table S6. Correlation regression ePWV FI Circadian disorder.xlsx"
+  paste0("Table ", .corr_slot, ". Correlation regression ePWV ", .med_lab, " Circadian disorder.xlsx")
 } else {
-  "Table S6. Correlation regression FI Depression Hip fracture.xlsx"
+  paste0("Table ", .corr_slot, ". Correlation regression FI Depression Hip fracture.xlsx")
 }
 s7 <- if (is_leisure) {
-  paste0("Table S7. Longitudinal mediation Leisure activity score", arrow, "FI", arrow, "Circadian disorder.xlsx")
+  paste0("Table ", .med_slot, ". Longitudinal mediation Leisure activity score", arrow, .med_lab, arrow, "Circadian disorder.xlsx")
 } else if (is_circ) {
-  paste0("Table S7. Longitudinal mediation ePWV", arrow, "FI", arrow, "Circadian disorder.xlsx")
+  paste0("Table ", .med_slot, ". Longitudinal mediation ePWV", arrow, .med_lab, arrow, "Circadian disorder.xlsx")
 } else {
-  paste0("Table S7. Longitudinal mediation Frailty Index", arrow, "Depression", arrow, "Hip fracture.xlsx")
+  paste0("Table ", .med_slot, ". Longitudinal mediation Frailty Index", arrow, "Depression", arrow, "Hip fracture.xlsx")
 }
 f5 <- file.path(root, "Blocks/54_cross_lagged_full/20block_cross_lagged_change_logistic.R")
 if (length(have) && file.exists(f5)) {
@@ -339,7 +360,10 @@ if (length(have) && file.exists(f6)) {
   source(f6, local = FALSE)
   if (exists("cross_lagged_corr_build_table_s6", mode = "function")) {
     rds6 <- file.path(study, paste0("phase3_long_", have), "Tables", "Table3_Correlation_Regression_pub.rds")
-    if (any(file.exists(rds6))) try(cross_lagged_corr_build_table_s6(rds6, file.path(out_dir, s6), cohorts = have), silent = FALSE)
+    if (any(file.exists(rds6))) try(cross_lagged_corr_build_table_s6(
+      rds6, file.path(out_dir, s6), cohorts = have,
+      title = sub("\\.xlsx$", "", s6)
+    ), silent = FALSE)
   }
 }
 f7 <- file.path(root, "Blocks/20_mediation/06block_mediation_longitudinal.R")
@@ -347,7 +371,10 @@ if (length(have) && file.exists(f7)) {
   source(f7, local = FALSE)
   if (exists("cross_lagged_mediation_build_table_s7", mode = "function")) {
     rds7 <- file.path(study, paste0("phase3_long_", have), "Tables", "Table_Mediation_Longitudinal_pub.rds")
-    if (any(file.exists(rds7))) try(cross_lagged_mediation_build_table_s7(rds7, file.path(out_dir, s7), cohorts = have), silent = FALSE)
+    if (any(file.exists(rds7))) try(cross_lagged_mediation_build_table_s7(
+      rds7, file.path(out_dir, s7), cohorts = have,
+      title = sub("\\.xlsx$", "", s7)
+    ), silent = FALSE)
   }
 }
 ' || true

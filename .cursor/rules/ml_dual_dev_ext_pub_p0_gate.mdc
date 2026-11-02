@@ -1,0 +1,82 @@
+---
+description: 双库 ML dev_internal_ext 发表 P0（Fig1/主模型SHAP/表题/交付白名单）；AKI_TX 2026-11 教训
+alwaysApply: true
+---
+
+# 双库 ML（dev_internal_ext）发表 P0 铁律（AKI_TX BUN_Cr 2026-11 教训）
+
+凡 **ML dual-batch / `split_mode=dev_internal_ext` / eICU↔MIMIC（或同类开发+外验）** 在 finalize、质控、中期、返工时必须遵守。踩坑课题：`19_AKI_TX_刘雪艳`【success】BUN_Cr。
+
+与 `pub-qc-after-project`、`pub_delivery_whitelist`、`attrition_consort_flowchart` 同步；未逐条过不得宣称可交稿。
+
+## 1. 人群 / 结局语义链可复现（防提取标记冒充终点）
+
+1. Methods **必须写实**：分析起点表（如 D02）如何筛入；`tx`/`crrt`/诊断提取字段与结局字段（如 `fustatus`=住院期间透析）是否同义；**禁止** silently 把「提取阳性队列」写成「全 ICU 池」。
+2. 若起点已是透析相关提取、结局又是透析：须点名「非循环」或「提取≠终点」依据；基线/维持性透析是否排除无记录 → Limitations / AUTHOR_INPUT，**禁止编造 SQL**。
+3. 历史文件名 token（如 MIMIC「3995」）≠ 分析集 N 时，Methods 一句澄清。
+4. 无上游池层实体（如 158k）时，Figure 1 **不得**画假池层；从真实可核 D02（或等价）起步，Methods 降格说明。
+
+## 2. Figure 1 标签诚实 + 不溢框 + 默认无图注脚注
+
+1. 排除框文案 = **真实剔除原因**（结局缺失 ≠ Incomplete covariates；指标不可算 ≠ After imputation）。
+2. 框内标签宜短（主列 ≤ ~28 字符量级），避免长括号说明挤爆 Exclude 框；细则见 `attrition_consort_flowchart`。
+3. **默认不在 Fig1 PDF 画 Methods 脚注段落**（`footnotes_by_db = NULL`）；口径写进 Methods md / image_information，禁止把长说明塞图底导致「字出框 / 像图注」。
+4. 双栏须标库角色（development / external validation）。
+
+## 3. 「最优模型」口径唯一（防 SHAP 错位）
+
+1. config 预指定 `primary_model_rule`（推荐：`external_validation_auc`）与 `shap_explain_rule`（可与主模型不同，如内验并列最优树模型）。
+2. **禁止**正文/中期/图题无限定词写 “the best model”。
+3. SHAP 图文件名/图题/image_information 必须写明被解释的算法 + 选定规则；若 SHAP≠主模型，须一句限定。
+4. 训练集虚高 AUC（如 RF）只作过拟合上下文，不得定为报告主模型。
+
+## 4. 补充表内题 = 文件名（防 S* 错号）
+
+1. finalize / `ml_finalize_index_summary_results` **必须**跑 `pub_sync_xlsx_a1_titles_to_filenames`（sharedStrings 外科，数值零改动）。
+2. 交付前抽检：文件名 `Table S2…` ⇔ A1 同号同文；禁止内题残留 `Table S.` / 旧号。
+
+## 5. Model2 筛选源写实（防双库「碰巧同集」审稿抓）
+
+1. 若 Model2 只在主库训练集 UV 筛一次再套外验：Methods **必须**写「primary-train UV P&lt;cutoff → 固定集合应用于两库」；禁止暗示外验库有独立 UV 表却未导出。
+2. Model2 含某变量而 VIF 表无该行：脚注/Methods 区分「UV→Model2 路径」与「VIF screen 矩阵」。
+
+## 6. 图面库 / 集 / 对比标签（防 Fig 亚组被当成开发库）
+
+1. 单库可算图（LASSO/SHAP/RCS）：图面或文件名带库；拼图面板带 A/B 库名。
+2. 亚组森林：须标库 + 暴露对比（如 Q4 vs Q1）+ 调整模型（如 Model 2）；双库应拼图，禁止只交外验单面板却让读者默认开发库。
+3. 计划亚组变量在提取表中缺失（如 Ventilation）：Methods/图注一句，禁止静默消失无说明。
+
+## 7. 交付根白名单（每次跑完）
+
+1. 成功指标必须有 `by_index/【success】<INDEX>/summary_results/`：`Figures/` `Tables/` `Methods_statistical_analysis.md` `Methods_software_versions.txt` `*中期*.pdf`；若跑了 `shiny_ml_app` 另须 **`Shiny/`**（或 `ShinyApp/`）。
+2. `config$ml_batch$write_index_summary_results = TRUE`（引擎默认）；`ml_finalize_index_summary_results` 须同步指标根 `Shiny/`；禁止只留指标根散落表图交差，也禁止 prune 掉 Shiny。
+3. Nature P0 清零（或书面接受残留）后再出中期，再 `pub_prune_delivery_root`。
+
+## 实现入口
+
+- 表题同步：`R/pub_xlsx_surgical.R` → `pub_sync_xlsx_a1_titles_to_filenames`；`python/pub_sync_xlsx_a1_to_filename.py`
+- 收口：`R/ml_index_summary_results.R` → `ml_finalize_index_summary_results`
+- 纳排：`R/attrition_log.R`；规则 `attrition_consort_flowchart.mdc`
+- 课题返工样例：`run/ml/repair_aki_tx_bun_cr_p0.R`（逻辑应回写引擎，勿复制堆 hotfix）
+
+## Agent 检查清单
+
+```
+[ ] Methods：提取 vs 结局 vs 基线透析排除可核或已标 AUTHOR_INPUT
+[ ] Fig1：排除原因诚实；短标签；无图底长脚注；双栏有库角色
+[ ] primary_model_rule 与 SHAP 图题一致可追溯；无裸 "best model"
+[ ] 全部 S 表 A1 == 文件名 stem
+[ ] Model2 筛源（主库 train UV）已写进 Methods
+[ ] 亚组/SHAP/LASSO 有库或集标签；缺失亚组变量有说明
+[ ] summary_results 五件套齐全且已 prune
+```
+
+## 反例（禁止）
+
+- Fig1 写 Incomplete covariates / After imputation，实测是结局 NA / 指标缺失
+- Fig1 底部塞 Methods 长段当「图注」，文字溢出
+- 中期写「最优模型 SHAP」却是 CatBoost，外验最优实为 XGBoost
+- Table S2 文件、内题 Table S5
+- 双库 Table2 Model2 脚注全同，却声称各库独立筛查且无说明
+- Figure 8 只有 MIMIC、图内无库名
+- 跑完无 summary_results，或交付根残留 content.json / reports

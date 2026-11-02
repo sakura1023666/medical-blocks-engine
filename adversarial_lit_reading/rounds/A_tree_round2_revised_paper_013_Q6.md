@@ -64,7 +64,7 @@ flowchart TD
 | N1 | evidence | 19% 保留，排除链 | Fig1 | 明示 | high | |
 | N1b | limitation | 排除非随机 | — | 推断合理 | medium | 可迁移性不足 |
 | N2a | evidence | 8 项敏感性稳健带 | E2a | 4.62–5.52 | high | |
-| N2b | claim | Sens9 是分类学验证非敏感性 | L2013–2027 | 口径修正 | high | 因果过度→已修 |
+| N2b | claim | Sens9 是分类学验证非敏感性 | Results L1265–1273 (HR 3.48/3.62); Methods L366 | 口径修正 | high | 因果过度→已修 |
 | N3 | limitation | 头对头≠判别充分（无基准） | E3 | 修正后表述 | high | 因果过度→已修 |
 | N5 | limitation | 外验结构障碍（回顾性定组） | E6 | 核心改写 | high | 可迁移性不足 |
 | N11 | limitation | 自报结局+预测性定位 | E5 | 补充 | high | |

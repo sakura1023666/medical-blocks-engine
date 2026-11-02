@@ -465,6 +465,8 @@
   }
   cls <- test_df$D
   resci <- data.frame()
+  ## 发表口径：AUC/CI 固定 3 位（禁 round(..., 4) 上图）
+  .fmt3 <- function(x) formatC(as.numeric(x), format = "f", digits = 3L)
   for (j in seq_along(display_order)) {
     nm <- display_order[j]
     if (!nm %in% names(test_df)) next
@@ -479,16 +481,19 @@
       resci,
       data.frame(
         algorithm = nm,
-        ROC = round(auc_v, 4),
-        Lower = round(lo, 4),
-        Upper = round(hi, 4),
+        ROC = .fmt3(auc_v),
+        Lower = .fmt3(lo),
+        Upper = .fmt3(hi),
         stringsAsFactors = FALSE
       )
     )
   }
   if (!nrow(resci)) return(NULL)
   resci <- resci[order(resci$algorithm), , drop = FALSE]
-  resci$AUC <- paste0(resci$algorithm, " AUC: ", resci$ROC, "(", resci$Lower, "-", resci$Upper, ")")
+  ## 紧凑三位：避免图例过长互相碰撞（空格+逗号会撑宽）
+  resci$AUC <- paste0(
+    resci$algorithm, " AUC: ", resci$ROC, "(", resci$Lower, "-", resci$Upper, ")"
+  )
   dfd <- test_df[, c("D", resci$algorithm), drop = FALSE]
   longtest <- dplyr::bind_rows(lapply(resci$algorithm, function(nm) {
     data.frame(
@@ -526,7 +531,18 @@
       }
     ) +
     ggplot2::xlab("") + ggplot2::ylab("") +
-    .pm_theme_ml(font_family, base_size, legend_position = c(0.7, 0.14), legend_justification = c(0.5, 0)) +
+    .pm_theme_ml(font_family, base_size, legend_position = c(0.72, 0.12), legend_justification = c(0.5, 0)) +
+    ggplot2::guides(
+      color = ggplot2::guide_legend(
+        ncol = 1L, keyheight = grid::unit(0.28, "cm"),
+        override.aes = list(linewidth = 0.7)
+      )
+    ) +
+    ggplot2::theme(
+      legend.text = ggplot2::element_text(size = max(5.5, base_size - 3), family = font_family),
+      legend.key.height = grid::unit(0.28, "cm"),
+      legend.spacing.y = grid::unit(0.02, "cm")
+    ) +
     ggplot2::labs(title = title)
   .pm_coord_clip_off(p)
 }

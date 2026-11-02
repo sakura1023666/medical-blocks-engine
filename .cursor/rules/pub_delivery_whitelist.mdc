@@ -9,13 +9,13 @@ alwaysApply: true
 
 | 保留 | 说明 |
 |---|---|
-| `Figures/` | 四目录 pdf/png/tiff/image_information |
+| `Figures/` | 默认 `pdf/` + `image_information/`（不强制 png/tiff） |
 | `Tables/` | 发表 xlsx |
 | `Methods_statistical_analysis.md` | 统计分析方法（含 Software 小节） |
 | `Methods_software_versions.txt` | 软件版本清单 |
 | `*中期*.pdf` | 中期分析结果 PDF |
 
-**全项目铁律（用户 2026-10-27）**：每个课题 finalize 后交付面必须是上述五项；`ShinyApp/`、`code/`、`reports/`、`content.json`、`_report_dump.md`、`项目信息-中期.md` 等一律 prune 到同级 `*_delivery_workspace/`。单库文件名/表题**不加** `-库名`（`pub_strip_db_tags_from_delivery` + `pub_config_is_single_db`）。Nature P0 清零后出中期，再 prune 一次。
+**全项目铁律（用户 2026-10-27；2026-11-02 收紧）**：每个课题 finalize 后交付面**仅**上述五项；`Shiny/`/`ShinyApp/`/`code/`/`reports/`/`content.json`/`_report_dump.md`/`项目信息-中期.md` 等一律 prune 到同级 `*_delivery_workspace/`（Shiny 可留在指标根，不进 `summary_results`）。单库文件名/表题**不加** `-库名`（`pub_strip_db_tags_from_delivery` + `pub_config_is_single_db`）。Nature P0 清零后出中期，再 prune 一次。
 
 ## 铁律
 

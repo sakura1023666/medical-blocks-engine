@@ -52,7 +52,7 @@
 
 .univariate_prognosis_export_table_s2a <- function(
     ctx, cfg, uv_cfg, data, predictor_vars, univar_df, tb1,
-    study_type, classification_mode) {
+    study_type, classification_mode, data_source = NULL) {
   force_continuous_vars <- cfg$force_continuous_vars %||% character(0)
   disc_n <- uv_cfg$discrete_max_levels %||% 5L
   row_base <- vapply(univar_df$Variable, function(vn) {
@@ -210,9 +210,37 @@
   }
   out_table <- do.call(rbind, pub_rows)
   names(out_table)[names(out_table) == "U1"] <- lab_uni
+  ## 列头须与实际分析队列一致：restrict_to_train → Training；禁止写 all 却是训练集 n
+  .uv_src <- as.character(data_source %||% "")[1L]
+  if (!nzchar(.uv_src)) {
+    n_tr <- if (!is.null(ctx$data$train)) nrow(ctx$data$train) else NA_integer_
+    n_all <- nrow(data)
+    .uv_src <- if (is.finite(n_tr) && identical(as.integer(n_all), as.integer(n_tr))) {
+      "train"
+    } else {
+      "overall"
+    }
+  }
+  .all_lab <- if (grepl("train", .uv_src, ignore.case = TRUE)) {
+    "Training"
+  } else if (grepl("valid|test", .uv_src, ignore.case = TRUE)) {
+    "Validation"
+  } else {
+    "Overall"
+  }
+  if ("all" %in% names(out_table)) {
+    names(out_table)[names(out_table) == "all"] <- .all_lab
+  }
+  base_title_uv <- if (identical(.all_lab, "Training")) {
+    paste0(base_title, " (training set)")
+  } else if (identical(.all_lab, "Validation")) {
+    paste0(base_title, " (validation set)")
+  } else {
+    base_title
+  }
   pub_uv <- pub_pair(
     ctx, ctx$output_dir_tables, "supp_table",
-    base_title, "Univariate Regression Analysis", "xlsx"
+    base_title_uv, "Univariate Regression Analysis", "xlsx"
   )
   uv_fn <- character(0)
   if (any(grepl("^NE\\b", as.character(out_table[[lab_uni]] %||% ""), perl = TRUE))) {
@@ -754,7 +782,10 @@ block_univariate_prognosis <- function(ctx, ...) {
   ctx$results$univariate_study_type <- study_type
 
   if (!is.null(univar_df) && nrow(univar_df) > 0) {
-    .univariate_prognosis_export_table_s2a(ctx, cfg, uv_cfg, data, predictor_vars, univar_df, tb1, study_type, classification_mode)
+    .univariate_prognosis_export_table_s2a(
+      ctx, cfg, uv_cfg, data, predictor_vars, univar_df, tb1, study_type,
+      classification_mode, data_source = up_res$source
+    )
   }
 
   cli::cli_alert_success("单因素分析完成（仅单因素）")

@@ -2,11 +2,12 @@
 #  pub_delivery_prune — 交付根目录白名单（全项目复用）
 #
 #  客户交付目录（summary_result / summary_results / 指标级 summary_result）
-#  根下只保留：
+#  根下只保留（2026-11-02 全项目铁律）：
 #    Figures/  Tables/
 #    Methods_statistical_analysis.md
 #    Methods_software_versions.txt
 #    *中期*.pdf（中期分析结果）
+#  Shiny/ShinyApp 留在指标根，不进 summary_results 交付面。
 #
 #  其余（README、reports、content.json、_report_dump、项目信息、
 #  Methods_software_section、根级 image_information 等）移到交付根的
@@ -115,6 +116,19 @@ pub_prune_delivery_root <- function(delivery_root,
       "\n  move: ", paste(move, collapse = ", ")
     )
     return(invisible(list(kept = keep, moved = move, dry_run = TRUE)))
+  }
+  # 默认交付：Figures 内去掉遗留 png/tiff（与 pub_figure 默认一致）
+  fig_dir <- file.path(delivery_root, "Figures")
+  if (dir.exists(fig_dir)) {
+    for (sub in c("png", "tiff")) {
+      d <- file.path(fig_dir, sub)
+      if (dir.exists(d)) unlink(d, recursive = TRUE, force = TRUE)
+    }
+    man <- file.path(fig_dir, "_rebuild_wang2025_manifest.json")
+    if (file.exists(man)) {
+      # 课题重建草稿不进交付面
+      unlink(man)
+    }
   }
   if (!length(move)) {
     if (requireNamespace("cli", quietly = TRUE)) {

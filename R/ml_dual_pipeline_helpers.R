@@ -374,6 +374,8 @@ pipeline_export_primary_assoc_covariates <- function(ctx, root, config) {
   m2 <- unique(as.character(
     ctx$results$assoc_model2_factors %||%
       ctx$results$logistic_model2_factors %||%
+      ## 铁律 A resolve 常只写 Model2Factors；缺此回退会导出陈旧/空 M2，外验继承成 Albumin 截断集
+      ctx$results$Model2Factors %||%
       character(0)
   ))
   m1 <- m1[nzchar(m1)]

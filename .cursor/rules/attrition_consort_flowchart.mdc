@@ -1,3 +1,8 @@
+---
+description: Figure 1 CONSORT 纳排铁律（诚实排除标签、短文案、默认无图底脚注）
+alwaysApply: true
+---
+
 # 纳排图 CONSORT 铁律（全项目复用）
 
 所有发病 / 预后 / ML / TST 等流水线 **Figure 1** 必须走 CONSORT，禁止旧式居中方框 + 右侧只写 `-n`。
@@ -10,9 +15,19 @@
 4. **预后分叉**：`fustatus` 1/0 → Expired / Alive。
 5. **人数不塞进末步标题**：`outcome_breakdown` 只写 `fork_*` 列；`attrition_finalize_rows` 必须保留 `exclude_label` 与 fork 列。
 6. **新课题必须写 `config$attrition$steps`**（底库 → 病种筛入 → Included），并设 `outcome_breakdown = TRUE`。
+7. **排除标签必须等于真实剔除原因**（2026-11 AKI_TX）：
+   - 结局/透析状态缺失 → 写 outcome / dialysis status unavailable（**禁止**默认 “Incomplete covariates”）
+   - 暴露指标不可算（缺 BUN/Cr 等）→ Missing &lt;index components&gt;（**禁止**步骤名 “After imputation” 冒充该步）
+   - 插补本身通常不删行；勿把指标缺失步标成 imputation
+8. **框内短标签**：主列与 Exclude 文案控制长度，避免长括号说明溢框；细节说明进 Methods / `image_information`，**不进框**。
+9. **默认无图底脚注**：`footnotes_by_db = NULL` / 不传 `footnote`；禁止把 Methods 长段画在 Fig1 底部（易溢框、像图注）。确需脚注须用户当次点名且仍保持短句。
+10. **无池层实体不画假起点**：上游 ICU 池 n 未随交付可核时，从图上真实提取表 N 起步，Methods 写清。
 
 ## 反例（禁止）
 
 - `pdf_combine` / `mfrow` 画两列旧方框当 Figure 1
 - 末步写成 `Included (AKI: 106; No AKI: 158)` 而无底部分叉
 - 换病种后仍只有 “After data cleaning / After imputation” 两框
+- Exclude 写 Incomplete covariates，实测是 fustatus NA
+- “After imputation” 框实际只剔了缺暴露成分的人
+- Fig1 底部大段 Development cohort / MICE / 池 n 说明导致文字出画布

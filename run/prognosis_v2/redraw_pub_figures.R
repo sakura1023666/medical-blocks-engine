@@ -14,6 +14,7 @@ engine <- if (dir.exists("E:/01block/01Block-new-Final")) {
   "/mnt/e/01block/01Block-new-Final"
 }
 source(file.path(engine, "run/prognosis_v2/pv2_paths.R"), local = FALSE)
+source(file.path(engine, "R/utils.R"), local = FALSE)
 source(file.path(engine, "R/attrition_log.R"), local = FALSE)
 pv2_ensure_dirs()
 data_root <- pv2_data_root
@@ -202,6 +203,22 @@ theme_pub <- function() {
           strip.text = element_text(face = "bold"),
           legend.position = "bottom")
 }
+# Boruta/SHAP 轴展示名：GenderMale → Gender: Male；Sleep_hours → Sleep hours（禁下划线）
+pv2_fig2_lab_disp <- function(x) {
+  x <- as.character(x)
+  x <- gsub("^Gender(Male|Female)$", "Gender: \\1", x)
+  x <- gsub("^Race([A-Z].*)$", "Race: \\1", x)
+  x <- gsub(
+    "^(Alcohol|Smoke|Hypertension|Diabetes|Education|Ventilation)(Yes|No|Higher|Lower)$",
+    "\\1: \\2",
+    x
+  )
+  if (exists("pipeline_display_label", mode = "function")) {
+    return(pipeline_display_label(x))
+  }
+  gsub("_", " ", x, fixed = TRUE)
+}
+
 pv2_fig2_database <- function(bor, shap, db, mean_tab) {
   h <- as.data.frame(bor$ImpHistory)
   h$iter <- seq_len(nrow(h))
@@ -214,7 +231,8 @@ pv2_fig2_database <- function(bor, shap, db, mean_tab) {
   box$decision <- dec[box$variable]
   box$decision[is.na(box$decision)] <- "Shadow"
   med <- tapply(box$z, box$variable, stats::median, na.rm = TRUE)
-  box$variable <- factor(box$variable, levels = names(sort(med)))
+  box$variable <- factor(pv2_fig2_lab_disp(box$variable),
+                         levels = pv2_fig2_lab_disp(names(sort(med))))
   pal <- c(Confirmed = "#2ca02c", Rejected = "#d62728", Tentative = "#ffbf00", Shadow = "#1f77b4")
   th <- theme_classic(base_size = 8) +
     theme(axis.text.x = element_text(angle = 55, hjust = 1, size = 5.5),
@@ -235,9 +253,11 @@ pv2_fig2_database <- function(bor, shap, db, mean_tab) {
     theme_classic(base_size = 8) +
     theme(legend.position = "bottom", legend.key.size = grid::unit(0.3, "cm"))
   sh <- shap[shap$database == db, , drop = FALSE]
-  sh$group <- ifelse(grepl("^Sleep", sh$variable), "Sleep duration", "Other")
-  ord <- sort(tapply(abs(sh$shap), sh$variable, mean))
-  sh$variable <- factor(sh$variable, levels = names(ord))
+  sh$variable_raw <- as.character(sh$variable)
+  sh$group <- ifelse(grepl("^Sleep", sh$variable_raw), "Sleep duration", "Other")
+  ord_raw <- names(sort(tapply(abs(sh$shap), sh$variable_raw, mean)))
+  sh$variable <- factor(pv2_fig2_lab_disp(sh$variable_raw),
+                        levels = pv2_fig2_lab_disp(ord_raw))
   pC <- ggplot(sh, aes(shap, variable, color = group)) +
     geom_jitter(height = 0.15, width = 0, size = 0.2, alpha = 0.4) +
     geom_vline(xintercept = 0, linewidth = 0.25) +
@@ -247,8 +267,11 @@ pv2_fig2_database <- function(bor, shap, db, mean_tab) {
     theme(legend.position = "bottom", legend.key.size = grid::unit(0.3, "cm"))
   md <- mean_tab[mean_tab$database == db, c("variable", "mean_abs_shap"), drop = FALSE]
   names(md)[2] <- "mean_abs"
-  md$group <- ifelse(grepl("^Sleep", md$variable), "Sleep duration", "Other")
-  md$variable <- factor(md$variable, levels = names(sort(setNames(md$mean_abs, md$variable))))
+  md$variable_raw <- as.character(md$variable)
+  md$group <- ifelse(grepl("^Sleep", md$variable_raw), "Sleep duration", "Other")
+  ord_md <- names(sort(setNames(md$mean_abs, md$variable_raw)))
+  md$variable <- factor(pv2_fig2_lab_disp(md$variable_raw),
+                        levels = pv2_fig2_lab_disp(ord_md))
   pD <- ggplot(md, aes(mean_abs, variable, fill = group)) +
     geom_col(width = 0.72) +
     scale_fill_manual(values = c("Sleep duration" = "#e74c3c", "Other" = "grey70"), name = NULL) +
@@ -339,7 +362,8 @@ roc$curve <- paste0(roc$database, " (AUC ", sprintf("%.3f", auc_map[roc$database
 pv2_km_cuminc <- function(dbs) {
   # 分组名不用 < 或 >，否则 survminer 的 gridtext 会把它们当成标记。
   # 顺序与 Cox 参考一致：7-8 为参照（第一条曲线）。
-  labs5 <- c("7-8 h", "under 5 h", "5-6 h", "6-7 h", "9 h or more")
+  # 展示用 7-<9 h（真实区间 [7,9)）；图例避免原始 < 字符以免 survminer/gridtext 误解析
+  labs5 <- c("7 to under 9 h", "under 5 h", "5-6 h", "6-7 h", "9 h or more")
   lev5 <- c("7-8", "<5", "5-6", "6-7", ">=9")
   pal5 <- c("#2ca02c", "#d62728", "#ff7f0e", "#1f77b4", "#9467bd")
   fmt_p <- function(p) {
@@ -409,13 +433,13 @@ p_roc <- ggplot(roc, aes(fpr, tpr, color = curve)) +
 message("亚组森林 / 中介路径")
 sg <- as.data.frame(fread(file.path(ckpt_dir, "Subgroup_rows.csv")))
 if (!"estimable" %in% names(sg)) sg$estimable <- is.finite(sg$HR) & is.finite(sg$lo) & is.finite(sg$hi) & sg$HR > 0 & sg$hi < 80
-sg$contrast <- ifelse(grepl("<5", sg$term, fixed = TRUE), "<5 h vs 7-8 h",
-               ifelse(grepl("5-6", sg$term, fixed = TRUE), "5-6 h vs 7-8 h",
-               ifelse(grepl("6-7", sg$term, fixed = TRUE), "6-7 h vs 7-8 h",
-               ifelse(grepl(">=9", sg$term, fixed = TRUE), ">=9 h vs 7-8 h",
-               ifelse(grepl("<7", sg$term, fixed = TRUE), "<7 h vs 7-8 h", sg$term)))))
-sg$contrast <- factor(sg$contrast, levels = c("<5 h vs 7-8 h", "5-6 h vs 7-8 h", "6-7 h vs 7-8 h",
-                                              ">=9 h vs 7-8 h", "<7 h vs 7-8 h"))
+sg$contrast <- ifelse(grepl("<5", sg$term, fixed = TRUE), "<5 h vs 7-<9 h",
+               ifelse(grepl("5-6", sg$term, fixed = TRUE), "5-6 h vs 7-<9 h",
+               ifelse(grepl("6-7", sg$term, fixed = TRUE), "6-7 h vs 7-<9 h",
+               ifelse(grepl(">=9", sg$term, fixed = TRUE), ">=9 h vs 7-<9 h",
+               ifelse(grepl("<7", sg$term, fixed = TRUE), "<7 h vs 7-<9 h", sg$term)))))
+sg$contrast <- factor(sg$contrast, levels = c("<5 h vs 7-<9 h", "5-6 h vs 7-<9 h", "6-7 h vs 7-<9 h",
+                                              ">=9 h vs 7-<9 h", "<7 h vs 7-<9 h"))
 sg$stratum <- gsub("_", " ", sg$stratum)
 sg$row <- paste0(sg$stratum, ": ", sg$level)
 sg_ok <- sg[isTRUE(sg$estimable) | sg$estimable %in% TRUE, ]
@@ -430,9 +454,9 @@ p_sg <- ggplot(sg, aes(HR, row, color = contrast)) +
   facet_wrap(~database, nrow = 1, scales = "free_y") +
   scale_x_log10() +
   scale_color_manual(values = c(
-    "<5 h vs 7-8 h" = "#d62728", "5-6 h vs 7-8 h" = "#ff7f0e",
-    "6-7 h vs 7-8 h" = "#1f77b4", ">=9 h vs 7-8 h" = "#9467bd",
-    "<7 h vs 7-8 h" = "#8c564b"
+    "<5 h vs 7-<9 h" = "#d62728", "5-6 h vs 7-<9 h" = "#ff7f0e",
+    "6-7 h vs 7-<9 h" = "#1f77b4", ">=9 h vs 7-<9 h" = "#9467bd",
+    "<7 h vs 7-<9 h" = "#8c564b"
   ), drop = TRUE) +
   labs(x = "Hazard ratio (log scale)", y = NULL, color = NULL,
        title = "Subgroup analyses of sleep duration and all-cause mortality") +

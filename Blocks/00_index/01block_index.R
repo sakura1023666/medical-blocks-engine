@@ -281,7 +281,7 @@
          expr = "LD * Creatinine / Platelet_Count",
          digits = 4),
     list(name = "SOSM",
-         expr = "1.86 * (Sodium + Potassium) + 1.15 * Glucose / 18 + BUN * 0.375 + 14",
+         expr = "1.86 * (Sodium + Potassium) + 1.15 * Glucose / 18 + BUN * 0.357 + 14",
          digits = 4),
     list(name = "ACAG",
          expr = "(4.4 - Albumin) * 2.5 + AnionGap",

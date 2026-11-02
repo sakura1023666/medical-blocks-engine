@@ -26,6 +26,9 @@
 #    table_s1_filename      = NULL,
 #    table_s1_exclude_vars  = NULL,   # 额外排除列；引擎默认再排除 fustatus /
 #                                     # survival$event_var / data$outcome_column（结局不作 S1 行）
+#    table_s1_include_vars  = NULL,   # 若非空：S1 只保留这些列（+暴露指标）
+#    table_s1_align_table1  = NULL,   # TRUE/FALSE；NULL=当 baseline*_binary$include_vars
+#                                     # 非空时默认 TRUE（S1 与 Table 1 同变量集）
 #    fit_on                 = "all"   # TST 必须 "train"：仅 train 估计 MICE；
 #                                     # 须先有 ctx$data$train/test（或 tst_split 物化：test=val∪test）；
 #                                     # validation/test 用 mice(ignore=TRUE) 由同一模型填入（不泄漏）；
@@ -1873,6 +1876,40 @@ block_imputation <- function(ctx, ...) {
   s1_vars <- setdiff(s1_vars, unique(c(s1_exclude, table_strata, "fustatus")))
   cat_cols <- setdiff(cat_cols, unique(c(s1_exclude, table_strata, "fustatus")))
   num_cols <- setdiff(num_cols, unique(c(s1_exclude, table_strata, "fustatus")))
+
+  # 与 Table 1 变量集对齐：显式 include，或 baseline include_vars（默认在有名单时开启）
+  s1_inc <- as.character(imp_cfg$table_s1_include_vars %||% character(0))
+  s1_inc <- s1_inc[nzchar(s1_inc)]
+  bl_inc <- unique(c(
+    as.character((cfg$baseline_binary %||% list())$include_vars %||% character(0)),
+    as.character((cfg$baseline %||% list())$include_vars %||% character(0))
+  ))
+  bl_inc <- bl_inc[nzchar(bl_inc)]
+  align_t1 <- imp_cfg$table_s1_align_table1
+  if (is.null(align_t1)) align_t1 <- length(bl_inc) > 0L
+  if (!length(s1_inc) && isTRUE(align_t1) && length(bl_inc)) {
+    s1_inc <- bl_inc
+  }
+  if (length(s1_inc)) {
+    s1_inc <- unique(c(s1_inc, force_keep_s1))
+    keep <- intersect(s1_inc, s1_vars)
+    # 按 Table1 include 顺序；未列入 include 的一律丢掉
+    drop_extra <- setdiff(s1_vars, keep)
+    s1_vars <- keep
+    cat_cols <- intersect(cat_cols, s1_vars)
+    num_cols <- intersect(num_cols, s1_vars)
+    if (length(drop_extra)) {
+      ex_show <- paste(utils::head(drop_extra, 8L), collapse = ", ")
+      if (length(drop_extra) > 8L) ex_show <- paste0(ex_show, ", ...")
+      cli::cli_alert_info(paste0(
+        "Table S1 对齐 Table1：保留 ", length(s1_vars),
+        " 列；剔除 ", length(drop_extra), " 列（如 ", ex_show, "）"
+      ))
+    } else {
+      cli::cli_alert_info(paste0("Table S1 对齐 Table1：", length(s1_vars), " 列"))
+    }
+  }
+
   sections <- (cfg$baseline_nhanes %||% cfg$baseline %||% list())$table1_sections
 
   rows <- list()
