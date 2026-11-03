@@ -103,6 +103,8 @@ trim_index_quantile_for_n <- function(n, base_trim = 0.01, large_n = 10000L,
   list(
     est = as.integer(getOption("medical_blocks.pub_digits.est", 3L))[1L],
     p = as.integer(getOption("medical_blocks.pub_digits.p", 3L))[1L],
+    # fixed（默认）= 一律 p 位（3）；nejm = ICMJE 可变位（>0.01→2 位）仅期刊明确要求时开启
+    p_style = as.character(getOption("medical_blocks.pub_digits.p_style", "fixed"))[1L],
     desc = as.integer(getOption("medical_blocks.pub_digits.desc", 3L))[1L],
     cutoff = as.integer(getOption("medical_blocks.pub_digits.cutoff", 3L))[1L],
     # 整数（人数 / 事件数 / 计数）千分位：TRUE=1,234；FALSE=1234（全项目单一口径）
@@ -133,46 +135,69 @@ pipeline_apply_pub_digits <- function(cfg = NULL) {
   if (!is.null(d$desc_trim)) {
     options(medical_blocks.pub_digits.desc_trim = isTRUE(d$desc_trim))
   }
+  if (!is.null(d$p_style) && nzchar(as.character(d$p_style)[1L])) {
+    options(medical_blocks.pub_digits.p_style = as.character(d$p_style)[1L])
+  }
   if (exists("pub_lock_gtsummary_pvalue", mode = "function")) {
     pub_lock_gtsummary_pvalue()
   }
   invisible(.pipeline_pub_digits())
 }
 
-# 发表级 P 值格式：极小值统一显示 < 0.001，其余按 pub_digits$p（默认 3 位）
-# 用于 SCI 三线表与森林图，避免出现 7.3e-24 这类过长字符串。
+# 发表级 P 值格式：极小值统一 "<0.001"（无空格），默认固定 3 位（p_style="fixed"）。
+# 禁止裸 0 / 0.000。可选 p_style="nejm"：P>0.01 两位、否则三位（仅期刊点名时开）。
 pub_format_p <- function(p, small_cut = 0.001, digits = NULL) {
   dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
   if (!is.finite(dig) || dig < 0L) dig <- 3L
+  style <- tryCatch(
+    as.character(.pipeline_pub_digits()$p_style %||% "fixed")[1L],
+    error = function(e) "fixed"
+  )
   pn <- suppressWarnings(as.numeric(p))
   out <- character(length(pn))
   for (i in seq_along(pn)) {
     v <- pn[i]
     if (!is.finite(v)) { out[i] <- ""; next }
-    if (v < small_cut) { out[i] <- paste0("< ", format(small_cut, scientific = FALSE)); next }
+    if (v < small_cut) { out[i] <- "<0.001"; next }
     if (v > 0.999) { out[i] <- ">0.999"; next }
-    out[i] <- formatC(round(v, dig), format = "f", digits = dig)
+    if (identical(style, "nejm") && v > 0.01) {
+      out[i] <- formatC(round(v, 2L), format = "f", digits = 2L)
+    } else {
+      out[i] <- formatC(round(v, dig), format = "f", digits = dig)
+    }
   }
   out
 }
 
-# Cox/logistic 表单元格 P：与 pub_format_p 同口径（默认 3 位）；禁止 3/4 位混用
+# Cox/logistic / DeLong 表单元格 P：与 pub_format_p 同口径；裸 0 / 0.000 → <0.001
 pub_format_p_cell <- function(p, digits = NULL) {
   if (length(p) != 1L) {
     return(vapply(p, function(x) pub_format_p_cell(x, digits = digits), character(1L), USE.NAMES = FALSE))
   }
   if (is.null(p) || length(p) == 0L) return("")
   s <- trimws(as.character(p)[1L])
-  if (!nzchar(s) || s %in% c("Ref", "ref", "NA", "NaN")) {
+  if (!nzchar(s) || s %in% c("Ref", "ref", "NA", "NaN", "-", "—", "–")) {
     return(if (s %in% c("NA", "NaN")) "" else s)
   }
-  # 已是 "<0.001" 时禁止再 as.numeric / 剥 "<"，否则会变成 0.001
+  if (grepl("^\\s*<\\s*0\\.001\\s*$", s)) return("<0.001")
   if (grepl("^<", s)) return("<0.001")
+  if (grepl("^>", s)) {
+    if (grepl("0\\.999", s)) return(">0.999")
+    return(s)
+  }
   pn <- suppressWarnings(as.numeric(s))
   if (!is.finite(pn)) return(s)
   dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
   if (!is.finite(dig) || dig < 0L) dig <- 3L
   if (pn < 0.001) return("<0.001")
+  if (pn > 0.999) return(">0.999")
+  style <- tryCatch(
+    as.character(.pipeline_pub_digits()$p_style %||% "fixed")[1L],
+    error = function(e) "fixed"
+  )
+  if (identical(style, "nejm") && pn > 0.01) {
+    return(formatC(pn, format = "f", digits = 2L))
+  }
   formatC(pn, format = "f", digits = dig)
 }
 
@@ -209,6 +234,176 @@ pub_format_est <- function(x, digits = NULL) {
 pub_format_ci <- function(lo, hi, digits = NULL) {
   dig <- as.integer(digits %||% .pipeline_pub_digits()$est)[1L]
   paste0("(", pub_format_est(lo, dig), ", ", pub_format_est(hi, dig), ")")
+}
+
+# 概率尺度指标（AUC / accuracy / Sensitivity / Specificity / F1 / Kappa /
+# Log-Loss / NRI / IDI / ΔAUC）：固定 est 位（默认 3）；禁止显示 0.000。
+# |x|<0.001 → "<0.001"（负值 → "−<0.001"）；精确 0 仅在 allow_exact_zero=TRUE
+# 时写 "0"（参照模型 NRI/IDI 用 "Ref"，勿走本函数）。
+# 依据：MedCalc/Nature 类表 AUC·NRI·IDI 三位；不得把极小差分写成裸 0。
+pub_format_prob_metric <- function(x, digits = NULL, allow_exact_zero = FALSE,
+                                   small_cut = 0.001) {
+  dig <- as.integer(digits %||% .pipeline_pub_digits()$est)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 3L
+  if (length(x) != 1L) {
+    return(vapply(
+      x,
+      function(xi) pub_format_prob_metric(
+        xi, digits = dig, allow_exact_zero = allow_exact_zero, small_cut = small_cut
+      ),
+      character(1L), USE.NAMES = FALSE
+    ))
+  }
+  if (is.null(x) || length(x) == 0L) return("")
+  s <- trimws(as.character(x)[1L])
+  if (!nzchar(s) || s %in% c("Ref", "ref", "NE", "-", "—", "–", "NA", "NaN")) {
+    return(if (s %in% c("NA", "NaN")) "" else s)
+  }
+  if (grepl("^\\s*<\\s*0\\.001", s) || grepl("^\u2212<0\\.001", s) || grepl("^-<0\\.001", s)) {
+    return(if (grepl("^-|\u2212", s)) "\u2212<0.001" else "<0.001")
+  }
+  xn <- suppressWarnings(as.numeric(s))
+  if (!is.finite(xn)) return(s)
+  if (abs(xn) < 1e-15) {
+    return(if (isTRUE(allow_exact_zero)) "0" else "<0.001")
+  }
+  if (abs(xn) < small_cut) {
+    return(if (xn < 0) "\u2212<0.001" else "<0.001")
+  }
+  formatC(xn, format = "f", digits = dig)
+}
+
+# 相关系数（热图数值 / 相关表）：默认 2 位（EASE「2–3 effective digits」）；
+# |r| 显示为 0.00 且非精确 0 时仍保留 0.00（相关可报真近零）。
+pub_format_corr <- function(x, digits = 2L) {
+  dig <- as.integer(digits %||% 2L)[1L]
+  if (!is.finite(dig) || dig < 0L) dig <- 2L
+  if (length(x) != 1L) {
+    return(vapply(x, function(xi) pub_format_corr(xi, digits = dig),
+                  character(1L), USE.NAMES = FALSE))
+  }
+  xn <- suppressWarnings(as.numeric(x))
+  if (!is.finite(xn)) return(as.character(x)[1L])
+  formatC(xn, format = "f", digits = dig)
+}
+
+# VIF：默认 3 位固定（与 est 同尺）；通常 ≥1，不走 <0.001。
+pub_format_vif <- function(x, digits = NULL) {
+  pub_format_est(x, digits = digits)
+}
+
+# ── 发表表按列类型规范化（全项目强制；export / booktabs 写出前调用）────────────
+# 依据列名（及文件名/题名）把裸 0 / 0.000 / 过多小数收成规范字符串。
+# 超参自由文本列跳过。禁止课题再 sprintf 绕过。
+.pub_col_kind <- function(h, filepath = "", title = "") {
+  h0 <- trimws(as.character(h %||% "")[1L])
+  if (!nzchar(h0)) return("skip")
+  hl <- tolower(h0)
+  ctx <- tolower(paste(basename(as.character(filepath %||% "")), title %||% "", collapse = " "))
+  if (grepl("hyperparameter|package\\s*/\\s*function|tuning strategy", hl)) return("skip")
+  if (grepl("hyperparameter", ctx) && grepl("^model$|^variable$", hl)) return("skip")
+  if (grepl("^(p|p-value|p value|p\\.value|pvalue|p for|p-int|p for trend|p for interaction)\\b", hl) ||
+      grepl("\\bp value\\b|\\bp-value\\b|\\bp for\\b", hl)) {
+    return("p")
+  }
+  if (grepl("^(or|hr|rr)\\b", hl) || identical(hl, "odds ratio") || identical(hl, "hazard ratio")) {
+    return("est")
+  }
+  if (grepl("95%\\s*ci|\\bci\\b", hl) && !grepl("nri|idi", hl)) return("ci")
+  if (grepl("^(auc|accuracy|sensitivity|specificity|f1|f_meas|kappa|mcc|log.?loss|nri|idi|difference of auc|delta.?auc)\\b", hl) ||
+      grepl("log.?loss|\\bnri\\b|\\bidi\\b|roc_auc|f_meas", hl)) {
+    return("prob")
+  }
+  if (grepl("^vif$|variance inflation", hl)) return("vif")
+  if (grepl("^z statistic$|^z$", hl)) return("est")
+  ## DeLong 矩阵：列名是模型名、表题含 DeLong → 整格当 P
+  if (grepl("delong", ctx) && grepl("^(dt|rf|xgboost|enet|rsvm|mlp|logistic|lightgbm|knn|catboost|tabpfn|model)\\b", hl)) {
+    return("p_matrix")
+  }
+  "skip"
+}
+
+.pub_format_ci_cell <- function(s) {
+  s0 <- trimws(as.character(s)[1L])
+  if (!nzchar(s0) || s0 %in% c("Ref", "ref", "NE", "-", "—")) return(s0)
+  m <- regexec("^\\(\\s*([-+0-9.eE]+)\\s*,\\s*([-+0-9.eE]+)\\s*\\)$", s0)
+  g <- regmatches(s0, m)[[1]]
+  if (length(g) == 3L) return(pub_format_ci(g[2], g[3]))
+  m <- regexec("^\\s*([-+0-9.eE]+)\\s*[~～]\\s*([-+0-9.eE]+)\\s*$", s0)
+  g <- regmatches(s0, m)[[1]]
+  if (length(g) == 3L) {
+    return(paste0(pub_format_est(g[2]), " ~ ", pub_format_est(g[3])))
+  }
+  m <- regexec("^\\s*([-+0-9.eE]+)\\s*[-–]\\s*([-+0-9.eE]+)\\s*$", s0)
+  g <- regmatches(s0, m)[[1]]
+  if (length(g) == 3L) {
+    return(paste0(pub_format_est(g[2]), "-", pub_format_est(g[3])))
+  }
+  s0
+}
+
+#' 发表表单元格按统计量类型规范化（引擎强制入口）
+#' @param df 表体 data.frame（含列名）
+#' @param filepath 目标路径（用于识别 DeLong / Hyperparameter 等）
+#' @param title 表题
+pub_normalize_pub_df <- function(df, filepath = "", title = "") {
+  if (!is.data.frame(df) || !nrow(df) || !ncol(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  ctx <- tolower(paste(basename(as.character(filepath %||% "")), title %||% "", collapse = " "))
+  ## 超参表整表跳过数值改写
+  if (grepl("hyperparameter", ctx)) return(out)
+  is_delong_matrix <- grepl("delong", ctx) &&
+    grepl("^model$", tolower(names(out)[1L] %||% ""))
+  for (j in seq_len(ncol(out))) {
+    h <- names(out)[j]
+    kind <- .pub_col_kind(h, filepath = filepath, title = title)
+    if (identical(kind, "skip") && isTRUE(is_delong_matrix) && j > 1L) {
+      kind <- "p_matrix"
+    }
+    if (identical(kind, "skip")) next
+    col <- out[[j]]
+    new <- vapply(seq_along(col), function(i) {
+      s <- col[[i]]
+      if (is.null(s) || (length(s) == 1L && is.na(s))) return("")
+      s0 <- trimws(as.character(s)[1L])
+      if (!nzchar(s0)) return("")
+      if (identical(kind, "p") || identical(kind, "p_matrix")) {
+        return(pub_format_p_cell(s0))
+      }
+      if (identical(kind, "prob")) return(pub_format_prob_metric(s0))
+      if (identical(kind, "est")) {
+        xn <- suppressWarnings(as.numeric(s0))
+        if (is.finite(xn)) return(pub_format_est(xn))
+        return(s0)
+      }
+      if (identical(kind, "ci")) return(.pub_format_ci_cell(s0))
+      if (identical(kind, "vif")) return(pub_format_vif(s0))
+      s0
+    }, character(1L))
+    out[[j]] <- new
+  }
+  ## NRI/IDI 值列常为 "0.123 [0.01 - 0.2]" 字符：再扫一遍含 NRI/IDI 的非 P 列
+  for (j in seq_len(ncol(out))) {
+    h <- tolower(names(out)[j] %||% "")
+    if (!grepl("^(nri|idi)\\b", h)) next
+    if (grepl("p value|p-value|^p$", h)) next
+    out[[j]] <- vapply(as.character(out[[j]]), function(s0) {
+      s0 <- trimws(s0)
+      if (!nzchar(s0) || grepl("\\[", s0)) {
+        ## 带 CI 的字符串：只规范估计段若为裸数字；复杂串留给上游
+        if (grepl("^[+-]?[0-9.]+\\s*\\[", s0)) {
+          m <- regexec("^([-+0-9.eE]+)\\s*(\\[.*\\])\\s*$", s0)
+          g <- regmatches(s0, m)[[1]]
+          if (length(g) == 3L) {
+            return(paste0(pub_format_prob_metric(g[2]), " ", g[3]))
+          }
+        }
+        return(s0)
+      }
+      pub_format_prob_metric(s0)
+    }, character(1L))
+  }
+  out
 }
 
 # ── 发表级整数格式（人数 / 事件数 / 计数）：全项目唯一入口 ─────────────────────
@@ -832,7 +1027,8 @@ pipeline_never_predictor_names <- function(cfg) {
 pipeline_resolve_outcome_display_labels <- function(cfg) {
   prj <- cfg$project %||% list()
   study_type <- tolower(trimws(as.character(prj$study_type %||% "")[1L]))
-  is_prognosis <- identical(study_type, "prognosis")
+  is_prognosis <- identical(study_type, "prognosis") ||
+    identical(study_type, "survival")
   disease <- trimws(as.character(prj$disease %||% prj$disease_label %||% character(0))[1L])
   if (is.na(disease) || !nzchar(disease)) disease <- "Case"
 
@@ -862,6 +1058,21 @@ pipeline_resolve_outcome_display_labels <- function(cfg) {
     else if (is_prognosis) "Survivor"
     else paste0("No ", disease)
   } else ref_cfg
+
+  # 历史编码 / 旧病种 token（如 AKI_TX）必须经 outcome_level_map 落到发表展示名
+  mp <- pipeline_outcome_level_map(cfg)
+  if (length(mp)) {
+    if (nzchar(ana_cfg) && ana_cfg %in% names(mp)) {
+      analysis_lbl <- unname(mp[[ana_cfg]])
+    } else if (nzchar(analysis_lbl) && analysis_lbl %in% names(mp)) {
+      analysis_lbl <- unname(mp[[analysis_lbl]])
+    }
+    if (nzchar(ref_cfg) && ref_cfg %in% names(mp)) {
+      reference_lbl <- unname(mp[[ref_cfg]])
+    } else if (nzchar(reference_lbl) && reference_lbl %in% names(mp)) {
+      reference_lbl <- unname(mp[[reference_lbl]])
+    }
+  }
 
   list(analysis = analysis_lbl, reference = reference_lbl)
 }
@@ -4673,31 +4884,48 @@ pub_renumber_pub_dir <- function(dir, verbose = TRUE) {
 }
 
 #' 更新 xlsx 首行标题中的编号前缀（如 "Table S3." → "Table S5."）
+#'
+#' openxlsx::read.xlsx 在 SMB/坏 sharedStrings 上可 getCellInfo 硬崩进程。
+#' 默认不走 openxlsx；仅 MEDICAL_BLOCKS_ALLOW_OPENXLSX_TITLE_SYNC=1 时启用。
 .pub_update_xlsx_title <- function(xlsx_path, new_prefix) {
+  xlsx_path <- as.character(xlsx_path %||% "")[1L]
+  if (!nzchar(xlsx_path) || !file.exists(xlsx_path)) return(invisible(FALSE))
+  if (!identical(Sys.getenv("MEDICAL_BLOCKS_ALLOW_OPENXLSX_TITLE_SYNC", ""), "1")) {
+    return(invisible(FALSE))
+  }
   if (!requireNamespace("openxlsx", quietly = TRUE)) return(invisible(FALSE))
   ok <- tryCatch({
-    cell_val <- as.character(
-      openxlsx::read.xlsx(xlsx_path, sheet = 1L, colNames = FALSE,
-                          rows = 1L, cols = 1L)[1L, 1L]
-    )
-    if (!is.na(cell_val) && nzchar(cell_val)) {
-      cell_new <- sub(
-        "^(Table|Figure)\\s+S?\\d+(\\s*-|\\s*\\.)",
-        new_prefix,
-        cell_val,
-        perl = TRUE
+    withCallingHandlers({
+      cell_val <- as.character(
+        openxlsx::read.xlsx(xlsx_path, sheet = 1L, colNames = FALSE,
+                            rows = 1L, cols = 1L)[1L, 1L]
       )
-      if (!identical(cell_new, cell_val)) {
-        wb <- openxlsx::loadWorkbook(xlsx_path)
-        sh <- names(wb)[1L]
-        openxlsx::writeData(wb, sheet = sh, x = cell_new,
-                            startCol = 1L, startRow = 1L, colNames = FALSE)
-        openxlsx::saveWorkbook(wb, xlsx_path, overwrite = TRUE)
+      if (!is.na(cell_val) && nzchar(cell_val)) {
+        cell_new <- sub(
+          "^(Table|Figure)\\s+S?\\d+(\\s*-|\\s*\\.)",
+          new_prefix,
+          cell_val,
+          perl = TRUE
+        )
+        if (!identical(cell_new, cell_val)) {
+          if (exists("pub_xlsx_edit_cells", mode = "function")) {
+            pub_xlsx_edit_cells(
+              xlsx_path,
+              data.frame(row = 1L, col = 1L, value = cell_new)
+            )
+          } else {
+            wb <- openxlsx::loadWorkbook(xlsx_path)
+            sh <- names(wb)[1L]
+            openxlsx::writeData(wb, sheet = sh, x = cell_new,
+                                startCol = 1L, startRow = 1L, colNames = FALSE)
+            openxlsx::saveWorkbook(wb, xlsx_path, overwrite = TRUE)
+          }
+        }
       }
-    }
-    TRUE
+      TRUE
+    }, warning = function(w) invokeRestart("muffleWarning"))
   }, error = function(e) FALSE)
-  invisible(ok)
+  invisible(isTRUE(ok))
 }
 
 #' 更新 tex 文件 \\caption{} / 首个注释标题中的编号前缀
@@ -6053,6 +6281,13 @@ sci_xlsx_single_header_booktabs <- function(filepath, title, df_body, sheet = "T
                                             section_titles = NULL,
                                             blank_na_cells = TRUE) {
   df_body <- as.data.frame(df_body, stringsAsFactors = FALSE)
+  if (exists("pub_normalize_pub_df", mode = "function")) {
+    df_body <- pub_normalize_pub_df(
+      df_body,
+      filepath = filepath %||% "",
+      title = title %||% ""
+    )
+  }
   if (isTRUE(blank_na_cells)) {
     df_body <- .table1_blank_na_cells(df_body)
   }
@@ -6528,6 +6763,10 @@ write_table1_xlsx_guan_style <- function(
       if (is.character(df[[cn]])) df[[cn]] <- .pub_group_count_ints(df[[cn]])
     }
     names(df) <- .pub_group_count_ints(names(df))
+  }
+  ## 按统计量类型规范化 P / AUC / NRI / OR…（禁止裸 0 / 0.000；固定三位）
+  if (exists("pub_normalize_pub_df", mode = "function")) {
+    df <- pub_normalize_pub_df(df, filepath = filepath %||% "", title = "")
   }
   first_col <- names(df)[1L]
   last_col <- names(df)[ncol(df)]
@@ -7387,10 +7626,12 @@ fmt_num_cutoff <- function(x, digits = NULL) {
 }
 
 fmt_pval <- function(p, digits = NULL) {
-  dig <- as.integer(digits %||% .pipeline_pub_digits()$p)[1L]
-  if (!is.finite(dig) || dig < 0L) dig <- 3L
-  ifelse(is.na(p), NA_character_,
-         ifelse(p < 0.001, "<0.001", formatC(round(p, dig), format = "f", digits = dig)))
+  # 与 pub_format_p 同口径（默认 ICMJE/NEJM）；禁止再写死一律 3 位
+  if (length(p) != 1L) {
+    return(vapply(p, function(x) fmt_pval(x, digits = digits), character(1L), USE.NAMES = FALSE))
+  }
+  if (length(p) == 0L || is.null(p) || (length(p) == 1L && is.na(p))) return(NA_character_)
+  pub_format_p(p, digits = digits)
 }
 
 #' 把 gtsummary 默认 p 格式锁成 fmt_pval。

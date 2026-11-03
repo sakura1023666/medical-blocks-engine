@@ -39,7 +39,7 @@ config <- list(
     export_figure_svg = FALSE
   ),
   # 发表小数位（全项目统一；一般勿改）est=HR；p=P；desc=描述；cutoff=切点
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
   attrition = list(
     enable = TRUE,
     title = NULL,

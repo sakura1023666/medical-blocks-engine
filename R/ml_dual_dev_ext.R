@@ -866,7 +866,11 @@ ml_dual_dev_ext_compose_pub <- function(index_root, cfg, tables_only = FALSE) {
     Log_Loss_External_validation = vapply(models, function(m) ml_dual_dev_ext_logloss(w_ex$D, w_ex[[m]]), numeric(1L)),
     stringsAsFactors = FALSE
   )
-  if (exists(".sm_round_df_numeric", mode = "function")) {
+  if (exists(".sm_format_logloss_df", mode = "function")) {
+    ll <- .sm_format_logloss_df(ll)
+  } else if (exists("pub_format_prob_metric", mode = "function")) {
+    for (cn in names(ll)[-1L]) ll[[cn]] <- pub_format_prob_metric(ll[[cn]])
+  } else if (exists(".sm_round_df_numeric", mode = "function")) {
     ll <- .sm_round_df_numeric(ll, 3L)
   } else {
     for (cn in names(ll)[-1L]) ll[[cn]] <- round(ll[[cn]], 3)
@@ -947,7 +951,9 @@ ml_dual_dev_ext_compose_pub <- function(index_root, cfg, tables_only = FALSE) {
     if (exists(".sm_run_delong_grid", mode = "function")) {
       d <- tryCatch(.sm_run_delong_grid(s$w$D, .plist(s$w), "delong"), error = function(e) NULL)
       if (!is.null(d)) {
-        if (exists(".sm_round_df_numeric", mode = "function")) {
+        if (exists(".sm_format_delong_df", mode = "function")) {
+          d <- .sm_format_delong_df(d)
+        } else if (exists(".sm_round_df_numeric", mode = "function")) {
           d <- .sm_round_df_numeric(d, 3L)
         }
         tit <- paste0("DeLong tests ", s$lab)
@@ -961,6 +967,11 @@ ml_dual_dev_ext_compose_pub <- function(index_root, cfg, tables_only = FALSE) {
         error = function(e) NULL
       )
       if (!is.null(nri)) {
+        if (exists(".sm_format_nri_idi_df", mode = "function")) {
+          names(nri)[names(nri) == "P value_NRI"] <- "P value (NRI)"
+          names(nri)[names(nri) == "P value_IDI"] <- "P value (IDI)"
+          nri <- .sm_format_nri_idi_df(nri)
+        }
         tit <- paste0("NRI and IDI ", s$lab)
         .write_tbl(nri, paste0("Table S. ", tit))
       }

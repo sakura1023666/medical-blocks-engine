@@ -192,10 +192,26 @@
   eval_df <- eval_df[as.character(eval_df$model) %in% display_order, , drop = FALSE]
   eval_df$model <- factor(as.character(eval_df$model), levels = display_order)
   eval_df <- eval_df[is.finite(eval_df$.estimate) & !is.na(eval_df$model), , drop = FALSE]
-  p <- ggplot2::ggplot(eval_df, ggplot2::aes(x = .data$.metric, y = .data$.estimate, color = .data$model)) +
+  # 横轴用可读名；图例统一 Model（忌 Model/model/Models 混用）
+  metric_lab <- c(
+    roc_auc = "ROC AUC", auc = "ROC AUC", c_index = "C-index",
+    kap = "Kappa", sens = "Sensitivity", spec = "Specificity",
+    accuracy = "Accuracy", f_meas = "F1", mcc = "MCC",
+    brier = "Brier", brier_score = "Brier"
+  )
+  eval_df$.metric_lab <- unname(metric_lab[tolower(as.character(eval_df$.metric))])
+  miss <- is.na(eval_df$.metric_lab) | !nzchar(eval_df$.metric_lab)
+  eval_df$.metric_lab[miss] <- as.character(eval_df$.metric[miss])
+  p <- ggplot2::ggplot(
+    eval_df,
+    ggplot2::aes(x = .data$.metric_lab, y = .data$.estimate, color = .data$model)
+  ) +
     ggplot2::geom_point() +
     ggplot2::geom_line(ggplot2::aes(group = .data$model)) +
-    ggplot2::scale_color_manual(values = stats::setNames(colors[seq_along(display_order)], display_order)) +
+    ggplot2::scale_color_manual(
+      name = "Model",
+      values = stats::setNames(colors[seq_along(display_order)], display_order)
+    ) +
     ggplot2::theme_bw(base_size = base_size, base_family = font_family) +
     .pm_theme_ml(font_family, base_size, legend_position = c(0.88, 0.05), legend_justification = c(1, 0)) +
     ggplot2::theme(
@@ -204,7 +220,7 @@
       legend.box = "vertical"
     ) +
     ggplot2::scale_x_discrete(name = "Model metric") +
-    ggplot2::labs(title = title, x = NULL, y = "Estimate")
+    ggplot2::labs(title = title, x = NULL, y = "Estimate", color = "Model")
   if (!is.null(y_limits) && length(y_limits) == 2L &&
       all(is.finite(as.numeric(y_limits)))) {
     p + ggplot2::coord_cartesian(ylim = as.numeric(y_limits), clip = "off")
@@ -274,7 +290,11 @@
     )
   dig <- as.integer(digits)[1L]
   if (!is.finite(dig) || dig < 0L) dig <- 3L
+  ## 走引擎 pub_format_prob_metric：固定三位；|x|<0.001 → <0.001（禁止 0.000）
   fmt_est <- function(x) {
+    if (exists("pub_format_prob_metric", mode = "function")) {
+      return(pub_format_prob_metric(x, digits = dig))
+    }
     x <- suppressWarnings(as.numeric(x))
     ifelse(is.finite(x), sprintf(paste0("%.", dig, "f"), x), NA_character_)
   }
@@ -520,6 +540,7 @@
     ggplot2::scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), expand = c(0, 0)) +
     ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), expand = c(0, 0)) +
     ggplot2::scale_color_manual(
+      name = "Model",
       values = {
         cv <- colors[match(resci$algorithm, display_order)]
         na <- is.na(cv)
@@ -534,6 +555,7 @@
     .pm_theme_ml(font_family, base_size, legend_position = c(0.72, 0.12), legend_justification = c(0.5, 0)) +
     ggplot2::guides(
       color = ggplot2::guide_legend(
+        title = "Model",
         ncol = 1L, keyheight = grid::unit(0.28, "cm"),
         override.aes = list(linewidth = 0.7)
       )
@@ -543,7 +565,7 @@
       legend.key.height = grid::unit(0.28, "cm"),
       legend.spacing.y = grid::unit(0.02, "cm")
     ) +
-    ggplot2::labs(title = title)
+    ggplot2::labs(title = title, color = "Model")
   .pm_coord_clip_off(p)
 }
 
@@ -611,7 +633,7 @@
     ggplot2::geom_abline(intercept = 0, slope = 1, linetype = 2, color = "gray") +
     ggplot2::scale_y_continuous(breaks = seq(0, 100, 25)) +
     ggplot2::scale_x_continuous(breaks = seq(0, 100, 25)) +
-    ggplot2::scale_color_manual(values = cal_cols) +
+    ggplot2::scale_color_manual(name = "Model", values = cal_cols) +
     ggplot2::geom_point(size = 1.6) +
     ggplot2::geom_line(linewidth = 0.4) +
     ggplot2::coord_cartesian(xlim = c(0, 100), ylim = c(0, 100), expand = FALSE, clip = "off") +
@@ -871,10 +893,19 @@
   ]
   if (!nrow(tmp)) return(NULL)
   ulev <- unique(as.character(dca_obj$variable))
-  tmp$variable <- factor(tmp$variable, levels = ulev, ordered = TRUE)
-  comb_names <- c("all", "none", display_order)
+  # 发表口径：treat-all / treat-none（勿留 dcurves 原始 all/none）
+  .dca_lab <- function(v) {
+    v <- as.character(v)
+    v[v %in% c("all", "All")] <- "Treat-all"
+    v[v %in% c("none", "None")] <- "Treat-none"
+    v
+  }
+  tmp$variable <- .dca_lab(tmp$variable)
+  ulev <- .dca_lab(ulev)
+  tmp$variable <- factor(tmp$variable, levels = unique(ulev), ordered = TRUE)
+  comb_names <- c("Treat-all", "Treat-none", display_order)
   comb_cols <- c(
-    all = "#999999", none = "#666666",
+    `Treat-all` = "#999999", `Treat-none` = "#666666",
     stats::setNames(.pm_default_colors(length(display_order)), display_order)
   )
   # 自适应窄范围：默认允许轻微负值；若传入 y_min（如 0），强制以下限为准
@@ -908,12 +939,12 @@
   if (is.finite(ymin)) {
     tmp$net_benefit <- pmax(as.numeric(tmp$net_benefit), ymin)
   }
-  col_values <- unname(comb_cols[ulev])
+  col_values <- unname(comb_cols[as.character(ulev)])
   col_values[is.na(col_values)] <- grDevices::gray(0.5)
-  names(col_values) <- ulev
+  names(col_values) <- as.character(ulev)
   p <- ggplot2::ggplot(tmp, ggplot2::aes(x = .data$threshold, y = .data$net_benefit)) +
     ggplot2::geom_line(ggplot2::aes(color = .data$variable), linewidth = 1) +
-    ggplot2::scale_color_manual(name = "Models", values = col_values) +
+    ggplot2::scale_color_manual(name = "Model", values = col_values) +
     ggplot2::scale_x_continuous(
       limits = xlim,
       expand = ggplot2::expansion(mult = c(0.01, 0.02)),

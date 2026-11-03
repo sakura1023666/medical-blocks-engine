@@ -436,25 +436,54 @@ dual_db_path_name_to_slot <- function(cfg, path_name) {
   NA_character_
 }
 
-#' 解析已存在的目录：优先新名（eICU），回退 legacy（nhanes）
+#' 解析已存在的目录：优先显示名（eICU/MIMIC…），谨慎回退槽位名（nhanes/mimic）
+#'
+#' 禁止：
+#' 1) 按「主库=eICU、次库=MIMIC」硬编码交叉回退；
+#' 2) 在大小写不敏感盘（Windows/G:）上把次库槽位名 `mimic` 解析到主库 `MIMIC` 目录
+#'    （MIMIC 主库 + eICU 次库时会误判 eICU shared 已存在）。
 dual_db_resolve_slot_dir <- function(parent, cfg, slot) {
   parent <- as.character(parent)[1L]
   slot   <- dual_db_normalize_slot(slot)
-  disp <- dual_db_slot_path_name(cfg, slot)
+  disp <- as.character(dual_db_slot_path_name(cfg, slot))[1L]
+  other_slot <- if (dual_db_slot_is_primary(slot)) {
+    dual_db_slot_secondary()
+  } else {
+    dual_db_slot_primary()
+  }
+  other_disp <- as.character(dual_db_slot_path_name(cfg, other_slot))[1L]
+
   candidates <- unique(c(
     file.path(parent, disp),
     file.path(parent, tolower(disp)),
-    file.path(parent, toupper(disp)),
-    file.path(parent, slot),
-    # 轨迹预后等课题常用小写 eicu/mimic 子目录
-    if (dual_db_slot_is_primary(slot)) {
-      c(file.path(parent, "eicu"), file.path(parent, "EICU"))
-    } else {
-      c(file.path(parent, "mimic"), file.path(parent, "MIMIC"))
-    }
+    file.path(parent, toupper(disp))
   ))
+  # 内部槽位名回退：仅当不会与对侧显示名在大小写折叠后撞车
+  if (!identical(tolower(slot), tolower(other_disp))) {
+    candidates <- unique(c(candidates, file.path(parent, slot)))
+  }
+  dn <- tolower(gsub("[^A-Za-z0-9]+", "", disp))
+  if (identical(dn, "eicu") || startsWith(dn, "eicu")) {
+    candidates <- unique(c(
+      candidates,
+      file.path(parent, "eicu"),
+      file.path(parent, "eICU"),
+      file.path(parent, "EICU")
+    ))
+  }
+  if (identical(dn, "mimic") || startsWith(dn, "mimic")) {
+    candidates <- unique(c(
+      candidates,
+      file.path(parent, "mimic"),
+      file.path(parent, "MIMIC")
+    ))
+  }
   for (d in candidates) {
-    if (dir.exists(d)) return(d)
+    if (!dir.exists(d)) next
+    # 再挡一层：已存在目录名不得等于对侧显示名（大小写不敏感）
+    bn <- basename(d)
+    if (identical(tolower(bn), tolower(other_disp))) next
+    return(d)
   }
   candidates[[1L]]
 }

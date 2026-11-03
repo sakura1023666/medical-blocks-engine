@@ -62,7 +62,7 @@ config <- list(
 
   # ── 发表小数位（全项目统一；一般勿改。改后新跑表/图才生效，旧表不自动回刷）──
   # est=OR/HR；p=P 值；desc=均值/SD/%；cutoff=ROC/RCS 切点
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
 
   # ── 发病（index_var 由 batch runner patch）────────────────────────────────
   incidence = list(

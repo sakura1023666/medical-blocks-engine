@@ -2,12 +2,12 @@
 #  pub_delivery_prune — 交付根目录白名单（全项目复用）
 #
 #  客户交付目录（summary_result / summary_results / 指标级 summary_result）
-#  根下只保留（2026-11-02 全项目铁律）：
+#  根下只保留（2026-11-02；ML 有网页计算器时含 Shiny）：
 #    Figures/  Tables/
 #    Methods_statistical_analysis.md
 #    Methods_software_versions.txt
 #    *中期*.pdf（中期分析结果）
-#  Shiny/ShinyApp 留在指标根，不进 summary_results 交付面。
+#    Shiny/ 或 ShinyApp/（仅当本指标跑过 shiny_ml_app；与指标根同源）
 #
 #  其余（README、reports、content.json、_report_dump、项目信息、
 #  Methods_software_section、根级 image_information 等）移到交付根的
@@ -26,6 +26,8 @@ pub_delivery_keep_name <- function(name, figures_tables_only = FALSE) {
   if (isTRUE(figures_tables_only)) return(FALSE)
   if (identical(name, "Methods_statistical_analysis.md")) return(TRUE)
   if (identical(name, "Methods_software_versions.txt")) return(TRUE)
+  # ML 网页计算器（与 ml_finalize 同步进 summary_results）
+  if (identical(name, "Shiny") || identical(name, "ShinyApp")) return(TRUE)
   # 中期 PDF（中英文文件名）
   if (grepl("\u4e2d\u671f", name, fixed = TRUE) && grepl("\\.pdf$", name, ignore.case = TRUE)) {
     return(TRUE)

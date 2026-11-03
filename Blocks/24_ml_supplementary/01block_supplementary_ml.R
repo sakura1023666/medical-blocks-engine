@@ -51,6 +51,84 @@
   out
 }
 
+## 发表规范：Log-Loss / DeLong / NRI-IDI 走引擎 pub_format_*（禁止裸 0 / 0.000）
+.sm_format_logloss_df <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in names(out)) {
+    if (identical(cn, "Model")) next
+    if (exists("pub_format_prob_metric", mode = "function")) {
+      out[[cn]] <- pub_format_prob_metric(out[[cn]])
+    } else if (is.numeric(out[[cn]])) {
+      out[[cn]] <- formatC(as.numeric(out[[cn]]), format = "f", digits = 3L)
+    }
+  }
+  out
+}
+
+.sm_format_delong_df <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in names(out)) {
+    hl <- tolower(cn)
+    if (grepl("new model-baseline|baseline model name|^model$", hl)) next
+    if (grepl("^p value$|^p$", hl) || grepl("p-value|p value", hl)) {
+      out[[cn]] <- if (exists("pub_format_p_cell", mode = "function")) {
+        pub_format_p_cell(out[[cn]])
+      } else {
+        as.character(out[[cn]])
+      }
+      next
+    }
+    if (grepl("95%\\s*ci|\\bci\\b", hl)) {
+      out[[cn]] <- vapply(as.character(out[[cn]]), function(s) {
+        if (exists(".pub_format_ci_cell", mode = "function")) .pub_format_ci_cell(s) else s
+      }, character(1L))
+      next
+    }
+    if (grepl("auc|difference|z statistic|^z$", hl)) {
+      if (exists("pub_format_prob_metric", mode = "function") && grepl("auc|difference", hl)) {
+        out[[cn]] <- pub_format_prob_metric(out[[cn]])
+      } else if (exists("pub_format_est", mode = "function")) {
+        out[[cn]] <- pub_format_est(out[[cn]])
+      }
+    }
+  }
+  out
+}
+
+.sm_format_nri_idi_df <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in names(out)) {
+    hl <- tolower(cn)
+    if (grepl("model|baseline|new model", hl) && !grepl("^(nri|idi)", hl)) next
+    if (grepl("p value|p-value|^p$", hl)) {
+      x <- as.character(out[[cn]])
+      bad <- is.na(x) | !nzchar(trimws(x)) | toupper(trimws(x)) %in% c("NA", "NAN", "—", "-")
+      x2 <- x
+      if (exists("pub_format_p_cell", mode = "function")) {
+        x2[!bad] <- pub_format_p_cell(x[!bad])
+      }
+      x2[bad] <- "\u2014"
+      out[[cn]] <- x2
+      next
+    }
+    if (grepl("^(nri|idi)\\b", hl)) {
+      out[[cn]] <- if (exists("pub_format_prob_metric", mode = "function")) {
+        vapply(as.character(out[[cn]]), function(s) {
+          s0 <- trimws(s)
+          if (!nzchar(s0) || grepl("\\[", s0)) return(s0)
+          pub_format_prob_metric(s0)
+        }, character(1L))
+      } else {
+        as.character(out[[cn]])
+      }
+    }
+  }
+  out
+}
+
 .sm_package_for_tag <- function(tag) {
   tg <- tolower(trimws(as.character(tag)[1L]))
   m <- c(
@@ -206,12 +284,17 @@
   ci_chr <- NA_character_
   ci <- suppressWarnings(as.numeric(rt$conf.int))
   if (length(ci) >= 2L && all(is.finite(ci))) {
-    ci_chr <- sprintf("%.3f ~ %.3f", ci[1L], ci[2L])
+    ci_chr <- if (exists("pub_format_est", mode = "function")) {
+      paste0(pub_format_est(ci[1L]), " ~ ", pub_format_est(ci[2L]))
+    } else {
+      sprintf("%.3f ~ %.3f", ci[1L], ci[2L])
+    }
   }
   zv <- suppressWarnings(as.numeric(rt$statistic))
   if (length(zv) != 1L) zv <- NA_real_
   pv <- suppressWarnings(as.numeric(rt$p.value))
   if (length(pv) != 1L) pv <- NA_real_
+  ## 写出前已由 .sm_format_delong_df / pub_normalize_pub_df 规范；此处保留数值供中间 CSV
   data.frame(
     `New model-Baseline model` = paste(name_new, "-", name_base),
     `New model` = a1,
@@ -464,7 +547,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         Log_Loss_Validation = unname(ll_te),
         stringsAsFactors = FALSE
       )
-      df_ll <- .sm_round_df_numeric(df_ll, tbl_digits)
+      df_ll <- .sm_format_logloss_df(df_ll)
       ll_pub <- pub_paths(
         ctx, tbl_dir, "supp_table",
         "Log-Loss (training and validation sets)",
@@ -480,7 +563,7 @@ block_Supplementary_ml <- function(ctx, ...) {
       d_tr <- .sm_run_delong_grid(y_tr, pred_tr_list, delong_m)
       d_te <- .sm_run_delong_grid(y_te, pred_te_list, delong_m)
       if (!is.null(d_tr) && ("delong" %in% methods || "s4" %in% methods)) {
-        d_tr <- .sm_round_df_numeric(d_tr, tbl_digits)
+        d_tr <- .sm_format_delong_df(d_tr)
         del_tr_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "DeLong tests (training set)",
@@ -490,7 +573,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         ctx <- save_result(ctx, "supplementary_ml_s4", d_tr, "Table_S4_delong_train.csv")
       }
       if (!is.null(d_te) && ("delong" %in% methods || "s5" %in% methods)) {
-        d_te <- .sm_round_df_numeric(d_te, tbl_digits)
+        d_te <- .sm_format_delong_df(d_te)
         del_va_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "DeLong tests (validation set)",
@@ -530,6 +613,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         nri_tr <- .sm_fill_nri_na_p(nri_tr)
         names(nri_tr)[names(nri_tr) == "P value_NRI"] <- "P value (NRI)"
         names(nri_tr)[names(nri_tr) == "P value_IDI"] <- "P value (IDI)"
+        nri_tr <- .sm_format_nri_idi_df(nri_tr)
         nri_tr_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "NRI and IDI (training set)",
@@ -542,6 +626,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         nri_te <- .sm_fill_nri_na_p(nri_te)
         names(nri_te)[names(nri_te) == "P value_NRI"] <- "P value (NRI)"
         names(nri_te)[names(nri_te) == "P value_IDI"] <- "P value (IDI)"
+        nri_te <- .sm_format_nri_idi_df(nri_te)
         nri_va_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "NRI and IDI (validation set)",

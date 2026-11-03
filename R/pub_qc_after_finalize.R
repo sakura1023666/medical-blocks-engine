@@ -78,6 +78,9 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
   if (nzchar(eng) && !exists("pub_figure_formats_status", mode = "function")) {
     try(source(file.path(eng, "R/pub_figure_export.R"), local = FALSE), silent = TRUE)
   }
+  if (nzchar(eng) && !exists("pub_qc_scan_table_digits", mode = "function")) {
+    try(source(file.path(eng, "R/pub_qc_table_digits.R"), local = FALSE), silent = TRUE)
+  }
 
   fig_roots <- .pub_qc_find_figure_roots(project_root)
   # Layer D 机器半边：DPI<600 时从 PDF 重导，不整目录 purge。叙述仍由 Agent 填。
@@ -115,6 +118,19 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
       ))
   }, logical(1)))
 
+  ## 数字格式门控（DeLong/NRI/AUC 裸 0 / 0.000 → 计 STRUCT_FAIL / P0）
+  digits_scan <- list(ok = TRUE, n_bad = 0L, hits = data.frame())
+  if (exists("pub_qc_scan_table_digits", mode = "function")) {
+    digits_scan <- tryCatch(
+      pub_qc_scan_table_digits(project_root),
+      error = function(e) list(ok = FALSE, n_bad = 1L, hits = data.frame(
+        path = NA_character_, file = "scan_error", bad = e$message,
+        stringsAsFactors = FALSE
+      ))
+    )
+  }
+  if (!isTRUE(digits_scan$ok)) n_fail <- n_fail + as.integer(digits_scan$n_bad %||% 1L)
+
   reports <- file.path(project_root, "reports")
   dir.create(reports, recursive = TRUE, showWarnings = FALSE)
   day <- .pub_qc_today()
@@ -129,6 +145,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("- 日期：", day),
     paste0("- 审阅结论：**", if (n_fail == 0L) "STRUCT_OK" else "STRUCT_FAIL", "**（仅 Layer A 结构；Nature Layer D 须 Agent 填实）"),
     paste0("- Figures 根数：", length(fig_roots), "；结构失败：", n_fail),
+    paste0("- 表数字格式门控：", if (isTRUE(digits_scan$ok)) "PASS" else paste0("FAIL (n=", digits_scan$n_bad %||% "?", ")")),
     "",
     "## Layer A — pdf + image_information（默认不要求 png/tiff）",
     ""
@@ -155,6 +172,27 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
   }
   lines <- c(
     lines,
+    "## Layer A2 — 表数字格式（pub_digits）",
+    "",
+    "- 规则：`.cursor/rules/pub_digits_consistency.mdc`；实现：`R/pub_qc_table_digits.R`",
+    "- P/DeLong/NRI/IDI/AUC 禁止裸 `0` / `0.000`（须 `<0.001`）；超参表豁免",
+    ""
+  )
+  if (isTRUE(digits_scan$ok)) {
+    lines <- c(lines, "- 结论：**PASS**（未检出反规范整格）", "")
+  } else {
+    lines <- c(lines, "- 结论：**FAIL / P0**", "")
+    ht <- digits_scan$hits
+    if (is.data.frame(ht) && nrow(ht)) {
+      for (i in seq_len(min(30L, nrow(ht)))) {
+        lines <- c(lines, paste0("  - `", ht$file[i], "`: ", ht$bad[i]))
+      }
+    }
+    lines <- c(lines, "")
+  }
+
+  lines <- c(
+    lines,
     "## Layer D stubs",
     "",
     paste0("- 若尚无正式报告，请按 `.cursor/skills/pub-qc-after-project` 填实："),
@@ -162,6 +200,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("  - `", basename(nature_stat), "`"),
     "- **默认交付仅 PDF**：缺 png/tiff 不再算 P0；仅当 `config$pub_figures$export_png/tiff=TRUE` 时 DPI/stale_raster 才为 P0。",
     "- **根目录平铺 Figure*.pdf 或 bad_pdf_geometry = P0**，当场 `pub_figure_ensure_formats`。",
+    "- **表数字格式 FAIL = P0**（裸 0/0.000）；修完再宣称 PASS。",
     ""
   )
 

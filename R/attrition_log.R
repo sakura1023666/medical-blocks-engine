@@ -357,16 +357,39 @@ attrition_resolve_outcome_fork <- function(ctx, config) {
     identical(study_type, "survival") ||
     isTRUE(attr_cfg$fork_mode %||% "" == "prognosis")
 
+  # 发表展示名（Non-survivor / Survivor 等）；禁止分叉框写裸 1/0、AKI_TX、tx
+  disp <- if (exists("pipeline_resolve_outcome_display_labels", mode = "function")) {
+    pipeline_resolve_outcome_display_labels(config)
+  } else {
+    list(analysis = as.character(proj$disease %||% "Case")[1L],
+         reference = as.character(proj$reference_group_label %||% "Reference")[1L])
+  }
+  case_disp <- as.character(disp$analysis %||% "Case")[1L]
+  ctrl_disp <- as.character(disp$reference %||% "Reference")[1L]
+
   if (!is_prognosis && nzchar(oc) && oc %in% names(d) &&
       !is.null(ag) && !is.null(rg)) {
-    vals <- as.character(d[[oc]])
-    n_case <- sum(vals == as.character(ag)[1L], na.rm = TRUE)
-    n_ctrl <- sum(vals == as.character(rg)[1L], na.rm = TRUE)
+    # 用 0/1 口径计数，兼容列已是展示名 / 旧病种 token / 编码 1
+    vals01 <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+      suppressWarnings(as.integer(pipeline_outcome_as_01(d[[oc]], config)))
+    } else {
+      NA_integer_
+    }
+    if (!length(vals01) || all(is.na(vals01))) {
+      vals <- as.character(d[[oc]])
+      n_case <- sum(vals == as.character(ag)[1L] | vals == case_disp, na.rm = TRUE)
+      n_ctrl <- sum(vals == as.character(rg)[1L] | vals == ctrl_disp, na.rm = TRUE)
+    } else {
+      n_case <- sum(vals01 == 1L, na.rm = TRUE)
+      n_ctrl <- sum(vals01 == 0L, na.rm = TRUE)
+    }
     if (is.finite(n_case) && is.finite(n_ctrl) && (n_case + n_ctrl) > 0L) {
-      left_lab <- as.character(attr_cfg$fork_case_label %||%
-                                 sprintf("%s group", as.character(ag)[1L]))[1L]
-      right_lab <- as.character(attr_cfg$fork_ctrl_label %||%
-                                  sprintf("%s group", as.character(rg)[1L]))[1L]
+      left_lab <- as.character(
+        attr_cfg$fork_case_label %||% sprintf("%s group", case_disp)
+      )[1L]
+      right_lab <- as.character(
+        attr_cfg$fork_ctrl_label %||% sprintf("%s group", ctrl_disp)
+      )[1L]
       return(list(
         left_label = left_lab, left_n = as.integer(n_case),
         right_label = right_lab, right_n = as.integer(n_ctrl),
@@ -378,17 +401,32 @@ attrition_resolve_outcome_fork <- function(ctx, config) {
   ev <- as.character(surv$event_var %||% data_cfg$event_var %||% "fustatus")[1L]
   if (nzchar(ev) && ev %in% names(d)) {
     raw <- d[[ev]]
-    evv <- suppressWarnings(as.integer(as.character(raw)))
+    evv <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+      suppressWarnings(as.integer(pipeline_outcome_as_01(raw, config)))
+    } else {
+      NA_integer_
+    }
+    if (!length(evv) || all(is.na(evv))) {
+      evv <- suppressWarnings(as.integer(as.character(raw)))
+    }
     if (!length(evv) || all(is.na(evv))) {
       ch <- tolower(trimws(as.character(raw)))
-      evv <- ifelse(ch %in% c("1", "true", "dead", "expired", "death", "yes"), 1L,
-                    ifelse(ch %in% c("0", "false", "alive", "censor", "censored", "no"), 0L, NA_integer_))
+      evv <- ifelse(ch %in% c("1", "true", "dead", "expired", "death", "yes",
+                              "non-survivor", "nonsurvivor"), 1L,
+                    ifelse(ch %in% c("0", "false", "alive", "censor", "censored", "no",
+                                     "survivor"), 0L, NA_integer_))
     }
     n_dead <- sum(evv == 1L, na.rm = TRUE)
     n_alive <- sum(evv == 0L, na.rm = TRUE)
     if (is.finite(n_dead) && is.finite(n_alive) && (n_dead + n_alive) > 0L) {
-      left_lab <- as.character(attr_cfg$fork_event_label %||% "Expired group")[1L]
-      right_lab <- as.character(attr_cfg$fork_censor_label %||% "Alive group")[1L]
+      left_lab <- as.character(
+        attr_cfg$fork_event_label %||% attr_cfg$fork_case_label %||%
+          sprintf("%s group", case_disp)
+      )[1L]
+      right_lab <- as.character(
+        attr_cfg$fork_censor_label %||% attr_cfg$fork_ctrl_label %||%
+          sprintf("%s group", ctrl_disp)
+      )[1L]
       return(list(
         left_label = left_lab, left_n = as.integer(n_dead),
         right_label = right_lab, right_n = as.integer(n_alive),
@@ -813,8 +851,15 @@ attrition_key_missing_label_from_index <- function(df, index_name) {
   )
 }
 
-.attrition_pv2_draw_panel <- function(p) {
-  ff <- "Times"
+.attrition_pv2_draw_panel <- function(p, font_family = NULL) {
+  ff <- as.character(font_family %||% "")[1L]
+  if (!nzchar(ff)) {
+    ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+      resolve_plot_font_family("Times New Roman")
+    } else {
+      "Times New Roman"
+    }
+  }
   box <- function(x0, y0, x1, y1, lab, fs = 7.2, just = "centre") {
     if (!nzchar(lab %||% "")) return(invisible(NULL))
     grid::grid.roundrect(
@@ -930,8 +975,139 @@ attrition_pv2_letter <- function(rows, index = 1L) {
   paste(L, db)
 }
 
+#' 解析双库/单库 cohort：支持「单 cohort」或「按库名命名的 list」。
+.attrition_pv2_resolve_cohort <- function(cohort, panel_db = "", panel_nm = "", index = 1L) {
+  if (is.null(cohort) || !is.list(cohort) || !length(cohort)) return(NULL)
+  if (is.finite(suppressWarnings(as.numeric(cohort$n_source)[1L]))) {
+    return(cohort)
+  }
+  keys <- names(cohort)
+  cands <- unique(c(
+    toupper(trimws(as.character(panel_db %||% "")[1L])),
+    toupper(trimws(as.character(panel_nm %||% "")[1L]))
+  ))
+  cands <- cands[nzchar(cands)]
+  if (!is.null(keys) && any(nzchar(keys))) {
+    ku <- toupper(trimws(keys))
+    for (cand in cands) {
+      hit <- which(ku == cand)
+      if (length(hit)) {
+        one <- cohort[[hit[[1L]]]]
+        if (is.list(one) && is.finite(suppressWarnings(as.numeric(one$n_source)[1L]))) {
+          return(one)
+        }
+      }
+    }
+  }
+  if (is.finite(index) && index >= 1L && index <= length(cohort)) {
+    one <- cohort[[index]]
+    if (is.list(one) && is.finite(suppressWarnings(as.numeric(one$n_source)[1L]))) {
+      return(one)
+    }
+  }
+  NULL
+}
+
+#' 从 config$attrition$years_by_db / years_label 取库年份
+attrition_years_for_db <- function(config, database) {
+  att <- (config %||% list())$attrition %||% list()
+  db <- toupper(trimws(as.character(database %||% "")[1L]))
+  ybd <- att$years_by_db %||% list()
+  if (length(ybd) && !is.null(names(ybd))) {
+    hit <- which(toupper(trimws(names(ybd))) == db)
+    if (length(hit)) {
+      y <- trimws(as.character(ybd[[hit[[1L]]]])[1L])
+      if (nzchar(y)) return(y)
+    }
+  }
+  trimws(as.character(att$years_label %||% "")[1L])
+}
+
+#' Starting / Participants 框补调查年份
+attrition_annotate_starting_years <- function(rows, years) {
+  years <- trimws(as.character(years %||% "")[1L])
+  if (!nzchar(years) || is.null(rows) || !is.data.frame(rows) || !nrow(rows)) {
+    return(rows)
+  }
+  if (!"step" %in% names(rows)) return(rows)
+  i <- which(grepl("(?i)starting|participants\\s+in", as.character(rows$step)))[1L]
+  if (!length(i) || is.na(i)) i <- 1L
+  st <- as.character(rows$step[[i]])[1L]
+  if (grepl("\\([0-9]{4}", st)) {
+    rows$step[[i]] <- sub("\\([0-9]{4}[^)]*\\)", paste0("(", years, ")"), st)
+  } else if (grepl("\n", st, fixed = TRUE)) {
+    rows$step[[i]] <- paste0(st, "\n(", years, ")")
+  } else {
+    rows$step[[i]] <- paste0(st, "\n(", years, ")")
+  }
+  rows
+}
+
+#' 从 attrition 行 + config 拼 pv2 cohort（Participants in DB + 年龄侧栏）
+attrition_pv2_cohort_from_rows <- function(rows, config = list(), database = NULL) {
+  if (is.null(rows) || !is.data.frame(rows) || !nrow(rows) || !"n" %in% names(rows)) {
+    return(NULL)
+  }
+  db <- toupper(trimws(as.character(
+    database %||% {
+      if ("database" %in% names(rows)) rows$database[[1L]] else "NHANES"
+    }
+  )[1L]))
+  db <- sub("_COPY$", "", db)
+  years <- attrition_years_for_db(config, db)
+  n_vec <- suppressWarnings(as.integer(rows$n))
+  n_source <- n_vec[[1L]]
+  if (!is.finite(n_source)) return(NULL)
+
+  sid_hit <- if ("step_id" %in% names(rows)) {
+    grepl("(?i)age_filter|after_age", as.character(rows$step_id))
+  } else {
+    rep(FALSE, nrow(rows))
+  }
+  age_i <- which(
+    grepl("(?i)^age\\s*filter|\\bage\\s*filter\\b", as.character(rows$step)) |
+      sid_hit
+  )
+  age_i <- if (length(age_i)) as.integer(age_i[[1L]]) else NA_integer_
+  if (is.finite(age_i) && age_i >= 2L) {
+    age_exclude_n <- max(0L, n_vec[[age_i - 1L]] - n_vec[[age_i]])
+    age_keep_n <- n_vec[[age_i]]
+  } else if (is.finite(age_i)) {
+    age_exclude_n <- 0L
+    age_keep_n <- n_vec[[age_i]]
+  } else {
+    age_exclude_n <- 0L
+    age_keep_n <- n_source
+  }
+  if (!is.finite(age_keep_n)) age_keep_n <- n_source
+
+  wl <- ""
+  if ("exclude_label" %in% names(rows)) {
+    for (i in seq_len(nrow(rows))) {
+      el <- as.character(rows$exclude_label[[i]])[1L]
+      if (is.na(el) || identical(el, "NA")) next
+      if (grepl("survey weight", el, ignore.case = TRUE)) {
+        wl <- trimws(el)
+        break
+      }
+    }
+  }
+
+  list(
+    database = db,
+    years = years,
+    n_source = as.integer(n_source),
+    age_exclude_label = "Age < 18 or missing age",
+    age_exclude_n = as.integer(age_exclude_n),
+    age_keep_label = "Age filter (Age >= 18)",
+    age_keep_n = as.integer(age_keep_n),
+    survey_weight_label = if (nzchar(wl)) wl else NULL,
+    side_line_width = 26L
+  )
+}
+
 #' 单库或双库发病纳排图，版式与预后 v2 Figure 1 相同。
-attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = NULL) {
+attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = NULL, ...) {
   if (is.data.frame(rows_by_db)) {
     rows_by_db <- list(rows_by_db)
   }
@@ -944,12 +1120,25 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
   n <- length(rows_by_db)
   w <- if (is.numeric(width) && is.finite(width[1L])) width[1L] else if (n == 1L) 5.6 else 5.2 * n
   h <- 6.35
+  ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "Times New Roman"
+  }
   ok <- tryCatch({
-    grDevices::cairo_pdf(pdf_path, width = w, height = h, family = "Times")
+    if (exists("pipeline_pdf_device", mode = "function")) {
+      pipeline_pdf_device(pdf_path, width = w, height = h, family = ff)
+    } else if (isTRUE(capabilities("cairo"))) {
+      grDevices::cairo_pdf(pdf_path, width = w, height = h, family = ff)
+    } else {
+      ff_pdf <- if (identical(ff, "Times New Roman")) "Times" else ff
+      grDevices::pdf(pdf_path, width = w, height = h, family = ff_pdf)
+    }
     TRUE
   }, error = function(e) {
     tryCatch({
-      grDevices::pdf(pdf_path, width = w, height = h, family = "Times")
+      ff_pdf <- if (identical(ff, "Times New Roman")) "Times" else ff
+      grDevices::pdf(pdf_path, width = w, height = h, family = ff_pdf)
       TRUE
     }, error = function(e2) FALSE)
   })
@@ -960,19 +1149,18 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
     grid::pushViewport(grid::viewport(
       x = (i - 0.5) / n, y = 0.5, width = 1 / n, height = 1
     ))
-    # 仅当本面板数据库与 cohort$database 一致时套用年份/年龄首框；
-    # 次库面板回退为按 attrition 行画的同款 pv2 版式，避免 CHARLS 误贴 NHANES 年号。
-    cohort_i <- cohort
-    if (is.list(cohort) && length(cohort)) {
-      want_db <- toupper(trimws(as.character(cohort$database %||% "")[1L]))
-      panel_db <- ""
-      rows_i <- rows_by_db[[i]]
-      if (is.data.frame(rows_i) && "database" %in% names(rows_i)) {
-        panel_db <- toupper(trimws(as.character(rows_i$database[1L])[1L]))
-      }
-      panel_nm <- toupper(trimws(as.character(names(rows_by_db)[i] %||% "")[1L]))
-      if (!nzchar(panel_db)) panel_db <- panel_nm
-      panel_db <- sub("_COPY$", "", panel_db)
+    rows_i <- rows_by_db[[i]]
+    panel_db <- ""
+    if (is.data.frame(rows_i) && "database" %in% names(rows_i)) {
+      panel_db <- toupper(trimws(as.character(rows_i$database[1L])[1L]))
+    }
+    panel_nm <- toupper(trimws(as.character(names(rows_by_db)[i] %||% "")[1L]))
+    if (!nzchar(panel_db)) panel_db <- panel_nm
+    panel_db <- sub("_COPY$", "", panel_db)
+    cohort_i <- .attrition_pv2_resolve_cohort(cohort, panel_db, panel_nm, i)
+    # 单 cohort 且 database 与本面板不符 → 不套用（防次库贴主库年号）
+    if (is.list(cohort_i) && is.finite(suppressWarnings(as.numeric(cohort_i$n_source)[1L]))) {
+      want_db <- toupper(trimws(as.character(cohort_i$database %||% "")[1L]))
       if (nzchar(want_db) && nzchar(panel_db) &&
           !identical(want_db, panel_db) &&
           !grepl(want_db, panel_db, fixed = TRUE) &&
@@ -980,9 +1168,14 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
         cohort_i <- NULL
       }
     }
-    ## 单库假槽位（db_mode=nhanes 实为 CHARLS）时，letter 优先用 cohort$database
     letter_i <- attrition_pv2_letter(rows_by_db[[i]], i)
-    if (is.list(cohort_i) && nzchar(trimws(as.character(cohort_i$database %||% "")[1L]))) {
+    # 面板名优先（CHARLS 槽位 CSV 可能残留 mimic）
+    if (nzchar(panel_nm) && !grepl("^[0-9]+$", panel_nm)) {
+      lab <- c("A", "B", "C", "D", "E", "F")
+      L <- if (i <= length(lab)) lab[[i]] else as.character(i)
+      letter_i <- paste(L, panel_nm)
+    } else if (is.list(cohort_i) &&
+               nzchar(trimws(as.character(cohort_i$database %||% "")[1L]))) {
       lab <- c("A", "B", "C", "D", "E", "F")
       L <- if (i <= length(lab)) lab[[i]] else as.character(i)
       letter_i <- paste(
@@ -993,7 +1186,7 @@ attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = 
     spec <- .attrition_pv2_panel_spec(
       rows_by_db[[i]], letter_i, cohort = cohort_i
     )
-    .attrition_pv2_draw_panel(spec)
+    .attrition_pv2_draw_panel(spec, font_family = ff)
     grid::popViewport()
   }
   invisible(file.exists(pdf_path))

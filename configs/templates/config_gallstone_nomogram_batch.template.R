@@ -134,7 +134,7 @@ config <- list(
     export_table_s1 = FALSE
   ),
 
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
 
   # 禁止缺号顺延压缩：文献 Fig1/4–9 必须保持空位（关联 Fig2/3 在 unit 目录）
   pub = list(renumber = FALSE),

@@ -886,5 +886,15 @@ ml_dual_apply_regular_upstream_overrides <- function(config) {
     config$subgroup %||% list(),
     list(restrict_to_required = TRUE, pause_enable = FALSE)
   )
+  ## 发表位数：ICMJE/NEJM（P 可变位 + 效应量三位）；课题可显式 p_style="fixed" 覆盖
+  pd <- modifyList(
+    list(
+      est = 3L, p = 3L, desc = 3L, cutoff = 3L,
+      int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"
+    ),
+    config$pub_digits %||% list()
+  )
+  if (!nzchar(as.character(pd$p_style %||% "")[1L])) pd$p_style <- "nejm"
+  config$pub_digits <- pd
   config
 }

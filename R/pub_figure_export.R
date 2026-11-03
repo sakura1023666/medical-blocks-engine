@@ -2798,6 +2798,33 @@ pub_figure_ensure_formats <- function(figures_dir, meta = list(), config = list(
 #' @param dest output PDF path
 #' @param dpi raster density (default 300 for audit; delivery png/tiff still go through pub_figure_ensure_formats @600)
 #' @return dest (invisible)
+.pub_figure_rasterize_pdf_page_pymupdf <- function(src, dest, dpi = 300L) {
+  py <- .pub_figure_python_exe()
+  if (!nzchar(py)) stop("python required for pymupdf rasterize fallback", call. = FALSE)
+  code <- paste(
+    "import fitz, sys, os",
+    "src, dest, dpi = sys.argv[1], sys.argv[2], int(sys.argv[3])",
+    "doc = fitz.open(src)",
+    "out = fitz.open()",
+    "for i in range(len(doc)):",
+    "    page = doc[i]",
+    "    mat = fitz.Matrix(dpi/72.0, dpi/72.0)",
+    "    pix = page.get_pixmap(matrix=mat, alpha=False)",
+    "    rect = page.rect",
+    "    npage = out.new_page(width=rect.width, height=rect.height)",
+    "    npage.insert_image(rect, pixmap=pix)",
+    "os.makedirs(os.path.dirname(dest) or '.', exist_ok=True)",
+    "out.save(dest, deflate=True)",
+    "out.close(); doc.close()",
+    sep = "\n"
+  )
+  status <- system2(py, c("-c", code, src, dest, as.character(dpi)), stdout = TRUE, stderr = TRUE)
+  if (!file.exists(dest)) {
+    stop("pymupdf rasterize failed: ", paste(status, collapse = " "), call. = FALSE)
+  }
+  invisible(dest)
+}
+
 pub_figure_rasterize_pdf_page <- function(src, dest, dpi = 300L) {
   src <- as.character(src %||% "")[1L]
   dest <- as.character(dest %||% "")[1L]
@@ -2806,28 +2833,34 @@ pub_figure_rasterize_pdf_page <- function(src, dest, dpi = 300L) {
     stop("pub_figure_rasterize_pdf_page: src missing: ", src, call. = FALSE)
   }
   if (!nzchar(dest)) stop("pub_figure_rasterize_pdf_page: dest required", call. = FALSE)
-  if (!requireNamespace("magick", quietly = TRUE)) {
-    stop("magick required for pub_figure_rasterize_pdf_page", call. = FALSE)
-  }
-  if (!requireNamespace("grid", quietly = TRUE)) {
-    stop("grid required for pub_figure_rasterize_pdf_page", call. = FALSE)
-  }
-  im <- magick::image_read_pdf(src, density = dpi)
-  info <- magick::image_info(im)
-  w_in <- info$width[[1]] / dpi
-  h_in <- info$height[[1]] / dpi
-  tmp_png <- tempfile(fileext = ".png")
-  on.exit(unlink(tmp_png), add = TRUE)
-  magick::image_write(im, path = tmp_png, format = "png")
-  ras <- as.raster(magick::image_read(tmp_png))
   dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
-  if (is.function(grDevices::cairo_pdf)) {
-    grDevices::cairo_pdf(dest, width = w_in, height = h_in)
-  } else {
-    grDevices::pdf(dest, width = w_in, height = h_in)
+
+  # Prefer magick; fall back to PyMuPDF when Ghostscript/magick assert on some PDFs
+  ok_magick <- FALSE
+  if (requireNamespace("magick", quietly = TRUE) && requireNamespace("grid", quietly = TRUE)) {
+    ok_magick <- tryCatch({
+      im <- magick::image_read_pdf(src, density = dpi)
+      info <- magick::image_info(im)
+      if (is.null(info) || !nrow(info) || is.na(info$width[[1]])) stop("empty magick frame")
+      w_in <- info$width[[1]] / dpi
+      h_in <- info$height[[1]] / dpi
+      tmp_png <- tempfile(fileext = ".png")
+      on.exit(unlink(tmp_png), add = TRUE)
+      magick::image_write(im, path = tmp_png, format = "png")
+      ras <- as.raster(magick::image_read(tmp_png))
+      if (is.function(grDevices::cairo_pdf)) {
+        grDevices::cairo_pdf(dest, width = w_in, height = h_in)
+      } else {
+        grDevices::pdf(dest, width = w_in, height = h_in)
+      }
+      grid::grid.newpage()
+      grid::grid.raster(ras, interpolate = TRUE)
+      grDevices::dev.off()
+      TRUE
+    }, error = function(e) FALSE)
   }
-  grid::grid.newpage()
-  grid::grid.raster(ras, interpolate = TRUE)
-  grDevices::dev.off()
+  if (!isTRUE(ok_magick) || !file.exists(dest)) {
+    .pub_figure_rasterize_pdf_page_pymupdf(src, dest, dpi = dpi)
+  }
   invisible(dest)
 }

@@ -3513,9 +3513,13 @@ incidence_batch_write_flowchart_from_attrition_csv <- function(
     if (exists("attrition_pv2_cohort_from_rows", mode = "function")) {
       auto_cohorts <- list()
       for (nm in names(all_rows)) {
-        auto_cohorts[[nm]] <- attrition_pv2_cohort_from_rows(
-          all_rows[[nm]], config = config, database = nm
+        one <- tryCatch(
+          attrition_pv2_cohort_from_rows(
+            all_rows[[nm]], config = config, database = nm
+          ),
+          error = function(e) NULL
         )
+        if (!is.null(one)) auto_cohorts[[nm]] <- one
       }
       if (length(auto_cohorts)) cohort_arg <- auto_cohorts
       # 单库旧式 pv2（带 n_source）仍优先覆盖对应库
@@ -3531,15 +3535,21 @@ incidence_batch_write_flowchart_from_attrition_csv <- function(
         width = pv2_cfg$figure_width,
         config = config
       ),
-      error = function(e) FALSE
+      error = function(e) {
+        cli::cli_alert_warning("attrition_draw_pv2_pdf: {e$message}")
+        FALSE
+      }
     ))
   }
+  # Fig1 默认无底脚注（口径进 Methods）；仅 config$attrition$fig1_weight_footnote=TRUE 才画
+  want_fig1_fn <- isTRUE(((config$attrition %||% list())$fig1_weight_footnote) %||% FALSE)
+  fig1_fn <- if (isTRUE(want_fig1_fn)) footnotes_by_db else NULL
   if (!isTRUE(ok_draw) && length(all_rows) >= 2L &&
       exists("attrition_draw_dual_panel_pdf", mode = "function")) {
     ok_draw <- isTRUE(tryCatch(
       attrition_draw_dual_panel_pdf(
         all_rows, dest, titles = titles, font_family = font_family,
-        footnotes_by_db = footnotes_by_db
+        footnotes_by_db = fig1_fn
       ),
       error = function(e) FALSE
     ))
@@ -3549,7 +3559,11 @@ incidence_batch_write_flowchart_from_attrition_csv <- function(
     ok_draw <- isTRUE(tryCatch(
       attrition_draw_pdf(
         all_rows[[1L]], titles[[1L]], dest, font_family = font_family,
-        footnote = footnotes_by_db[[1L]] %||% character(0)
+        footnote = if (isTRUE(want_fig1_fn)) {
+          footnotes_by_db[[1L]] %||% character(0)
+        } else {
+          character(0)
+        }
       ),
       error = function(e) FALSE
     ))

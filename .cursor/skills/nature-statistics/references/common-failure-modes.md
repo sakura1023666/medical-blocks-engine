@@ -173,10 +173,14 @@ Fix:
 | 引用的图缺 pdf，或 image_information 有幽灵 stem | P0 | 补文件或删幽灵条目 |
 | xlsx 打不开（drawing 悬空） | P0 | `pub_xlsx_strip` 后 `pub_xlsx_verify`，corrupt=0 |
 | 扩展名 `.tif` 而非 `.tiff` | P1 | 统一 `.tiff` |
+| P / DeLong / NRI / IDI / AUC 单元格裸 `0` 或 `0.000` | P0 | `<0.001`（或参照 `Ref`）；见 `pub_digits_consistency`；QC：`pub_qc_scan_table_digits` |
+| 同一课题 P 有的 2 位有的 3 位（未统一 `p_style=fixed`） | P0/P1 | 固定 3 位；仅期刊书面要求时用 nejm 可变位 |
+| 描述统计强制 `90.000` / 整数写三位尾零 | P1 | `desc_trim=TRUE` |
+| Fig1 PDF 图底长脚注/图注（Methods 段落上图） | P0/P1 | 删图面脚注；细则进 Methods（`attrition_consort_flowchart`） |
 
 ## Medical Blocks 预后 v2 漏检（强制；2026-10 Hip AKI）
 
-凡审 **prognosis_v2 / Cox 文献发表根**，在上表之外另过本表。规则：`prognosis_v2_pub_p0_gate.mdc`；机器：`pv2_pub_p0_gate()`。
+凡审 **prognosis_v2 / Cox 文献发表根**，在通用交付漏检之外另过本表。规则：`prognosis_v2_pub_p0_gate.mdc`；机器：`pv2_pub_p0_gate()`。
 
 | 信号 | 级别 | 必做 |
 |------|------|------|
@@ -184,7 +188,7 @@ Fix:
 | Fig6 底边 HR ≠ Table S8 Direct（Total 冒充 Direct） | P0 | 底边改 Direct；`pdftotext` 与 S8 逐位一致 |
 | Fig7 轴标 Q4 vs Q1（已锁 binary）或层上无 P-int | P0 | 轴标 High vs Low；补乘性交互 P |
 | Fig RCS 仅 P-overall，与 Table 3 线性 P 看似矛盾 | P0 | 字幕改 P-linear + P-nonlinear；主推断仍 Table 3 线性 |
-| Table S7 path a 方向与 S8 相反（中介→暴露） | P0 | S7 重导为暴露→中介（`pv2_s7_exposure_mediator_body`） |
+| Table S7 path a 方向与 S8 相反（中介→暴露） | P0 | S7 重导为暴露→中介 |
 | 中介脚注写 Model 3/「与 Table 2 一致」但实际 Age+Gender | P0 | 脚注改真实调整集；概念重叠如实写，禁止假 VIF 共线 |
 | Boruta/SHAP 图面临床名含 `_` | P0 | `pipeline_display_label` 重导 |
-| 无 cox.zph / PH 表；Methods 无取材时点或 MICE 结局入模裁决 | P0 | 补 S9 + Methods（轨道 B 可只改文） |
+| 无 cox.zph / PH 表；Methods 无取材时点或 MICE 结局入模裁决 | P0 | 补 PH 表 + Methods |

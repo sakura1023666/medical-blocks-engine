@@ -582,8 +582,29 @@ tryCatch({
     }
   } else {
   cli::cli_h2("[{ix}] Phase 1 — 各库跑到 VIF_final")
+  ## 任一侧 Table 1 暴露 NS（BASELINE_INDEX_NS_STOP）→ 整指标失败，不跑对侧与后续 Phase
   for (db in actual_db_seq) {
-    result_ctx[[db]] <- .run_db_phase(db, "index", .vif_final_block())
+    result_ctx[[db]] <- tryCatch(
+      .run_db_phase(db, "index", .vif_final_block()),
+      error = function(e) {
+        msg <- conditionMessage(e)
+        db_lab <- if (exists("dual_db_slot_path_name", mode = "function")) {
+          dual_db_slot_path_name(config_ix, db)
+        } else {
+          toupper(db)
+        }
+        if (grepl("BASELINE_INDEX_NS_STOP", msg, fixed = TRUE)) {
+          stop(
+            sprintf(
+              "BASELINE_INDEX_NS_STOP [%s]: 任一侧 Table 1 暴露不显著即整指标失败，已中止对侧与后续 Phase。%s",
+              db_lab, msg
+            ),
+            call. = FALSE
+          )
+        }
+        stop(e)
+      }
+    )
   }
 
   if (identical(actual_db_mode, "both")) {

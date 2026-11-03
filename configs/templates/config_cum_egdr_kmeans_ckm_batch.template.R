@@ -150,7 +150,7 @@ config <- list(
   multicollinearity_screen = list(enable = FALSE),
   multicollinearity_final = list(enable = FALSE),
 
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
 
   study_batch = list(
     output_base = .batch_project_root,

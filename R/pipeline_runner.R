@@ -528,6 +528,10 @@ pipeline_block_sources <- function(root) {
     clhls_sex_nct                 = b("81_clhls_symptom_network_full/07block_clhls_sex_nct.R"),
     clhls_stability               = b("81_clhls_symptom_network_full/08block_clhls_stability.R"),
     clhls_network_pub             = b("81_clhls_symptom_network_full/09block_clhls_network_pub.R"),
+    derived_grouping              = b("02_data_clean/02block_derived_grouping.R"),
+    cox_multi_horizon             = b("10_cox/09block_cox_multi_horizon.R"),
+    logistic_nomogram             = b("11_logistic/20block_logistic_nomogram.R"),
+    shap_glm                      = b("17_shap/02block_shap_glm.R"),
     render_tables                 = b("Tables_Blocks/block_render_tables.R")
   )
 }

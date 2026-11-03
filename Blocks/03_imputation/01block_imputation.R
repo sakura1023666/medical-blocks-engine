@@ -554,6 +554,11 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
                               ignore = NULL, ridge = 1e-2, cor_threshold = 0.95,
                               allow_cart_fallback = FALSE) {
   method_req <- as.character(method %||% "pmm")[1L]
+  ## config 常误写 method="mice"（意指走 mice 包）；mice 无 mice.impute.mice
+  if (identical(tolower(method_req), "mice")) {
+    cli::cli_alert_warning("MICE method='mice' 非法（无 mice.impute.mice）；自动改为 pmm")
+    method_req <- "pmm"
+  }
   method <- method_req
   meth_vec <- .imp01_expand_mice_method(data_mice, method_req)
   if (!is.null(meth_vec)) {

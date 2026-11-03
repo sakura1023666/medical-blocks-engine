@@ -78,7 +78,7 @@ config <- list(
     index_var = "Sleep_hours"
   ),
 
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
 
   feishu = list(
     enable = TRUE,

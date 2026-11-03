@@ -27,7 +27,8 @@ description: >-
 1. CLI：`Rscript run/pub/run_pub_qc_after_project.R --project <根>`  
 2. 函数：`R/pub_qc_after_finalize.R` → `pub_qc_run_after_project()`（已挂 `run_pipeline` / dual-batch finalize / TST summary）  
 3. 结构层会 WARN：四目录缺口、image_information 缺段、**xlsx/图注含下划线**  
-4. Agent 必须再跑 nature-statistics + nature-figure 并修清全部 P0
+4. 结构层 **Layer A2 表数字格式**：`pub_qc_scan_table_digits`（裸 `0`/`0.000` on P/DeLong/NRI/AUC = FAIL/P0；见 checklist §B5）  
+5. Agent 必须再跑 nature-statistics + nature-figure 并修清全部 P0
 
 ---
 

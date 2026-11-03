@@ -172,28 +172,38 @@ pub_sync_xlsx_a1_titles_to_filenames <- function(tab_dir, recursive = FALSE) {
     }
     done <- unique(done)
   }
-  ## 回退：openxlsx 写 A1（可能丢部分样式，仅当 python 失败时）
+  ## 回退：openxlsx 写 A1。SMB/坏 sharedStrings 上 getCellInfo 可硬崩进程，
+  ## 默认跳过 openxlsx（可用 MEDICAL_BLOCKS_ALLOW_OPENXLSX_TITLE_SYNC=1 打开）。
   left <- setdiff(files, done)
-  for (f in left) {
-    new_title <- tools::file_path_sans_ext(basename(f))
-    ok <- tryCatch({
-      if (!requireNamespace("openxlsx", quietly = TRUE)) return(FALSE)
-      cur <- as.character(
-        openxlsx::read.xlsx(f, colNames = FALSE, rows = 1L, cols = 1L)[1, 1]
-      )
-      if (identical(trimws(cur %||% ""), new_title)) return(TRUE)
-      if (exists("pub_xlsx_edit_cells", mode = "function")) {
-        pub_xlsx_edit_cells(f, data.frame(row = 1L, col = 1L, value = new_title))
-        TRUE
-      } else {
-        wb <- openxlsx::loadWorkbook(f)
-        sh <- openxlsx::sheets(wb)[1L]
-        openxlsx::writeData(wb, sh, new_title, startCol = 1L, startRow = 1L, colNames = FALSE)
-        openxlsx::saveWorkbook(wb, f, overwrite = TRUE)
-        TRUE
-      }
-    }, error = function(e) FALSE)
-    if (isTRUE(ok)) done <- c(done, f)
+  allow_ox <- identical(Sys.getenv("MEDICAL_BLOCKS_ALLOW_OPENXLSX_TITLE_SYNC", ""), "1")
+  if (isTRUE(allow_ox) && length(left)) {
+    for (f in left) {
+      new_title <- tools::file_path_sans_ext(basename(f))
+      ok <- tryCatch({
+        if (!requireNamespace("openxlsx", quietly = TRUE)) return(FALSE)
+        withCallingHandlers({
+          cur <- as.character(
+            openxlsx::read.xlsx(f, colNames = FALSE, rows = 1L, cols = 1L)[1, 1]
+          )
+          if (identical(trimws(cur %||% ""), new_title)) return(TRUE)
+          if (exists("pub_xlsx_edit_cells", mode = "function")) {
+            pub_xlsx_edit_cells(f, data.frame(row = 1L, col = 1L, value = new_title))
+            TRUE
+          } else {
+            wb <- openxlsx::loadWorkbook(f)
+            sh <- openxlsx::sheets(wb)[1L]
+            openxlsx::writeData(wb, sh, new_title, startCol = 1L, startRow = 1L, colNames = FALSE)
+            openxlsx::saveWorkbook(wb, f, overwrite = TRUE)
+            TRUE
+          }
+        }, warning = function(w) invokeRestart("muffleWarning"))
+      }, error = function(e) FALSE)
+      if (isTRUE(ok)) done <- c(done, f)
+    }
+  } else if (length(left) && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "跳过 openxlsx 表题回退 {length(left)} 个（防 SMB getCellInfo 崩进程）"
+    )
   }
   if (requireNamespace("cli", quietly = TRUE) && length(done)) {
     cli::cli_alert_success(

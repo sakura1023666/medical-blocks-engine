@@ -99,6 +99,19 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 
 > 踩坑：Hip AKI 2026-10 — Fig3 四分位 vs 锁 binary；Fig6 Total≠S8 Direct；Fig7 无 P-int / Q4vsQ1；Fig4 仅 P-overall；Fig2 下划线；S7 反向；无 PH/取材时点/MICE 裁决。
 
+## §B5 发表数字格式（强制；2026-11 pneumonia DeLong；未勾不得 PASS）
+
+规则全文：`.cursor/rules/pub_digits_consistency.mdc`。机器半边：`R/pub_qc_table_digits.R` → `pub_qc_scan_table_digits`（已挂 `pub_qc_run_after_project` Layer A2）。
+
+- [ ] **硬门控** P / DeLong 矩阵 / 任意 P 列：无裸 `0`、`0.000`；极小值一律 `<0.001`；默认固定 3 位（`p_style=fixed`）
+- [ ] **硬门控** AUC / Acc / Sens / Spec / F1 / Log-Loss / NRI / IDI：固定 3 位；\|x\|&lt;0.001 → `<0.001`；参照模型 NRI/IDI → `Ref`
+- [ ] **硬门控** OR/HR/CI：固定 3 位（含尾随 0）；描述统计 `desc_trim`（整数无 `.000`）
+- [ ] 超参表允许 `0.000237` 等有效数字，**不得**误改成 `<0.001`
+- [ ] Fig1 PDF **无图底脚注/图注**（细则进 Methods / image_information）
+- [ ] 结构 QC 报告 Layer A2 = PASS；FAIL → 当场走 `pub_normalize_pub_df` / 重导，不得 PASS
+
+> 踩坑：肺炎 Ln_NLPR 2026-11 — DeLong S8 成片裸 `0`；NRI `0.000`；Fig1 图底 Analytic rule 脚注。
+
 ## §C 逻辑通顺（Agent）
 
 - [ ] 暴露/结局命名在表题、图题、md 上下文一致（疾病显示名，非裸列名泄漏）

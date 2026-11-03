@@ -459,7 +459,22 @@ block_feature_selection_lasso <- function(ctx, ...) {
       "feature_selection_lasso: 排除人体测量 VIF 剔除项: {paste(anthro_drop, collapse = ', ')}"
     )
   }
-  cand <- setdiff(as.character(cand0), c(outcome_col, never_pred, anthro_drop))
+  ## 课题显式踢列（如外验库插补后无此列：TotalCo2）
+  manual_excl <- unique(c(
+    as.character(bl_cfg$exclude_vars %||% character(0)),
+    as.character((cfg$feature_selection %||% list())$exclude_vars %||% character(0)),
+    as.character((cfg$feature_selection_lasso %||% list())$exclude_vars %||% character(0))
+  ))
+  manual_excl <- manual_excl[nzchar(manual_excl)]
+  if (length(manual_excl)) {
+    hit <- intersect(manual_excl, as.character(cand0))
+    if (length(hit)) {
+      cli::cli_alert_info(
+        "feature_selection_lasso: exclude_vars 剔除 {length(hit)} 个: {paste(hit, collapse = ', ')}"
+      )
+    }
+  }
+  cand <- setdiff(as.character(cand0), c(outcome_col, never_pred, anthro_drop, manual_excl))
   cand <- intersect(cand, names(data))
   ar_cand <- .fsl01_enforce_single_anthropometric(cand, cfg, bl_cfg, ctx, "feature_selection_lasso")
   ctx <- ar_cand$ctx
