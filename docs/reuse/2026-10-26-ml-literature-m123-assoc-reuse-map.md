@@ -84,5 +84,5 @@ config <- ml_literature_aki_dev_ext_apply_assoc_overrides(
 - [ ] 日志：`Model3=…` 不含 APSIII/OASIS/SOFA/GCS/Ventilation
 - [ ] Table2 / S4 / S8 / S9 / Fig6 Overall 同一 Model3 点估计口径
 - [ ] Fig6 脚注/image_info 写 prefer Model3（非误标 Model2）
-- [ ] 碰撞 FAIL 的密文本图用 `pub_figure_rasterize_pdf_page` / `redraw_assoc_figs.R`，勿手写 `/tmp` 栅格脚本
+- [ ] 碰撞 FAIL：优先改排版；旁路栅格用 `pub_figure_rasterize_pdf_page` 写入 `_raster_audit/`，**禁止覆盖交付矢量 PDF**（`bad_pdf_raster`=P0）
 - [ ] 未从 `_archive_oneoff` 复制脚本到下一课题 `scripts/`

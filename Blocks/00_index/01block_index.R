@@ -57,10 +57,11 @@
 
   # ──────────────── 第一组：基础指标（无依赖）───────────────────────
   basic <- list(
-    # --- 人体测量 ---
+    # --- 人体测量（仅中间量，供 ABSI/HSI/VAI 等链式公式；禁止作批量暴露）---
     list(name = "BMI",
          expr = "Weight / (Height / 100)^2",
-         digits = 2),
+         digits = 2,
+         intermediate = TRUE),
 
     # --- 炎症 / 免疫比值 ---
     list(name = "NLR",
@@ -94,14 +95,7 @@
          expr = "WBC / Platelet_Count",
          digits = 4),
 
-    # --- 血脂单指标（原生列 / 估算，作暴露时可单独批跑）---
-    # HDL / LDL：表中原生列，按原生指标注册（组成=自身），非比值复合
-    list(name = "HDL",
-         expr = "HDL",
-         digits = 2),
-    list(name = "LDL",
-         expr = "LDL",
-         digits = 2),
+    # --- 血脂（禁止 HDL/LDL 组成=自身透传；原料列直接用 dabiao 名）---
     # VLDL：Friedewald 估算 VLDL-C = TG/5（mg/dL）；非直接测定
     list(name = "VLDL",
          expr = "Triglycerides / 5",
@@ -138,15 +132,6 @@
     list(name = "CRI_II",
          expr = "LDL / HDL",
          digits = 4),
-    # 22_depression 课题：牙周炎分级（原生列，0=无 1=轻 2=中 3=重）按原生指标注册，
-    # 供 analysis_exclusion / pipeline_indices_using_vars 解析组成变量（=自身）
-    list(name = "Periodontitis",
-         expr = "Periodontitis",
-         digits = 0L),
-  # HRS OAScore_z：由 Age + HbA1c + Total_Cholesterol 线性组合（与 D08 标定一致）
-    list(name = "OAScore_z",
-         expr = "-3.4545580572 + 0.0878582042*Age - 0.4612526460*HbA1c + 0.0005126326*Total_Cholesterol",
-         digits = 6),
     list(name = "LCI",
          expr = "((Total_Cholesterol / 38.67) * (Triglycerides / 88.57) * (LDL / 38.67)) / (HDL / 38.67)",
          digits = 4),
@@ -236,6 +221,17 @@
     list(name = "GV",
          expr = "GV",
          digits = 4),
+    # 纵向日级预计算（ICU day1–30）：FR=第一次/基线，CV=SD/mean，first/mean=日级汇总。
+    list(name = "Potassium_FR", expr = "Potassium_FR", digits = 4),
+    list(name = "Potassium_CV", expr = "Potassium_CV", digits = 4),
+    list(name = "Platelet_FR",  expr = "Platelet_FR",  digits = 4),
+    list(name = "Platelet_CV",  expr = "Platelet_CV",  digits = 4),
+    list(name = "Glucose_first", expr = "Glucose_first", digits = 4),
+    list(name = "Glucose_mean",  expr = "Glucose_mean",  digits = 4),
+    list(name = "WBC_first", expr = "WBC_first", digits = 4),
+    list(name = "WBC_CV",    expr = "WBC_CV",    digits = 4),
+    list(name = "Sodium_mean", expr = "Sodium_mean", digits = 4),
+    list(name = "Sodium_CV",   expr = "Sodium_CV",   digits = 4),
     list(name = "UACR",
          expr = "if (exists('Urine_Creatinine')) get(if (exists('Albumin_Urine')) 'Albumin_Urine' else 'AlbuminUrine') / (Urine_Creatinine * 0.01) else get(if (exists('Albumin_Creatinine')) 'Albumin_Creatinine' else 'AlbuminCreatinine')",
          digits = 4),

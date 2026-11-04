@@ -24,9 +24,7 @@
   "HALP",         # Hemoglobin * Albumin * Lymphocytes / Platelet_Count
   "GLR",          # Glucose / Lymphocytes
   "WPR",          # WBC / Platelet_Count
-  # 血脂单指标 / 估算（HDL/LDL=原生列；VLDL=TG/5 Friedewald）
-  "HDL",          # 原生 HDL（组成=自身）
-  "LDL",          # 原生 LDL（组成=自身）
+  # 血脂（禁止 HDL/LDL 原生透传进库；VLDL=TG/5 Friedewald 估算）
   "VLDL",         # Triglycerides / 5（估算 VLDL-C，mg/dL）
   # 血脂比值
   "AIP",          # log10(Triglycerides / HDL)
@@ -59,6 +57,12 @@
   "SAR",          # 预计算：第一次肌酐 / 基线肌酐（宽表列，非单次 Creatinine 重算）
   "CrCV",         # 预计算：肌酐标准差 / 肌酐均值
   "GV",           # 预计算：血糖标准差 / 血糖均值
+  # 纵向日级预计算（第一次/均值/CV/FR=第一次÷基线；宽表 identity）
+  "Potassium_FR", "Potassium_CV",
+  "Platelet_FR", "Platelet_CV",
+  "Glucose_first", "Glucose_mean",
+  "WBC_first", "WBC_CV",
+  "Sodium_mean", "Sodium_CV",
   "UA_CR",        # UA/CR = Uric_Acid(mg/dL) / Creatinine(mg/dL)
   "BUN_Cr",       # BUN / Creatinine
   # 血液学
@@ -67,9 +71,8 @@
   # 综合
   "PNI",          # 10*Albumin + 5*Lymphocytes
   "EASIX",        # LD * Creatinine / Platelet_Count
-  "SOSM",         # 1.86*(Na+K) + 1.15*Glucose/18 + BUN*0.357 + 14
-  # 人体测量（两库均有 BMI）
-  "BMI"           # Weight / (Height/100)^2
+  "SOSM"          # 1.86*(Na+K) + 1.15*Glucose/18 + BUN*0.357 + 14
+  # 禁止 BMI 作暴露（人体测量原生/两列公式，非复合指标库主暴露）
 )
 
 # ── Group B：含 Waist_circumference，仅 NHANES 可计算 ──────────────────────

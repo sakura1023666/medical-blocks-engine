@@ -2585,7 +2585,8 @@ incidence_batch_purge_non_delivery_figures <- function(figures_dir) {
 }
 
 incidence_batch_pub_figure_scheme <- function(config) {
-  bc <- config$incidence_batch %||% config$ml_batch %||% list()
+  bc <- config$survival_batch %||% config$incidence_batch %||%
+    config$ml_batch %||% list()
   as.character(bc$pub_figure_scheme %||% "default")[1L]
 }
 
@@ -3615,7 +3616,24 @@ incidence_batch_ensure_real_figure1 <- function(index_root, config, ix = NULL,
   }
   fig_dir <- file.path(index_root, "Figures")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
-  dest <- file.path(fig_dir, "Figure 1. Flowchart.pdf")
+  if (!exists("jin_index_sofa_is_pub_scheme", mode = "function")) {
+    .lit_js <- file.path(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd()),
+      "R", "jin_index_sofa_pub.R"
+    )
+    if (file.exists(.lit_js)) source(.lit_js, local = FALSE)
+  }
+  .jin_f1 <- exists("jin_index_sofa_is_pub_scheme", mode = "function") &&
+    isTRUE(jin_index_sofa_is_pub_scheme(config))
+  # Jin 原文 flowchart = Figure S1；默认预后仍 Figure 1
+  dest <- file.path(
+    fig_dir,
+    if (isTRUE(.jin_f1)) {
+      "Figure S1. Inclusion exclusion flowchart.pdf"
+    } else {
+      "Figure 1. Flowchart.pdf"
+    }
+  )
   bc <- config$incidence_batch %||% config$ml_batch %||% config$survival_batch %||% list()
   project_root <- as.character(
     project_root %||% bc$output_base %||% config$project$output_dir %||% dirname(dirname(index_root))
@@ -3970,6 +3988,19 @@ incidence_batch_dedupe_pub_figures_by_role <- function(
 }
 
 incidence_batch_dedupe_prognosis_figures_dir <- function(figures_dir, config = NULL) {
+  if (!is.null(config)) {
+    if (!exists("jin_index_sofa_is_pub_scheme", mode = "function")) {
+      lit <- file.path(
+        Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd()),
+        "R", "jin_index_sofa_pub.R"
+      )
+      if (file.exists(lit)) source(lit, local = FALSE)
+    }
+    if (exists("jin_index_sofa_is_pub_scheme", mode = "function") &&
+        isTRUE(jin_index_sofa_is_pub_scheme(config))) {
+      return(jin_index_sofa_curate_figures_dir(figures_dir, config))
+    }
+  }
   incidence_batch_dedupe_pub_figures_by_role(
     figures_dir, config,
     role_fn = incidence_batch_prognosis_figure_role,
@@ -3978,9 +4009,34 @@ incidence_batch_dedupe_prognosis_figures_dir <- function(figures_dir, config = N
 }
 
 incidence_batch_dedupe_incidence_figures_dir <- function(figures_dir, config = NULL) {
+  ## 非暴露箱线图丢弃（与单库 incidence_single_pub_finalize 同口径）
+  role_fn <- incidence_batch_incidence_figure_role
+  ix <- tryCatch({
+    if (exists("incidence_resolve_index_var", mode = "function")) {
+      incidence_resolve_index_var(config)
+    } else {
+      as.character(
+        config$incidence$index_var %||% config$logistic$index_var %||% ""
+      )[1L]
+    }
+  }, error = function(e) NA_character_)
+  if (!is.na(ix) && nzchar(ix)) {
+    role_fn <- function(bn) {
+      role <- incidence_batch_incidence_figure_role(bn)
+      if (identical(role, "s1_boxplot")) {
+        ok <- if (exists("incidence_boxplot_bn_is_exposure", mode = "function")) {
+          incidence_boxplot_bn_is_exposure(bn, ix)
+        } else {
+          grepl(ix, bn, fixed = TRUE)
+        }
+        if (!isTRUE(ok)) return("drop")
+      }
+      role
+    }
+  }
   incidence_batch_dedupe_pub_figures_by_role(
     figures_dir, config,
-    role_fn = incidence_batch_incidence_figure_role,
+    role_fn = role_fn,
     target_fn = incidence_batch_incidence_figure_target_bn
   )
 }

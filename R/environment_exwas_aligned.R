@@ -34,6 +34,40 @@ exwas_aligned_family <- function(cols) {
   stats::setNames(fam, cols)
 }
 
+# Dong：先丢掉队列缺失率 >40%（或测定过少）的分析物，再对人做「缺失超过 1/3」剔除。
+exwas_aligned_analyte_keep <- function(df, exposure_cols, max_missing = 0.40, min_n = 50L) {
+  notes <- list()
+  keep <- character(0)
+  for (col in exposure_cols) {
+    x <- exwas_to_num(df[[col]])
+    n_measured <- sum(is.finite(x))
+    miss <- 1 - n_measured / nrow(df)
+    zero_rate <- if (n_measured == 0L) 1 else mean(x == 0, na.rm = TRUE)
+    decision <- "keep"
+    if (n_measured < min_n || miss > max_missing || zero_rate > 0.95) decision <- "drop"
+    else keep <- c(keep, col)
+    notes[[length(notes) + 1L]] <- data.frame(
+      exposure = col, n_measured = n_measured, missing_rate = miss,
+      zero_rate = zero_rate, decision = decision, stringsAsFactors = FALSE
+    )
+  }
+  list(keep = keep, notes = if (length(notes)) do.call(rbind, notes) else NULL)
+}
+
+exwas_aligned_drop_person_missing <- function(df, exposure_cols, max_frac = 1 / 3) {
+  if (!length(exposure_cols)) return(list(data = df, keep_idx = seq_len(nrow(df)), n_excluded = 0L))
+  mm <- as.matrix(df[, exposure_cols, drop = FALSE])
+  storage.mode(mm) <- "double"
+  frac <- rowMeans(!is.finite(mm))
+  keep_idx <- which(frac <= max_frac)
+  list(
+    data = df[keep_idx, , drop = FALSE],
+    keep_idx = keep_idx,
+    n_excluded = nrow(df) - length(keep_idx),
+    missing_frac = frac
+  )
+}
+
 exwas_aligned_as_model_frame <- function(df, cols) {
   for (nm in cols) {
     if (!nm %in% names(df)) next

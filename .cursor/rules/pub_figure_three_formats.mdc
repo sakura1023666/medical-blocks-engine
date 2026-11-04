@@ -19,15 +19,18 @@ alwaysApply: true
 5. **手工改图后**：重跑中介 / 亚组 / remirror 覆盖 PDF 后，必须再跑 `pub_figure_ensure_formats(Figures目录)`，保证 `pdf/` 与 `image_information` 同源；开启栅格时同步重导 png/tiff。
 6. **校验**：`pub_figure_formats_status(config=…)` 默认只要求每张 pdf 存在、根目录无残留；`missing_png/missing_tiff/bad_dpi/stale_raster` 仅在 `export_png/export_tiff=TRUE` 时计失败。另检：
    - **`bad_pdf_geometry`**：多页未堆叠、或长边 > `max_edge_in`（默认 11 in）一律不合格。
+   - **`bad_pdf_raster`（P0）**：交付 PDF 是整页位图（0 文本 / ≤2 drawings / ≥1 image）→ 不合格。默认 `require_vector_pdf=TRUE`。仅截图/Shiny 等可用 `allow_raster_pdf_patterns` 白名单。
 7. **交付清理**：默认模式会 `pub_figure_drop_raster_dirs()` 删掉遗留 `png/`/`tiff/`，避免客户目录残留旧栅格。
 8. **多页必须堆叠成单页**（若仍导出栅格或做几何检）：`pub_figure_normalize_pdf(..., stack_pages=TRUE)`。
 9. **超大页限幅**：`config$pub_figures$max_edge_in`（默认 11）。
+10. **交付 PDF = 矢量**：禁止把 `pub_figure_rasterize_pdf_page` 产物覆盖 `Figures/pdf/`；collision 旁路栅格只能进 `_raster_audit/`（或交付外目录）。
 
 ## Agent / 手工操作禁令
 
 - ❌ 只把 `Figure S3….pdf` 拷到 `Figures/` 根目录就结束
 - ❌ 因「不要 png/tiff」就跳过 `export_pub_figures`（仍须收进 `pdf/` + 写 image_information）
 - ❌ 默认课题再强制出 600 dpi png/tiff 当交付硬门槛
+- ❌ 为消 collision 把交付 PDF 整页栅格成「图片 PDF」（看起来像 jpg）
 - ✅ 改完图后：`pub_figure_ensure_formats(file.path(index_root, "Figures"), config = config)`
 
 ## 实现入口
@@ -43,9 +46,11 @@ alwaysApply: true
 - [ ] `Figures/` 根目录无 `Figure*.pdf` 平铺残留
 - [ ] 默认交付无 `png/`、`tiff/`（除非 config 显式开启）
 - [ ] 无多页 PDF（`bad_pdf_geometry` 空）；长边 ≤ `max_edge_in`
+- [ ] 交付 PDF 为矢量（`bad_pdf_raster` 空）；非截图类不得整页 image-only
 
 ## 反例（禁止）
 
 - 只更新根目录 PDF、不跑 ensure_formats
 - 默认模式仍把缺 png/tiff 判为 P0
 - 交付 `summary_results/Figures` 仍堆满无用的旧 png/tiff
+- KM/森林/ROC 矢量稿被 `rasterize_pdf_page` 覆盖进 `summary_results/Figures/pdf`

@@ -130,19 +130,22 @@ flowchart TD
 
 ---
 
-## 5. 发表图/表对照（文献一个不漏 → 本课题键）
+## 5. 发表图/表对照（**严格跟 Jin 原文编号**；`pub_figure_scheme=jin_index_sofa`）
+
+> 用户 2026-11-04 纠正：禁止再把 Fig1 留给流程图。流程图是 **Figure S1**。
 
 | 原文 | 本课题产出键（每指标 / 汇总） | 备注 |
 |---|---|---|
-| Figure S1 Flowchart | Figure 1 双栏 CONSORT | 脓毒症纳排 + 库角色 |
+| **Figure 1** RCS×SOFA | **Figure 1** RCS | 主文；面板可标库 |
+| **Figure 2** Nomogram | **Figure 2** Nomogram | 院内（+可得时点） |
+| **Figure 3** SHAP | **Figure 3** SHAP beeswarm | importance → Figure S5 |
+| **Figure 4** 中介 | **Figure 4** 路径图 + Table S 中介 | TotalCo2 代理 |
+| **Figure S1** Flowchart | **Figure S1** 双栏 CONSORT | 脓毒症纳排 + 库角色 |
+| **Figure S2** KM | **Figure S2** KM（Index×SOFA 四组） | 非暴露 quartile |
+| **Figure S3** 校准 | **Figure S3** Calibration | bootstrap |
+| 亚组森林（引擎） | **Figure S4**（可选） | 原文亚组为 Table S1–S3 |
 | Table 1 基线（暴露三分位） | Table 1-MIMIC / Table 1-eICU | Gate A 对齐 |
-| Table 2 多时点 Cox | Table 2（院内/30d/365d） | Rubin 脚注 |
-| Figure 1 RCS×SOFA | Figure 2 RCS | 面板标库 |
-| Figure 2 Nomogram×3 | Figure 3 Nomogram | 时点 a/b/c |
-| Figure 3 SHAP | Figure 4 SHAP | 解释验证集/外验规则写清 |
-| Figure 4 中介 | Figure 5 路径图 + Table S 中介 | TotalCo2 代理 |
-| Figure S2 KM | Figure S1 KM | 四组合 |
-| Figure S3 校准 | Figure S2 校准 | bootstrap |
+| Table 2 多时点 Cox（×SOFA） | Table 2（院内/30d/365d） | Rubin；非单纯 quartile |
 | Table S1–S3 亚组 | Table S* 亚组×时点 | 双库一致亚组名单 |
 
 ---

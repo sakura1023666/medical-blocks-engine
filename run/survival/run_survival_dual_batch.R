@@ -60,7 +60,9 @@
     subgroup_fallback_only = FALSE,
     sfb_only_index = NULL,
     sensitivity_only = FALSE,
-    only_scenario = NULL
+    only_scenario = NULL,
+    from = NULL,
+    to = NULL
   )
   i <- 1L
   while (i <= length(args)) {
@@ -78,6 +80,10 @@
     } else if (a == "--only-index" && i < length(args)) {
       opts$only_index <- trimws(strsplit(args[[i + 1L]], ",", fixed = TRUE)[[1L]])
       i <- i + 2L
+    } else if (a == "--from" && i < length(args)) {
+      opts$from <- trimws(args[[i + 1L]]); i <- i + 2L
+    } else if (a == "--to" && i < length(args)) {
+      opts$to <- trimws(args[[i + 1L]]); i <- i + 2L
     } else if (a == "--no-skip") {
       opts$skip_existing <- FALSE; i <- i + 1L
     } else if (a == "--ptrim" && i < length(args)) {

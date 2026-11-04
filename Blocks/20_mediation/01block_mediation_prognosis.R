@@ -685,8 +685,41 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
   cli::cli_h2("Mediation Analysis for Prognosis Outcome (Cox → HR)")
   cli::cli_alert_info("Survival: Surv({time_var}, {event_var})")
 
+  mediators <- as.character(mediators %||% character(0))
+  mediators <- mediators[nzchar(mediators)]
+  ## TotalCo2 等代理名 → 数据中实际列
+  .med_alias <- c(
+    TotalCo2 = "Total_CO2", Total_CO2 = "TotalCo2",
+    Bicarbonate = "TotalCo2", HCO3 = "TotalCo2"
+  )
+  if (length(mediators)) {
+    resolved <- character(0)
+    for (m in mediators) {
+      if (m %in% names(data)) {
+        resolved <- c(resolved, m)
+      } else {
+        alt <- unname(.med_alias[m])
+        hit <- alt[alt %in% names(data)]
+        if (!length(hit)) {
+          hit <- grep(
+            paste0("^", gsub("_", "[._]?", m), "$"),
+            names(data), ignore.case = TRUE, value = TRUE
+          )
+        }
+        if (length(hit)) resolved <- c(resolved, hit[[1L]])
+      }
+    }
+    mediators <- unique(resolved)
+  }
   mediators <- intersect(mediators, names(data))
-  mediators <- mediators[sapply(mediators, function(m) is.numeric(data[[m]]) && !is.factor(data[[m]]))]
+  if (length(mediators)) {
+    ok_num <- vapply(
+      mediators,
+      function(m) is.numeric(data[[m]]) && !is.factor(data[[m]]),
+      logical(1L)
+    )
+    mediators <- mediators[ok_num]
+  }
   # 严禁把生存时间/结局当作中介
   mediators <- setdiff(mediators, c(time_var, event_var, exposure, "RFS_Months", "futime", "fustatus"))
   # 全项目：剔除暴露公式组分 + 其它复合指标（如 BAR 的 BUN/Albumin）

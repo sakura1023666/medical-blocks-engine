@@ -509,13 +509,33 @@ mi_svyglm <- function(ctx, formula, design, keep_vars = character(0),
   mi_as_glm_like(pooled, n = nrow(design$variables))
 }
 
-mi_methods_footnote_lines <- function(m = 5L, maxit = 5L, seed = 1234L) {
+#' MI 方法脚注（按研究类型区分回归表述，避免发病表写 Cox）
+#' @param study_type incidence|prognosis|…；NULL 时用中性「regression estimates」
+#' @param survey TRUE 时注明 survey-weighted svyglm
+mi_methods_footnote_lines <- function(m = 5L, maxit = 5L, seed = 1234L,
+                                      study_type = NULL, survey = FALSE) {
+  st <- tolower(trimws(as.character(study_type %||% "")[1L]))
+  pool_bit <- if (isTRUE(survey)) {
+    if (identical(st, "prognosis")) {
+      "Regression estimates (Cox / survey-weighted svyglm) were pooled across imputations using Rubin's rules."
+    } else if (identical(st, "incidence")) {
+      "Regression estimates (logistic / survey-weighted svyglm) were pooled across imputations using Rubin's rules."
+    } else {
+      "Regression estimates (survey-weighted svyglm) were pooled across imputations using Rubin's rules."
+    }
+  } else if (identical(st, "prognosis")) {
+    "Regression estimates (Cox models) were pooled across imputations using Rubin's rules."
+  } else if (identical(st, "incidence")) {
+    "Regression estimates (logistic GLM) were pooled across imputations using Rubin's rules."
+  } else {
+    "Regression estimates were pooled across imputations using Rubin's rules."
+  }
   c(
     sprintf(
       "Multiple imputation by chained equations (m = %d, maxit = %d, seed = %d).",
       as.integer(m), as.integer(maxit), as.integer(seed)
     ),
-    "Regression estimates (Cox/logistic/survey-weighted svyglm) were pooled across imputations using Rubin's rules.",
+    pool_bit,
     "Operational steps (feature selection, KM/RCS plots, descriptive tables, survey design cutpoints) used the first completed dataset."
   )
 }
@@ -526,10 +546,16 @@ mi_append_table_footnotes <- function(notes, ctx = NULL) {
   if (is.null(ctx) || !isTRUE(mi_rubin_enabled(ctx))) return(notes)
   if (!exists("mi_methods_footnote_lines", mode = "function")) return(notes)
   imp <- ctx$config$imputation %||% list()
+  st <- as.character((ctx$config$project %||% list())$study_type %||% "")[1L]
+  is_svy <- isTRUE((ctx$config$nhanes %||% list())$enable) ||
+    !is.null((ctx$results %||% list())$nhanes_design) ||
+    identical(tolower(as.character((ctx$config$column_mapping %||% list())$database_type %||% "")[1L]), "nhanes")
   mi_lines <- mi_methods_footnote_lines(
     m = as.integer(imp$m %||% ctx$results$mice_model$m %||% 5L)[1L],
-    maxit = as.integer(imp$maxit %||% 5L)[1L],
-    seed = as.integer(imp$seed %||% 1234L)[1L]
+    maxit = as.integer(imp$maxit %||% imp$max_iter %||% 5L)[1L],
+    seed = as.integer(imp$seed %||% 1234L)[1L],
+    study_type = st,
+    survey = is_svy
   )
   # 幂等：已含 Rubin 句则不再追加
   if (any(grepl("Rubin's rules", notes, fixed = TRUE))) return(notes)

@@ -146,20 +146,21 @@ jin_index_sofa_q4 <- function(high_low, sofa_bin) {
     "is_dead", "hospitalmortality", "inhospitalmortality", "fustatus"
   ))
   time_30_nm <- .jin_pick_col(df, c(
-    "survival_time_30d", "surv_time_30d", "fu_day_30", "time_d30", "day30_time"
+    "survival_time_30d", "surv_time_30d", "fu_day_30", "time_d30", "day30_time",
+    "futime_30d", "fu_time_30d", "time_30d"
   ))
   event_30_nm <- .jin_pick_col(df, c(
     "death_within_hosp_30days", "death_within_30days", "death_30d",
-    "mortality_30d", "event_d30", "surv_event_30d", "is_dead_30d"
+    "mortality_30d", "event_d30", "event_30d", "surv_event_30d", "is_dead_30d"
   ))
   time_365_nm <- .jin_pick_col(df, c(
     "survival_time_365d", "surv_time_365d", "fu_day_365", "time_d365",
-    "day365_time", "survival_time_1y"
+    "day365_time", "survival_time_1y", "futime_365d", "fu_time_365d", "time_365d"
   ))
   event_365_nm <- .jin_pick_col(df, c(
     "death_within_hosp_365days", "death_within_365days", "death_365d",
     "death_within_1year", "mortality_365d", "mortality_1y",
-    "event_d365", "surv_event_365d", "is_dead_365d"
+    "event_d365", "event_365d", "surv_event_365d", "is_dead_365d"
   ))
   # 长随访日历天（用于封顶 30/365）
   time_long_nm <- .jin_pick_col(df, c(
@@ -250,6 +251,62 @@ jin_horizon_from_survival_mimic <- function(surv_row) {
 #' eICU survival 行/表 → 同结构（列别名兼容 MIMIC 命名）
 jin_horizon_from_survival_eicu <- function(surv_row) {
   .jin_horizon_core(surv_row, db = "eicu")
+}
+
+#' 在已有分析表上补齐 cox_multi_horizon 默认列名（time_d30/event_d30/…）
+#'
+#' 优先复制 dabiao 常见别名 futime_30d/event_30d；若仍缺则尝试 .jin_horizon_core 衍生。
+#' 不覆盖已有非全 NA 的标准列。
+jin_ensure_horizon_columns <- function(data, db = c("mimic", "eicu")) {
+  if (is.null(data) || !is.data.frame(data) || !nrow(data)) return(data)
+  db <- tryCatch(
+    match.arg(tolower(as.character(db)[1L]), c("mimic", "eicu")),
+    error = function(e) "mimic"
+  )
+  .copy_if_missing <- function(df, dest, srcs) {
+    if (dest %in% names(df) && any(is.finite(suppressWarnings(as.numeric(df[[dest]]))))) {
+      return(df)
+    }
+    for (s in srcs) {
+      if (!s %in% names(df)) next
+      df[[dest]] <- df[[s]]
+      return(df)
+    }
+    df
+  }
+  data <- .copy_if_missing(
+    data, "time_d30",
+    c("futime_30d", "fu_time_30d", "time_30d", "survival_time_30d")
+  )
+  data <- .copy_if_missing(
+    data, "event_d30",
+    c("event_30d", "death_30d", "mortality_30d", "death_within_30days")
+  )
+  data <- .copy_if_missing(
+    data, "time_d365",
+    c("futime_365d", "fu_time_365d", "time_365d", "survival_time_365d")
+  )
+  data <- .copy_if_missing(
+    data, "event_d365",
+    c("event_365d", "death_365d", "mortality_365d", "death_within_365days")
+  )
+  need <- c("time_d30", "event_d30", "time_d365", "event_d365")
+  if (!all(need %in% names(data)) ||
+      any(vapply(need, function(nm) {
+        !nm %in% names(data) || !any(is.finite(suppressWarnings(as.numeric(data[[nm]]))))
+      }, logical(1L)))) {
+    hz <- tryCatch(.jin_horizon_core(data, db = db), error = function(e) NULL)
+    if (!is.null(hz) && is.data.frame(hz) && nrow(hz) == nrow(data)) {
+      for (nm in need) {
+        if ((!nm %in% names(data) ||
+             !any(is.finite(suppressWarnings(as.numeric(data[[nm]]))))) &&
+            nm %in% names(hz)) {
+          data[[nm]] <- hz[[nm]]
+        }
+      }
+    }
+  }
+  data
 }
 
 #' 课题目录助手

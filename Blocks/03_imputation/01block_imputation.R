@@ -554,11 +554,6 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
                               ignore = NULL, ridge = 1e-2, cor_threshold = 0.95,
                               allow_cart_fallback = FALSE) {
   method_req <- as.character(method %||% "pmm")[1L]
-  ## config 常误写 method="mice"（意指走 mice 包）；mice 无 mice.impute.mice
-  if (identical(tolower(method_req), "mice")) {
-    cli::cli_alert_warning("MICE method='mice' 非法（无 mice.impute.mice）；自动改为 pmm")
-    method_req <- "pmm"
-  }
   method <- method_req
   meth_vec <- .imp01_expand_mice_method(data_mice, method_req)
   if (!is.null(meth_vec)) {
@@ -1310,6 +1305,7 @@ block_imputation <- function(ctx, ...) {
       data_save <- .imp01_prepare_for_save(data_imputed, id_cols_present, primary_id)
       ctx <- save_result(ctx, "imputed_data", data_save, "D01_AfterMI_Data.RData")
       cli::cli_alert_success("D01_AfterMI_Data.RData saved (rownames = primary ID, ID columns removed)")
+      # 插补后分析集终点始终记账（供底部分叉）；同 n 空框由 finalize 折叠中间步
       if (exists("attrition_record", mode = "function")) {
         n_imp <- attrition_n_current(ctx)
         ctx <- attrition_record(

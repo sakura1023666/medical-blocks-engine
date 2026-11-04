@@ -135,6 +135,20 @@ block_cox_multi_horizon <- function(ctx, ...) {
   if (is.null(data) || !is.data.frame(data) || !nrow(data)) {
     stop("cox_multi_horizon: 无数据", call. = FALSE)
   }
+  ## dabiao 常见 futime_30d/event_30d → 块默认 time_d30/event_d30
+  .db_hz <- tolower(as.character(
+    cfg$dual_db$current_db %||% cfg$project$database %||% "mimic"
+  )[1L])
+  if (grepl("eicu", .db_hz)) .db_hz <- "eicu" else .db_hz <- "mimic"
+  if (exists("jin_ensure_horizon_columns", mode = "function")) {
+    data <- jin_ensure_horizon_columns(data, db = .db_hz)
+    if (!is.null(ctx$data$imputed) && is.data.frame(ctx$data$imputed)) {
+      ctx$data$imputed <- jin_ensure_horizon_columns(ctx$data$imputed, db = .db_hz)
+    }
+    if (!is.null(ctx$data$cleaned) && is.data.frame(ctx$data$cleaned)) {
+      ctx$data$cleaned <- jin_ensure_horizon_columns(ctx$data$cleaned, db = .db_hz)
+    }
+  }
 
   strata <- ctx$results$derived_grouping %||%
     ctx$results$jin_index_sofa_strata %||% list()
@@ -183,17 +197,33 @@ block_cox_multi_horizon <- function(ctx, ...) {
     ),
     d30 = list(
       label = "30-day",
-      time = (mh$d30 %||% list())$time %||% "time_d30",
-      event = (mh$d30 %||% list())$event %||% "event_d30"
+      time = (mh$d30 %||% list())$time %||%
+        if ("time_d30" %in% names(data)) "time_d30" else
+          if ("futime_30d" %in% names(data)) "futime_30d" else "time_d30",
+      event = (mh$d30 %||% list())$event %||%
+        if ("event_d30" %in% names(data)) "event_d30" else
+          if ("event_30d" %in% names(data)) "event_30d" else "event_d30"
     ),
     d365 = list(
       label = "365-day",
-      time = (mh$d365 %||% list())$time %||% "time_d365",
-      event = (mh$d365 %||% list())$event %||% "event_d365"
+      time = (mh$d365 %||% list())$time %||%
+        if ("time_d365" %in% names(data)) "time_d365" else
+          if ("futime_365d" %in% names(data)) "futime_365d" else "time_d365",
+      event = (mh$d365 %||% list())$event %||%
+        if ("event_d365" %in% names(data)) "event_d365" else
+          if ("event_365d" %in% names(data)) "event_365d" else "event_d365"
     )
   )
   want <- as.character(mh$horizons %||% c("hosp", "d30", "d365"))
-  want <- intersect(want, names(horiz_specs))
+  ## 兼容 config 写 in_hospital / hospital / ih
+  want <- vapply(want, function(h) {
+    h <- tolower(trimws(as.character(h)[1L]))
+    if (h %in% c("in_hospital", "inhospital", "hospital", "ih", "hosp_mortality")) {
+      return("hosp")
+    }
+    h
+  }, character(1L), USE.NAMES = FALSE)
+  want <- unique(intersect(want, names(horiz_specs)))
 
   if (!horiz_specs$hosp$time %in% names(data)) {
     tv <- cfg$survival$time_var %||% NULL

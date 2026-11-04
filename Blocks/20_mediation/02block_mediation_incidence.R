@@ -376,7 +376,17 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   cli::cli_alert_info("Outcome (Y): {outcome}")
 
   mediators <- intersect(mediators, names(data))
-  mediators <- mediators[sapply(mediators, function(m) is.numeric(data[[m]]) && !is.factor(data[[m]]))]
+  mediators <- as.character(mediators %||% character(0))
+  mediators <- mediators[nzchar(mediators)]
+  mediators <- intersect(mediators, names(data))
+  if (length(mediators)) {
+    ok_num <- vapply(
+      mediators,
+      function(m) is.numeric(data[[m]]) && !is.factor(data[[m]]),
+      logical(1L)
+    )
+    mediators <- mediators[ok_num]
+  }
   if (exists("pipeline_mediation_lab_exclude_vars", mode = "function")) {
     drop_comp <- intersect(mediators, pipeline_mediation_lab_exclude_vars(cfg, names(data)))
     if (length(drop_comp)) {

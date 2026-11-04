@@ -34,12 +34,13 @@ NHANES / 加权课题常见两套分母：
 Methods **必须**一句区分 + Limitations 点无权重外推方向；禁止正文暗示 ML=加权 N。  
 划分：先 split 再 `fit_on=train` MICE；写清 ratio / stratify / seed。
 
-## 4. 密文本森林图 collision FAIL → 栅格，禁止「假阳性放行」
+## 4. 密文本森林图 collision FAIL → 旁路栅格审计，禁止「假阳性放行」；交付必须矢量
 
 - `audit_figure_collisions.py` 对 forestploter 常报 `FIX BEFORE DELIVERY`（跨行文本框膨胀）
 - **禁止**只写「pdftotext 可读故 FP」就 PASS
-- **必须** `pub_figure_rasterize_pdf_page(..., dpi=600)` → 再 `pub_figure_ensure_formats`；vector 备份移出交付 `Figures/pdf/`
-- 栅格后脚本可为 `NOT AUDITABLE`（0 文本层）——属密文本消碰撞标准路径（见 `docs/reuse/2026-10-26-ml-literature-m123-assoc-reuse-map.md`），**前提是已栅格且图注数字完整**
+- **优先**改排版/字号消碰撞；若仍 FAIL，可对 **旁路副本** `pub_figure_rasterize_pdf_page(..., dpi=600)` 写入 `_raster_audit/` 供审计说明
+- **禁止**用 image-only PDF **覆盖**交付 `Figures/pdf/`（2026-11 铁律：`bad_pdf_raster` = P0；客户打开须是真矢量）
+- 交付矢量稿保留在 `Figures/pdf/`；图注数字完整；nature-figure 对交付矢量若仍 collision，报告写「已知密文本 + 已保留矢量交付 + 旁路 audit 栅格路径」
 
 ## 5. 中期 / 历史叙述 vs 实体
 
@@ -52,7 +53,7 @@ Methods **必须**一句区分 + Limitations 点无权重外推方向；禁止�
 [ ] 亚组调整版取最高水平系数（非 Middle）
 [ ] Fig 层内 OR 与 Table2 Q4 同量级；图注=实跑
 [ ] Methods 区分 ML n vs 加权 n；MICE fit_on=train
-[ ] 森林 collision FAIL 已 600dpi 栅格，非口头 FP
+[ ] 森林 collision：交付 PDF 仍为矢量；旁路 audit 栅格（若有）不进交付 pdf/
 [ ] 中期与实体分母/中介/Fig5 一致
 ```
 
@@ -61,4 +62,5 @@ Methods **必须**一句区分 + Limitations 点无权重外推方向；禁止�
 - 图注 Q4 vs Q1，图面 OR=0.91–1.23 全不显著
 - Methods 只写 N=2736，Table3/4 却是 2025+870=2895 且不解释
 - collision FIX BEFORE DELIVERY → 报告写 PASS（假阳性）
+- 为消 collision 把交付 Fig3/6 换成整页图片 PDF
 - 改了 Fig/表不重出中期

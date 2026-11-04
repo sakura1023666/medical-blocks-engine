@@ -90,24 +90,40 @@ survival_batch_patch_config_for_index <- function(config, ix) {
   if (is.null(config$km_strata$time_divisor)) {
     config$km_strata$time_divisor <- surv$time_divisor %||% 1
   }
-  config$km_strata$strata_vars <- c(q_col)
-  config$km_strata$strata_vars_by_branch <- list(
-    extend_quartile = c(q_col),
-    extend_tertile  = c(t_col)
-  )
-  config$km_strata$strata_defs <- list()
-  config$km_strata$strata_defs[[q_col]] <- list(
-    source = ix,
-    type   = "quartile_factor",
-    labels = c("Q1", "Q2", "Q3", "Q4"),
-    levels = c("Q1", "Q2", "Q3", "Q4")
-  )
-  config$km_strata$strata_defs[[t_col]] <- list(
-    source = ix,
-    type   = "tertile_factor",
-    labels = c("T1", "T2", "T3"),
-    levels = c("T1", "T2", "T3")
-  )
+  # Jin / 显式 strata_vars（如 Index_SOFA_Q）不得被 quartile 兜底覆盖
+  .km_explicit <- unique(trimws(as.character(config$km_strata$strata_vars %||% character(0))))
+  .km_explicit <- .km_explicit[nzchar(.km_explicit)]
+  .km_lock_jin <- any(grepl("Index_SOFA|SOFA_Q", .km_explicit, ignore.case = TRUE)) ||
+    isTRUE(config$km_strata$keep_explicit_strata %||% FALSE) ||
+    identical(tolower(as.character(
+      (config$survival_batch %||% list())$pub_figure_scheme %||% ""
+    )[1L]), "jin_index_sofa")
+  if (length(.km_explicit) && isTRUE(.km_lock_jin)) {
+    config$km_strata$strata_vars_by_branch <- NULL
+  } else {
+    config$km_strata$strata_vars <- c(q_col)
+    config$km_strata$strata_vars_by_branch <- list(
+      extend_quartile = c(q_col),
+      extend_tertile  = c(t_col)
+    )
+  }
+  if (is.null(config$km_strata$strata_defs)) config$km_strata$strata_defs <- list()
+  if (is.null(config$km_strata$strata_defs[[q_col]])) {
+    config$km_strata$strata_defs[[q_col]] <- list(
+      source = ix,
+      type   = "quartile_factor",
+      labels = c("Q1", "Q2", "Q3", "Q4"),
+      levels = c("Q1", "Q2", "Q3", "Q4")
+    )
+  }
+  if (is.null(config$km_strata$strata_defs[[t_col]])) {
+    config$km_strata$strata_defs[[t_col]] <- list(
+      source = ix,
+      type   = "tertile_factor",
+      labels = c("T1", "T2", "T3"),
+      levels = c("T1", "T2", "T3")
+    )
+  }
 
   if (is.null(config$mediation_prognosis)) config$mediation_prognosis <- list()
   config$mediation_prognosis$exposure <- ix
@@ -1132,7 +1148,9 @@ run_survival_dual_batch <- function(root,
     skip_existing = skip_exist,
     p_trim        = p_trim,
     config_path   = config_path,
-    worker_script = "run/survival/run_survival_dual_batch_worker.R"
+    worker_script = "run/survival/run_survival_dual_batch_worker.R",
+    from_token    = run_opts$from %||% NULL,
+    to_token      = run_opts$to %||% NULL
   )
 
   output_base <- bc$output_base %||% config$project$output_dir
@@ -1326,20 +1344,63 @@ survival_batch_enrich_filter_stats_with_trim <- function(filter_stats, project_r
 }
 
 survival_batch_load_cohort_flow_rows <- function(project_root, db_label) {
-  csv <- file.path(project_root, "Tables", "Flowchart_attrition_dual.csv")
-  if (!file.exists(csv)) return(NULL)
-  dt <- tryCatch(utils::read.csv(csv, stringsAsFactors = FALSE), error = function(e) NULL)
-  if (is.null(dt) || !nrow(dt)) return(NULL)
   lab <- tolower(as.character(db_label)[1L])
   want <- if (grepl("eicu|nhanes", lab)) "eicu" else "mimic"
-  dbcol <- tolower(as.character(dt$database %||% character(0)))
-  keep <- grepl(want, dbcol, fixed = TRUE)
-  if (!any(keep)) return(NULL)
-  data.frame(
-    step = as.character(dt$step[keep]),
-    n = as.integer(dt$n[keep]),
-    stringsAsFactors = FALSE
-  )
+  .pick_db_rows <- function(dt) {
+    if (is.null(dt) || !nrow(dt)) return(NULL)
+    if (!"step" %in% names(dt) || !"n" %in% names(dt)) return(NULL)
+    if ("database" %in% names(dt)) {
+      dbcol <- tolower(as.character(dt$database %||% character(0)))
+      keep <- grepl(want, dbcol, fixed = TRUE) |
+        (want == "eicu" & grepl("nhanes", dbcol, fixed = TRUE)) |
+        (want == "mimic" & grepl("mimic", dbcol, fixed = TRUE))
+      ## dual 槽位曾把 MIMIC 标成 nhanes、eICU 标成 mimic：若无命中则整表当本库
+      if (!any(keep)) keep <- rep(TRUE, nrow(dt))
+      dt <- dt[keep, , drop = FALSE]
+    }
+    if (!nrow(dt)) return(NULL)
+    data.frame(
+      step = as.character(dt$step),
+      n = as.integer(dt$n),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  ## 1) 项目根 dual CSV
+  csv <- file.path(project_root, "Tables", "Flowchart_attrition_dual.csv")
+  if (file.exists(csv)) {
+    dt <- tryCatch(utils::read.csv(csv, stringsAsFactors = FALSE), error = function(e) NULL)
+    out <- .pick_db_rows(dt)
+    if (!is.null(out) && nrow(out)) return(out)
+  }
+
+  ## 2) 共享层 step* attrition（文件名可能因 dual 槽位错标 nhanes/mimic）
+  slot <- if (identical(want, "eicu")) "eICU" else "MIMIC"
+  shared_tabs <- file.path(project_root, "_shared", slot)
+  cands <- character(0)
+  if (dir.exists(shared_tabs)) {
+    cands <- list.files(
+      shared_tabs,
+      pattern = "^Flowchart_attrition.*\\.csv$",
+      recursive = TRUE, full.names = TRUE, ignore.case = TRUE
+    )
+  }
+  ## 兼容 checkpoints/_shared
+  shared_ck <- file.path(project_root, "checkpoints", "_shared", slot)
+  if (dir.exists(shared_ck)) {
+    cands <- c(cands, list.files(
+      shared_ck,
+      pattern = "^Flowchart_attrition.*\\.csv$",
+      recursive = TRUE, full.names = TRUE, ignore.case = TRUE
+    ))
+  }
+  cands <- unique(cands[file.exists(cands)])
+  for (fp in cands) {
+    dt <- tryCatch(utils::read.csv(fp, stringsAsFactors = FALSE), error = function(e) NULL)
+    out <- .pick_db_rows(dt)
+    if (!is.null(out) && nrow(out)) return(out)
+  }
+  NULL
 }
 
 #' 绘制单库纳排流程图（转调 CONSORT attrition_draw_pdf）
@@ -1449,18 +1510,34 @@ survival_batch_write_index_flowcharts <- function(project_root, index_root, ix,
     rows$database <- db_disp
     all_rows[[db_disp]] <- rows
 
+    .jin_fig <- FALSE
+    if (!is.null(config)) {
+      if (!exists("jin_index_sofa_is_pub_scheme", mode = "function")) {
+        .lit <- file.path(
+          Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd()),
+          "R", "jin_index_sofa_pub.R"
+        )
+        if (file.exists(.lit)) source(.lit, local = FALSE)
+      }
+      .jin_fig <- exists("jin_index_sofa_is_pub_scheme", mode = "function") &&
+        isTRUE(jin_index_sofa_is_pub_scheme(config))
+    }
+    # Jin 原文：flowchart = Figure S1；普通预后 dual 仍 Figure 1
+    .fig_tag <- if (isTRUE(.jin_fig)) "Figure S1" else "Figure 1"
     title <- sprintf(
-      "Figure 1. %s inclusion/exclusion flowchart (%s, %s)",
-      db_disp, ix,
+      "%s. %s inclusion/exclusion flowchart (%s, %s)",
+      .fig_tag, db_disp, ix,
       as.character(config$project$disease %||% config$project$analysis_group %||% "Outcome")[1L]
     )
-    # 分库 Figure 1 只写各库子目录底稿；汇总 Figures / 项目根仅保留双库 Figure 1. Flowchart.pdf
-    pdf_db2 <- file.path(index_root, db_disp, "Figures",
-                         sprintf("Figure 1-%s. Inclusion exclusion flowchart.pdf", db_disp))
+    # 分库流程图写各库子目录底稿；汇总 Figures 另写双库拼图
+    pdf_db2 <- file.path(
+      index_root, db_disp, "Figures",
+      sprintf("%s-%s. Inclusion exclusion flowchart.pdf", .fig_tag, db_disp)
+    )
     dir.create(dirname(pdf_db2), recursive = TRUE, showWarnings = FALSE)
     survival_batch_draw_flowchart_pdf(rows, title, pdf_db2, font_family)
     if (file.exists(pdf_db2)) {
-      cli::cli_alert_success("Figure 1 flowchart [{db_disp}]: {.file {basename(pdf_db2)}}")
+      cli::cli_alert_success("{(.fig_tag)} flowchart [{db_disp}]: {.file {basename(pdf_db2)}}")
     }
   }
 
@@ -1486,7 +1563,24 @@ survival_batch_write_index_flowcharts <- function(project_root, index_root, ix,
     # 单库：竖版居中单栏；双库：横排两栏
     pdf_w <- if (n_panel <= 1L) 8.5 else 11
     pdf_h <- 8.5
-    pdf_dual <- file.path(fig_root, "Figure 1. Flowchart.pdf")
+    .jin_agg <- FALSE
+    if (!is.null(config)) {
+      if (!exists("jin_index_sofa_is_pub_scheme", mode = "function")) {
+        .lit2 <- file.path(
+          Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd()),
+          "R", "jin_index_sofa_pub.R"
+        )
+        if (file.exists(.lit2)) source(.lit2, local = FALSE)
+      }
+      .jin_agg <- exists("jin_index_sofa_is_pub_scheme", mode = "function") &&
+        isTRUE(jin_index_sofa_is_pub_scheme(config))
+    }
+    .dual_bn <- if (isTRUE(.jin_agg)) {
+      "Figure S1. Inclusion exclusion flowchart.pdf"
+    } else {
+      "Figure 1. Flowchart.pdf"
+    }
+    pdf_dual <- file.path(fig_root, .dual_bn)
     if (exists("pipeline_pdf_device", mode = "function")) {
       ff <- pipeline_pdf_device(pdf_dual, width = pdf_w, height = pdf_h, family = font_family)
     } else {
@@ -1530,13 +1624,13 @@ survival_batch_write_index_flowcharts <- function(project_root, index_root, ix,
     grDevices::dev.off()
     on.exit(NULL)
     # 指标级双库图只写 by_index/<ix>/Figures；不得覆盖课题根 Figure 1（课题级纳排）
-    cli::cli_alert_success("Figure 1 dual flowchart: {.file {basename(pdf_dual)}}")
+    cli::cli_alert_success("Flowchart dual: {.file {basename(pdf_dual)}}")
   }
-  # 兜底：指标汇总目录不留分库 Figure 1 纳排单图（课题根 Figures 的分库底稿可保留）
+  # 兜底：指标汇总目录不留分库纳排单图
   if (dir.exists(fig_root)) {
     stale <- list.files(
       fig_root,
-      pattern = "^Figure 1-.+\\. Inclusion exclusion flowchart\\.pdf$",
+      pattern = "^Figure (?:S)?1-.+\\. Inclusion exclusion flowchart\\.pdf$",
       full.names = TRUE,
       ignore.case = TRUE
     )

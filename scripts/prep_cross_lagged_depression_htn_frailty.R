@@ -23,6 +23,11 @@ dir.create(study_root, recursive = TRUE, showWarnings = FALSE)
 
 hip_raw <- "/mnt/g/02block_result/16_Hip fracture/cross-laged_40595747/data"
 dep_raw <- "/mnt/g/02block_result/22_depression/cross-laged_40595747/data"
+# 2026-11-04：改用 34 服务器「虚弱-新/全波次」FI-27（compat：已剔 hibpe）
+fi_new <- file.path(study_root, "data/frailty_new/compat")
+if (!dir.exists(fi_new)) {
+  stop("缺少 frailty_new/compat，请先跑 scripts/build_frailty_new_compat.R")
+}
 out <- file.path(study_root, "data", "harmonized")
 med_out <- file.path(study_root, "data", "medition")
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
@@ -31,7 +36,7 @@ for (db in c("CHARLS", "ELSA", "HRS")) {
   dir.create(file.path(study_root, "data", db), recursive = TRUE, showWarnings = FALSE)
 }
 
-to_id <- function(x) as.character(as.vector(x))
+to_id <- function(x) sub("^0+", "", as.character(as.vector(x)))
 yes_no <- function(x) {
   s <- trimws(as.character(x))
   ifelse(s %in% c("Yes", "1", "TRUE", "True"), TRUE,
@@ -93,16 +98,12 @@ for (f in list.files(med_src, pattern = "抑郁", full.names = TRUE)) {
   file.copy(f, file.path(med_out, basename(f)), overwrite = TRUE)
 }
 
-# ── CHARLS 2011：抑郁人群；FI = frailty26 去掉 hibpe ─────────────────────────
+# ── CHARLS 2011：抑郁人群；FI-27 new（compat 已剔 hibpe=c1）──────────────────
 bl <- load_df(file.path(dep_raw, "charls/D01_baseline_CHARLS_2011_0813 (1).RData"), "baseline")
 bl$ID <- to_id(bl$ID)
-fr <- read.csv(file.path(hip_raw, "CHARLS/虚弱_charls_2011.csv"), check.names = FALSE)
+fr <- read.csv(file.path(fi_new, "CHARLS/虚弱_charls_2011_fi27new.csv"), check.names = FALSE)
 fr$ID <- to_id(fr$ID)
-skip_c <- c(
-  "ID", "hibpe", "frailty26_total", "newtg", "newhdl", "AIP", "FI", "AIP_FI"
-)
-fi_c <- fi_from_deficits(fr, skip_c)
-fr$FI <- fi_c$FI
+fi_c <- list(FI = fr$FI, items = grep("^c[0-9]+$", names(fr), value = TRUE))
 dep <- read.csv(file.path(hip_raw, "medition/CHARLS_2011_抑郁_fixed.csv"), check.names = FALSE)
 dep$ID <- to_id(dep$ID)
 dep <- dep[!is.na(dep$DN) & as.integer(dep$DN) == 1L, c("ID", "DN", "cesd10_total"), drop = FALSE]
@@ -139,19 +140,12 @@ names_env$dabiao <- yo_save
 # 存成单对象 yo
 save(yo, file = file.path(study_root, "data/CHARLS/D03_result_CHARLS_2015.RData"))
 
-# ── ELSA wave4：抑郁人群；FI 去 psced + hypertension/BP 诊断 ─────────────────
+# ── ELSA wave4(2008)：抑郁人群；FI-27 new（compat 已剔 hibpe；BMC 无 CES-D 项）─
 bl <- load_df(file.path(dep_raw, "elsa/D01_baseline_ELSA4_2008_0813.RData"), "baseline")
 bl$ID <- to_id(bl$ID)
-fr <- read.csv(file.path(hip_raw, "ELSA/虚弱_elsa_wave4.csv"), check.names = FALSE)
-fr$ID <- to_id(fr$idauniq)
-ps <- grep("^psced", names(fr), ignore.case = TRUE, value = TRUE)
-skip_e <- unique(c(
-  ps, "idauniq", "ID", "trig", "hdl", "Trig", "HDL", "AIP", "FI", "AIP_FI",
-  "depression", "hypertension",
-  grep("hedacbp|hediabp|bp$", names(fr), ignore.case = TRUE, value = TRUE)
-))
-fi_e <- fi_from_deficits(fr, skip_e)
-fr$FI <- fi_e$FI
+fr <- read.csv(file.path(fi_new, "ELSA/虚弱_elsa_2008_fi27new.csv"), check.names = FALSE)
+fr$ID <- to_id(fr$ID)
+fi_e <- list(FI = fr$FI, items = grep("^c[0-9]+$", names(fr), value = TRUE))
 dep <- read.csv(file.path(hip_raw, "medition/ELSA_wave4_抑郁.csv"), check.names = FALSE)
 dep$ID <- to_id(dep$idauniq)
 dep <- dep[!is.na(dep$DN) & as.integer(dep$DN) == 1L, c("ID", "DN", "cesd8_total"), drop = FALSE]
@@ -169,7 +163,7 @@ dabiao_elsa <- dabiao
 save(dabiao, file = file.path(out, "D04_ELSA_depression_htn_baseline.RData"))
 save(dabiao, file = file.path(out, "D04_ELSA_depression_baseline.RData"))
 writeLines(
-  c("ELSA FI excludes CES-D (psced*) and hypertension/BP diagnosis columns.",
+  c("ELSA FI-27 new (BMC Li 2026); analysis FI excludes hibpe (c1); source age>=65 complete-case.",
     paste("items:", paste(fi_e$items, collapse = ", "))),
   file.path(out, "ELSA_FI_no_htn_items.txt")
 )
@@ -181,11 +175,11 @@ yo <- data.frame(ID = bl6$ID, Disease_Group = recode_htn(bl6$Hypertension), stri
 yo <- yo[!is.na(yo$Disease_Group), , drop = FALSE]
 save(yo, file = file.path(study_root, "data/ELSA/D03_result_ELSA6.RData"))
 
-# ── HRS 2012：抑郁人群；FI 用髋部文件（条目无独立高血压列）────────────────────
+# ── HRS 2012：抑郁人群；FI-27 new（compat 已剔 hibpe）────────────────────────
 bl <- load_df(file.path(dep_raw, "hrs/D01_baseline_HRS_2012_0813.RData"), "baseline")
 bl$ID <- to_id(bl$ID)
-fr <- read.csv(file.path(hip_raw, "HRS/虚弱_hrs_2012.csv"), check.names = FALSE)
-fr$ID <- to_id(fr$hhidpn)
+fr <- read.csv(file.path(fi_new, "HRS/虚弱_hrs_2012_fi27new.csv"), check.names = FALSE)
+fr$ID <- to_id(fr$ID)
 if (!"FI" %in% names(fr)) stop("HRS 缺 FI")
 dep <- read.csv(file.path(hip_raw, "medition/HRS_2012_抑郁.csv"), check.names = FALSE)
 dep$ID <- to_id(as.numeric(dep$HHID) * 1000 + as.numeric(dep$PN))
@@ -215,25 +209,28 @@ yo <- yo[!is.na(yo$Disease_Group), , drop = FALSE]
 save(yo, file = file.path(study_root, "data/HRS/D03_result_HRS16.RData"))
 
 writeLines(
-  c("CHARLS FI excludes hibpe:", paste(fi_c$items, collapse = ", ")),
+  c("CHARLS FI-27 new (BMC Li 2026); analysis FI excludes hibpe (c1); source age>=65 complete-case.",
+    paste(fi_c$items, collapse = ", ")),
   file.path(out, "CHARLS_FI_no_htn_items.txt")
 )
 
 qc <- rbind(
-  qc_row("CHARLS", dabiao_charls, "depressed-only; FI excl hibpe; outcome=Hypertension"),
-  qc_row("ELSA", dabiao_elsa, paste0("depressed-only; FI excl psced+HTN (", length(fi_e$items), " items)")),
-  qc_row("HRS", dabiao_hrs, "depressed-only; FI=hip frailty; outcome=Hypertension")
+  qc_row("CHARLS", dabiao_charls, "depressed-only; FI-27new excl hibpe; age>=65 complete; outcome=Hypertension"),
+  qc_row("ELSA", dabiao_elsa, paste0("depressed-only; FI-27new excl hibpe (", length(fi_e$items), " items); age>=65")),
+  qc_row("HRS", dabiao_hrs, "depressed-only; FI-27new excl hibpe; age>=65 complete; outcome=Hypertension")
 )
 write.csv(qc, file.path(out, "prep_qc.csv"), row.names = FALSE)
 
 writeLines(c(
-  "# Design: depression population × FI (no HTN items) × Hypertension outcome",
-  "# Cross-sectional baselines: CHARLS2011 / ELSA w4 / HRS2012",
+  "# Design: depression population × FI-27 new (no hibpe) × Hypertension outcome",
+  "# Frailty source: 192.168.68.34 虚弱-新/全波次 (BMC Li 2026 FI-27; age>=65 complete-case)",
+  "# Cross-sectional baselines: CHARLS2011 / ELSA w4(2008) / HRS2012",
   "# Longitudinal (hip spacing):",
   "#   CHARLS: FI_2011 → DepSeverity_2013 → HTN_2015 (baseline HTN-free)",
   "#   ELSA:   FI_w4 → Dep_w5 → HTN_w6",
   "#   HRS:    FI_2012 → Dep_2014 → HTN_2016",
-  "# Full table/figure set aligned to hip summary_result MANIFEST"
+  "# Full table/figure set aligned to hip summary_result MANIFEST",
+  "# Delivery folder for this rebuild: summary_result_new"
 ), file.path(out, "WAVE_PLAN.md"))
 
 message("Wrote depression×HTN×FI dabiao to ", out)

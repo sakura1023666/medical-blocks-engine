@@ -11,8 +11,10 @@
 #    exposure_var = NULL,            # NULL → 连续 index 或 Index_HL
 #    sofa_var = NULL,                # NULL → SOFA（连续优先）
 #    candidate_features = c("Age", "MBP", "WBC", "TotalCo2", "Hemoglobin",
-#                           "Sodium", "Calcium"),  # 缺列自动跳过
-#    force_features = NULL,          # 若非空则覆盖候选（仍强制含暴露+SOFA）
+#                           "Sodium", "Calcium"),  # 缺列自动跳过；供逐步筛选
+#    force_features = NULL,          # 额外强制保留（默认仍强制暴露+SOFA）
+#    selection = "backward",         # none | backward（对齐 Jin：α=0.05 后退）
+#    selection_alpha = 0.05,
 #    bootstrap_B = 200L,
 #    seed = 42L
 #  )
@@ -80,29 +82,55 @@ block_logistic_nomogram <- function(ctx, ...) {
     stop("logistic_nomogram: 无 SOFA 列", call. = FALSE)
   }
 
-  cands <- ng$force_features %||% ng$candidate_features %||%
+  cands <- as.character(ng$candidate_features %||%
     c("Age", "MBP", "MAP", "WBC", "TotalCo2", "Hemoglobin", "Sodium", "Calcium",
-      "Total_Calcium", "Bicarbonate")
-  cands <- as.character(cands)
+      "Total_Calcium", "CalciumTotal", "Bicarbonate", "Gender", "HeartRate",
+      "RespiratoryRate", "Potassium", "Creatinine", "Platelet_Count", "PLT"))
+  extra_force <- as.character(ng$force_features %||% character(0))
   if ("MBP" %in% names(data) && "MAP" %in% cands && !"MBP" %in% cands) {
     cands <- c(cands, "MBP")
+  }
+  if ("NBPM" %in% names(data) && ("MBP" %in% cands || "MAP" %in% cands) &&
+      !"NBPM" %in% cands) {
+    cands <- c(cands, "NBPM")
   }
   if ("TotalCo2" %in% names(data)) {
     cands <- setdiff(cands, c("Bicarbonate", "bicarbonate"))
   }
-  feats <- unique(c(expo, sofa_var, cands))
+  ## 强制：暴露 + SOFA（+ config 额外 force）；其余候选供后退筛选
+  force_keep <- unique(c(expo, sofa_var, extra_force))
+  force_keep <- force_keep[force_keep %in% names(data)]
+  feats <- unique(c(force_keep, cands))
   feats <- feats[feats %in% names(data)]
   feats <- setdiff(feats, c(
     outcome, "futime", "Index_SOFA_Q", "SOFA_bin",
     as.character((ctx$config$data %||% list())$id_column %||% "ID")
   ))
+  if (!all(c(expo, sofa_var) %in% feats)) {
+    stop("logistic_nomogram: 强制特征暴露/SOFA 缺失", call. = FALSE)
+  }
   if (length(feats) < 2L) stop("logistic_nomogram: 特征过少", call. = FALSE)
 
   d <- data[, unique(c(outcome, feats)), drop = FALSE]
   y <- d[[outcome]]
-  if (is.factor(y)) {
-    d[[outcome]] <- as.integer(y == levels(y)[length(levels(y))] |
-      tolower(as.character(y)) %in% c("1", "yes", "dead", "expired"))
+  ## 展示标签 Non-survivor / Expired 等；勿仅 as.numeric==1
+  death_labs <- c(
+    "1", "yes", "y", "true", "dead", "death", "died", "expire", "expired",
+    "deceased", "non-survivor", "nonsurvivor", "non survivor", "死亡", "是"
+  )
+  yc <- tolower(trimws(as.character(y)))
+  if (exists("pipeline_outcome_as_01", mode = "function")) {
+    y01 <- tryCatch(
+      pipeline_outcome_as_01(y, cfg = ctx$config),
+      error = function(e) NULL
+    )
+  } else {
+    y01 <- NULL
+  }
+  if (!is.null(y01) && length(y01) == length(y)) {
+    d[[outcome]] <- as.integer(y01)
+  } else if (is.factor(y) || is.character(y)) {
+    d[[outcome]] <- as.integer(yc %in% death_labs)
   } else {
     d[[outcome]] <- as.integer(suppressWarnings(as.numeric(y)) == 1L)
   }
@@ -127,11 +155,91 @@ block_logistic_nomogram <- function(ctx, ...) {
     stop("logistic_nomogram: lrm 失败: ", conditionMessage(fit), call. = FALSE)
   }
 
-  out_root <- ctx$config$project$output_dir %||% file.path(root, "Output")
+  sel_mode <- tolower(as.character(ng$selection %||% "backward")[1L])
+  sel_alpha <- suppressWarnings(as.numeric(ng$selection_alpha %||% 0.05)[1L])
+  if (!is.finite(sel_alpha) || sel_alpha <= 0 || sel_alpha >= 1) sel_alpha <- 0.05
+  feats_full <- feats
+  if (identical(sel_mode, "backward") && length(feats) > length(force_keep)) {
+    force_in_model <- intersect(force_keep, feats)
+    bw <- tryCatch(
+      rms::fastbw(fit, rule = "p", type = "individual", sls = sel_alpha, force = force_in_model),
+      error = function(e) NULL
+    )
+    kept <- NULL
+    if (!is.null(bw)) {
+      kept <- bw$names.kept %||% bw$kept %||% attr(bw, "names.kept")
+      if (is.null(kept) && !is.null(bw$coefficients)) {
+        kept <- setdiff(names(bw$coefficients), "(Intercept)")
+      }
+    }
+    if (is.null(kept) || !length(kept)) {
+      ## fallback：glm + 逐步删 p>=alpha（强制项不删）
+      g0 <- tryCatch(
+        stats::glm(fml, data = d, family = stats::binomial()),
+        error = function(e) NULL
+      )
+      if (!is.null(g0)) {
+        kept <- feats
+        repeat {
+          dropable <- setdiff(kept, force_in_model)
+          if (!length(dropable)) break
+          g1 <- stats::glm(
+            stats::as.formula(paste(outcome, "~", paste(kept, collapse = " + "))),
+            data = d, family = stats::binomial()
+          )
+          s1 <- summary(g1)$coefficients
+          rn <- rownames(s1)
+          pvals <- vapply(dropable, function(v) {
+            hits <- grep(paste0("^", gsub("([.\\(\\)])", "\\\\\\1", v)), rn)
+            if (!length(hits)) return(0)
+            max(as.numeric(s1[hits, 4L]), na.rm = TRUE)
+          }, numeric(1))
+          worst <- which.max(pvals)
+          if (!length(worst) || !is.finite(pvals[[worst]]) || pvals[[worst]] < sel_alpha) break
+          kept <- setdiff(kept, dropable[[worst]])
+        }
+      }
+    }
+    if (length(kept)) {
+      kept <- unique(c(force_in_model, intersect(as.character(kept), feats)))
+      kept <- kept[kept %in% names(d)]
+      if (length(kept) >= 2L && !identical(sort(kept), sort(feats))) {
+        feats <- kept
+        fml <- stats::as.formula(paste(outcome, "~", paste(feats, collapse = " + ")))
+        dd <- rms::datadist(d[, c(outcome, feats), drop = FALSE])
+        options(datadist = "dd")
+        assign("dd", dd, envir = .GlobalEnv)
+        fit2 <- tryCatch(
+          rms::lrm(fml, data = d, x = TRUE, y = TRUE),
+          error = function(e) NULL
+        )
+        if (!is.null(fit2)) {
+          fit <- fit2
+          cli::cli_alert_info(
+            "logistic_nomogram: backward α={sel_alpha} → {length(feats_full)}→{length(feats)} 特征（强制保留 {paste(force_in_model, collapse=', ')}）"
+          )
+        }
+      }
+    }
+  }
+
+  out_root <- as.character(
+    ctx$output_dir %||% ctx$config$project$output_dir %||% getwd()
+  )[1L]
   step_dir <- file.path(out_root, "step_logistic_nomogram")
   fig_dir <- file.path(out_root, "Figures")
   dir.create(step_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+
+  utils::write.csv(
+    data.frame(
+      feature = feats,
+      forced = feats %in% force_keep,
+      stringsAsFactors = FALSE
+    ),
+    file.path(step_dir, "Table_nomogram_selected_features.csv"),
+    row.names = FALSE
+  )
 
   nom_path <- file.path(fig_dir, "Figure. Nomogram in-hospital mortality (logistic).pdf")
   grDevices::pdf(nom_path, width = 11, height = max(5, 0.55 * length(feats) + 3))
@@ -169,10 +277,13 @@ block_logistic_nomogram <- function(ctx, ...) {
   }
   grDevices::dev.off()
 
+  ## rms::summary.rms 返回带 class 的 matrix，不能 sm$coef
   sm <- tryCatch(summary(fit), error = function(e) NULL)
   coef_path <- file.path(step_dir, "Table_nomogram_lrm_coef.csv")
-  if (!is.null(sm) && !is.null(sm$coef)) {
-    utils::write.csv(as.data.frame(sm$coef), coef_path)
+  if (is.matrix(sm) || inherits(sm, "summary.rms")) {
+    utils::write.csv(as.data.frame(sm), coef_path)
+  } else if (is.list(sm) && !is.null(sm[["coef"]])) {
+    utils::write.csv(as.data.frame(sm[["coef"]]), coef_path)
   } else {
     utils::write.csv(
       data.frame(term = names(stats::coef(fit)), coef = as.numeric(stats::coef(fit))),
@@ -182,6 +293,10 @@ block_logistic_nomogram <- function(ctx, ...) {
 
   res <- list(
     features = feats,
+    features_full = feats_full,
+    force_features = force_keep,
+    selection = sel_mode,
+    selection_alpha = sel_alpha,
     exposure = expo,
     sofa_var = sofa_var,
     outcome = outcome,
@@ -191,12 +306,12 @@ block_logistic_nomogram <- function(ctx, ...) {
     calibration_pdf = cal_path,
     bootstrap_B = B,
     seed = seed,
-    note = "Logistic nomogram for in-hospital death; TotalCo2 is bicarbonate proxy if used. Mediation is separate (mediation_prognosis)."
+    note = "Logistic nomogram: force exposure+SOFA; optional backward p-selection on candidates. Mediation separate."
   )
   ctx$results$logistic_nomogram <- res
   ctx$results$jin_nomogram_cal <- res
   cli::cli_alert_success(
-    "logistic_nomogram: n={nrow(d)}, features={length(feats)} → nomogram + calibration"
+    "logistic_nomogram: n={nrow(d)}, features={length(feats)} (selection={sel_mode}) → nomogram + calibration"
   )
   ctx
 }

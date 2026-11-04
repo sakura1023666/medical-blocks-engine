@@ -119,6 +119,7 @@ if (!is.null(.prim) && !is.null(.sec)) {
 ## - survival.end → 下列末尾后缀
 .jin_after_rcs <- "derived_grouping"
 .jin_end <- c(
+  "rcs_sofa_horizon",   # Jin Fig1：SOFA×院内/30d/365d 2×3（须在 derived_grouping 后）
   "cox_interaction",
   "cox_multi_horizon",
   "logistic_nomogram",
@@ -166,7 +167,11 @@ pipeline <- pipeline_regular_batch
 
 config$analysis_exclusion <- list(
   disease_vars = .disease_exclusion_vars,
-  protect_vars = c("SOFA", "Age", "BMI"),
+  ## TotalCo2=中介/诺模图；Hemoglobin/WBC=诺模图；SOFA=分层
+  protect_vars = c(
+    "SOFA", "Age", "BMI", "TotalCo2",
+    "Hemoglobin", "WBC", "NBPM", "Sodium", "CalciumTotal"
+  ),
   component_scope = "current_transitive",
   exclude_other_composite_indices = TRUE,
   exclude_exposure_if_uses_disease_var = TRUE
@@ -179,7 +184,10 @@ config$survival_batch <- utils::modifyList(config$survival_batch %||% list(), li
     as.character((config$survival_batch %||% list())$base_exclude_vars %||% character(0)),
     .disease_exclusion_vars, "SOFA"
   )),
-  trim_quantile = 0
+  trim_quantile = 0,
+  ## Jin 原文图序：Fig1=RCS, Fig2=Nomogram, Fig3=SHAP, Fig4=Mediation;
+  ## S1=Flowchart, S2=KM, S3=Calibration（见 R/jin_index_sofa_pub.R）
+  pub_figure_scheme = "jin_index_sofa"
 ))
 
 ## 主终点 = 院内死亡（D2）；不作 28 天 landmark 覆盖院内口径
@@ -204,15 +212,39 @@ config$derived_grouping <- list(
 
 config$cox_multi_horizon <- list(
   enable = TRUE,
-  horizons = c("in_hospital", "d30", "d365"),
-  exposure_var = "Index_SOFA_Q"
+  # hosp=院内；d30/d365 对齐 prepare_analysis_data 的 futime_*/event_* 列
+  horizons = c("hosp", "d30", "d365"),
+  exposure_var = "Index_SOFA_Q",
+  hosp = list(time = "futime", event = "fustatus"),
+  d30  = list(time = "futime_30d", event = "event_30d"),
+  d365 = list(time = "futime_365d", event = "event_365d")
 )
 
+## Jin 原文 Fig1：High/Low SOFA × 院内/30d/365d（2×3 RCS；非 Crude/M1/M2 横排）
+config$rcs_sofa_horizon <- list(
+  enable = TRUE,
+  sofa_bin_var = "SOFA_bin",
+  high_level = "High",
+  low_level = "Low",
+  horizons = c("hosp", "d30", "d365"),
+  nk = 4L,
+  model = "crude",
+  figure_number = 1L,
+  figure_kind = "main_figure",
+  ## 拟合仍用全样本；作图横轴/直方图裁到层内 P1–P99（WPR 等右偏指标防尾部撑轴）
+  plot_x_quantiles = c(0.01, 0.99)
+)
+
+## 诺模图：强制暴露+SOFA；其余候选 backward α=0.05（对齐 Jin stepwise）后 lrm
 config$logistic_nomogram <- list(
   enable = TRUE,
   outcome = "fustatus",
+  selection = "backward",
+  selection_alpha = 0.05,
   candidate_features = c(
-    "Age", "NBPM", "WBC", "TotalCo2", "Hemoglobin", "Sodium", "CalciumTotal"
+    "Age", "Gender", "NBPM", "HeartRate", "RespiratoryRate",
+    "WBC", "Hemoglobin", "Platelet_Count", "PLT",
+    "TotalCo2", "Sodium", "Potassium", "CalciumTotal", "Creatinine"
   )
 )
 
@@ -234,27 +266,33 @@ config$jin_index_sofa <- list(
   shap = config$shap_glm
 )
 
+## 中介：预后套路 — 血检池 LM 筛显著 → 双库锁 best（勿点名 TotalCo2）
 config$mediation_prognosis <- utils::modifyList(config$mediation_prognosis %||% list(), list(
   diagram_enable = TRUE,
-  mediators = c("TotalCo2"),
-  best_mediator = "TotalCo2",
-  mediators_strict_only = TRUE,
+  mediators = NULL,
+  best_mediator = NULL,
+  mediators_strict_only = FALSE,
+  dual_library_lm_screen = TRUE,
+  dual_db_lock_best_mediator = TRUE,
   skip_export_if_ns = TRUE,
-  outcome_label = "In-hospital all-cause mortality",
-  footnote_mediator_proxy = "TotalCo2 used as bicarbonate proxy (D01 has no Bicarbonate)."
+  outcome_label = "In-hospital all-cause mortality"
 ))
 
 ## 连续暴露 × SOFA_bin 交互（复用 10_cox/cox_interaction；须在 derived_grouping 之后）
+## pause_enable=FALSE：层内/编码异常时跳过交互块，不因 PAUSE 拖死整指标
 config$cox_interaction <- utils::modifyList(config$cox_interaction %||% list(), list(
   enable = TRUE,
   modifier_var = "SOFA_bin",
-  ref_level = "Low"
+  ref_level = "Low",
+  pause_enable = FALSE,
+  pause_on_low_events = FALSE
 ))
 
 ## 四组 KM（复用 27_KM/km_strata；列由 derived_grouping 写入）
 config$km_strata <- utils::modifyList(config$km_strata %||% list(), list(
   enable = TRUE,
-  strata_vars = c("Index_SOFA_Q")
+  strata_vars = c("Index_SOFA_Q"),
+  keep_explicit_strata = TRUE
 ))
 
 config$subgroup <- utils::modifyList(config$subgroup %||% list(), list(

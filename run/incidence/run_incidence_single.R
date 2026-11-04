@@ -61,6 +61,13 @@ if (!is.null(only_index) && nzchar(only_index)) {
   }
 }
 
+## 发病发表铁律：箱线仅暴露；跑完 curate 图序 + summary_results（见 R/incidence_single_pub_finalize.R）
+fin_src <- file.path(root, "R/incidence_single_pub_finalize.R")
+if (file.exists(fin_src)) source(fin_src, local = FALSE)
+if (exists("incidence_force_boxplot_exposure_only", mode = "function")) {
+  config <- incidence_force_boxplot_exposure_only(config)
+}
+
 if (!exists("pipeline")) stop("config 未定义 pipeline", call. = FALSE)
 options(warn = 1, cli.hyperlink = FALSE)
 run_opts <- list()

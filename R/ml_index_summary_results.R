@@ -680,6 +680,21 @@ ml_finalize_index_summary_results <- function(index_root,
 
   ## 确保指标根 Figures 四目录齐全
   fig_src <- file.path(index_root, "Figures")
+  ## 若指标根已有 png/tiff，或发病单库默认，保持栅格导出（避免 ensure 把已有栅格清掉）
+  if (!is.list(config)) config <- list()
+  if (!is.list(config$pub_figures)) config$pub_figures <- list()
+  has_png <- dir.exists(file.path(fig_src, "png")) &&
+    length(list.files(file.path(fig_src, "png"), pattern = "\\.png$", ignore.case = TRUE)) > 0L
+  has_tiff <- dir.exists(file.path(fig_src, "tiff")) &&
+    length(list.files(file.path(fig_src, "tiff"), pattern = "\\.tiff?$", ignore.case = TRUE)) > 0L
+  st0 <- tolower(as.character((config$project %||% list())$study_type %||% "")[1L])
+  if (is.null(config$pub_figures$export_png) && (isTRUE(has_png) || identical(st0, "incidence"))) {
+    config$pub_figures$export_png <- TRUE
+  }
+  if (is.null(config$pub_figures$export_tiff) && (isTRUE(has_tiff) || identical(st0, "incidence"))) {
+    config$pub_figures$export_tiff <- TRUE
+  }
+  if (is.null(config$pub_figures$dpi)) config$pub_figures$dpi <- 600L
   if (dir.exists(fig_src) && exists("pub_figure_ensure_formats", mode = "function")) {
     tryCatch(
       pub_figure_ensure_formats(fig_src, config = config),

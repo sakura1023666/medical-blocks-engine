@@ -1,0 +1,16 @@
+Warning message:
+package 'data.table' was built under R version 4.5.3 
+kinds:
+
+   assoc jin_sofa  missing 
+      48        2        2 
+
+=== jin_sofa ===
+    index     db cont_m2 cont_all
+   <char> <char>  <char>   <char>
+1:    WPR  MIMIC    <NA>     <NA>
+2:    WPR   eICU    <NA>     <NA>
+
+=== assoc both-db with cont_hr ===
+
+=== assoc T3 both-db ===

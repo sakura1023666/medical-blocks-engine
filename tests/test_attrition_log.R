@@ -148,4 +148,50 @@ stopifnot(isTRUE(promoted))
 fig1 <- file.path(td, "Figure 1. Flowchart.pdf")
 stopifnot(file.exists(fig1), file.info(fig1)$size > 0)
 
+# 预过滤 dabiao：Starting/cleaning/imputation 同 n 必须折叠，避免假三框
+ctx_same <- list(
+  config = list(
+    data = list(outcome_column = "Disease_Group"),
+    project = list(
+      database = "CHARLS", analysis_group = "Sarcopenia",
+      reference_group = "No_Sarcopenia", study_type = "incidence"
+    ),
+    attrition = list(
+      enable = TRUE, auto_append = TRUE, outcome_breakdown = TRUE,
+      steps = list(), config_steps_only = FALSE
+    )
+  ),
+  data = list(
+    imputed = data.frame(
+      ID = seq_len(10),
+      Disease_Group = factor(
+        c(rep("Sarcopenia", 4), rep("No_Sarcopenia", 6)),
+        levels = c("No_Sarcopenia", "Sarcopenia")
+      )
+    )
+  ),
+  results = list(attrition = list(log = list(
+    list(step_id = "starting_cohort", label = "Starting cohort", n = 10L,
+         kind = "include", meta = list(source = "rawdata"), source = "rawdata"),
+    list(step_id = "after_data_clean", label = "After data cleaning", n = 10L,
+         kind = "include", meta = list(block = "data_clean"), source = "log"),
+    list(step_id = "after_imputation", label = "After imputation", n = 10L,
+         kind = "include", meta = list(block = "imputation"), source = "log")
+  )))
+)
+rows_same <- attrition_finalize_rows(ctx_same, ctx_same$config)
+stopifnot(nrow(rows_same) == 2L)
+stopifnot(identical(as.integer(rows_same$n), c(10L, 10L)))
+stopifnot(identical(as.character(rows_same$step_id), c("starting_cohort", "after_imputation")))
+# 有真实排除时中间步保留；末步同 n 的 imputation 也保留（对齐 HHR）
+rows_drop <- attrition_collapse_redundant_rows(data.frame(
+  step = c("Start", "After missing HGI", "After imputation"),
+  n = c(100L, 80L, 80L),
+  step_id = c("starting_cohort", "after_index_missing", "after_imputation"),
+  exclude_label = c(NA_character_, "Missing HGI", NA_character_),
+  stringsAsFactors = FALSE
+))
+stopifnot(nrow(rows_drop) == 3L)
+stopifnot(identical(as.integer(rows_drop$n), c(100L, 80L, 80L)))
+
 cat("OK attrition_log\n")

@@ -124,11 +124,17 @@ def _clip_physio_df(df):
 
 from database.datareader import DataReader as _DR
 
-# Sensitivity only. Empty by default, so the main liver run keeps Allyn's list.
+# Sensitivity / disease feature gates. Empty by default = Allyn BlendedLoS list.
 # DBPOOL_DROP_TS=bilirubine,alanine_aminotransferase,...
+# DBPOOL_KEEP_TS=heart_rate,lactate,...  (whitelist; always keeps "time"; DROP applied after)
 _DROP_TS = {
     x.strip()
     for x in os.environ.get("DBPOOL_DROP_TS", "").split(",")
+    if x.strip()
+}
+_KEEP_TS = {
+    x.strip()
+    for x in os.environ.get("DBPOOL_KEEP_TS", "").split(",")
     if x.strip()
 }
 _orig_get_loadcols = _DR._get_loadcols
@@ -136,6 +142,17 @@ _orig_get_loadcols = _DR._get_loadcols
 
 def _get_loadcols_drop(self):
     cols = list(_orig_get_loadcols(self))
+    if _KEEP_TS:
+        allow = set(_KEEP_TS) | {"time"}
+        kept = [c for c in cols if c in allow]
+        dropped_keep = [c for c in cols if c not in allow]
+        missing_keep = sorted(_KEEP_TS.difference(cols))
+        print(
+            f"[keep-ts] n_keep={len(kept)} missing_from_loadcols={missing_keep} "
+            f"n_catalog_dropped={len(dropped_keep)}",
+            flush=True,
+        )
+        cols = kept
     if not _DROP_TS:
         return cols
     kept = [c for c in cols if c not in _DROP_TS]

@@ -26,7 +26,17 @@
     )
   }
   pub_hit <- unique(pub_cands[dir.exists(pub_cands)])
-  # 仅当尚无 summary 定稿时，才扫 【success】 指标/单元草稿 Figures
+  # 有 summary_* 定稿时只扫定稿 Figures，勿连带课题根草稿 Figures（平铺残留会假 FAIL）
+  summary_hit <- pub_hit[grepl(
+    paste0(
+      "(^|/)",
+      "(summary_results|summary_result)",
+      "(/|$)"
+    ),
+    pub_hit
+  )]
+  if (length(summary_hit)) return(unique(summary_hit))
+  # 仅当尚无 summary 定稿时，才扫课题根 / 【success】 草稿 Figures
   has_summary <- length(pub_hit) > 0L
   if (isTRUE(has_summary)) return(pub_hit)
 
@@ -110,6 +120,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     isFALSE(st$ok) ||
       length(st$flat_leftovers %||% character(0)) > 0 ||
       length(st$bad_pdf_geometry %||% character(0)) > 0 ||
+      length(st$bad_pdf_raster %||% character(0)) > 0 ||
       (raster_req && (
         length(st$bad_dpi %||% character(0)) > 0 ||
           length(st$stale_raster %||% character(0)) > 0 ||
@@ -159,13 +170,19 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
       paste0("- ok=", st$ok %||% NA, "; stems=", length(st$stems %||% character(0)),
              "; require_png=", isTRUE(st$require_png),
              "; require_tiff=", isTRUE(st$require_tiff),
+             "; require_vector_pdf=", isTRUE(st$require_vector_pdf %||% TRUE),
              "; bad_dpi=", bad,
              "; stale_raster=", length(st$stale_raster %||% character(0)),
              "; bad_pdf_geometry=", length(st$bad_pdf_geometry %||% character(0)),
+             "; bad_pdf_raster=", length(st$bad_pdf_raster %||% character(0)),
              "; require_dpi=", st$require_dpi %||% 600L),
       if (bad > 0L) paste0("- bad_dpi 样例：", paste(utils::head(st$bad_dpi, 5L), collapse = "; ")) else NULL,
       if (length(st$stale_raster %||% character(0)) > 0L)
         paste0("- stale_raster 样例：", paste(utils::head(st$stale_raster, 5L), collapse = "; "))
+      else NULL,
+      if (length(st$bad_pdf_raster %||% character(0)) > 0L)
+        paste0("- **bad_pdf_raster (P0 非矢量 PDF)**：",
+               paste(utils::head(st$bad_pdf_raster, 8L), collapse = "; "))
       else NULL,
       ""
     )
@@ -200,6 +217,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("  - `", basename(nature_stat), "`"),
     "- **默认交付仅 PDF**：缺 png/tiff 不再算 P0；仅当 `config$pub_figures$export_png/tiff=TRUE` 时 DPI/stale_raster 才为 P0。",
     "- **根目录平铺 Figure*.pdf 或 bad_pdf_geometry = P0**，当场 `pub_figure_ensure_formats`。",
+    "- **bad_pdf_raster = P0**：交付 `Figures/pdf` 不得是整页栅格「图片 PDF」；须真矢量。截图/Shiny 可用 `allow_raster_pdf_patterns` 白名单。禁止用 `pub_figure_rasterize_pdf_page` 覆盖交付矢量稿。",
     "- **表数字格式 FAIL = P0**（裸 0/0.000）；修完再宣称 PASS。",
     ""
   )

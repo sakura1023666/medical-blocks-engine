@@ -264,6 +264,91 @@ UNIT_CONFIG = {
             }
         },
     },
+    # CSA-AKI (龚倩): MIMIC-IV + SICdb train; eICU + INSPIRE external.
+    # urine_output dropped via DBPOOL_DROP_TS on all DBs.
+    "csa_expA_sicdb_solo": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [{"train_on": ["sicdb"], "percentage_trainval": 100}],
+            }
+        },
+    },
+    "csa_expB_mimic_solo": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [{"train_on": ["mimic4"], "percentage_trainval": 100, "use_as_pretrained": True}],
+            }
+        },
+    },
+    "csa_expC_mimic2sicdb_transfer": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [
+                    {"train_on": ["mimic4"], "percentage_trainval": 100, "use_as_pretrained": True},
+                    {
+                        "train_on": ["sicdb"],
+                        "percentage_trainval": 100,
+                        "from_pretrained": True,
+                        "retrain_last_layer_only": False,
+                    },
+                ],
+            }
+        },
+    },
+    "csa_expD_pooled_mimic_sicdb": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [
+                    {"percentage_trainval_dic": {"mimic4": 100, "sicdb": 100}},
+                ],
+            }
+        },
+    },
+    "csa_model_benchmark": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "model_benchmark": {
+                "models": ["lstm", "transformer", "tpc"],
+                "runs": [
+                    {"percentage_trainval_dic": {"mimic4": 100, "sicdb": 100}},
+                ],
+            }
+        },
+    },
+    "csa_dataset_benchmark": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "dataset_benchmark": {
+                "models": ["tpc"],
+                "runs": [
+                    {"train_on": ["sicdb"], "percentage_trainval": 100},
+                    {"train_on": ["mimic4"], "percentage_trainval": 100},
+                    {"train_on": ["eicu"], "percentage_trainval": 100},
+                    {"train_on": ["inspire"], "percentage_trainval": 100},
+                ],
+            }
+        },
+    },
+    "csa_training_size_study": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "sicdb", "inspire"]},
+        "experiments": {
+            "training_size_study": {
+                "models": ["tpc"],
+                "runs": [
+                    {"train_on": ["mimic4"], "percentage_trainval": p}
+                    for p in (5, 10, 15, 20, 25, 35, 50, 65, 75, 90, 100)
+                ],
+            }
+        },
+    },
 }
 
 

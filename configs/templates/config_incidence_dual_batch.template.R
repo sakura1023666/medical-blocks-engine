@@ -286,9 +286,7 @@ config <- list(
       "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"
     ),
     extra_index_exclude_vars = character(0),
-    index_component_overrides = list(
-      OAScore_z = c("Age", "HbA1c", "Total_Cholesterol")
-    ),
+    index_component_overrides = list(),
     base_subgroup_vars = c("Age", "Gender", "Race", "Smoking", "Hypertension", "Diabetes"),
 
     # ── 敏感性分析（主分析 success 后自动执行；亦可 --sensitivity-only 单独补跑）──

@@ -325,23 +325,32 @@
 }
 
 .shap_waterfall_link_values <- function(shp, row_id, link = "logit") {
+  ## link 语义：
+  ##   "logit" / "raw" / "link" → 返回与 shapviz 柱标注同一套 logit 值（不 plogis）
+  ##   "probability" / "prob"   → 对 logit 做 plogis，仅供字幕换算
   row_id <- as.integer(row_id)[1L]
   sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
   if (inherits(sv, "Matrix")) sv <- as.matrix(sv)
   if (is.data.frame(sv)) sv <- as.matrix(sv)
   if (is.null(sv) || !is.matrix(sv) || !nrow(sv) || !ncol(sv) || nrow(sv) < row_id) {
-    return(list(fx = NA_real_, efx = NA_real_, on_prob_scale = FALSE))
+    return(list(fx = NA_real_, efx = NA_real_, on_prob_scale = FALSE, fx_logit = NA_real_, efx_logit = NA_real_))
   }
   base <- shp$baseline
   if (length(base) > 1L) base <- base[1L]
-  fx <- as.numeric(base) + sum(sv[row_id, , drop = TRUE])
-  efx <- as.numeric(base)
-  on_prob <- identical(tolower(link), "logit") || identical(tolower(link), "probability")
-  if (on_prob) {
-    fx <- stats::plogis(fx)
-    efx <- stats::plogis(efx)
+  fx_logit <- as.numeric(base) + sum(sv[row_id, , drop = TRUE])
+  efx_logit <- as.numeric(base)
+  link_l <- tolower(trimws(as.character(link %||% "logit")[1L]))
+  want_prob <- link_l %in% c("probability", "prob")
+  if (want_prob) {
+    return(list(
+      fx = stats::plogis(fx_logit), efx = stats::plogis(efx_logit),
+      on_prob_scale = TRUE, fx_logit = fx_logit, efx_logit = efx_logit
+    ))
   }
-  list(fx = fx, efx = efx, on_prob_scale = on_prob)
+  list(
+    fx = fx_logit, efx = efx_logit, on_prob_scale = FALSE,
+    fx_logit = fx_logit, efx_logit = efx_logit
+  )
 }
 
 .shap_waterfall_with_labels <- function(shp, row_id, sh_cfg, ctx) {
@@ -349,8 +358,9 @@
   incidence <- ctx$results$shap_waterfall_incidence %||% .shap_dataset_incidence(ctx)
   thr <- as.numeric(sh_cfg$waterfall_prob_threshold %||% 0.75)[1L]
   if (!is.finite(thr)) thr <- 0.75
-  link <- sh_cfg$waterfall_link %||% "logit"
-  vals <- .shap_waterfall_link_values(shp, row_id, link = link)
+  ## 图面 f(x) 永远是 shapviz 原生 logit；字幕概率必须 = plogis(同一 f(x))，
+  ## 禁止再叠一条与 link 不一致的 predict(..., type="prob")（旧 P0：pred=0.5 vs f(x)=-1.5）。
+  vals <- .shap_waterfall_link_values(shp, row_id, link = "logit")
   p <- tryCatch(
     shapviz::sv_waterfall(shp, row_id = row_id),
     error = function(e) {
@@ -367,19 +377,25 @@
   } else {
     "Actual outcome: unknown"
   }
-  pred_p <- pick$pred_prob %||% NA_real_
-  thr_txt <- if (is.finite(as.numeric(pred_p))) {
-    sprintf("pred=%.3f (prob)", as.numeric(pred_p))
+  fx_logit <- as.numeric(vals$fx_logit %||% vals$fx)
+  p_link <- if (is.finite(fx_logit)) stats::plogis(fx_logit) else NA_real_
+  pred_p <- suppressWarnings(as.numeric(pick$pred_prob %||% NA_real_))
+  if (is.finite(pred_p) && is.finite(p_link) && abs(pred_p - p_link) > 0.05) {
+    cli::cli_alert_warning(
+      "block_shap: waterfall predict-prob={round(pred_p, 3)} vs plogis(f(x))={round(p_link, 3)}; 字幕改用后者与柱面 f(x) 对齐"
+    )
+  }
+  thr_txt <- if (is.finite(p_link)) {
+    sprintf("P=%.3f (=plogis(f(x)))", p_link)
   } else {
-    "pred=NA"
+    "P=NA"
   }
   sample_title <- paste0(outcome_lab, "; ", thr_txt)
-
-  ## 关键：shapviz::sv_waterfall 本身已按 logit 空间标注柱末 f(x) 与基线 E[f(x)]。
-  ## 旧代码另加 header f(x)=概率、caption E[f(x)]=概率基线，与图内 logit 标注互相矛盾
-  ## （如 header f(x)=0.610 vs 柱末 f(x)=0.448；caption E[f(x)]=0.500 vs 基线 0）。
-  ## 统一口径：只保留 pred（概率，明确标 (prob)），f(x)/E[f(x)] 交给 shapviz 原生 logit 标注。
-  p <- p + ggplot2::labs(title = NULL, subtitle = sample_title, caption = NULL)
+  p <- p + ggplot2::labs(
+    title = NULL,
+    subtitle = sample_title,
+    caption = "f(x) and E[f(x)] on logit (SHAP link) scale; subtitle P = inverse-logit of the same f(x)"
+  )
   p
 }
 

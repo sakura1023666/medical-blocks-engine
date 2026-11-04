@@ -26,7 +26,7 @@ alwaysApply: true
 | 文献 Model1–3（`literature_m123`）+ Model3 踢严重度 | `R/ml_assoc_covariate_rule.R` + `configs/ml_literature_aki_dev_ext_assoc_overrides.R` |
 | 统一 Model3 返工表/图 | `run/ml/rebuild_assoc_unified_model3.R` + `run/ml/redraw_assoc_figs.R`；复用地图 `docs/reuse/2026-10-26-ml-literature-m123-assoc-reuse-map.md` |
 | 关联图 Fig2/3/4/6（Fig6 prefer Model3） | `R/ml_reference_assoc_figures.R` |
-| 密文本图 collision→image PDF | `R/pub_figure_export.R` → `pub_figure_rasterize_pdf_page` |
+| 密文本图 collision→旁路 image PDF（**不得覆盖交付矢量**） | `R/pub_figure_export.R` → `pub_figure_rasterize_pdf_page` → `_raster_audit/`；交付 `bad_pdf_raster`=P0 |
 | 单因素 / ML 连续 Cox / 多因素 → Rubin | `01block_univariate_prognosis` / `08block_cox_ml_continuous_batch` / `01block_multivariate_prognosis` + `R/mi_rubin_pool.R` |
 | Fig1 无 Exclude 主列居中 | `R/attrition_log.R` → `attrition_draw_pdf` |
 | Methods：m=5 Rubin vs complete#1 操作层 | `R/ml_index_summary_results.R` |

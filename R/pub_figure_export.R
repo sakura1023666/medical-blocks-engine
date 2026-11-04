@@ -25,6 +25,13 @@
   if (!is.finite(max_edge_in) || max_edge_in < 4) max_edge_in <- 11
   export_png <- isTRUE(cfg$export_png %||% FALSE)
   export_tiff <- isTRUE(cfg$export_tiff %||% FALSE)
+  # 交付 PDF 默认真矢量；仅截图类 stem 可豁免（EMs 2026-11：Fig3/4/6 被整页栅格交差）
+  require_vector_pdf <- !isFALSE(cfg$require_vector_pdf %||% TRUE)
+  allow_pat <- cfg$allow_raster_pdf_patterns %||% c(
+    "shiny", "screenshot", "web calculator", "ui capture", "screen capture"
+  )
+  allow_pat <- as.character(allow_pat)
+  allow_pat <- allow_pat[nzchar(allow_pat)]
   list(
     enable = isTRUE(cfg$formats_dir %||% TRUE),
     dpi = dpi,
@@ -33,7 +40,9 @@
     tiff_compression = "lzw",
     write_image_information = isTRUE(cfg$write_image_information %||% TRUE),
     max_edge_in = max_edge_in,
-    stack_multipage = !isFALSE(cfg$stack_multipage %||% TRUE)
+    stack_multipage = !isFALSE(cfg$stack_multipage %||% TRUE),
+    require_vector_pdf = require_vector_pdf,
+    allow_raster_pdf_patterns = allow_pat
   )
 }
 
@@ -1832,6 +1841,63 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
   list(pages = pg, max_edge_in = ed)
 }
 
+#' Detect image-only (整页栅格) PDFs that look like photos, not vectors.
+#' Heuristic: page 1 has ≥1 embedded image, ≤2 drawings, and 0 extractable text.
+#' @return list(image_only, n_images, n_drawings, n_text) or NULL on probe failure
+.pub_figure_pdf_vector_probe <- function(pdf_path, root_hint = NULL) {
+  pdf_path <- as.character(pdf_path %||% "")[1L]
+  if (!nzchar(pdf_path) || !file.exists(pdf_path)) return(NULL)
+  py <- .pub_figure_python_exe()
+  if (!nzchar(py)) return(NULL)
+  tmp <- tempfile("pub_vec_")
+  dir.create(tmp, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+  pdf_s <- file.path(tmp, "in.pdf")
+  script <- file.path(tmp, "vec.py")
+  if (!isTRUE(file.copy(pdf_path, pdf_s, overwrite = TRUE))) return(NULL)
+  writeLines(c(
+    "import sys",
+    "import pymupdf",
+    "d = pymupdf.open(sys.argv[1])",
+    "p = d[0]",
+    "imgs = p.get_images(full=True)",
+    "draws = p.get_drawings()",
+    "txt = (p.get_text('text') or '').strip()",
+    "n_img = len(imgs)",
+    "n_draw = len(draws)",
+    "n_txt = len(txt)",
+    "# 整页栅格：有位图、几乎无矢量路径、无可抽取文字（collision 热修常见产物）",
+    "image_only = int(n_img >= 1 and n_draw <= 2 and n_txt == 0)",
+    "print('%d\\t%d\\t%d\\t%d' % (image_only, n_img, n_draw, n_txt))",
+    "d.close()"
+  ), script, useBytes = TRUE)
+  out <- tryCatch(
+    system2(py, args = c(script, pdf_s), stdout = TRUE, stderr = FALSE),
+    error = function(e) character(0)
+  )
+  if (!length(out)) return(NULL)
+  line <- trimws(out[[length(out)]])
+  parts <- strsplit(line, "\t", fixed = TRUE)[[1L]]
+  if (length(parts) < 4L) return(NULL)
+  vals <- suppressWarnings(as.integer(parts[seq_len(4L)]))
+  if (any(!is.finite(vals))) return(NULL)
+  list(
+    image_only = identical(as.integer(vals[[1L]]), 1L),
+    n_images = vals[[2L]],
+    n_drawings = vals[[3L]],
+    n_text = vals[[4L]]
+  )
+}
+
+.pub_figure_stem_allows_raster_pdf <- function(stem, patterns = character(0)) {
+  stem <- tolower(as.character(stem %||% "")[1L])
+  if (!nzchar(stem)) return(FALSE)
+  pats <- tolower(as.character(patterns %||% character(0)))
+  pats <- pats[nzchar(pats)]
+  if (!length(pats)) return(FALSE)
+  any(vapply(pats, function(p) grepl(p, stem, fixed = TRUE), logical(1L)))
+}
+
 #' Normalize delivery PDF: clamp oversized media box; stack multipage → 1 page.
 #' Rewrites ``pdf_path`` in place when changed. Soft-fail returns FALSE.
 pub_figure_normalize_pdf <- function(pdf_path,
@@ -2561,15 +2627,19 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
 #' ``bad_pdf_geometry``，触发 ensure_formats 重导（EMs Shiny/RCS 教训）。
 #' ``stale_raster``：仅当 ``export_png/export_tiff=TRUE`` 时检
 #' png/tiff mtime 明显早于同 stem 的 pdf（cute_ran HHR Fig3 2026-11 教训）。
-#' @return list(ok, stems, missing_png, missing_tiff, flat_leftovers, bad_pdf_geometry, stale_raster)
+#' ``bad_pdf_raster``：交付 PDF 被整页栅格化（像图片）→ P0；截图类 stem 可白名单。
+#' @return list(ok, stems, missing_png, missing_tiff, flat_leftovers, bad_pdf_geometry,
+#'   bad_pdf_raster, stale_raster)
 pub_figure_formats_status <- function(figures_dir, require_dpi = 600L,
                                       max_edge_in = NULL, check_pdf_geometry = TRUE,
+                                      check_pdf_vector = NULL,
                                       stale_tol_sec = 2, config = list(),
                                       require_png = NULL, require_tiff = NULL) {
   figures_dir <- as.character(figures_dir %||% "")[1L]
   cfg <- .pub_figure_cfg(config)
   if (is.null(require_png)) require_png <- isTRUE(cfg$export_png)
   if (is.null(require_tiff)) require_tiff <- isTRUE(cfg$export_tiff)
+  if (is.null(check_pdf_vector)) check_pdf_vector <- isTRUE(cfg$require_vector_pdf)
   require_dpi <- as.integer(require_dpi %||% cfg$dpi %||% 600L)[1L]
   if (!is.finite(require_dpi) || require_dpi < 600L) require_dpi <- 600L
   ## 默认 NULL：优先 config$pub_figures$max_edge_in（三集宽板/SHAP 常 >11in）
@@ -2581,10 +2651,12 @@ pub_figure_formats_status <- function(figures_dir, require_dpi = 600L,
   empty <- list(
     ok = FALSE, stems = character(0), missing_png = character(0),
     missing_tiff = character(0), bad_dpi = character(0),
-    bad_pdf_geometry = character(0), stale_raster = character(0),
+    bad_pdf_geometry = character(0), bad_pdf_raster = character(0),
+    stale_raster = character(0),
     flat_leftovers = character(0), require_dpi = require_dpi,
     max_edge_in = max_edge_in,
-    require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff)
+    require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff),
+    require_vector_pdf = isTRUE(check_pdf_vector)
   )
   if (!nzchar(figures_dir) || !dir.exists(figures_dir)) return(empty)
   dirs <- pub_figure_ensure_format_dirs(figures_dir, config = config)
@@ -2601,10 +2673,12 @@ pub_figure_formats_status <- function(figures_dir, require_dpi = 600L,
     return(list(
       ok = TRUE, stems = character(0), missing_png = character(0),
       missing_tiff = character(0), bad_dpi = character(0),
-      bad_pdf_geometry = character(0), stale_raster = character(0),
+      bad_pdf_geometry = character(0), bad_pdf_raster = character(0),
+      stale_raster = character(0),
       flat_leftovers = character(0), require_dpi = require_dpi,
       max_edge_in = max_edge_in,
-      require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff)
+      require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff),
+      require_vector_pdf = isTRUE(check_pdf_vector)
     ))
   }
   # 根目录仍有发表图 → 未完成收纳
@@ -2612,16 +2686,19 @@ pub_figure_formats_status <- function(figures_dir, require_dpi = 600L,
     return(list(
       ok = FALSE, stems = stems, missing_png = character(0),
       missing_tiff = character(0), bad_dpi = character(0),
-      bad_pdf_geometry = character(0), stale_raster = character(0),
+      bad_pdf_geometry = character(0), bad_pdf_raster = character(0),
+      stale_raster = character(0),
       flat_leftovers = flat, require_dpi = require_dpi,
       max_edge_in = max_edge_in,
-      require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff)
+      require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff),
+      require_vector_pdf = isTRUE(check_pdf_vector)
     ))
   }
   miss_png <- character(0)
   miss_tiff <- character(0)
   bad_dpi <- character(0)
   bad_geom <- character(0)
+  bad_raster <- character(0)
   stale_raster <- character(0)
   # 0 字节 / 过小 TIFF（SMB 直写坑）视为缺失，触发 ensure_formats 兜底重导
   .size_ok <- function(p, min_size = 800L) {
@@ -2684,21 +2761,30 @@ pub_figure_formats_status <- function(figures_dir, require_dpi = 600L,
         }
       }
     }
+    if (isTRUE(check_pdf_vector) &&
+        !.pub_figure_stem_allows_raster_pdf(st, cfg$allow_raster_pdf_patterns)) {
+      vp <- .pub_figure_pdf_vector_probe(pdf_p, root_hint = root_hint)
+      if (isTRUE(vp$image_only)) {
+        bad_raster <- c(bad_raster, st)
+      }
+    }
   }
   list(
     ok = !length(miss_png) && !length(miss_tiff) && !length(bad_dpi) &&
-      !length(bad_geom) && !length(stale_raster),
+      !length(bad_geom) && !length(bad_raster) && !length(stale_raster),
     stems = stems,
     missing_png = miss_png,
     missing_tiff = miss_tiff,
     bad_dpi = unique(bad_dpi),
     bad_pdf_geometry = unique(bad_geom),
+    bad_pdf_raster = unique(bad_raster),
     stale_raster = unique(stale_raster),
     flat_leftovers = character(0),
     require_dpi = require_dpi,
     max_edge_in = max_edge_in,
     require_png = isTRUE(require_png),
-    require_tiff = isTRUE(require_tiff)
+    require_tiff = isTRUE(require_tiff),
+    require_vector_pdf = isTRUE(check_pdf_vector)
   )
 }
 
@@ -2762,6 +2848,7 @@ pub_figure_ensure_formats <- function(figures_dir, meta = list(), config = list(
         ", missing_tiff=", length(st2$missing_tiff),
         ", bad_dpi=", length(st2$bad_dpi %||% character(0)),
         ", bad_pdf_geometry=", length(st2$bad_pdf_geometry %||% character(0)),
+        ", bad_pdf_raster=", length(st2$bad_pdf_raster %||% character(0)),
         ", stale_raster=", length(st2$stale_raster %||% character(0)),
         " (require>=", st2$require_dpi %||% 600L, ")",
         ", flat=", length(st2$flat_leftovers),
@@ -2788,14 +2875,17 @@ pub_figure_ensure_formats <- function(figures_dir, meta = list(), config = list(
 }
 
 ###############################################################################
-# Text-layer collision workaround: bake one PDF page into an image-only PDF
-# (nature-figure audit often FAILs on dense SHAP/ROC text layers; rasterize
-#  keeps visual content but removes extractable overlapping text boxes).
+# Text-layer collision audit helper: bake one PDF page into an image-only PDF.
+# 2026-11 铁律：dest 不得覆盖交付 Figures/pdf/ 矢量稿；只写 _raster_audit/ 等旁路。
+# nature-figure 对密文本可能仍报 collision；交付面必须保持矢量（bad_pdf_raster=P0）。
 ###############################################################################
 
 #' Rasterize a PDF page into an image-only PDF (same page size).
+#'
+#' **禁止**把 ``dest`` 指到交付 ``Figures/pdf/``。交付 PDF 必须矢量；
+#' 本函数仅供 collision 审计旁路 / 非交付副本。
 #' @param src existing PDF path
-#' @param dest output PDF path
+#' @param dest output PDF path（须在 `_raster_audit/` 等非交付目录）
 #' @param dpi raster density (default 300 for audit; delivery png/tiff still go through pub_figure_ensure_formats @600)
 #' @return dest (invisible)
 .pub_figure_rasterize_pdf_page_pymupdf <- function(src, dest, dpi = 300L) {

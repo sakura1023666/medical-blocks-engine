@@ -370,7 +370,13 @@ block_data_clean <- function(ctx, ...) {
   print(table(data[[outcome_col]]))
 
   ctx$data$cleaned <- data
-  if (exists("attrition_record", mode = "function")) {
+  # n 相对上一记账步不变则跳过，避免 Starting/cleaning/imputation 假三框
+  if (exists("attrition_record_if_changed", mode = "function")) {
+    ctx <- attrition_record_if_changed(
+      ctx, "after_data_clean", "After data cleaning",
+      as.integer(nrow(data)), meta = list(block = "data_clean")
+    )
+  } else if (exists("attrition_record", mode = "function")) {
     ctx <- attrition_record(
       ctx, "after_data_clean", "After data cleaning",
       as.integer(nrow(data)), meta = list(block = "data_clean")

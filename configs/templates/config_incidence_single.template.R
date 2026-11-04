@@ -63,6 +63,16 @@ config <- list(
     enable = TRUE,
     title = NULL,
     db_label = NULL,
+    # 预过滤 dabiao（分析入口已是终 n）时务必写清 steps，或靠引擎折叠同 n 空步；
+    # 示例：
+    # steps = list(
+    #   list(id = "starting_cohort", label = "Starting cohort (CHARLS 2011)",
+    #        source = "fixed", n = 17705L),
+    #   list(id = "after_index_missing", label = "Participants included",
+    #        source = "fixed", n = 10420L,
+    #        exclude_label = "Missing fasting glucose or HbA1c")
+    # ),
+    # auto_append = FALSE, config_steps_only = TRUE
     steps = list(),
     # CONSORT Figure 1：主列纳入、右侧 Exclude、底部分叉（发病=病例/对照）
     outcome_breakdown = TRUE,
@@ -117,19 +127,36 @@ config <- list(
     figure_height      = 7
   ),
 
+  # 引擎铁律：发病默认只画暴露箱线图（run_pipeline 会强制 response_vars=index）
+  # 若需多变量箱线：boxplot$exposure_only = FALSE 或 keep_all_response_vars = TRUE
   boxplot = list(
     group_var            = NULL,
-    response_vars        = c("MCMI", "Age", "BMI", "SBP", "DBP", "PP", "CRP",
-                             "Fasting_Glucose", "HbA1C", "HDL", "LDL",
-                             "Hemoglobin", "Total_Cholesterol",
-                             "White_blood_cell_count", "Triglycerides",
-                             "Waist_circumstance"),
+    response_vars        = c("MCMI"),
+    exposure_only        = TRUE,
     overall_method       = "kruskal.test",
     pairwise_method      = "wilcox.test",
     brewer_palette       = "block",
     relabel_binary_group = TRUE,
     figure_width         = 8,
     figure_height        = 6
+  ),
+
+  # 发表收口：跑完写 summary_results 五件套
+  # figure_scheme:
+  #   "auto"（默认）— 有 FPG–HbA1c 散点则 hgi_lit，否则 main_mediation
+  #   "hgi_lit" — Fig1 散点 → Fig2 流程 → Fig3 RCS → Fig4 亚组 → Fig5 中介；S1 箱线；S2 ROC
+  #   "main_mediation" — Fig1 流程 → Fig2 RCS → Fig3 亚组 → Fig4 中介；S1 箱线；S2 ROC
+  # 队列残差 HGI：index$skip="HGI" + 数据中预写 HGI 列（勿用引擎固定式 HbA1c 公式）
+  pub = list(
+    write_index_summary_results = TRUE,
+    index_summary_results_dir = "summary_results",
+    summary_dirname = "summary_results",
+    curate_incidence_figures = TRUE,
+    figure_scheme = "auto",
+    # 表整理：剔非主分位 Logistic、Final multivariable（incidence_single_pub_finalize）
+    drop_non_main_logistic = TRUE,
+    drop_final_multivariable_model = TRUE,
+    tables_figures_only = FALSE
   ),
 
   univariate_incidence_binary = list(

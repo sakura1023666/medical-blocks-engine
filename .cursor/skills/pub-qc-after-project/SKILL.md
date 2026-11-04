@@ -82,9 +82,9 @@ description: >-
 
 ### 2. Layer A — 结构（可脚本辅助）
 对**每个 success 目录**按 [checklist.md](checklist.md) §A。至少检查：
-- `Figures/` 是否 `pdf|png|tiff|image_information` 四目录；根目录无平铺 `Figure*.pdf`  
-- 每张 pdf 有对应 png/tiff；tiff 非 0 字节  
-- **定稿 png/tiff 嵌入 DPI ≥ 600**（缺元数据 / &lt;600 / 垃圾值如 1 → FAIL/P0，当场 `pub_figure_ensure_formats` 重导）  
+- `Figures/` 是否 `pdf` + `image_information`（默认）；根目录无平铺 `Figure*.pdf`
+- **交付 PDF 必须矢量**（`bad_pdf_raster` → P0）；禁止 collision 热修把 image-only PDF 盖进 `Figures/pdf/`
+- 仅当 `export_png/tiff=TRUE`：每张 pdf 有对应 png/tiff；**嵌入 DPI ≥ 600**（缺/&lt;600 → FAIL/P0）
 - 每张定稿图有 `image_information/*.md`，且含 `## 图面说明` / `## 分析上下文`（无「标识」「技术」）  
 - Tables 文件名与表内标题角色一致；双库同角色同号（若双库）  
 - 适用时：该 success 下 `code/` 包存在  

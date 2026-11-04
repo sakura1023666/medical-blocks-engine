@@ -12,11 +12,10 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 
 - [ ] 审阅根路径已确认（Windows/WSL 等价）
 - [ ] 成功单元列表已列出（且仅为 success）
-- [ ] `Figures/pdf|png|tiff|image_information` 存在
+- [ ] `Figures/pdf|png|tiff|image_information` 存在（默认交付可仅 pdf + image_information）
 - [ ] Figures 根无残留平铺 `Figure*.pdf`
-- [ ] 每张定稿 pdf 有同 stem 的 png + tiff
-- [ ] tiff 体积 > 0（过小视为缺失）
-- [ ] 定稿 png/tiff 嵌入 DPI ≥ 600（全项目；Nature Layer D 必检）
+- [ ] **硬门控** 交付 `Figures/pdf` 为**矢量**（`bad_pdf_raster` 空）；禁止整页 image-only「图片 PDF」。截图/Shiny 须在 `allow_raster_pdf_patterns` 白名单
+- [ ] 若开启 png/tiff：每张定稿 pdf 有同 stem 的 png + tiff；tiff 体积 > 0；嵌入 DPI ≥ 600
 - [ ] 每张图有对应 `image_information/*.md`
 - [ ] md 含 `## 图面说明` + `## 分析上下文`；无 `## 标识` / `## 技术`
 - [ ] Fig1（若有）md 含逐步 n 与排除人数

@@ -43,7 +43,7 @@ alwaysApply: true
 | 来源 | 视为 P0 |
 |------|---------|
 | nature-statistics | 标签为 **P0** 的条目（能推翻中心结论的统计报告/分析逻辑问题） |
-| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读；**仅当** `config$pub_figures$export_png/tiff=TRUE` 时，定稿栅格 DPI&lt;600 / stale_raster 才算 P0（2026-11-02 起默认只交 PDF，缺 png/tiff 不再 P0） |
+| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读；**仅当** `config$pub_figures$export_png/tiff=TRUE` 时，定稿栅格 DPI&lt;600 / stale_raster 才算 P0（2026-11-02 起默认只交 PDF，缺 png/tiff 不再 P0）；**交付 PDF 整页 image-only（`bad_pdf_raster`）= P0**（须真矢量；截图/Shiny 白名单除外） |
 
 **铁律：**
 

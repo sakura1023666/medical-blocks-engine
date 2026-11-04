@@ -45,6 +45,21 @@ attrition_record <- function(ctx, step_id, label, n, kind = "include", meta = li
   ctx
 }
 
+#' 最近一次记账的 n（无日志则 NA）
+attrition_last_recorded_n <- function(ctx) {
+  log <- ((ctx$results %||% list())$attrition %||% list())$log %||% list()
+  if (!length(log)) return(NA_integer_)
+  suppressWarnings(as.integer(log[[length(log)]]$n %||% NA_integer_)[1L])
+}
+
+#' 仅当 n 相对上一记账步变化时写入（data_clean / imputation 防同 n 空步）
+attrition_record_if_changed <- function(ctx, step_id, label, n, kind = "include", meta = list()) {
+  n <- as.integer(n)[1L]
+  prev <- attrition_last_recorded_n(ctx)
+  if (is.finite(prev) && is.finite(n) && identical(prev, n)) return(ctx)
+  attrition_record(ctx, step_id, label, n, kind = kind, meta = meta)
+}
+
 attrition_auto_append_nrow <- function(ctx, block_id, n_before, n_after) {
   attr_cfg <- ctx$config$attrition %||% list()
   if (!isTRUE(attr_cfg$auto_append %||% TRUE)) return(ctx)
@@ -526,6 +541,8 @@ attrition_finalize_rows <- function(ctx, config) {
   }
 
   rows_df <- attrition_apply_outcome_breakdown(rows_df, ctx, config)
+  # classic / CSV 与 pv2 共用：去掉同 n 且无真实 Exclude 的空步（预过滤 dabiao 假三框）
+  rows_df <- attrition_collapse_redundant_rows(rows_df, warn = TRUE)
   keep <- intersect(
     c("step", "n", "source", "kind", "step_id", "exclude_label",
       "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"),
@@ -592,7 +609,17 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
 
 #' 发病纳排版式（对齐预后 v2 Figure 1）：左列三框，右侧两格排除，底部分叉。
 .attrition_pv2_collapse_rows <- function(rows) {
-  if (is.null(rows) || !nrow(rows) || nrow(rows) <= 2L) return(rows)
+  attrition_collapse_redundant_rows(rows, warn = FALSE)
+}
+
+#' 折叠相邻同 n、无 exclude_label、非权重步的中间空框（预过滤分析集常见假三框）
+#' @param rows attrition 步骤表
+#' @param warn 折叠时是否 warning
+#' @return 折叠后的 rows
+attrition_collapse_redundant_rows <- function(rows, warn = FALSE) {
+  if (is.null(rows) || !is.data.frame(rows) || !nrow(rows) || nrow(rows) <= 2L) {
+    return(rows)
+  }
   keep <- rep(TRUE, nrow(rows))
   for (i in seq.int(2L, nrow(rows) - 1L)) {
     dn <- suppressWarnings(as.integer(rows$n[i - 1L]) - as.integer(rows$n[i]))
@@ -606,7 +633,14 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
       keep[i] <- FALSE
     }
   }
-  rows[keep, , drop = FALSE]
+  out <- rows[keep, , drop = FALSE]
+  if (isTRUE(warn) && nrow(out) < nrow(rows)) {
+    attrition_warn(sprintf(
+      "attrition: collapsed %d redundant same-n step(s) with no exclude (avoid identical flowchart boxes)",
+      as.integer(nrow(rows) - nrow(out))
+    ))
+  }
+  out
 }
 
 #' 指标算不出时，用公式里真正缺失的组成变量写排除框。
@@ -1272,6 +1306,8 @@ attrition_weight_footnote <- function(ctx) {
 .attrition_fit_side_text <- function(txt, fontsize, family, avail_npc) {
   txt <- as.character(txt %||% "")[1L]
   if (!nzchar(txt) || !is.finite(avail_npc) || avail_npc <= 0) return(txt)
+  # 留 6% 安全边，避免度量字体与 cairo 实绘略宽导致压线
+  avail_npc <- as.numeric(avail_npc)[1L] * 0.94
   gp <- grid::gpar(fontsize = fontsize, fontfamily = family)
   widest <- function(block) {
     lines <- strsplit(block, "\n", fixed = TRUE)[[1L]]
@@ -1292,7 +1328,8 @@ attrition_weight_footnote <- function(ctx) {
     }
     plain <- gsub("[[:space:]]+", " ", trimws(ln))
     fitted <- plain
-    for (w in seq.int(max(16L, nchar(plain) - 4L), 16L, by = -2L)) {
+    # 字符宽下限到 8，确保长 Exclude 句一定折行
+    for (w in seq.int(max(8L, nchar(plain) - 2L), 8L, by = -1L)) {
       wrapped <- paste(strwrap(plain, width = w), collapse = "\n")
       fitted <- wrapped
       if (widest(wrapped) <= avail_npc) break
@@ -1308,38 +1345,36 @@ attrition_weight_footnote <- function(ctx) {
   paste(strwrap(txt, width = as.integer(width)[1L]), collapse = "\n")
 }
 
-# 把人工换行收成逻辑行。编号项各自成句；同一句里的 (n =) 拼回这一句。
+# 保留硬换行：每条非空行单独成块再按框宽拟合。
+# 禁止把「Exclude: …」与下一行「(n = …)」或主框多行标题拼成一行（否则 reflow 失效、字溢出框外）。
 .attrition_logical_lines <- function(txt) {
   raw <- strsplit(as.character(txt %||% "")[1L], "\n", fixed = TRUE)[[1L]]
   blocks <- character(0)
-  cur <- ""
-  flush <- function() {
-    if (nzchar(cur)) blocks <<- c(blocks, trimws(cur))
-    cur <<- ""
-  }
   for (ln in raw) {
     ln <- trimws(ln)
-    if (!nzchar(ln)) {
-      flush()
-      next
-    }
-    new_item <- grepl("^[0-9]+\\.\\s", ln) || grepl("(?i)^exclude:", ln)
-    if (new_item && nzchar(cur)) flush()
-    cur <- if (!nzchar(cur)) ln else paste(cur, ln)
+    if (nzchar(ln)) blocks <- c(blocks, ln)
   }
-  flush()
   blocks
 }
 
 #' 纳排文字在给定宽度下需要的框高（npc），含上下留白。
+.attrition_line_height_npc <- function(fontsize = 10, family = "Times", factor = 1.22) {
+  gp <- grid::gpar(fontsize = as.numeric(fontsize)[1L], fontfamily = as.character(family)[1L])
+  grid::convertHeight(
+    grid::grobHeight(grid::textGrob("Hg", gp = gp)),
+    "npc",
+    valueOnly = TRUE
+  ) * as.numeric(factor)[1L]
+}
+
 attrition_label_height_npc <- function(txt, width_npc, fontsize = 10, family = "Times",
                                        pad_npc = 0.012, min_npc = 0.045) {
   avail <- max(0.02, as.numeric(width_npc)[1L] - 2 * pad_npc)
   fitted <- attrition_reflow_label(txt, avail, fontsize, family)
   nln <- length(strsplit(fitted, "\n", fixed = TRUE)[[1L]])
   if (!nln) nln <- 1L
-  lh <- grid::convertHeight(grid::stringHeight("Hg"), "npc", valueOnly = TRUE) * 1.15
-  max(min_npc, lh * nln + 2 * pad_npc)
+  lh <- .attrition_line_height_npc(fontsize, family)
+  max(min_npc, lh * nln + 2 * pad_npc + 0.008)
 }
 
 #' 纳排框文字：能放进宽度就一行，放不下再按词换行。返回带 \\n 的字符串。
@@ -1363,6 +1398,10 @@ attrition_draw_box_text <- function(text, x0, y0, x1, y1, fontsize = 10,
                                     pad_npc = 0.012, align = c("centre", "left"),
                                     reflow = FALSE) {
   align <- match.arg(align)
+  # 左对齐 Exclude 框多留内边距，避免字贴边/压箭头
+  if (align == "left" && identical(as.numeric(pad_npc)[1L], 0.012)) {
+    pad_npc <- 0.020
+  }
   avail <- max(0.02, abs(x1 - x0) - 2 * pad_npc)
   fitted <- if (isTRUE(reflow)) attrition_reflow_label(text, avail, fontsize, family) else as.character(text)[1L]
   lines <- strsplit(fitted, "\n", fixed = TRUE)[[1L]]
@@ -1370,7 +1409,7 @@ attrition_draw_box_text <- function(text, x0, y0, x1, y1, fontsize = 10,
   if (!length(lines)) return(invisible(NULL))
   gp <- grid::gpar(fontsize = fontsize, fontface = fontface, fontfamily = family,
                    col = "#111111")
-  lh <- grid::convertHeight(grid::stringHeight("Hg"), "npc", valueOnly = TRUE) * 1.15
+  lh <- .attrition_line_height_npc(fontsize, family)
   total <- lh * length(lines)
   box_h <- abs(y1 - y0)
   y_mid <- (y0 + y1) / 2
@@ -1598,23 +1637,43 @@ attrition_enrich_rows_for_pv2 <- function(rows, database = NULL) {
 }
 
 .attrition_grid_arrow <- function(x0, y0, x1, y1, family = "Times", lty = 1) {
-  grid::grid.lines(
-    x = grid::unit(c(x0, x1), "npc"),
-    y = grid::unit(c(y0, y1), "npc"),
-    arrow = grid::arrow(type = "closed", length = grid::unit(7, "pt"), angle = 20),
-    gp = grid::gpar(col = "#222222", fill = "#222222", lwd = 1.15, lty = lty)
-  )
+  # 虚线 + arrow 在 cairo 上常吃掉箭头：线体可虚，箭头段强制实线实心三角
+  if (!identical(as.integer(lty)[1L], 1L)) {
+    grid::grid.lines(
+      x = grid::unit(c(x0, x1), "npc"),
+      y = grid::unit(c(y0, y1), "npc"),
+      gp = grid::gpar(col = "#222222", lwd = 1.15, lty = lty)
+    )
+    # 末端短实线 + 箭头（约总长 18%）
+    dx <- x1 - x0
+    dy <- y1 - y0
+    x_mid <- x1 - 0.18 * dx
+    y_mid <- y1 - 0.18 * dy
+    grid::grid.lines(
+      x = grid::unit(c(x_mid, x1), "npc"),
+      y = grid::unit(c(y_mid, y1), "npc"),
+      arrow = grid::arrow(type = "closed", length = grid::unit(8, "pt"), angle = 22),
+      gp = grid::gpar(col = "#222222", fill = "#222222", lwd = 1.25, lty = 1)
+    )
+  } else {
+    grid::grid.lines(
+      x = grid::unit(c(x0, x1), "npc"),
+      y = grid::unit(c(y0, y1), "npc"),
+      arrow = grid::arrow(type = "closed", length = grid::unit(8, "pt"), angle = 22),
+      gp = grid::gpar(col = "#222222", fill = "#222222", lwd = 1.25, lty = 1)
+    )
+  }
 }
 
 #' 画粉/绿结局分叉（主列中点 cx 下方）。返回 list(y_bottom=分叉框底缘)。
 .attrition_draw_outcome_fork_boxes <- function(cx, y_from, left_label, left_n,
                                               right_label, right_n, ff,
-                                              y_floor = 0.03, oh = 0.11,
-                                              gapf = 0.06) {
-  ow <- min(0.28, cx - gapf / 2 - 0.02)
+                                              y_floor = 0.03, oh = 0.125,
+                                              gapf = 0.05) {
+  ow <- min(0.30, cx - gapf / 2 - 0.015)
   left_x0 <- cx - gapf / 2 - ow
   right_x0 <- cx + gapf / 2
-  y_out <- max(y_floor, y_from - 0.06 - oh)
+  y_out <- max(y_floor, y_from - 0.055 - oh)
   t_y <- y_out + oh + 0.022
   grid::grid.lines(
     x = grid::unit(c(cx, cx), "npc"),
@@ -1640,11 +1699,11 @@ attrition_enrich_rows_for_pv2 <- function(rows, database = NULL) {
   )
   .attrition_grid_roundbox(
     left_x0, y_out, left_x0 + ow, y_out + oh,
-    "#fff5f5", ff, left_txt, fontsize = 10
+    "#fff5f5", ff, left_txt, fontsize = 9.5, reflow = TRUE
   )
   .attrition_grid_roundbox(
     right_x0, y_out, right_x0 + ow, y_out + oh,
-    "#f3fff5", ff, right_txt, fontsize = 10
+    "#f3fff5", ff, right_txt, fontsize = 9.5, reflow = TRUE
   )
   list(y_bottom = y_out, right_cx = right_x0 + ow / 2, oh = oh)
 }
@@ -1659,6 +1718,9 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
                                footnote = character(0), box_fill = "#FFFFFF",
                                fork = NULL, mid_fork = NULL) {
   if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(invisible(FALSE))
+  # 直接喂 CSV/旧日志时同样折叠，避免 classic 图出现同 n 空框
+  rows <- attrition_collapse_redundant_rows(rows, warn = FALSE)
+  if (!nrow(rows)) return(invisible(FALSE))
   dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
   ff <- if (exists("resolve_plot_font_family", mode = "function")) {
     resolve_plot_font_family(font_family)
@@ -1677,14 +1739,14 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
   mid_after <- if (has_mid) as.integer(mid_fork$after)[1L] else NA_integer_
   if (has_mid && (mid_after < 1L || mid_after >= n_box)) has_mid <- FALSE
   w <- 7.6
-  # 画布高度按内容估算，避免少步数时底部大片空白（勿再强制 4.6/8.2 寸底）
-  need_h <- 0.50 +
-    1.12 * n_box +
-    0.90 * max(n_box - 1L, 0L) +
-    if (has_fork) 1.55 else 0.18 +
+  # 画布高度按内容估算；主框/Exclude 多行 reflow 后需更高，避免 scale_pack 压扁框
+  need_h <- 0.60 +
+    1.55 * n_box +
+    1.35 * max(n_box - 1L, 0L) +
+    if (has_fork) 1.85 else 0.20 +
     if (has_mid) 1.50 else 0 +
     if (length(footnote)) 0.55 else 0.08
-  h <- max(2.4, need_h)
+  h <- max(3.0, need_h)
   opened <- tryCatch({
     .attrition_pdf_device(pdf_path, w, h, ff)
     TRUE
@@ -1710,21 +1772,6 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
 
   y_top <- 0.93
   y_foot <- if (length(footnote)) 0.04 + 0.028 * length(footnote) else 0.03
-  # 按步数自上而下收紧：有无分叉都按 pack 落底，避免少框时把 span 拉满整页
-  n_gap <- n_box - 1L + if (has_mid) 1L else 0L
-  mid_slot <- if (has_mid) 0.20 else 0
-  pack_npc <- n_box * 0.105 + max(n_gap, 0L) * 0.078 +
-    if (has_fork) 0.22 else 0.04 + mid_slot
-  y_fork_top <- max(
-    if (length(footnote)) y_foot + 0.02 else 0.04,
-    min(if (has_fork) 0.18 else 0.12, y_top - pack_npc - 0.02)
-  )
-  span <- max(0.22, y_top - y_fork_top - 0.02 - mid_slot)
-  # 主框略收矮、间隙加大：Exclude 框须完整放进间隙内（旧版 eh=0.12 > gap=0.048 会压住主框）
-  box_h <- min(0.11, span / (n_box + max(n_gap, 1L) * 0.85))
-  gap <- min(0.085, max(0.055, box_h * 0.85))
-  box_h <- min(box_h, (span - n_gap * gap - mid_slot) / n_box)
-  if (!is.finite(box_h) || box_h < 0.05) box_h <- 0.07
   # 若全程无右侧 Exclude（相邻步 n 不降且无权重步），主列居中，避免左偏留白
   .need_exclude_col <- FALSE
   if (n_box >= 2L) {
@@ -1754,42 +1801,110 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
     }
   }
   if (isTRUE(.need_exclude_col)) {
-    cx <- 0.30
+    # 右栏略加宽，主列略收，避免 Exclude 长句横向溢出
+    cx <- 0.28
     mw <- 0.44
-    ex0 <- 0.565
-    ex1 <- 0.985
+    ex0 <- 0.545
+    ex1 <- 0.988
   } else {
     cx <- 0.50
-    mw <- 0.50
+    mw <- 0.52
     ex0 <- 0.78
     ex1 <- 0.98
   }
   x0 <- cx - mw / 2
   x1 <- cx + mw / 2
-  # Exclude 框加宽：文字尽量横排一行（对齐 12_AKI/AF），勿挤成竖排
   fill_main <- if (identical(box_fill, "#F7F7F7")) "#FFFFFF" else box_fill
   if (!nzchar(as.character(fill_main %||% "")[1L])) fill_main <- "#FFFFFF"
+
+  # 先拼主框文案并按框宽 reflow 估高，避免长句顶破边框
+  main_fs <- 9.0
+  ex_fs <- 7.0
+  main_labs <- character(n_box)
+  main_h <- numeric(n_box)
+  for (i in seq_len(n_box)) {
+    step_lab <- sub(";\\s*excluded[^)]*", "", as.character(rows$step[i]), ignore.case = TRUE)
+    step_lab <- sub("\\s*\\(excluded[^)]*\\)\\s*", "", step_lab, ignore.case = TRUE)
+    step_lab <- trimws(step_lab)
+    if (!nzchar(step_lab)) step_lab <- as.character(rows$step[i])
+    main_labs[[i]] <- sprintf(
+      "%s\nn = %s",
+      step_lab,
+      format(as.integer(rows$n[i]), big.mark = ",")
+    )
+    main_h[[i]] <- attrition_label_height_npc(
+      main_labs[[i]], mw, fontsize = main_fs, family = ff, pad_npc = 0.014, min_npc = 0.070
+    )
+  }
+  n_gap <- n_box - 1L + if (has_mid) 1L else 0L
+  mid_slot <- if (has_mid) 0.20 else 0
+  # Exclude 间隙按最长排除文案估高，避免右框字溢出
+  ex_w <- max(0.05, ex1 - ex0)
+  gap_need <- numeric(max(n_gap, 0L))
+  if (n_box >= 2L) {
+    for (.i in seq_len(n_box - 1L)) {
+      .dn <- as.integer(rows$n[.i]) - as.integer(rows$n[.i + 1L])
+      .el <- if ("exclude_label" %in% names(rows)) {
+        as.character(rows$exclude_label[.i + 1L])[1L]
+      } else {
+        NA_character_
+      }
+      .sid <- if ("step_id" %in% names(rows)) {
+        as.character(rows$step_id[.i + 1L])[1L]
+      } else {
+        NA_character_
+      }
+      .wt <- identical(.sid, "after_survey_weight") ||
+        grepl("survey weight", .el %||% "", ignore.case = TRUE)
+      if (!(is.finite(.dn) && (.dn > 0L || isTRUE(.wt)))) {
+        gap_need[[.i]] <- 0.055
+        next
+      }
+      if (is.na(.el) || !nzchar(.el)) .el <- .attrition_exclude_reason(.sid, rows$step[.i + 1L])
+      if (is.na(.el) || !nzchar(.el)) .el <- "Excluded"
+      .el <- sub("^[Ee]xclude[d]?[: ]*", "", .el)
+      if (!nzchar(.el)) .el <- "Excluded"
+      ex_lab0 <- sprintf(
+        "Exclude: %s\n(n = %s)",
+        .el,
+        format(max(0L, as.integer(.dn)), big.mark = ",")
+      )
+      eh0 <- attrition_label_height_npc(
+        ex_lab0, ex_w, fontsize = ex_fs, family = ff, pad_npc = 0.020, min_npc = 0.070
+      )
+      gap_need[[.i]] <- max(0.090, eh0 + 0.028)
+    }
+  }
+  pack_npc <- sum(main_h) + sum(gap_need) +
+    if (has_fork) 0.22 else 0.04 + mid_slot
+  y_fork_top <- max(
+    if (length(footnote)) y_foot + 0.02 else 0.04,
+    min(if (has_fork) 0.18 else 0.12, y_top - pack_npc - 0.02)
+  )
+  span <- max(0.22, y_top - y_fork_top - 0.02 - mid_slot)
+  # 禁止压缩 Exclude 间隙（字溢出主因）；仅略压主框，且不低于可读高度
+  scale_pack <- if (pack_npc > span && pack_npc > 0) max(0.92, span / pack_npc) else 1
+  if (scale_pack < 1) {
+    main_h <- pmax(0.068, main_h * scale_pack)
+    # gap_need 保持估高，不参与压缩
+  }
 
   ys0 <- numeric(n_box)
   ys1 <- numeric(n_box)
   y_cursor <- y_top
   for (i in seq_len(n_box)) {
     y1i <- y_cursor
+    box_h <- main_h[[i]]
     y0i <- y1i - box_h
     ys0[i] <- y0i
     ys1[i] <- y1i
     fill_i <- if (i == n_box) "#eef6ff" else fill_main
-    # 主框标签去掉「; excluded N」冗余（排除数已由右侧 Exclude 框说明），避免折行
-    step_lab <- sub(";\\s*excluded[^)]*", "", as.character(rows$step[i]), ignore.case = TRUE)
-    step_lab <- sub("\\s*\\(excluded[^)]*\\)\\s*", "", step_lab, ignore.case = TRUE)
-    step_lab <- trimws(step_lab)
-    if (!nzchar(step_lab)) step_lab <- as.character(rows$step[i])
-    lab <- sprintf(
-      "%s\nn = %s",
-      step_lab,
-      format(as.integer(rows$n[i]), big.mark = ",")
+    lab <- main_labs[[i]]
+    .attrition_grid_roundbox(
+      x0, y0i, x1, y1i, fill_i, ff, lab,
+      fontsize = main_fs, fontface = "bold",
+      align = "centre", reflow = TRUE
     )
-    .attrition_grid_roundbox(x0, y0i, x1, y1i, fill_i, ff, lab, fontsize = 10.5)
 
     if (has_mid && identical(i, mid_after)) {
       # 基线后：高血压 / 无高血压分叉；续行从右臂往下
@@ -1801,8 +1916,9 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
       )
       if (i < n_box) {
         # 右臂 → 下一主框；Exclude 用「无病臂 n − 下一步 n」（勿用基线总 n）
+        gap_i <- if (length(gap_need) >= i) gap_need[[i]] else 0.06
         y_gap_top <- mf$y_bottom - 0.01
-        y_next_top <- y_gap_top - gap
+        y_next_top <- y_gap_top - gap_i
         ymid <- (y_gap_top + y_next_top) / 2
         .attrition_grid_arrow(mf$right_cx, mf$y_bottom - 0.002, cx, y_next_top + 0.006, ff)
         drop_n <- as.integer(mid_fork$right_n) - as.integer(rows$n[i + 1L])
@@ -1827,10 +1943,15 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
             el,
             format(as.integer(drop_n), big.mark = ",")
           )
-          eh <- min(gap * 0.92, 0.075)
+          eh_need <- attrition_label_height_npc(
+            ex_lab, ex1 - ex0, fontsize = ex_fs, family = ff,
+            pad_npc = 0.020, min_npc = 0.055
+          )
+          # 框高贴文字；居中放在间隙内，勿拉满整段空隙
+          eh <- min(max(eh_need, 0.055), gap_i * 0.85)
           .attrition_grid_roundbox(
             ex0, ymid - eh / 2, ex1, ymid + eh / 2,
-            "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain",
+            "#f7f7f7", ff, ex_lab, fontsize = ex_fs, fontface = "plain",
             align = "left", reflow = TRUE
           )
           .attrition_grid_arrow(cx, ymid, ex0 - 0.006, ymid, ff, lty = 2)
@@ -1841,8 +1962,9 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
     }
 
     if (i < n_box) {
-      ymid <- y0i - gap / 2
-      .attrition_grid_arrow(cx, y0i - 0.004, cx, y0i - gap + 0.006, ff)
+      gap_i <- if (length(gap_need) >= i) gap_need[[i]] else 0.06
+      ymid <- y0i - gap_i / 2
+      .attrition_grid_arrow(cx, y0i - 0.004, cx, y0i - gap_i + 0.006, ff)
       drop_n <- as.integer(rows$n[i]) - as.integer(rows$n[i + 1L])
       el <- NA_character_
       if ("exclude_label" %in% names(rows)) {
@@ -1872,16 +1994,20 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
           el,
           format(max(0L, as.integer(drop_n)), big.mark = ",")
         )
-        eh <- min(gap * 0.92, 0.075)
+        eh_need <- attrition_label_height_npc(
+          ex_lab, ex1 - ex0, fontsize = ex_fs, family = ff,
+          pad_npc = 0.020, min_npc = 0.055
+        )
+        eh <- min(max(eh_need, 0.055), gap_i * 0.85)
         .attrition_grid_roundbox(
           ex0, ymid - eh / 2, ex1, ymid + eh / 2,
-          "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain",
+          "#f7f7f7", ff, ex_lab, fontsize = ex_fs, fontface = "plain",
           align = "left", reflow = TRUE
         )
         # 横向虚线箭头（对齐参考图）：从主列分叉水平指向 Exclude 框
         .attrition_grid_arrow(cx, ymid, ex0 - 0.006, ymid, ff, lty = 2)
       }
-      y_cursor <- y0i - gap
+      y_cursor <- y0i - gap_i
     }
   }
 
