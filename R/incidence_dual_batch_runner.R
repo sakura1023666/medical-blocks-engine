@@ -4959,12 +4959,27 @@ incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01,
     if (exists("attrition_record", mode = "function") && exists("ctx", inherits = FALSE)) {
       # 分两步写纳排：缺失 vs 极端值；极端值步骤不写具体数值范围
       n_after_na <- as.integer(n_before - n_na)
+      .ix_lab <- trimws(as.character(
+        ((ctx$config %||% list())$attrition %||% list())$included_label %||%
+          ((ctx$config %||% list())$attrition %||% list())$analytic_label %||%
+          ""
+      )[1L])
+      if (!nzchar(.ix_lab)) .ix_lab <- "Analytic sample"
+      .ix_ex <- trimws(as.character(
+        ((ctx$config %||% list())$attrition %||% list())$index_exclude_label %||% ""
+      )[1L])
+      if (!nzchar(.ix_ex)) {
+        .ix_ex <- sprintf("Missing %s (index not calculable)", gsub("_", " ", ix, fixed = TRUE))
+      }
       ctx <- attrition_record(
         ctx,
         step_id = paste0("after_index_missing_", ix),
-        label = sprintf("After excluding missing %s", ix),
+        label = .ix_lab,
         n = n_after_na,
-        meta = list(block = "index_filter", index = ix, n_na = n_na)
+        meta = list(
+          block = "index_filter", index = ix, n_na = n_na,
+          exclude_label = .ix_ex
+        )
       )
       if (as.integer(n_trim) > 0L) {
         ctx <- attrition_record(

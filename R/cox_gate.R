@@ -652,6 +652,13 @@ pipeline_cox_gate_should_skip <- function(block_name, ctx, pipeline) {
   gate_cfg <- pipeline$cox_gate %||% list()
   if (!isTRUE(gate_cfg$enable)) return(FALSE)
 
+  # 分段 Cox 统一用 RCS primary cutoff（单切点两段）→ 只保留 segmented_cox_binary；
+  # quartile/tertile 旧块一律跳过（勿再依赖分支表，避免漏跳后 source 旧路径）。
+  if (identical(block_name, "segmented_cox_quartile") ||
+      identical(block_name, "segmented_cox_tertile")) {
+    return(TRUE)
+  }
+
   if (exists("cox_gate_block_is_redundant", mode = "function") &&
       cox_gate_block_is_redundant(block_name, ctx)) {
     return(TRUE)
@@ -665,30 +672,25 @@ pipeline_cox_gate_should_skip <- function(block_name, ctx, pipeline) {
   if (!nzchar(branch)) return(FALSE)
 
   # plot_cutoff 已停产（enable=FALSE）；切点以 RCS 为准，不再出 maxstat 图
-  # segmented_cox_binary 不随闸门跳过：分段 Cox 统一用 RCS primary cutoff（单切点两段），
-  # 不再按 Cox 分位分支产出 segmented_cox_quartile/tertile（旧规则，已废弃）。
+  # segmented_cox_binary 不随闸门跳过（见上：quartile/tertile 已无条件跳过）。
   skip_by_branch <- list(
     extend_quartile = c(
-      "cox_tertile", "cox_binary",
-      "segmented_cox_quartile", "segmented_cox_tertile", "km_binary"
+      "cox_tertile", "cox_binary", "km_binary"
     ),
     degrade_tertile = c(
-      "rcs_prognosis", "km_strata", "segmented_cox_quartile",
-      "cox_binary", "segmented_cox_tertile",
+      "rcs_prognosis", "km_strata",
+      "cox_binary",
       "km_binary", "segmented_cox_binary", "subgroup_prognosis"
     ),
     extend_tertile = c(
-      "cox_tertile", "cox_binary",
-      "segmented_cox_quartile", "km_binary"
+      "cox_tertile", "cox_binary", "km_binary"
     ),
     degrade_binary = c(
       "rcs_prognosis", "km_strata",
-      "segmented_cox_quartile", "segmented_cox_tertile",
       "km_binary", "segmented_cox_binary", "subgroup_prognosis"
     ),
     extend_binary = c(
-      "cox_quartile", "cox_tertile",
-      "km_strata", "segmented_cox_quartile", "segmented_cox_tertile"
+      "cox_quartile", "cox_tertile", "km_strata"
     )
   )
 

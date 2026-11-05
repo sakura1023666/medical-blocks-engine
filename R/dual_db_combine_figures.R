@@ -20,6 +20,21 @@
 .dual_db_combine_cfg <- function(config) {
   dd <- config$dual_db %||% list()
   cfg <- dd$combine_figures %||% list()
+  ## Jin Fig2 = 三时点×双库六页全宽；禁止左右并排压缩（刻度必叠）
+  skip_roles <- as.character(cfg$skip_roles %||% character(0))
+  .jin_scheme <- FALSE
+  if (exists("jin_index_sofa_is_pub_scheme", mode = "function")) {
+    .jin_scheme <- isTRUE(jin_index_sofa_is_pub_scheme(config))
+  } else {
+    .sch <- tolower(as.character(
+      (config$survival_batch %||% config$incidence_batch %||%
+         config$ml_batch %||% list())$pub_figure_scheme %||% ""
+    )[1L])
+    .jin_scheme <- identical(.sch, "jin_index_sofa")
+  }
+  if (isTRUE(.jin_scheme)) {
+    skip_roles <- unique(c(skip_roles, "fig2_nomogram"))
+  }
   list(
     enable = isTRUE(cfg$enable %||% TRUE),
     remove_singles = isTRUE(cfg$remove_singles %||% TRUE),
@@ -27,6 +42,7 @@
     panel_order = as.character(cfg$panel_order %||% "primary_first")[1L],
     label_format = as.character(cfg$label_format %||% "A. {db}")[1L],
     layout_by_role = cfg$layout_by_role %||% NULL,
+    skip_roles = skip_roles,
     dpi = as.integer(cfg$dpi %||% 200L)[1L],
     label_cex = as.numeric(cfg$label_cex %||% 1.15)[1L],
     primary = as.character((dd$primary %||% list())$name %||% "primary")[1L],
@@ -132,10 +148,17 @@
     if (exists("incidence_batch_pub_figure_scheme", mode = "function")) {
       incidence_batch_pub_figure_scheme(config)
     } else {
-      as.character((config$ml_batch %||% config$incidence_batch %||% list())$pub_figure_scheme %||% "")[1L]
+      as.character(
+        (config$survival_batch %||% config$ml_batch %||%
+           config$incidence_batch %||% list())$pub_figure_scheme %||% ""
+      )[1L]
     },
     error = function(e) ""
   )
+  if (identical(tolower(as.character(scheme)[1L]), "jin_index_sofa") &&
+      exists("jin_index_sofa_figure_role", mode = "function")) {
+    return(jin_index_sofa_figure_role)
+  }
   if (scheme %in% c("ml_dual_standard", "ml_dual_dev_ext", "ml_with_correlation") &&
       exists("incidence_batch_ml_pub_figure_role", mode = "function")) {
     return(function(bn) incidence_batch_ml_pub_figure_role(bn, config))
@@ -1000,6 +1023,99 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
 
   .combine_pair_bucket <- function(pair, key, layout_key = key) {
     dbs_have <- names(pair)
+    role_early <- tryCatch(role_fn(key), error = function(e) NA_character_)
+    if (!is.na(role_early) && nzchar(role_early) &&
+        role_early %in% as.character(cfg$skip_roles %||% character(0))) {
+      ## Jin Fig2：双库各三时点 → 六页全宽交错（禁止左右并排）
+      prim <- cfg$primary
+      sec <- cfg$secondary
+      src_p <- NULL
+      src_s <- NULL
+      if (!is.null(pair[[prim]])) src_p <- pair[[prim]]
+      if (!is.null(pair[[sec]])) src_s <- pair[[sec]]
+      if (is.null(src_p)) {
+        hit <- dbs_have[tolower(dbs_have) == tolower(prim)]
+        if (length(hit)) src_p <- pair[[hit[[1L]]]]
+      }
+      if (is.null(src_s)) {
+        hit <- dbs_have[tolower(dbs_have) == tolower(sec)]
+        if (length(hit)) src_s <- pair[[hit[[1L]]]]
+      }
+      if (is.null(src_p) && length(dbs_have)) src_p <- pair[[dbs_have[[1L]]]]
+      if (is.null(src_s) && length(dbs_have) >= 2L) {
+        rest <- setdiff(dbs_have, names(which(vapply(dbs_have, function(d) identical(pair[[d]], src_p), logical(1L)))))
+        if (!length(rest)) rest <- setdiff(dbs_have, character(0))
+        ## 取非主库的第一份
+        for (d in dbs_have) {
+          if (!is.null(src_p) && identical(
+            normalizePath(pair[[d]], winslash = "/", mustWork = FALSE),
+            normalizePath(src_p, winslash = "/", mustWork = FALSE)
+          )) next
+          src_s <- pair[[d]]
+          if (is.null(sec) || !nzchar(sec)) sec <- d
+          break
+        }
+      }
+      out_bn <- "Figure 2. Nomogram for in-hospital, 30-day and 365-day mortality.pdf"
+      if (!identical(role_early, "fig2_nomogram")) {
+        out_bn <- if (exists(".dual_db_role_combined_basename", mode = "function")) {
+          .dual_db_role_combined_basename(role_early, config, ix_hint = ix_hint) %||% out_bn
+        } else out_bn
+      }
+      out_path <- file.path(figs, out_bn)
+      wrote <- FALSE
+      if (identical(role_early, "fig2_nomogram") &&
+          !is.null(src_p) && !is.null(src_s) &&
+          file.exists(src_p) && file.exists(src_s)) {
+        py <- NULL
+        for (r in unique(c(
+          Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+          if (!is.na(.DUAL_DB_COMBINE_DIR)) dirname(.DUAL_DB_COMBINE_DIR) else "",
+          getwd()
+        ))) {
+          if (!nzchar(r)) next
+          cand <- file.path(r, "R", "dual_db_compose_nomogram_horizons.py")
+          if (file.exists(cand)) { py <- cand; break }
+        }
+        if (!is.null(py)) {
+          wrote <- isTRUE(tryCatch({
+            st <- system2(
+              "python3",
+              c(
+                py,
+                "--layout", "grid",
+                "--max-edge-in", "16",
+                "--primary", normalizePath(src_p, winslash = "/", mustWork = TRUE),
+                "--secondary", normalizePath(src_s, winslash = "/", mustWork = TRUE),
+                "--primary-label", as.character(prim %||% "primary")[1L],
+                "--secondary-label", as.character(sec %||% "secondary")[1L],
+                "--out", normalizePath(out_path, winslash = "/", mustWork = FALSE)
+              ),
+              stdout = TRUE, stderr = TRUE
+            )
+            file.exists(out_path) && isTRUE((file.info(out_path)$size %||% 0) > 1000)
+          }, error = function(e) FALSE))
+        }
+      }
+      if (!isTRUE(wrote) && !is.null(src_p) && file.exists(src_p)) {
+        if (!identical(
+          normalizePath(src_p, winslash = "/", mustWork = FALSE),
+          normalizePath(out_path, winslash = "/", mustWork = FALSE)
+        )) {
+          file.copy(src_p, out_path, overwrite = TRUE)
+        }
+        cli::cli_alert_warning(
+          "skip_roles={role_early}: 双库 2×3 一页拼版失败，回退主库 {out_bn}"
+        )
+      } else if (isTRUE(wrote)) {
+        cli::cli_alert_info(
+          "skip_roles={role_early}: 双库一页 2×3（上{prim}/下{sec} × ABC）→ {out_bn}"
+        )
+      }
+      if (file.exists(out_path)) combined <<- c(combined, out_bn)
+      skipped <<- c(skipped, key)
+      return(invisible(FALSE))
+    }
     if (length(dbs_have) < 2L) {
       skipped <<- c(skipped, key)
       cli::cli_alert_warning(

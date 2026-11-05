@@ -23,6 +23,8 @@
   "PHR",          # Platelet_Count / HDL
   "HALP",         # Hemoglobin * Albumin * Lymphocytes / Platelet_Count
   "GLR",          # Glucose / Lymphocytes
+  "GAR",          # Glucose / Albumin（无 HbA1c 时血糖轴应激比，常与 GV 成对）
+  "LactAlb",      # Lactate / Albumin（灌注轴，常与 Lactate_CV 成对）
   "WPR",          # WBC / Platelet_Count
   # 血脂（禁止 HDL/LDL 原生透传进库；VLDL=TG/5 Friedewald 估算）
   "VLDL",         # Triglycerides / 5（估算 VLDL-C，mg/dL）
@@ -63,6 +65,7 @@
   "Glucose_first", "Glucose_mean",
   "WBC_first", "WBC_CV",
   "Sodium_mean", "Sodium_CV",
+  "Hemoglobin_CV", "Albumin_CV", "Lactate_CV",
   "UA_CR",        # UA/CR = Uric_Acid(mg/dL) / Creatinine(mg/dL)
   "BUN_Cr",       # BUN / Creatinine
   # 血液学

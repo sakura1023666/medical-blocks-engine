@@ -543,12 +543,108 @@ attrition_finalize_rows <- function(ctx, config) {
   rows_df <- attrition_apply_outcome_breakdown(rows_df, ctx, config)
   # classic / CSV 与 pv2 共用：去掉同 n 且无真实 Exclude 的空步（预过滤 dabiao 假三框）
   rows_df <- attrition_collapse_redundant_rows(rows_df, warn = TRUE)
+  # 发表口径：starting / outcome / index-missing → Analytic sample（禁 After imputation 冒充）
+  rows_df <- attrition_apply_config_labels(rows_df, config)
   keep <- intersect(
     c("step", "n", "source", "kind", "step_id", "exclude_label",
       "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"),
     names(rows_df)
   )
   rows_df[, keep, drop = FALSE]
+}
+
+#' Apply config$attrition face labels (starting / outcome / index / included).
+#'
+#' Prevents "After imputation" on boxes that only dropped missing index components,
+#' and replaces generic "Incomplete covariates" when outcome_exclude_label is set.
+#' @param rows data.frame attrition rows
+#' @param config pipeline config (reads config$attrition)
+#' @return rows with step / exclude_label overwritten where applicable
+attrition_apply_config_labels <- function(rows, config = list()) {
+  if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(rows)
+  cfg <- (config %||% list())$attrition %||% list()
+  start_lab <- trimws(as.character(cfg$starting_label %||% "")[1L])
+  out_ex <- trimws(as.character(cfg$outcome_exclude_label %||% "")[1L])
+  ix_ex <- trimws(as.character(cfg$index_exclude_label %||% "")[1L])
+  included <- trimws(as.character(
+    cfg$included_label %||% cfg$analytic_label %||% "Analytic sample"
+  )[1L])
+  if (!nzchar(included)) included <- "Analytic sample"
+
+  has_sid <- "step_id" %in% names(rows)
+  has_el <- "exclude_label" %in% names(rows)
+  n <- nrow(rows)
+
+  for (i in seq_len(n)) {
+    sid <- if (has_sid) tolower(trimws(as.character(rows$step_id[i] %||% "")[1L])) else ""
+    step <- as.character(rows$step[i] %||% "")[1L]
+    el <- if (has_el) {
+      raw <- rows$exclude_label[i]
+      if (is.na(raw)) "" else trimws(as.character(raw)[1L])
+    } else {
+      ""
+    }
+
+    # Starting box
+    if (nzchar(start_lab) &&
+        (grepl("^starting", sid) || grepl("(?i)^starting\\s+cohort", step))) {
+      rows$step[i] <- start_lab
+    }
+
+    # Outcome-missing exclude on the cleaning step (or any step that only dropped fustatus)
+    is_clean <- grepl("data_clean|after_data_clean", sid) ||
+      grepl("(?i)data\\s*clean", step)
+    el_looks_outcome <- grepl(
+      "(?i)missing\\s+outcome|incomplete\\s+baseline|status\\s+unavailable|fustatus",
+      el
+    ) || identical(el, "Incomplete covariates") ||
+      grepl("(?i)incomplete\\s+covariates", el)
+    if (nzchar(out_ex) && (is_clean || el_looks_outcome) &&
+        !grepl("(?i)bun|creatinine|index\\s+not", el)) {
+      if (has_el && (el_looks_outcome || is_clean)) {
+        rows$exclude_label[i] <- out_ex
+      }
+    }
+
+    # Index-missing exclude / analytic include box
+    is_ix_sid <- grepl("^after_index_missing", sid) ||
+      grepl("^after_index$", sid) || identical(sid, "index")
+    el_looks_index <- grepl(
+      "(?i)missing\\s+(bun|creatinine|exposure|index)|index\\s+not\\s+calculable|not\\s+computable",
+      el
+    )
+    step_looks_imput_but_index <- grepl("(?i)imput", step) && el_looks_index
+    step_looks_ix_label <- grepl(
+      "(?i)exclud(?:e|ing)\\s+missing|after\\s+excluding\\s+missing",
+      step
+    )
+
+    if (is_ix_sid || step_looks_imput_but_index || step_looks_ix_label) {
+      rows$step[i] <- included
+      if (has_el && nzchar(ix_ex) && (el_looks_index || !nzchar(el) ||
+                                      grepl("(?i)imput|key\\s+variable", el))) {
+        rows$exclude_label[i] <- ix_ex
+      }
+    }
+  }
+
+  # Last include box: if still "After imputation" but prior drop was index components,
+  # force Analytic sample (imputation itself must not be the face reason for n drop).
+  last <- n
+  last_step <- as.character(rows$step[last] %||% "")[1L]
+  last_el <- if (has_el) {
+    raw <- rows$exclude_label[last]
+    if (is.na(raw)) "" else trimws(as.character(raw)[1L])
+  } else {
+    ""
+  }
+  if (grepl("(?i)imput", last_step) &&
+      grepl("(?i)missing\\s+(bun|creatinine|exposure|index)|index\\s+not", last_el)) {
+    rows$step[last] <- included
+    if (has_el && nzchar(ix_ex)) rows$exclude_label[last] <- ix_ex
+  }
+
+  rows
 }
 
 #' 双库 CONSORT 纳排：各库先画单页，再横排 A|B（禁止旧式 mfrow 方框）。
@@ -1358,13 +1454,24 @@ attrition_weight_footnote <- function(ctx) {
 }
 
 #' 纳排文字在给定宽度下需要的框高（npc），含上下留白。
+#' 行距必须 >= fontsize*factor（点数下限）：部分 pdf 设备上 textGrob("Hg") 的度量偏小，
+#' 纯 grob 度量会把行高压到 < 字号（9pt 字仅 7.4pt 行距）→ 相邻行 bbox 粘连，
+#' nature-figure 碰撞审计报 text-text overlap（P0）。改为取 grob 度量与点数下限的较大者。
 .attrition_line_height_npc <- function(fontsize = 10, family = "Times", factor = 1.22) {
-  gp <- grid::gpar(fontsize = as.numeric(fontsize)[1L], fontfamily = as.character(family)[1L])
-  grid::convertHeight(
+  fs <- max(1, suppressWarnings(as.numeric(fontsize)[1L]))
+  fac <- max(1, suppressWarnings(as.numeric(factor)[1L]))
+  gp <- grid::gpar(fontsize = fs, fontfamily = as.character(family)[1L])
+  lh_grob <- grid::convertHeight(
     grid::grobHeight(grid::textGrob("Hg", gp = gp)),
     "npc",
     valueOnly = TRUE
-  ) * as.numeric(factor)[1L]
+  ) * fac
+  lh_pts <- grid::convertHeight(
+    grid::unit(fs * fac, "points"),
+    "npc",
+    valueOnly = TRUE
+  )
+  max(lh_grob, lh_pts)
 }
 
 attrition_label_height_npc <- function(txt, width_npc, fontsize = 10, family = "Times",
@@ -1410,23 +1517,32 @@ attrition_draw_box_text <- function(text, x0, y0, x1, y1, fontsize = 10,
   gp <- grid::gpar(fontsize = fontsize, fontface = fontface, fontfamily = family,
                    col = "#111111")
   lh <- .attrition_line_height_npc(fontsize, family)
-  total <- lh * length(lines)
   box_h <- abs(y1 - y0)
   y_mid <- (y0 + y1) / 2
-  y_first <- if (total < box_h - 2 * pad_npc) {
-    y_mid + total / 2 - lh / 2
-  } else {
-    max(y0, y1) - pad_npc - lh / 2
-  }
+  # 文字总高超过可用框高时压缩行距（而非从框顶硬排）：
+  # 硬排会让首/末行 bbox 越出边框，被相邻箭头线判成 text-stroke 碰撞（P0）。
+  eff_lh <- min(lh, (box_h - 2 * pad_npc) / length(lines))
+  if (!is.finite(eff_lh) || eff_lh <= 0) eff_lh <- lh
+  total <- eff_lh * length(lines)
+  y_first <- y_mid + (total - eff_lh) / 2
   x_pos <- if (align == "left") min(x0, x1) + pad_npc else (x0 + x1) / 2
   hjust <- if (align == "left") "left" else "centre"
+  # 计数行（"n = …" / "(n = …)"）改用非粗体、略小字号：
+  # ① 符合排版惯例（人数弱于标题）；② PyMuPDF get_texttrace 会把同字体同字号的
+  # 相邻行合成单个 span，nature-figure 碰撞审计因此把「标题行 vs n 行」判成
+  # text-text overlap 98%（P0 假阳性）。字体状态不同则 trace 分离，逐行 bbox 干净。
+  .is_count_line <- function(ln) grepl("^\\(?n\\s*=\\s*[0-9]", trimws(ln), ignore.case = TRUE)
+  gp_n <- grid::gpar(
+    fontsize = max(6.5, fontsize * 0.92),
+    fontface = "plain", fontfamily = family, col = "#111111"
+  )
   for (k in seq_along(lines)) {
     grid::grid.text(
       lines[k],
       x = grid::unit(x_pos, "npc"),
-      y = grid::unit(y_first - (k - 1) * lh, "npc"),
+      y = grid::unit(y_first - (k - 1) * eff_lh, "npc"),
       just = c(hjust, "centre"),
-      gp = gp
+      gp = if (.is_count_line(lines[k])) gp_n else gp
     )
   }
   invisible(fitted)
@@ -1673,8 +1789,13 @@ attrition_enrich_rows_for_pv2 <- function(rows, database = NULL) {
   ow <- min(0.30, cx - gapf / 2 - 0.015)
   left_x0 <- cx - gapf / 2 - ow
   right_x0 <- cx + gapf / 2
-  y_out <- max(y_floor, y_from - 0.055 - oh)
-  t_y <- y_out + oh + 0.022
+  y_out <- y_from - 0.055 - oh
+  # 画布留白不足时压分叉框高（而非让框被 floor 顶回去、竖线穿框内文字）
+  if (y_out < y_floor) {
+    oh <- max(0.075, oh - (y_floor - y_out))
+    y_out <- max(y_floor, y_from - 0.055 - oh)
+  }
+  t_y <- min(y_from - 0.006, y_out + oh + 0.022)
   grid::grid.lines(
     x = grid::unit(c(cx, cx), "npc"),
     y = grid::unit(c(y_from, t_y), "npc"),
@@ -1716,7 +1837,7 @@ attrition_enrich_rows_for_pv2 <- function(rows, database = NULL) {
 #'   `after` 为主列第几框之后；该步不再画右侧 Exclude，续行从右臂（无病）往下。
 attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New Roman",
                                footnote = character(0), box_fill = "#FFFFFF",
-                               fork = NULL, mid_fork = NULL) {
+                               fork = NULL, mid_fork = NULL, max_height_in = 11) {
   if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(invisible(FALSE))
   # 直接喂 CSV/旧日志时同样折叠，避免 classic 图出现同 n 空框
   rows <- attrition_collapse_redundant_rows(rows, warn = FALSE)
@@ -1747,6 +1868,12 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
     if (has_mid) 1.50 else 0 +
     if (length(footnote)) 0.55 else 0.08
   h <- max(3.0, need_h)
+  # 交付长边上限（默认 11in）：纵向 CONSORT 流程按内容系数常估到 >11in，
+  # 触发 pub_figure bad_pdf_geometry=P0。超上限时把页高等比 clamp 到上限——
+  # 布局全部画在 npc [0,1] 内（框高、间距按比例分配），字号为绝对点值且原图
+  # 框内文字占比极小，缩页不会让单/少行标签溢出框。矮图 h<=上限不受影响（零回归）。
+  mhi <- suppressWarnings(as.numeric(max_height_in %||% 11)[1L])
+  if (is.finite(mhi) && mhi >= 4 && h > mhi) h <- mhi
   opened <- tryCatch({
     .attrition_pdf_device(pdf_path, w, h, ff)
     TRUE
@@ -1882,11 +2009,20 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
     min(if (has_fork) 0.18 else 0.12, y_top - pack_npc - 0.02)
   )
   span <- max(0.22, y_top - y_fork_top - 0.02 - mid_slot)
-  # 禁止压缩 Exclude 间隙（字溢出主因）；仅略压主框，且不低于可读高度
-  scale_pack <- if (pack_npc > span && pack_npc > 0) max(0.92, span / pack_npc) else 1
-  if (scale_pack < 1) {
-    main_h <- pmax(0.068, main_h * scale_pack)
-    # gap_need 保持估高，不参与压缩
+  # 内容超过画布时按缺口等比压缩，但主框/间隙各设可读下限。
+  # 旧版仅压主框且系数下限 0.92：6+ 步 CONSORT 在 11in 页面上总高仍 > span，
+  # 末框被挤到页底，分叉竖线向上穿框文字（nature-figure text-stroke=P0）。
+  if (pack_npc > span && pack_npc > 0) {
+    scale_pack <- span / pack_npc
+    main_h <- pmax(0.062, main_h * scale_pack)
+    gap_need <- pmax(0.052, gap_need * min(1, max(scale_pack, 0.55)))
+    # 间隙触底仍放不下：把多余缺口从主框继续匀（主框不低于 min_npc 0.062）
+    overflow <- (sum(main_h) + sum(gap_need) +
+                   if (has_fork) 0.22 else 0.04 + mid_slot) - span
+    if (overflow > 0) {
+      shrink <- pmin(main_h - 0.062, overflow / max(n_box, 1L))
+      main_h <- main_h - shrink
+    }
   }
 
   ys0 <- numeric(n_box)

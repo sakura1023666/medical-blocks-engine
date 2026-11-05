@@ -1,7 +1,7 @@
 #!/bin/bash
 # One liver-rule cohort: MOESM1 physio clip ON, inclusion features dropped per RULE.
 # Args: COHORT_KEY  GPU_ID
-# COHORT_KEY: mars|acg|acg_bili|sofa1|sofa2|full_icu
+# COHORT_KEY: mars|acg|acg_bili|sofa1|sofa2|full_icu|uln_ast|uln_alt|uln_bili|uln_all3
 set -u
 COHORT="${1:?cohort}"
 GPU="${2:?gpu}"
@@ -55,6 +55,26 @@ case "$COHORT" in
     ROOT=/mnt/sda/BlendedICU/data/blendedlos_full_icu_42151996
     DATA=$ROOT/blendedlos_full
     DROP=
+    ;;
+  uln_ast)
+    ROOT=/mnt/sda/BlendedICU/data/liver_dysfunction_uln_ast_42151996
+    DATA=$ROOT/blendedlos_uln_ast
+    DROP=aspartate_aminotransferase
+    ;;
+  uln_alt)
+    ROOT=/mnt/sda/BlendedICU/data/liver_dysfunction_uln_alt_42151996
+    DATA=$ROOT/blendedlos_uln_alt
+    DROP=alanine_aminotransferase
+    ;;
+  uln_bili)
+    ROOT=/mnt/sda/BlendedICU/data/liver_dysfunction_uln_bili_42151996
+    DATA=$ROOT/blendedlos_uln_bili
+    DROP=bilirubine
+    ;;
+  uln_all3)
+    ROOT=/mnt/sda/BlendedICU/data/liver_dysfunction_uln_all3_42151996
+    DATA=$ROOT/blendedlos_uln_all3
+    DROP=aspartate_aminotransferase,alanine_aminotransferase,bilirubine
     ;;
   *)
     echo "unknown cohort $COHORT" >&2

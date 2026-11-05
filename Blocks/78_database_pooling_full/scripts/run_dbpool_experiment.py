@@ -349,6 +349,75 @@ UNIT_CONFIG = {
             }
         },
     },
+    # CSA-AKI 3-DB (no SICdb): MIMIC + eICU train; INSPIRE external.
+    # Requires extraction/train_on_eicu_mimic4 from prepare_csaaki_mimic_eicu_splits.py.
+    "csa3_expA_eicu_solo": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [{"train_on": ["eicu"], "percentage_trainval": 100}],
+            }
+        },
+    },
+    "csa3_expB_mimic_solo": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [
+                    {
+                        "train_on": ["mimic4"],
+                        "percentage_trainval": 100,
+                        "use_as_pretrained": True,
+                    }
+                ],
+            }
+        },
+    },
+    "csa3_expC_mimic2eicu_transfer": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [
+                    {
+                        "train_on": ["mimic4"],
+                        "percentage_trainval": 100,
+                        "use_as_pretrained": True,
+                    },
+                    {
+                        "train_on": ["eicu"],
+                        "percentage_trainval": 100,
+                        "from_pretrained": True,
+                        "retrain_last_layer_only": False,
+                    },
+                ],
+            }
+        },
+    },
+    "csa3_expD_pooled_mimic_eicu": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "inspire"]},
+        "experiments": {
+            "main_experiment": {
+                "models": ["tpc"],
+                "runs": [
+                    {"percentage_trainval_dic": {"mimic4": 100, "eicu": 100}},
+                ],
+            }
+        },
+    },
+    "csa3_model_benchmark": {
+        "config_overrides": {"datasets": ["mimic4", "eicu", "inspire"]},
+        "experiments": {
+            "model_benchmark": {
+                "models": ["lstm", "transformer", "tpc"],
+                "runs": [
+                    {"percentage_trainval_dic": {"mimic4": 100, "eicu": 100}},
+                ],
+            }
+        },
+    },
 }
 
 

@@ -24,6 +24,7 @@ pipeline_block_sources <- function(root) {
   b <- function(...) file.path(root, "Blocks", ...)
   list(
     data_clean                    = b("02_data_clean/01block_data_clean.R"),
+    derived_grouping              = b("02_data_clean/02block_derived_grouping.R"),
     attrition_flowchart           = b("00_attrition/01block_attrition_flowchart.R"),
     column_mapping                = b("01_column_mappings/01block_column_mapping.R"),
     dual_db_column_harmonize      = b("00_dual_db/01block_dual_db_column_harmonize.R"),
@@ -96,7 +97,9 @@ pipeline_block_sources <- function(root) {
     cox_sextile                   = b("10_cox/05block_cox_sextile.R"),
     cox_interaction               = b("10_cox/06block_cox_interaction.R"),
     cox_ml_continuous_batch       = b("10_cox/08block_cox_ml_continuous_batch.R"),
+    cox_multi_horizon             = b("10_cox/09block_cox_multi_horizon.R"),
     logistic_binary_glm           = b("11_logistic/04block_logistic_binary_glm.R"),
+    logistic_nomogram             = b("11_logistic/20block_logistic_nomogram.R"),
     logistic_subphenotype         = b("11_logistic/12block_logistic_subphenotype_multimodel.R"),
     logistic_binary_clogit        = b("11_logistic/07block_logistic_binary_clogit.R"),
     logistic_quartile_glm         = b("11_logistic/01block_logistic_quartile_glm.R"),
@@ -127,10 +130,12 @@ pipeline_block_sources <- function(root) {
     rcs_incidence                 = b("15_rcs/02block_rcs_incidence.R"),
     rcs_nhanes                    = b("15_rcs/03block_rcs_nhanes.R"),
     rcs_prognosis_by_group        = b("15_rcs/04block_rcs_prognosis_by_group.R"),
+    rcs_sofa_horizon              = b("15_rcs/06block_rcs_sofa_horizon.R"),
     stepp_prognosis               = b("32_stepp/01block_stepp_prognosis.R"),
-    segmented_cox_binary          = b("16_segmented_cox/01block_segmented_cox_binary.R"),
-    segmented_cox_tertile         = b("16_segmented_cox/02block_segmented_cox_tertile.R"),
-    segmented_cox_quartile        = b("16_segmented_cox/03block_segmented_cox_quartile.R"),
+    # 实体目录 16_weightcox（历史名 16_segmented_cox；Blocks 下保留同名软链兼容）
+    segmented_cox_binary          = b("16_weightcox/01block_segmented_cox_binary.R"),
+    segmented_cox_tertile         = b("16_weightcox/02block_segmented_cox_tertile.R"),
+    segmented_cox_quartile        = b("16_weightcox/03block_segmented_cox_quartile.R"),
     train_validation              = b("21_train_validation/01block_train_validation.R"),
     ml_eval_common                = b("22_ml_models/00block_ml_eval_common.R"),
     ml_dt                         = b("22_ml_models/01block_ml_dt.R"),
@@ -167,7 +172,7 @@ pipeline_block_sources <- function(root) {
     ml_tcf_sklearn_external       = b("22_ml_models/27block_ml_tcf_sklearn_external.R"),
     feature_selection_entropy_stepwise = b("19_feature_selection/11block_feature_selection_entropy_stepwise.R"),
     performance_ml                = b("23_ml_performance/01block_performance_ml.R"),
-    supplementary_ml              = b("24_ml_dual/10block_supplementary_ml.R"),
+    supplementary_ml              = b("24_ml_supplementary/01block_supplementary_ml.R"),
     shiny_dynnom                  = b("25_shiny/01block_shiny_dynnom.R"),
     shiny_ml_app                  = b("25_shiny/02block_shiny_ml_app.R"),
     feature_selection_lasso       = b("19_feature_selection/01block_feature_selection_lasso.R"),
@@ -207,6 +212,7 @@ pipeline_block_sources <- function(root) {
     ROC                           = b("13_roc/01block_ROC.R"),
     simple_ROC                    = b("13_roc/02block_simple_ROC.R"),
     shap                          = b("17_shap/01block_shap.R"),
+    shap_glm                      = b("17_shap/02block_shap_glm.R"),
     subgroup_prognosis            = b("18_subgroup/01block_subgroup_prognosis.R"),
     subgroup_incidence            = b("18_subgroup/02block_subgroup_incidence.R"),
     subgroup_nhanes_weighted      = b("18_subgroup/03block_subgroup_nhanes_weighted.R"),
@@ -924,6 +930,32 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
 
     block_name <- blocks[[i]]
     full_idx <- idx_map[[i]]
+
+    # 闸门跳过须在 source 之前：废弃块（如 segmented_cox_quartile）可能已无实体路径
+    if (exists(".lnw00_should_skip_cascade_block", mode = "function") &&
+        .lnw00_should_skip_cascade_block(block_name, ctx)) {
+      cli::cli_alert_info(
+        "logistic cascade 跳过 {.field {block_name}}（已选定 {ctx$results$nhanes_logistic_selected_scheme}）"
+      )
+      next
+    }
+
+    if (exists("pipeline_cox_gate_should_skip", mode = "function") &&
+        pipeline_cox_gate_should_skip(block_name, ctx, pipeline)) {
+      cli::cli_alert_info(
+        "cox_gate 跳过 {.field {block_name}}（分支: {ctx$results$cox_branch %||% '?'}）"
+      )
+      next
+    }
+
+    if (exists("pipeline_logistic_gate_should_skip", mode = "function") &&
+        pipeline_logistic_gate_should_skip(block_name, ctx, pipeline)) {
+      cli::cli_alert_info(
+        "logistic_gate 跳过 {.field {block_name}}（分支: {ctx$results$logistic_branch %||% '?'}）"
+      )
+      next
+    }
+
     sourced <- pipeline_source_block(root, block_name, sourced)
     if ((block_name %in% c(
       "multicollinearity_nhanes_final",
@@ -950,30 +982,6 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
     ) || grepl("^ml_(dt|rf|xgboost|lightgbm|rsvm|naive_bayes|gbdt|topsis|tcf_sklearn)", block_name)) &&
         !"ml_eval_common" %in% sourced) {
       sourced <- pipeline_source_block(root, "ml_eval_common", sourced)
-    }
-
-    if (exists(".lnw00_should_skip_cascade_block", mode = "function") &&
-        .lnw00_should_skip_cascade_block(block_name, ctx)) {
-      cli::cli_alert_info(
-        "logistic cascade 跳过 {.field {block_name}}（已选定 {ctx$results$nhanes_logistic_selected_scheme}）"
-      )
-      next
-    }
-
-    if (exists("pipeline_cox_gate_should_skip", mode = "function") &&
-        pipeline_cox_gate_should_skip(block_name, ctx, pipeline)) {
-      cli::cli_alert_info(
-        "cox_gate 跳过 {.field {block_name}}（分支: {ctx$results$cox_branch %||% '?'}）"
-      )
-      next
-    }
-
-    if (exists("pipeline_logistic_gate_should_skip", mode = "function") &&
-        pipeline_logistic_gate_should_skip(block_name, ctx, pipeline)) {
-      cli::cli_alert_info(
-        "logistic_gate 跳过 {.field {block_name}}（分支: {ctx$results$logistic_branch %||% '?'}）"
-      )
-      next
     }
 
     n_before <- if (exists("attrition_n_current", mode = "function")) attrition_n_current(ctx) else NA_integer_

@@ -366,15 +366,19 @@ pub_figure_drop_raster_dirs <- function(figures_dir) {
 }
 
 .pub_figure_extract_cox_rcs_p <- function(p) {
+  coef_m <- tryCatch(as.matrix(p$coefficients), error = function(e) NULL)
   list(
     p_overall = tryCatch(
       suppressWarnings(as.numeric(p$logtest[3L]))[1L],
       error = function(e) NA_real_
     ),
-    p_nonlinear = tryCatch(
-      suppressWarnings(as.numeric(p$coefficients[2L, 5L]))[1L],
-      error = function(e) NA_real_
-    )
+    p_nonlinear = tryCatch({
+      if (is.null(coef_m) || nrow(coef_m) < 2L || ncol(coef_m) < 5L) {
+        NA_real_
+      } else {
+        suppressWarnings(as.numeric(coef_m[2L, 5L]))[1L]
+      }
+    }, error = function(e) NA_real_)
   )
 }
 

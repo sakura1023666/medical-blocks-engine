@@ -167,7 +167,12 @@
     if (is.null(x)) next
     if (!is.data.frame(x) && !inherits(x, "tbl_df")) next
     df <- as.data.frame(x, stringsAsFactors = FALSE)
-    disp <- display_names[[tg]] %||% .sm_display_from_tag(tg)
+    ## [[tg]] 在 tg 不在 names 时会 subscript OOB；勿依赖 %||%（到不了）
+    disp <- if (!is.null(display_names) && tg %in% names(display_names)) {
+      as.character(display_names[[tg]])
+    } else {
+      .sm_display_from_tag(tg)
+    }
     ## 文献三列：Model | Package / function | Hyperparameter setting or tuning strategy
     hp_txt <- if ("Hyperparameter" %in% names(df)) {
       paste(as.character(df$Hyperparameter), collapse = "; ")
@@ -483,6 +488,31 @@ block_Supplementary_ml <- function(ctx, ...) {
     if (is.null(hp_df) || !nrow(hp_df)) {
       cli::cli_alert_warning("block_Supplementary_ml: 未找到任何模型的 Hpbest 超参数，跳过超参数表。")
     } else {
+      ## 只保留报告性能集：config$ml_models$methods 已踢掉的模型（如 TabPFN）
+      ## 不得残留在超参表（AKI_TX BUN_Cr P0-4）
+      meth_keep <- tolower(trimws(as.character(cfg$ml_models$methods %||% character(0))))
+      meth_keep <- meth_keep[nzchar(meth_keep)]
+      if (length(meth_keep) && "Model" %in% names(hp_df)) {
+        ## methods 可含未训成的模型（如 adaboost/catboost）；[[tg]] 对缺失名会 OOB
+        keep_disp <- unique(vapply(meth_keep, function(tg) {
+          if (!is.null(display_names) && tg %in% names(display_names)) {
+            as.character(display_names[[tg]])
+          } else {
+            .sm_display_from_tag(tg)
+          }
+        }, character(1L)))
+        keep_disp <- keep_disp[nzchar(keep_disp)]
+        if (length(keep_disp)) {
+          before_n <- nrow(hp_df)
+          hp_df <- hp_df[as.character(hp_df$Model) %in% keep_disp, , drop = FALSE]
+          dropped <- before_n - nrow(hp_df)
+          if (dropped > 0L) {
+            cli::cli_alert_info(
+              "block_Supplementary_ml: 超参表已按 ml_models$methods 剔除 {dropped} 行（禁残留未报告模型）"
+            )
+          }
+        }
+      }
       if ("Model" %in% names(hp_df)) {
         hp_df <- hp_df[, c("Model", setdiff(names(hp_df), "Model")), drop = FALSE]
       }
@@ -515,15 +545,35 @@ block_Supplementary_ml <- function(ctx, ...) {
       y_te[!tv_te$ok] <- NA_real_
     }
 
+    .sm_resolve_pred_col <- function(df, group_label, preferred = NULL) {
+      if (exists(".pm_resolve_pred_col", mode = "function")) {
+        return(.pm_resolve_pred_col(df, group_label, preferred = preferred))
+      }
+      nms <- names(df)
+      g <- as.character(group_label)[1L]
+      if (!is.null(preferred) && preferred %in% nms) return(preferred)
+      cands <- unique(c(preferred, paste0(".pred_", g), paste0(".pred_", make.names(g))))
+      hit <- intersect(cands[nzchar(as.character(cands))], nms)
+      if (length(hit)) return(hit[[1L]])
+      pred_cols <- nms[grepl("^\\.pred_", nms)]
+      if (length(pred_cols)) {
+        j <- match(make.names(g), make.names(sub("^\\.pred_", "", pred_cols)))
+        if (!is.na(j)) return(pred_cols[[j]])
+      }
+      NULL
+    }
     pred_tr_list <- list()
     pred_te_list <- list()
     for (tg in tags_ok) {
       pr <- loaded[[tg]]$predtrain
       pe <- loaded[[tg]]$predtest
-      if (!pred_ana %in% names(pr) || !pred_ana %in% names(pe)) next
+      if (is.null(pr) || is.null(pe)) next
+      col_tr <- .sm_resolve_pred_col(pr, ana_group, preferred = pred_ana)
+      col_te <- .sm_resolve_pred_col(pe, ana_group, preferred = pred_ana)
+      if (is.null(col_tr) || is.null(col_te)) next
       nm <- display_names[tg]
-      pred_tr_list[[nm]] <- as.numeric(pr[[pred_ana]])
-      pred_te_list[[nm]] <- as.numeric(pe[[pred_ana]])
+      pred_tr_list[[nm]] <- as.numeric(pr[[col_tr]])
+      pred_te_list[[nm]] <- as.numeric(pe[[col_te]])
     }
     if (!length(pred_tr_list)) {
       stop("block_Supplementary_ml: 无法读取任何模型的预测概率列。", call. = FALSE)

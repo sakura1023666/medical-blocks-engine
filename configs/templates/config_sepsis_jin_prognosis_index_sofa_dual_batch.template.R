@@ -235,18 +235,31 @@ config$rcs_sofa_horizon <- list(
   plot_x_quantiles = c(0.01, 0.99)
 )
 
-## 诺模图：强制暴露+SOFA；其余候选 backward α=0.05（对齐 Jin stepwise）后 lrm
+## 诺模图 Fig2：强制暴露+SOFA；shared_clinical 池 backward α=0.05；
+## 院内/30d/365d → A|B|C（对齐 Jin；禁止 MIMIC|eICU 当 Fig2 两栏）
 config$logistic_nomogram <- list(
   enable = TRUE,
-  outcome = "fustatus",
   selection = "backward",
   selection_alpha = 0.05,
-  candidate_features = c(
-    "Age", "Gender", "NBPM", "HeartRate", "RespiratoryRate",
-    "WBC", "Hemoglobin", "Platelet_Count", "PLT",
-    "TotalCo2", "Sodium", "Potassium", "CalciumTotal", "Creatinine"
-  )
+  candidate_mode = "shared_clinical",
+  candidate_features = NULL,
+  include_comorbidities = FALSE,  # 共病不进列线图，避免 Fig2 变量过多
+  max_features = 12L,             # 强制 WPR+SOFA 后总特征上限（对齐 Jin ~10–14）
+  horizons = c("hosp", "d30", "d365"),
+  hosp = list(event = "fustatus", label = "Probability of In-hospital Mortality", panel = "A"),
+  d30  = list(event = "event_d30", label = "Probability of 30-day Mortality", panel = "B"),
+  d365 = list(event = "event_d365", label = "Probability of 365-day Mortality", panel = "C"),
+  combine_panels = TRUE,
+  bootstrap_B = 200L,
+  seed = 42L
 )
+
+config$dual_db <- utils::modifyList(config$dual_db %||% list(), list(
+  combine_figures = utils::modifyList(
+    (config$dual_db %||% list())$combine_figures %||% list(),
+    list(skip_roles = c("fig2_nomogram"))
+  )
+))
 
 config$shap_glm <- list(
   enable = TRUE,

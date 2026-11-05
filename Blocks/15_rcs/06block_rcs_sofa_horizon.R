@@ -118,14 +118,24 @@
   )
   if (is.null(pred) || !nrow(pred)) return(NULL)
   psum <- tryCatch(summary(hr1$coxfit), error = function(e) NULL)
-  pe <- if (exists(".pub_figure_extract_cox_rcs_p", mode = "function") && !is.null(psum)) {
-    .pub_figure_extract_cox_rcs_p(psum)
-  } else {
-    list(
-      p_overall = tryCatch(suppressWarnings(as.numeric(psum$logtest[3L]))[1L], error = function(e) NA_real_),
-      p_nonlinear = tryCatch(suppressWarnings(as.numeric(psum$coefficients[2L, 5L]))[1L], error = function(e) NA_real_)
-    )
-  }
+  pe <- tryCatch({
+    if (exists(".pub_figure_extract_cox_rcs_p", mode = "function") && !is.null(psum)) {
+      .pub_figure_extract_cox_rcs_p(psum)
+    } else {
+      coef_m <- tryCatch(as.matrix(psum$coefficients), error = function(e) NULL)
+      list(
+        p_overall = tryCatch(
+          suppressWarnings(as.numeric(psum$logtest[3L]))[1L],
+          error = function(e) NA_real_
+        ),
+        p_nonlinear = if (!is.null(coef_m) && nrow(coef_m) >= 2L && ncol(coef_m) >= 5L) {
+          suppressWarnings(as.numeric(coef_m[2L, 5L]))[1L]
+        } else {
+          NA_real_
+        }
+      )
+    }
+  }, error = function(e) list(p_overall = NA_real_, p_nonlinear = NA_real_))
   list(
     data = d,
     pred = pred,
@@ -149,10 +159,18 @@
     return(invisible(NULL))
   }
   pred <- fit$pred
+  if (is.null(pred) || !is.data.frame(pred) || !nrow(pred) || !ncol(pred)) {
+    plot.new()
+    title(main = paste0(panel_letter, "  ", title_main), adj = 0, cex.main = 1)
+    text(0.5, 0.5, "Not estimable", cex = 1.1)
+    return(invisible(NULL))
+  }
   x <- as.numeric(pred[[1L]])
-  ln <- as.numeric(pred$LnHR)
-  lo <- as.numeric(pred$`lower .95`)
-  hi <- as.numeric(pred$`upper .95`)
+  ln <- if ("LnHR" %in% names(pred)) as.numeric(pred$LnHR) else as.numeric(pred[[2L]])
+  lo_nm <- grep("^lower", names(pred), value = TRUE)[1L]
+  hi_nm <- grep("^upper", names(pred), value = TRUE)[1L]
+  lo <- if (!is.na(lo_nm)) as.numeric(pred[[lo_nm]]) else rep(NA_real_, length(x))
+  hi <- if (!is.na(hi_nm)) as.numeric(pred[[hi_nm]]) else rep(NA_real_, length(x))
   hr <- exp(ln); lo_hr <- exp(lo); hi_hr <- exp(hi)
 
   xl <- xlim
@@ -346,9 +364,17 @@ block_rcs_sofa_horizon <- function(ctx, ...) {
           x_max_i <- qs[2L]
         }
       }
-      fits[[k]] <- .rsh06_fit_panel(
-        sub, index_var, sp$time, sp$event, nk, covs,
-        x_min = x_min_i, x_max = x_max_i
+      fits[[k]] <- tryCatch(
+        .rsh06_fit_panel(
+          sub, index_var, sp$time, sp$event, nk, covs,
+          x_min = x_min_i, x_max = x_max_i
+        ),
+        error = function(e) {
+          cli::cli_alert_warning(
+            "rcs_sofa_horizon: {row_labs[[ri]]} × {sp$label} 拟合失败: {conditionMessage(e)}"
+          )
+          NULL
+        }
       )
       if (is.null(fits[[k]])) {
         cli::cli_alert_warning(
@@ -399,11 +425,25 @@ block_rcs_sofa_horizon <- function(ctx, ...) {
     for (hi in seq_along(want)) {
       k <- k + 1L
       sp <- hspecs[[want[[hi]]]]
-      .rsh06_draw_panel(
-        fits[[k]], index_lab = index_lab,
-        panel_letter = letters_mat[ri, hi],
-        title_main = paste0(row_labs[[ri]], " — ", sp$label),
-        xlim = xlim_draw, ylim = ylim, plot_ff = ff
+      tryCatch(
+        .rsh06_draw_panel(
+          fits[[k]], index_lab = index_lab,
+          panel_letter = letters_mat[ri, min(hi, ncol(letters_mat))],
+          title_main = paste0(row_labs[[ri]], " — ", sp$label),
+          xlim = xlim_draw, ylim = ylim, plot_ff = ff
+        ),
+        error = function(e) {
+          plot.new()
+          title(
+            main = paste0(letters_mat[ri, min(hi, ncol(letters_mat))], "  ",
+                          row_labs[[ri]], " — ", sp$label),
+            adj = 0, cex.main = 1
+          )
+          text(0.5, 0.5, "Not estimable", cex = 1.1)
+          cli::cli_alert_warning(
+            "rcs_sofa_horizon: 面板绘制失败 {row_labs[[ri]]} × {sp$label}: {conditionMessage(e)}"
+          )
+        }
       )
     }
   }

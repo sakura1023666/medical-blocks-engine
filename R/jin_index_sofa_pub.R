@@ -46,6 +46,7 @@ jin_index_sofa_figure_role <- function(bn) {
   if (grepl("RCS Analysis|RCS of|RCS plot|\\bRCS\\b|Restricted Cubic", bn, ignore.case = TRUE)) {
     return("drop")
   }
+  # Fig2 = 院内/30d/365d × 双库六页全宽（禁止 MIMIC|eICU 左右并排当 A/B）
   if (grepl("Nomogram", bn, ignore.case = TRUE)) return("fig2_nomogram")
   if (grepl("\\bSHAP\\b", bn, ignore.case = TRUE)) {
     # 主文 Fig3 = beeswarm/summary；importance 另作 S5，避免与 Fig3 抢同一角色键被删
@@ -80,7 +81,15 @@ jin_index_sofa_figure_target_bn <- function(role, src_bn, db = NA_character_) {
   switch(
     role,
     fig1_rcs = sprintf("Figure 1%s. %s.pdf", db_sfx, cap),
-    fig2_nomogram = sprintf("Figure 2%s. %s.pdf", db_sfx, cap),
+    fig2_nomogram = {
+      if (grepl("in-hospital,\\s*30-day|three horizon|30-day and 365", cap, ignore.case = TRUE)) {
+        sprintf("Figure 2%s. Nomogram for in-hospital, 30-day and 365-day mortality.pdf", db_sfx)
+      } else if (grepl("Nomogram", cap, ignore.case = TRUE)) {
+        sprintf("Figure 2%s. Nomogram for in-hospital, 30-day and 365-day mortality.pdf", db_sfx)
+      } else {
+        sprintf("Figure 2%s. %s.pdf", db_sfx, cap)
+      }
+    },
     fig3_shap = sprintf("Figure 3%s. %s.pdf", db_sfx, cap),
     fig4_mediation = sprintf("Figure 4%s. %s.pdf", db_sfx, cap),
     s1_flowchart = {

@@ -347,6 +347,7 @@ block_data_clean <- function(ctx, ...) {
     cli::cli_alert_info("{nrow(kept_missing)} column(s) kept with partial missing (will be handled by imputation)")
   }
 
+  .outcome_n_dropped <- 0L
   if (!isTRUE(cfg$data_clean$skip_outcome_row_filter) &&
       outcome_col %in% names(data)) {
     n_before <- nrow(data)
@@ -355,8 +356,9 @@ block_data_clean <- function(ctx, ...) {
     else if (is.matrix(outcome_vals)) outcome_vals <- outcome_vals[, 1L]
     keep_rows <- which(!is.na(outcome_vals))
     data <- data[keep_rows, , drop = FALSE]
-    if (nrow(data) < n_before)
-      cli::cli_alert_info("Removed {n_before - nrow(data)} rows with missing outcome")
+    .outcome_n_dropped <- as.integer(n_before - nrow(data))
+    if (.outcome_n_dropped > 0L)
+      cli::cli_alert_info("Removed {.outcome_n_dropped} rows with missing outcome")
   }
 
   # 血小板等血细胞单位统一（K/uL）；避免 Platelet med≈0.2 误留
@@ -371,15 +373,25 @@ block_data_clean <- function(ctx, ...) {
 
   ctx$data$cleaned <- data
   # n 相对上一记账步不变则跳过，避免 Starting/cleaning/imputation 假三框
+  .dc_ex <- trimws(as.character(
+    (cfg$attrition %||% list())$outcome_exclude_label %||% ""
+  )[1L])
+  if (!nzchar(.dc_ex) && isTRUE(.outcome_n_dropped > 0L)) {
+    .dc_ex <- "Missing outcome"
+  }
+  .dc_meta <- list(block = "data_clean", n_outcome_na = .outcome_n_dropped)
+  if (nzchar(.dc_ex) && isTRUE(.outcome_n_dropped > 0L)) {
+    .dc_meta$exclude_label <- .dc_ex
+  }
   if (exists("attrition_record_if_changed", mode = "function")) {
     ctx <- attrition_record_if_changed(
       ctx, "after_data_clean", "After data cleaning",
-      as.integer(nrow(data)), meta = list(block = "data_clean")
+      as.integer(nrow(data)), meta = .dc_meta
     )
   } else if (exists("attrition_record", mode = "function")) {
     ctx <- attrition_record(
       ctx, "after_data_clean", "After data cleaning",
-      as.integer(nrow(data)), meta = list(block = "data_clean")
+      as.integer(nrow(data)), meta = .dc_meta
     )
   }
   if (length(voc_cols)) {

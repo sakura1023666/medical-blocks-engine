@@ -141,6 +141,31 @@
   )
 }
 
+## 结局标签含空格 / >= 时，tidymodels 概率列常是 ".pred_<原标签>"，
+## 而 ctx$results$ml_pred_ana_col 多为 ".pred_" + make.names(标签)（如 .pred_CKM.Stage....1）。
+## 对不上时 mats 为空再写 D → 「replacement has N rows, data has 0」。
+.pm_resolve_pred_col <- function(df, group_label, preferred = NULL) {
+  nms <- names(df)
+  g <- as.character(group_label)[1L]
+  if (!is.null(preferred) && nzchar(preferred) && preferred %in% nms) return(preferred)
+  cands <- unique(c(
+    preferred,
+    paste0(".pred_", g),
+    paste0(".pred_", make.names(g))
+  ))
+  cands <- cands[nzchar(as.character(cands %||% ""))]
+  hit <- intersect(cands, nms)
+  if (length(hit)) return(hit[[1L]])
+  pred_cols <- nms[grepl("^\\.pred_", nms)]
+  if (length(pred_cols)) {
+    target <- make.names(g)
+    stripped <- sub("^\\.pred_", "", pred_cols)
+    j <- match(target, make.names(stripped))
+    if (!is.na(j)) return(pred_cols[[j]])
+  }
+  NULL
+}
+
 .pm_default_colors <- function(n) {
   base <- c(
     "#223D6C", "#D20A13", "#088247", "#FFD121", "#6E568C", "#58CDD9",
@@ -1282,14 +1307,21 @@ block_performance_ml <- function(ctx, ...) {
       mats <- list()
       for (tg in tags_ok) {
         pr <- if (identical(split_name, "train")) loaded[[tg]]$predtrain else loaded[[tg]]$predtest
-        if (is.null(pr) || !pred_ana %in% names(pr)) next
+        if (is.null(pr)) next
+        col_use <- .pm_resolve_pred_col(pr, ana_group, preferred = pred_ana)
+        if (is.null(col_use)) {
+          cli::cli_alert_warning(
+            "block_performance_ml: 模型 {tg} 无可用概率列（期望 {pred_ana} / .pred_{ana_group}），已跳过。"
+          )
+          next
+        }
         if (nrow(pr) != n_ref) {
           cli::cli_alert_warning(
             "block_performance_ml: 模型 {tg} 预测行数 ({nrow(pr)}) 与 {split_name} ({n_ref}) 不一致（可能含 NA 行被丢弃），已跳过该模型的 ROC/DCA。"
           )
           next
         }
-        mats[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[pred_ana]])
+        mats[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[col_use]])
       }
       tv <- .pm_truth_vector(ctx, ref_part_df, prognosis, outcome_ml, ev_var, ana_group, ref_group)
       truth01 <- tv$truth01
@@ -1298,7 +1330,18 @@ block_performance_ml <- function(ctx, ...) {
         truth01 <- ifelse(ok, truth01, NA_real_)
       }
       D <- as.integer(if (prognosis) truth01 else as.integer(ref_part_df$Group == ana_group))
+      if (!length(mats)) {
+        cli::cli_alert_warning(
+          "block_performance_ml: {split_name} 无任何模型概率列可对齐（pred_ana={pred_ana}），跳过多模型 ROC。"
+        )
+        return(list(test_df = NULL))
+      }
       test_df <- as.data.frame(mats, check.names = FALSE)
+      if (nrow(test_df) == 0L) {
+        ## 防止空 mats/0 行 df 写入长度 n 的 D → replacement has n rows, data has 0
+        cli::cli_alert_warning("block_performance_ml: {split_name} 概率矩阵为空，跳过多模型 ROC。")
+        return(list(test_df = NULL))
+      }
       test_df$D <- D
       ok2 <- is.finite(test_df$D) & apply(test_df[, names(mats), drop = FALSE], 1L, function(r) all(is.finite(r)))
       test_df <- test_df[ok2, , drop = FALSE]
@@ -1347,8 +1390,11 @@ block_performance_ml <- function(ctx, ...) {
       for (tg in tags_ok) {
         pr <- if (identical(split_name, "train")) loaded[[tg]]$predtrain else loaded[[tg]]$predtest
         if (is.null(pr) || nrow(pr) != n0) next
-        wide[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[pred_ana]])
+        col_use <- .pm_resolve_pred_col(pr, ana_group, preferred = pred_ana)
+        if (is.null(col_use)) next
+        wide[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[col_use]])
       }
+      if (ncol(wide) < 2L) return(NULL)
       wide <- wide[is.finite(wide$Outcome) & apply(wide[, -1, drop = FALSE], 1L, function(z) all(is.finite(z))), ]
       if (nrow(wide) < 15L) return(NULL)
       wide
