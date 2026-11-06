@@ -17,6 +17,9 @@ source(file.path(.engine, "R/utils.R"), local = FALSE)
 source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 
 .out <- stroke_anlr_out()
+.days <- stroke_anlr_days()
+.day_lab <- stroke_anlr_day_lab()
+.endpoint <- stroke_anlr_endpoint_phrase()
 .tab <- file.path(.out, "Tables")
 .fig <- file.path(.out, "Figures", "pdf")
 IDX <- "ANLR"
@@ -169,7 +172,7 @@ writeLines(c(
   "",
   "## 分析上下文",
   "- 暴露: ANLR",
-  "- 结局: 28-day all-cause mortality",
+  paste0("- 结局: ", .endpoint),
   paste0("- 共享特征池: ", paste(shared_fs, collapse = ", ")),
   "- 数据库: MIMIC + eICU",
   "- 是否拼图: 多页（每库一页）"

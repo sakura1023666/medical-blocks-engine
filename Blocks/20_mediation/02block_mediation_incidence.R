@@ -50,7 +50,8 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   surv_cfg <- cfg$survival %||% list()
 
   exposure <- exposure %||% bl_cfg$exposure %||% surv_cfg$index_var %||% cfg$logistic$index_var
-  mediators <- mediators %||% bl_cfg$mediators
+  ## 必须 [[ ]]：`$mediators` 会部分匹配 mediators_strict_only
+  mediators <- mediators %||% bl_cfg[["mediators"]]
   # 路径默认 crude（全项目）；显式 path_use_covariates=TRUE 才用 covariates
   covariates <- if (exists("pipeline_mediation_resolve_path_covariates", mode = "function")) {
     pipeline_mediation_resolve_path_covariates(cfg, bl_cfg, names(data), ctx = ctx)

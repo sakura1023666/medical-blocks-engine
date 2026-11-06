@@ -48,30 +48,45 @@ stopifnot(length(indices) == 2L)
 ia <- indices[[1L]]
 ib <- indices[[2L]]
 
-ck <- readRDS(file.path(study, "checkpoints/by_index", index, "MIMIC_IV/ml_assoc_bundle.rds"))
-ctx <- ck$ctx %||% ck
 sev <- unique(c(
   "GCS", "APSIII", "OASIS", "SOFA", "SAPSII", "Ventilation", "CRRT",
   ml_assoc_default_model3_exclude()
 ))
-ctx$config$assoc_covariate <- modifyList(
-  ctx$config$assoc_covariate %||% list(),
-  list(
-    enable = TRUE, scheme = "literature_m123", force_model1 = "Age",
-    sex_var = "Gender", model3_exclude = sev
+.prep_assoc_ctx <- function(ck_path) {
+  ck <- readRDS(ck_path)
+  ctx <- ck$ctx %||% ck
+  ctx$config$assoc_covariate <- modifyList(
+    ctx$config$assoc_covariate %||% list(),
+    list(
+      enable = TRUE, scheme = "literature_m123", force_model1 = "Age",
+      sex_var = "Gender", model3_exclude = sev
+    )
   )
-)
-ctx2 <- ml_apply_assoc_covariate_rule_to_ctx(ctx)
-m2 <- intersect(c("Age", "Gender", "Sex"), names(ctx2$data$imputed))
-sex <- intersect(c("Gender", "Sex"), m2)
-m2 <- unique(c("Age", if (length(sex)) sex[[1L]] else character(0)))
-m3 <- unique(c(m2, setdiff(as.character(ctx2$results$assoc_model3_factors), sev)))
-ctx2$results$assoc_model1_factors <- m2
-ctx2$results$assoc_model2_factors <- m3
-ctx2$results$assoc_model3_factors <- m3
-dat <- ctx2$data$imputed
-models <- list(Model1 = character(0), Model2 = m2, Model3 = m3)
-message("Model2=", paste(m2, collapse = "+"), " Model3=", paste(m3, collapse = "+"))
+  ctx2 <- ml_apply_assoc_covariate_rule_to_ctx(ctx)
+  m2 <- intersect(c("Age", "Gender", "Sex"), names(ctx2$data$imputed))
+  sex <- intersect(c("Gender", "Sex"), m2)
+  m2 <- unique(c("Age", if (length(sex)) sex[[1L]] else character(0)))
+  m3 <- unique(c(m2, setdiff(as.character(ctx2$results$assoc_model3_factors), sev)))
+  ctx2$results$assoc_model1_factors <- m2
+  ctx2$results$assoc_model2_factors <- m3
+  ctx2$results$assoc_model3_factors <- m3
+  list(ctx = ctx2, models = list(Model1 = character(0), Model2 = m2, Model3 = m3))
+}
+mi_ck <- file.path(study, "checkpoints/by_index", index, "MIMIC_IV/ml_assoc_bundle.rds")
+ei_ck <- file.path(study, "checkpoints/by_index", index, "eICU/ml_assoc_bundle.rds")
+if (!file.exists(mi_ck)) stop("缺 MIMIC assoc checkpoint: ", mi_ck, call. = FALSE)
+mi_prep <- .prep_assoc_ctx(mi_ck)
+message("MIMIC Model2=", paste(mi_prep$models$Model2, collapse = "+"),
+        " Model3=", paste(mi_prep$models$Model3, collapse = "+"))
+if (!file.exists(ei_ck)) {
+  stop("缺 eICU assoc checkpoint（双库 Fig2–6 禁止只画主库）: ", ei_ck, call. = FALSE)
+}
+ei_prep <- .prep_assoc_ctx(ei_ck)
+# 外验继承主库 Model2/3（与 literature finalize 一致）
+ei_prep$ctx$results$assoc_model1_factors <- mi_prep$models$Model2
+ei_prep$ctx$results$assoc_model2_factors <- mi_prep$models$Model3
+ei_prep$ctx$results$assoc_model3_factors <- mi_prep$models$Model3
+ei_prep$models <- mi_prep$models
 
 ref_key <- paste0(index, "_REF")
 derived <- file.path(
@@ -91,17 +106,26 @@ prov <- reference_trusted_development(train_aug, checkpoint_path = derived)
 joint_lock <- reference_lock_tertile_cutpoints(train_aug, ia, ib, prov)
 sosm_lock <- reference_lock_tertile_cutpoints(train_aug, ia, ia, prov)
 wpr_lock <- reference_lock_tertile_cutpoints(train_aug, ib, ib, prov)
+rcs_locks <- stats::setNames(list(
+  reference_lock_grouped_rcs(train_aug, ia, prov),
+  reference_lock_grouped_rcs(train_aug, ib, prov)
+), c(ia, ib))
 cutoff <- NULL
-db_frames <- list(list(
-  name = "MIMIC_IV", short = "MIMIC-IV", data = dat,
-  outcome_cfg = ctx2$config, joint_lock = joint_lock,
-  sosm_lock = sosm_lock, wpr_lock = wpr_lock,
-  rcs_locks = stats::setNames(list(
-    reference_lock_grouped_rcs(train_aug, ia, prov),
-    reference_lock_grouped_rcs(train_aug, ib, prov)
-  ), c(ia, ib)),
-  assoc_ctx = ctx2, models = models, train_ref = train_aug
-))
+db_frames <- list(
+  list(
+    name = "MIMIC_IV", short = "MIMIC-IV", data = mi_prep$ctx$data$imputed,
+    outcome_cfg = mi_prep$ctx$config, joint_lock = joint_lock,
+    sosm_lock = sosm_lock, wpr_lock = wpr_lock, rcs_locks = rcs_locks,
+    assoc_ctx = mi_prep$ctx, models = mi_prep$models, train_ref = train_aug
+  ),
+  list(
+    name = "eICU", short = "eICU", data = ei_prep$ctx$data$imputed,
+    outcome_cfg = ei_prep$ctx$config, joint_lock = joint_lock,
+    sosm_lock = sosm_lock, wpr_lock = wpr_lock, rcs_locks = rcs_locks,
+    assoc_ctx = ei_prep$ctx, models = ei_prep$models, train_ref = train_aug
+  )
+)
+message("db_frames=", paste(vapply(db_frames, `[[`, "", "short"), collapse = "+"))
 
 tmp <- tempfile("redraw_assoc_")
 dir.create(tmp)

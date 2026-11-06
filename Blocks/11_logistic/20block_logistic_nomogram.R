@@ -578,14 +578,16 @@ block_logistic_nomogram <- function(ctx, ...) {
       data, ctx$config, expo, sofa_var, unique(outcome_vars)
     )
   }
-  ## 别名补齐
-  if ("NBPM" %in% names(data) && !"NBPM" %in% cands &&
-      any(c("MBP", "MAP") %in% cands)) {
-    cands <- unique(c(cands, "NBPM"))
-  }
-  if ("TotalCo2" %in% names(data)) {
-    cands <- setdiff(cands, c("Bicarbonate", "bicarbonate"))
-    if (!"TotalCo2" %in% cands) cands <- c(cands, "TotalCo2")
+  ## 别名补齐（仅 shared_clinical 自动池；explicit 名单原样，勿偷加 TotalCo2）
+  if (!identical(cand_mode, "explicit") && !identical(cand_mode, "manual")) {
+    if ("NBPM" %in% names(data) && !"NBPM" %in% cands &&
+        any(c("MBP", "MAP") %in% cands)) {
+      cands <- unique(c(cands, "NBPM"))
+    }
+    if ("TotalCo2" %in% names(data)) {
+      cands <- setdiff(cands, c("Bicarbonate", "bicarbonate"))
+      if (!"TotalCo2" %in% cands) cands <- c(cands, "TotalCo2")
+    }
   }
 
   pool <- unique(c(force_keep, cands))
@@ -701,17 +703,62 @@ block_logistic_nomogram <- function(ctx, ...) {
     )
   }
 
-  ## 主时点校准（S3）
-  B <- as.integer(ng$bootstrap_B %||% 200L)[1L]
+  ## 校准（S3）：Jin 式三时点横排；bootstrap_B 默认 1000
+  B <- as.integer(ng$bootstrap_B %||% 1000L)[1L]
   seed <- as.integer(ng$seed %||% 42L)[1L]
-  cal_path <- file.path(fig_dir, "Figure. Calibration bootstrap in-hospital mortality.pdf")
-  if (!is.null(primary_fit)) {
+  cal_path <- file.path(
+    fig_dir,
+    "Figure. Calibration curves of the nomogram for in-hospital, 30-day and 365-day mortality.pdf"
+  )
+  cal_legacy <- file.path(fig_dir, "Figure. Calibration bootstrap in-hospital mortality.pdf")
+  cal_list <- list()
+  for (hid in names(by_hz)) {
+    sp <- hz_specs[[hid]]
+    fit_h <- by_hz[[hid]]$fit
+    if (is.null(fit_h)) next
+    set.seed(seed)
+    cal_h <- tryCatch(
+      rms::calibrate(fit_h, method = "boot", B = B),
+      error = function(e) NULL
+    )
+    cal_list[[hid]] <- list(
+      cal = cal_h,
+      title = sprintf(
+        "%s. Calibration Curve for %s",
+        as.character(sp$panel %||% hid)[1L],
+        as.character(sp$label %||% hid)[1L]
+      )
+    )
+  }
+  if (length(cal_list)) {
+    grDevices::pdf(cal_path, width = max(6.5, 4.2 * length(cal_list)), height = 4.8)
+    graphics::par(mfrow = c(1L, length(cal_list)), mar = c(5, 4, 3, 1))
+    for (hid in names(cal_list)) {
+      ci <- cal_list[[hid]]
+      if (!is.null(ci$cal)) {
+        plot(
+          ci$cal, legend = FALSE, subtitles = TRUE,
+          xlab = "Predicted Probability", ylab = "Actual Probability",
+          main = ci$title
+        )
+      } else {
+        graphics::plot.new()
+        graphics::title(ci$title)
+      }
+    }
+    grDevices::dev.off()
+    ## 兼容旧 curate 文件名
+    if (!identical(normalizePath(cal_path, winslash = "/", mustWork = FALSE),
+                   normalizePath(cal_legacy, winslash = "/", mustWork = FALSE))) {
+      file.copy(cal_path, cal_legacy, overwrite = TRUE)
+    }
+  } else if (!is.null(primary_fit)) {
     set.seed(seed)
     cal <- tryCatch(
       rms::calibrate(primary_fit, method = "boot", B = B),
       error = function(e) NULL
     )
-    grDevices::pdf(cal_path, width = 6.5, height = 6.5)
+    grDevices::pdf(cal_legacy, width = 6.5, height = 6.5)
     if (!is.null(cal)) {
       plot(cal, legend = FALSE, subtitles = FALSE,
            xlab = "Predicted probability", ylab = "Observed probability",
@@ -721,6 +768,7 @@ block_logistic_nomogram <- function(ctx, ...) {
       graphics::title("Calibration failed")
     }
     grDevices::dev.off()
+    cal_path <- cal_legacy
   }
 
   ## 汇总所选特征

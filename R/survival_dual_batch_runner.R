@@ -223,12 +223,23 @@ survival_batch_realign_mediation_locked <- function(root, config_ix, ix, db,
   cfg_db <- incidence_batch_apply_db_overrides(config_ix, db, root, ix)
   cfg_db$project$root <- config_ix$project$root %||%
     config_ix$project$output_dir %||% root
+  # 指标级暴露：override 后必须写回，否则 mediation 报 exposure 缺失
+  ix <- as.character(ix %||% "")[1L]
+  if (nzchar(ix)) {
+    cfg_db$survival$index_var <- ix
+    cfg_db$logistic$index_var <- ix
+  }
   mp <- cfg_db$mediation_prognosis %||% list()
+  if (nzchar(ix)) mp$exposure <- ix
   mp$best_mediator <- as.character(locked$best_mediator)[1L]
   mp$dual_db_lock_best_mediator <- TRUE
+  mp$dual_db_require_both_significant <-
+    isTRUE(mp$dual_db_require_both_significant %||% TRUE)
   # 强制固定中介集时，两库表行一致；仍各自估计系数
   if (length(locked$mediators %||% character(0))) {
-    mp$mediators <- as.character(locked$mediators)
+    mp[["mediators"]] <- as.character(locked$mediators)
+    mp$mediators_strict_only <- TRUE
+    mp$also_include_lm_sig_mediators <- FALSE
   }
   mp$diagram_palette_random <- FALSE
   if (is.null(mp$diagram_palette) || !nzchar(as.character(mp$diagram_palette)[1L])) {
@@ -418,6 +429,49 @@ survival_batch_apply_gate_e_mediation <- function(root, config_ix, ix, db_seq,
   config_ix$project$root <- config_ix$project$root %||%
     config_ix$project$output_dir %||%
     (bc$output_base %||% root)
+
+  # 若 worker 已写出 list_value，先灌入双库 LM 显著集再取交
+  if (exists("dual_db_save_db_lm_mediators", mode = "function")) {
+    for (db in db_seq) {
+      slot <- tryCatch(
+        dual_db_slot_path_name(config_ix, db),
+        error = function(e) as.character(db)[1L]
+      )
+      lv_cands <- c(
+        file.path(
+          tryCatch(survival_batch_index_pub_root(config_ix, ix), error = function(e) ""),
+          slot, "step29_mediation_prognosis", "list_value.txt"
+        ),
+        file.path(
+          tryCatch(survival_batch_index_pub_root(config_ix, ix), error = function(e) ""),
+          slot, "step28_mediation_prognosis", "list_value.txt"
+        ),
+        file.path(
+          tryCatch(survival_batch_index_pub_root(config_ix, ix), error = function(e) ""),
+          slot, "step23_mediation_prognosis", "list_value.txt"
+        )
+      )
+      # 亦扫任意 step*_mediation_prognosis/list_value.txt
+      pub <- tryCatch(survival_batch_index_pub_root(config_ix, ix), error = function(e) "")
+      if (nzchar(pub) && dir.exists(file.path(pub, slot))) {
+        lv_cands <- c(
+          lv_cands,
+          Sys.glob(file.path(pub, slot, "step*_mediation_prognosis", "list_value.txt"))
+        )
+      }
+      lv <- lv_cands[file.exists(lv_cands)][1L]
+      if (!is.na(lv) && nzchar(lv)) {
+        vars <- unique(trimws(readLines(lv, warn = FALSE)))
+        vars <- vars[nzchar(vars)]
+        if (length(vars)) {
+          dual_db_save_db_lm_mediators(root, config_ix, db, vars)
+        }
+      }
+    }
+    if (exists("dual_db_try_lock_shared_lm_mediators", mode = "function")) {
+      dual_db_try_lock_shared_lm_mediators(root, config_ix, db_seq)
+    }
+  }
 
   locked <- dual_db_lock_shared_best_mediator(
     root, config_ix, db_seq, exposure = ix

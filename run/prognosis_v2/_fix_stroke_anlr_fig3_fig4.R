@@ -17,13 +17,7 @@ source(file.path(.engine, "run/prognosis_v2/stroke_anlr_env.R"), local = FALSE)
 source(file.path(.engine, "R/utils.R"), local = FALSE)
 source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 
-.proj <- {
-  cands <- c(
-    "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
-    "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
-  )
-  cands[dir.exists(cands)][1L]
-}
+.proj <- stroke_anlr_proj()
 .out <- stroke_anlr_out(.proj)
 .days <- stroke_anlr_days()
 .day_lab <- stroke_anlr_day_lab()
@@ -46,7 +40,7 @@ if (!requireNamespace("survminer", quietly = TRUE)) stop("need survminer")
 .qsc_meta <- .lock$meta
 .km_one <- function(d, qv, title) {
   d <- as.data.frame(d)
-  # 28 天终点：用 futime（天），禁止 years 轴
+  # landmark 终点：用 futime（天），禁止 years 轴；横轴上限 = STROKE_ANLR_DAYS
   d$time <- if ("futime" %in% names(d)) as.numeric(d$futime) else as.numeric(d$futime_years) * 365.25
   d$event <- as.integer(d$fustatus)
   d <- d[!is.na(d[[qv]]) & is.finite(d$time) & d$time > 0 & !is.na(d$event), ]
@@ -58,15 +52,17 @@ if (!requireNamespace("survminer", quietly = TRUE)) stop("need survminer")
   p <- pchisq(sd$chisq, length(sd$n) - 1, lower.tail = FALSE)
   plab <- if (p < 0.001) "Log-rank P < 0.001" else sprintf("Log-rank P = %.3f", p)
   pal <- c("#2ca02c", "#ff7f0e", "#9467bd", "#d62728", "#1f77b4")[seq_along(labs)]
-  tmax <- max(28, ceiling(max(d$time, na.rm = TRUE)))
+  tmax <- as.numeric(.days)
+  brk <- if (tmax <= 14) 2 else if (tmax <= 28) 7 else if (tmax <= 90) 14 else 30
   g <- survminer::ggsurvplot(
     fit, data = d, fun = "event", conf.int = FALSE, censor = TRUE, censor.size = 1.6,
     risk.table = TRUE, risk.table.height = 0.28, risk.table.title = "Number at risk",
     pval = FALSE, palette = pal,
     legend = "top", legend.title = .qsc_meta$legend_title %||% .lock$scheme,
     legend.labs = labs,
-    xlab = "Follow-up (days)", ylab = "Cumulative incidence of all-cause mortality",
-    title = title, break.time.by = 7,
+    xlab = "Follow-up (days)",
+    ylab = paste0("Cumulative incidence of ", .endpoint),
+    title = title, break.time.by = brk,
     xlim = c(0, tmax),
     ggtheme = theme_classic(base_size = 11), fontsize = 3.0
   )
@@ -79,30 +75,33 @@ km_plots <- lapply(names(dbs), function(nm) {
 })
 names(km_plots) <- names(dbs)
 
-fig3 <- file.path(.fig, "Figure 3. Cumulative incidence of all-cause mortality by ANLR.pdf")
-if (file.exists(fig3)) file.remove(fig3)
+.fig3_stem <- sprintf("Figure 3. Cumulative incidence of %s by ANLR", .endpoint)
+fig3 <- file.path(.fig, paste0(.fig3_stem, ".pdf"))
+# 清掉旧「未标天数」文件名，避免交付残留 28d 轴版
+old3 <- list.files(.fig, pattern = "^Figure 3\\. Cumulative incidence.*\\.pdf$", full.names = TRUE)
+unlink(old3)
 km_page <- survminer::arrange_ggsurvplots(km_plots, print = FALSE, ncol = 1, nrow = 2, title = NA)
 cairo_pdf(fig3, width = 7.4, height = 10.5, family = "Times")
 print(km_page)
 dev.off()
-message("Fig3 OK (days) -> ", fig3)
+message("Fig3 OK (days=", .days, ") -> ", fig3)
 
 # Fig3 image_information；Fig4–7 由专用 Hip 对齐脚本统一重画
 .write_md <- function(stem, body) {
   writeLines(body, file.path(.out, "Figures", "image_information", paste0(stem, ".md")))
 }
 .write_md(
-  "Figure 3. Cumulative incidence of all-cause mortality by ANLR",
+  .fig3_stem,
   c(
-    "# Figure 3. Cumulative incidence of all-cause mortality by ANLR",
+    paste0("# ", .fig3_stem),
     "",
     "## 图面说明",
     paste0("双库累积发病率（1−KM），分组=", .lock$scheme, "（", paste(.qsc_meta$labels, collapse = "/"), "）。"),
-    "含 Number at risk；图内标注 Log-rank P。横轴 Follow-up (days)（28 天终点）；纵轴 Cumulative incidence of all-cause mortality。",
+    paste0("含 Number at risk；图内标注 Log-rank P。横轴 Follow-up (days)，上限=", .days, " 天（与主终点 ", .endpoint, " 一致）；纵轴 Cumulative incidence of ", .endpoint, "。"),
     "",
     "## 分析上下文",
     "- 暴露: ANLR",
-    "- 结局: 28-day all-cause mortality",
+    paste0("- 结局: ", .endpoint),
     paste0("- Grouping: ", .lock$scheme),
     paste0("- 样本量: MIMIC N=", nrow(dbs$MIMIC), "；eICU N=", nrow(dbs$eICU)),
     "- 数据库: MIMIC + eICU",

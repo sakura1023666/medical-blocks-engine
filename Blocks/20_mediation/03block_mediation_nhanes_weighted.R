@@ -112,7 +112,8 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     cli::cli_alert_info("mediation_nhanes_weighted: Model1 为空，LM/中介按无（或极少）协变量运行。")
   }
 
-  mediators <- bl_cfg$mediators
+  ## 必须 [[ ]]：`$mediators` 会部分匹配 mediators_strict_only
+  mediators <- bl_cfg[["mediators"]]
   # 路径默认 crude；path_use_covariates=TRUE 时用锁定 Model2 / 配置 covariates
   covariates <- if (exists("pipeline_mediation_resolve_path_covariates", mode = "function")) {
     pipeline_mediation_resolve_path_covariates(cfg, bl_cfg, names(design$variables), ctx = ctx)

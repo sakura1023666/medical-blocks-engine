@@ -23,13 +23,7 @@ source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 source(file.path(.engine, "Blocks/20_mediation/01block_mediation_prognosis.R"), local = FALSE)
 
-.proj <- {
-  cands <- c(
-    "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
-    "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
-  )
-  cands[dir.exists(cands)][1L]
-}
+.proj <- stroke_anlr_proj()
 .out <- stroke_anlr_out(.proj)
 .days <- stroke_anlr_days()
 .day_lab <- stroke_anlr_day_lab()
@@ -74,7 +68,8 @@ for (nm in names(dbs)) {
   suppressWarnings(as.numeric(sub("^\\s*([-+0-9.eE]+).*", "\\1", s)))
 }
 
-# Model2 双库均 P<0.05 → 候选；优先严重度评分，再按 mean|beta|
+# Model2 双库均 P<0.05 → 候选
+# 默认优先实验室（非严重度评分），再按 mean|β|；可用 STROKE_ANLR_MEDIATOR 强制点名
 .sev_rank <- c("OASIS", "APSIII", "SOFA", "GCS")
 pick_from <- function(s7_list) {
   tabs <- lapply(names(s7_list), function(nm) {
@@ -90,9 +85,9 @@ pick_from <- function(s7_list) {
                  both$pnum_1 < 0.05 & both$pnum_2 < 0.05, , drop = FALSE]
   if (!nrow(both)) return(NULL)
   both$mean_abs <- rowMeans(cbind(abs(both$bnum_1), abs(both$bnum_2)), na.rm = TRUE)
-  both$sev <- match(both$Mediator, .sev_rank)
-  both$sev[is.na(both$sev)] <- 99L
-  both <- both[order(both$sev, -both$mean_abs), , drop = FALSE]
+  both$is_sev <- both$Mediator %in% .sev_rank
+  # lab first (is_sev=FALSE), then larger |beta|
+  both <- both[order(both$is_sev, -both$mean_abs), , drop = FALSE]
   both
 }
 
@@ -100,13 +95,25 @@ cand <- pick_from(s7_store)
 if (is.null(cand) || !nrow(cand)) {
   stop("No shared Model2-significant mediator in S7 — omit S7/S8/Fig6 (prognosis gate).")
 }
-best_med <- as.character(cand$Mediator[1L])
+force_med <- trimws(Sys.getenv("STROKE_ANLR_MEDIATOR", unset = ""))
+if (nzchar(force_med)) {
+  if (!force_med %in% cand$Mediator) {
+    stop("STROKE_ANLR_MEDIATOR=", force_med, " not in dual-DB Model2-significant set: ",
+         paste(cand$Mediator, collapse = ", "))
+  }
+  best_med <- force_med
+  pick_rule <- paste0("forced STROKE_ANLR_MEDIATOR=", force_med,
+                      "; dual_DB Model2 P<0.05 candidates=", paste(cand$Mediator, collapse = ","))
+} else {
+  best_med <- as.character(cand$Mediator[1L])
+  pick_rule <- "dual_DB Model2 P<0.05 intersection; prefer laboratory over severity, then max mean|beta|"
+}
 message("==== correlation-first pick ====")
 message("Shared Model2-significant: ", paste(cand$Mediator, collapse = ", "))
 message("Locked best mediator: ", best_med)
 writeLines(c(
   paste0("best_mediator=", best_med),
-  paste0("rule=dual_DB Model2 P<0.05 intersection; prefer severity OASIS>APSIII>SOFA>GCS then max mean|beta|"),
+  paste0("rule=", pick_rule),
   paste0("candidates=", paste(cand$Mediator, collapse = ",")),
   "pipeline=S7 correlation then S8 mediation (prognosis routine)"
 ), file.path(.tab, "preferred_mediator.txt"))
@@ -287,23 +294,26 @@ p6_list <- lapply(seq_along(db_order), function(i) {
     ggplot2::ggtitle(paste0(if (i == 1L) "A  " else "B  ", nm)) +
     ggplot2::theme(plot.title = ggplot2::element_text(family = "Times", face = "bold", size = 12, hjust = 0))
 })
-fig6 <- file.path(.fig, "Figure 6. Mediation path diagram of ANLR and all-cause mortality.pdf")
+.fig6_title <- paste0("Mediation path diagram of ANLR and ", .endpoint)
+.fig6_stem <- paste0("Figure 6. ", .fig6_title)
+unlink(list.files(.fig, pattern = "^Figure 6\\. Mediation path diagram.*\\.pdf$", full.names = TRUE))
+fig6 <- file.path(.fig, paste0(.fig6_stem, ".pdf"))
 if (requireNamespace("patchwork", quietly = TRUE)) {
   ggsave(
     fig6,
-    (p6_list[[1]] / p6_list[[2]]) + patchwork::plot_annotation(
-      title = "Mediation path diagram of ANLR and all-cause mortality"
-    ),
+    (p6_list[[1]] / p6_list[[2]]) + patchwork::plot_annotation(title = .fig6_title),
     width = 6.8, height = 8.6, device = cairo_pdf, family = "Times"
   )
 }
+unlink(list.files(file.path(.out, "Figures", "image_information"),
+                   pattern = "^Figure 6\\. Mediation path diagram.*\\.md$", full.names = TRUE))
 writeLines(c(
-  "# Figure 6. Mediation path diagram of ANLR and all-cause mortality",
+  paste0("# ", .fig6_stem),
   "",
   "## 图面说明",
-  paste0("上下两面板（A MIMIC / B eICU）；ANLR (per 1 SD) → ", best_med, " → ", .day_lab, " mortality。"),
+  paste0("上下两面板（A MIMIC / B eICU）；ANLR (per 1 SD) → ", best_med, " → ", .endpoint, "。"),
   "底边箭 = Direct effect HR（与 Table S8 同源）；调整 Age + Gender（Table 3 Model 2）。",
-  paste0("中介 ", best_med, " 由 Table S7 相关性筛选后双库锁定（非预锁 SOFA）。"),
+  paste0("中介 ", best_med, " 由 Table S7 相关性筛选后按预后套路选出（非预锁 SOFA）。"),
   "",
   "## 分析上下文",
   paste0("- 暴露: ANLR"),
@@ -311,37 +321,50 @@ writeLines(c(
   paste0("- 结局: ", .endpoint),
   "- 数据库: MIMIC + eICU",
   "- 是否拼图: 是（上下分库）"
-), file.path(.out, "Figures", "image_information",
-             "Figure 6. Mediation path diagram of ANLR and all-cause mortality.md"))
+), file.path(.out, "Figures", "image_information", paste0(.fig6_stem, ".md")))
 
-# ---- 5) Methods ----
+# ---- 5) Methods：按行整句替换，禁止叠残 ----
 methods <- readLines(file.path(.out, "Methods_statistical_analysis.md"), warn = FALSE)
-methods <- gsub(
-  "SOFA was reserved as the mediator and was not entered in Model 3\\.",
+.med_pick_phrase <- if (nzchar(force_med)) {
+  paste0(best_med, " among dual-database Model 2 P<0.05 candidates (",
+         paste(cand$Mediator, collapse = ", "), ")")
+} else if (best_med %in% .sev_rank) {
+  paste0(best_med, " (severity preferred among dual-database Model 2 P<0.05 candidates: ",
+         paste(cand$Mediator, collapse = ", "), ")")
+} else {
+  paste0(best_med, " (laboratory preferred among dual-database Model 2 P<0.05 candidates: ",
+         paste(cand$Mediator, collapse = ", "), ")")
+}
+cov_i <- which(grepl("Model 3 used a dual-DB harmonized set", methods))[1]
+if (is.finite(cov_i)) {
+  methods[[cov_i]] <- paste0(
+    "Covariates were restricted to columns available in both databases. Model 1 was unadjusted. ",
+    "Model 2 was adjusted for Age and Gender. Model 3 used a dual-DB harmonized set: Age, Gender, ",
+    "and variables retained after Boruta/SHAP screening and VIF within the shared pool (intersection across databases). ",
+    best_med, " was selected as the mediator after Table S7 correlation screening (",
+    .med_pick_phrase, ") and was not entered in Model 3. ANLR component variables were excluded from regression covariates."
+  )
+}
+methods[grepl("^Mediation followed|^Subgroup analyses", methods)] <- NA_character_
+methods <- methods[!is.na(methods)]
+ins <- c(
   paste0(
-    best_med,
-    " was selected as the mediator after Table S7 correlation screening (dual-database Model 2 P<0.05 intersection, severity preferred) and was not entered in Model 3."
+    "Subgroup analyses estimated Q4 versus Q1 contrasts for ", .endpoint,
+    " on the full analytic sample after collapsing middle quartiles (unadjusted within strata), with likelihood-ratio P values for exposure×stratum interactions (Figure 7)."
   ),
-  methods
-)
-methods <- gsub(
-  "Table S8 and Figure 6 then evaluated SOFA as mediator[^.]*(?:\\.|$)",
   paste0(
-    "Table S8 and Figure 6 then evaluated ", best_med,
-    " as the locked mediator with path models adjusted as in Table 3 Model 2 (Age, Gender). "
-  ),
-  methods
-)
-# fallback replace whole mediation paragraph if needed
-if (!any(grepl(best_med, methods, fixed = TRUE))) {
-  methods[grepl("^Mediation followed", methods)] <- paste0(
-    "Mediation followed the prognosis routine: Table S7 first reported associations of ANLR with shared laboratory/severity indicators; ",
-    "the mediator was then locked to ", best_med,
-    " by dual-database Model 2 significance (P<0.05) with severity-score preference; ",
+    "Mediation followed the prognosis routine (correlation first, then mediation): Table S7 first reported associations of ANLR with shared laboratory/severity indicators; ",
+    "the mediator was then selected as ", .med_pick_phrase, "; ",
     "Table S8 and Figure 6 evaluated path models adjusted as in Table 3 Model 2 (Age, Gender). ",
     "Path a was the linear coefficient of ANLR (per 1 SD) on standardized ", best_med,
     "; path b and the Direct effect were Cox log-hazard coefficients. Proportion mediated used bootstrap confidence intervals. Association tables and path diagrams were co-gated."
   )
+)
+ix <- which(grepl("^Sensitivity analysis", methods))[1]
+if (is.finite(ix)) {
+  methods <- c(methods[seq_len(ix - 1L)], ins, methods[ix:length(methods)])
+} else {
+  methods <- c(methods, ins)
 }
 writeLines(methods, file.path(.out, "Methods_statistical_analysis.md"))
 

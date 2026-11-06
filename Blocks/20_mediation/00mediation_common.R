@@ -382,7 +382,7 @@
 
 #' 预设中介是否合并 LM 显著集（双库默认 TRUE，除非 mediators_strict_only）
 .mi02_also_include_lm_sig_mediators <- function(cfg, bl_cfg) {
-  if (isTRUE(bl_cfg$mediators_strict_only %||% FALSE)) return(FALSE)
+  if (isTRUE(bl_cfg[["mediators_strict_only"]] %||% FALSE)) return(FALSE)
   if (!is.null(bl_cfg$also_include_lm_sig_mediators)) {
     return(isTRUE(bl_cfg$also_include_lm_sig_mediators))
   }
@@ -391,7 +391,7 @@
 
 #' 解析锁定中介名（config best_mediator / 双库 preferred）
 .mi02_resolve_best_mediator_name <- function(cfg, bl_cfg = list()) {
-  pin <- as.character(bl_cfg$best_mediator %||% "")[1L]
+  pin <- as.character(bl_cfg[["best_mediator"]] %||% "")[1L]
   if ((!nzchar(pin) || is.na(pin)) &&
       isTRUE((cfg$dual_db %||% list())$enable) &&
       isTRUE(bl_cfg$dual_db_lock_best_mediator %||% TRUE) &&
@@ -624,7 +624,7 @@
     if (any(keep)) final_table <- final_table[keep, , drop = FALSE]
   }
   if (!nrow(final_table)) return(NULL)
-  best_med_cfg <- as.character(bl_cfg$best_mediator %||% "")[1L]
+  best_med_cfg <- as.character(bl_cfg[["best_mediator"]] %||% "")[1L]
   pref_shared <- NA_character_
   if (isTRUE((cfg$dual_db %||% list())$enable) &&
       exists("dual_db_load_preferred_mediator", mode = "function")) {

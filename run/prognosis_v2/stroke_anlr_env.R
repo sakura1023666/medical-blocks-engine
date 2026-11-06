@@ -1,6 +1,6 @@
 # 卒中 ANLR：输出目录 / 结局窗口（由环境变量驱动；默认保持 28d summary_results）
-# STROKE_ANLR_OUT  = summary_results | summary_results_7d | summary_results_14d
-# STROKE_ANLR_DAYS = 28 | 7 | 14
+# STROKE_ANLR_OUT  = summary_results | summary_results_7d|14d|90d|365d
+# STROKE_ANLR_DAYS = 7 | 14 | 28 | 90 | 365
 
 stroke_anlr_proj <- function() {
   cands <- c(

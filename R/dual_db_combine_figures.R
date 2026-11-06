@@ -1077,22 +1077,74 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
           cand <- file.path(r, "R", "dual_db_compose_nomogram_horizons.py")
           if (file.exists(cand)) { py <- cand; break }
         }
+        ## combine_panels=TRUE 时各库 Nomogram 已是单页 A|B|C；
+        ## 专用 2×3 必须用 step_logistic_nomogram 三面板，勿把单页当三页喂入。
+        .nomogram_panel_triplet <- function(db_label) {
+          db_label <- as.character(db_label)[1L]
+          if (!nzchar(db_label)) return(NULL)
+          ## 只在该库目录下找，避免 MIMIC/eICU 面板串库
+          cands <- c(
+            file.path(index_root, db_label),
+            file.path(index_root, gsub(" ", "_", db_label, fixed = TRUE)),
+            file.path(index_root, gsub("_", " ", db_label, fixed = TRUE))
+          )
+          cands <- unique(cands[dir.exists(cands)])
+          for (db_root in cands) {
+            hits <- list.files(
+              db_root,
+              pattern = "^nomogram_panel_A_hosp\\.pdf$",
+              recursive = TRUE, full.names = TRUE
+            )
+            if (!length(hits)) next
+            step_dir <- dirname(hits[[1L]])
+            pa <- file.path(step_dir, "nomogram_panel_A_hosp.pdf")
+            pb <- file.path(step_dir, "nomogram_panel_B_d30.pdf")
+            pc <- file.path(step_dir, "nomogram_panel_C_d365.pdf")
+            if (file.exists(pa) && file.exists(pb) && file.exists(pc)) {
+              return(c(pa, pb, pc))
+            }
+          }
+          NULL
+        }
+        panels_p <- .nomogram_panel_triplet(prim)
+        panels_s <- .nomogram_panel_triplet(sec)
+        if (is.null(panels_p) || is.null(panels_s)) {
+          for (dlab in dbs_have) {
+            trip <- .nomogram_panel_triplet(dlab)
+            if (is.null(trip)) next
+            if (is.null(panels_p)) panels_p <- trip
+            else if (is.null(panels_s) && !identical(trip[[1L]], panels_p[[1L]])) {
+              panels_s <- trip
+            }
+          }
+        }
         if (!is.null(py)) {
           wrote <- isTRUE(tryCatch({
-            st <- system2(
-              "python3",
-              c(
-                py,
-                "--layout", "grid",
-                "--max-edge-in", "16",
+            args <- c(py, "--layout", "grid", "--max-edge-in", "16")
+            if (!is.null(panels_p) && !is.null(panels_s)) {
+              args <- c(
+                args,
+                "--primary-a", normalizePath(panels_p[[1L]], winslash = "/", mustWork = TRUE),
+                "--primary-b", normalizePath(panels_p[[2L]], winslash = "/", mustWork = TRUE),
+                "--primary-c", normalizePath(panels_p[[3L]], winslash = "/", mustWork = TRUE),
+                "--secondary-a", normalizePath(panels_s[[1L]], winslash = "/", mustWork = TRUE),
+                "--secondary-b", normalizePath(panels_s[[2L]], winslash = "/", mustWork = TRUE),
+                "--secondary-c", normalizePath(panels_s[[3L]], winslash = "/", mustWork = TRUE)
+              )
+            } else {
+              args <- c(
+                args,
                 "--primary", normalizePath(src_p, winslash = "/", mustWork = TRUE),
-                "--secondary", normalizePath(src_s, winslash = "/", mustWork = TRUE),
-                "--primary-label", as.character(prim %||% "primary")[1L],
-                "--secondary-label", as.character(sec %||% "secondary")[1L],
-                "--out", normalizePath(out_path, winslash = "/", mustWork = FALSE)
-              ),
-              stdout = TRUE, stderr = TRUE
+                "--secondary", normalizePath(src_s, winslash = "/", mustWork = TRUE)
+              )
+            }
+            args <- c(
+              args,
+              "--primary-label", as.character(prim %||% "primary")[1L],
+              "--secondary-label", as.character(sec %||% "secondary")[1L],
+              "--out", normalizePath(out_path, winslash = "/", mustWork = FALSE)
             )
+            st <- system2("python3", args, stdout = TRUE, stderr = TRUE)
             file.exists(out_path) && isTRUE((file.info(out_path)$size %||% 0) > 1000)
           }, error = function(e) FALSE))
         }

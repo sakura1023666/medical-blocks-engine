@@ -11,7 +11,10 @@ alwaysApply: true
 
 1. **单一清洗入口**：`pipeline_display_label()` / `pipeline_scrub_pub_df()` / `pipeline_scrub_pub_text()`（`R/utils.R`）；`sci_xlsx_single_header_booktabs` 与 Table1 guan-style 已挂去下划线。
 2. **画图**：facet / 轴标签 / forest 变量列须走展示名（课题 `display_labels` 或字典），禁止把裸列名直接 `facet_grid(feature ~ .)`。
-3. **质控**：`run/pub/run_pub_qc_after_project.R` 扫描 xlsx 与 image_information；命中下划线 → WARN（Agent 须修）。
+3. **质控（引擎 P0）**：`R/pub_qc_underscore.R` → `pub_qc_scan_underscores` 挂在
+   `pub_qc_run_after_project` **Layer A3**；扫描交付 `Tables/*.xlsx`、`Figures/pdf`
+  （pdftotext）、`Figures/image_information/*.md`。命中临床/编程展示下划线 →
+   **STRUCT_FAIL / P0**（不得 PASS）。白名单仅限 `P_linear` 等统计标注与引擎内部词。
 4. **禁止**课题再写一套 `gsub("_"," ")` 长期分叉；一次性 hotfix 用完归档。
 
 ## 检查清单
@@ -20,3 +23,4 @@ alwaysApply: true
 - [ ] Fig 轴/条带无 `*_`
 - [ ] image_information 无 `_`
 - [ ] 脚注不写磁盘文件名式 `Methods_xxx.txt`
+- [ ] `run_pub_qc_after_project.R` 报告「展示禁下划线门控：PASS」

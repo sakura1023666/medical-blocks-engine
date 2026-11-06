@@ -52,7 +52,12 @@ assoc_timeout <- suppressWarnings(as.numeric(arg_value("--assoc-timeout", "2400"
 if (!nzchar(config_path) || !file.exists(config_path)) {
   stop("--config 必须指向存在的研究 config.R", call. = FALSE)
 }
-authorized_indices <- c("SOSM+WPR", "ACAG+RAR", "SAR+CrCV", "CHG+GV")
+authorized_indices <- c(
+  "SOSM+WPR", "ACAG+RAR", "SAR+CrCV", "CHG+GV",
+  "HRR+Hemoglobin_CV",  # 同轴复合+CV（2026-11；对齐 SAR+CrCV 终稿版式）
+  # 同轴其余 success（用户 2026-11-06 批量终稿）
+  "RAR+Albumin_CV", "LactAlb+Lactate_CV", "NLR+WBC_CV", "GAR+GV"
+)
 if (!index_label %in% authorized_indices) {
   stop("本终稿构建仅授权 --index 为: ", paste(authorized_indices, collapse = ", "),
        call. = FALSE)
@@ -486,9 +491,19 @@ eicu_in <- list(
 ## A) Figure 1 + Task4 关联全套（Fig2-6 / Table2 / S4-S10）+ Table1 / S1 / S2
 ## ---------------------------------------------------------------------------
 r <- run_stage("figure1_flowchart", 300, {
-  ## 标准预后纳排（outcome 分叉）；不写插补后人数。
+  ## 标准预后纳排（outcome 分叉）。起点必须用 attrition CSV 首步 n，
+  ## 禁止把分析集当起点再写「排除 n=0」（HRR/Hemoglobin_CV 等会丢不可算行）。
   source(file.path(engine_root, "R/attrition_log.R"), local = FALSE)
   fmtn <- function(x) format(as.integer(x), big.mark = ",")
+  start_n_from_csv <- function(csv_path) {
+    rr <- utils::read.csv(csv_path, stringsAsFactors = FALSE, check.names = FALSE)
+    if (!nrow(rr) || !"n" %in% names(rr)) {
+      stop("attrition CSV 无 n 列: ", csv_path, call. = FALSE)
+    }
+    as.integer(rr$n[[1L]])
+  }
+  n0_mi <- start_n_from_csv(mimic_csv)
+  n0_ei <- start_n_from_csv(eicu_csv)
   mi_d <- mimic_in$analysis
   ei_d <- eicu_in$analysis
   death_lab <- function(d) {
@@ -499,34 +514,39 @@ r <- run_stage("figure1_flowchart", 300, {
     y <- as.character(d$fustatus)
     sum(y %in% c("0", "Survivor"), na.rm = TRUE)
   }
-  age_lt18 <- function(d) {
-    a <- suppressWarnings(as.numeric(as.character(d$Age)))
-    sum(is.finite(a) & a < 18, na.rm = TRUE)
-  }
-  mk_panel <- function(letter, db_lab, d) {
+  mk_panel <- function(letter, db_lab, d, n_start) {
     n <- nrow(d)
     n_d <- death_lab(d)
     n_a <- alive_lab(d)
-    n_ped <- age_lt18(d)
+    n_start <- as.integer(n_start)[1L]
+    if (!is.finite(n_start) || n_start < n) {
+      stop(sprintf("%s attrition 起点 n=%s < 分析集 n=%s（CSV 与 analysis 不一致）",
+                   db_lab, n_start, n), call. = FALSE)
+    }
+    n_miss <- as.integer(n_start - n)
+    side1 <- if (n_miss > 0L) {
+      sprintf("Missing %s / %s\ncomponents\n(n = %s)",
+              INDEX_A, INDEX_B, fmtn(n_miss))
+    } else {
+      "No exposure exclusion\n(n = 0)"
+    }
     list(
       letter = paste(letter, db_lab),
-      top = sprintf("Adult ICU admissions with AKI\nin %s\n(n = %s)", db_lab, fmtn(n)),
+      top = sprintf("Adult ICU admissions with AKI\nin %s\n(n = %s)",
+                    db_lab, fmtn(n_start)),
+      # mid/inc 同 n 时只留纳入框（绘图层自动合并，避免上下重复）
       mid = sprintf("Complete %s and %s\nwith 28-day vital status\n(n = %s)",
                     INDEX_A, INDEX_B, fmtn(n)),
       inc = sprintf("Included in final analysis\n(n = %s)", fmtn(n)),
-      side1 = if (n_ped > 0L) {
-        sprintf("Age < 18 years\n(n = %s)", fmtn(n_ped))
-      } else {
-        "No age exclusion\n(n = 0)"
-      },
-      side2 = "No further exclusion\n(n = 0)",
+      side1 = side1,
+      side2 = "",
       death = sprintf("28-day death\n(n = %s)", fmtn(n_d)),
       alive = sprintf("Survivor\n(n = %s)", fmtn(n_a))
     )
   }
   panels <- list(
-    mk_panel("A", "MIMIC-IV", mi_d),
-    mk_panel("B", "eICU", ei_d)
+    mk_panel("A", "MIMIC-IV", mi_d, n0_mi),
+    mk_panel("B", "eICU", ei_d, n0_ei)
   )
   fig_dir <- file.path(staging, "Figures")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
@@ -536,7 +556,8 @@ r <- run_stage("figure1_flowchart", 300, {
   dir.create(dirname(csv_path), recursive = TRUE, showWarnings = FALSE)
   attrition_draw_outcome_figure(dest, panels, width = 15.6, height = 6.35,
                                 family = "Times", csv_path = csv_path)
-  sprintf("target=%s style=outcome_no_imputation", basename(dest))
+  sprintf("target=%s style=outcome_from_attrition_start miss_mi=%s miss_ei=%s",
+          basename(dest), fmtn(n0_mi - nrow(mi_d)), fmtn(n0_ei - nrow(ei_d)))
 })
 
 r <- run_stage("task4_ref_assoc_all", assoc_timeout, {
@@ -1568,13 +1589,21 @@ run_stage("manifest_readme", 300, {
       verification[i] <- "MISSING"
     } else if (grepl("figure", kind)) {
       stem <- sub("\\.pdf$", "", basename(tf))
+      p_pdf <- file.exists(file.path(staging, "Figures", "pdf", paste0(stem, ".pdf")))
       p_png <- file.exists(file.path(staging, "Figures", "png", paste0(stem, ".png")))
       p_tif <- file.exists(file.path(staging, "Figures", "tiff", paste0(stem, ".tiff")))
       p_md <- file.exists(file.path(staging, "Figures", "image_information",
                                     paste0(stem, ".md")))
-      verification[i] <- sprintf("four_formats=pdf:TRUE,png:%s,tiff:%s,md:%s",
-                                 p_png, p_tif, p_md)
-      if (!(p_png && p_tif && p_md)) status[i] <- paste0(status[i], "|FORMAT_FAIL")
+      # 2026-11 铁律：默认只交 PDF + image_information；png/tiff 仅 config 显式开启才硬检
+      want_png <- isTRUE(cfg$pub_figures$export_png)
+      want_tif <- isTRUE(cfg$pub_figures$export_tiff)
+      verification[i] <- sprintf(
+        "formats=pdf:%s,png:%s,tiff:%s,md:%s;require_png=%s,require_tiff=%s",
+        p_pdf, p_png, p_tif, p_md, want_png, want_tif
+      )
+      fmt_ok <- isTRUE(p_pdf) && isTRUE(p_md) &&
+        (!want_png || isTRUE(p_png)) && (!want_tif || isTRUE(p_tif))
+      if (!fmt_ok) status[i] <- paste0(status[i], "|FORMAT_FAIL")
     } else {
       v <- pub_xlsx_verify(file.path(staging, tf))
       verification[i] <- sprintf("readable=%s,corrupt_cells=%s,styles=%s",
@@ -1690,8 +1719,13 @@ if (!r_90$ok) {
 ## 终检（全部必需角色就位，无 *_FAIL/missing；四目录齐；16 图 18 表）
 g <- run_stage("final_gate", 120, {
   mdf <- manifest_df
+  # S13–S16 为 legacy 性能附表；smoke/overall 缺源时允许缺（finalize 会从既有表重编号）
+  soft_missing <- (mdf$kind == "table_supp" &
+                     mdf$number %in% as.character(13:16) &
+                     mdf$status == "missing")
   bad_mask <- grepl("_FAIL|missing", mdf$status) &
-    !grepl("omitted_overall_only", mdf$status)
+    !grepl("omitted_overall_only", mdf$status) &
+    !soft_missing
   if (any(bad_mask)) {
     bad <- mdf[bad_mask, c("kind", "number", "status")]
     stop("硬失败角色（拒绝替换）: ",

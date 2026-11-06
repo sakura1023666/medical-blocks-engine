@@ -382,8 +382,13 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
   bl_cfg <- cfg$mediation_prognosis %||% list()
   surv_cfg <- cfg$survival %||% list()
 
-  exposure <- exposure %||% bl_cfg$exposure %||% surv_cfg$index_var %||% cfg$logistic$index_var
-  mediators <- mediators %||% bl_cfg$mediators
+  exposure <- exposure %||% bl_cfg[["exposure"]] %||% surv_cfg$index_var %||%
+    cfg$logistic$index_var %||% cfg$survival$index_var
+  if (is.null(exposure) || !nzchar(as.character(exposure)[1L])) {
+    exposure <- as.character(cfg$project$index_var %||% "")[1L]
+  }
+  ## 必须 [[ ]]：`$mediators` 会部分匹配到 mediators_strict_only=FALSE，跳过 LM 筛
+  mediators <- mediators %||% bl_cfg[["mediators"]]
   covariates <- if (exists("pipeline_mediation_resolve_path_covariates", mode = "function")) {
     pipeline_mediation_resolve_path_covariates(cfg, bl_cfg, names(data), ctx = ctx)
   } else {
@@ -398,6 +403,10 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
     Index <- exposure
     # 与发病 / NHANES 同一实验室池：禁止把饮酒/婚姻/身高/血压等扫进关联表
     var_input <- .mi02_resolve_lab_indicator_pool(cfg, bl_cfg, a, exposure)
+    # 双库：关联候选先取共享实验室池（两库相关性变量一致）
+    if (exists(".mi02_apply_dual_shared_lab_pool", mode = "function")) {
+      var_input <- .mi02_apply_dual_shared_lab_pool(cfg, bl_cfg, var_input, a)
+    }
     b <- bl_cfg$lm_screen_exclude_vars
     if (is.null(b) || length(b) == 0L) {
       b <- character(0)
@@ -630,14 +639,120 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
       list_path <- file.path(ctx$output_dir, "list_value.txt")
       writeLines(mediators, list_path)
     }
+
+    # 双库：落盘本库 LM 显著集；两侧齐后取交，中介/关联表同一套变量
+    if (isTRUE((cfg$dual_db %||% list())$enable) &&
+        isTRUE(bl_cfg$dual_db_lock_shared_lm_mediators %||% TRUE) &&
+        length(mediators) > 0L &&
+        exists("dual_db_save_db_lm_mediators", mode = "function")) {
+      root_m <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
+      # current_db = 内部槽位 nhanes/mimic（显示名 MIMIC/eICU 另见 name）
+      db_slot <- as.character((cfg$dual_db %||% list())$current_db %||% "")[1L]
+      if (nzchar(db_slot)) {
+        dual_db_save_db_lm_mediators(root_m, cfg, db_slot, mediators)
+        db_seq <- c(
+          if (exists("dual_db_slot_primary", mode = "function")) {
+            dual_db_slot_primary()
+          } else {
+            "nhanes"
+          },
+          if (exists("dual_db_slot_secondary", mode = "function")) {
+            dual_db_slot_secondary()
+          } else {
+            "mimic"
+          }
+        )
+        shared_lm <- dual_db_try_lock_shared_lm_mediators(root_m, cfg, db_seq)
+        if (!length(shared_lm)) {
+          shared_lm <- dual_db_load_shared_lm_mediators(root_m, cfg)
+        }
+        if (length(shared_lm)) {
+          before_n <- length(mediators)
+          mediators <- unique(intersect(mediators, shared_lm))
+          cli::cli_alert_info(
+            "双库 LM 显著交集：本库 {before_n} → 共享 {length(mediators)}（{paste(mediators, collapse = ', ')}）"
+          )
+          if (length(mediators) > 0L) {
+            writeLines(mediators, file.path(ctx$output_dir, "list_value.txt"))
+          }
+          # 关联表只保留共享显著变量（两库同变量）
+          rt0 <- ctx$results$mediation_prognosis_correlation_lm_rt
+          if (!is.null(rt0) && exists(".mi02_assoc_rt_keep_variables", mode = "function")) {
+            ctx$results$mediation_prognosis_correlation_lm_rt <-
+              .mi02_assoc_rt_keep_variables(rt0, mediators)
+          }
+        } else {
+          cli::cli_alert_info(
+            "双库 LM 显著交集：对侧尚未写入，本库先按本地显著集跑；闸门 E 对齐后重跑统一"
+          )
+        }
+      }
+    }
   }
 
-  if (is.null(exposure))
   if (is.null(exposure)) stop("Please specify 'exposure' (independent variable)")
   if (is.null(mediators) || length(mediators) == 0) {
     cli::cli_alert_warning("No mediators available. Skipping mediation analysis.")
     .mi02_unlink_mediation_exports(ctx)
     return(ctx)
+  }
+
+  # Gate E 预设中介时：关联表若缺则按中介集补跑精简 LM，保证两库相关变量=中介变量
+  if (is.null(ctx$results$mediation_prognosis_correlation_lm_rt) &&
+      length(mediators) > 0L &&
+      isTRUE(bl_cfg$export_lab_assoc_for_preset_mediators %||% TRUE)) {
+    if (exists(".mi02_assoc_rt_keep_variables", mode = "function")) {
+      # 占位：导出时若仍无 rt 则跳过；真实补跑由下方轻量循环
+    }
+    a_nms <- names(data)
+    meds_lm <- intersect(as.character(mediators), a_nms)
+    if (length(meds_lm)) {
+      Model2 <- ctx$results$Model2Factors %||% character(0)
+      Model2 <- unique(intersect(as.character(Model2), a_nms))
+      adj <- if (exists("pipeline_mediation_lm_adjustors", mode = "function")) {
+        pipeline_mediation_lm_adjustors(ctx, data_names = a_nms)
+      } else {
+        list(m1 = if (length(Model2)) Model2[1L] else character(0), m2 = Model2)
+      }
+      # 复用本文件内已定义的 Tb_ModelGroup3_Corlm 仅在 LM 分支；此处用简易 lm 表
+      .quick_lm_rt <- function(cor_name) {
+        y <- exposure
+        d2 <- data
+        if (is.numeric(d2[[cor_name]])) d2[[cor_name]] <- as.numeric(scale(d2[[cor_name]]))
+        mk <- function(fml) {
+          fit <- tryCatch(lm(fml, data = d2), error = function(e) NULL)
+          if (is.null(fit)) return(c(NA, NA, NA))
+          sm <- summary(fit)$coefficients
+          rn <- rownames(sm)
+          use <- if (cor_name %in% rn) cor_name else rn[startsWith(rn, cor_name) & rn != "(Intercept)"][1L]
+          if (is.na(use) || !nzchar(use) || !(use %in% rn)) return(c(NA, NA, NA))
+          ci <- tryCatch(confint(fit), error = function(e) NULL)
+          ci_s <- if (!is.null(ci) && use %in% rownames(ci)) {
+            paste0("(", round(ci[use, 1], 3), ",", round(ci[use, 2], 3), ")")
+          } else NA_character_
+          c(round(sm[use, 1], 3), ci_s, round(sm[use, 4], 3))
+        }
+        r1 <- mk(as.formula(paste0(y, "~", cor_name)))
+        rhs1 <- unique(c(cor_name, adj$m1)); rhs1 <- rhs1[rhs1 != y]
+        r2 <- mk(as.formula(paste0(y, "~", paste(rhs1, collapse = "+"))))
+        rhs2 <- unique(c(cor_name, adj$m2)); rhs2 <- rhs2[rhs2 != y]
+        r3 <- mk(as.formula(paste0(y, "~", paste(rhs2, collapse = "+"))))
+        cbind(
+          c(cor_name, "Crude Model", "Model1", "Model2"),
+          c("", as.character(r1[1]), as.character(r2[1]), as.character(r3[1])),
+          c("", as.character(r1[2]), as.character(r2[2]), as.character(r3[2])),
+          c("", as.character(r1[3]), as.character(r2[3]), as.character(r3[3]))
+        )
+      }
+      rt_list2 <- lapply(meds_lm, .quick_lm_rt)
+      rt2 <- data.frame(do.call(rbind, rt_list2), stringsAsFactors = FALSE)
+      colnames(rt2) <- c("variable", "β per 1-SD", "95% CI", "P value")
+      rt2[["P value"]][which(rt2[["P value"]] == "0")] <- "< 0.001"
+      ctx$results$mediation_prognosis_correlation_lm_rt <- rt2
+      cli::cli_alert_info(
+        "预设中介：已补跑关联表（{length(meds_lm)} 个，与中介表同变量）"
+      )
+    }
   }
 
 
@@ -1111,7 +1226,7 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
   index_name <- cfg$logistic$index_var %||% exposure
 
   # 路径图指定中介置顶，保证表首行与 Figure S3 同一中介
-  pin_med <- as.character(bl_cfg$best_mediator %||% "")[1L]
+  pin_med <- as.character(bl_cfg[["best_mediator"]] %||% "")[1L]
   if (!nzchar(pin_med) && isTRUE((cfg$dual_db %||% list())$enable) &&
       exists("dual_db_load_preferred_mediator", mode = "function")) {
     root_pin <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
@@ -1176,7 +1291,7 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
 
   diagram_enable <- isTRUE(bl_cfg$diagram_enable %||% TRUE)
   if (diagram_enable && nrow(final_table) > 0L) {
-    best_med_cfg <- as.character(bl_cfg$best_mediator %||% "")[1L]
+    best_med_cfg <- as.character(bl_cfg[["best_mediator"]] %||% "")[1L]
     # 双库对齐：共享 preferred → config best_mediator → 本库 Prop_Med 最大
     pref_shared <- NA_character_
     if (isTRUE((cfg$dual_db %||% list())$enable) &&

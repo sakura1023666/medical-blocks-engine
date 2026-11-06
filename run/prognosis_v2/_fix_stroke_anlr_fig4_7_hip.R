@@ -21,13 +21,7 @@ source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 source(file.path(.engine, "R/subgroup_forest_plot.R"), local = FALSE)
 source(file.path(.engine, "Blocks/20_mediation/01block_mediation_prognosis.R"), local = FALSE)
 
-.proj <- {
-  cands <- c(
-    "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
-    "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
-  )
-  cands[dir.exists(cands)][1L]
-}
+.proj <- stroke_anlr_proj()
 .out <- stroke_anlr_out(.proj)
 .days <- stroke_anlr_days()
 .day_lab <- stroke_anlr_day_lab()
@@ -152,7 +146,7 @@ p5 <- ggplot(roc, aes(fpr, tpr, color = curve)) +
     plot.title = element_text(size = 11, face = "bold", margin = margin(b = 6))
   )
 ggsave(
-  file.path(.fig, paste0("Figure 5. Receiver operating characteristic curves for ", .endpoint, ".pdf")),
+  file.path(.fig, sprintf("Figure 5. Receiver operating characteristic curves for %s.pdf", .endpoint)),
   p5, width = 6.2, height = 5.6, device = cairo_pdf, family = "Times"
 )
 message("Fig5 OK")
@@ -220,13 +214,13 @@ db_order <- intersect(c("MIMIC", "eICU"), names(dbs))
 med_res <- lapply(db_order, function(nm) .med_fit_z(dbs[[nm]], IDX))
 names(med_res) <- db_order
 p6_list <- Map(.draw_med, med_res, paste0(c("A  ", "B  "), db_order))
-fig6 <- file.path(.fig, "Figure 6. Mediation path diagram of ANLR and all-cause mortality.pdf")
+.fig6_title <- paste0("Mediation path diagram of ANLR and ", .endpoint)
+unlink(list.files(.fig, pattern = "^Figure 6\\. Mediation path diagram.*\\.pdf$", full.names = TRUE))
+fig6 <- file.path(.fig, paste0("Figure 6. ", .fig6_title, ".pdf"))
 if (requireNamespace("patchwork", quietly = TRUE)) {
   ggsave(
     fig6,
-    (p6_list[[1]] / p6_list[[2]]) + patchwork::plot_annotation(
-      title = "Mediation path diagram of ANLR and all-cause mortality"
-    ),
+    (p6_list[[1]] / p6_list[[2]]) + patchwork::plot_annotation(title = .fig6_title),
     width = 6.8, height = 8.6, device = cairo_pdf, family = "Times"
   )
 } else {
@@ -388,7 +382,7 @@ p7 <- ggplot() +
   scale_y_discrete(drop = TRUE) +
   labs(
     x = sprintf("Hazard ratio (%s, log scale)", .contrast_lab), y = NULL,
-    title = "Subgroup analyses of ANLR and all-cause mortality"
+    title = paste0("Subgroup analyses of ANLR and ", .endpoint)
   ) +
   theme_bw(base_family = "Times", base_size = 11) +
   theme(
@@ -398,8 +392,9 @@ p7 <- ggplot() +
     panel.grid.minor = element_blank(),
     plot.title = element_text(face = "bold", size = 11)
   )
+unlink(list.files(.fig, pattern = "^Figure 7\\. Subgroup analyses.*\\.pdf$", full.names = TRUE))
 ggsave(
-  file.path(.fig, "Figure 7. Subgroup analyses of ANLR and all-cause mortality.pdf"),
+  file.path(.fig, paste0("Figure 7. Subgroup analyses of ANLR and ", .endpoint, ".pdf")),
   p7, width = 11.2, height = 6.6, device = cairo_pdf, family = "Times"
 )
 message("Fig7 OK")
@@ -433,9 +428,9 @@ message("Fig7 OK")
   )
 )
 .write_md(
-  "Figure 5. Receiver operating characteristic curves for 28-day all-cause mortality",
+  sprintf("Figure 5. Receiver operating characteristic curves for %s", .endpoint),
   c(
-    "# Figure 5. Receiver operating characteristic curves for 28-day all-cause mortality",
+    paste0("# Figure 5. Receiver operating characteristic curves for ", .endpoint),
     "",
     "## 图面说明",
     "单画面双曲线（MIMIC / eICU），Cox 线性预测子 ROC；图例仅 AUC。",
@@ -449,14 +444,14 @@ message("Fig7 OK")
   )
 )
 .write_md(
-  "Figure 6. Mediation path diagram of ANLR and all-cause mortality",
+  paste0("Figure 6. Mediation path diagram of ANLR and ", .endpoint),
   c(
-    "# Figure 6. Mediation path diagram of ANLR and all-cause mortality",
+    paste0("# Figure 6. Mediation path diagram of ANLR and ", .endpoint),
     "",
     "## 图面说明",
-    paste0("上下两面板（A MIMIC / B eICU）；ANLR (per 1 SD) → ", .best_med, " → 28-day mortality。"),
+    paste0("上下两面板（A MIMIC / B eICU）；ANLR (per 1 SD) → ", .best_med, " → ", .endpoint, "。"),
     "底边箭 = Direct effect HR（与 Table S8 同源）；调整 Age + Gender（Table 3 Model 2）。",
-    paste0("中介由 Table S7 相关性筛选后双库锁定为 ", .best_med, "。"),
+    paste0("中介由 Table S7 相关性筛选后按预后套路选出为 ", .best_med, "（非预锁 SOFA）。"),
     "版式对齐 Hip 马卡龙路径图。",
     "",
     "## 分析上下文",
@@ -468,12 +463,12 @@ message("Fig7 OK")
   )
 )
 .write_md(
-  "Figure 7. Subgroup analyses of ANLR and all-cause mortality",
+  paste0("Figure 7. Subgroup analyses of ANLR and ", .endpoint),
   c(
-    "# Figure 7. Subgroup analyses of ANLR and all-cause mortality",
+    paste0("# Figure 7. Subgroup analyses of ANLR and ", .endpoint),
     "",
     "## 图面说明",
-    paste0("双库 facet 森林图；对比 ", .contrast_lab, "（中间分位并为 Middle，全样本估计）。"),
+    paste0("双库 facet 森林图；主终点=", .endpoint, "；对比 ", .contrast_lab, "（中间分位并为 Middle，全样本估计）。"),
     "层内未调整；分层标题行标注 P-int。分层：Age / Sex / Hypertension / Diabetes / SOFA。",
     "版式对齐 Hip Figure 7。",
     "",

@@ -18,13 +18,7 @@ source(file.path(.engine, "run/prognosis_v2/stroke_anlr_env.R"), local = FALSE)
 source(file.path(.engine, "R/utils.R"), local = FALSE)
 source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 
-.proj <- {
-  cands <- c(
-    "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
-    "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
-  )
-  cands[dir.exists(cands)][1L]
-}
+.proj <- stroke_anlr_proj()
 .out <- stroke_anlr_out(.proj)
 .days <- stroke_anlr_days()
 .day_lab <- stroke_anlr_day_lab()
@@ -173,11 +167,14 @@ for (i in seq_along(db_order)) {
   panels[[nm]] <- .draw_one(sg[sg$Database == nm, , drop = FALSE], paste0(LETTERS[i], "  ", nm))
 }
 
-fig7 <- file.path(.fig, "Figure 7. Subgroup analyses of ANLR and all-cause mortality.pdf")
+.fig7_title <- paste0("Subgroup analyses of ANLR and ", .endpoint)
+.fig7_stem <- paste0("Figure 7. ", .fig7_title)
+unlink(list.files(.fig, pattern = "^Figure 7\\. Subgroup analyses.*\\.pdf$", full.names = TRUE))
+fig7 <- file.path(.fig, paste0(.fig7_stem, ".pdf"))
 cairo_pdf(fig7, width = 10.8, height = 5.4, family = "Times")
 grid.newpage()
 grid.text(
-  "Subgroup analyses of ANLR and all-cause mortality",
+  .fig7_title,
   x = 0.5, y = 0.985, gp = gpar(fontsize = 11, fontface = "bold", fontfamily = "Times")
 )
 n_p <- length(panels)
@@ -205,12 +202,14 @@ message(paste(pdfinfo[grepl("Pages|Page size", pdfinfo)], collapse = " | "))
 }
 overall_m <- sg[sg$Database == "MIMIC" & sg$row_lab == "Overall", ][1, ]
 overall_e <- sg[sg$Database == "eICU" & sg$row_lab == "Overall", ][1, ]
+unlink(list.files(file.path(.out, "Figures", "image_information"),
+                   pattern = "^Figure 7\\. Subgroup analyses.*\\.md$", full.names = TRUE))
 writeLines(c(
-  "# Figure 7. Subgroup analyses of ANLR and all-cause mortality",
+  paste0("# ", .fig7_stem),
   "",
   "## 图面说明",
-  "双库并列（A MIMIC / B eICU）forestploter 亚组森林图，版式对齐原文：",
-  "Subgroup | 森林（绿菱形）| HR (95% CI) | P for interaction。",
+  paste0("双库并列（A MIMIC / B eICU）forestploter 亚组森林图；主终点=", .endpoint, "。"),
+  "版式：Subgroup | 森林（绿菱形）| HR (95% CI) | P for interaction。",
   "对比为 Q4 vs Q1（中间分位并为 Middle，全样本估计）；层内未调整。",
   "分层：Overall、Age（<65 / ≥65）、Sex、Hypertension、Diabetes、SOFA（<6 / ≥6）。",
   "标题行仅显示 P for interaction；水平行显示 HR 点与 CI。不可估层显示 NE。",
@@ -234,13 +233,12 @@ writeLines(c(
   "",
   "## 分析上下文",
   "- 暴露: ANLR (Q4 vs Q1)",
-  "- 结局: 28-day all-cause mortality",
+  paste0("- 结局: ", .endpoint),
   "- 样本量: MIMIC n=862; eICU n=1,860",
   "- 数据库: MIMIC + eICU",
   "- Grouping: quartile (Q4 vs Q1)",
   "- 是否拼图: 是（左右分库）"
-), file.path(.out, "Figures", "image_information",
-             "Figure 7. Subgroup analyses of ANLR and all-cause mortality.md"))
+), file.path(.out, "Figures", "image_information", paste0(.fig7_stem, ".md")))
 
 pub_figure_ensure_formats(
   file.path(.out, "Figures"),

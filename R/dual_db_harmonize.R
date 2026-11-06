@@ -17,6 +17,70 @@ dual_db_shared_lab_indicator_pool_path <- function(root, cfg) {
   file.path(dual_db_harmonization_dir(root, cfg), "shared_lab_indicator_pool.rds")
 }
 
+dual_db_shared_lm_mediators_path <- function(root, cfg) {
+  file.path(dual_db_harmonization_dir(root, cfg), "shared_lm_mediators.rds")
+}
+
+dual_db_db_lm_mediators_path <- function(root, cfg, db) {
+  db <- as.character(db %||% "")[1L]
+  if (!nzchar(db)) db <- "unknown"
+  file.path(dual_db_harmonization_dir(root, cfg), paste0("lm_mediators_", db, ".rds"))
+}
+
+dual_db_save_db_lm_mediators <- function(root, cfg, db, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  dir <- dual_db_harmonization_dir(root, cfg)
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  saveRDS(
+    list(db = as.character(db)[1L], vars = vars, saved_at = Sys.time()),
+    dual_db_db_lm_mediators_path(root, cfg, db)
+  )
+  invisible(TRUE)
+}
+
+dual_db_load_db_lm_mediators <- function(root, cfg, db) {
+  path <- dual_db_db_lm_mediators_path(root, cfg, db)
+  if (!file.exists(path)) return(character(0))
+  obj <- tryCatch(readRDS(path), error = function(e) NULL)
+  as.character(obj$vars %||% character(0))
+}
+
+dual_db_save_shared_lm_mediators <- function(root, cfg, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  dir <- dual_db_harmonization_dir(root, cfg)
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  saveRDS(
+    list(vars = vars, saved_at = Sys.time()),
+    dual_db_shared_lm_mediators_path(root, cfg)
+  )
+  invisible(TRUE)
+}
+
+dual_db_load_shared_lm_mediators <- function(root, cfg) {
+  path <- dual_db_shared_lm_mediators_path(root, cfg)
+  if (!file.exists(path)) return(character(0))
+  obj <- tryCatch(readRDS(path), error = function(e) NULL)
+  as.character(obj$vars %||% character(0))
+}
+
+#' 两库 LM 显著中介取交并落盘；任一侧未写入则返回 character(0)
+dual_db_try_lock_shared_lm_mediators <- function(root, cfg, db_seq) {
+  if (!isTRUE((cfg$dual_db %||% list())$enable)) return(character(0))
+  if (length(db_seq) < 2L) return(character(0))
+  lists <- lapply(db_seq, function(db) dual_db_load_db_lm_mediators(root, cfg, db))
+  if (any(!vapply(lists, length, integer(1L)))) return(character(0))
+  common <- Reduce(intersect, lists)
+  dual_db_save_shared_lm_mediators(root, cfg, common)
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success(
+      "双库 LM 显著中介交集已锁定：{length(common)} 个（{paste(head(common, 8), collapse = ', ')}{if (length(common) > 8) '...' else ''}）"
+    )
+  }
+  common
+}
+
 dual_db_save_shared_lab_indicator_pool <- function(root, cfg, vars) {
   vars <- unique(as.character(vars %||% character(0)))
   vars <- vars[nzchar(vars)]
@@ -152,7 +216,8 @@ dual_db_load_mediation_result_table <- function(root, cfg, db_name,
 }
 
 #' 双库锁定同一路径图中介：
-#' 取两库 Mediator 交集，按两库 Prop_Med 均值最大者（优先均值为正）。
+#' 1) 中介表行集优先 = 双库 LM 显著交集（shared_lm_mediators；否则表内 Mediator 交集）
+#' 2) 路径图 best = 两库 path a/b/indirect 均显著者中，双库 Prop_Med 均值最大（优先均值为正）
 #' @return list(best_mediator, mediators, score, detail) 或 NULL
 dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "mimic"),
                                               exposure = NULL) {
@@ -165,6 +230,9 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
       (cfg$survival %||% list())$index_var %||%
       (cfg$logistic %||% list())$index_var %||% ""
   )[1L]
+  alpha <- as.numeric(bl$mediation_path_alpha %||% 0.05)[1L]
+  if (!is.finite(alpha)) alpha <- 0.05
+  require_both_sig <- isTRUE(bl$dual_db_require_both_significant %||% TRUE)
 
   .clean_meds <- function(tbl) {
     if (is.null(tbl) || !is.data.frame(tbl) || !nrow(tbl)) return(character(0))
@@ -188,6 +256,26 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
     suppressWarnings(as.numeric(tbl$Prop_Med_num[hit[1L]]))
   }
 
+  .row_for <- function(tbl, med) {
+    if (is.null(tbl) || !nrow(tbl)) return(NULL)
+    hit <- which(as.character(tbl$Mediator) == med)
+    if (!length(hit)) return(NULL)
+    tbl[hit[1L], , drop = FALSE]
+  }
+
+  .sig_in_tbl <- function(tbl, med) {
+    one <- .row_for(tbl, med)
+    if (is.null(one)) return(FALSE)
+    if (exists(".mi02_mediation_paths_significant", mode = "function")) {
+      return(isTRUE(.mi02_mediation_paths_significant(one, alpha)))
+    }
+    pa <- suppressWarnings(as.numeric(one$.raw_p_a[1L]))
+    pb <- suppressWarnings(as.numeric(one$.raw_p_b[1L]))
+    pi <- suppressWarnings(as.numeric(one$.raw_p_indirect[1L]))
+    is.finite(pa) && is.finite(pb) && is.finite(pi) &&
+      pa < alpha && pb < alpha && pi < alpha
+  }
+
   tbls <- list()
   for (db in db_seq) {
     tbls[[db]] <- dual_db_load_mediation_result_table(root, cfg, db)
@@ -197,36 +285,88 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
   sets <- lapply(tbls, .clean_meds)
   if (any(!vapply(sets, length, integer(1)))) return(NULL)
   common <- Reduce(intersect, sets)
+
+  # 优先用双库 LM 显著交集作为统一中介行集（相关变量 = 中介变量）
+  shared_lm <- dual_db_load_shared_lm_mediators(root, cfg)
+  if (!length(shared_lm)) {
+    shared_lm <- dual_db_try_lock_shared_lm_mediators(root, cfg, db_seq)
+  }
+  if (length(shared_lm)) {
+    common_lm <- intersect(common, shared_lm)
+    if (length(common_lm)) {
+      common <- common_lm
+    } else {
+      # 表尚未按共享 LM 重跑时：以 LM 交集为 mediators 目标集，best 仍从现有交集里挑
+      cli::cli_alert_info(
+        "闸门 E：中介表与 LM 交集尚未对齐（表交 {length(common)}，LM 交 {length(shared_lm)}）；重跑将固定 mediators=LM 交集"
+      )
+    }
+  }
+
   if (!length(common)) {
     cli::cli_alert_warning("闸门 E：两库中介结果无交集，无法锁定统一路径图中介")
     return(NULL)
   }
 
-  scores <- vapply(common, function(m) {
+  # 路径图 best：两库均显著
+  sig_pool <- common
+  if (isTRUE(require_both_sig)) {
+    sig_pool <- common[vapply(common, function(m) {
+      all(vapply(db_seq, function(db) .sig_in_tbl(tbls[[db]], m), logical(1L)))
+    }, logical(1L))]
+    if (!length(sig_pool)) {
+      cli::cli_alert_warning(
+        "闸门 E：交集 {length(common)} 个中介中无「两库 path a/b/indirect 均 P<{alpha}」者，无法锁定路径图"
+      )
+      return(NULL)
+    }
+  }
+
+  scores <- vapply(sig_pool, function(m) {
     vals <- vapply(db_seq, function(db) .prop(tbls[[db]], m), numeric(1))
     if (any(!is.finite(vals))) return(NA_real_)
     mean(vals)
   }, numeric(1))
-  names(scores) <- common
+  names(scores) <- sig_pool
   ok <- names(scores)[is.finite(scores)]
   if (!length(ok)) return(NULL)
 
   pos <- ok[scores[ok] > 0]
   pool <- if (length(pos)) pos else ok
   best <- pool[which.max(scores[pool])]
-  # 展示顺序：按双库平均 Prop_Med 降序
-  ord <- order(scores[common], decreasing = TRUE, na.last = TRUE)
-  mediators_ord <- common[ord]
+
+  # 发表中介表行集：优先完整 LM 交集（两库相关变量一致）；否则用表交集
+  mediators_table <- if (length(shared_lm)) {
+    unique(c(best, shared_lm))
+  } else {
+    common
+  }
+  # 展示顺序：best 置顶，其余按双库平均 Prop_Med（有分数的）降序
+  score_all <- vapply(mediators_table, function(m) {
+    vals <- vapply(db_seq, function(db) .prop(tbls[[db]], m), numeric(1))
+    if (any(!is.finite(vals))) return(NA_real_)
+    mean(vals)
+  }, numeric(1))
+  names(score_all) <- mediators_table
+  rest <- setdiff(mediators_table, best)
+  rest <- rest[order(score_all[rest], decreasing = TRUE, na.last = TRUE)]
+  mediators_ord <- c(best, rest)
 
   dual_db_save_preferred_mediator(root, cfg, best)
   cli::cli_alert_success(
-    "闸门 E：双库统一路径图中介 = {best}（交集 {length(common)} 个；双库均值 Prop_Med={round(scores[[best]], 2)}%）"
+    paste0(
+      "闸门 E：双库统一路径图中介 = ", best,
+      "（表行 ", length(mediators_ord), "；两库均显著候选 ", length(sig_pool),
+      "；双库均值 Prop_Med=", round(scores[[best]], 2), "%）"
+    )
   )
   list(
     best_mediator = best,
     mediators = mediators_ord,
     score = unname(scores[[best]]),
     scores = scores,
+    dual_significant = sig_pool,
+    shared_lm = shared_lm,
     detail = lapply(db_seq, function(db) {
       list(db = db, prop_med = .prop(tbls[[db]], best))
     })

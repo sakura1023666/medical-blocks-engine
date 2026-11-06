@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
-# 缺血性卒中 · ANLR · 预后 v2 双库（默认 28d；可用环境变量切 7d/14d）
+# 缺血性卒中 · ANLR · 预后 v2 双库（默认 28d；环境变量切 7/14/28/90/365）
 # Spec: docs/superpowers/specs/2026-11-05-stroke-anlr-prognosis-v2-dual-design.md
-# STROKE_ANLR_DAYS=7|14|28  STROKE_ANLR_OUT=summary_results[_7d|_14d]
+# STROKE_ANLR_DAYS=7|14|28|90|365  STROKE_ANLR_OUT=summary_results[_Nd]
 
 suppressPackageStartupMessages({
   library(data.table)
@@ -495,13 +495,13 @@ for (nm in names(after)) {
                 "Malignant_Tumor", "CKD", "Pneumonia", "COPD", "Hyperlipidemia")) {
       add_cat(v, v)
     }
-    add_cat(sprintf("%s death", .day_lab), "fustatus")
+    add_cat(paste0(.day_lab, " death"), "fustatus")
     do.call(rbind, rows)
   }
   t1 <- .tab1(d)
   # fix death label
-  t1$Variable[t1$Variable == sprintf("%s death: 0", .day_lab)] <- sprintf("%s death: No", .day_lab)
-  t1$Variable[t1$Variable == sprintf("%s death: 1", .day_lab)] <- sprintf("%s death: Yes", .day_lab)
+  t1$Variable[t1$Variable == paste0(.day_lab, " death: 0")] <- paste0(.day_lab, " death: No")
+  t1$Variable[t1$Variable == paste0(.day_lab, " death: 1")] <- paste0(.day_lab, " death: Yes")
   write_sci_xlsx(
     t1,
     file.path(tab_dir, pv2_table_xlsx_name("Table 1", "Baseline characteristics", db = nm)),
@@ -528,7 +528,7 @@ for (nm in names(after)) {
     file.path(tab_dir, pv2_table_xlsx_name("Table 2", "Incidence of all-cause mortality", db = nm)),
     pv2_table_title("Table 2", "Incidence of all-cause mortality"),
     c(sprintf("Grouping=%s (locked dual-DB scheme).", .lock$scheme),
-      sprintf("Primary endpoint: %s.", .endpoint))
+      paste0("Primary endpoint: ", .endpoint, "."))
   )
 
   # Table 3 Cox wide
@@ -603,7 +603,7 @@ for (nm in names(after)) {
         body_h,
         footnotes = c(
           "Endpoint redefined as in-hospital all-cause death.",
-          sprintf("Exposure cut-points follow the primary %s locked grouping scheme.", .day_lab),
+          paste0("Exposure cut-points follow the primary ", .day_lab, " locked grouping scheme."),
           paste0("Model 3: ", paste(m3, collapse = " + "), ".")
         )
       )
@@ -613,7 +613,7 @@ for (nm in names(after)) {
   # S6 before/after — simplified overall N + key vars
   b0 <- before[[nm]]
   s6 <- data.frame(
-    Variable = c("N", "Age", "ANLR", "SOFA", sprintf("%s deaths", .day_lab)),
+    Variable = c("N", "Age", "ANLR", "SOFA", paste0(.day_lab, " deaths")),
     Before = c(nrow(b0), med_iqr(b0$Age), med_iqr(b0[[IDX]]),
                if ("SOFA" %in% names(b0)) med_iqr(b0$SOFA) else "",
                as.character(sum(b0$fustatus == 1L))),
@@ -663,7 +663,7 @@ for (nm in names(after)) {
     Definition = c(
       "Adults aged >=18 years with ischemic stroke in ICU",
       "ANLR = Albumin / (Neutrophil count / Lymphocyte count)",
-      sprintf("%s from ICU admission", .endpoint),
+      .endpoint,
       "In-hospital all-cause mortality",
       "SOFA (path diagram / Table S8)",
       paste(nm, "analysis; dual-DB equal footing with shared covariates")

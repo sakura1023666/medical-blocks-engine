@@ -322,8 +322,10 @@ config <- list(
     # S8 关联表候选池：.mi02_resolve_lab_indicator_pool（血检+extra+best_mediator）
     lab_indicator_vars = NULL,
     mediator_extra_vars = NULL,
-    # 双库 Figure S3 必须同一中介（闸门 E：交集内双库 Prop_Med 均值最大）
+    # 双库：LM 显著交集 → 相关表/中介表同变量；路径图 best 须两库均显著
+    dual_db_lock_shared_lm_mediators = TRUE,
     dual_db_lock_best_mediator = TRUE,
+    dual_db_require_both_significant = TRUE,
     dual_db_force_rerun_mediation = TRUE,
     best_mediator = NULL,
     diagram_palette = "matcha",

@@ -91,6 +91,9 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
   if (nzchar(eng) && !exists("pub_qc_scan_table_digits", mode = "function")) {
     try(source(file.path(eng, "R/pub_qc_table_digits.R"), local = FALSE), silent = TRUE)
   }
+  if (nzchar(eng) && !exists("pub_qc_scan_underscores", mode = "function")) {
+    try(source(file.path(eng, "R/pub_qc_underscore.R"), local = FALSE), silent = TRUE)
+  }
 
   fig_roots <- .pub_qc_find_figure_roots(project_root)
   # Layer D 机器半边：DPI<600 时从 PDF 重导，不整目录 purge。叙述仍由 Agent 填。
@@ -142,6 +145,19 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
   }
   if (!isTRUE(digits_scan$ok)) n_fail <- n_fail + as.integer(digits_scan$n_bad %||% 1L)
 
+  ## 展示禁下划线（Tables xlsx + Figures/pdf + image_information）→ STRUCT_FAIL / P0
+  und_scan <- list(ok = TRUE, n_bad = 0L, hits = data.frame())
+  if (exists("pub_qc_scan_underscores", mode = "function")) {
+    und_scan <- tryCatch(
+      pub_qc_scan_underscores(project_root),
+      error = function(e) list(ok = FALSE, n_bad = 1L, hits = data.frame(
+        path = NA_character_, file = "scan_error", token = e$message, source = "error",
+        stringsAsFactors = FALSE
+      ))
+    )
+  }
+  if (!isTRUE(und_scan$ok)) n_fail <- n_fail + as.integer(und_scan$n_bad %||% 1L)
+
   reports <- file.path(project_root, "reports")
   dir.create(reports, recursive = TRUE, showWarnings = FALSE)
   day <- .pub_qc_today()
@@ -157,6 +173,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("- 审阅结论：**", if (n_fail == 0L) "STRUCT_OK" else "STRUCT_FAIL", "**（仅 Layer A 结构；Nature Layer D 须 Agent 填实）"),
     paste0("- Figures 根数：", length(fig_roots), "；结构失败：", n_fail),
     paste0("- 表数字格式门控：", if (isTRUE(digits_scan$ok)) "PASS" else paste0("FAIL (n=", digits_scan$n_bad %||% "?", ")")),
+    paste0("- 展示禁下划线门控：", if (isTRUE(und_scan$ok)) "PASS" else paste0("FAIL (n=", und_scan$n_bad %||% "?", ")")),
     "",
     "## Layer A — pdf + image_information（默认不要求 png/tiff）",
     ""
@@ -210,6 +227,34 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
 
   lines <- c(
     lines,
+    "## Layer A3 — 展示禁下划线（pub_no_underscore_display）",
+    "",
+    "- 规则：`.cursor/rules/pub_no_underscore_display.mdc`；实现：`R/pub_qc_underscore.R`",
+    "- 扫描范围：交付 `Tables/*.xlsx`、`Figures/pdf/*.pdf`（pdftotext）、`Figures/image_information/*.md`",
+    "- 命中临床/编程展示名中的 `_` → **FAIL / P0**（须 `pipeline_display_label` / 重导图或外科 scrub）",
+    ""
+  )
+  if (isTRUE(und_scan$ok)) {
+    lines <- c(lines, "- 结论：**PASS**（未检出展示层下划线）", "")
+  } else {
+    lines <- c(lines, "- 结论：**FAIL / P0**", "")
+    ht <- und_scan$hits
+    if (is.data.frame(ht) && nrow(ht)) {
+      for (i in seq_len(min(40L, nrow(ht)))) {
+        lines <- c(
+          lines,
+          paste0("  - [`", ht$source[i], "`] `", ht$file[i], "`: `", ht$token[i], "`")
+        )
+      }
+      if (nrow(ht) > 40L) {
+        lines <- c(lines, paste0("  - … 另有 ", nrow(ht) - 40L, " 处"))
+      }
+    }
+    lines <- c(lines, "")
+  }
+
+  lines <- c(
+    lines,
     "## Layer D stubs",
     "",
     paste0("- 若尚无正式报告，请按 `.cursor/skills/pub-qc-after-project` 填实："),
@@ -219,6 +264,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     "- **根目录平铺 Figure*.pdf 或 bad_pdf_geometry = P0**，当场 `pub_figure_ensure_formats`。",
     "- **bad_pdf_raster = P0**：交付 `Figures/pdf` 不得是整页栅格「图片 PDF」；须真矢量。截图/Shiny 可用 `allow_raster_pdf_patterns` 白名单。禁止用 `pub_figure_rasterize_pdf_page` 覆盖交付矢量稿。",
     "- **表数字格式 FAIL = P0**（裸 0/0.000）；修完再宣称 PASS。",
+    "- **展示下划线 FAIL = P0**（Tables/Figures/image_information）；修完再宣称 PASS。",
     ""
   )
 

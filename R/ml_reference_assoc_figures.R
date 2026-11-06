@@ -451,17 +451,69 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
   sprintf("p = %.3f", p)
 }
 
+# 28 天死亡等行政截尾窗：横轴必须画到结局窗，禁 pretty() 收成 0–25
+.ref_assoc_km_time_horizon <- function(db_frames = NULL, default = 28) {
+  hz <- NA_real_
+  if (length(db_frames)) {
+    for (db in db_frames) {
+      cfg <- db$outcome_cfg %||% db$config %||% list()
+      cand <- c(
+        suppressWarnings(as.numeric(cfg$performance_ml$surv_horizon)[1L]),
+        suppressWarnings(as.numeric(cfg$survival$landmark_days)[1L]),
+        suppressWarnings(as.numeric(cfg$prognosis_outcome_landmark$landmark_days)[1L]),
+        suppressWarnings(as.numeric(cfg$attrition$landmark_days)[1L])
+      )
+      cand <- cand[is.finite(cand) & cand > 0]
+      if (length(cand)) {
+        hz <- cand[[1L]]
+        break
+      }
+    }
+  }
+  if (!is.finite(hz) || hz <= 0) hz <- as.numeric(default)[1L]
+  if (!is.finite(hz) || hz <= 0) hz <- 28
+  hz
+}
+
+.ref_assoc_km_x_breaks <- function(xmax) {
+  xmax <- suppressWarnings(as.numeric(xmax)[1L])
+  if (!is.finite(xmax) || xmax <= 0) return(pretty(c(0, 1), n = 4))
+  if (abs(xmax - 28) < 1e-6) return(c(0, 7, 14, 21, 28))
+  if (abs(xmax - 90) < 1e-6) return(c(0, 30, 60, 90))
+  if (abs(xmax - 30) < 1e-6) return(c(0, 10, 20, 30))
+  br <- pretty(c(0, xmax), n = 5)
+  if (!any(abs(br - xmax) < 1e-6)) br <- sort(unique(c(br[br < xmax], xmax)))
+  br
+}
+
 .ref_assoc_km_pretty_one <- function(curve, p, legend_title,
-                                     xmax = NULL, y_floor = NULL) {
+                                     xmax = NULL, y_floor = NULL,
+                                     panel_letter = NULL) {
   if (is.null(curve) || !nrow(curve)) return(NULL)
   lv <- unique(as.character(curve$grp))
   nums <- suppressWarnings(as.numeric(sub(".*?([0-9]+)$", "\\1", lv)))
   ord <- if (!anyNA(nums)) lv[order(nums)] else sort(lv)
-  # Joint Group1–4 → 图例缩写 G1–G4，避免顶栏挤裁
+  # Joint Group1–4 → 原文式 Low/High 图例（禁 G1–G4）
+  # Group1=双低, Group2=仅A高, Group3=仅B高, Group4=双高
   lab_map <- stats::setNames(ord, ord)
   g_hit <- grepl("^Group[0-9]+$", ord)
   if (any(g_hit)) {
-    lab_map[g_hit] <- sub("^Group", "G", ord[g_hit])
+    ia <- .ref_ia(); ib <- .ref_ib()
+    g_labs <- c(
+      Group1 = paste0("Low ", ia, " + Low ", ib),
+      Group2 = paste0("High ", ia, " + Low ", ib),
+      Group3 = paste0("Low ", ia, " + High ", ib),
+      Group4 = paste0("High ", ia, " + High ", ib)
+    )
+    # 图例顺序对齐原文：双低 → 仅B高 → 仅A高 → 双高
+    paper_ord <- c("Group1", "Group3", "Group2", "Group4")
+    paper_ord <- paper_ord[paper_ord %in% ord]
+    rest <- setdiff(ord, paper_ord)
+    ord <- c(paper_ord, rest)
+    lab_map <- stats::setNames(ord, ord)
+    for (nm in names(g_labs)) {
+      if (nm %in% names(lab_map)) lab_map[[nm]] <- g_labs[[nm]]
+    }
   }
   curve$grp <- factor(as.character(curve$grp), levels = ord)
   # 每组补 t=0, S=1，阶梯从左上角起
@@ -478,10 +530,15 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
   origin$grp <- factor(as.character(origin$grp), levels = levels(curve$grp))
   curve <- rbind(origin, curve)
   n_g <- nlevels(curve$grp)
+  is_joint <- any(grepl("^Group[0-9]+$", levels(curve$grp)))
+  # 联合组图例很长时不加总标题（对齐原文第三列）
+  legend_name <- if (is_joint) NULL else legend_title
+  leg_nrow <- if (is_joint) 2L else 1L
   pal <- if (n_g <= 3L) {
     c("#2F5F8A", "#C23B3B", "#3E9B4A")[seq_len(n_g)]
   } else if (n_g == 4L) {
-    c("#2F5F8A", "#C23B3B", "#3E9B4A", "#D4A017")
+    # 对齐原文：蓝 / 红 / 绿 / 浅蓝
+    c("#2F5F8A", "#C23B3B", "#3E9B4A", "#5BA3D9")
   } else {
     grDevices::hcl.colors(n_g, "Dark 3")
   }
@@ -495,66 +552,84 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
   if (is.null(xmax) || !is.finite(xmax)) {
     xmax <- max(curve$time, na.rm = TRUE)
   }
+  xmax <- max(as.numeric(xmax), max(curve$time, na.rm = TRUE), na.rm = TRUE)
+  x_breaks <- .ref_assoc_km_x_breaks(xmax)
   ymin <- if (!is.null(y_floor) && is.finite(y_floor)) y_floor else {
     floor(min(curve$surv, na.rm = TRUE) * 10) / 10
   }
   ymin <- max(0, min(ymin, 0.5))
   p_lab <- .ref_assoc_km_p_lab(p)
+  # 对齐原文 Fig.2：图例在上、p 在图内左下；禁 subtitle 与 legend 顶栏叠字
+  letter <- trimws(as.character(panel_letter %||% "")[1L])
+  title_lab <- if (nzchar(letter)) letter else NULL
   ggplot2::ggplot(
     curve,
     ggplot2::aes(x = time, y = surv, colour = grp, linetype = grp)
   ) +
     ggplot2::geom_step(linewidth = 0.85, lineend = "round") +
+    ggplot2::annotate(
+      "text", x = -Inf, y = -Inf, label = p_lab,
+      hjust = -0.05, vjust = -0.4, size = 3.3, colour = "grey15"
+    ) +
     ggplot2::scale_colour_manual(
       values = pal, breaks = levels(curve$grp),
       labels = unname(lab_map[levels(curve$grp)]),
-      name = legend_title
+      name = legend_name
     ) +
     ggplot2::scale_linetype_manual(
       values = lty, breaks = levels(curve$grp),
       labels = unname(lab_map[levels(curve$grp)]),
-      name = legend_title
+      name = legend_name
     ) +
     ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(ymin, 1),
                              expand = TRUE, clip = "off") +
-    ggplot2::scale_x_continuous(breaks = pretty(c(0, xmax), n = 4)) +
+    ggplot2::scale_x_continuous(breaks = x_breaks) +
     ggplot2::scale_y_continuous(
       breaks = seq(ymin, 1, by = if ((1 - ymin) > 0.4) 0.25 else 0.1)
     ) +
     ggplot2::labs(
       x = "Time (days)", y = "Survival Probability",
-      subtitle = p_lab
+      title = title_lab, subtitle = NULL
     ) +
     ggplot2::theme_classic(base_size = 11, base_family = "sans") +
     ggplot2::theme(
       legend.position = "top",
-      legend.title = ggplot2::element_text(size = 11, face = "bold"),
-      legend.text = ggplot2::element_text(size = 9.5),
-      legend.key.width = grid::unit(0.95, "cm"),
-      legend.key.height = grid::unit(0.32, "cm"),
-      legend.margin = ggplot2::margin(2, 0, 4, 0),
-      legend.box.margin = ggplot2::margin(0, 0, 2, 0),
-      legend.box.spacing = grid::unit(4, "pt"),
-      plot.subtitle = ggplot2::element_text(
-        size = 9.5, colour = "grey20", hjust = 0,
-        margin = ggplot2::margin(b = 4)
+      legend.title = ggplot2::element_text(size = 10, face = "bold"),
+      legend.text = ggplot2::element_text(size = if (is_joint) 7.2 else 8.5),
+      legend.key.width = grid::unit(if (is_joint) 0.55 else 0.75, "cm"),
+      legend.key.height = grid::unit(0.28, "cm"),
+      legend.margin = ggplot2::margin(0, 0, 2, 0),
+      legend.box.margin = ggplot2::margin(0, 0, 0, 0),
+      plot.title = ggplot2::element_text(
+        size = 12, face = "bold", hjust = 0,
+        margin = ggplot2::margin(b = 0)
       ),
-      axis.title = ggplot2::element_text(size = 11),
-      axis.text = ggplot2::element_text(size = 10, colour = "grey20"),
+      plot.subtitle = ggplot2::element_blank(),
+      axis.title = ggplot2::element_text(size = 10),
+      axis.text = ggplot2::element_text(size = 9, colour = "grey20"),
       axis.line = ggplot2::element_line(linewidth = 0.45, colour = "grey20"),
       axis.ticks = ggplot2::element_line(linewidth = 0.35, colour = "grey20"),
-      plot.margin = ggplot2::margin(10, 16, 10, 10)
+      plot.margin = ggplot2::margin(6, 10, 8, 8)
     ) +
     ggplot2::guides(
-      colour = ggplot2::guide_legend(title.position = "left", nrow = 1,
-                                     override.aes = list(linewidth = 0.95)),
-      linetype = ggplot2::guide_legend(title.position = "left", nrow = 1)
+      colour = ggplot2::guide_legend(
+        title.position = "top", title.hjust = 0.5, nrow = leg_nrow,
+        override.aes = list(linewidth = 0.9)
+      ),
+      linetype = ggplot2::guide_legend(
+        title.position = "top", title.hjust = 0.5, nrow = leg_nrow
+      )
     )
 }
 
-ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
+ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL,
+                              time_horizon = NULL) {
   ia <- .ref_ia(); ib <- .ref_ib(); ilab <- .ref_ilab()
   db_frames <- .ref_assoc_order_db_frames(db_frames)
+  hz <- suppressWarnings(as.numeric(time_horizon)[1L])
+  if (!is.finite(hz) || hz <= 0) {
+    hz <- .ref_assoc_km_time_horizon(db_frames, default = 28)
+  }
   panels <- list()
   curves <- list()
   k <- 0L
@@ -619,55 +694,66 @@ ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
     if (overall_pretty) {
-      # 主库优先；若传入多库只画第一库（发表 Fig2 不再拼 eICU）
-      keep_db <- panels$database[[1L]]
-      panels_use <- panels[panels$database == keep_db, , drop = FALSE]
-      xmax <- max(curve$time[curve$panel %in% panels_use$panel], na.rm = TRUE)
-      # 统一 y 下界，三面板可比
+      # 对齐原文 Fig.2 版式：每格图例在上、p 在左下；行=双库（替原文糖代谢层），列=三暴露。
+      db_order <- unique(as.character(panels$database))
+      db_lab <- function(dbn) {
+        if (grepl("eicu", dbn, ignore.case = TRUE)) "eICU" else "MIMIC-IV"
+      }
+      # 行政截尾窗（默认 28 天）钉死横轴上限；数据 max 常 <28，pretty 会缩成 0–25
+      xmax <- max(
+        hz,
+        max(curve$time[curve$panel %in% panels$panel], na.rm = TRUE),
+        na.rm = TRUE
+      )
       y_floor <- max(
         0,
-        floor(min(curve$surv[curve$panel %in% panels_use$panel],
+        floor(min(curve$surv[curve$panel %in% panels$panel],
                   na.rm = TRUE) * 10) / 10 - 0.1
       )
       y_floor <- min(y_floor, 0.5)
-      plts <- lapply(seq_len(nrow(panels_use)), function(i) {
-        pr <- panels_use[i, , drop = FALSE]
-        cv <- curve[curve$panel == pr$panel, , drop = FALSE]
-        .ref_assoc_km_pretty_one(
-          cv, pr$logrank_p, legend_title = pr$legend_title,
-          xmax = xmax, y_floor = y_floor
-        )
-      })
-      plts <- Filter(Negate(is.null), plts)
-      if (requireNamespace("patchwork", quietly = TRUE) && length(plts)) {
-        plt <- patchwork::wrap_plots(plts, nrow = 1) +
-          patchwork::plot_annotation(
-            theme = ggplot2::theme(plot.margin = ggplot2::margin(4, 4, 4, 4))
+      letter_i <- 0L
+      row_plts <- list()
+      for (dbn in db_order) {
+        panels_use <- panels[as.character(panels$database) == dbn, , drop = FALSE]
+        if (!nrow(panels_use)) next
+        plts <- lapply(seq_len(nrow(panels_use)), function(i) {
+          pr <- panels_use[i, , drop = FALSE]
+          cv <- curve[curve$panel == pr$panel, , drop = FALSE]
+          letter_i <<- letter_i + 1L
+          # 首格标题带库名（可检索）；其余仅字母，避免与图例叠字
+          lab_i <- if (i == 1L) {
+            paste0(LETTERS[[letter_i]], "  ", db_lab(dbn))
+          } else {
+            LETTERS[[letter_i]]
+          }
+          .ref_assoc_km_pretty_one(
+            cv, pr$logrank_p, legend_title = pr$legend_title,
+            xmax = xmax, y_floor = y_floor,
+            panel_letter = lab_i
           )
-      } else {
-        # 无 patchwork 时退回横向 facet，但仍用简化 strip
-        curve2 <- curve[curve$panel %in% panels_use$panel, , drop = FALSE]
-        strip_df <- data.frame(
-          panel = panels_use$panel,
-          strip = panels_use$legend_title,
-          stringsAsFactors = FALSE
-        )
-        curve2 <- merge(curve2, strip_df, by = "panel", all.x = TRUE,
-                        sort = FALSE)
-        curve2$strip <- factor(curve2$strip, levels = strip_df$strip)
-        plt <- ggplot2::ggplot(
-          curve2,
-          ggplot2::aes(x = time, y = surv, colour = grp, linetype = grp)
-        ) +
-          ggplot2::geom_step(linewidth = 0.8) +
-          ggplot2::facet_wrap(~strip, nrow = 1) +
-          ggplot2::coord_cartesian(ylim = c(y_floor, 1), expand = FALSE) +
-          ggplot2::labs(x = "Time (days)", y = "Survival Probability",
-                        colour = NULL, linetype = NULL) +
-          ggplot2::theme_classic(base_size = 11) +
-          ggplot2::theme(legend.position = "top")
+        })
+        plts <- Filter(Negate(is.null), plts)
+        if (!length(plts)) next
+        if (requireNamespace("patchwork", quietly = TRUE)) {
+          row_plts[[length(row_plts) + 1L]] <- patchwork::wrap_plots(plts, nrow = 1) +
+            patchwork::plot_annotation(
+              theme = ggplot2::theme(plot.margin = ggplot2::margin(2, 4, 2, 4))
+            )
+        } else {
+          stop("Figure 2 dual-db overall needs package patchwork", call. = FALSE)
+        }
       }
-      pipeline_ggsave_pdf(path, plt, width = 13.6, height = 5.0)
+      if (!length(row_plts)) stop("Figure 2 overall: no KM panels", call. = FALSE)
+      plt <- if (length(row_plts) == 1L) {
+        row_plts[[1L]]
+      } else {
+        patchwork::wrap_plots(row_plts, ncol = 1)
+      }
+      n_db_draw <- length(row_plts)
+      pipeline_ggsave_pdf(
+        path, plt, width = 13.6,
+        height = min(11, 4.8 * n_db_draw + 0.3)
+      )
     } else {
       strip <- paste0(
         panels$panel_title, "\nLog-rank P = ",
@@ -757,19 +843,33 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
       "P for overall = ", pub_format_p_cell(ann$p_overall),
       "; P for nonlinear = ", pub_format_p_cell(ann$p_nonlinear)
     )
+    overall_only <- isTRUE(.ref_assoc_overall_only(cutoff))
+    # 双库 Overall：2×2（行=库、列=A|B），每格自带库名+P；禁砍成单库
+    db_short_of <- function(dbn) {
+      if (grepl("eicu", dbn, ignore.case = TRUE)) "eICU" else "MIMIC-IV"
+    }
     strip_df <- do.call(rbind, lapply(
       split(ann, list(ann$database, ann$index), drop = TRUE),
       function(a) {
         idx <- as.character(a$index[[1L]])
         dbn <- as.character(a$database[[1L]])
-        lab <- if (all(as.character(a$stratum) %in% c("Overall", "overall")) ||
-                     nrow(a) == 1L) {
-          paste0(idx, "\n", a$p_lab[[1L]])
+        db_s <- db_short_of(dbn)
+        p_bit <- if (all(as.character(a$stratum) %in% c("Overall", "overall")) ||
+                       nrow(a) == 1L) {
+          a$p_lab[[1L]]
         } else {
-          paste0(idx, "\n", paste0(a$stratum, ": ", a$p_lab, collapse = "\n"))
+          paste0(a$stratum, ": ", a$p_lab, collapse = "\n")
         }
-        data.frame(database = dbn, index = idx, strip = lab,
-                   stringsAsFactors = FALSE)
+        lab <- if (isTRUE(overall_only) &&
+                     length(unique(as.character(ann$database))) > 1L) {
+          paste0(db_s, " | ", idx, "\n", p_bit)
+        } else {
+          paste0(idx, "\n", p_bit)
+        }
+        data.frame(
+          database = dbn, index = idx, strip = lab,
+          db_ord = db_s, stringsAsFactors = FALSE
+        )
       }
     ))
     curve <- merge(curve, strip_df, by = c("database", "index"), all.x = TRUE,
@@ -779,10 +879,14 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
     curve$index <- factor(as.character(curve$index), levels = c(ia, ib))
     n_db <- length(unique(as.character(curve$database)))
     single_db <- n_db <= 1L
-    overall_only <- isTRUE(.ref_assoc_overall_only(cutoff))
-    strip_lv <- unique(as.character(curve$strip))
-    strip_lv <- strip_lv[order(match(sub("\n.*$", "", strip_lv), c(ia, ib)))]
-    curve$strip <- factor(as.character(curve$strip), levels = strip_lv)
+    # 顺序：主库 A|B，再外验 A|B（2×2）
+    strip_ord <- unique(as.character(
+      strip_df$strip[order(
+        match(strip_df$db_ord, c("MIMIC-IV", "eICU")),
+        match(strip_df$index, c(ia, ib))
+      )]
+    ))
+    curve$strip <- factor(as.character(curve$strip), levels = strip_ord)
     plt <- ggplot2::ggplot(
       curve,
       ggplot2::aes(x = value, y = hr, colour = stratum, fill = stratum)
@@ -801,40 +905,27 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
       ggplot2::coord_cartesian(ylim = c(0.4, NA), expand = TRUE, clip = "off") +
       ggplot2::labs(
         x = "Exposure", y = "Adjusted HR (95% CI)",
-        colour = NULL, fill = NULL,
-        title = paste0("Figure 3. Restricted cubic splines for ", ia,
-                       " and ", ib),
-        subtitle = "Model 3 covariates (same set as Table 2 / Table S4); P values in panel strips"
+        colour = NULL, fill = NULL
       ) +
-      ggplot2::theme_classic(base_size = if (single_db) 11 else 8) +
+      ggplot2::theme_classic(base_size = if (single_db) 11 else 10) +
       ggplot2::theme(
         legend.position = if (overall_only) "none" else "bottom",
         panel.grid.minor = ggplot2::element_blank(),
-        plot.title = ggplot2::element_text(size = if (single_db) 11 else 9,
-                                           face = "bold"),
-        plot.subtitle = ggplot2::element_text(
-          size = if (single_db) 8.5 else 7, colour = "grey35",
-          margin = ggplot2::margin(b = 6)
-        ),
-        plot.margin = ggplot2::margin(10, 14, 10, 10),
+        plot.margin = ggplot2::margin(8, 12, 8, 8),
         strip.background = ggplot2::element_blank(),
         strip.text = ggplot2::element_text(
-          size = if (single_db) 9 else 7.5, face = "bold",
-          margin = ggplot2::margin(b = 6)
+          size = if (single_db) 9 else 8.2, face = "bold",
+          margin = ggplot2::margin(b = 4)
         ),
-        panel.spacing = grid::unit(1.1, "lines")
-      )
-    plt <- if (single_db) {
-      plt + ggplot2::facet_wrap(~strip, ncol = 2L, scales = "free_x")
-    } else {
-      plt + ggplot2::facet_wrap(~strip, ncol = 2L, scales = "free_x")
-    }
+        panel.spacing = grid::unit(1.0, "lines")
+      ) +
+      ggplot2::facet_wrap(~strip, ncol = 2L, scales = "free_x")
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
     pipeline_ggsave_pdf(
       path, plt,
-      width = if (single_db) 10.5 else 9.5,
-      height = if (single_db) 5.2 else 8.4
+      width = if (single_db) 10.5 else 10.8,
+      height = if (single_db) 5.2 else if (overall_only) 7.6 else 8.4
     )
   }
   list(summary = summary, curve = curve, path = path)
@@ -942,10 +1033,11 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
   rownames(curve) <- NULL
   path <- NULL
   if (!is.null(out_pdf)) {
-    # 原文 Fig.4 图例仅曲线名（AUC 数字在 Table S5）；Joint 写成「ACAG+RAR joint」
+    # 原文 Fig.4：图例仅曲线名（AUC→Table S5）；无 90 天/糖代谢层时，
+    # 双库 Overall 分析集 = A/B 两面（对齐 Fig2/3，禁 ML train/val 分面）
     pred_lv <- preds
     pred_labs <- pred_lv
-    pred_labs[pred_labs == "Joint"] <- .ref_joint_lab()
+    pred_labs[pred_labs == "Joint"] <- paste0(ia, " + ", ib)
     curve$database <- .ref_assoc_factor_db(curve$database, short = FALSE)
     levels(curve$database) <- .ref_assoc_db_levels(short = TRUE)
     curve$stratum <- factor(curve$stratum, levels = stratum_order)
@@ -954,65 +1046,100 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
       identical(as.character(stratum_order), "Overall")
     n_db <- length(unique(as.character(curve$database)))
     single_db <- n_db <= 1L
-    plt <- ggplot2::ggplot(
-      curve, ggplot2::aes(x = fpr, y = tpr, colour = predictor)
-    ) +
-      ggplot2::geom_abline(linetype = 2, colour = "grey55",
-                           linewidth = 0.35) +
-      ggplot2::geom_line(linewidth = 0.85) +
-      ggplot2::scale_colour_brewer(
-        palette = "Dark2", breaks = pred_lv, labels = pred_labs
+    # 原文配色感：多条 ROC；Dark2 可读
+    .roc_one <- function(cv, letter_lab) {
+      ggplot2::ggplot(
+        cv, ggplot2::aes(x = fpr, y = tpr, colour = predictor)
       ) +
-      ggplot2::coord_equal(xlim = c(0, 1), ylim = c(0, 1), expand = TRUE,
-                           clip = "off") +
-      ggplot2::labs(
-        x = "1 - Specificity", y = "Sensitivity", colour = NULL,
-        title = paste0("Figure 4. ROC of ", ia, ", ", ib, ", ",
-                       .ref_joint_lab(), " and clinical scores"),
-        subtitle = if (overall_only) {
-          "Overall cohort, 28-day all-cause mortality (AUC in Table S5)"
-        } else {
-          "Overall and SOFA strata, 28-day all-cause mortality (AUC in Table S5)"
-        }
-      ) +
-      ggplot2::theme_classic(base_size = if (single_db) 11 else 8) +
-      ggplot2::theme(
-        legend.position = "bottom",
-        legend.direction = "horizontal",
-        legend.box = "vertical",
-        legend.spacing.y = grid::unit(4, "pt"),
-        legend.key.width = grid::unit(1.05, "cm"),
-        legend.margin = ggplot2::margin(6, 0, 0, 0),
-        panel.grid.minor = ggplot2::element_blank(),
-        plot.title = ggplot2::element_text(
-          size = if (single_db) 11 else 8, face = "bold",
-          hjust = 0, margin = ggplot2::margin(b = 2)
-        ),
-        plot.subtitle = ggplot2::element_text(
-          size = if (single_db) 9 else 7, colour = "grey30",
-          margin = ggplot2::margin(b = 6)
-        ),
-        plot.margin = ggplot2::margin(10, 14, 12, 10),
-        strip.background = ggplot2::element_blank(),
-        strip.text = ggplot2::element_text(face = "bold")
-      ) +
-      ggplot2::guides(colour = ggplot2::guide_legend(nrow = 2L, byrow = TRUE))
-    if (!single_db) {
-      plt <- if (overall_only) {
-        plt + ggplot2::facet_wrap(~database, ncol = 2)
-      } else {
-        plt + ggplot2::facet_grid(database ~ stratum)
-      }
-    } else if (!overall_only) {
-      plt <- plt + ggplot2::facet_wrap(~stratum, ncol = 2)
+        ggplot2::geom_abline(linetype = 2, colour = "grey55",
+                             linewidth = 0.35) +
+        ggplot2::geom_line(linewidth = 0.9) +
+        ggplot2::scale_colour_brewer(
+          palette = "Dark2", breaks = pred_lv, labels = pred_labs
+        ) +
+        ggplot2::coord_equal(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE,
+                             clip = "off") +
+        ggplot2::labs(
+          x = "1 - Specificity", y = "Sensitivity", colour = NULL,
+          title = letter_lab
+        ) +
+        ggplot2::theme_classic(base_size = 11) +
+        ggplot2::theme(
+          legend.position = c(0.98, 0.02),
+          legend.justification = c(1, 0),
+          legend.background = ggplot2::element_rect(
+            fill = scales::alpha("white", 0.75), colour = NA
+          ),
+          legend.key.width = grid::unit(0.7, "cm"),
+          legend.key.height = grid::unit(0.28, "cm"),
+          legend.text = ggplot2::element_text(size = 7.5),
+          legend.margin = ggplot2::margin(2, 2, 2, 2),
+          plot.title = ggplot2::element_text(
+            size = 12, face = "bold", hjust = 0,
+            margin = ggplot2::margin(b = 2)
+          ),
+          axis.title = ggplot2::element_text(size = 10),
+          axis.text = ggplot2::element_text(size = 9),
+          plot.margin = ggplot2::margin(6, 10, 6, 8)
+        ) +
+        ggplot2::guides(
+          colour = ggplot2::guide_legend(ncol = 1L, override.aes = list(linewidth = 1))
+        )
     }
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-    pipeline_ggsave_pdf(
-      path, plt,
-      width = if (single_db && overall_only) 7.4 else if (overall_only) 8.4 else 12,
-      height = if (single_db && overall_only) 7.0 else if (overall_only) 5.0 else 7.4
-    )
+    if (isTRUE(overall_only) && !single_db &&
+        requireNamespace("patchwork", quietly = TRUE)) {
+      db_ord <- levels(curve$database)
+      db_ord <- db_ord[db_ord %in% unique(as.character(curve$database))]
+      plts <- lapply(seq_along(db_ord), function(i) {
+        dbn <- db_ord[[i]]
+        cv <- curve[as.character(curve$database) == dbn, , drop = FALSE]
+        .roc_one(cv, paste0(LETTERS[[i]], "  ", dbn))
+      })
+      plt <- patchwork::wrap_plots(plts, nrow = 1)
+      pipeline_ggsave_pdf(path, plt, width = 11.2, height = 5.4)
+    } else {
+      plt <- ggplot2::ggplot(
+        curve, ggplot2::aes(x = fpr, y = tpr, colour = predictor)
+      ) +
+        ggplot2::geom_abline(linetype = 2, colour = "grey55",
+                             linewidth = 0.35) +
+        ggplot2::geom_line(linewidth = 0.85) +
+        ggplot2::scale_colour_brewer(
+          palette = "Dark2", breaks = pred_lv, labels = pred_labs
+        ) +
+        ggplot2::coord_equal(xlim = c(0, 1), ylim = c(0, 1), expand = TRUE,
+                             clip = "off") +
+        ggplot2::labs(
+          x = "1 - Specificity", y = "Sensitivity", colour = NULL
+        ) +
+        ggplot2::theme_classic(base_size = if (single_db) 11 else 8) +
+        ggplot2::theme(
+          legend.position = "bottom",
+          legend.direction = "horizontal",
+          legend.key.width = grid::unit(1.05, "cm"),
+          panel.grid.minor = ggplot2::element_blank(),
+          strip.background = ggplot2::element_blank(),
+          strip.text = ggplot2::element_text(face = "bold"),
+          plot.margin = ggplot2::margin(10, 14, 12, 10)
+        ) +
+        ggplot2::guides(colour = ggplot2::guide_legend(nrow = 2L, byrow = TRUE))
+      if (!single_db) {
+        plt <- if (overall_only) {
+          plt + ggplot2::facet_wrap(~database, ncol = 2)
+        } else {
+          plt + ggplot2::facet_grid(database ~ stratum)
+        }
+      } else if (!overall_only) {
+        plt <- plt + ggplot2::facet_wrap(~stratum, ncol = 2)
+      }
+      pipeline_ggsave_pdf(
+        path, plt,
+        width = if (single_db && overall_only) 7.4 else if (overall_only) 8.4 else 12,
+        height = if (single_db && overall_only) 7.0 else if (overall_only) 5.0 else 7.4
+      )
+    }
   }
   list(auc = auc, curve = curve, path = path)
 }
@@ -1719,7 +1846,14 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
     est <- est[est$subgroup == "Overall" | est$subgroup %in% common_sgs, ,
                drop = FALSE]
 
-    # 主库在前；面板字母 A–D（勿重复 A/B）
+    # 对齐原文 Fig.6：Overall 仅 A|B 两指标（开发库），不做双库/糖代谢分层拼图
+    if (isTRUE(.ref_assoc_overall_only(cutoff)) && length(db_lv) > 1L) {
+      keep_db <- as.character(db_lv[[1L]])
+      est <- est[as.character(est$database_f) == keep_db, , drop = FALSE]
+      est$database_f <- droplevels(est$database_f)
+      db_lv <- levels(est$database_f)
+    }
+    # 主库在前；面板字母 A–B（双指标）或 A–D（分层模式）
     panel_specs <- list()
     letter_i <- 0L
     for (dbn in db_lv) {

@@ -201,7 +201,7 @@ writeLines(c(
   "",
   "## 分析上下文",
   "- 暴露: ANLR",
-  "- 结局: 28-day all-cause mortality",
+  paste0("- 结局: ", .endpoint),
   "- 数据库: MIMIC + eICU（平权；共享特征池）",
   "- 是否拼图: 单页上下分库"
 ), file.path(.out, "Figures", "image_information",

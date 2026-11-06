@@ -22,13 +22,7 @@ source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 source(file.path(.engine, "R/subgroup_forest_plot.R"), local = FALSE)
 
-.proj <- {
-  cands <- c(
-    "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
-    "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
-  )
-  cands[dir.exists(cands)][1L]
-}
+.proj <- stroke_anlr_proj()
 .out <- stroke_anlr_out(.proj)
 .days <- stroke_anlr_days()
 .day_lab <- stroke_anlr_day_lab()

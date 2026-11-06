@@ -19,13 +19,7 @@ source(file.path(.engine, "R/quantile_scheme_cascade.R"), local = FALSE)
 source(file.path(.engine, "R/pv2_literature_pub_tables.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 
-.proj <- {
-  cands <- c(
-    "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
-    "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
-  )
-  cands[dir.exists(cands)][1L]
-}
+.proj <- stroke_anlr_proj()
 .out <- stroke_anlr_out(.proj)
 .days <- stroke_anlr_days()
 .day_lab <- stroke_anlr_day_lab()
@@ -236,22 +230,38 @@ write_df <- function(path, title, df, footnotes = character(0), level_rows = int
   body2
 }
 
+# 与 Fig5 同源：Cox LP = ANLR + Age + Sodium + GCS
+.roc_lp_covs <- c("Age", "Sodium", "GCS")
 .build_s4 <- function(d) {
   if (!requireNamespace("pROC", quietly = TRUE)) return(NULL)
   d <- as.data.frame(d)
-  # Hip：线性预测子 ROC；此处 ANLR continuous 对齐现有 Fig5
-  roc <- tryCatch(pROC::roc(d$fustatus, d[[IDX]], quiet = TRUE), error = function(e) NULL)
+  d$time <- as.numeric(d$futime_years)
+  d$event <- as.integer(d$fustatus)
+  covs <- intersect(.roc_lp_covs, names(d))
+  need <- c(IDX, "time", "event", covs)
+  dd <- d[stats::complete.cases(d[, need]) & d$time > 0, , drop = FALSE]
+  if (nrow(dd) < 20L) return(NULL)
+  fit <- tryCatch(
+    survival::coxph(stats::as.formula(paste("Surv(time, event) ~", paste(c(IDX, covs), collapse = " + "))), dd),
+    error = function(e) NULL
+  )
+  if (is.null(fit)) return(NULL)
+  lp <- as.numeric(stats::predict(fit, type = "lp"))
+  roc <- tryCatch(pROC::roc(dd$event, lp, quiet = TRUE, direction = "<"), error = function(e) NULL)
   if (is.null(roc)) return(NULL)
   auc <- as.numeric(pROC::auc(roc))
+  ci <- tryCatch(as.numeric(pROC::ci.auc(roc)), error = function(e) c(NA, NA, NA))
   best <- tryCatch(
     pROC::coords(roc, "best", ret = c("sensitivity", "specificity"), transpose = FALSE),
     error = function(e) NULL
   )
   data.frame(
-    Index = IDX,
+    Index = paste0(IDX, " Cox LP"),
     AUC = sprintf("%.3f", auc),
+    `AUC 95% CI` = sprintf("%.3f\u2013%.3f", ci[1], ci[3]),
     Sensitivity = if (!is.null(best)) sprintf("%.3f", best$sensitivity[1]) else "",
     Specificity = if (!is.null(best)) sprintf("%.3f", best$specificity[1]) else "",
+    check.names = FALSE,
     stringsAsFactors = FALSE
   )
 }
@@ -314,10 +324,10 @@ write_df <- function(path, title, df, footnotes = character(0), level_rows = int
       "MICE (cart, m = 5); exposure, follow-up and death status not imputed; Cox HRs pooled by Rubin's rules",
       paste0(
         "Model 1 unadjusted; Model 2 Age + Gender; Model 3 dual-DB harmonized: ",
-        paste(m3_shared, collapse = ", "),
-        ". SOFA reserved as mediator; ANLR components excluded from covariates."
+        paste(setdiff(m3_shared, "OASIS"), collapse = ", "),
+        ". OASIS reserved as mediator; ANLR components excluded from covariates."
       ),
-      "SOFA (Table S7 → Table S8 → Figure 6)"
+      "OASIS (Table S7 → Table S8 → Figure 6)"
     ),
     stringsAsFactors = FALSE
   )
@@ -472,7 +482,7 @@ for (nm in names(dbs)) {
     level_rows = which(startsWith(body_s3$Variable, "  "))
   )
 
-  # ---- Table S4 ----
+  # ---- Table S4（与 Fig5 同源：Cox LP）----
   s4 <- .build_s4(d)
   if (!is.null(s4)) {
     write_df(
@@ -480,7 +490,13 @@ for (nm in names(dbs)) {
         "Table S4", sprintf("Predictive performance for %s", .endpoint), db = nm)),
       pv2_table_title("Table S4", sprintf("Predictive performance for %s", .endpoint)),
       s4,
-      footnotes = "Youden index on the ROC curve of continuous ANLR."
+      footnotes = c(
+        paste0(
+          "Discrimination for ", .endpoint,
+          " using the Cox linear predictor of ANLR + Age, Sodium, GCS (same specification as Figure 5)."
+        ),
+        "Youden index on the ROC of the Cox linear predictor; AUC with DeLong 95% CI."
+      )
     )
   }
 
