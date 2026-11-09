@@ -46,6 +46,7 @@ only_dbs <- NULL
 change_only <- FALSE
 corr_mediation_only <- FALSE
 pooled_mediation_only <- FALSE
+skip_network <- FALSE
 .scheme_override <- NULL
 rescreen_med_covars <- FALSE
 # 纵向/交叉滞后默认三库；Pooled 仅主文 logistic 阶段保留（加 --with-pooled 才跑）
@@ -68,6 +69,8 @@ while (i <= length(args)) {
     run_pooled_long <- TRUE
     corr_mediation_only <- TRUE
     i <- i + 1L
+  } else if (args[[i]] %in% c("--skip-network", "--no-network")) {
+    skip_network <- TRUE; i <- i + 1L
   } else if (args[[i]] == "--scheme" && i < length(args)) {
     .scheme_override <- tolower(trimws(args[[i + 1L]])); i <- i + 2L
   } else if (args[[i]] %in% c("--rescreen-mediation-covars", "--rescreen-med-covars")) {
@@ -366,8 +369,12 @@ run_blocks_after_prepare <- function(ctx) {
              error = function(e) cli::cli_alert_warning("country_year: {e$message}"))
     tryCatch({ ctx <- block_cross_lagged_fig1_group(ctx) },
              error = function(e) cli::cli_alert_warning("fig1: {e$message}"))
-    tryCatch({ ctx <- block_cross_lagged_network(ctx) },
-             error = function(e) cli::cli_alert_warning("network: {e$message}"))
+    if (isTRUE(skip_network)) {
+      cli::cli_alert_info("跳过 cross_lagged_network（--skip-network）")
+    } else {
+      tryCatch({ ctx <- block_cross_lagged_network(ctx) },
+               error = function(e) cli::cli_alert_warning("network: {e$message}"))
+    }
     tryCatch({ ctx <- block_cross_lagged_change_logistic(ctx) },
              error = function(e) cli::cli_alert_warning("change: {e$message}"))
   }
@@ -795,7 +802,11 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
     tryCatch({ ctxp <- block_cross_lagged_corr_table(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled corr: {e$message}"))
     tryCatch({ ctxp <- block_cross_lagged_country_year_bar(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled bar: {e$message}"))
     tryCatch({ ctxp <- block_cross_lagged_fig1_group(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled fig1: {e$message}"))
-    tryCatch({ ctxp <- block_cross_lagged_network(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled network: {e$message}"))
+    if (isTRUE(skip_network)) {
+      cli::cli_alert_info("跳过 Pooled cross_lagged_network（--skip-network）")
+    } else {
+      tryCatch({ ctxp <- block_cross_lagged_network(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled network: {e$message}"))
+    }
     tryCatch({ ctxp <- block_cross_lagged_change_logistic(ctxp) }, error = function(e) cli::cli_alert_warning("Pooled change: {e$message}"))
     if (!is.null(med_p) && nrow(med_p) >= 30L) {
       tryCatch({ ctxp <- block_mediation_longitudinal(ctxp) },

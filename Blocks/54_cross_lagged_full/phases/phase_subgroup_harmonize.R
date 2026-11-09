@@ -259,37 +259,53 @@ for (db in only_dbs) {
     )
   }
 
-  fig_pat <- paste0("Subgroup Forest analyses of ", .index, "\\.pdf$")
+  # 图题常用展示名（Leisure score），勿只匹配编程名 Leisure_score；
+  # 亦匹配 UnknownDB / Figure 2 等误标前缀，取最新一份再规范成 Figure 3-<db>.
+  .index_disp <- gsub("_", " ", as.character(.index)[1L], fixed = TRUE)
+  fig_dir <- file.path(out_dir, "Figures")
   hits <- list.files(
-    file.path(out_dir, "Figures"),
-    pattern = fig_pat,
-    full.names = TRUE, ignore.case = TRUE
+    fig_dir,
+    pattern = "Subgroup Forest analyses of .*\\.pdf$",
+    full.names = TRUE, ignore.case = TRUE, recursive = FALSE
   )
+  # 排除已规范命名的本库交付稿，优先新跑出的源图
   hits_new <- hits[!grepl(paste0("^Figure 3-", db, "\\."), basename(hits))]
   if (!length(hits_new)) hits_new <- hits
-  fig_src <- if (length(hits_new)) {
-    hits_new[order(file.info(hits_new)$mtime, decreasing = TRUE)][[1L]]
+  # 优先含本 index 展示名/编程名的文件
+  prefer <- hits_new[
+    grepl(.index_disp, basename(hits_new), fixed = TRUE) |
+      grepl(.index, basename(hits_new), fixed = TRUE)
+  ]
+  if (!length(prefer)) prefer <- hits_new
+  fig_src <- if (length(prefer)) {
+    prefer[order(file.info(prefer)$mtime, decreasing = TRUE)][[1L]]
   } else NA_character_
-  dest_name <- paste0("Figure 3-", db, ". Subgroup Forest analyses of ", .index, ".pdf")
-  dest_phase <- file.path(out_dir, "Figures", dest_name)
+  dest_name <- paste0(
+    "Figure 3-", db, ". Subgroup Forest analyses of ", .index_disp, ".pdf"
+  )
+  dest_phase <- file.path(fig_dir, dest_name)
   dest_sum <- file.path(study_root, "summary_result", "figure", dest_name)
+  dest_sum_pdf <- file.path(study_root, "summary_result", "figure", "pdf", dest_name)
   if (isTRUE(file.exists(fig_src))) {
     dir.create(dirname(dest_sum), recursive = TRUE, showWarnings = FALSE)
+    dir.create(dirname(dest_sum_pdf), recursive = TRUE, showWarnings = FALSE)
     if (!identical(normalizePath(fig_src, winslash = "/", mustWork = FALSE),
                    normalizePath(dest_phase, winslash = "/", mustWork = FALSE))) {
       file.copy(fig_src, dest_phase, overwrite = TRUE)
     }
     file.copy(fig_src, dest_sum, overwrite = TRUE)
+    file.copy(fig_src, dest_sum_pdf, overwrite = TRUE)
     cli::cli_alert_success("copied {basename(fig_src)} → {dest_name}")
   } else {
-    cli::cli_alert_warning("未找到 Subgroup Forest PDF for {db}")
+    cli::cli_alert_warning("未找到 Subgroup Forest PDF for {db} under {fig_dir}")
   }
 }
 
 .has_pooled <- "Pooled" %in% only_dbs
+.index_disp_all <- gsub("_", " ", as.character(.index)[1L], fixed = TRUE)
 txt <- c(
   paste0("time=", format(Sys.time(), "%F %T")),
-  paste0("figure=Figure 3 Subgroup Forest analyses of ", .index),
+  paste0("figure=Figure 3 Subgroup Forest analyses of ", .index_disp_all),
   paste0("kind=", .meta$kind %||% "unknown"),
   paste0(
     "cohorts=", paste(only_dbs, collapse = ","),
@@ -299,6 +315,7 @@ txt <- c(
   paste0("locked_vars=", paste(.SG_LOCK, collapse = "+")),
   paste0("age_cutoff=", .SG_AGE_CUT, if (isTRUE(.sg$use_age_group)) " (Age_Group on)" else " (Age_Group off)"),
   paste0("order=", paste(.SG_LOCK, collapse = " → ")),
+  paste0("Model2=", paste(m2, collapse = "+")),
   paste0(
     "note=",
     if (isTRUE(.has_pooled)) {
@@ -313,14 +330,14 @@ dir.create(file.path(study_root, "phase2_Pooled"), recursive = TRUE, showWarning
 writeLines(txt, file.path(study_root, "phase2_Pooled", "Figure3_subgroup_var_lock.txt"))
 writeLines(txt, file.path(study_root, "summary_result", "table", "Figure3_subgroup_var_lock.txt"))
 if (!isTRUE(.has_pooled)) {
-  unlink(file.path(
-    study_root, "summary_result", "figure",
-    paste0("Figure 3-Pooled. Subgroup Forest analyses of ", .index, ".pdf")
-  ))
-  unlink(file.path(
-    study_root, "summary_result", "figure",
-    "Figure 3-Pooled. Subgroup Forest analyses of FI.pdf"
-  ))
+  for (.d in c(
+    file.path(study_root, "summary_result", "figure"),
+    file.path(study_root, "summary_result", "figure", "pdf")
+  )) {
+    unlink(file.path(.d, paste0("Figure 3-Pooled. Subgroup Forest analyses of ", .index, ".pdf")))
+    unlink(file.path(.d, paste0("Figure 3-Pooled. Subgroup Forest analyses of ", .index_disp_all, ".pdf")))
+    unlink(file.path(.d, "Figure 3-Pooled. Subgroup Forest analyses of FI.pdf"))
+  }
 }
 cli::cli_alert_success(
   "亚组 Fig3 锁定重跑完成（{paste(only_dbs, collapse='+')}；vars={paste(.SG_LOCK, collapse='+')}）"

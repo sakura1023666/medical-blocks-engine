@@ -66,12 +66,18 @@ if [[ -f "$STUDY/config_long_panel.R" ]]; then
   fi
 fi
 
+# 主文 Change 合并表文件名（与 phase_long_figs / .change_stem 一致）
+TAB_S5="Table S5. Change analysis Mean FI and FI change.xlsx"
+TAB_S5_1="Table S5.1. Change analysis Mean FI and FI change.xlsx"
+CHANGE_STEM="Table_Change_FI_mean_and_change"
+
 if [[ "$IS_CIRC" == "1" && "$IS_LEISURE" == "1" ]]; then
   XS=(CHARLS ELSA NHANES)
   T1_SUF="Baseline characteristics of Circadian disorder.xlsx"
   T2_SUF="Logistic regression analysis of Leisure activity score and Circadian disorder - quartile (GLM).xlsx"
   FIG2_SUF="RCS plot between Leisure activity score and Circadian Disorder.pdf"
-  FIG3_SUF="Subgroup Forest analyses of Leisure activity score.pdf"
+  # 与 subgroup block / 1023 交付一致：Leisure score（非 Leisure activity score）
+  FIG3_SUF="Subgroup Forest analyses of Leisure score.pdf"
   FIG4_SUF="CLPN network of circadian conditions.pdf"
   S3_SUF="Longitudinal mediation path diagram of Leisure activity score ${MED_LAB} and circadian disorder.pdf"
   S4_SUF="Mean Leisure activity score by Year and Disease.pdf"
@@ -79,6 +85,9 @@ if [[ "$IS_CIRC" == "1" && "$IS_LEISURE" == "1" ]]; then
   S6_NAME="Table S6. Correlation regression Leisure activity score ${MED_LAB} Circadian disorder.xlsx"
   S7_NAME="Table S7. Longitudinal mediation Leisure activity score→${MED_LAB}→Circadian disorder.xlsx"
   FIG_S6_ROC="Figure S6. ROC of Leisure activity score for Circadian Disorder.pdf"
+  TAB_S5="Table S5. Change analysis of Leisure activity score.xlsx"
+  TAB_S5_1="Table S5.1. Change analysis of Leisure activity score.xlsx"
+  CHANGE_STEM="Table_Change_Leisure_activity_score_mean_and_change"
 elif [[ "$IS_CIRC" == "1" ]]; then
   XS=(CHARLS ELSA NHANES)
   T1_SUF="Baseline characteristics of Circadian disorder.xlsx"
@@ -222,19 +231,25 @@ for db in "${XS[@]}" Pooled; do
   cp_one "${src:-}" "$TMP/table/Table 2-${db}. ${T2_SUF}"
 done
 
-# S5 / S5.1 / S6 / S7 合并表
-cp_one "$TAB/Table S5. Change analysis Mean FI and FI change.xlsx" \
-       "$TMP/table/Table S5. Change analysis Mean FI and FI change.xlsx"
-cp_one "$STUDY/summary_result/table/Table S5. Change analysis Mean FI and FI change.xlsx" \
-       "$TMP/table/Table S5. Change analysis Mean FI and FI change.xlsx"
-# 上面 TAB 可能已是旧目录；TMP 写入时 TAB 仍在
+# S5 / S5.1 / S6 / S7 合并表（Leisure 课题用 TAB_S5 / CHANGE_STEM，勿只收 FI 旧名）
 for cand in \
+  "$TAB/$TAB_S5" \
+  "$STUDY/summary_result/table/$TAB_S5" \
+  "$OUT/table/$TAB_S5" \
+  "$TAB/Table S5. Change analysis Mean FI and FI change.xlsx" \
   "$OUT/table/Table S5. Change analysis Mean FI and FI change.xlsx"
 do
-  cp_one "$cand" "$TMP/table/Table S5. Change analysis Mean FI and FI change.xlsx"
+  cp_one "$cand" "$TMP/table/$TAB_S5"
 done
-cp_one "$OUT/table/Table S5.1. Change analysis Mean FI and FI change.xlsx" \
-       "$TMP/table/Table S5.1. Change analysis Mean FI and FI change.xlsx"
+for cand in \
+  "$TAB/$TAB_S5_1" \
+  "$STUDY/summary_result/table/$TAB_S5_1" \
+  "$OUT/table/$TAB_S5_1" \
+  "$TAB/Table S5.1. Change analysis Mean FI and FI change.xlsx" \
+  "$OUT/table/Table S5.1. Change analysis Mean FI and FI change.xlsx"
+do
+  cp_one "$cand" "$TMP/table/$TAB_S5_1"
+done
 
 src=$(first_existing \
   "$OUT/table/$S6_NAME" \
@@ -347,12 +362,32 @@ f5 <- file.path(root, "Blocks/54_cross_lagged_full/20block_cross_lagged_change_l
 if (length(have) && file.exists(f5)) {
   source(f5, local = FALSE)
   if (exists("cross_lagged_change_build_table_s5", mode = "function")) {
-    rds <- file.path(study, paste0("phase3_long_", have), "Tables", "Table_Change_FI_mean_and_change_pub.rds")
-    if (any(file.exists(rds)))
-      cross_lagged_change_build_table_s5(rds, file.path(out_dir, "Table S5. Change analysis Mean FI and FI change.xlsx"), cohorts = have)
-    rds1 <- file.path(study, paste0("phase3_long_", have), "Tables", "Table_Change_FI_mean_and_change_twowave_pub.rds")
-    if (any(file.exists(rds1)))
-      cross_lagged_change_build_table_s5(rds1, file.path(out_dir, "Table S5.1. Change analysis Mean FI and FI change.xlsx"), cohorts = have, title = "Table S5.1. Change analysis Mean FI and FI change")
+    .chg_stem <- if (isTRUE(is_leisure)) {
+      "Table_Change_Leisure_activity_score_mean_and_change"
+    } else {
+      "Table_Change_FI_mean_and_change"
+    }
+    .s5_bn <- if (isTRUE(is_leisure)) {
+      "Table S5. Change analysis of Leisure activity score.xlsx"
+    } else {
+      "Table S5. Change analysis Mean FI and FI change.xlsx"
+    }
+    .s51_bn <- if (isTRUE(is_leisure)) {
+      "Table S5.1. Change analysis of Leisure activity score.xlsx"
+    } else {
+      "Table S5.1. Change analysis Mean FI and FI change.xlsx"
+    }
+    .s5_title <- sub("\\.xlsx$", "", .s5_bn)
+    .s51_title <- sub("\\.xlsx$", "", .s51_bn)
+    # Leisure：只用 Leisure stem（勿把 Pooled 旧 FI stem 并进主文 S5）
+    rds <- file.path(study, paste0("phase3_long_", have), "Tables", paste0(.chg_stem, "_pub.rds"))
+    rds <- rds[file.exists(rds)]
+    if (length(rds))
+      cross_lagged_change_build_table_s5(rds, file.path(out_dir, .s5_bn), cohorts = have, title = .s5_title)
+    rds1 <- file.path(study, paste0("phase3_long_", have), "Tables", paste0(.chg_stem, "_twowave_pub.rds"))
+    rds1 <- rds1[file.exists(rds1)]
+    if (length(rds1))
+      cross_lagged_change_build_table_s5(rds1, file.path(out_dir, .s51_bn), cohorts = have, title = .s51_title)
   }
 }
 f6 <- file.path(root, "Blocks/54_cross_lagged_full/15block_cross_lagged_corr_table.R")
@@ -477,6 +512,8 @@ for db in "${XS[@]}"; do
   p1="$(_phase1 "$db")"
   src=$(first_existing \
     "$p1/Figures/Figure 3-${db}. ${FIG3_SUF}" \
+    "$p1/Figures/Figure 3-${db}. Subgroup Forest analyses of Leisure score.pdf" \
+    "$p1/Figures/Figure 3-${db}. Subgroup Forest analyses of Leisure activity score.pdf" \
     "$p1/Figures/Figure 3-${db}. Subgroup Forest analyses of ePWV.pdf" \
     "$p1/Figures/Figure 3-USA. Subgroup Forest analyses of ePWV.pdf" \
     "$p1/Figures/Figure 3-${db}. Subgroup Forest analyses of FI.pdf" \
@@ -648,8 +685,8 @@ if [[ "$IS_CIRC" == "1" ]]; then
 fi
 need_fig "${S5_NAME}"
 need_fig "${FIG_S6_ROC}"
-need_tab "Table S5. Change analysis Mean FI and FI change.xlsx"
-need_tab "Table S5.1. Change analysis Mean FI and FI change.xlsx"
+need_tab "$TAB_S5"
+need_tab "$TAB_S5_1"
 need_tab "$S6_NAME"
 need_tab "$S7_NAME"
 # 敏感性：横断面 S9/S10/S12/S13；纵向另加 S15/S16；合并 Change S11/S14/S17

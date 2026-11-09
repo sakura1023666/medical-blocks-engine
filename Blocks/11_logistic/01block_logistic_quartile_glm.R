@@ -78,13 +78,26 @@
   # 与 cut(min..max, include.lowest=TRUE) 不同：边界 ties 归入上一档，避免 Q1 人数偏大
   brks <- unique(as.numeric(stats::quantile(xv, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)))
   if (length(brks) < 3L) {
-    labs <- paste0("Q", seq_along(u))
-    grp <- factor(xv, levels = u, labels = labs)
+    # 离散暴露（如 Leisure_score）分位边界塌缩时：用 ntile 保 4 档，禁止退回「每唯一值一档」Q1–Qn
+    n <- length(xv)
+    rk <- rank(xv, ties.method = "first", na.last = "keep")
+    grp_num <- as.integer(ceiling(rk / n * 4))
+    grp_num[!is.finite(xv)] <- NA_integer_
+    grp_num <- pmin(pmax(grp_num, 1L), 4L)
+    labs <- c("Q1", "Q2", "Q3", "Q4")
+    grp <- factor(grp_num, levels = seq_along(labs), labels = labs)
+    meds <- vapply(seq_along(labs), function(i) {
+      stats::median(xv[grp_num == i], na.rm = TRUE)
+    }, numeric(1))
+    cutoffs <- setNames(
+      paste0("ntile; median=", vapply(meds, fmt_num_cutoff, character(1))),
+      labs
+    )
     return(list(
       Group = grp,
-      Num = as.numeric(factor(xv, levels = u, labels = seq_along(u))),
+      Num = as.numeric(grp),
       raw_levels = labs,
-      cutoffs = setNames(rep("", length(labs)), labs)
+      cutoffs = cutoffs
     ))
   }
   grp_num <- ifelse(

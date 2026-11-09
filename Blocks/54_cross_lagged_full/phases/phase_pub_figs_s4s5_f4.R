@@ -35,6 +35,7 @@ study_root <- Sys.getenv(
 )
 no_sync <- FALSE
 skip_boot <- FALSE
+skip_network <- FALSE
 boot_edge_n <- NA_integer_
 boot_case_n <- NA_integer_
 i <- 1L
@@ -49,6 +50,10 @@ while (i <= length(args)) {
     no_sync <- TRUE; i <- i + 1L
   } else if (args[[i]] %in% c("--skip-boot", "--no-boot")) {
     skip_boot <- TRUE; i <- i + 1L
+  } else if (args[[i]] %in% c("--skip-network", "--no-network", "--skip-clpn")) {
+    skip_network <- TRUE
+    skip_boot <- TRUE
+    i <- i + 1L
   } else if (args[[i]] == "--boot-edge" && i < length(args)) {
     boot_edge_n <- as.integer(args[[i + 1L]]); i <- i + 2L
   } else if (args[[i]] == "--boot-case" && i < length(args)) {
@@ -559,6 +564,9 @@ cli::cli_alert_success("S5: {out5}")
 # =====================================================================
 # Figure 4: CLPN network（qgraph，短码 + 图例真名；映射库 configs/clpn_node_label_db.csv）
 # =====================================================================
+if (isTRUE(skip_network)) {
+  cli::cli_alert_info("跳过 Figure 4 / Table S8 / CLPN bootstrap（--skip-network）")
+} else {
 cli::cli_h1("Figure 4 — CLPN network (real adjacency)")
 
 .fi_group_of <- function(stem) {
@@ -708,6 +716,7 @@ for (db in cohorts) {
     cli::cli_alert_info("跳过 CLPN bootstrap（--skip-boot）")
   }
 }
+} # end !skip_network (Fig4 / S1 / S2)
 
 # FI 构造核对表（为何均值不同、节点数如何）
 .fi_src <- c(

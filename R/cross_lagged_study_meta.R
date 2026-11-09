@@ -298,8 +298,17 @@ cross_lagged_study_meta <- function(study_root) {
       grouping = grp,
       grouping_labels = grp_labels,
       tertile_right = TRUE,
-      fi_t1 = "T1_FI",
-      fi_t2 = "T2_FI",
+      # Leisure 暴露用 T1/T2_Leisure_score；ePWV 等仍用 FI 轨迹列
+      fi_t1 = if (identical(as.character(.pa$index_var %||% "")[1L], "Leisure_score")) {
+        "T1_Leisure_score"
+      } else {
+        "T1_FI"
+      },
+      fi_t2 = if (identical(as.character(.pa$index_var %||% "")[1L], "Leisure_score")) {
+        "T2_Leisure_score"
+      } else {
+        "T2_FI"
+      },
       change_index_stem = as.character(.pa$change_index_stem %||% "FI")[1L],
       change_index_display = as.character(.pa$change_index_display %||% "FI")[1L],
       table1_harmonize = FALSE,

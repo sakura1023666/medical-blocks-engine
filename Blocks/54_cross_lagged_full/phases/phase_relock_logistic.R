@@ -47,6 +47,7 @@ study_root <- NULL
 # will resolve via .cl_pick_study_root after args parse
 only_dbs <- NULL
 rcs_only <- FALSE
+.force_model2 <- NULL  # 如 --force-model2 Age,Gender,Education,Height
 i <- 1L
 while (i <= length(args)) {
   if (args[[i]] == "--study-root" && i < length(args)) {
@@ -56,6 +57,10 @@ while (i <= length(args)) {
     i <- i + 2L
   } else if (args[[i]] == "--rcs-only") {
     rcs_only <- TRUE; i <- i + 1L
+  } else if (args[[i]] == "--force-model2" && i < length(args)) {
+    .force_model2 <- trimws(unlist(strsplit(args[[i + 1L]], "[,+]")))
+    .force_model2 <- .force_model2[nzchar(.force_model2)]
+    i <- i + 2L
   } else i <- i + 1L
 }
 if (is.null(study_root) || !nzchar(study_root))
@@ -87,6 +92,14 @@ if (isTRUE(.lock$empty) || !length(.lock$model2)) {
   if ("Age" %in% .lock$model2) "Age" else .lock$model2[[1]]
 }
 .M2_LOCK <- .lock$model2
+if (length(.force_model2)) {
+  cli::cli_alert_warning(
+    "CLI --force-model2 覆盖锁定 Model2: {paste(.lock$model2, collapse='+')} → {paste(.force_model2, collapse='+')}"
+  )
+  .M2_LOCK <- as.character(.force_model2)
+  .lock$model2 <- .M2_LOCK
+  .lock$source <- paste0(as.character(.lock$source %||% "lock"), "+force_model2")
+}
 .M2_POOLED <- unique(c(.M2_LOCK, "Country"))
 cli::cli_alert_success(paste0(
   "Model1=", paste(.M1_LOCK, collapse = "+"),

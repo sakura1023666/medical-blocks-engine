@@ -239,7 +239,9 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
       force_age = "Age" %in% .M2 || "Age" %in% .M1,
       force_sex = any(c("Gender", "Sex") %in% .M2),
       force_sex_to_model1 = FALSE
-    )
+    ),
+    # 敏感性 Model2 已从 lock 强制写入；禁止 Model3 降级链改写脚注/协变量
+    model3_degrade = list(enable = FALSE)
   )
   cfg$.sens_grouping <- grp
   if (isTRUE(.meta$table1_harmonize) &&
@@ -252,15 +254,18 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
       e <- new.env(parent = baseenv())
       e$`%||%` <- `%||%`
       tryCatch(sys.source(common_f, envir = e), error = function(err) NULL)
-      if (exists(".CIRCADIAN_TABLE1_INCLUDE", envir = e, inherits = FALSE)) {
-        cfg$baseline_binary$include_vars <- get(".CIRCADIAN_TABLE1_INCLUDE", envir = e)
+      # Leisure 课题用 .LEISURE_TABLE1_*；旧 ePWV 课题用 .CIRCADIAN_TABLE1_*
+      .pick <- function(primary, fallback) {
+        if (exists(primary, envir = e, inherits = FALSE)) get(primary, envir = e)
+        else if (exists(fallback, envir = e, inherits = FALSE)) get(fallback, envir = e)
+        else NULL
       }
-      if (exists(".CIRCADIAN_TABLE1_EXCLUDE", envir = e, inherits = FALSE)) {
-        cfg$baseline_binary$exclude_vars <- get(".CIRCADIAN_TABLE1_EXCLUDE", envir = e)
-      }
-      if (exists(".CIRCADIAN_TABLE1_LABELS", envir = e, inherits = FALSE)) {
-        cfg$baseline_binary$table1_label_overrides <- get(".CIRCADIAN_TABLE1_LABELS", envir = e)
-      }
+      inc <- .pick(".LEISURE_TABLE1_INCLUDE", ".CIRCADIAN_TABLE1_INCLUDE")
+      exc <- .pick(".LEISURE_TABLE1_EXCLUDE", ".CIRCADIAN_TABLE1_EXCLUDE")
+      labs <- .pick(".LEISURE_TABLE1_LABELS", ".CIRCADIAN_TABLE1_LABELS")
+      if (!is.null(inc)) cfg$baseline_binary$include_vars <- as.character(inc)
+      if (!is.null(exc)) cfg$baseline_binary$exclude_vars <- as.character(exc)
+      if (!is.null(labs)) cfg$baseline_binary$table1_label_overrides <- labs
       cfg$baseline_binary$table1_append_units_from_dictionary <- FALSE
     }
   }
@@ -416,22 +421,23 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     ctx <- tryCatch(flush_pub_output_queues(ctx), error = function(e) ctx)
   }
   log_src <- file.path(ctx$output_dir_tables, log_name)
-  # export 可能截断文件名；兜底搜索后拷到固定 S 编号
-  if (!file.exists(log_src)) {
-    hits <- list.files(
-      ctx$output_dir_tables,
-      pattern = "tertile.*GLM.*\\.xlsx$|quartile.*GLM.*\\.xlsx$|Sensitivity.*Logistic.*\\.xlsx$",
-      full.names = TRUE, ignore.case = TRUE
-    )
-    if (!length(hits)) {
-      hits <- list.files(ctx$output_dir_tables, pattern = "Sensitivity.*\\.xlsx$", full.names = TRUE)
-      hits <- hits[!grepl("Normality|Baseline characteristics|Change analysis",
-                          basename(hits), ignore.case = TRUE)]
-    }
-    if (length(hits)) {
-      hits <- hits[order(file.info(hits)$mtime, decreasing = TRUE)]
-      file.copy(hits[[1]], log_src, overwrite = TRUE)
-    }
+  # export 常因路径过长截断文件名（…qua….xlsx）；旧 quartile (GLM).xlsx 若仍在会挡住新表。
+  # 一律取本趟最新 Sensitivity logistic 表覆盖到固定 log_name，再拷 summary。
+  grp_pat <- if (use_q) "qua" else "ter"
+  hits <- list.files(
+    ctx$output_dir_tables,
+    pattern = paste0("Sensitivity.*Logistic.*", grp_pat, ".*\\.xlsx$"),
+    full.names = TRUE, ignore.case = TRUE
+  )
+  if (!length(hits)) {
+    hits <- list.files(ctx$output_dir_tables, pattern = "Sensitivity.*\\.xlsx$", full.names = TRUE)
+    hits <- hits[!grepl("Normality|Baseline characteristics|Change analysis",
+                        basename(hits), ignore.case = TRUE)]
+  }
+  if (length(hits)) {
+    hits <- hits[order(file.info(hits)$mtime, decreasing = TRUE)]
+    # 优先截断新稿（mtime 最新）；显式覆盖固定 (GLM) 名，避免沿用旧 Q1–Qn / 旧 Model2 脚注
+    file.copy(hits[[1]], log_src, overwrite = TRUE)
   }
   if (file.exists(log_src)) {
     if (exists("cross_lagged_sens_relabel_xlsx_title", mode = "function")) {
@@ -480,6 +486,13 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     #   Mean: mean_Index_q3 + T2_Age + T2_Alcohol_drinking
     #   Change: Index_change_q3 不调整
     #   三分位：用 Step05 预计算 *_q3（C01.1 ntile）
+    .chg_stem <- as.character(
+      .meta$change_index_stem %||% (if (.is_dementia) "Leisure_activities" else "FI")
+    )[1L]
+    .chg_disp <- as.character(
+      .meta$change_index_display %||% .chg_stem
+    )[1L]
+    .chg_file_stem <- paste0("Table_Change_", .chg_stem, "_mean_and_change")
     cfg$cross_lagged_change_logistic <- list(
       outcome_event_level = .meta$analysis_group,
       covariates = if (.is_dementia) c("Age", "Alcohol_drinking") else .M2,
@@ -489,9 +502,12 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
       scheme = if (.is_dementia) "tertile" else as.character(.meta$grouping %||% "tertile")[1L],
       grouping_method = if (.is_dementia) "ntile" else "quantile",
       use_precomputed_q3 = isTRUE(.is_dementia),
-      index_stem = .meta$change_index_stem %||% (if (.is_dementia) "Leisure_activities" else "FI"),
+      index_stem = .chg_stem,
       fi_t1 = .meta$fi_t1,
       fi_t2 = .meta$fi_t2,
+      mean_section = paste("Mean", .chg_disp),
+      change_section = paste(.chg_disp, "change"),
+      file_stem = .chg_file_stem,
       outcome_t2 = outcome_t2,
       time_col = time_col,
       output_suffix = ""
@@ -505,7 +521,7 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     ctx <- tryCatch(block_cross_lagged_change_logistic(ctx), error = function(e) {
       cli::cli_alert_warning("change auto 失败: {e$message}"); ctx
     })
-    r_auto <- file.path(out_dir, "Tables", "Table_Change_FI_mean_and_change_pub.rds")
+    r_auto <- file.path(out_dir, "Tables", paste0(.chg_file_stem, "_pub.rds"))
     # twowave（显式 suffix；Dementia 已在上表强制 design=two_wave）
     cfg$cross_lagged_change_logistic$output_suffix <- "_twowave"
     cfg$cross_lagged_change_logistic$design <- "two_wave"
@@ -516,7 +532,7 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     ctx2 <- tryCatch(block_cross_lagged_change_logistic(ctx2), error = function(e) {
       cli::cli_alert_warning("change twowave 失败: {e$message}"); ctx2
     })
-    r_two <- file.path(out_dir, "Tables", "Table_Change_FI_mean_and_change_twowave_pub.rds")
+    r_two <- file.path(out_dir, "Tables", paste0(.chg_file_stem, "_twowave_pub.rds"))
     if (file.exists(r_auto)) {
       rds_auto <- c(rds_auto, r_auto)
       cohorts_ok <- c(cohorts_ok, db)
@@ -530,10 +546,14 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
   # 对齐路径向量到 cohorts
   # builder 期望与 cohorts 等长的路径向量
   cohorts_use <- unique(cohorts_ok)
+  .chg_stem_collect <- as.character(
+    .meta$change_index_stem %||% (if (.is_dementia) "Leisure_activities" else "FI")
+  )[1L]
+  .chg_file_stem_collect <- paste0("Table_Change_", .chg_stem_collect, "_mean_and_change")
   paths_auto <- file.path(.out_root, scenario, cohorts_use, "Tables",
-                          "Table_Change_FI_mean_and_change_pub.rds")
+                          paste0(.chg_file_stem_collect, "_pub.rds"))
   paths_two <- file.path(.out_root, scenario, cohorts_use, "Tables",
-                         "Table_Change_FI_mean_and_change_twowave_pub.rds")
+                         paste0(.chg_file_stem_collect, "_twowave_pub.rds"))
   out_change <- file.path(
     .out_root, scenario,
     cross_lagged_sens_table_basename(
