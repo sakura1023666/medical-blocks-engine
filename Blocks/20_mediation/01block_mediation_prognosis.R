@@ -1292,7 +1292,9 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
   diagram_enable <- isTRUE(bl_cfg$diagram_enable %||% TRUE)
   if (diagram_enable && nrow(final_table) > 0L) {
     best_med_cfg <- as.character(bl_cfg[["best_mediator"]] %||% "")[1L]
-    # 双库对齐：共享 preferred → config best_mediator → 本库 Prop_Med 最大
+    # 路径图选中介：显式 config best_mediator 优先于磁盘 preferred
+    # （避免旧 preferred=RDW 覆盖课题锁定的 AnionGap）
+    # 其次：双库 preferred → 本库 Prop_Med 最大
     pref_shared <- NA_character_
     if (isTRUE((cfg$dual_db %||% list())$enable) &&
         isTRUE(bl_cfg$dual_db_lock_best_mediator %||% TRUE) &&
@@ -1300,13 +1302,13 @@ block_mediation_prognosis <- function(ctx, exposure = NULL, mediators = NULL,
       root_m <- normalizePath(cfg$project$root %||% getwd(), winslash = "/", mustWork = FALSE)
       pref_shared <- dual_db_load_preferred_mediator(root_m, cfg)
     }
-    if (nzchar(as.character(pref_shared %||% "")[1L]) &&
+    if (nzchar(best_med_cfg) && best_med_cfg %in% final_table$Mediator) {
+      best_row <- final_table[final_table$Mediator == best_med_cfg, , drop = FALSE][1L, ]
+      cli::cli_alert_info("中介路径图：使用指定中介 {best_med_cfg}")
+    } else if (nzchar(as.character(pref_shared %||% "")[1L]) &&
         pref_shared %in% final_table$Mediator) {
       best_row <- final_table[final_table$Mediator == pref_shared, , drop = FALSE][1L, ]
       cli::cli_alert_info("中介路径图：双库对齐中介 {pref_shared}")
-    } else if (nzchar(best_med_cfg) && best_med_cfg %in% final_table$Mediator) {
-      best_row <- final_table[final_table$Mediator == best_med_cfg, , drop = FALSE][1L, ]
-      cli::cli_alert_info("中介路径图：使用指定中介 {best_med_cfg}")
     } else {
       valid_rows <- final_table[!is.na(final_table$Prop_Med_num), , drop = FALSE]
       best_row   <- if (nrow(valid_rows) > 0L) {

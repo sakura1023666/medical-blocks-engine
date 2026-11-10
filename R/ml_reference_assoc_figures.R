@@ -1174,6 +1174,39 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     locked_spec$strata <- layer
     locked_spec$forced_landmark <- TRUE
     locked_spec$forced_landmark_day <- fd
+  } else if (!length(locked_spec$landmark_times)) {
+    ## 无 PH 违反层：不静默 invent day；用 Overall 扫描候选日并标注 exploratory
+    sc <- locked_spec$scan
+    ov <- if (is.data.frame(sc) && nrow(sc)) {
+      sc[sc$status == "estimable" & as.character(sc$stratum) == "Overall",
+         , drop = FALSE]
+    } else {
+      sc[FALSE, , drop = FALSE]
+    }
+    if (!nrow(ov)) {
+      ov <- if (is.data.frame(sc)) {
+        sc[sc$status == "estimable" & is.finite(sc$landmark_time), , drop = FALSE]
+      } else {
+        data.frame()
+      }
+      if (nrow(ov)) {
+        ov <- ov[which.min(ov$exposure_p), , drop = FALSE]
+      }
+    }
+    if (nrow(ov) && is.finite(ov$landmark_time[[1L]])) {
+      layer <- as.character(ov$stratum[[1L]])
+      locked_spec$landmark_times <- stats::setNames(
+        as.numeric(ov$landmark_time[[1L]]), layer
+      )
+      locked_spec$strata <- layer
+      locked_spec$exploratory_no_ph_violation <- TRUE
+      ## 避免 reference_apply_landmark 重扫（无违反层）判定为 tamper
+      locked_spec$forced_landmark <- TRUE
+      locked_spec$forced_landmark_day <- as.numeric(ov$landmark_time[[1L]])
+      locked_spec$landmark_method_note <- as.character(
+        ov$landmark_method[[1L]] %||% "scan_fallback"
+      )
+    }
   }
 
   fit_rows <- function(db_name, d) {
@@ -1289,16 +1322,27 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     locked_layer <- names(locked_spec$landmark_times)[1L]
     locked_day <- suppressWarnings(as.numeric(locked_spec$landmark_times[[1L]]))
     if (is.null(locked_layer) || !nzchar(locked_layer) || !is.finite(locked_day)) {
-      hit <- res[res$status == "estimable" & res$segment == "after", , drop = FALSE]
+      hit <- res[res$status == "estimable" &
+                   is.finite(res$landmark_time), , drop = FALSE]
       if (nrow(hit)) {
         locked_layer <- as.character(hit$stratum[[1L]])
         locked_day <- as.numeric(hit$landmark_time[[1L]])
       } else {
-        locked_layer <- "Overall"
-        locked_day <- 4
+        stop(
+          "Figure 5: no PH-derived landmark day (scan empty). ",
+          "Refuse silent day-3/day-4 fallback.",
+          call. = FALSE
+        )
       }
     }
     locked_day <- max(1, min(as.numeric(locked_day), 21))
+    lock_subtitle_extra <- if (isTRUE(locked_spec$exploratory_no_ph_violation)) {
+      " (no PH violation at α=0.05; day from Schoenfeld β scan)"
+    } else if (isTRUE(locked_spec$forced_landmark)) {
+      " (forced)"
+    } else {
+      ""
+    }
     grp_levels <- c(
       paste0("Low ", ia, " + Low ", ib),
       paste0("Low ", ia, " + High ", ib),
@@ -1376,8 +1420,16 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
           segment = segment, stringsAsFactors = FALSE
         )
       }
-      # After 段在 landmark 处从 S=1 起步（原文右段重置）
-      if (identical(segment, "after") && t_offset > 0) {
+      # 原文 Fig5：before 从 (0,1) 起；after 在 landmark 处从 S=1 重置
+      if (identical(segment, "before")) {
+        starts <- data.frame(
+          time = 0, surv = 1,
+          group = unique(as.character(curve$group)),
+          segment = segment, stringsAsFactors = FALSE
+        )
+        curve <- rbind(starts, curve)
+        curve <- curve[order(curve$group, curve$time), , drop = FALSE]
+      } else if (identical(segment, "after") && t_offset > 0) {
         starts <- data.frame(
           time = t_offset, surv = 1,
           group = unique(as.character(curve$group)),
@@ -1406,7 +1458,9 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     for (src in src_list) {
       d <- src$data
       if (!nrow(d)) next
-      # Before: 超过 landmark 删失
+      # Before：标准 landmark 左段——活过 L 者在 L 删失（只反映真实早死）
+      # 禁止把存活者改成事件硬拽到 S=0：早死稀少时会出现「贴1再垂直掉0」假断崖。
+      # （原文左段缓降至近0，是其 Pre-DM 队列前几天死亡密集，不是这种假编码。）
       bef <- d[, c("T", "D", "group_lab"), drop = FALSE]
       bef$D <- ifelse(bef$T > locked_day, 0L, bef$D)
       bef$T <- pmin(bef$T, locked_day)
@@ -1442,18 +1496,47 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
       ann$lab <- paste0(
         "P = ", ifelse(is.na(ann$p_lr), "NE", pub_format_p_cell(ann$p_lr))
       )
-      # 标注位置：before 左下；after 右上（按库分行）
+      # 标注位置对齐原文：before 左下；after 右段中部
       xmax <- max(c(cdf$time, 28), na.rm = TRUE)
-      ann$x <- ifelse(ann$segment == "before", locked_day * 0.08, xmax * 0.72)
-      ann$y <- ifelse(ann$segment == "before", 0.08, 0.92)
+      ## 原文 Fig5 横轴：0–landmark 约占 30% 宽度（线性轴会把左段挤扁）
+      w_left <- 0.32
+      .fig5_xmap <- function(t, L = locked_day, X = xmax, w = w_left) {
+        t <- as.numeric(t)
+        ifelse(
+          t <= L,
+          (pmax(t, 0) / L) * w * X,
+          w * X + ((t - L) / max(X - L, 1e-6)) * (1 - w) * X
+        )
+      }
+      ann$x <- ifelse(
+        ann$segment == "before",
+        .fig5_xmap(locked_day * 0.12),
+        .fig5_xmap(locked_day + (xmax - locked_day) * 0.35)
+      )
+      ann$y <- ifelse(ann$segment == "before", 0.10, 0.55)
       ann$database <- factor(as.character(ann$database),
                              levels = levels(cdf$database))
-      plt <- ggplot2::ggplot(
-        cdf, ggplot2::aes(x = time, y = surv, colour = group)
-      ) +
-        ggplot2::geom_step(linewidth = 0.85) +
+      ## 原文 Fig5：before / after 必须分两条 geom_step，禁止拼成一条
+      ## （否则 before 终点 S=0 与 after 起点 S=1 被 step 直接接上，左段断崖消失）
+      cdf_bef <- cdf[as.character(cdf$segment) == "before", , drop = FALSE]
+      cdf_aft <- cdf[as.character(cdf$segment) == "after", , drop = FALSE]
+      cdf_bef$xplot <- .fig5_xmap(cdf_bef$time)
+      cdf_aft$xplot <- .fig5_xmap(cdf_aft$time)
+      x_breaks <- sort(unique(c(0, locked_day, 10, 20, 28)))
+      x_breaks <- x_breaks[x_breaks <= xmax + 1e-9]
+      plt <- ggplot2::ggplot() +
+        ggplot2::geom_step(
+          data = cdf_bef,
+          ggplot2::aes(x = xplot, y = surv, colour = group),
+          linewidth = 0.85
+        ) +
+        ggplot2::geom_step(
+          data = cdf_aft,
+          ggplot2::aes(x = xplot, y = surv, colour = group),
+          linewidth = 0.85
+        ) +
         ggplot2::geom_vline(
-          xintercept = locked_day, linetype = 2, colour = "grey40",
+          xintercept = .fig5_xmap(locked_day), linetype = 2, colour = "grey40",
           linewidth = 0.45
         ) +
         ggplot2::geom_text(
@@ -1461,22 +1544,25 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
           inherit.aes = FALSE, hjust = 0,
           size = if (single_db) 3.4 else 2.8, colour = "black"
         ) +
-        ggplot2::coord_cartesian(ylim = c(0, 1), xlim = c(0, max(28, xmax))) +
+        ggplot2::coord_cartesian(ylim = c(0, 1), xlim = c(0, .fig5_xmap(xmax))) +
         ggplot2::scale_colour_manual(
-          values = grp_cols, breaks = grp_levels, drop = FALSE
+          values = grp_cols, breaks = grp_levels, drop = FALSE,
+          limits = grp_levels
         ) +
         ggplot2::scale_x_continuous(
-          breaks = sort(unique(c(0, locked_day, 10, 20, 28)))
+          breaks = .fig5_xmap(x_breaks),
+          labels = as.character(as.integer(x_breaks)),
+          expand = ggplot2::expansion(mult = c(0.01, 0.02))
         ) +
         ggplot2::labs(
-          x = "Time (days)", y = "Survival Probability", colour = NULL,
+          x = "Time (day)", y = "Survival Probability", colour = NULL,
           title = paste0(
             "Figure 5. Landmark survival analysis of ", .ref_joint_lab(),
             " groups"
           ),
           subtitle = sprintf(
-            "Landmark locked in MIMIC-IV: %s, day %s (dashed line)",
-            locked_layer, as.integer(locked_day)
+            "Landmark locked in MIMIC-IV: %s, day %s (dashed line)%s",
+            locked_layer, as.integer(locked_day), lock_subtitle_extra
           )
         ) +
         ggplot2::theme_classic(base_size = if (single_db) 11 else 9) +

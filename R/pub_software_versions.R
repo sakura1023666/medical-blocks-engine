@@ -4,8 +4,12 @@
 
 #' 收集本机 R 与关键分析包版本
 #' @param extra_pkgs 额外包名（字符向量）
+#' @param exclude_pkgs 从核心清单剔除（如全因死亡课题未做竞争风险则踢 cmprsk）
 #' @return named list: r_version, platform, date, packages (named character)
-pub_collect_software_versions <- function(extra_pkgs = character(0)) {
+pub_collect_software_versions <- function(
+    extra_pkgs = character(0),
+    exclude_pkgs = character(0)
+) {
   core <- c(
     "survival", "survminer", "mice", "rms", "Hmisc", "jstable",
     "ggplot2", "patchwork", "dplyr", "data.table", "openxlsx",
@@ -13,6 +17,9 @@ pub_collect_software_versions <- function(extra_pkgs = character(0)) {
   )
   pkgs <- unique(c(core, as.character(extra_pkgs %||% character(0))))
   pkgs <- pkgs[nzchar(pkgs)]
+  excl <- unique(as.character(exclude_pkgs %||% character(0)))
+  excl <- excl[nzchar(excl)]
+  if (length(excl)) pkgs <- setdiff(pkgs, excl)
   vers <- vapply(pkgs, function(p) {
     if (!requireNamespace(p, quietly = TRUE)) return(NA_character_)
     as.character(utils::packageVersion(p))
@@ -40,10 +47,12 @@ pub_write_software_versions <- function(index_root, project_root = NULL, config 
     dir.create(index_root, recursive = TRUE, showWarnings = FALSE)
   }
   extra <- character(0)
+  exclude <- character(0)
   if (is.list(config)) {
     extra <- as.character((config$software_versions %||% list())$extra_pkgs %||% character(0))
+    exclude <- as.character((config$software_versions %||% list())$exclude_pkgs %||% character(0))
   }
-  info <- pub_collect_software_versions(extra_pkgs = extra)
+  info <- pub_collect_software_versions(extra_pkgs = extra, exclude_pkgs = exclude)
   lines <- c(
     "Software versions (analysis environment)",
     paste0("Generated: ", info$date),
@@ -82,13 +91,17 @@ pub_write_methods_software_section <- function(
     out_path,
     roles = NULL,
     extra_pkgs = character(0),
+    exclude_pkgs = character(0),
     append_to = NULL,
     r_note = NULL
 ) {
-  info <- pub_collect_software_versions(extra_pkgs = unique(c(
-    names(roles %||% character(0)), as.character(extra_pkgs %||% character(0)),
-    "gtsummary", "forestploter", "brglm2", "openxlsx"
-  )))
+  info <- pub_collect_software_versions(
+    extra_pkgs = unique(c(
+      names(roles %||% character(0)), as.character(extra_pkgs %||% character(0)),
+      "gtsummary", "forestploter", "brglm2", "openxlsx"
+    )),
+    exclude_pkgs = exclude_pkgs
+  )
   if (is.null(roles) || !length(roles)) {
     roles <- c(
       gtsummary = "Baseline / stratified descriptive tables",

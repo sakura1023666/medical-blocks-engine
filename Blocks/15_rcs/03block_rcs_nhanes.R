@@ -130,14 +130,26 @@ block_rcs_nhanes <- function(ctx, ...) {
     character(0)
   }
   M3_vars <- intersect(as.character(M3_vars %||% character(0)), names(design$variables))
+  ## Model3 协变量 ⊆ Model2 时第 4 面板与 Model2 同构；默认不画，避免与 Table2（Crude/M1/M2）不一致。
+  ## 仅当显式 force_model3_panel=TRUE（或双库强制四面板）才保留同构第 4 面板。
   if (!length(setdiff(M3_vars, M2_vars))) {
-    if (exists("pipeline_model3_enabled", mode = "function") &&
+    force_m3_panel <- isTRUE(rn_cfg$force_model3_panel %||% FALSE) ||
+      isTRUE((cfg$rcs_nhanes %||% list())$force_model3_panel %||% FALSE) ||
+      (isTRUE((cfg$dual_db %||% list())$enable) &&
+         isTRUE((cfg$dual_db %||% list())$force_rcs_four_panels %||% FALSE))
+    if (isTRUE(force_m3_panel) &&
+        exists("pipeline_model3_enabled", mode = "function") &&
         isTRUE(pipeline_model3_enabled(cfg))) {
       M3_vars <- as.character(M2_vars)
       cli::cli_alert_info(
-        "RCS Model3: 本库无额外学术必调列，仍保留第 4 面板（协变量同 Model2，双库布局对齐）"
+        "RCS Model3: 协变量同 Model2，但 force_model3_panel=TRUE，保留第 4 面板"
       )
     } else {
+      if (length(M3_vars)) {
+        cli::cli_alert_info(
+          "RCS Model3: 协变量未超出 Model2，跳过第 4 面板（与 Table 2 三模型对齐）"
+        )
+      }
       M3_vars <- character(0)
     }
   }

@@ -550,13 +550,18 @@ block_subgroup_incidence <- function(ctx, ...) {
   rt_full_for_n <- NULL
   .sgi_fold_end_lv <- NULL
   if (is_cont_idx) {
-    grp_method <- as.character(
-      (cfg$logistic_quartile_glm %||% list())$scheme %||%
-        (cfg$cox_ml_continuous_batch %||% list())$method %||%
-        (cfg$km_continuous %||% list())$method %||%
-        "quartile"
-    )[1L]
-    if (!grp_method %in% c("quartile", "tertile")) grp_method <- "quartile"
+    # 与主文 logistic/Cox 分位闸门同 scheme（ctx$logistic_grouping_scheme 等优先）
+    grp_method <- if (exists("subgroup_resolve_main_scheme", mode = "function")) {
+      subgroup_resolve_main_scheme(ctx, cfg, default = "quartile")
+    } else {
+      as.character(
+        (cfg$logistic_quartile_glm %||% list())$scheme %||%
+          (cfg$cox_ml_continuous_batch %||% list())$method %||%
+          (cfg$km_continuous %||% list())$method %||%
+          "quartile"
+      )[1L]
+    }
+    if (!grp_method %in% c("quartile", "tertile", "binary")) grp_method <- "quartile"
     store <- ctx$results$continuous_km_cutpoints[[index_var]]
     br <- store$breaks %||% NULL
     store_method <- as.character(store$method %||% "")[1L]
@@ -695,11 +700,13 @@ block_subgroup_incidence <- function(ctx, ...) {
   ## 下游 forest/表格渲染零改动。
   adj_covs <- as.character(sub_cfg$adjust_covariates %||% character(0))
   adj_covs <- adj_covs[nzchar(trimws(adj_covs))]
-  adj_covs <- setdiff(adj_covs, c(index_var, disease_col, final_subgroup_vars))
+  # 只剔除暴露/结局；分层变量本身在层内 glm 再剔（勿在此全局踢掉 Gender/Education 等，
+  # 否则非该分层的层会丢 Model2 协变量，与 Table 2 口径分裂）
+  adj_covs <- setdiff(adj_covs, c(index_var, disease_col))
   adj_covs <- intersect(adj_covs, names(rt))
   if (length(adj_covs)) {
     cli::cli_alert_info(
-      "亚组森林图（调整版）: Q4 vs Q1 + adjust for {paste(adj_covs, collapse = ', ')}"
+      "亚组森林图（调整版）: 最高 vs 最低 + adjust for {paste(adj_covs, collapse = ', ')}"
     )
     rt$.y01 <- if (is.numeric(rt[[disease_col]]) && all(na.omit(rt[[disease_col]]) %in% c(0, 1))) {
       as.integer(rt[[disease_col]])

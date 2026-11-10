@@ -43,6 +43,39 @@ source(file.path(engine, "R/utils.R"), local = TRUE)
 source(file.path(engine, "R/pub_figure_export.R"), local = TRUE)
 source(file.path(engine, "R/pub_qc_after_finalize.R"), local = TRUE)
 
-res <- pub_qc_run_after_project(proj, force = TRUE)
+cfg <- NULL
+cfg_candidates <- c(
+  file.path(proj, "config_survival.R"),
+  file.path(proj, "config.R"),
+  file.path(proj, "config_incidence.R"),
+  file.path(proj, "config_ml.R")
+)
+for (.cf in cfg_candidates) {
+  if (file.exists(.cf)) {
+    # 轻量：只抽 pub_figures$max_edge_in，避免整份 dual-batch build
+    .lines <- tryCatch(readLines(.cf, warn = FALSE), error = function(e) character(0))
+    .hit <- grep("max_edge_in\\s*=\\s*[0-9]", .lines, perl = TRUE, value = TRUE)
+    .me <- NA_real_
+    if (length(.hit)) {
+      .m <- regmatches(.hit[[1]], regexpr("[0-9]+\\.?[0-9]*", .hit[[1]]))
+      .me <- suppressWarnings(as.numeric(.m)[1L])
+    }
+    cfg <- list(pub_figures = list(
+      formats_dir = TRUE,
+      export_png = FALSE,
+      export_tiff = FALSE,
+      max_edge_in = if (is.finite(.me)) .me else 16,
+      require_vector_pdf = TRUE
+    ))
+    break
+  }
+}
+if (is.null(cfg)) {
+  cfg <- list(pub_figures = list(
+    formats_dir = TRUE, export_png = FALSE, export_tiff = FALSE,
+    max_edge_in = 16, require_vector_pdf = TRUE
+  ))
+}
+res <- pub_qc_run_after_project(proj, config = cfg, force = TRUE)
 if (isFALSE(res$ok)) quit(status = 1L)
 invisible(res)

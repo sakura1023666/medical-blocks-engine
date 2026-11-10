@@ -896,6 +896,14 @@
       vif_tbl_pub = vif_tbl_pub
     )
 
+    if (exists("pipeline_strip_exposure_component_vars", mode = "function")) {
+      Model2Factors <- pipeline_strip_exposure_component_vars(
+        Model2Factors, cfg, label = "VIF final Model2Factors"
+      )
+      selected <- pipeline_strip_exposure_component_vars(
+        selected, cfg, label = "vif_final_pass"
+      )
+    }
     ctx$results$Model1Factors <- Model1Factors
     ctx$results$Model2Factors <- Model2Factors
     ctx$results$vif_final_pass <- selected
@@ -1212,6 +1220,11 @@ block_multicollinearity <- function(ctx, ...) {
     )
   }
 
+  if (exists("pipeline_strip_exposure_component_vars", mode = "function")) {
+    Model2Factors_filtered <- pipeline_strip_exposure_component_vars(
+      Model2Factors_filtered, cfg, label = "VIF Model2Factors"
+    )
+  }
   ctx <- save_result(ctx, "Model1Factors", Model1Factors_filtered, "Model1Factors.RData")
   ctx <- save_result(ctx, "Model2Factors", Model2Factors_filtered, "Model2Factors.RData")
 

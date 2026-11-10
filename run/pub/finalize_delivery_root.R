@@ -40,6 +40,7 @@ Sys.setenv(MEDICAL_BLOCKS_ROOT = engine)
 source(file.path(engine, "R/utils.R"), local = FALSE)
 source(file.path(engine, "R/pub_software_versions.R"), local = FALSE)
 source(file.path(engine, "R/pub_delivery_prune.R"), local = FALSE)
+source(file.path(engine, "R/pub_xlsx_surgical.R"), local = FALSE)
 source(file.path(engine, "R/pub_figure_export.R"), local = FALSE)
 cl_methods <- file.path(engine, "R/cross_lagged_methods_pub.R")
 if (file.exists(cl_methods)) source(cl_methods, local = FALSE)
@@ -51,6 +52,8 @@ ml_sum <- file.path(engine, "R/ml_index_summary_results.R")
 if (file.exists(ml_sum)) source(ml_sum, local = FALSE)
 ckm_pub <- file.path(engine, "R/cum_egdr_kmeans_pub.R")
 if (file.exists(ckm_pub)) source(ckm_pub, local = FALSE)
+gs_methods <- file.path(engine, "R/pub_gallstone_methods.R")
+if (file.exists(gs_methods)) source(gs_methods, local = FALSE)
 
 dir <- get_opt("--dir", "")
 proj <- get_opt("--project", "")
@@ -62,6 +65,11 @@ if (isTRUE(prune_only)) {
     if (!dir.exists(dir)) stop("目录不存在: ", dir, call. = FALSE)
     pub_delivery_normalize_fig_tab_dirs(dir)
     pub_delivery_clean_tables_xlsx_only(dir)
+    tab_dir <- file.path(dir, "Tables")
+    if (dir.exists(tab_dir) && exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+      tryCatch(pub_xlsx_scrub_underscores_dir(tab_dir, root = engine), error = function(e)
+        warning("underscore scrub: ", conditionMessage(e), call. = FALSE))
+    }
     res <- pub_prune_delivery_root(dir, dry_run = has_flag("--dry-run"))
     cat("PRUNE_OK dir=", normalizePath(dir), " moved=", length(res$moved %||% character(0)), "\n", sep = "")
   } else if (nzchar(proj)) {
@@ -84,13 +92,22 @@ dbs <- trimws(dbs)
 
 pub_delivery_normalize_fig_tab_dirs(dir)
 pub_delivery_clean_tables_xlsx_only(dir)
+tab_dir <- file.path(dir, "Tables")
+if (dir.exists(tab_dir) && exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+  tryCatch(pub_xlsx_scrub_underscores_dir(tab_dir, root = engine), error = function(e)
+    warning("underscore scrub: ", conditionMessage(e), call. = FALSE))
+}
 
 fig_dir <- file.path(dir, "Figures")
 if (!dir.exists(fig_dir)) fig_dir <- file.path(dir, "figure")
 if (dir.exists(fig_dir) && exists("pub_figure_ensure_formats", mode = "function")) {
   pub_figure_ensure_formats(
     fig_dir,
-    config = list(pub_figures = list(dpi = 600L, formats_dir = TRUE))
+    config = list(pub_figures = list(
+      dpi = 600L, formats_dir = TRUE,
+      export_png = FALSE, export_tiff = FALSE,
+      max_edge_in = 16, require_vector_pdf = TRUE
+    ))
   )
 }
 
@@ -129,10 +146,16 @@ config <- list(
       c("openxlsx", "ggplot2", "data.table")
     } else if (isTRUE(grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE))) {
       c("mice", "survival", "rms", "car", "pROC", "Boruta", "fastshap",
-        "ggplot2", "patchwork", "openxlsx", "data.table")
+        "ggplot2", "patchwork", "openxlsx", "data.table", "tableone")
     } else {
       c("qgraph", "glmnet", "bootnet", "survey", "mice", "rms",
         "mediation", "pROC", "forestploter", "igraph")
+    },
+    # 全因死亡预后 v2：未做 Fine–Gray / 竞争风险，勿在 Methods 软件清单挂 cmprsk
+    exclude_pkgs = if (isTRUE(grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE))) {
+      c("cmprsk")
+    } else {
+      character(0)
     }
   )
 )
@@ -192,6 +215,41 @@ is_ckm <- grepl(
   study_type,
   ignore.case = TRUE
 )
+is_gallstone <- grepl(
+  "gallstone|nomogram_418|lithotripsy.?nomogram",
+  study_type,
+  ignore.case = TRUE
+)
+# gallstone：走专用收口（方法 + 软件版本 + PDF-only + 白名单），然后退出
+if (isTRUE(is_gallstone) && exists("gallstone_finalize_summary_delivery", mode = "function")) {
+  res <- gallstone_finalize_summary_delivery(
+    summary_root = dir,
+    project_root = if (nzchar(proj)) proj else dirname(dir),
+    config = list(
+      project = list(study_type = "gallstone_nomogram"),
+      software_versions = list(
+        extra_pkgs = c(
+          "gtsummary", "car", "glmnet", "brglm2", "rms", "forestploter",
+          "ggplot2", "patchwork", "pROC", "openxlsx"
+        )
+      ),
+      pub_figures = list(export_png = FALSE, export_tiff = FALSE, dpi = 600L)
+    ),
+    rewrite_methods = TRUE,
+    prune = TRUE
+  )
+  st <- if (dir.exists(fig_dir)) pub_figure_formats_status(fig_dir, config = list(
+    pub_figures = list(export_png = FALSE, export_tiff = FALSE)
+  )) else list(ok = NA)
+  cat(
+    "FINALIZE_OK study=gallstone dir=", normalizePath(dir),
+    " fig_ok=", isTRUE(st$ok),
+    " methods=", isTRUE(res$methods),
+    " software=", isTRUE(res$software),
+    "\n", sep = ""
+  )
+  quit(save = "no", status = 0L)
+}
 methods_lines <- if (grepl("cross.?lag|clpn", study_type) &&
                      exists("cross_lagged_methods_statistical_lines", mode = "function")) {
   cross_lagged_methods_statistical_lines(config)
@@ -235,10 +293,9 @@ if (file.exists(legacy_soft) && !file.exists(std_soft)) {
 } else if (file.exists(legacy_soft) && file.exists(std_soft)) {
   # 保留更完整的一份：优先已有 Methods_*；legacy 留给 prune 归档
   invisible(TRUE)
-} else if (!file.exists(std_soft)) {
-  pub_write_software_versions(index_root = dir, project_root = NULL, config = config)
 } else {
-  invisible(TRUE)
+  # 始终按当前 study_type 重写（保证 exclude_pkgs 如踢 cmprsk 生效）
+  pub_write_software_versions(index_root = dir, project_root = NULL, config = config)
 }
 if (!file.exists(std_soft)) {
   pub_write_software_versions(index_root = dir, project_root = NULL, config = config)
@@ -289,6 +346,7 @@ if (exists("pub_write_methods_software_section", mode = "function")) {
     pub_write_methods_software_section(
       out_path = soft_tmp, roles = roles,
       extra_pkgs = config$software_versions$extra_pkgs,
+      exclude_pkgs = config$software_versions$exclude_pkgs %||% character(0),
       append_to = methods_path
     ),
     error = function(e) NULL
@@ -307,6 +365,25 @@ if (file.exists(legacy_soft)) {
 readme <- file.path(fig_dir, "image_information", "README.md")
 if (file.exists(readme)) {
   # 留在 fig 内即可；prune 只动交付根一级
+}
+
+# 单库：剥掉 Table/Figure …-库名.（--databases 仅 1 个，或 config 判定单库）
+if (exists("pub_strip_db_tags_from_delivery", mode = "function") &&
+    exists("pub_config_is_single_db", mode = "function")) {
+  dbs_n <- length(unique(dbs[nzchar(dbs)]))
+  if (dbs_n == 1L || isTRUE(pub_config_is_single_db(config))) {
+    tryCatch(
+      {
+        n_strip <- pub_strip_db_tags_from_delivery(dir, config = config, db_tags = dbs)
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_info("单库交付去库名: moved/edited ~{n_strip}")
+        }
+      },
+      error = function(e) {
+        message("单库去库名跳过: ", conditionMessage(e))
+      }
+    )
+  }
 }
 
 pub_prune_delivery_root(dir)

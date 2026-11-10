@@ -335,6 +335,16 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
   pool <- if (length(pos)) pos else ok
   best <- pool[which.max(scores[pool])]
 
+  # 课题显式 best_mediator（且在两库显著候选池内）优先于 Prop_Med 均值
+  pin <- as.character(
+    (cfg$mediation_prognosis %||% cfg$mediation_incidence %||%
+       cfg$mediation_nhanes_weighted %||% list())$best_mediator %||% ""
+  )[1L]
+  if (nzchar(pin) && pin %in% sig_pool) {
+    best <- pin
+    cli::cli_alert_info("闸门 E：采用 config best_mediator={pin}")
+  }
+
   # 发表中介表行集：优先完整 LM 交集（两库相关变量一致）；否则用表交集
   mediators_table <- if (length(shared_lm)) {
     unique(c(best, shared_lm))

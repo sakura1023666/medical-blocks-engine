@@ -328,6 +328,7 @@ ml_dual_apply_cross_db_split_overrides <- function(config) {
 }
 
 ml_dual_apply_nhanes_upstream_overrides <- function(config) {
+  config <- ml_dual_apply_attrition_overrides(config)
   config$univariate_nhanes <- modifyList(
     config$univariate_nhanes %||% list(),
     list(
@@ -794,7 +795,28 @@ ml_dual_primary_ml_subgroup_render_blocks <- function(config) {
   character(0)
 }
 
+#' ML Figure 1 默认：年龄 Exclude + 暴露成分分项缺失 Exclude（即使 n=0 也出框）
+#'
+#' dabiao 若已在 prep 预筛年龄，须在课题 config 写：
+#'   config$attrition$upstream = list(n_source=…, age_exclude_n=…, age_exclude_label=…)
+ml_dual_apply_attrition_overrides <- function(config) {
+  at <- config$attrition %||% list()
+  config$attrition <- modifyList(
+    at,
+    list(
+      enable = isTRUE(at$enable %||% TRUE),
+      outcome_breakdown = isTRUE(at$outcome_breakdown %||% TRUE),
+      draw_pdf = isTRUE(at$draw_pdf %||% TRUE),
+      # 有显式 steps 时禁止 runtime log 冲掉诚实纳排
+      config_steps_only = isTRUE(at$config_steps_only %||% length(at$steps %||% list()) > 0L),
+      ml_standard_layout = isTRUE(at$ml_standard_layout %||% TRUE)
+    )
+  )
+  config
+}
+
 ml_dual_apply_regular_upstream_overrides <- function(config) {
+  config <- ml_dual_apply_attrition_overrides(config)
   config$univariate_incidence_binary <- modifyList(
     config$univariate_incidence_binary %||% list(),
     list(

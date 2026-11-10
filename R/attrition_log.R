@@ -449,10 +449,14 @@ attrition_finalize_rows <- function(ctx, config) {
       }
     }
   } else if (length(log) && isTRUE(attr_cfg$config_steps_only %||% FALSE)) {
+    # 配置步优先：禁止用 runtime log 整行覆盖（否则预筛 Age 的 dabiao 会把
+    # 「Age <45 n=280」冲成 excluded 0，Fig1 右侧像没人被排）
     for (entry in log) {
       sid <- as.character(entry$step_id)[1L]
       hit <- which(rows_df$step_id == sid)
-      if (length(hit)) rows_df[hit[1L], ] <- attrition_log_entry_to_row(entry)
+      if (!length(hit)) {
+        rows_df <- rbind(rows_df, attrition_log_entry_to_row(entry))
+      }
     }
   }
 
@@ -571,41 +575,81 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
   rows[keep, , drop = FALSE]
 }
 
-#' 指标算不出时，用公式里真正缺失的组成变量写排除框。
-#' 一句里能排开就排开；画图端对多行左对齐。
-attrition_key_missing_label_from_index <- function(df, index_name) {
+#' 当前指标公式成分在数据中的缺失人数（含实验室短名别名；每成分取代表列）
+attrition_index_component_missing_counts <- function(df, index_name) {
   index_name <- as.character(index_name %||% "")[1L]
-  if (!nzchar(index_name) || is.null(df) || !is.data.frame(df) || !index_name %in% names(df)) {
-    return("")
+  if (!nzchar(index_name) || is.null(df) || !is.data.frame(df) || !nrow(df)) {
+    return(integer(0))
   }
   comps <- character(0)
   if (exists("index_get_formula_components", mode = "function")) {
-    comps <- tryCatch(index_get_formula_components(index_name), error = function(e) character(0))
+    comps <- tryCatch(
+      as.character(index_get_formula_components(index_name) %||% character(0)),
+      error = function(e) character(0)
+    )
   }
-  comps <- unique(as.character(comps))
-  comps <- intersect(comps, names(df))
+  comps <- unique(comps[nzchar(comps)])
   comps <- setdiff(comps, index_name)
-  if (!length(comps)) return("")
-  vals <- df[[index_name]]
-  dropped <- if (is.numeric(vals)) !is.finite(vals) else is.na(vals) | !nzchar(trimws(as.character(vals)))
-  if (!any(dropped)) return("")
-  sub <- df[dropped, comps, drop = FALSE]
-  hit <- comps[vapply(comps, function(v) {
-    x <- sub[[v]]
-    if (is.numeric(x)) any(!is.finite(x)) else any(is.na(x) | !nzchar(trimws(as.character(x))))
-  }, logical(1L))]
-  if (!length(hit)) hit <- comps
+  if (!length(comps)) return(integer(0))
+  if (exists("pipeline_expand_lab_var_aliases", mode = "function")) {
+    # 每个规范成分选数据里实际存在的一列（优先规范名）
+    out <- integer(0)
+    for (cn in comps) {
+      aliases <- pipeline_expand_lab_var_aliases(cn)
+      hit <- intersect(c(cn, aliases), names(df))
+      if (!length(hit)) next
+      col <- hit[[1L]]
+      x <- df[[col]]
+      n_miss <- if (is.numeric(x)) {
+        sum(!is.finite(suppressWarnings(as.numeric(x))))
+      } else {
+        sum(is.na(x) | !nzchar(trimws(as.character(x))))
+      }
+      out[[cn]] <- as.integer(n_miss)
+    }
+    return(out)
+  }
+  comps <- intersect(comps, names(df))
+  if (!length(comps)) return(integer(0))
+  stats::setNames(vapply(comps, function(v) {
+    x <- df[[v]]
+    as.integer(if (is.numeric(x)) {
+      sum(!is.finite(suppressWarnings(as.numeric(x))))
+    } else {
+      sum(is.na(x) | !nzchar(trimws(as.character(x))))
+    })
+  }, integer(1L)), comps)
+}
+
+#' 指标成分缺失排除框文案：每个关键变量都写 n（即使全是 0 也要写清）
+attrition_index_component_missing_label <- function(df, index_name, counts = NULL) {
+  index_name <- as.character(index_name %||% "")[1L]
+  if (!nzchar(index_name)) return("")
+  if (is.null(counts)) {
+    counts <- attrition_index_component_missing_counts(df, index_name)
+  }
+  if (!length(counts)) return("")
   labs <- if (exists("pipeline_display_label", mode = "function")) {
-    pipeline_display_label(hit)
+    pipeline_display_label(names(counts))
   } else {
-    gsub("_", " ", hit, fixed = TRUE)
+    gsub("_", " ", names(counts), fixed = TRUE)
   }
   labs <- trimws(as.character(labs))
-  labs <- labs[nzchar(labs)]
-  if (!length(labs)) return("")
-  if (length(labs) == 1L) return(paste0("Missing ", labs))
-  if (length(labs) == 2L) return(paste0("Missing ", labs[1L], " or ", labs[2L]))
-  paste0("Missing ", paste(labs[-length(labs)], collapse = ", "), ", or ", labs[length(labs)])
+  bits <- sprintf("%s (n = %s)", labs, format(as.integer(counts), big.mark = ","))
+  paste0(
+    "Missing ", gsub("_", " ", index_name, fixed = TRUE),
+    " key variables: ", paste(bits, collapse = "; ")
+  )
+}
+
+#' 指标算不出时，用公式里真正缺失的组成变量写排除框（含各成分缺失 n）。
+#' 无任何人因指标 NA 被剔时，仍返回全队列成分缺失分项（可为全 0）。
+attrition_key_missing_label_from_index <- function(df, index_name) {
+  index_name <- as.character(index_name %||% "")[1L]
+  if (!nzchar(index_name) || is.null(df) || !is.data.frame(df)) {
+    return("")
+  }
+  attrition_index_component_missing_label(df, index_name)
 }
 
 .attrition_pv2_fmt_n <- function(x) {
@@ -665,7 +709,32 @@ attrition_key_missing_label_from_index <- function(df, index_name) {
   }
   sw <- suppressWarnings(as.integer(cohort$side_line_width)[1L])
   if (!is.finite(sw) || sw < 16L) sw <- 26L
-  side1 <- .attrition_pv2_count_line(cohort$age_exclude_label, cohort$age_exclude_n, sw)
+  ## side1_items：首段排除可多条编号（如 Age<20 与 COPD items non-assessable 分列）
+  side1_items <- cohort$side1_items %||% NULL
+  if (is.data.frame(side1_items)) {
+    side1_items <- lapply(seq_len(nrow(side1_items)), function(i) as.list(side1_items[i, , drop = FALSE]))
+  }
+  if (is.list(side1_items) && length(side1_items)) {
+    lines1 <- character(0)
+    k1 <- 0L
+    for (one in side1_items) {
+      lab <- trimws(as.character(one$label %||% one$exclude_label %||% "")[1L])
+      nn <- suppressWarnings(as.integer(one$n %||% one$exclude_n %||% NA_integer_)[1L])
+      if (!nzchar(lab) || !is.finite(nn)) next
+      k1 <- k1 + 1L
+      lines1 <- c(
+        lines1,
+        .attrition_pv2_count_line(
+          sprintf("%d. %s", k1, lab),
+          nn,
+          max(16L, sw - 3L)
+        )
+      )
+    }
+    side1 <- if (length(lines1)) paste(lines1, collapse = "\n") else ""
+  } else {
+    side1 <- .attrition_pv2_count_line(cohort$age_exclude_label, cohort$age_exclude_n, sw)
+  }
   mid <- sprintf(
     "%s\n(n = %s)",
     as.character(cohort$age_keep_label)[1L],
@@ -1558,7 +1627,9 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
           as.character(rows$step[.i + 1L])[1L],
           ignore.case = TRUE
         )
-      if ((is.finite(.dn) && .dn > 0L) || isTRUE(.wt)) {
+      .has_el <- !is.na(.el) && nzchar(trimws(.el)) && !identical(toupper(trimws(.el)), "NA")
+      # 显式 exclude_label（含剔除 0 人）也要右侧 Exclude 列，避免年龄/指标缺失框消失
+      if ((is.finite(.dn) && .dn > 0L) || isTRUE(.wt) || isTRUE(.has_el)) {
         .need_exclude_col <- TRUE
         break
       }
@@ -1663,8 +1734,9 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
       is_weight_step <- identical(sid, "after_survey_weight") ||
         grepl("survey weight", el %||% "", ignore.case = TRUE) ||
         grepl("Eligible survey-weighted", as.character(rows$step[i + 1L])[1L], ignore.case = TRUE)
-      # 调查权重步即使剔除 0 人也要画 Exclude 框（标明权重名与 n=0）
-      show_exclude <- is.finite(drop_n) && (drop_n > 0L || isTRUE(is_weight_step))
+      # 调查权重步 / 显式 exclude_label：即使剔除 0 人也画 Exclude 框（写清 n=0 与分项缺失）
+      has_el <- !is.na(el) && nzchar(trimws(el)) && !identical(toupper(trimws(el)), "NA")
+      show_exclude <- is.finite(drop_n) && (drop_n > 0L || isTRUE(is_weight_step) || isTRUE(has_el))
       if (isTRUE(show_exclude)) {
         # 每步写清「排除了什么」：优先 exclude_label → step_id 语义 → 步骤标签抽取
         if (is.na(el) || !nzchar(el)) el <- .attrition_exclude_reason(sid, rows$step[i + 1L])
@@ -1678,12 +1750,18 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
         el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
         if (!nzchar(el)) el <- "Excluded"
         # 原因能一行就一行，放不下再换行；框内左对齐
-        ex_lab <- sprintf(
-          "Exclude: %s\n(n = %s)",
-          el,
-          format(max(0L, as.integer(drop_n)), big.mark = ",")
+        # 分项已含 Var (n=…) 时，合计改写 total excluded，避免 “Weight (n=0) (n=0)” 粘连
+        n_txt <- format(max(0L, as.integer(drop_n)), big.mark = ",")
+        ex_lab <- if (grepl("\\(n\\s*=", el, ignore.case = TRUE, perl = TRUE)) {
+          sprintf("Exclude: %s\n(total excluded n = %s)", el, n_txt)
+        } else {
+          sprintf("Exclude: %s\n(n = %s)", el, n_txt)
+        }
+        # 分项缺失等长文案需要更高 Exclude 框，避免挤成竖排看不清
+        eh <- min(
+          max(gap * 0.92, 0.055),
+          if (nchar(el) > 48L) 0.12 else 0.075
         )
-        eh <- min(gap * 0.92, 0.075)
         .attrition_grid_roundbox(
           ex0, ymid - eh / 2, ex1, ymid + eh / 2,
           "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain",

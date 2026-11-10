@@ -181,7 +181,7 @@ for (db in only_dbs) {
   )
   config$subgroup$continuous_index_mode <- "highest_vs_lowest"
   config$subgroup$forest_n_source <- "full_stratum"
-  # 主文闸门：抑郁课题 tertile；可用 --scheme 覆盖
+  # 主文闸门：可用 --scheme 覆盖 study_meta$grouping
   .scheme_use <- if (!is.null(.sg_scheme) && .sg_scheme %in% c("tertile", "quartile", "binary")) {
     .sg_scheme
   } else {
@@ -211,6 +211,13 @@ for (db in only_dbs) {
     }
     if (length(m2p)) m2_use <- m2p
     if (!"Country" %in% m2_use) m2_use <- unique(c(m2_use, "Country"))
+  }
+  # 与主文 Table 2 Model2 同调整集（非 Crude）；层内再剔分层变量自身
+  if (length(m2_use)) {
+    config$subgroup$adjust_covariates <- m2_use
+    cli::cli_alert_info(
+      "{db} 亚组调整协变量 (Model2): {paste(m2_use, collapse = '+')}"
+    )
   }
 
   dat <- ck$data$imputed %||% ck$data$cleaned
@@ -316,6 +323,12 @@ txt <- c(
   paste0("age_cutoff=", .SG_AGE_CUT, if (isTRUE(.sg$use_age_group)) " (Age_Group on)" else " (Age_Group off)"),
   paste0("order=", paste(.SG_LOCK, collapse = " → ")),
   paste0("Model2=", paste(m2, collapse = "+")),
+  paste0(
+    "scheme=",
+    if (!is.null(.sg_scheme) && nzchar(.sg_scheme)) .sg_scheme
+    else as.character(.meta$grouping %||% "tertile")[1L],
+    " (highest vs lowest; adjust_covariates=Model2)"
+  ),
   paste0(
     "note=",
     if (isTRUE(.has_pooled)) {

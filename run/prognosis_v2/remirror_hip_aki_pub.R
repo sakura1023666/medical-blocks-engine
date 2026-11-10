@@ -21,6 +21,7 @@ source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 source(file.path(.engine, "R/cox_gate.R"), local = FALSE)
 source(file.path(.engine, "R/quantile_scheme_cascade.R"), local = FALSE)
 source(file.path(.engine, "R/subgroup_forest_plot.R"), local = FALSE)
+source(file.path(.engine, "R/pv2_table1_smd.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/draw_fig1_nhanes.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 
@@ -159,14 +160,23 @@ csv1 <- file.path(.tab, "Flowchart_attrition.csv")
 attrition_draw_outcome_figure(fig1, list(panel), width = 5.4, height = 6.35, family = "Times", csv_path = csv1)
 message("Fig1 OK")
 
-message("==== Table 1 Survivor / Non-survivor（三线表）====")
+message("==== Table 1 Survivor / Non-survivor（全变量 + SMD）====")
 d <- d0
 d$status <- factor(ifelse(d$event == 1, "Non-survivor", "Survivor"),
                    levels = c("Survivor", "Non-survivor"))
+.race_lv <- if ("Race" %in% names(d)) {
+  as.character(unique(stats::na.omit(d$Race)))
+} else {
+  character(0)
+}
 layout <- list(
   Demographics = list(
     cont = c(Age = "Age, years"),
-    cats = list(Gender = c("Male", "Female"))
+    cats = {
+      .demo_cats <- list(Gender = c("Male", "Female"))
+      if (length(.race_lv)) .demo_cats$Race <- .race_lv
+      .demo_cats
+    }
   ),
   Severity = list(
     cont = c(
@@ -176,7 +186,10 @@ layout <- list(
     cats = list(Ventilation = c("Yes", "No"))
   ),
   `Vital Signs` = list(
-    cont = c(HR = "Heart rate", NBPS = "SBP, mmHg"),
+    cont = c(
+      HR = "Heart rate", NBPS = "SBP, mmHg", NBPD = "DBP, mmHg",
+      RR = "Respiratory rate", SpO2 = "SpO2, %", Temperature = "Temperature, \u00b0C"
+    ),
     cats = list()
   ),
   Laboratory = list(
@@ -199,54 +212,20 @@ layout <- list(
   )
 )
 cat_lab <- c(
-  Gender = "Sex", Ventilation = "Mechanical ventilation",
+  Gender = "Sex", Race = "Race", Ventilation = "Mechanical ventilation",
   Hypertension = "Hypertension", Diabetes = "Diabetes",
   Heart_Failure = "Heart failure", Myocardial_Infarction = "Myocardial infarction",
   Stroke = "Stroke", COPD = "COPD", Pneumonia = "Pneumonia",
   Malignant_Tumor = "Malignant tumor"
 )
-slices <- list(Overall = d, Survivor = d[d$status == "Survivor", ],
-               `Non-survivor` = d[d$status == "Non-survivor", ])
-headers <- c(
-  sprintf("Overall, N = %d", nrow(slices$Overall)),
-  sprintf("Survivor, N = %d", nrow(slices$Survivor)),
-  sprintf("Non-survivor, N = %d", nrow(slices[["Non-survivor"]]))
+t1 <- pv2_baseline_survivor_smd_body(
+  d, layout, cat_lab = cat_lab,
+  fmt_p = fmt_p, mean_sd = mean_sd, med_iqr = med_iqr,
+  n_pct = n_pct, is_normal_vec = is_normal_vec
 )
-rows <- list(); level_rows <- integer(0); section_names <- character(0)
-add <- function(lab, vals, p = "") rows[[length(rows) + 1L]] <<- c(lab, vals, p)
-cont_cell <- function(dd, var, normal) if (normal) mean_sd(dd[[var]]) else med_iqr(dd[[var]])
-cat_cell <- function(dd, var, lv) {
-  k <- sum(as.character(dd[[var]]) == lv, na.rm = TRUE)
-  n <- sum(!is.na(dd[[var]]))
-  n_pct(k, n)
-}
-for (sec in names(layout)) {
-  section_names <- c(section_names, sec)
-  add(sec, rep("", 3), "")
-  spec <- layout[[sec]]
-  for (v in names(spec$cont)) {
-    if (!v %in% names(d)) next
-    normal <- is_normal_vec(d[[v]])
-    vals <- vapply(slices, function(dd) cont_cell(dd, v, normal), character(1))
-    p <- tryCatch(stats::wilcox.test(d[[v]] ~ d$status)$p.value, error = function(e) NA_real_)
-    add(spec$cont[[v]], vals, fmt_p(p))
-  }
-  for (v in names(spec$cats)) {
-    if (!v %in% names(d)) next
-    p <- tryCatch({
-      tab <- table(d[[v]], d$status)
-      if (any(tab < 5)) stats::fisher.test(tab)$p.value else suppressWarnings(stats::chisq.test(tab)$p.value)
-    }, error = function(e) NA_real_)
-    add(cat_lab[[v]] %||% v, rep("", 3), fmt_p(p))
-    for (lv in spec$cats[[v]]) {
-      level_rows <- c(level_rows, length(rows) + 1L)
-      vals <- vapply(slices, function(dd) cat_cell(dd, v, lv), character(1))
-      add(paste0("  ", lv), vals, "")
-    }
-  }
-}
-body <- as.data.frame(do.call(rbind, rows), stringsAsFactors = FALSE)
-names(body) <- c("Characteristic", headers, "p-value")
+body <- t1$body
+level_rows <- t1$level_rows
+section_names <- t1$section_names
 hdr <- stats::setNames(as.data.frame(t(names(body)), stringsAsFactors = FALSE), names(body))
 show <- rbind(hdr, body); show[1, ] <- as.character(show[1, ])
 path_t1 <- file.path(.tab, "Table 1. Baseline characteristics.xlsx")
@@ -255,7 +234,8 @@ path_t1 <- file.path(.tab, "Table 1. Baseline characteristics.xlsx")
   footnotes = c(
     "Continuous variables are mean (SD) if approximately normal, otherwise median (IQR). Categorical variables are n (%).",
     "P values compare Survivor vs Non-survivor (Wilcoxon or chi-square/Fisher).",
-    sprintf("Analytic cohort: hip arthroplasty with AKI, Age\u226565, MIMIC-IV; 365-day all-cause mortality (N=%d, deaths=%d).",
+    "SMD = standardized mean difference (Survivor vs Non-survivor; Austin 2009).",
+    sprintf("Analytic cohort: hip arthroplasty with AKI, Age\u226565, MIMIC-IV; primary endpoint 365-day all-cause mortality (N=%d, observed deaths=%d).",
             nrow(d), n_death)
   ),
   insert_map = stats::setNames(rep(1L, length(section_names)), section_names),
@@ -263,8 +243,9 @@ path_t1 <- file.path(.tab, "Table 1. Baseline characteristics.xlsx")
 )
 message("Table 1 OK")
 
-message("==== Table 2 发病率（跟分位级联锁定 scheme）====")
+message("==== Table 2 发病率（观察死亡数 + RD/NNT）====")
 t2_rows <- list()
+.abs_notes <- character(0)
 for (idx in c("SIRI", "PIV")) {
   qv <- paste0(idx, "_Group")
   if (!qv %in% names(d)) qv <- paste0(idx, "_Q")
@@ -275,31 +256,62 @@ for (idx in c("SIRI", "PIV")) {
     error = function(e) NULL
   )
   p_tr <- if (!is.null(tr)) summary(tr)$coefficients["ord", "Pr(>|z|)"] else NA_real_
-  t2_rows[[length(t2_rows) + 1L]] <- c(idx, "", "", "", "")
+  .na_cell <- "\u2014"
+  t2_rows[[length(t2_rows) + 1L]] <- c(idx, .na_cell, .na_cell, .na_cell, .na_cell)
+  ev_by <- integer(0); n_by <- integer(0); names_g <- character(0)
   for (g in .qsc_meta$labels) {
     sub <- dd[as.character(dd[[qv]]) == g, ]
     n <- nrow(sub); ev <- sum(sub$event == 1); pyrs <- sum(sub$time)
     ci <- stats::poisson.test(ev, T = max(pyrs, .Machine$double.eps))$conf.int * 1e2
     t2_rows[[length(t2_rows) + 1L]] <- c(
-      quantile_scheme_level_display(g, .qsc$scheme), as.character(n), as.character(ev),
+      paste0("  ", quantile_scheme_level_display(g, .qsc$scheme)),
+      as.character(n), as.character(ev),
       sprintf("%.2f", 100 * ev / max(n, 1L)),
       sprintf("%.2f (%.2f\u2013%.2f)", 100 * ev / max(pyrs, .Machine$double.eps), ci[1], ci[2])
     )
+    names_g <- c(names_g, as.character(g))
+    n_by <- c(n_by, n); ev_by <- c(ev_by, ev)
   }
-  t2_rows[[length(t2_rows) + 1L]] <- c("P for trend", fmt_p(p_tr), "", "", "")
+  # 绝对效应：数字在 Cumulative incidence；不适用列用 —（非缺数）
+  if (length(n_by) >= 2L) {
+    ar <- pv2_absolute_risk_from_events(n_by[1], ev_by[1], n_by[length(n_by)], ev_by[length(ev_by)])
+    t2_rows[[length(t2_rows) + 1L]] <- c(
+      "  RD (High\u2212Low), %", .na_cell, .na_cell, sprintf("%.2f", ar$rd_pct), .na_cell
+    )
+    t2_rows[[length(t2_rows) + 1L]] <- c(
+      "  NNT", .na_cell, .na_cell, sprintf("%.1f", ar$nnt), .na_cell
+    )
+  }
+  t2_rows[[length(t2_rows) + 1L]] <- c("  P for trend", .na_cell, fmt_p(p_tr), .na_cell, .na_cell)
+  if (length(n_by) >= 2L) {
+    ar <- pv2_absolute_risk_from_events(n_by[1], ev_by[1], n_by[length(n_by)], ev_by[length(ev_by)])
+    .abs_notes <- c(
+      .abs_notes,
+      sprintf(
+        "%s: observed deaths Low=%d/%d (%.2f%%), High=%d/%d (%.2f%%); RD=%.2f%%; NNT=%.1f.",
+        idx, ar$deaths_low, ar$n_low, ar$risk_low_pct,
+        ar$deaths_high, ar$n_high, ar$risk_high_pct, ar$rd_pct, ar$nnt
+      )
+    )
+  }
 }
 body2 <- as.data.frame(do.call(rbind, t2_rows), stringsAsFactors = FALSE)
 names(body2) <- c(
-  "Variable", "Participants", "All-cause mortality", "Cumulative incidence (%)",
+  "Variable", "Participants", "Observed deaths (n)", "Cumulative incidence (%)",
   "Per 100 person-year (95% CI)"
 )
 write_one(
   "Table 2. Incidence of all-cause mortality", body2,
   c(
+    "Observed deaths (n) are counted from the 365-day landmark fustatus (not back-calculated from percentages).",
+    "Cumulative incidence (%) = observed deaths / participants.",
+    "RD = High minus Low cumulative incidence; NNT = 1/|RD| (crude, unadjusted).",
+    "Em dash (\u2014) marks cells that do not apply to that row (not missing data).",
+    .abs_notes,
     "Per 100 person-year is events / person-years x 100. Interval is the exact Poisson 95% CI.",
     sprintf("P for trend is from an unadjusted Poisson model with %s coded 1-%d.",
             .qsc_meta$legend_title, .qsc_meta$n_groups),
-    "Outcome: all-cause death within 365 days after ICU admission.",
+    "Primary outcome: all-cause death within 365 days after ICU admission.",
     quantile_scheme_footnote_lines(.qsc)
   ),
   level_rows = which(startsWith(body2$Variable, "  "))

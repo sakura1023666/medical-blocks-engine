@@ -135,6 +135,10 @@ pipeline_analysis_exclusion_manifest <- function(cfg, data_names = character(0))
       pipeline_index_raw_components,
       definitions = definitions
     ), use.names = FALSE))
+    # 公式规范名 → 数据常见短名/别名（如 Total_Cholesterol→TC, Triglycerides→TG）
+    if (exists("pipeline_expand_lab_var_aliases", mode = "function")) {
+      component_vars <- pipeline_expand_lab_var_aliases(component_vars)
+    }
   }
   disease_cfg <- as.character(ae$disease_vars %||% character(0))
   disease_vars <- pipeline_analysis_exclusion_match_names(disease_cfg, data_names)
@@ -208,6 +212,38 @@ block_analysis_exclusion <- function(ctx, ...) {
   )
   manifest <- pipeline_analysis_exclusion_manifest(cfg, data_names)
   drop_vars <- as.character(manifest$drop_vars %||% character(0))
+
+  # Fig1：删成分列之前先记账（各关键变量缺失 n），供 ML 纳排第二 Exclude 框
+  ix0 <- as.character(manifest$index_var %||% "")[1L]
+  if (nzchar(ix0) && !identical(ix0, "(none)")) {
+    if (!exists("attrition_index_component_missing_label", mode = "function")) {
+      eng_root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      al <- file.path(
+        if (nzchar(eng_root)) eng_root else (cfg$project$root %||% getwd()),
+        "R/attrition_log.R"
+      )
+      if (file.exists(al)) try(source(al, local = FALSE), silent = TRUE)
+    }
+    if (exists("attrition_index_component_missing_label", mode = "function")) {
+      df_probe <- ctx$data$mapped %||% ctx$data$cleaned %||% ctx$data$imputed %||% ctx$data$raw
+      if (is.data.frame(df_probe) && nrow(df_probe)) {
+        lab_miss <- tryCatch(
+          attrition_index_component_missing_label(df_probe, ix0),
+          error = function(e) ""
+        )
+        cnt_miss <- tryCatch(
+          attrition_index_component_missing_counts(df_probe, ix0),
+          error = function(e) integer(0)
+        )
+        if (nzchar(lab_miss)) {
+          ctx$results$attrition_key_missing_label <- lab_miss
+          ctx$results$attrition_index_component_missing <- list(
+            index = ix0, counts = cnt_miss, label = lab_miss
+          )
+        }
+      }
+    }
+  }
 
   # mapped：发病共享层 index 后、插补前的主数据槽，必须一并硬删
   for (slot in c("imputed", "cleaned", "raw", "mapped")) {

@@ -4969,6 +4969,15 @@ incidence_batch_apply_filter_and_trim <- function(ck_path, ix, p_trim = 0.01,
         ((ctx$config %||% list())$attrition %||% list())$index_exclude_label %||% ""
       )[1L])
       if (!nzchar(.ix_ex)) {
+        .ix_ex <- trimws(as.character(ctx$results$attrition_key_missing_label %||% "")[1L])
+      }
+      if (!nzchar(.ix_ex) && exists("attrition_key_missing_label_from_index", mode = "function")) {
+        .ix_ex <- tryCatch(
+          attrition_key_missing_label_from_index(df, ix),
+          error = function(e) ""
+        )
+      }
+      if (!nzchar(.ix_ex)) {
         .ix_ex <- sprintf("Missing %s (index not calculable)", gsub("_", " ", ix, fixed = TRUE))
       }
       ctx <- attrition_record(

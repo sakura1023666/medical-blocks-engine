@@ -192,6 +192,9 @@ ml_frozen_default_methods <- function() {
     root <- paste0("/mnt/", tolower(substr(root, 1L, 1L)), substring(root, 3L))
   }
   c(
+    ## 必须先于各模型块：提供 .ml_register_model_probs 等公共函数
+    ## （缺它时 dt/rf/xgboost/lightgbm 训完仍登记失败 → 假降级 smoke_only）
+    eval_common = file.path(root, "Blocks/22_ml_models/00block_ml_eval_common.R"),
     boruta = file.path(root, "Blocks/19_feature_selection/02block_feature_selection_boruta.R"),
     logistic = file.path(root, "Blocks/22_ml_models/08block_ml_logistic.R"),
     dt = file.path(root, "Blocks/22_ml_models/01block_ml_dt.R"),
@@ -206,6 +209,15 @@ ml_frozen_default_methods <- function() {
   for (nm in names(files)) {
     if (!file.exists(files[[nm]])) {
       stop("缺少引擎块源码: ", files[[nm]], call. = FALSE)
+    }
+    if (identical(nm, "eval_common")) {
+      if (!exists(".ml_register_model_probs", mode = "function")) {
+        source(files[[nm]], local = FALSE)
+      }
+      if (!exists(".ml_register_model_probs", mode = "function")) {
+        stop("无法加载 .ml_register_model_probs（", files[[nm]], "）", call. = FALSE)
+      }
+      next
     }
     fn_name <- if (identical(nm, "boruta")) "block_feature_selection_boruta"
     else paste0("block_ml_", nm)

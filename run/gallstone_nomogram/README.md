@@ -28,3 +28,22 @@
 ## 产出根
 
 默认：`/mnt/g/02block_result/45_Gallstone/Nomogram_41815074/summary_results/`
+
+交付白名单（全项目同口径，`R/pub_delivery_prune.R`）：根目录只留
+
+- `Figures/`（默认 `pdf/` + `image_information/`；不交 png/tiff）
+- `Tables/`
+- `Methods_statistical_analysis.md`
+- `Methods_software_versions.txt`
+- `*中期*.pdf`
+
+收口入口：
+
+```bash
+Rscript run/gallstone_nomogram/rebuild_all_pub_figures_lit.R --project "<课题根>"
+# 或仅收口：
+Rscript run/pub/finalize_delivery_root.R \
+  --dir "<课题根>/summary_results" \
+  --study-type gallstone \
+  --project "<课题根>"
+```

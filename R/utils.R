@@ -2110,10 +2110,59 @@ pipeline_ensure_index_formula_helpers <- function(root) {
   invisible(exists("index_get_formula_components", mode = "function"))
 }
 
-#' 当前暴露指标的公式组分（不含暴露本身）
+#' 当前暴露指标的公式组分（不含暴露本身；含实验室短名/别名）
 pipeline_index_component_vars_only <- function(cfg) {
   exposure <- pipeline_index_exposure_var(cfg)
-  setdiff(pipeline_index_var_names(cfg), exposure)
+  comps <- setdiff(pipeline_index_var_names(cfg), exposure)
+  if (exists("pipeline_expand_lab_var_aliases", mode = "function")) {
+    comps <- pipeline_expand_lab_var_aliases(comps)
+  }
+  unique(as.character(comps)[nzchar(as.character(comps))])
+}
+
+#' 从候选变量中剔除「当前暴露公式成分及其别名」（保留暴露本身）
+#'
+#' 用于 VIF / Model2Factors / ML 特征 / assoc Model1–2，防止 TG/TC 等漏网。
+pipeline_strip_exposure_component_vars <- function(vars, cfg, label = NULL) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  if (!length(vars)) return(character(0))
+  ban <- character(0)
+  if (exists("pipeline_index_component_vars_only", mode = "function")) {
+    ban <- tryCatch(
+      pipeline_index_component_vars_only(cfg),
+      error = function(e) character(0)
+    )
+  }
+  if (exists("pipeline_covariate_analysis_exclude_vars", mode = "function")) {
+    ban <- unique(c(ban, tryCatch(
+      pipeline_covariate_analysis_exclude_vars(cfg),
+      error = function(e) character(0)
+    )))
+  }
+  exposure <- if (exists("pipeline_index_exposure_var", mode = "function")) {
+    as.character(pipeline_index_exposure_var(cfg) %||% character(0))
+  } else {
+    character(0)
+  }
+  ban <- setdiff(unique(ban[nzchar(ban)]), exposure)
+  if (!length(ban)) return(vars)
+  drop <- intersect(vars, ban)
+  if (!length(drop) && length(vars) && length(ban) &&
+      exists("pipeline_exclusion_normalize_name", mode = "function")) {
+    vn <- pipeline_exclusion_normalize_name(vars)
+    bn <- pipeline_exclusion_normalize_name(ban)
+    drop <- vars[vn %in% bn]
+  }
+  if (length(drop)) {
+    lab <- as.character(label %||% "候选")[1L]
+    if (!nzchar(lab)) lab <- "候选"
+    msg <- paste(drop, collapse = ", ")
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info("{lab}: 已剔除暴露成分别名 {msg}")
+    }
+  }
+  setdiff(vars, drop)
 }
 
 # 当前暴露指标（单变量，如 SII / MCV）
@@ -3317,23 +3366,65 @@ filter_redundant_nhanes_index_group_columns <- function(vars, cfg, data_column_n
 
 # ── 发表图表命名：「Figure|Table …-数据库名. 描述」（库名在编号后，不在最前）────────
 # 单库：文件名/表题不加 -库名（与 pv2_pub_names / 用户口径一致）
+# 判定须覆盖「dual_db$enable=TRUE 但 db_mode=nhanes 实跑单库」的占位次库课题，
+# 否则会误留 Table 1-NHANES. / Figure 2-NHANES. 后缀。
 pub_config_is_single_db <- function(config = NULL) {
   if (is.null(config)) {
     return(isTRUE(getOption("pipeline.single_db", FALSE)))
   }
-  bc <- config$ml_batch %||% config$incidence_batch %||% list()
+  batches <- list(
+    config$ml_batch,
+    config$incidence_batch,
+    config$survival_batch
+  )
+  batches <- Filter(function(x) is.list(x) && length(x), batches)
+  bc <- if (length(batches)) batches[[1L]] else list()
   dd <- config$dual_db %||% list()
   pr <- config$project %||% list()
   pub <- config$pub %||% list()
   ## 显式单库 / 关闭 dual_db / 无次库 → 文件名不加 -库名
   dual_off <- isFALSE(dd$enable %||% TRUE) ||
     identical(tolower(as.character(dd$enable %||% "true")[1L]), "false")
-  no_secondary <- is.null(dd$secondary) ||
-    identical(toupper(as.character((dd$secondary %||% list())$name %||% "UNUSED")[1L]), "UNUSED")
-  isTRUE(bc$single_db) || isTRUE(dd$single_db) || isTRUE(pr$single_db) ||
+  sec_nm <- toupper(as.character((dd$secondary %||% list())$name %||% "UNUSED")[1L])
+  pri_nm <- toupper(as.character((dd$primary %||% list())$name %||% "")[1L])
+  no_secondary <- is.null(dd$secondary) || identical(sec_nm, "UNUSED")
+  ## 次库与主库同名，或次库 raw 路径与主库相同 → 占位假槽，按单库计
+  sec_path <- as.character((dd$secondary %||% list())$rawdata_path %||% "")[1L]
+  pri_path <- as.character((dd$primary %||% list())$rawdata_path %||% "")[1L]
+  placeholder_secondary <- (nzchar(pri_nm) && identical(sec_nm, pri_nm)) ||
+    (nzchar(pri_path) && nzchar(sec_path) && identical(normalizePath(pri_path, winslash = "/", mustWork = FALSE),
+                                                       normalizePath(sec_path, winslash = "/", mustWork = FALSE)))
+  db_modes <- tolower(unique(unlist(lapply(batches, function(b) {
+    as.character(b$db_mode %||% character(0))
+  }), use.names = FALSE)))
+  ## nhanes / mimic / primary 等 = 实跑单库；both/dual = 真双库
+  single_db_mode <- any(db_modes %in% c(
+    "nhanes", "nhanes_only", "mimic", "mimic_only",
+    "primary", "secondary", "regular", "single"
+  )) && !any(db_modes %in% c("both", "dual", "all"))
+  any_batch_single <- any(vapply(batches, function(b) isTRUE(b$single_db), logical(1)))
+  any_scheme_single <- any(vapply(
+    batches,
+    function(b) identical(tolower(as.character(b$pub_figure_scheme %||% "")[1L]), "ml_single_standard"),
+    logical(1)
+  ))
+  ## 仅看 project$databases（复数名单）。勿用 project$database 单数字段——
+  ## 双库课题常把该字段写成主库名，误判会把 Table 1-NHANES/CHARLS 全剥光。
+  dbs_proj <- pr$databases %||% character(0)
+  if (is.character(dbs_proj) && length(dbs_proj) == 1L) {
+    dbs_proj <- trimws(unlist(strsplit(dbs_proj, "[,;|/]+"), use.names = FALSE))
+  }
+  dbs_proj <- unique(trimws(as.character(dbs_proj %||% character(0))))
+  dbs_proj <- dbs_proj[nzchar(dbs_proj)]
+  one_database_listed <- length(dbs_proj) == 1L
+
+  isTRUE(any_batch_single) || isTRUE(dd$single_db) || isTRUE(pr$single_db) ||
     isTRUE(pub$omit_db_in_names) ||
-    identical(tolower(as.character(bc$pub_figure_scheme %||% "")[1L]), "ml_single_standard") ||
-    (isTRUE(dual_off) && isTRUE(no_secondary))
+    isTRUE(any_scheme_single) ||
+    isTRUE(single_db_mode) ||
+    isTRUE(one_database_listed) ||
+    (isTRUE(dual_off) && isTRUE(no_secondary)) ||
+    (isTRUE(placeholder_secondary) && isTRUE(single_db_mode || dual_off || length(db_modes) == 0L))
 }
 
 #' 按 config 设置发表命名 options（单库清空 database_name）

@@ -843,14 +843,25 @@ block_rcs_incidence <- function(ctx, ...) {
     character(0)
   }
   Model3Factors <- intersect(setdiff(as.character(Model3Factors %||% character(0)), Index), names(data_imp))
+  ## Model3 ⊆ Model2 时默认不画第 4 面板（与 Table2 Crude/M1/M2 对齐）
   if (!length(setdiff(Model3Factors, Model2Factors))) {
-    if (exists("pipeline_model3_enabled", mode = "function") &&
+    force_m3_panel <- isTRUE(ri_cfg$force_model3_panel %||% FALSE) ||
+      isTRUE((cfg$rcs_incidence %||% list())$force_model3_panel %||% FALSE) ||
+      (isTRUE((cfg$dual_db %||% list())$enable) &&
+         isTRUE((cfg$dual_db %||% list())$force_rcs_four_panels %||% FALSE))
+    if (isTRUE(force_m3_panel) &&
+        exists("pipeline_model3_enabled", mode = "function") &&
         isTRUE(pipeline_model3_enabled(cfg))) {
       Model3Factors <- as.character(Model2Factors)
       cli::cli_alert_info(
-        "rcs_incidence Model3: 本库无额外学术必调列，仍保留第 4 面板（协变量同 Model2，双库布局对齐）"
+        "rcs_incidence Model3: 协变量同 Model2，但 force_model3_panel=TRUE，保留第 4 面板"
       )
     } else {
+      if (length(Model3Factors)) {
+        cli::cli_alert_info(
+          "rcs_incidence Model3: 协变量未超出 Model2，跳过第 4 面板（与 Table 2 三模型对齐）"
+        )
+      }
       Model3Factors <- character(0)
     }
   }

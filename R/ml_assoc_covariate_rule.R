@@ -348,6 +348,19 @@ ml_resolve_assoc_covariates <- function(ctx, data_names = NULL) {
     as.character((cfg$survival %||% list())$event_var %||% character(0)),
     as.character((cfg$survival %||% list())$time_var %||% character(0))
   ))
+  # 暴露公式成分及其别名（TG/TC/Weight…）不得进 Model1/2
+  if (exists("pipeline_index_component_vars_only", mode = "function")) {
+    ban <- unique(c(ban, tryCatch(
+      pipeline_index_component_vars_only(cfg),
+      error = function(e) character(0)
+    )))
+  }
+  if (exists("pipeline_covariate_analysis_exclude_vars", mode = "function")) {
+    ban <- unique(c(ban, tryCatch(
+      pipeline_covariate_analysis_exclude_vars(cfg),
+      error = function(e) character(0)
+    )))
+  }
   if (!isTRUE(ac$allow_ml_features_in_model2)) {
     ban <- unique(c(ban, ml_feats))
   }

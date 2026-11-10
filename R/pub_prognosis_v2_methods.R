@@ -32,7 +32,11 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
     "# Statistical analysis",
     "",
     sprintf(
-      "We analysed %s in %s. The primary endpoint was %s after ICU admission.",
+      paste0(
+        "We analysed %s in %s. ",
+        "The sole primary endpoint was %s after ICU admission; ",
+        "other follow-up horizons were pre-specified sensitivity analyses only and were not co-primary."
+      ),
       cohort, dbs, outcome
     ),
     sprintf(
@@ -41,19 +45,38 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
     ),
     "Candidate covariates were screened with Boruta and SHAP; multicollinearity was assessed with variance inflation factors (VIF < 5 considered acceptable).",
     "Missing covariates were handled with multiple imputation by chained equations (MICE, cart, m = 5). Inferential Cox models were fit on each completed dataset and pooled by Rubin\u2019s rules. Descriptive tables, figures, Boruta/SHAP, ROC, RCS, subgroup forests and mediation path diagrams used the first completed dataset (operational layer).",
+    "Baseline characteristics (Table 1) compared survivors with non-survivors and reported descriptive statistics, P values and standardized mean differences (SMD).",
     paste0(
       "Cox proportional hazards models reported hazard ratios (HRs) with 95% confidence intervals. ",
       "Model 1 was unadjusted. Model 2 was adjusted for Age and Gender. Model 3 was adjusted for ",
       m3, "."
     ),
-    "Person-time and crude mortality rates were summarised by exposure group (Table 2). Cumulative incidence curves used Kaplan\u2013Meier estimators with log-rank tests. Restricted cubic splines evaluated dose\u2013response shape (P-linear and P-nonlinear). Youden-index cutoffs and AUC summarised discrimination (Table S4 / Figure 5).",
+    paste0(
+      "Person-time, observed death counts and crude cumulative incidence were summarised by exposure group (Table 2). ",
+      "Absolute risk difference (High minus Low) and the corresponding number needed to treat/harm (NNT = 1/|RD|) were reported alongside relative effects. ",
+      "Cumulative incidence curves used Kaplan\u2013Meier estimators with log-rank tests. Restricted cubic splines evaluated dose\u2013response shape (P-linear and P-nonlinear). Youden-index cutoffs and AUC summarised discrimination (Table S4 / Figure 5)."
+    ),
     "Subgroup analyses estimated High versus Low contrasts within strata on the full analytic sample, with the same Model 3 covariate set excluding the stratifying variable itself (Figure 7).",
     sprintf(
-      "Mediation analyses used %s as the mediator with path models adjusted as in Table 3 Model 3 (mediator omitted from its own adjustment set). Path a was a linear coefficient of the exposure (per 1 SD) on the standardized mediator; path b and the direct effect were Cox log-hazard coefficients. The proportion mediated was (a\u00d7b)/total on the log-hazard scale with bootstrap confidence intervals (Table S8 / Figure 6).",
+      paste0(
+        "Mediation analyses used %s as the mediator with path models adjusted as in Table 3 Model 2 ",
+        "(Age, Gender; mediator omitted from its own adjustment set). ",
+        "CHARLSON indexes chronic comorbidity and overlaps conceptually with OASIS (acute severity), ",
+        "so CHARLSON was not co-adjusted in the mediation path models. ",
+        "Path a was a linear coefficient of the exposure (per 1 SD) on the standardized mediator; ",
+        "path b and the direct effect were Cox log-hazard coefficients. ",
+        "The proportion mediated was (a\u00d7b)/total on the log-hazard scale with bootstrap confidence intervals ",
+        "(Table S8 / Figure 6)."
+      ),
       mediator
     ),
     sprintf(
-      "Sensitivity analysis redefined the endpoint as %s using the same Model 1\u2013Model 3 structure and the same exposure cut-points as Table 3 (Table S5). Cause-specific Fine\u2013Gray models were not performed because cause of death is unavailable in MIMIC-IV; no main-text Table 4 was presented.",
+      paste0(
+        "Sensitivity analysis redefined the endpoint as %s using the same Model 1\u2013Model 3 structure and the same exposure cut-points as Table 3 (Table S5); ",
+        "this sensitivity endpoint was not interpreted as a co-primary outcome. ",
+        "Cause-specific Fine\u2013Gray / competing-risk models were not performed because cause of death is unavailable in MIMIC-IV and the primary endpoint is all-cause death; ",
+        "no competing-risk package was used and no main-text Table 4 was presented."
+      ),
       sens
     ),
     "Baseline characteristics before and after imputation are in Table S6. Linear associations between each inflammatory index (per 1 SD) and the standardized mediator under Model 1\u2013Model 3 are in Table S7.",

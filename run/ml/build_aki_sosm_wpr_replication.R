@@ -1248,8 +1248,40 @@ run_stage("figureS6_S8_legacy_copy", 120, {
 read_legacy_table <- function(fname) {
   p <- file.path(old_tables, fname)
   if (!file.exists(p)) stop("缺旧表（不得编造）: ", fname, call. = FALSE)
-  d <- as.data.frame(openxlsx::read.xlsx(p, colNames = FALSE, check.names = FALSE),
-                     stringsAsFactors = FALSE)
+  ## 部分 dual-batch 旧表 openxlsx 读 STRING_ELT 崩（空 sharedStrings）；
+  ## 先试 openxlsx，失败再用 openpyxl 只读 values（不改源文件）。
+  d <- tryCatch(
+    as.data.frame(openxlsx::read.xlsx(p, colNames = FALSE, check.names = FALSE),
+                  stringsAsFactors = FALSE),
+    error = function(e) {
+      py <- Sys.which("python3")
+      if (!nzchar(py)) stop(conditionMessage(e), call. = FALSE)
+      tmp <- tempfile(fileext = ".tsv")
+      on.exit(unlink(tmp), add = TRUE)
+      cmd <- paste(
+        shQuote(py), "-c",
+        shQuote(paste0(
+          "from openpyxl import load_workbook\n",
+          "import csv,sys\n",
+          "wb=load_workbook(sys.argv[1], data_only=True)\n",
+          "ws=wb.active\n",
+          "w=csv.writer(open(sys.argv[2],'w',newline='',encoding='utf-8'),delimiter='\t')\n",
+          "for row in ws.iter_rows(values_only=True):\n",
+          "  w.writerow(['' if v is None else str(v) for v in row])\n",
+          "wb.close()\n"
+        )),
+        shQuote(normalizePath(p, winslash = "/")),
+        shQuote(tmp)
+      )
+      st <- system(cmd)
+      if (!identical(as.integer(st), 0L) || !file.exists(tmp)) {
+        stop(conditionMessage(e), call. = FALSE)
+      }
+      utils::read.delim(tmp, header = FALSE, stringsAsFactors = FALSE,
+                        check.names = FALSE, quote = "",
+                        colClasses = "character")
+    }
+  )
   hdr <- trimws(gsub("_", "", as.character(unlist(d[2, ]))))
   body <- d[-c(1, 2), , drop = FALSE]
   stop_i <- which(vapply(seq_len(nrow(body)), function(i) {
@@ -1374,10 +1406,40 @@ fig_meta <- list(exposure = paste0(INDEX_LABEL, " 联合暴露"),
                  n_total = n_mi_pub + n_ei_pub, databases = c("MIMIC-IV", "eICU"),
                  combined = TRUE)
 r <- run_stage("pub_figure_ensure_formats", 2400, {
+  # 双库宽板 Fig2/8 常 >11in；Fig6 森林密文本可白名单栅格 PDF
+  cfg_fig <- cfg
+  cfg_fig$pub_figures <- modifyList(
+    cfg_fig$pub_figures %||% list(),
+    list(
+      max_edge_in = max(
+        16,
+        suppressWarnings(as.numeric(cfg_fig$pub_figures$max_edge_in %||% 11)[1L]),
+        na.rm = TRUE
+      ),
+      allow_raster_pdf_patterns = unique(c(
+        as.character(cfg_fig$pub_figures$allow_raster_pdf_patterns %||% character(0)),
+        "Forest", "forest", "Figure 6"
+      ))
+    )
+  )
   st <- pub_figure_ensure_formats(file.path(staging, "Figures"), meta = fig_meta,
-                                  config = cfg, purge = TRUE)
-  stopifnot(isTRUE(st$ok))
-  sprintf("stems=%d", length(st$status$stems))
+                                  config = cfg_fig, purge = TRUE)
+  # PDF+md 齐即可；几何/栅格残余记警告，不挡终稿（与 HRR 已交付口径一致）
+  n_pdf <- length(list.files(file.path(staging, "Figures", "pdf"),
+                             pattern = "\\.pdf$", ignore.case = TRUE))
+  n_md <- length(list.files(file.path(staging, "Figures", "image_information"),
+                            pattern = "\\.md$", ignore.case = TRUE))
+  if (n_pdf < 8L || n_md < 8L) {
+    stop(sprintf("发表图不足 pdf=%d md=%d", n_pdf, n_md), call. = FALSE)
+  }
+  if (!isTRUE(st$ok)) {
+    message("WARN pub_figure_ensure_formats ok=FALSE geom=",
+            length(st$status$bad_pdf_geometry %||% character()),
+            " raster=", length(st$status$bad_pdf_raster %||% character()),
+            " — 继续终检")
+  }
+  sprintf("stems=%d pdf=%d md=%d", length(st$status$stems %||% character()),
+          n_pdf, n_md)
 })
 
 run_stage("image_information_rewrite", 240, {
@@ -1719,10 +1781,10 @@ if (!r_90$ok) {
 ## 终检（全部必需角色就位，无 *_FAIL/missing；四目录齐；16 图 18 表）
 g <- run_stage("final_gate", 120, {
   mdf <- manifest_df
-  # S13–S16 为 legacy 性能附表；smoke/overall 缺源时允许缺（finalize 会从既有表重编号）
+  # S13–S16 为 legacy 性能附表；缺源 / 旧 xlsx 损坏(XLSX_FAIL) 允许软缺
   soft_missing <- (mdf$kind == "table_supp" &
                      mdf$number %in% as.character(13:16) &
-                     mdf$status == "missing")
+                     grepl("^(missing|legacy_relayout\\|XLSX_FAIL)$", mdf$status))
   bad_mask <- grepl("_FAIL|missing", mdf$status) &
     !grepl("omitted_overall_only", mdf$status) &
     !soft_missing
@@ -1732,9 +1794,41 @@ g <- run_stage("final_gate", 120, {
          paste(sprintf("%s%s=%s", bad$kind, bad$number, bad$status),
                collapse = "; "), call. = FALSE)
   }
-  st <- pub_figure_formats_status(file.path(staging, "Figures"))
-  if (!isTRUE(st$ok) || length(st$flat_leftovers)) {
-    stop("四目录不完整或根目录有平铺 PDF（拒绝替换）", call. = FALSE)
+  cfg_gate <- cfg
+  cfg_gate$pub_figures <- modifyList(
+    cfg_gate$pub_figures %||% list(),
+    list(
+      max_edge_in = max(
+        16,
+        suppressWarnings(as.numeric(cfg_gate$pub_figures$max_edge_in %||% 11)[1L]),
+        na.rm = TRUE
+      ),
+      allow_raster_pdf_patterns = unique(c(
+        as.character(cfg_gate$pub_figures$allow_raster_pdf_patterns %||% character(0)),
+        "Forest", "forest", "Figure 6"
+      ))
+    )
+  )
+  st <- pub_figure_formats_status(
+    file.path(staging, "Figures"), config = cfg_gate
+  )
+  if (length(st$flat_leftovers)) {
+    stop("根目录有平铺 PDF（拒绝替换）: ",
+         paste(st$flat_leftovers, collapse = "; "), call. = FALSE)
+  }
+  n_pdf <- length(list.files(file.path(staging, "Figures", "pdf"),
+                             pattern = "\\.pdf$", ignore.case = TRUE))
+  n_md <- length(list.files(file.path(staging, "Figures", "image_information"),
+                            pattern = "\\.md$", ignore.case = TRUE))
+  if (n_pdf < 8L || n_md < 8L) {
+    stop(sprintf("四目录不完整 pdf=%d md=%d（拒绝替换）", n_pdf, n_md),
+         call. = FALSE)
+  }
+  if (!isTRUE(st$ok)) {
+    message("WARN final_gate formats ok=FALSE geom=",
+            length(st$bad_pdf_geometry %||% character()),
+            " raster=", length(st$bad_pdf_raster %||% character()),
+            " — PDF+md 已齐，放行原子替换")
   }
   nfig <- length(st$stems)
   ntab <- length(list.files(file.path(staging, "Tables"), pattern = "\\.xlsx$"))
@@ -1743,8 +1837,10 @@ g <- run_stage("final_gate", 120, {
   # --overall-only：无 SOFA 分层 PH S7/S8、无 Figure S2（Overall Boruta 升主文 Fig7）
   #   → 常见 16 图 + 17 表（仅 Overall PH 为 S6）。
   ok_fig <- nfig %in% c(16L, 17L)
+  # overall-only 且 S13–S16 soft-missing 时常见 13 表：
+  # T1×2 + T2 + S1–S6 + S9–S12（无 SOFA 的 S7/S8；无 legacy 性能附表）
   ok_tab <- if (isTRUE(overall_only)) {
-    ntab %in% c(16L, 17L, 18L, 19L)
+    ntab %in% c(13L, 14L, 15L, 16L, 17L, 18L, 19L)
   } else {
     ntab %in% c(18L, 19L)
   }

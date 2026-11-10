@@ -1,0 +1,34 @@
+---
+description: 发表图/表字体统一 Times New Roman（全项目复用）
+alwaysApply: true
+---
+
+# 发表字体 Times New Roman 铁律
+
+凡 **Tables xlsx / Figures PDF / 中期 PDF 正文排版**，展示层字体统一为 **Times New Roman**（Linux 无该字体时引擎回退 Times / Liberation Serif，仍须衬线 Times 系）。
+
+## 铁律
+
+1. **表**：`sci_xlsx_*` / guan-style Table1 / `openxlsx::createStyle` 的 `fontName` 必须为 `"Times New Roman"`；禁止 Arial/Calibri/Helvetica 当发表表字体。
+2. **图**：ggplot / 森林 / KM / RCS / SHAP 导出走 `resolve_plot_font_family()` / `pipeline_pdf_device()` / `theme` 的 Times 系；`cairo_pdf` 优先嵌入 TrueType Times New Roman。
+3. **禁止**课题脚本私设 `family = "sans"` / `"Arial"` 覆盖发表默认（截图类白名单除外）。
+4. **收口**：`finalize_delivery_root` / `pub_figure_ensure_formats` 不改字体逻辑，但新导图必须继承引擎默认。
+5. **与禁下划线同级**：新课题检查清单同时勾「无 `_`」+「Times New Roman」。
+
+## 实现入口
+
+- `R/utils.R`：`resolve_plot_font_family` / `pipeline_pdf_device` / `sci_xlsx_*` styles
+- `R/pub_figure_profile.R`：profile theme 显式 Times New Roman
+- 表 scrub：`pipeline_scrub_pub_df` + `pub_xlsx_scrub_underscores`（展示层）
+
+## 检查清单
+
+- [ ] 新导 xlsx 样式 `fontName = Times New Roman`
+- [ ] 新导 PDF 经 `pdffonts` 为 Times / TimesNewRoman / LiberationSerif 等衬线，无 Arial 主文
+- [ ] 课题未写死 sans/Arial 覆盖发表 theme
+
+## 反例（禁止）
+
+- 森林图 `fontfamily = ""` 落到系统默认无衬线
+- openxlsx 表头 `fontName = "Arial"`
+- Linux 上对 `pdf()` 强传 `"Times New Roman"` 报 unknown family 却不走 `resolve_plot_font_family`

@@ -806,6 +806,53 @@ pipeline_exclusion_normalize_name <- function(x) {
   tolower(gsub("[^[:alnum:]]", "", as.character(x)))
 }
 
+#' 实验室/人体测量常见列名别名组（规范名 + 短名/原始表别名）
+#'
+#' 用于暴露成分硬排除：公式写 Total_Cholesterol / Triglycerides 时，
+#' 数据里残留的 TC / TG 也必须从协变量与 ML 特征中剔除。
+.pipeline_lab_var_alias_groups <- function() {
+  list(
+    c("Triglycerides", "TG", "Triglyceride", "TRIG", "triglycerides"),
+    c("Total_Cholesterol", "TC", "Cholesterol", "Chol", "TCHO", "CHOL", "TotChol"),
+    c("HDL", "HDL_C", "HDLC", "HDL_Cholesterol"),
+    c("LDL", "LDL_C", "LDLC", "LDL_Cholesterol"),
+    c("Weight", "BW", "BodyWeight", "Body_Weight", "body_weight"),
+    c("Height", "HT", "BodyHeight", "body_height"),
+    c("BMI", "BodyMassIndex", "body_mass_index"),
+    c("Waist_circumference", "Waist", "WC", "waist", "WaistCircumference"),
+    c("Glucose", "GLU", "FBG", "FPG", "Glu", "glucose"),
+    c("HbA1c", "HBA1C", "hba1c", "Glycohemoglobin"),
+    c("Creatinine", "Cr", "SCR", "Scr", "CREA", "creatinine"),
+    c("Uric_Acid", "UA", "UricAcid", "SUA", "uric_acid"),
+    c("BUN", "UreaNitrogen", "Urea_Nitrogen", "UN", "urea_nitrogen"),
+    c("Platelet_Count", "PLT", "PlateletCount", "Platelets", "platelet"),
+    c("Albumin", "ALB", "albumin"),
+    c("Hemoglobin", "Hb", "HGB", "hemoglobin"),
+    c("Neutrophil_Count", "Neutrophils", "NEUT"),
+    c("Lymphocytes", "Lymphocyte", "LYM", "Lymphocyte_Count"),
+    c("AST", "Aspartate_Aminotransferase", "GOT"),
+    c("ALT", "Alanine_Aminotransferase", "GPT")
+  )
+}
+
+#' 将变量名扩展为同义别名全集（含自身）；供成分硬排除 / 协变量 / ML 特征共用
+pipeline_expand_lab_var_aliases <- function(vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[!is.na(vars) & nzchar(vars)]
+  if (!length(vars)) return(character(0))
+  groups <- .pipeline_lab_var_alias_groups()
+  norms <- pipeline_exclusion_normalize_name(vars)
+  out <- vars
+  for (g in groups) {
+    g <- unique(as.character(g))
+    g_norm <- pipeline_exclusion_normalize_name(g)
+    if (any(norms %in% g_norm) || any(vars %in% g)) {
+      out <- unique(c(out, g))
+    }
+  }
+  out
+}
+
 pipeline_index_raw_components <- function(
     index_var,
     definitions = pipeline_index_definition_map(),

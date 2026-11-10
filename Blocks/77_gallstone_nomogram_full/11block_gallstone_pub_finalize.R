@@ -52,17 +52,35 @@ block_gallstone_pub_finalize <- function(ctx, ...) {
     }
   }
 
-  writeLines(c(
-    paste0("# summary_results — ", unit, "（关联段）"),
-    "",
-    "本目录仅含该连续特征的 Figure 2 Associations / Figure 3 RCS / Figure S Subgroup。",
-    "浏览入口（勿依赖 by_index 里一堆【success】）：",
-    "- 项目根 `summary_results/` — 主文 Fig1/4–9 + 主表",
-    "- 项目根 `association_by_feature/<特征>/` — 各特征 Fig2/3/S",
-    "决策树: Decisiontree/decision_tree_gallstone_nomogram.md"
-  ), file.path(sr, "README.md"))
+  # 项目根 summary_results：方法 + 软件版本 + PDF-only + 白名单（全项目同口径）
+  proj_sr <- file.path(dirs$project %||% dirname(dirname(sr)), "summary_results")
+  if (!dir.exists(proj_sr)) {
+    # dirs$project 来自 gallstone_nomogram_out_dirs
+    proj_sr <- file.path(ctx$config$project$output_dir %||% ctx$config$project$root %||% root,
+                         "summary_results")
+  }
+  # 更稳：从 unit summary 上溯到课题根
+  cand <- normalizePath(file.path(sr, "..", "..", "..", "summary_results"),
+                        winslash = "/", mustWork = FALSE)
+  if (dir.exists(cand)) proj_sr <- cand
+  if (file.exists(file.path(root, "R/pub_gallstone_methods.R"))) {
+    source(file.path(root, "R/pub_gallstone_methods.R"), local = FALSE)
+  }
+  if (exists("gallstone_finalize_summary_delivery", mode = "function") &&
+      dir.exists(proj_sr)) {
+    tryCatch(
+      gallstone_finalize_summary_delivery(
+        summary_root = proj_sr,
+        project_root = dirname(proj_sr),
+        config = ctx$config,
+        rewrite_methods = FALSE,
+        prune = TRUE
+      ),
+      error = function(e) cli::cli_alert_warning("根 summary 收口: {e$message}")
+    )
+  }
 
-  ctx$results$gallstone_pub_finalize <- list(summary = sr, unit = unit)
+  ctx$results$gallstone_pub_finalize <- list(summary = sr, unit = unit, project_summary = proj_sr)
   cli::cli_alert_success("发表收口(关联段) → {sr}")
   ctx
 }

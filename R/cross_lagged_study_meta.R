@@ -418,7 +418,7 @@ cross_lagged_fig3_lock <- function(meta) {
         Gender = c("Female", "Male"),
         Education = c("Below High school", "Above High school"),
         Marital_Status = c("Unmarried", "Married"),
-        Smoking = c("Never", "Current"),
+        Smoking = c("Never", "Former", "Current"),
         Hypertension = c("No", "Yes"),
         Diabetes = c("No", "Yes")
       ),
@@ -427,7 +427,7 @@ cross_lagged_fig3_lock <- function(meta) {
         if (isTRUE(include_age)) "Age_Group 65y (Leisure exposure);" else "Age omitted (ePWV component);",
         "Cancer omitted (NHANES has no column);",
         "NHANES Education/Smoking attached from D04 by ID;",
-        "Former smokers set to missing so Smoking is Never/Current like CHARLS/ELSA"
+        "Smoking = Never/Former/Current (CHARLS+ELSA both have Former; keep 3 levels)"
       )
     ))
   }
@@ -548,12 +548,16 @@ cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
   }
   if ("Smoking" %in% names(data)) {
     x <- trimws(as.character(data$Smoking))
-    # 与 CHARLS/ELSA 二元 Never/Current 对齐：Former 不并入任一侧，记为缺失
-    x[x %in% c("Former", "Ever", "Past", "Ex-smoker", "Ex smoker")] <- NA_character_
+    # 三档：Never / Former / Current（Former 同义归 Former，不并入 Never/Current）
+    x[x %in% c("Former", "Ever", "Past", "Ex-smoker", "Ex smoker", "Ex-Smoker")] <-
+      "Former"
     x[x %in% c("No")] <- "Never"
     x[x %in% c("Yes")] <- "Current"
     x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
-    data$Smoking <- factor(x, levels = c("Never", "Current"))
+    smoke_lev <- as.character((lock$level_order %||% list())$Smoking %||%
+      c("Never", "Former", "Current"))
+    if (!length(smoke_lev)) smoke_lev <- c("Never", "Former", "Current")
+    data$Smoking <- factor(x, levels = smoke_lev)
   }
   for (vn in intersect(
     c("Alcohol_drinking", "Hypertension", "Diabetes", "T2DM", "Cancer",

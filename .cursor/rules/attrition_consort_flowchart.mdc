@@ -19,9 +19,14 @@ alwaysApply: true
    - 结局/透析状态缺失 → 写 outcome / dialysis status unavailable（**禁止**默认 “Incomplete covariates”）
    - 暴露指标不可算（缺 BUN/Cr 等）→ Missing &lt;index components&gt;（**禁止**步骤名 “After imputation” 冒充该步）
    - 插补本身通常不删行；勿把指标缺失步标成 imputation
-8. **框内短标签**：主列与 Exclude 文案控制长度，避免长括号说明溢框；细节说明进 Methods / `image_information`，**不进框**。
-9. **默认无图底脚注**：`footnotes_by_db = NULL` / 不传 `footnote`；禁止把 Methods 长段画在 Fig1 底部（易溢框、像图注）。确需脚注须用户当次点名且仍保持短句。
-10. **无池层实体不画假起点**：上游 ICU 池 n 未随交付可核时，从图上真实提取表 N 起步，Methods 写清。
+8. **ML / 复合指标 Figure 1 必须诚实分项**（2026-11 CKM TCBI；**所有机器学习项目强制**）：
+   - 年龄筛：Exclude 框写 `Age < cut years (n = …)`；dabiao 已预筛时仍用 `config$attrition$upstream`（`n_source` / `age_exclude_n` / `age_exclude_label`）回补真实起点与排除数，**禁止**因本步 excluded=0 画成「一个人都没排」。
+   - 指标成分缺失：Exclude 框必须写 `Missing <INDEX> key variables: VarA (n = a); VarB (n = b); …`（`attrition_index_component_missing_label`）；**即使某成分缺失为 0 也要写出**；禁止只写笼统 “Missing index” 或整框消失。
+   - 有显式 `config$attrition$steps` 时设 `config_steps_only = TRUE`，禁止 runtime attrition log 用「excluded 0」覆盖诚实 steps。
+   - ML 默认：`ml_dual_apply_attrition_overrides()`（`configs/ml_dual_shared_overrides.R`）开 `ml_standard_layout` + `config_steps_only`。
+9. **框内短标签（主列）**：主列纳入框文案宜短；Exclude 框以诚实分项为准，允许多变量 `n=`（可自动换行），细节补进 `image_information`，**不要**为「好看」删掉年龄/成分排除框。
+10. **默认无图底脚注**：`footnotes_by_db = NULL` / 不传 `footnote`；禁止把 Methods 长段画在 Fig1 底部（易溢框、像图注）。确需脚注须用户当次点名且仍保持短句。
+11. **无池层实体不画假起点**：上游 ICU 池 n 未随交付可核时，从图上真实提取表 N 起步，Methods 写清。
 
 ## 反例（禁止）
 
@@ -31,3 +36,6 @@ alwaysApply: true
 - Exclude 写 Incomplete covariates，实测是 fustatus NA
 - “After imputation” 框实际只剔了缺暴露成分的人
 - Fig1 底部大段 Development cohort / MICE / 池 n 说明导致文字出画布
+- dabiao 已筛 Age≥45，Fig1 却显示 Age Exclude n=0 / 无人被排
+- 指标成分缺失框不写 TG/TC/Weight 等各变量缺失 n（或全 0 时整框省略）
+- `config_steps_only` 未开，runtime log 冲掉 config 诚实 steps

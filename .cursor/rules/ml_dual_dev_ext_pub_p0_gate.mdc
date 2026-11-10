@@ -19,9 +19,10 @@ alwaysApply: true
 ## 2. Figure 1 标签诚实 + 不溢框 + 默认无图注脚注
 
 1. 排除框文案 = **真实剔除原因**（结局缺失 ≠ Incomplete covariates；指标不可算 ≠ After imputation）。
-2. 框内标签宜短（主列 ≤ ~28 字符量级），避免长括号说明挤爆 Exclude 框；细则见 `attrition_consort_flowchart`。
-3. **默认不在 Fig1 PDF 画 Methods 脚注段落**（`footnotes_by_db = NULL`）；口径写进 Methods md / image_information，禁止把长说明塞图底导致「字出框 / 像图注」。
-4. 双栏须标库角色（development / external validation）。
+2. **年龄 + 指标成分必须分项出框**（全 ML 强制）：Age Exclude 写真实 n；`Missing <INDEX> key variables` 写每个关键变量缺失 n（含 0）。dabiao 预筛年龄时写 `attrition$upstream`。细则见 `attrition_consort_flowchart` §8。
+3. 主列纳入框宜短（≤ ~28 字符量级）；Exclude 诚实分项可换行，**禁止**为避长文删掉年龄/成分框。
+4. **默认不在 Fig1 PDF 画 Methods 脚注段落**（`footnotes_by_db = NULL`）；口径写进 Methods md / image_information，禁止把长说明塞图底导致「字出框 / 像图注」。
+5. 双栏须标库角色（development / external validation）。
 
 ## 3. 「最优模型」口径唯一（防 SHAP 错位）
 

@@ -287,7 +287,9 @@ config <- list(
   # 单库也默认开敏感性（缺省 enable→TRUE；显式 FALSE 才关）
   incidence_batch = list(
     output_base   = NULL,  # 运行时由课题根覆盖
+    # 单库：交付文件名/表题不加 -NHANES（pub_config_is_single_db）
     db_mode       = "nhanes_only",
+    single_db     = TRUE,
     sensitivity_suite = list(
       enable        = TRUE,
       age_cutoff    = 65L,

@@ -277,25 +277,9 @@ writeLines(c(
           paste(.disp(.feats_fig23), collapse = ", "))
 ), file.path(.tab, "Methods_fig2_footnote.txt"))
 .fig2_pdf <- file.path(.fig, "pdf", "Figure 2. Associations of continuous features.pdf")
+# 交付 PDF 必须矢量：禁止 trim 后用 grid.raster 覆盖 PDF（bad_pdf_raster = P0）
 .save_pdf_png(.fig2_combined, .fig2_pdf, .w2, .h2)
-.fig2_png <- file.path(.fig, "png", "Figure 2. Associations of continuous features.png")
-tryCatch({
-  ggplot2::ggsave(.fig2_png, .fig2_combined, width = .w2, height = .h2, dpi = 200, bg = "white")
-  .trim_png_white(.fig2_png, pad = 4L, thr = 250L)
-  im <- png::readPNG(.fig2_png)
-  wi <- dim(im)[2] / 200; hi <- dim(im)[1] / 200
-  grDevices::pdf(.fig2_pdf, width = wi, height = hi, useDingbats = FALSE)
-  grid::grid.raster(im, interpolate = TRUE)
-  grDevices::dev.off()
-  for (d in c(
-    file.path(.proj, "Figures", "pdf"),
-    file.path(.proj, "_shared", "Figures", "pdf")
-  )) {
-    dir.create(d, recursive = TRUE, showWarnings = FALSE)
-    file.copy(.fig2_pdf, file.path(d, basename(.fig2_pdf)), overwrite = TRUE)
-  }
-  message(sprintf("Fig2 cropped PDF: %.2fx%.2f in", wi, hi))
-}, error = function(e) message("Fig2 trim/rewrite: ", conditionMessage(e)))
+message(sprintf("Fig2 vector PDF: %.2fx%.2f in", .w2, .h2))
 
 # ===================== Fig3 RCS（Chen 样式 A|B；纵轴按曲线自适应，禁止线/CI 穿框）=====================
 message("→ Fig3 RCS Chen-style overlay hist (A|B, fit-ylim) …")
@@ -489,19 +473,20 @@ if (!length(.fits3)) stop("Fig3: no RCS panels")
 })
 .n3 <- length(.rcs_panels)
 # 五张：上排 A–C，下排 D–E（右下空位）
+# 长边 ≤ 11 in（pub_figures$max_edge_in；超限 = bad_pdf_geometry P0）
 if (.n3 == 5L) {
   .fig3 <- wrap_plots(
     .rcs_panels[[1]], .rcs_panels[[2]], .rcs_panels[[3]],
     .rcs_panels[[4]], .rcs_panels[[5]], plot_spacer(),
     ncol = 3, nrow = 2
   )
-  .w3 <- 12.6; .h3 <- 7.2
+  .w3 <- 10.8; .h3 <- 6.2
 } else if (.n3 <= 3L) {
   .fig3 <- wrap_plots(.rcs_panels, nrow = 1, widths = rep(1, .n3))
-  .w3 <- 4.15 * .n3 + 0.3; .h3 <- 3.55
+  .w3 <- min(4.15 * .n3 + 0.3, 11); .h3 <- 3.55
 } else {
   .fig3 <- wrap_plots(.rcs_panels, ncol = 3)
-  .w3 <- 12.6; .h3 <- 3.55 * ceiling(.n3 / 3)
+  .w3 <- 10.8; .h3 <- min(3.55 * ceiling(.n3 / 3), 11)
 }
 .save_pdf_png(.fig3, file.path(.fig, "pdf", "Figure 3. RCS of continuous features.pdf"),
               .w3, .h3)
@@ -749,26 +734,11 @@ dir.create(dirname(.fig5_png), recursive = TRUE, showWarnings = FALSE)
   grid::grid.newpage()
   grid::grid.draw(.p5)
 }
+# 矢量 PDF 定稿；PNG 仅可选预览，禁止 raster 回写 PDF
 grDevices::pdf(.fig5_pdf, width = .w5, height = .h5, useDingbats = FALSE)
 .draw5()
 grDevices::dev.off()
-grDevices::png(.fig5_png, width = .w5, height = .h5, units = "in", res = 300, bg = "white")
-.draw5()
-grDevices::dev.off()
-# 紧裁白边（尤其底部），画布贴内容
-.trim_png_white(.fig5_png, pad = 4L, thr = 248L)
-.im5 <- tryCatch(png::readPNG(.fig5_png), error = function(e) NULL)
-if (!is.null(.im5)) {
-  .w5 <- dim(.im5)[2] / 300
-  .h5 <- dim(.im5)[1] / 300
-  grDevices::pdf(.fig5_pdf, width = .w5, height = .h5, useDingbats = FALSE)
-  grid::grid.raster(.im5, interpolate = TRUE)
-  grDevices::dev.off()
-  grDevices::png(.fig5_png, width = .w5, height = .h5, units = "in", res = 300, bg = "white")
-  grid::grid.raster(.im5, interpolate = TRUE)
-  grDevices::dev.off()
-}
-message(sprintf("Fig5 Chen forestploter: %.2fx%.2f in, n_rows=%d", .w5, .h5, nrow(.plot5)))
+message(sprintf("Fig5 Chen forestploter vector: %.2fx%.2f in, n_rows=%d", .w5, .h5, nrow(.plot5)))
 .mirror_fig5 <- function(src, dests) {
   for (d in dests) {
     dest <- file.path(d, basename(src))
@@ -949,23 +919,8 @@ for (v in .use6) {
 grDevices::pdf(.fig6_pdf, width = .w6, height = .h6, useDingbats = FALSE)
 .draw6_chen()
 grDevices::dev.off()
-grDevices::png(.fig6_png, width = .w6, height = .h6, units = "in", res = 300, bg = "white")
-.draw6_chen()
-grDevices::dev.off()
-.trim_png_white(.fig6_png, pad = 4L, thr = 248L)
-.im6 <- tryCatch(png::readPNG(.fig6_png), error = function(e) NULL)
-if (!is.null(.im6)) {
-  .w6 <- dim(.im6)[2] / 300
-  .h6 <- dim(.im6)[1] / 300
-  grDevices::pdf(.fig6_pdf, width = .w6, height = .h6, useDingbats = FALSE)
-  grid::grid.raster(.im6, interpolate = TRUE)
-  grDevices::dev.off()
-  grDevices::png(.fig6_png, width = .w6, height = .h6, units = "in", res = 300, bg = "white")
-  grid::grid.raster(.im6, interpolate = TRUE)
-  grDevices::dev.off()
-}
 message(sprintf(
-  "Fig6 Chen nomogram (ridge): %.2fx%.2f in; risk TP [%.0f,%.0f]; TotalPoints 0-%d; lambda.1se=%.4g",
+  "Fig6 Chen nomogram vector (ridge): %.2fx%.2f in; risk TP [%.0f,%.0f]; TotalPoints 0-%d; lambda.1se=%.4g",
   .w6, .h6, min(.tp_at_risk, na.rm = TRUE), max(.tp_at_risk, na.rm = TRUE),
   as.integer(.tp_max_disp), .cv6$lambda.1se
 ))
@@ -1824,38 +1779,16 @@ message("→ Supplementary figures (Chen-style subgroup forests) …")
     grid::grid.newpage()
     grid::grid.draw(pobj)
   }
+  # 矢量 PDF 定稿；禁止 trim PNG 后 grid.raster 覆盖交付 PDF
   grDevices::pdf(pdf_path, width = w, height = h, useDingbats = FALSE)
   .draw()
   grDevices::dev.off()
-  grDevices::png(png_path, width = w, height = h, units = "in", res = 300, bg = "white")
-  .draw()
-  grDevices::dev.off()
-  # pad 稍大，避免裁掉表头顶横线
-  .trim_png_white(png_path, pad = 8L, thr = 250L)
-  .im <- tryCatch(png::readPNG(png_path), error = function(e) NULL)
-  if (!is.null(.im)) {
-    w <- dim(.im)[2] / 300
-    h <- dim(.im)[1] / 300
-    grDevices::pdf(pdf_path, width = w, height = h, useDingbats = FALSE)
-    grid::grid.raster(.im, interpolate = TRUE)
-    grDevices::dev.off()
-    grDevices::png(png_path, width = w, height = h, units = "in", res = 300, bg = "white")
-    grid::grid.raster(.im, interpolate = TRUE)
-    grDevices::dev.off()
-  }
   for (d in c(
     file.path(.proj, "Figures", "pdf"),
     file.path(.proj, "_shared", "Figures", "pdf")
   )) {
     dir.create(d, recursive = TRUE, showWarnings = FALSE)
     file.copy(pdf_path, file.path(d, basename(pdf_path)), overwrite = TRUE)
-  }
-  for (d in c(
-    file.path(.proj, "Figures", "png"),
-    file.path(.proj, "_shared", "Figures", "png")
-  )) {
-    dir.create(d, recursive = TRUE, showWarnings = FALSE)
-    file.copy(png_path, file.path(d, basename(png_path)), overwrite = TRUE)
   }
   utils::write.csv(
     data.frame(
@@ -1912,11 +1845,13 @@ writeLines(c(
   "stone_type collapse → Methods_rebuild_notes.txt (not Figure S2)."
 ), file.path(.tab, "Methods_figS1_S2_layout.txt"))
 
-# 定稿 png/tiff 只从 PDF 按 600 dpi 栅格化。前面的 ggsave / png(res=300)
-# 只用来裁白边并回写 PDF，禁止在本步之后再覆盖 png 或 tiff
-# （否则会丢掉分辨率标记，或留下 200/300 dpi）。
+# 默认交付 PDF + image_information；禁止用栅格回写 PDF；随后白名单 prune
+.cfg_pub <- list(
+  pub = list(renumber = FALSE),
+  pub_figures = list(export_png = FALSE, export_tiff = FALSE, dpi = 600L, max_edge_in = 11)
+)
 tryCatch(
-  pub_figure_ensure_formats(.fig, config = list(pub = list(renumber = FALSE))),
+  pub_figure_ensure_formats(.fig, config = .cfg_pub),
   error = function(e) message("formats: ", conditionMessage(e))
 )
 .strip_flat_figure_pdfs(.fig)
@@ -1924,16 +1859,6 @@ for (fr in c(file.path(.proj, "Figures"), file.path(.proj, "_shared", "Figures")
              file.path(.proj, "by_index", "\u3010success\u3011NOMOGRAM", "summary_results", "Figures"))) {
   .strip_flat_figure_pdfs(fr)
 }
-
-
-writeLines(c(
-  "# summary_results — 文献对齐重画版",
-  "",
-  "主入口：`Figures/pdf/`（Figure 1–9 + S1/S2），禁止根目录平铺 PDF。",
-  "Fig1 CONSORT | Fig2 一页森林（预指定连续）| Fig3 RCS（同上）| Fig4 Ridge 预指定 | Fig5 Firth 多因素 | Fig6 列线图 | Fig7 ROC+校准 | Fig8 DCA of nomogram… | Fig9 CIC of nomogram…",
-  "补充: Figure S1 Diameter 亚组森林; Figure S2 Shots 亚组森林（对标 Chen Supplemental Fig1/2）",
-  "详见 Tables/Methods_rebuild_notes.txt"
-), file.path(.set, "README.md"))
 
 # 四目录导出后重刷 image_information（无下划线展示名）
 tryCatch({
@@ -1943,6 +1868,19 @@ tryCatch({
     system2("Rscript", c("--vanilla", .imd_scr), stdout = TRUE, stderr = TRUE)
   }
 }, error = function(e) message("image_information WARN: ", conditionMessage(e)))
+
+# 引擎级交付收口：Methods md + 软件版本 txt + 去 png/tiff + 白名单五件套
+tryCatch({
+  source(file.path(.root, "R/pub_gallstone_methods.R"), local = FALSE)
+  message("→ gallstone_finalize_summary_delivery …")
+  gallstone_finalize_summary_delivery(
+    summary_root = .set,
+    project_root = .proj,
+    config = .cfg_pub,
+    rewrite_methods = TRUE,
+    prune = TRUE
+  )
+}, error = function(e) message("finalize delivery WARN: ", conditionMessage(e)))
 
 # Phase 6：发表质控骨架（Agent 须继续 nature-statistics / nature-figure 修 P0）
 tryCatch({

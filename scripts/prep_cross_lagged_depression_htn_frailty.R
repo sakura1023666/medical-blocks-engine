@@ -163,7 +163,7 @@ dabiao_elsa <- dabiao
 save(dabiao, file = file.path(out, "D04_ELSA_depression_htn_baseline.RData"))
 save(dabiao, file = file.path(out, "D04_ELSA_depression_baseline.RData"))
 writeLines(
-  c("ELSA FI-27 new (BMC Li 2026); analysis FI excludes hibpe (c1); source age>=65 complete-case.",
+  c("ELSA FI-27 new (BMC Li 2026); analysis FI excludes hibpe (c1); source 全年龄 complete-case (no age>=65 gate).",
     paste("items:", paste(fi_e$items, collapse = ", "))),
   file.path(out, "ELSA_FI_no_htn_items.txt")
 )
@@ -209,21 +209,21 @@ yo <- yo[!is.na(yo$Disease_Group), , drop = FALSE]
 save(yo, file = file.path(study_root, "data/HRS/D03_result_HRS16.RData"))
 
 writeLines(
-  c("CHARLS FI-27 new (BMC Li 2026); analysis FI excludes hibpe (c1); source age>=65 complete-case.",
+  c("CHARLS FI-27 new (BMC Li 2026); analysis FI excludes hibpe (c1); source 全年龄 complete-case (no age>=65 gate).",
     paste(fi_c$items, collapse = ", ")),
   file.path(out, "CHARLS_FI_no_htn_items.txt")
 )
 
 qc <- rbind(
-  qc_row("CHARLS", dabiao_charls, "depressed-only; FI-27new excl hibpe; age>=65 complete; outcome=Hypertension"),
-  qc_row("ELSA", dabiao_elsa, paste0("depressed-only; FI-27new excl hibpe (", length(fi_e$items), " items); age>=65")),
-  qc_row("HRS", dabiao_hrs, "depressed-only; FI-27new excl hibpe; age>=65 complete; outcome=Hypertension")
+  qc_row("CHARLS", dabiao_charls, "depressed-only; FI-27new excl hibpe; 全年龄 complete; outcome=Hypertension"),
+  qc_row("ELSA", dabiao_elsa, paste0("depressed-only; FI-27new excl hibpe (", length(fi_e$items), " items); 全年龄")),
+  qc_row("HRS", dabiao_hrs, "depressed-only; FI-27new excl hibpe; 全年龄 complete; outcome=Hypertension")
 )
 write.csv(qc, file.path(out, "prep_qc.csv"), row.names = FALSE)
 
 writeLines(c(
   "# Design: depression population × FI-27 new (no hibpe) × Hypertension outcome",
-  "# Frailty source: 192.168.68.34 虚弱-新/全波次 (BMC Li 2026 FI-27; age>=65 complete-case)",
+  "# Frailty source: 192.168.68.34 虚弱-新/全波次 (BMC Li 2026 FI-27; 全年龄 complete-case, no age>=65)",
   "# Cross-sectional baselines: CHARLS2011 / ELSA w4(2008) / HRS2012",
   "# Longitudinal (hip spacing):",
   "#   CHARLS: FI_2011 → DepSeverity_2013 → HTN_2015 (baseline HTN-free)",

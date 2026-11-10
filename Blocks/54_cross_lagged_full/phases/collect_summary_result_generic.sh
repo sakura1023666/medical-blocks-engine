@@ -60,7 +60,8 @@ fi
 # 中介展示名：读 config .circadian_mediator_label（默认 FI）
 MED_LAB="FI"
 if [[ -f "$STUDY/config_long_panel.R" ]]; then
-  _ml=$(grep -E '^\s*\.circadian_mediator_label\s*<-' "$STUDY/config_long_panel.R" 2>/dev/null | head -1 | sed -E 's/.*<-[[:space:]]*["'\'']([^"'\'']+)["'\''].*/\1/')
+  # grep 无命中时 exit=1；pipefail+set -e 会误杀整段 collect（抑郁 FI 课题无该行）
+  _ml=$(grep -E '^\s*\.circadian_mediator_label\s*<-' "$STUDY/config_long_panel.R" 2>/dev/null | head -1 | sed -E 's/.*<-[[:space:]]*["'\'']([^"'\'']+)["'\''].*/\1/' || true)
   if [[ -n "${_ml:-}" && "$_ml" != *circadian_mediator_label* ]]; then
     MED_LAB="$_ml"
   fi

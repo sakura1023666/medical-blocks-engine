@@ -212,3 +212,75 @@ pub_sync_xlsx_a1_titles_to_filenames <- function(tab_dir, recursive = FALSE) {
   }
   invisible(list(n = length(done), files = done))
 }
+
+#' 外科式：把已导出 xlsx 展示层 `_` 换成空格（保样式；不整表重写）
+#'
+#' 用于 Layer A3 命中后的返工，以及 finalize 收口兜底。
+#' 仅改 sharedStrings / 单元格字符串；数值不动。
+pub_xlsx_scrub_underscores <- function(path, root = NULL) {
+  path <- as.character(path %||% "")[1L]
+  if (!nzchar(path) || !file.exists(path)) {
+    stop("pub_xlsx_scrub_underscores: 文件不存在: ", path, call. = FALSE)
+  }
+  pub_xlsx_strip(path, root = root)
+  if (!requireNamespace("openxlsx", quietly = TRUE)) {
+    stop("需要 openxlsx", call. = FALSE)
+  }
+  wb <- openxlsx::loadWorkbook(path)
+  n_edit <- 0L
+  for (sh in openxlsx::sheets(wb)) {
+    d <- tryCatch(
+      openxlsx::read.xlsx(path, sheet = sh, colNames = FALSE),
+      error = function(e) NULL
+    )
+    if (is.null(d) || !nrow(d) || !ncol(d)) next
+    for (i in seq_len(nrow(d))) {
+      for (j in seq_len(ncol(d))) {
+        v <- d[i, j]
+        if (is.na(v)) next
+        if (!is.character(v) && !is.factor(v)) next
+        s0 <- as.character(v)
+        if (!grepl("_", s0, fixed = TRUE)) next
+        s1 <- gsub("_", " ", s0, fixed = TRUE)
+        if (identical(s0, s1)) next
+        openxlsx::writeData(
+          wb, sh, s1,
+          startCol = j, startRow = i, colNames = FALSE
+        )
+        n_edit <- n_edit + 1L
+      }
+    }
+  }
+  if (n_edit > 0L) {
+    openxlsx::saveWorkbook(wb, path, overwrite = TRUE)
+    pub_xlsx_strip(path, root = root)
+  }
+  v <- pub_xlsx_verify(path)
+  if (!isTRUE(v$readable) || !identical(as.integer(v$corrupt_cells), 0L)) {
+    stop(
+      "pub_xlsx_scrub_underscores: 校验失败 ", path,
+      " corrupt=", v$corrupt_cells %||% NA, call. = FALSE
+    )
+  }
+  invisible(list(path = path, n_edit = n_edit, verify = v))
+}
+
+#' 批量 scrub 目录内全部 xlsx 展示下划线
+pub_xlsx_scrub_underscores_dir <- function(tab_dir, root = NULL) {
+  tab_dir <- as.character(tab_dir %||% "")[1L]
+  if (!nzchar(tab_dir) || !dir.exists(tab_dir)) {
+    return(invisible(list(n = 0L, files = character(0))))
+  }
+  files <- list.files(
+    tab_dir, pattern = "\\.xlsx$", full.names = TRUE, ignore.case = TRUE
+  )
+  files <- files[!grepl("/~\\$", basename(files))]
+  out <- list()
+  for (f in files) {
+    out[[basename(f)]] <- tryCatch(
+      pub_xlsx_scrub_underscores(f, root = root),
+      error = function(e) list(path = f, error = e$message)
+    )
+  }
+  invisible(list(n = length(files), results = out))
+}

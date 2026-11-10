@@ -89,18 +89,32 @@ ei_prep$ctx$results$assoc_model3_factors <- mi_prep$models$Model3
 ei_prep$models <- mi_prep$models
 
 ref_key <- paste0(index, "_REF")
-derived <- file.path(
-  delivery, "publication_literature_final/authority/checkpoints/by_index",
-  ref_key, "MIMIC_IV/step01_reference_derived.rds"
-)
-if (!file.exists(derived)) {
-  cand <- Sys.glob(file.path(
+derived_cands <- c(
+  file.path(
+    delivery, "publication_literature_final/authority/checkpoints/by_index",
+    ref_key, "MIMIC_IV/step01_reference_derived.rds"
+  ),
+  file.path(
+    study, "by_index", paste0("【success】", index),
+    "publication_literature_final/authority/checkpoints/by_index",
+    ref_key, "MIMIC_IV/step01_reference_derived.rds"
+  ),
+  Sys.glob(file.path(
     delivery, "publication_literature_final/authority/checkpoints/by_index",
     "*_REF", "MIMIC_IV", "step01_reference_derived.rds"
+  )),
+  Sys.glob(file.path(
+    study, "by_index", paste0("【success】", index),
+    "publication_literature_final/authority/checkpoints/by_index",
+    "*_REF", "MIMIC_IV", "step01_reference_derived.rds"
   ))
-  if (!length(cand)) stop("reference derived rds not found under delivery", call. = FALSE)
-  derived <- cand[[1L]]
+)
+derived_cands <- unique(derived_cands[file.exists(derived_cands)])
+if (!length(derived_cands)) {
+  stop("reference derived rds not found under delivery or study", call. = FALSE)
 }
+derived <- derived_cands[[1L]]
+message("derived=", derived)
 train_aug <- readRDS(derived)$ctx$data$train
 prov <- reference_trusted_development(train_aug, checkpoint_path = derived)
 joint_lock <- reference_lock_tertile_cutpoints(train_aug, ia, ib, prov)
@@ -151,6 +165,60 @@ r4 <- tryCatch(
   error = function(e) { message("Fig4: ", conditionMessage(e)); NULL }
 )
 if (!is.null(r4$path) && file.exists(r4$path)) built <- c(built, r4$path)
+
+## Fig5：文献式 PH landmark（MIMIC cox.zph → 最显违反层 → Schoenfeld β 过零选日）
+## 可选覆盖：--force-landmark-day N / --force-landmark-stratum Overall
+source(file.path(engine, "R/prognosis_landmark_ph.R"), local = FALSE)
+source(file.path(engine, "R/ml_stratified_ctx.R"), local = FALSE)
+fd_cli <- suppressWarnings(as.numeric(get_opt("--force-landmark-day", NA_real_))[1L])
+fs_cli <- as.character(get_opt("--force-landmark-stratum", "Overall"))[1L]
+age_sex <- intersect(c("Age", "Gender", "Sex"), names(train_aug))
+## 确保开发集带 Joint_score / SOFA_layer（PH 扫描所需）
+train_fig5 <- train_aug
+if (!"SOFA_layer" %in% names(train_fig5)) {
+  train_fig5$SOFA_layer <- ref_assoc_sofa_layer(train_fig5, cutoff %||% c(4L, 10L))
+}
+if (!"Joint_score" %in% names(train_fig5)) {
+  jt0 <- reference_apply_joint_tertiles(train_fig5, joint_lock)
+  train_fig5$Joint_score <- as.numeric(jt0$group)
+  if (!"JointGroup" %in% names(train_fig5) && "group" %in% names(jt0)) {
+    train_fig5$JointGroup <- jt0$group
+  }
+}
+f5 <- file.path(tmp, "Figure 5. Landmark before after Cox.pdf")
+r5 <- tryCatch(
+  ref_assoc_fig5_landmark(
+    train_aug = train_fig5,
+    mimic_analysis = mi_prep$ctx$data$imputed,
+    eicu_analysis = ei_prep$ctx$data$imputed,
+    provenance = prov,
+    outcome_cfg = mi_prep$ctx$config,
+    covariates = age_sex,
+    cutoff = cutoff %||% c(4L, 10L),
+    joint_lock = joint_lock,
+    out_pdf = f5,
+    force_landmark_day = if (is.finite(fd_cli)) fd_cli else NULL,
+    force_landmark_stratum = fs_cli
+  ),
+  error = function(e) { message("Fig5: ", conditionMessage(e)); NULL }
+)
+if (!is.null(r5$path) && file.exists(r5$path)) built <- c(built, r5$path)
+if (!is.null(r5$locked_spec)) {
+  message(
+    "Fig5 lock strata=", paste(r5$locked_spec$strata, collapse = ","),
+    " days=", paste(as.numeric(r5$locked_spec$landmark_times), collapse = ","),
+    " forced=", isTRUE(r5$locked_spec$forced_landmark)
+  )
+  sc <- r5$locked_spec$scan
+  if (is.data.frame(sc) && nrow(sc)) {
+    keep <- intersect(
+      c("stratum", "exposure_p", "landmark_time", "landmark_method",
+        "approximate", "status"),
+      names(sc)
+    )
+    print(sc[, keep, drop = FALSE])
+  }
+}
 
 f6 <- file.path(tmp, "Figure 6. Forest tertile association.pdf")
 r6 <- tryCatch(

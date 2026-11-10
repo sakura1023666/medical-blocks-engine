@@ -141,14 +141,60 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   mb <- cfg$ml_batch %||% cfg$incidence_batch %||% list()
   st <- tolower(trimws(as.character(proj$study_type %||% "")[1L]))
   is_prog <- identical(st, "prognosis")
-  disease <- as.character(
-    proj$analysis_group %||% proj$disease %||% mb$analysis_group %||%
-      "the study outcome"
-  )[1L]
+  is_incidence <- identical(st, "incidence") || identical(st, "cross_sectional")
+  ## analysis_group 常为 "1"/"0"；展示层用 disease 名，禁止 Methods 写 “analysis of 1”
+  ag_raw <- as.character(proj$analysis_group %||% mb$analysis_group %||% "")[1L]
+  disease_nm <- as.character(proj$disease %||% proj$disease_cn %||% "")[1L]
+  disease <- if (nzchar(disease_nm) && (ag_raw %in% c("1", "0", "Yes", "No") || !nzchar(ag_raw))) {
+    disease_nm
+  } else if (nzchar(ag_raw) && !ag_raw %in% c("1", "0")) {
+    ag_raw
+  } else if (nzchar(disease_nm)) {
+    disease_nm
+  } else {
+    "the study outcome"
+  }
   exposure <- as.character(
     proj$exposure %||% mb$index_vars[[1L]] %||% cfg$index$vars[[1L]] %||%
+      (cfg$index$only %||% character(0))[1L] %||%
       "the primary exposure index"
   )[1L]
+  ## 流水线是否含 ML 训练块；纯发病/关联课题禁止写 Machine learning 节
+  pipe_blocks_detect <- as.character((cfg$pipeline %||% list())$blocks %||% character(0))
+  if (!length(pipe_blocks_detect)) {
+    pipe_blocks_detect <- as.character(cfg$`_pipeline_blocks` %||% character(0))
+  }
+  has_ml_blocks <- any(grepl(
+    "(?i)^(train_validation|ml_|performance_ml|shap|shiny_ml|feature_selection|lasso)",
+    pipe_blocks_detect
+  )) || isTRUE((cfg$capability %||% list())$ml_enable %||% FALSE) ||
+    identical(tolower(as.character((cfg$methods %||% list())$kind %||% "")[1L]), "ml")
+  include_ml_section <- isTRUE(has_ml_blocks) && !isTRUE(is_incidence && !has_ml_blocks)
+  if (isTRUE(is_incidence) && !isTRUE(has_ml_blocks)) include_ml_section <- FALSE
+  formula_txt <- trimws(as.character(
+    (cfg$methods %||% list())$index_formula %||%
+      (cfg$pub %||% list())$index_formula %||%
+      (cfg$methods %||% list())$exposure_formula %||% ""
+  )[1L])
+  weight_formula <- trimws(as.character(
+    (cfg$methods %||% list())$survey_weight_formula %||%
+      (cfg$nhanes %||% list())$weight_formula %||% ""
+  )[1L])
+  fig1_bridge <- trimws(as.character(
+    (cfg$methods %||% list())$fig1_bridge %||%
+      (cfg$attrition %||% list())$methods_bridge %||% ""
+  )[1L])
+  mi_seed <- suppressWarnings(as.integer((cfg$imputation %||% list())$seed %||% NA_integer_)[1L])
+  mi_maxit <- suppressWarnings(as.integer((cfg$imputation %||% list())$max_iter %||%
+    (cfg$imputation %||% list())$maxit %||% NA_integer_)[1L])
+  outcome_in_mice <- (cfg$imputation %||% list())$outcome_in_mice
+  outcome_mice_note <- if (is.null(outcome_in_mice)) {
+    "Whether the outcome entered the imputation predictor matrix followed the study imputation block defaults. "
+  } else if (isTRUE(outcome_in_mice)) {
+    "The binary outcome was included in the imputation predictor matrix. "
+  } else {
+    "The binary outcome was excluded from the imputation predictor matrix. "
+  }
   db <- as.character(
     proj$database %||%
       (cfg$dual_db$primary %||% list())$name %||%
@@ -200,12 +246,17 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   is_nhanes <- identical(toupper(db), "NHANES") ||
     identical(db_type, "nhanes") ||
     (nzchar(wt) && grepl("nhanes", tolower(paste(db, db_type)), fixed = TRUE))
+  wt_disp <- if (nzchar(wt)) gsub("_", " ", wt, fixed = TRUE) else "the study survey weight"
   wt_note <- if (is_nhanes) {
     paste0(
       " For NHANES, descriptive tables and association models used the complex ",
-      "survey design (strata, PSUs, and ",
-      if (nzchar(wt)) paste0("weight `", wt, "`") else "the study survey weight",
-      "). Weighted percentages are paired with design-based tests as stated in table footnotes."
+      "survey design (strata SDMVSTRA, PSU SDMVPSU, and weight ", wt_disp, "). ",
+      if (nzchar(weight_formula)) {
+        paste0("Survey weights were constructed as: ", weight_formula, ". ")
+      } else {
+        ""
+      },
+      "Weighted percentages are paired with design-based tests as stated in table footnotes."
     )
   } else {
     ""
@@ -242,18 +293,27 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   } else {
     paste0(
       "Missing covariates were handled with multiple imputation by chained equations ",
-      "(m = ", m, "). ",
+      "(method = ", as.character(mi$method %||% "cart")[1L],
+      "; m = ", m,
+      if (is.finite(mi_maxit)) paste0("; maxit = ", mi_maxit) else "",
+      if (is.finite(mi_seed)) paste0("; seed = ", mi_seed) else "",
+      "). ",
+      outcome_mice_note,
       mi_order_note,
       if (isTRUE(rubin)) {
         if (is_prog) {
           "Cox regression estimates were pooled across imputations with Rubin's rules. "
         } else {
-          "Logistic regression estimates were pooled across imputations with Rubin's rules. "
+          "Logistic / survey-weighted regression estimates were pooled across imputations with Rubin's rules. "
         }
       } else {
         ""
       },
-      "Operational steps (feature selection, KM/RCS/SHAP plots, descriptive tables) used the first completed dataset."
+      if (isTRUE(include_ml_section)) {
+        "Operational steps (feature selection, KM/RCS/SHAP plots, descriptive tables) used the first completed dataset."
+      } else {
+        "Operational steps (descriptive tables, RCS plots, subgroup forests) used the first completed dataset."
+      }
     )
   }
   lim_lines <- character(0)
@@ -354,15 +414,20 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
       "This was a cross-sectional analysis of ", disease,
       " in ", db, ".", age_note,
       " The analytic sample followed the study inclusion flowchart (Figure 1). ",
+      if (nzchar(fig1_bridge)) paste0(fig1_bridge, " ") else "",
       "Unweighted participant counts are reported alongside weighted percentages where labelled."
     )
     outcome_def <- trimws(as.character(
-      (config$methods %||% list())$outcome_definition %||%
-        (config$pub %||% list())$outcome_definition %||% ""
+      (cfg$methods %||% list())$outcome_definition %||%
+        (cfg$pub %||% list())$outcome_definition %||% ""
     )[1L])
     exposure_line <- paste0(
       "The primary exposure was ", exposure,
-      " (composite index as defined in the study configuration). ",
+      if (nzchar(formula_txt)) {
+        paste0(" with formula ", formula_txt, ". ")
+      } else {
+        " (composite index as defined in the study configuration). "
+      },
       "The exposure entered models as a continuous variable and as quantiles with cut-points ",
       "aligned to the main regression table; the lowest quantile was the reference. ",
       "Tests for trend used the numeric quantile score. ",
@@ -379,19 +444,26 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
         "Logistic regression estimated odds ratios (ORs) with 95% confidence intervals. "
       },
       "Model 1 and Model 2 covariates are those named in the main regression table footnote. ",
-      "Restricted cubic splines described dose–response. ",
+      "Restricted cubic splines (default 3 knots at the 10th/50th/90th percentiles) described dose–response; ",
+      "figure panels report P for overall and P for nonlinear. ",
       "Subgroup forests estimated the highest-versus-lowest quantile contrast within strata ",
-      "on the full analytic sample (forest N = stratum totals)."
+      "on the full analytic sample (forest N = stratum totals). ",
+      "Mediation total effects need not equal Table 2 highest-quantile ORs when exposure coding differs ",
+      "(continuous vs quantile); footnotes state the shared adjustment set when applicable."
     )
-    ml_line <- paste0(
-      "Participants were split into training and validation sets for supervised prediction of ",
-      disease, ". ",
-      "Feature selection (LASSO) and candidate classifiers followed the study ML blocks. ",
-      "The primary model for SHAP/Shiny used the highest ", best_metric, " on the validation set. ",
-      "Discrimination, calibration, and related metrics are reported in the performance tables."
-    )
+    ml_line <- if (isTRUE(include_ml_section)) {
+      paste0(
+        "Participants were split into training and validation sets for supervised prediction of ",
+        disease, ". ",
+        "Feature selection (LASSO) and candidate classifiers followed the study ML blocks. ",
+        "The primary model for SHAP/Shiny used the highest ", best_metric, " on the validation set. ",
+        "Discrimination, calibration, and related metrics are reported in the performance tables."
+      )
+    } else {
+      ""
+    }
   }
-  c(
+  out_lines <- c(
     "# Statistical analysis",
     "",
     "## Study design and cohort",
@@ -410,11 +482,13 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
     "## Association analyses",
     "",
     assoc_line,
-    "",
-    "## Machine learning",
-    "",
-    ml_line,
-    "",
+    ""
+  )
+  if (isTRUE(include_ml_section) && nzchar(ml_line)) {
+    out_lines <- c(out_lines, "## Machine learning", "", ml_line, "")
+  }
+  c(
+    out_lines,
     "## Software",
     "",
     "Package versions are listed in Methods_software_versions.txt and the Software subsection below.",

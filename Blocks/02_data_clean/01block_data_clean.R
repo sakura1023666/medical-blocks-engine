@@ -190,34 +190,64 @@ block_data_clean <- function(ctx, ...) {
   row_filter <- cfg$data_clean$age_filter
   if (!is.null(row_filter) && nzchar(row_filter %||% "")) {
     n_before <- nrow(data)
+    up <- ((cfg$attrition %||% list())$upstream %||% list())
+    # dabiao 已在 prep 预筛年龄时，本步 excluded=0；用 attrition$upstream 回补真实起点/排除数
+    up_excl <- suppressWarnings(as.integer(up$age_exclude_n %||% NA_integer_)[1L])
+    up_src <- suppressWarnings(as.integer(up$n_source %||% NA_integer_)[1L])
     if (exists("attrition_record", mode = "function") &&
         !any(vapply(
           ((ctx$results$attrition %||% list())$log %||% list()),
           function(e) identical(as.character(e$step_id %||% "")[1L], "starting_cohort"),
           logical(1L)
         ))) {
+      n_start <- n_before
+      if (is.finite(up_src) && up_src > n_before) n_start <- up_src
+      if (is.finite(up_excl) && up_excl > 0L && (!is.finite(up_src) || up_src <= n_before)) {
+        n_start <- as.integer(n_before + up_excl)
+      }
+      start_lab <- as.character(up$starting_label %||% "Starting cohort")[1L]
+      if (!nzchar(start_lab)) start_lab <- "Starting cohort"
       ctx <- attrition_record(
-        ctx, "starting_cohort", "Starting cohort",
-        as.integer(n_before), meta = list(block = "data_clean", source = "pre_age_filter")
+        ctx, "starting_cohort", start_lab,
+        as.integer(n_start),
+        meta = list(block = "data_clean", source = "pre_age_filter")
       )
     }
     data <- data[with(data, eval(parse(text = row_filter))), ]
     n_after_age <- as.integer(nrow(data))
     n_excl_age <- as.integer(n_before - n_after_age)
+    if (n_excl_age <= 0L && is.finite(up_excl) && up_excl > 0L) {
+      n_excl_age <- up_excl
+    }
     cli::cli_alert_info("Row filter '{row_filter}': {n_before} -> {n_after_age} rows")
     if (exists("attrition_record", mode = "function")) {
+      age_ex_lab <- as.character(up$age_exclude_label %||% "")[1L]
+      if (!nzchar(age_ex_lab)) {
+        if (grepl("Age\\s*>=\\s*50", row_filter, ignore.case = TRUE, perl = TRUE)) {
+          age_ex_lab <- "Age < 50 years"
+        } else if (grepl("Age\\s*>=\\s*45", row_filter, ignore.case = TRUE, perl = TRUE)) {
+          age_ex_lab <- "Age < 45 years"
+        } else if (grepl("Age\\s*>=\\s*40", row_filter, ignore.case = TRUE, perl = TRUE)) {
+          age_ex_lab <- "Age < 40 years"
+        } else {
+          age_ex_lab <- paste0("Not meeting ", row_filter)
+        }
+      }
       age_lab <- if (grepl("Age\\s*>=\\s*50", row_filter, ignore.case = TRUE, perl = TRUE)) {
-        sprintf("Age \u2265 50 (excluded Age < 50: %s)", format(n_excl_age, big.mark = ","))
+        sprintf("Age \u2265 50")
+      } else if (grepl("Age\\s*>=\\s*45", row_filter, ignore.case = TRUE, perl = TRUE)) {
+        sprintf("Age \u2265 45")
       } else if (grepl("Age\\s*>=\\s*40", row_filter, ignore.case = TRUE, perl = TRUE)) {
-        sprintf("Age \u2265 40 (excluded Age < 40: %s)", format(n_excl_age, big.mark = ","))
+        sprintf("Age \u2265 40")
       } else {
-        sprintf("Age filter (%s; excluded %s)", row_filter, format(n_excl_age, big.mark = ","))
+        sprintf("Age filter (%s)", row_filter)
       }
       ctx <- attrition_record(
         ctx, "after_age_filter", age_lab, n_after_age,
         meta = list(
           block = "data_clean", n_before = as.integer(n_before),
-          n_excluded = n_excl_age, filter = as.character(row_filter)[1L]
+          n_excluded = n_excl_age, filter = as.character(row_filter)[1L],
+          exclude_label = age_ex_lab
         )
       )
     }
