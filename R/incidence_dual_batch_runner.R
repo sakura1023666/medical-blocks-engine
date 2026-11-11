@@ -2484,7 +2484,7 @@ incidence_batch_pub_figure_sort_key <- function(basename) {
   if (grepl("ML performance combined 2x4|combined 2x4", bn, ignore.case = TRUE)) return(310L)
   if (grepl("Weighted SHAP", bn, ignore.case = TRUE)) return(410L)
   if (grepl("SHAP.*combined|SHAP \\(best|SHAP [—\\-–]", bn, ignore.case = TRUE)) return(420L)
-  if (grepl("^Figure S2[A-G]", bn)) return(9000L)
+  if (grepl("^Figure\\s*S2([A-G]|[.\\s]|$)", bn, ignore.case = TRUE, perl = TRUE)) return(9000L)
   if (grepl("Figure SHAP .+ (bee|waterfall|importance|dependence)(\\.| )", bn, perl = TRUE)) return(9100L)
   if (grepl("Figure S-.*ML (performance|internal validation)", bn, ignore.case = TRUE)) return(9200L)
   m <- regexec("Figure ([0-9]+)", bn, perl = TRUE)[[1L]]
@@ -2499,7 +2499,9 @@ incidence_batch_pub_figure_sort_key <- function(basename) {
 incidence_batch_should_purge_pub_figure <- function(basename, all_basenames) {
   bn <- as.character(basename)[1L]
   all_bn <- as.character(all_basenames)
-  if (grepl("^Figure S2[A-G]", bn)) return(TRUE)
+  ## ML 套路：一律不交 Figure S2*（含 ROC/箱线/S2A–G 特征选择草稿）
+  if (grepl("^Figure\\s*S2([A-G]|[.\\s]|$)", bn, ignore.case = TRUE, perl = TRUE)) return(TRUE)
+  if (grepl("Boxplot", bn, ignore.case = TRUE)) return(TRUE)
   ## 有 2×4 拼图时：ROC/DCA/校准/平行坐标等单面板不进汇总
   has_ml_combined <- any(grepl("ML performance combined 2x4|combined 2x4", all_bn, ignore.case = TRUE))
   if (has_ml_combined &&
@@ -2585,6 +2587,9 @@ incidence_batch_purge_non_delivery_figures <- function(figures_dir) {
 }
 
 incidence_batch_pub_figure_scheme <- function(config) {
+  ## ML 优先：避免 incidence_batch 空壳抢走 ml_batch$pub_figure_scheme
+  ml_sch <- as.character(config$ml_batch$pub_figure_scheme %||% "")[1L]
+  if (nzchar(ml_sch)) return(ml_sch)
   bc <- config$survival_batch %||% config$incidence_batch %||%
     config$ml_batch %||% list()
   as.character(bc$pub_figure_scheme %||% "default")[1L]
@@ -2668,6 +2673,13 @@ incidence_batch_ml_pub_figure_role <- function(basename, cfg = list()) {
   norm <- incidence_batch_ml_normalize_pub_bn(bn, cfg)
   scheme <- incidence_batch_pub_figure_scheme(cfg)
   with_cor <- identical(scheme, "ml_with_correlation")
+  ## 全 ML 发表方案：Figure S2* / 箱线永不进定稿（用户 2026-11：套路默认不要 FigS2）
+  if (grepl("^Figure\\s*S2([A-G]|[.\\s-]|$)", bn, ignore.case = TRUE, perl = TRUE) ||
+      grepl("^Figure\\s*S2([A-G]|[.\\s-]|$)", norm, ignore.case = TRUE, perl = TRUE) ||
+      grepl("Boxplot", bn, ignore.case = TRUE) ||
+      grepl("Boxplot", norm, ignore.case = TRUE)) {
+    return("drop")
+  }
   if (grepl("Flowchart", norm, ignore.case = TRUE)) return("fig1")
   if (grepl("RCS plot between|Weighted RCS|RCS of|RCS Analysis", norm, ignore.case = TRUE)) {
     ## AF 金标准（dev_ext）：Fig2=LASSO，Fig3–6=三集 ML；连续指标 RCS 不进主文图号
@@ -3011,6 +3023,37 @@ incidence_batch_ml_collect_fs_figure <- function(index_root, config = list()) {
 
 incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list()) {
   if (!dir.exists(figures_dir)) return(invisible(0L))
+  ## 用户 2026-11：ML 套路不交 Figure S2*（ROC/箱线/S2C–G）；
+  ## 但 S2A/S2B LASSO 草稿先留给 collect→升格 Figure S1，再删残留
+  omit_s2 <- !isFALSE(cfg$omit_figure_s2 %||% cfg$ml_batch$omit_figure_s2 %||%
+                        cfg$incidence_batch$omit_figure_s2 %||% TRUE)
+  if (omit_s2) {
+    s2_all <- list.files(
+      figures_dir,
+      pattern = "^Figure\\s*S2",
+      full.names = TRUE, ignore.case = TRUE, recursive = TRUE
+    )
+    ## 保留尚未升格的 S2A/S2B，供本函数稍后 / 外层 collect 使用
+    s2_drop <- s2_all[!grepl("S2A.*Lasso|S2B.*Lasso", basename(s2_all), ignore.case = TRUE)]
+    box_all <- list.files(
+      figures_dir,
+      pattern = "Figure\\s*S1\\.\\s*Boxplot|Figure\\s*S2\\.\\s*Boxplot|Boxplot .+ by ",
+      full.names = TRUE, ignore.case = TRUE, recursive = TRUE
+    )
+    ## 简单 ROC 也不进 ML 交付 S*
+    roc_s <- list.files(
+      figures_dir,
+      pattern = "Figure\\s*S[12].*ROC|ROC Multivariable",
+      full.names = TRUE, ignore.case = TRUE, recursive = TRUE
+    )
+    drop_s2 <- unique(c(s2_drop, box_all, roc_s))
+    if (length(drop_s2)) {
+      unlink(drop_s2)
+      cli::cli_alert_info(
+        "已按配置省略 Figure S2*/箱线/ROC（{length(drop_s2)} 个文件；保留 S2A/B 待升 S1）"
+      )
+    }
+  }
   ## 用户 2026-10-30：默认不出 Figure S1 韦恩/Upset（feature_selection_venn$enable=FALSE）
   omit_s1_venn <- isTRUE(cfg$omit_figure_s1_venn) ||
     isFALSE(cfg$feature_selection_venn$enable %||% TRUE) ||
@@ -3027,6 +3070,45 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
         "已按配置省略 Figure S1 韦恩/Upset（{length(s1_venn_all)} 个文件）"
       )
     }
+  }
+  ## 若仍有 S2A/B 且尚无 S1 Lasso：就地升格（防 collect 因路径失败漏掉）
+  s1_lasso_now <- list.files(
+    figures_dir, pattern = "(?i)Figure\\s*S1.*Lasso.*\\.pdf$",
+    full.names = TRUE
+  )
+  s2a_now <- list.files(
+    figures_dir, pattern = "(?i)Figure\\s*S2A.*LassoGenes.*\\.pdf$",
+    full.names = TRUE
+  )
+  s2b_now <- list.files(
+    figures_dir, pattern = "(?i)Figure\\s*S2B.*LassoModel.*\\.pdf$",
+    full.names = TRUE
+  )
+  if (!length(s1_lasso_now) && length(s2a_now) && length(s2b_now) &&
+      exists("pub_figure_combine_ab_pdfs", mode = "function")) {
+    dest_s1 <- file.path(figures_dir, "Figure S1. Lasso.pdf")
+    ok_up <- isTRUE(tryCatch(
+      pub_figure_combine_ab_pdfs(s2a_now[[1L]], s2b_now[[1L]], dest_s1),
+      error = function(e) FALSE
+    ))
+    if (!ok_up && requireNamespace("pdftools", quietly = TRUE)) {
+      ok_up <- isTRUE(tryCatch({
+        pdftools::pdf_combine(c(s2a_now[[1L]], s2b_now[[1L]]), output = dest_s1)
+        TRUE
+      }, error = function(e) FALSE))
+    }
+    if (isTRUE(ok_up) && file.exists(dest_s1)) {
+      cli::cli_alert_success("curate: S2A+S2B → Figure S1. Lasso.pdf")
+    }
+  }
+  ## 升格后删交付面残留 S2A/B（step* 草稿保留）
+  leftover_s2ab <- list.files(
+    figures_dir,
+    pattern = "(?i)^Figure\\s*S2[AB].*Lasso",
+    full.names = TRUE, recursive = TRUE
+  )
+  if (length(leftover_s2ab)) {
+    unlink(leftover_s2ab)
   }
   s1_files <- list.files(
     figures_dir, pattern = "Figure S1.*\\.pdf$",

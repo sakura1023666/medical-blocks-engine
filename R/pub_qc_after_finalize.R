@@ -94,6 +94,9 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
   if (nzchar(eng) && !exists("pub_qc_scan_underscores", mode = "function")) {
     try(source(file.path(eng, "R/pub_qc_underscore.R"), local = FALSE), silent = TRUE)
   }
+  if (nzchar(eng) && !exists("pub_qc_scan_fonts", mode = "function")) {
+    try(source(file.path(eng, "R/pub_qc_fonts.R"), local = FALSE), silent = TRUE)
+  }
 
   fig_roots <- .pub_qc_find_figure_roots(project_root)
   # Layer D 机器半边：DPI<600 时从 PDF 重导，不整目录 purge。叙述仍由 Agent 填。
@@ -158,6 +161,19 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
   }
   if (!isTRUE(und_scan$ok)) n_fail <- n_fail + as.integer(und_scan$n_bad %||% 1L)
 
+  ## Times 系字体门控（Helvetica/Arial/sans → STRUCT_FAIL / P0）
+  font_scan <- list(ok = TRUE, n_bad = 0L, hits = data.frame())
+  if (exists("pub_qc_scan_fonts", mode = "function")) {
+    font_scan <- tryCatch(
+      pub_qc_scan_fonts(project_root),
+      error = function(e) list(ok = FALSE, n_bad = 1L, hits = data.frame(
+        file = "scan_error", font = e$message, source = "error",
+        stringsAsFactors = FALSE
+      ))
+    )
+  }
+  if (!isTRUE(font_scan$ok)) n_fail <- n_fail + as.integer(font_scan$n_bad %||% 1L)
+
   reports <- file.path(project_root, "reports")
   dir.create(reports, recursive = TRUE, showWarnings = FALSE)
   day <- .pub_qc_today()
@@ -174,6 +190,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     paste0("- Figures 根数：", length(fig_roots), "；结构失败：", n_fail),
     paste0("- 表数字格式门控：", if (isTRUE(digits_scan$ok)) "PASS" else paste0("FAIL (n=", digits_scan$n_bad %||% "?", ")")),
     paste0("- 展示禁下划线门控：", if (isTRUE(und_scan$ok)) "PASS" else paste0("FAIL (n=", und_scan$n_bad %||% "?", ")")),
+    paste0("- 发表字体 Times 门控：", if (isTRUE(font_scan$ok)) "PASS" else paste0("FAIL (n=", font_scan$n_bad %||% "?", ")")),
     "",
     "## Layer A — pdf + image_information（默认不要求 png/tiff）",
     ""
@@ -255,6 +272,35 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
 
   lines <- c(
     lines,
+    "## Layer A4 — 发表字体 Times（pub_times_new_roman）",
+    "",
+    "- 规则：`.cursor/rules/pub_times_new_roman.mdc`；实现：`R/pub_qc_fonts.R`",
+    "- 扫描范围：交付 `Figures/pdf/*.pdf`（`pdffonts`）",
+    "- 允许：Times / TimesNewRoman / Liberation Serif / Nimbus Roman 等衬线",
+    "- 命中 Helvetica / Arial / Calibri / NimbusSans / sans → **FAIL / P0**（须 `pipeline_pdf_device` / cairo Times 重导）",
+    ""
+  )
+  if (isTRUE(font_scan$ok)) {
+    lines <- c(lines, "- 结论：**PASS**（未检出禁字体）", "")
+  } else {
+    lines <- c(lines, "- 结论：**FAIL / P0**", "")
+    ht <- font_scan$hits
+    if (is.data.frame(ht) && nrow(ht)) {
+      for (i in seq_len(min(40L, nrow(ht)))) {
+        lines <- c(
+          lines,
+          paste0("  - `", ht$file[i], "`: `", ht$font[i], "`")
+        )
+      }
+      if (nrow(ht) > 40L) {
+        lines <- c(lines, paste0("  - … 另有 ", nrow(ht) - 40L, " 处"))
+      }
+    }
+    lines <- c(lines, "")
+  }
+
+  lines <- c(
+    lines,
     "## Layer D stubs",
     "",
     paste0("- 若尚无正式报告，请按 `.cursor/skills/pub-qc-after-project` 填实："),
@@ -265,6 +311,7 @@ pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE)
     "- **bad_pdf_raster = P0**：交付 `Figures/pdf` 不得是整页栅格「图片 PDF」；须真矢量。截图/Shiny 可用 `allow_raster_pdf_patterns` 白名单。禁止用 `pub_figure_rasterize_pdf_page` 覆盖交付矢量稿。",
     "- **表数字格式 FAIL = P0**（裸 0/0.000）；修完再宣称 PASS。",
     "- **展示下划线 FAIL = P0**（Tables/Figures/image_information）；修完再宣称 PASS。",
+    "- **发表字体 FAIL = P0**（Helvetica/Arial/sans）；须 Times 系重导。",
     ""
   )
 

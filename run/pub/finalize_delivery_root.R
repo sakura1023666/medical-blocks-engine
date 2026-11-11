@@ -65,10 +65,11 @@ if (isTRUE(prune_only)) {
     if (!dir.exists(dir)) stop("目录不存在: ", dir, call. = FALSE)
     pub_delivery_normalize_fig_tab_dirs(dir)
     pub_delivery_clean_tables_xlsx_only(dir)
-    tab_dir <- file.path(dir, "Tables")
-    if (dir.exists(tab_dir) && exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
-      tryCatch(pub_xlsx_scrub_underscores_dir(tab_dir, root = engine), error = function(e)
-        warning("underscore scrub: ", conditionMessage(e), call. = FALSE))
+    if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+      tryCatch(
+        pub_delivery_scrub_tables_underscores(dir, root = engine),
+        error = function(e) warning("underscore scrub: ", conditionMessage(e), call. = FALSE)
+      )
     }
     res <- pub_prune_delivery_root(dir, dry_run = has_flag("--dry-run"))
     cat("PRUNE_OK dir=", normalizePath(dir), " moved=", length(res$moved %||% character(0)), "\n", sep = "")
@@ -92,10 +93,11 @@ dbs <- trimws(dbs)
 
 pub_delivery_normalize_fig_tab_dirs(dir)
 pub_delivery_clean_tables_xlsx_only(dir)
-tab_dir <- file.path(dir, "Tables")
-if (dir.exists(tab_dir) && exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
-  tryCatch(pub_xlsx_scrub_underscores_dir(tab_dir, root = engine), error = function(e)
-    warning("underscore scrub: ", conditionMessage(e), call. = FALSE))
+if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+  tryCatch(
+    pub_delivery_scrub_tables_underscores(dir, root = engine),
+    error = function(e) warning("underscore scrub: ", conditionMessage(e), call. = FALSE)
+  )
 }
 
 fig_dir <- file.path(dir, "Figures")

@@ -51,6 +51,16 @@ ctx <- list(
         step_id = "after_age_filter", label = "Age filter (excluded 0)",
         n = 80L, kind = "include",
         meta = list(exclude_label = NA_character_)
+      ),
+      list(
+        step_id = "after_data_clean", label = "After data cleaning",
+        n = 80L, kind = "include",
+        meta = list()
+      ),
+      list(
+        step_id = "after_imputation", label = "After imputation",
+        n = 80L, kind = "include",
+        meta = list()
       )
     ))
   )
@@ -60,5 +70,8 @@ age <- rows[rows$step_id == "after_age_filter", , drop = FALSE]
 stopifnot(nrow(age) == 1L)
 stopifnot(identical(as.character(age$exclude_label[1L]), "Age < 45 years"))
 stopifnot(identical(as.integer(rows$n[rows$step_id == "starting_cohort"][1L]), 100L))
+# config_steps_only：不得追加 cleaning/imputation 噪声步
+stopifnot(!any(rows$step_id %in% c("after_data_clean", "after_imputation")))
+stopifnot(!any(grepl("^After data cleaning|^After imputation", rows$step)))
 
 cat("test_attrition_ml_component_label: OK\n")

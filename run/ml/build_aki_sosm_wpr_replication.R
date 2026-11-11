@@ -56,7 +56,12 @@ authorized_indices <- c(
   "SOSM+WPR", "ACAG+RAR", "SAR+CrCV", "CHG+GV",
   "HRR+Hemoglobin_CV",  # 同轴复合+CV（2026-11；对齐 SAR+CrCV 终稿版式）
   # 同轴其余 success（用户 2026-11-06 批量终稿）
-  "RAR+Albumin_CV", "LactAlb+Lactate_CV", "NLR+WBC_CV", "GAR+GV"
+  "RAR+Albumin_CV", "LactAlb+Lactate_CV", "NLR+WBC_CV", "GAR+GV",
+  # 同轴第二批（用户 2026-11-11：内验≥0.75 + Table1 双暴露显著；含 6a/6b）
+  "Glucose_mean+GV", "Potassium_FR+Potassium_CV", "WBC_first+WBC_CV",
+  "Platelet_FR+Platelet_CV",
+  # 白蛋白轴同轴优选（用户 2026-11-11：LAR+Albumin_CV 整合进 02block_result）
+  "LAR+Albumin_CV"
 )
 if (!index_label %in% authorized_indices) {
   stop("本终稿构建仅授权 --index 为: ", paste(authorized_indices, collapse = ", "),
@@ -514,7 +519,37 @@ r <- run_stage("figure1_flowchart", 300, {
     y <- as.character(d$fustatus)
     sum(y %in% c("0", "Survivor"), na.rm = TRUE)
   }
-  mk_panel <- function(letter, db_lab, d, n_start) {
+  ## 成分级排除文案：D02 起点队列上逐成分计缺失（LAR=LD+Albumin；CV=自身列）
+  if (!exists("index_get_formula_components", mode = "function")) {
+    register_block <- function(...) invisible(NULL)
+    source(file.path(engine_root, "Blocks/00_index/01block_index.R"), local = FALSE)
+  }
+  .exposure_side_label <- function(d02, n_miss) {
+    bits <- character(0)
+    for (ix in c(INDEX_A, INDEX_B)) {
+      lab <- tryCatch(
+        attrition_index_component_missing_label(d02, ix),
+        error = function(e) ""
+      )
+      if (!nzchar(lab) && ix %in% names(d02)) {
+        nm <- sum(!is.finite(suppressWarnings(as.numeric(d02[[ix]]))))
+        lab <- sprintf(
+          "Missing %s (n = %s)",
+          gsub("_", " ", ix, fixed = TRUE), fmtn(nm)
+        )
+      }
+      if (nzchar(lab)) bits <- c(bits, lab)
+    }
+    bits <- c(
+      bits,
+      sprintf(
+        "Excluded incomplete %s + %s (n = %s)",
+        INDEX_A, INDEX_B, fmtn(n_miss)
+      )
+    )
+    paste(bits, collapse = "\n")
+  }
+  mk_panel <- function(letter, db_lab, d, n_start, d02) {
     n <- nrow(d)
     n_d <- death_lab(d)
     n_a <- alive_lab(d)
@@ -525,8 +560,7 @@ r <- run_stage("figure1_flowchart", 300, {
     }
     n_miss <- as.integer(n_start - n)
     side1 <- if (n_miss > 0L) {
-      sprintf("Missing %s / %s\ncomponents\n(n = %s)",
-              INDEX_A, INDEX_B, fmtn(n_miss))
+      .exposure_side_label(d02, n_miss)
     } else {
       "No exposure exclusion\n(n = 0)"
     }
@@ -545,8 +579,8 @@ r <- run_stage("figure1_flowchart", 300, {
     )
   }
   panels <- list(
-    mk_panel("A", "MIMIC-IV", mi_d, n0_mi),
-    mk_panel("B", "eICU", ei_d, n0_ei)
+    mk_panel("A", "MIMIC-IV", mi_d, n0_mi, d02_mi),
+    mk_panel("B", "eICU", ei_d, n0_ei, d02_ei)
   )
   fig_dir <- file.path(staging, "Figures")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
@@ -554,7 +588,8 @@ r <- run_stage("figure1_flowchart", 300, {
     "Figure 1. Inclusion exclusion flowchart (MIMIC-IV, eICU).pdf")
   csv_path <- file.path(staging, "_assets", "Flowchart_attrition_outcome.csv")
   dir.create(dirname(csv_path), recursive = TRUE, showWarnings = FALSE)
-  attrition_draw_outcome_figure(dest, panels, width = 15.6, height = 6.35,
+  ## 成分分项侧框更高，略增高画布避免挤框
+  attrition_draw_outcome_figure(dest, panels, width = 15.6, height = 7.2,
                                 family = "Times", csv_path = csv_path)
   sprintf("target=%s style=outcome_from_attrition_start miss_mi=%s miss_ei=%s",
           basename(dest), fmtn(n0_mi - nrow(mi_d)), fmtn(n0_ei - nrow(ei_d)))
@@ -837,10 +872,19 @@ run_stage("table_S3_inherited_audit", 120, {
   sprintf("audit_rows=%d xlsx=%s", nrow(s3$audit), basename(s3$xlsx %||% "NA"))
 })
 
-## Fig7 / Fig S2：Boruta 面板（仅 MIMIC-IV train；候选域与 Task5 同口径）
+## Fig7 / Fig S2：Boruta 面板（仅 MIMIC-IV train）
+## 候选域 = 冻结 ML 特征 ∪ Model2Factors（assoc/feature-selection）∪ 双暴露，
+## 禁止只剩 5–6 个变量导致 Fig7 看起来「变量过少」。
 cand_for_stratum <- function(ctx_models, key) {
   spec <- if (key == "overall") NULL else SOFA_SPEC$strata[[key]]
-  .ml_frozen_candidate_features(ctx_models, spec)
+  base <- .ml_frozen_candidate_features(ctx_models, spec)
+  extra <- unique(c(
+    as.character(mi_assoc$results$Model2Factors %||% character(0)),
+    as.character(mi_assoc$results$Model1Factors %||% character(0)),
+    as.character(mi_ml$results$Model2Factors %||% character(0)),
+    INDEX_A, INDEX_B
+  ))
+  unique(c(base, extra))
 }
 boruta_cache <- list()
 for (key in strata_keys) {
@@ -849,6 +893,36 @@ for (key in strata_keys) {
     cand <- intersect(cand_for_stratum(mi_ml, key), names(tr))
     cand <- setdiff(cand, c("futime", "fustatus", "ID", "Group",
                             if (key != "overall") "SOFA" else character(0)))
+    ## 过稀时并入共识 D08（若有），禁止扫全表把疾病泄漏列塞进 Fig7
+    if (length(cand) < 12L) {
+      deliv_root <- dirname(staging)  # 【success】INDEX
+      d08_cands <- unique(c(
+        file.path(deliv_root, "MIMIC_IV", "step17_feature_selection_consensus",
+                  "D08_FeatureSelection_Final.csv"),
+        file.path(dirname(dirname(mi_ml_ckpt %||% "")), "MIMIC_IV",
+                  "step17_feature_selection_consensus",
+                  "D08_FeatureSelection_Final.csv"),
+        Sys.glob(file.path(
+          study_root %||% dirname(dirname(dirname(mi_ml_ckpt %||% ""))),
+          "by_index", paste0("【success】", INDEX_A, "+", INDEX_B),
+          "MIMIC_IV", "step17_feature_selection_consensus",
+          "D08_FeatureSelection_Final.csv"
+        ))
+      ))
+      d08_hit <- d08_cands[nzchar(d08_cands) & file.exists(d08_cands)]
+      if (length(d08_hit)) {
+        d08 <- tryCatch(
+          utils::read.csv(d08_hit[[1L]], stringsAsFactors = FALSE),
+          error = function(e) NULL
+        )
+        if (is.data.frame(d08) && "feature" %in% names(d08)) {
+          cand <- unique(c(cand, as.character(d08$feature), INDEX_A, INDEX_B))
+          cand <- intersect(cand, names(tr))
+        }
+      }
+      disease_drop <- c("DN", "Pneumonia", "AKI", "Death", "hospital_expire_flag")
+      cand <- setdiff(cand, disease_drop)
+    }
     d <- tr[, c("Group", cand), drop = FALSE]
     keep <- stats::complete.cases(d)
     d <- d[keep, , drop = FALSE]

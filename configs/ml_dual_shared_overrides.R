@@ -184,7 +184,15 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       waterfall_link = "logit",
       waterfall_fx_label = "f(x) = predicted probability",
       waterfall_efx_label = "E[f(x)] = incidence",
-      waterfall_auto_case_high_prob = TRUE
+      waterfall_auto_case_high_prob = TRUE,
+      ## D 面板：|SHAP| 连续变量；不置顶 force_composite 硬入选暴露
+      dependence_skip_binary = TRUE,
+      dependence_pin_index = FALSE,
+      dependence_color_continuous = TRUE,
+      dependence_add_smooth = TRUE,
+      dependence_point_alpha = 0.35,
+      dependence_x_quantiles = c(0.01, 0.99),
+      n_dependence = 4L
     )
   )
   # 通用能力层默认开关（项目可覆盖）
@@ -498,10 +506,11 @@ ml_dual_apply_nhanes_logistic_outputs_overrides <- function(config) {
       pause_enable = FALSE
     )
   )
+  ## ML 套路默认不出 Figure S2：关闭箱线 / 单因素 ROC（曾占 S1/S2）
   config$boxplot <- modifyList(
     config$boxplot %||% list(),
     list(
-      enable = TRUE,
+      enable = FALSE,
       group_var = "Disease_Group",
       response_vars = NULL,
       overall_method = "kruskal.test",
@@ -509,6 +518,19 @@ ml_dual_apply_nhanes_logistic_outputs_overrides <- function(config) {
       pause_enable = FALSE,
       pause_if_all_overall_ns = FALSE
     )
+  )
+  config$roc_simple <- modifyList(
+    config$roc_simple %||% list(),
+    list(enable = FALSE)
+  )
+  config$omit_figure_s2 <- TRUE
+  config$ml_batch <- modifyList(
+    config$ml_batch %||% list(),
+    list(omit_figure_s2 = TRUE, curate_purge_pub_figures = TRUE)
+  )
+  config$incidence_batch <- modifyList(
+    config$incidence_batch %||% list(),
+    list(omit_figure_s2 = TRUE, curate_purge_pub_figures = TRUE)
   )
   if (is.null(config$data)) config$data <- list()
   config$data$outcome_column <- "Disease_Group"
@@ -907,6 +929,24 @@ ml_dual_apply_regular_upstream_overrides <- function(config) {
   config$subgroup <- modifyList(
     config$subgroup %||% list(),
     list(restrict_to_required = TRUE, pause_enable = FALSE)
+  )
+  ## ML 套路默认不要 Figure S2（箱线/简单 ROC 会占 S1→S2）
+  config$boxplot <- modifyList(
+    config$boxplot %||% list(),
+    list(enable = FALSE)
+  )
+  config$roc_simple <- modifyList(
+    config$roc_simple %||% list(),
+    list(enable = FALSE)
+  )
+  config$omit_figure_s2 <- TRUE
+  config$ml_batch <- modifyList(
+    config$ml_batch %||% list(),
+    list(omit_figure_s2 = TRUE)
+  )
+  config$incidence_batch <- modifyList(
+    config$incidence_batch %||% list(),
+    list(omit_figure_s2 = TRUE)
   )
   ## 发表位数：ICMJE/NEJM（P 可变位 + 效应量三位）；课题可显式 p_style="fixed" 覆盖
   pd <- modifyList(

@@ -19,16 +19,22 @@ alwaysApply: true
 
 - `R/utils.R`：`resolve_plot_font_family` / `pipeline_pdf_device` / `sci_xlsx_*` styles
 - `R/pub_figure_profile.R`：profile theme 显式 Times New Roman
+- LASSO-Cox：`Blocks/19_feature_selection/10block_feature_selection_lasso_cox.R` → `pipeline_pdf_device`（禁止裸 `pdf()`→Helvetica）
+- SHAP：`Blocks/17_shap/01block_shap.R` → `plot_font_from_config` / Times（禁止默认 `sans`）
 - 表 scrub：`pipeline_scrub_pub_df` + `pub_xlsx_scrub_underscores`（展示层）
+- **结构 QC Layer A4**：`R/pub_qc_fonts.R` → `pub_qc_scan_fonts`（挂 `pub_qc_run_after_project`）；Helvetica/Arial/sans = **P0 FAIL**
 
 ## 检查清单
 
 - [ ] 新导 xlsx 样式 `fontName = Times New Roman`
-- [ ] 新导 PDF 经 `pdffonts` 为 Times / TimesNewRoman / LiberationSerif 等衬线，无 Arial 主文
+- [ ] 新导 PDF 经 `pdffonts` 为 Times / TimesNewRoman / LiberationSerif / Nimbus Roman 等衬线，无 Arial/Helvetica 主文
 - [ ] 课题未写死 sans/Arial 覆盖发表 theme
+- [ ] `run_pub_qc_after_project.R` 报告「发表字体 Times 门控：PASS」
 
 ## 反例（禁止）
 
 - 森林图 `fontfamily = ""` 落到系统默认无衬线
 - openxlsx 表头 `fontName = "Arial"`
+- LASSO / 任意 base 图用裸 `grDevices::pdf()` 落到 Helvetica
+- SHAP 默认 `sans` / NimbusSans
 - Linux 上对 `pdf()` 强传 `"Times New Roman"` 报 unknown family 却不走 `resolve_plot_font_family`

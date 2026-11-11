@@ -386,6 +386,8 @@ config$ml_batch <- list(
   min_valid_per_db = 50L,
   trim_quantile = 0.01,
   curate_purge_pub_figures = TRUE,
+  ## 用户 2026-11：ML 套路默认不交任何 Figure S2*
+  omit_figure_s2 = TRUE,
   pub_figure_scheme = if (single_db_mode) "ml_single_standard" else "ml_dual_standard",
   merge_dual_db_tables = merge_tables,
   split_mode = if (single_db_mode) {

@@ -939,6 +939,53 @@ ref_assoc_roc_predictors <- function() {
   c(.ref_ia(), .ref_ib(), "Joint", "APSIII", "OASIS", "GCS")
 }
 
+#' Fig4「联合」= 开发集冻结的连续两指标 logistic 线性预测值（非 Group1–4 序号）。
+#' 系数仅在 MIMIC development/train 上估计，双库只套用（防外验重拟合泄漏）。
+.ref_assoc_fig4_joint_lp_fit <- function(train_df, outcome_cfg, ia, ib) {
+  if (!is.data.frame(train_df) || !nrow(train_df)) {
+    stop("Fig4 joint LP: train_df 为空。", call. = FALSE)
+  }
+  need <- c(ia, ib, "fustatus")
+  miss <- setdiff(need, names(train_df))
+  if (length(miss)) {
+    stop("Fig4 joint LP 缺列: ", paste(miss, collapse = ", "), call. = FALSE)
+  }
+  d <- .ref_assoc_event01(data.frame(train_df), "fustatus", outcome_cfg)
+  d$event <- as.integer(d$fustatus)
+  x1 <- suppressWarnings(as.numeric(as.character(d[[ia]])))
+  x2 <- suppressWarnings(as.numeric(as.character(d[[ib]])))
+  ok <- is.finite(x1) & is.finite(x2) & !is.na(d$event)
+  if (sum(ok) < 30L || length(unique(d$event[ok])) < 2L) {
+    stop("Fig4 joint LP: 开发集事件/样本量不足。", call. = FALSE)
+  }
+  fit_df <- data.frame(event = d$event[ok], x1 = x1[ok], x2 = x2[ok])
+  fit <- stats::glm(event ~ x1 + x2, data = fit_df, family = stats::binomial())
+  b <- stats::coef(fit)
+  if (any(!is.finite(b)) || length(b) < 3L) {
+    stop("Fig4 joint LP: glm 系数非有限。", call. = FALSE)
+  }
+  list(
+    intercept = unname(b[["(Intercept)"]]),
+    beta_a = unname(b[["x1"]]),
+    beta_b = unname(b[["x2"]]),
+    ia = ia,
+    ib = ib,
+    n_train = nrow(fit_df),
+    n_events = sum(fit_df$event == 1L),
+    mode = "continuous_logistic_lp"
+  )
+}
+
+.ref_assoc_fig4_joint_lp_score <- function(df, lp_fit) {
+  x1 <- suppressWarnings(as.numeric(as.character(df[[lp_fit$ia]])))
+  x2 <- suppressWarnings(as.numeric(as.character(df[[lp_fit$ib]])))
+  as.numeric(lp_fit$intercept + lp_fit$beta_a * x1 + lp_fit$beta_b * x2)
+}
+
+.ref_assoc_fig4_joint_lab <- function() {
+  paste0(.ref_ia(), " + ", .ref_ib(), " (LP)")
+}
+
 ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
   if (!requireNamespace("pROC", quietly = TRUE)) {
     stop("Package 'pROC' is required for Figure 4.", call. = FALSE)
@@ -946,6 +993,30 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
   ia <- .ref_ia(); ib <- .ref_ib()
   preds <- ref_assoc_roc_predictors()
   db_frames <- .ref_assoc_order_db_frames(db_frames)
+  # 联合连续分：优先 MIMIC train_ref；缺则回退主库分析集（仍只拟合一次）
+  train_src <- NULL
+  train_cfg <- NULL
+  for (db in db_frames) {
+    if (!identical(as.character(db$name)[1L], "MIMIC_IV") &&
+        !identical(as.character(db$short)[1L], "MIMIC-IV")) next
+    if (is.data.frame(db$train_ref) && nrow(db$train_ref)) {
+      train_src <- db$train_ref
+      train_cfg <- db$outcome_cfg
+      break
+    }
+  }
+  if (is.null(train_src)) {
+    db0 <- db_frames[[1L]]
+    train_src <- db0$data
+    train_cfg <- db0$outcome_cfg
+    cli::cli_alert_warning(
+      "Fig4 joint LP: 无 MIMIC train_ref，回退用 {db0$name} 分析集拟合系数。"
+    )
+  }
+  lp_fit <- .ref_assoc_fig4_joint_lp_fit(train_src, train_cfg, ia, ib)
+  cli::cli_alert_info(
+    "Fig4 joint LP: {ia}+{ib} on train n={lp_fit$n_train} events={lp_fit$n_events}; coef a={round(lp_fit$beta_a, 4)} b={round(lp_fit$beta_b, 4)}"
+  )
   auc_rows <- list()
   curve_rows <- list()
   k <- 0L
@@ -956,8 +1027,7 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
     d <- .ref_assoc_event01(data.frame(db$data), "fustatus", db$outcome_cfg)
     d$event <- d$fustatus
     d$SOFA_layer <- ref_assoc_sofa_layer(d, cutoff)
-    joint <- reference_apply_joint_tertiles(d, db$joint_lock)
-    d$Joint <- as.numeric(joint$group)
+    d$Joint <- .ref_assoc_fig4_joint_lp_score(d, lp_fit)
     masks <- .ref_assoc_layer_masks(d, cutoff)
     for (layer_name in stratum_order) {
       if (is.null(masks[[layer_name]])) next
@@ -1037,7 +1107,7 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
     # 双库 Overall 分析集 = A/B 两面（对齐 Fig2/3，禁 ML train/val 分面）
     pred_lv <- preds
     pred_labs <- pred_lv
-    pred_labs[pred_labs == "Joint"] <- paste0(ia, " + ", ib)
+    pred_labs[pred_labs == "Joint"] <- .ref_assoc_fig4_joint_lab()
     curve$database <- .ref_assoc_factor_db(curve$database, short = FALSE)
     levels(curve$database) <- .ref_assoc_db_levels(short = TRUE)
     curve$stratum <- factor(curve$stratum, levels = stratum_order)
@@ -1141,7 +1211,7 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
       )
     }
   }
-  list(auc = auc, curve = curve, path = path)
+  list(auc = auc, curve = curve, path = path, joint_lp = lp_fit)
 }
 
 # --------------------------------------------------------------------------
@@ -1932,14 +2002,9 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
     est <- est[est$subgroup == "Overall" | est$subgroup %in% common_sgs, ,
                drop = FALSE]
 
-    # 对齐原文 Fig.6：Overall 仅 A|B 两指标（开发库），不做双库/糖代谢分层拼图
-    if (isTRUE(.ref_assoc_overall_only(cutoff)) && length(db_lv) > 1L) {
-      keep_db <- as.character(db_lv[[1L]])
-      est <- est[as.character(est$database_f) == keep_db, , drop = FALSE]
-      est$database_f <- droplevels(est$database_f)
-      db_lv <- levels(est$database_f)
-    }
-    # 主库在前；面板字母 A–B（双指标）或 A–D（分层模式）
+    # overall-only：保留双库 × 双指标（2×2）；不做 SOFA/糖代谢分层拼图。
+    # 禁止再静默丢掉外验库（审稿/交付要求 Fig6 必须两库可见）。
+    # 主库在前；面板字母 A–B（单库双指标）或 A–D（双库双指标）
     panel_specs <- list()
     letter_i <- 0L
     for (dbn in db_lv) {
@@ -2415,7 +2480,8 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
                             sum(fig4$auc$status != "estimable")))
   s5_title <- paste0(
     "Table S5. Discrimination (AUC with 95% CI) and DeLong tests versus ",
-    ia, " for ", ia, ", ", ib, ", joint group score, APSIII, OASIS and GCS, by ",
+    ia, " for ", ia, ", ", ib, ", continuous joint linear predictor (", ia, "+", ib,
+    " logistic LP locked on MIMIC train), APSIII, OASIS and GCS, by ",
     "database",
     if (identical(ref_assoc_layer_labels(cutoff), "Overall")) {
       " (overall cohort, 28-day all-cause mortality)."
@@ -2424,7 +2490,7 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
     }
   )
   s5_out <- fig4$auc
-  s5_out$predictor[s5_out$predictor == "Joint"] <- .ref_joint_lab()
+  s5_out$predictor[s5_out$predictor == "Joint"] <- .ref_assoc_fig4_joint_lab()
   s5_out$auc_fmt <- pub_format_est(s5_out$auc)
   s5_out$ci_fmt <- ifelse(
     is.finite(s5_out$ci_low),
@@ -2449,7 +2515,18 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   files <- list(
     S5 = .ref_assoc_export_xlsx(
       file.path(tab_dir, "Table S5 ROC discrimination DeLong.xlsx"),
-      s5_title, s5_export
+      s5_title, s5_export,
+      footnotes = c(
+        paste0(
+          "Joint = continuous logistic linear predictor of ", ia, " + ", ib,
+          " with coefficients locked on MIMIC development/train ",
+          "(applied to both databases; no refit on eICU)."
+        ),
+        "Not the four-level joint tertile group code used in Table 2 / KM.",
+        "DeLong P compares each predictor with ", ia,
+        " within the same database (and stratum if applicable).",
+        "Outcome: 28-day all-cause mortality (Survivor / Non-survivor)."
+      )
     )
   )
 

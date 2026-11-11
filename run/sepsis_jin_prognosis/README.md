@@ -70,3 +70,8 @@ Base: https://lcn1in9jd6ie.feishu.cn/base/RBjfb2iwmamW14s4WhKcS7kwnie
 ## 5. 发表收口 / 质控 / 中期
 
 跑完后按 `pub-qc-after-project` + Nature P0 → 中期 PDF。
+
+## 发表收口（2026-11-10）
+
+禁下划线 / Times / 交付白名单复用见 `docs/reuse/2026-11-10-pub-underscore-times-delivery-reuse-map.md`。
+WPR 会话一次性脚本已归档 `_archive_oneoff/2026-11-10_wpr_session/`。

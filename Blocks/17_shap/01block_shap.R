@@ -16,6 +16,8 @@
 #    n_dependence         = 4,        # 依赖图数量上限
 #    kernel_bg_n          = 50,       # kernel SHAP 背景行数
 #    dependence_features  = NULL,     # 显式指定依赖图变量；NULL 按重要性选
+#    dependence_skip_binary = TRUE,   # 自动选特征时跳过二分类（避免 D 面两根竖条）
+#    dependence_x_quantiles = NULL,   # 如 c(0.01,0.99)：dependence 横轴限分位（拟合/SHAP 值不变）
 #    pin_index_importance_top = FALSE, # TRUE：暴露/指标在 A/B 重要性图置顶（不改 SHAP 值）
 #    importance_pin_top   = NULL,       # 额外置顶变量，如 c("Preop_Cr")
 #    bee_color_low/high   = NULL,     # 蜂群渐变；NULL 用 shapviz 默认或随机预设
@@ -142,6 +144,179 @@
 # 仅用于图面展示：下划线改空格；计算用列名保持不变
 .shap_pretty_label <- function(x) {
   gsub("_", " ", as.character(x), fixed = TRUE)
+}
+
+#' 二分类 / 近似二值特征（dependence 图会变成两根竖条）
+.shap_is_binary_like <- function(x) {
+  if (is.null(x)) return(FALSE)
+  if (is.factor(x) || is.character(x) || is.logical(x)) {
+    return(length(unique(as.character(x)[!is.na(x)])) <= 2L)
+  }
+  xn <- suppressWarnings(as.numeric(x))
+  xn <- xn[is.finite(xn)]
+  if (!length(xn)) return(FALSE)
+  u <- sort(unique(xn))
+  if (length(u) <= 2L) return(TRUE)
+  # 0/1 为主、其它极少
+  frac01 <- mean(xn %in% c(0, 1))
+  isTRUE(frac01 >= 0.98) && length(u) <= 4L
+}
+
+#' dependence 着色变量：优先连续特征（暴露指标 > 最强连续交互 > |SHAP|）
+#'
+#' 无色会把「与二分类药的交互」画成上下两层横条，看起来像画错。
+#' 禁止用二分类药做连续色条（红蓝岛）；二分类仅在显式允许时用离散色。
+.shap_dependence_color_var <- function(shp, v, sh_cfg = list()) {
+  force_cv <- sh_cfg$dependence_color_var %||% NULL
+  if (!is.null(force_cv)) {
+    fc <- as.character(force_cv)[1L]
+    if (!nzchar(fc) || tolower(fc) %in% c("null", "none", "off", "false")) return(NULL)
+    if (identical(fc, "auto")) return("auto")
+    return(fc)
+  }
+  skip_bin <- !isFALSE(sh_cfg$dependence_skip_binary %||% TRUE)
+  ## 默认必须连续着色（用户 2026-11：无色 D 面更丑、易被当成画错）
+  want_cont <- !isFALSE(sh_cfg$dependence_color_continuous %||% TRUE)
+  if (!want_cont && !skip_bin) return("auto")
+  if (!want_cont && skip_bin) return(NULL)
+
+  Xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+  if (is.null(Xv)) return(NULL)
+  cand <- setdiff(names(Xv), as.character(v)[1L])
+  if (!length(cand)) return(NULL)
+  cont <- cand[vapply(cand, function(nm) !.shap_is_binary_like(Xv[[nm]]), logical(1L))]
+  if (!length(cont)) return(NULL)
+
+  ## 1) 暴露/指标名优先（与横轴不同）
+  prefer <- as.character(sh_cfg$dependence_color_prefer %||% character(0))
+  prefer <- prefer[nzchar(prefer)]
+  if (length(prefer)) {
+    hit <- intersect(.shap_pretty_label(prefer), cont)
+    if (!length(hit)) hit <- intersect(prefer, cont)
+    ## 模糊：TC_HDL ↔ TC HDL
+    if (!length(hit)) {
+      pref_norm <- gsub("[^A-Za-z0-9]", "", tolower(prefer))
+      cont_norm <- gsub("[^A-Za-z0-9]", "", tolower(cont))
+      hit <- cont[match(pref_norm, cont_norm)]
+      hit <- hit[!is.na(hit)]
+    }
+    if (length(hit)) {
+      cli::cli_alert_info("SHAP dependence[{v}] color={hit[[1]]}（优先暴露）")
+      return(hit[[1L]])
+    }
+  }
+
+  inter <- tryCatch(shapviz::potential_interactions(shp, v), error = function(e) NULL)
+  if (!is.null(inter) && length(inter)) {
+    nm <- intersect(names(inter), cont)
+    if (length(nm)) {
+      ord <- sort(inter[nm], decreasing = TRUE)
+      hit <- names(ord)[1L]
+      cli::cli_alert_info("SHAP dependence[{v}] color={hit}（连续交互）")
+      return(hit)
+    }
+  }
+  sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+  if (!is.null(sv)) {
+    if (is.data.frame(sv)) sv <- as.matrix(sv)
+    cn <- intersect(cont, colnames(sv))
+    if (length(cn)) {
+      imp <- sort(colMeans(abs(sv[, cn, drop = FALSE])), decreasing = TRUE)
+      hit <- names(imp)[1L]
+      cli::cli_alert_info("SHAP dependence[{v}] color={hit}（连续 |SHAP|）")
+      return(hit)
+    }
+  }
+  cont[[1L]]
+}
+
+#' dependence 图美化：半透明点 + 可选平滑趋势（不改 SHAP 值）
+.shap_polish_dependence_plot <- function(p, shp, v, color_var = NULL, sh_cfg = list(),
+                                         bee_low = NULL, bee_high = NULL) {
+  if (is.null(p)) return(p)
+  alpha <- suppressWarnings(as.numeric(sh_cfg$dependence_point_alpha %||% 0.35)[1L])
+  if (!is.finite(alpha)) alpha <- 0.35
+  psz <- suppressWarnings(as.numeric(sh_cfg$dependence_point_size %||% 1.0)[1L])
+  if (!is.finite(psz)) psz <- 1.0
+  ## 调点层透明度（sv_dependence 的 geom_point）
+  p <- tryCatch({
+    for (i in seq_along(p$layers)) {
+      if (inherits(p$layers[[i]]$geom, "GeomPoint")) {
+        p$layers[[i]]$aes_params$alpha <- alpha
+        p$layers[[i]]$aes_params$size <- psz
+      }
+    }
+    p
+  }, error = function(e) p)
+
+  if (!is.null(color_var) && !identical(color_var, "auto") &&
+      !is.null(bee_low) && !is.null(bee_high)) {
+    Xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+    is_bin_col <- !is.null(Xv) && color_var %in% names(Xv) &&
+      .shap_is_binary_like(Xv[[color_var]])
+    if (is_bin_col) {
+      p <- tryCatch(
+        p + ggplot2::scale_color_manual(
+          values = c("0" = bee_low, "1" = bee_high,
+                     "No" = bee_low, "Yes" = bee_high,
+                     "FALSE" = bee_low, "TRUE" = bee_high),
+          na.value = "grey70",
+          drop = FALSE
+        ),
+        error = function(e) p
+      )
+    } else {
+      p <- tryCatch(
+        p + ggplot2::scale_color_gradient(
+          low = bee_low, high = bee_high, na.value = bee_high
+        ),
+        error = function(e) p
+      )
+    }
+  }
+
+  if (!isFALSE(sh_cfg$dependence_add_smooth %||% TRUE)) {
+    p <- tryCatch(
+      p + ggplot2::geom_smooth(
+        mapping = ggplot2::aes(x = .data[[v]], y = .data[["shap"]]),
+        method = "loess", formula = y ~ x, se = FALSE,
+        color = "grey20", linewidth = 0.7, alpha = 0.9, inherit.aes = FALSE
+      ),
+      error = function(e) {
+        ## shapviz 列名可能不同：退回按层数据
+        tryCatch(
+          p + ggplot2::geom_smooth(
+            method = "loess", formula = y ~ x, se = FALSE,
+            color = "grey20", linewidth = 0.7, inherit.aes = TRUE
+          ),
+          error = function(e2) p
+        )
+      }
+    )
+  }
+  p
+}
+
+#' dependence 横轴限分位（coord_cartesian；不改 SHAP 计算）
+.shap_apply_dependence_x_quantiles <- function(p, shp, v, sh_cfg = list()) {
+  if (is.null(p) || !nzchar(as.character(v)[1L])) return(p)
+  pxq <- suppressWarnings(as.numeric(sh_cfg$dependence_x_quantiles %||% numeric(0)))
+  if (length(pxq) < 2L || !all(is.finite(pxq[1:2]))) return(p)
+  q_lo <- max(0, min(1, min(pxq[1], pxq[2])))
+  q_hi <- max(0, min(1, max(pxq[1], pxq[2])))
+  Xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+  if (is.null(Xv) || !(v %in% names(Xv))) return(p)
+  x <- Xv[[v]]
+  if (.shap_is_binary_like(x)) return(p)
+  xn <- suppressWarnings(as.numeric(x))
+  xn <- xn[is.finite(xn)]
+  if (length(xn) < 30L) return(p)
+  xr <- stats::quantile(xn, probs = c(q_lo, q_hi), na.rm = TRUE, names = FALSE)
+  if (!all(is.finite(xr)) || xr[1] >= xr[2]) return(p)
+  cli::cli_alert_info(
+    "SHAP dependence[{v}] x 限 P{round(q_lo*100)}–P{round(q_hi*100)}: [{format(xr[1], digits=4)}, {format(xr[2], digits=4)}]"
+  )
+  p + ggplot2::coord_cartesian(xlim = xr, expand = TRUE)
 }
 
 .shap_feature_matrix_aligned <- function(shp, X_df) {
@@ -1193,13 +1368,28 @@
 
 .shap_apply_font <- function(p, font_family) {
   if (is.null(p)) return(p)
+  ## 发表铁律：强制 Times 系；Linux 上 "Times New Roman" 部分 geom 会掉到 NimbusSans
+  ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family(font_family %||% "Times New Roman")
+  } else {
+    as.character(font_family %||% "Times")[1L]
+  }
+  ## ggplot 主题层优先用设备可识别的短名 Times，避免混入 sans
+  ff_theme <- if (identical(ff, "Times New Roman") || grepl("TimesNewRoman|Liberation Serif|Nimbus Roman", ff, ignore.case = TRUE)) {
+    "Times"
+  } else {
+    ff
+  }
   p + ggplot2::theme(
-    text         = ggplot2::element_text(family = font_family),
-    axis.text    = ggplot2::element_text(family = font_family),
-    axis.title   = ggplot2::element_text(family = font_family),
-    plot.title   = ggplot2::element_text(family = font_family),
-    legend.text  = ggplot2::element_text(family = font_family),
-    strip.text   = ggplot2::element_text(family = font_family)
+    text          = ggplot2::element_text(family = ff_theme),
+    axis.text     = ggplot2::element_text(family = ff_theme),
+    axis.title    = ggplot2::element_text(family = ff_theme),
+    plot.title    = ggplot2::element_text(family = ff_theme),
+    plot.subtitle = ggplot2::element_text(family = ff_theme),
+    plot.caption  = ggplot2::element_text(family = ff_theme),
+    legend.text   = ggplot2::element_text(family = ff_theme),
+    legend.title  = ggplot2::element_text(family = ff_theme),
+    strip.text    = ggplot2::element_text(family = ff_theme)
   )
 }
 
@@ -1252,17 +1442,89 @@
   )
 }
 
+.shap_match_pred_cols <- function(want, pred_cols) {
+  want <- as.character(want)[nzchar(as.character(want))]
+  pred_cols <- as.character(pred_cols)
+  if (!length(want) || !length(pred_cols)) return(character(0))
+  hit <- intersect(want, pred_cols)
+  rest <- setdiff(want, hit)
+  if (length(rest)) {
+    ## TC_HDL ↔ TC HDL；忽略大小写与非字母数字
+    wn <- gsub("[^A-Za-z0-9]", "", tolower(rest))
+    pn <- gsub("[^A-Za-z0-9]", "", tolower(pred_cols))
+    m <- match(wn, pn)
+    hit <- unique(c(hit, pred_cols[m[!is.na(m)]]))
+  }
+  hit
+}
+
 .shap_dependence_features <- function(shp, sh_cfg, pred_cols, index_feats = character(0)) {
-  index_feats <- intersect(as.character(index_feats)[nzchar(as.character(index_feats))], pred_cols)
+  index_feats <- .shap_match_pred_cols(index_feats, pred_cols)
   add_raw <- sh_cfg$dependence_features_add %||%
     sh_cfg$additional_dependence_features %||%
     character(0)
-  add_raw <- unique(c(index_feats, as.character(add_raw)[nzchar(as.character(add_raw))]))
-  add_ok <- add_raw[add_raw %in% pred_cols]
+  add_raw <- as.character(add_raw)[nzchar(as.character(add_raw))]
+  ## 默认不把「硬塞的暴露指标」塞进 D 面：仅 pin_index=TRUE，或该指标连续 |SHAP| 已进前列
+  pin_index <- isTRUE(sh_cfg$dependence_pin_index %||% FALSE)
+  max_n_pre <- as.integer(sh_cfg$n_dependence %||% sh_cfg$dependence_max_features %||% 4L)[1L]
+  if (!is.finite(max_n_pre) || max_n_pre < 1L) max_n_pre <- 4L
+  ix_keep <- character(0)
+  if (length(index_feats)) {
+    sv0 <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+    Xv0 <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+    if (!is.null(sv0)) {
+      if (is.data.frame(sv0)) sv0 <- as.matrix(sv0)
+      cn0 <- intersect(colnames(sv0), pred_cols)
+      if (length(cn0)) {
+        imp0 <- sort(colMeans(abs(sv0[, cn0, drop = FALSE])), decreasing = TRUE)
+        ## 只在连续特征里比名次（跳过二分类药）
+        if (!is.null(Xv0)) {
+          cont_nm <- names(imp0)[vapply(names(imp0), function(nm) {
+            if (!nm %in% names(Xv0)) return(TRUE)
+            !.shap_is_binary_like(Xv0[[nm]])
+          }, logical(1L))]
+          imp0 <- imp0[cont_nm]
+        }
+        top0 <- names(imp0)[seq_len(min(length(imp0), max_n_pre))]
+        ix_keep <- intersect(index_feats, top0)
+      }
+    }
+    if (pin_index) {
+      ix_keep <- index_feats
+    }
+    ## 无论 add_raw 是否残留暴露名：未进前列则剔除
+    add_raw <- setdiff(add_raw, setdiff(index_feats, ix_keep))
+    add_raw <- setdiff(
+      add_raw,
+      setdiff(.shap_pretty_label(index_feats), .shap_pretty_label(ix_keep))
+    )
+    if (length(ix_keep)) {
+      add_raw <- unique(c(ix_keep, add_raw))
+    } else if (length(index_feats)) {
+      cli::cli_alert_info(
+        "SHAP D: 暴露 [{paste(index_feats, collapse=', ')}] 连续 |SHAP| 未进前{max_n_pre}，不入 D 面横轴（多为 force_composite 硬入选）"
+      )
+    }
+  }
+  add_ok <- .shap_match_pred_cols(add_raw, pred_cols)
   if (length(add_raw) && !length(add_ok)) {
     cli::cli_alert_warning(
       "block_shap: dependence_features_add 与烘焙列名无交集（dummy 后为 Age_XXX 等），请用与训练烘焙后一致的列名。"
     )
+  }
+
+  max_n <- as.integer(sh_cfg$n_dependence %||% sh_cfg$dependence_max_features %||% 4L)[1L]
+  if (!is.finite(max_n) || max_n < 1L) max_n <- 4L
+  skip_bin <- !isFALSE(sh_cfg$dependence_skip_binary %||% TRUE)
+  Xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+  .ok_cont <- function(nms) {
+    nms <- as.character(nms)
+    if (!skip_bin || is.null(Xv)) return(nms)
+    Keep <- vapply(nms, function(nm) {
+      if (!nm %in% names(Xv)) return(TRUE)
+      !.shap_is_binary_like(Xv[[nm]])
+    }, logical(1L))
+    nms[Keep]
   }
 
   explicit <- sh_cfg$dependence_features %||% NULL
@@ -1271,32 +1533,33 @@
     if (!length(ok)) {
       cli::cli_alert_warning("block_shap: dependence_features 与烘焙列名无交集，改为自动选取（并保留 dependence_features_add）。")
     } else {
-      out <- unique(c(ok, add_ok))
-      return(out)
+      out <- unique(c(.ok_cont(ok), .ok_cont(add_ok)))
+      if (!length(out)) {
+        cli::cli_alert_warning("block_shap: dependence_features 经二分类过滤后为空，改为自动选取。")
+      } else {
+        return(out[seq_len(min(length(out), max_n))])
+      }
     }
   }
 
-  max_n <- as.integer(sh_cfg$n_dependence %||% sh_cfg$dependence_max_features %||% 4L)[1L]
-  if (!is.finite(max_n) || max_n < 1L) max_n <- 4L
-
-  add_use <- add_ok[seq_len(min(length(add_ok), max_n))]
+  add_use <- .ok_cont(add_ok)
+  add_use <- add_use[seq_len(min(length(add_use), max_n))]
   n_auto <- max(0L, max_n - length(add_use))
   auto_part <- character(0)
   if (n_auto > 0L) {
     sv <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
     if (is.null(sv) || (!is.matrix(sv) && !is.data.frame(sv))) {
-      rest <- setdiff(pred_cols, add_use)
+      rest <- .ok_cont(setdiff(pred_cols, add_use))
       auto_part <- rest[seq_len(min(n_auto, length(rest)))]
     } else {
       if (is.data.frame(sv)) sv <- as.matrix(sv)
       cn <- intersect(colnames(sv), pred_cols)
       if (!length(cn)) {
-        rest <- setdiff(pred_cols, add_use)
+        rest <- .ok_cont(setdiff(pred_cols, add_use))
         auto_part <- rest[seq_len(min(n_auto, length(rest)))]
       } else {
         imp <- sort(colMeans(abs(sv[, cn, drop = FALSE])), decreasing = TRUE)
-        ranked <- names(imp)
-        ranked <- setdiff(ranked, add_use)
+        ranked <- .ok_cont(setdiff(names(imp), add_use))
         auto_part <- ranked[seq_len(min(n_auto, length(ranked)))]
       }
     }
@@ -1329,12 +1592,21 @@ if (file.exists(.shap_router_file)) {
   ord <- intersect(combine_order, names(named_plots))
   ord <- ord[vapply(ord, function(k) !is.null(named_plots[[k]]), logical(1L))]
   if (length(ord) < 2L) return(NULL)
+  ff_lab <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family(font_family %||% "Times New Roman")
+  } else {
+    as.character(font_family %||% "Times")[1L]
+  }
+  if (identical(ff_lab, "Times New Roman") ||
+      grepl("TimesNewRoman|Liberation Serif|Nimbus Roman", ff_lab, ignore.case = TRUE)) {
+    ff_lab <- "Times"
+  }
 
   .one_label <- function(p, lab) {
     cowplot::ggdraw(p) +
       cowplot::draw_label(
         lab, x = 0.02, y = 0.98, hjust = 0, vjust = 1,
-        size = label_size, fontface = "bold", fontfamily = font_family
+        size = label_size, fontface = "bold", fontfamily = ff_lab
       )
   }
 
@@ -1402,6 +1674,10 @@ block_shap <- function(ctx, ...) {
     cli::cli_alert_info("config$shap$enable=FALSE，跳过 SHAP。")
     return(ctx)
   }
+
+  ## D 面默认连续着色；不默认偏向硬入选暴露（避免 TC_HDL 等 LASSO 未入选却占色条）
+  if (is.null(sh$dependence_color_continuous)) sh$dependence_color_continuous <- TRUE
+  if (is.null(sh$dependence_pin_index)) sh$dependence_pin_index <- FALSE
 
   prim_feats <- .shap_load_primary_plot_features(ctx)
   if (!is.null(prim_feats) && length(prim_feats$ml_feature_names)) {
@@ -1648,26 +1924,32 @@ block_shap <- function(ctx, ...) {
     dep_list <- list()
     for (j in seq_along(dep_feats)) {
       fj <- dep_feats[[j]]
+      cv_j <- .shap_dependence_color_var(shp_clinical, fj, sh)
       p_dep_j <- tryCatch(
-        shapviz::sv_dependence(shp_clinical, v = fj),
+        {
+          if (is.null(cv_j)) {
+            shapviz::sv_dependence(shp_clinical, v = fj, color_var = NULL)
+          } else if (identical(cv_j, "auto")) {
+            shapviz::sv_dependence(shp_clinical, v = fj)
+          } else {
+            shapviz::sv_dependence(shp_clinical, v = fj, color_var = cv_j)
+          }
+        },
         error = function(e) {
           cli::cli_alert_warning("block_shap: dependence[{fj}] 跳过（{conditionMessage(e)}）")
           NULL
         }
       )
       if (is.null(p_dep_j)) next
+      p_dep_j <- .shap_polish_dependence_plot(
+        p_dep_j, shp_clinical, fj, color_var = cv_j, sh_cfg = sh,
+        bee_low = sh_bee_low, bee_high = sh_bee_high
+      )
+      p_dep_j <- .shap_apply_dependence_x_quantiles(p_dep_j, shp_clinical, fj, sh)
       if (show_panel_titles) {
         p_dep_j <- p_dep_j + ggplot2::labs(title = paste0("SHAP dependence: ", fj))
       }
       p_dep_j <- .shap_panel_finish(p_dep_j, font_family, sh, keep_title = show_panel_titles)
-      if (!clinical_labels_applied && !is.null(sh_bee_low) && !is.null(sh_bee_high)) {
-        p_dep_j <- tryCatch(
-          p_dep_j +
-            ggplot2::scale_color_gradient(low = sh_bee_low, high = sh_bee_high,
-                                          na.value = sh_bee_high),
-          error = function(e) p_dep_j
-        )
-      }
       dep_list[[fj]] <- p_dep_j
     }
     if (length(dep_list) >= 1L) {
@@ -1938,8 +2220,21 @@ block_shap <- function(ctx, ...) {
     },
     error = function(e) xgb_model)
 
-  # 字体：优先 shap/font 配置；WSL 环境下避免硬编码 Times New Roman 导致 invalid font type
-  shp_font <- sh_cfg$font_family %||% (cfg$plot %||% list())$font_family %||% "sans"
+  # 字体：发表铁律 Times 系；禁止默认 sans/Helvetica（resolve 在 Linux 上回退 Times/Liberation）
+  shp_font <- if (exists("plot_font_from_config", mode = "function")) {
+    plot_font_from_config(list(
+      plot = list(
+        font_family = sh_cfg$font_family %||%
+          (cfg$plot %||% list())$font_family %||% "Times New Roman"
+      )
+    ))
+  } else if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family(
+      sh_cfg$font_family %||% (cfg$plot %||% list())$font_family %||% "Times New Roman"
+    )
+  } else {
+    "Times"
+  }
 
   # Random color selection (C01_Xgboost 风格)
   bar_colors <- c("#4DBBD5","#E64B35","#00A087","#3C5488","#F39B7F",
@@ -2058,12 +2353,23 @@ block_shap <- function(ctx, ...) {
     tryCatch({
       dep_plots <- lapply(seq_along(dep_vars), function(i) {
         v <- dep_vars[[i]]
-        shapviz::sv_dependence(shp, v = v) +
-          ggplot2::scale_color_gradient(low = bee_pal$low, high = bee_pal$high,
-                                        na.value = bee_pal$high) +
+        cv <- .shap_dependence_color_var(shp, v, sh_cfg)
+        pj0 <- if (is.null(cv)) {
+          shapviz::sv_dependence(shp, v = v, color_var = NULL)
+        } else if (identical(cv, "auto")) {
+          shapviz::sv_dependence(shp, v = v)
+        } else {
+          shapviz::sv_dependence(shp, v = v, color_var = cv)
+        }
+        pj <- .shap_polish_dependence_plot(
+          pj0, shp, v, color_var = cv, sh_cfg = sh_cfg,
+          bee_low = bee_pal$low, bee_high = bee_pal$high
+        )
+        pj <- pj +
           .tnr() +
           ggplot2::labs(title = NULL, tag = if (i == 1L) "D" else NULL) +
           ggplot2::theme(plot.tag.position = c(0, 1))
+        .shap_apply_dependence_x_quantiles(pj, shp, v, sh_cfg)
       })
       if (requireNamespace("cowplot", quietly = TRUE)) {
         cowplot::plot_grid(plotlist = dep_plots, ncol = min(4L, length(dep_plots)), align = "hv")

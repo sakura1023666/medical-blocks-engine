@@ -379,7 +379,8 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
         "Cox models reported hazard ratios (HRs) with 95% confidence intervals as adjusted associations ",
         "among selected predictors. Model 1 and Model 2 covariates follow the regression table footnotes. ",
         "Restricted cubic splines and subgroup forests for representative continuous predictors ",
-        "(for example AMH) are descriptive of model-captured structure."
+        "(for example Age or the leading continuous feature retained after selection) ",
+        "are descriptive of model-captured structure."
       )
     } else {
       paste0(
@@ -976,6 +977,23 @@ ml_finalize_index_summary_results <- function(index_root,
   }
   if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
     tryCatch(pub_delivery_clean_tables_xlsx_only(sum_root), error = function(e) NULL)
+  }
+  ## 展示禁下划线兜底（已导 xlsx 外科 scrub；引擎级，全指标）
+  if (!exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+    .ml_src("R/pub_delivery_prune.R")
+  }
+  if (!exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+    .ml_src("R/pub_xlsx_surgical.R")
+  }
+  if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+    tryCatch(
+      pub_delivery_scrub_tables_underscores(sum_root),
+      error = function(e) {
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_warning("summary_results underscore scrub: {e$message}")
+        }
+      }
+    )
   }
   if (exists("pub_prune_delivery_root", mode = "function")) {
     tryCatch(

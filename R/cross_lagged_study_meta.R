@@ -416,7 +416,7 @@ cross_lagged_fig3_lock <- function(meta) {
       level_order = list(
         Age_Group = c("< 65", "\u2265 65"),
         Gender = c("Female", "Male"),
-        Education = c("Below High school", "Above High school"),
+        Education = c("Below High school", "High school and above"),
         Marital_Status = c("Unmarried", "Married"),
         Smoking = c("Never", "Former", "Current"),
         Hypertension = c("No", "Yes"),
@@ -427,7 +427,8 @@ cross_lagged_fig3_lock <- function(meta) {
         if (isTRUE(include_age)) "Age_Group 65y (Leisure exposure);" else "Age omitted (ePWV component);",
         "Cancer omitted (NHANES has no column);",
         "NHANES Education/Smoking attached from D04 by ID;",
-        "Smoking = Never/Former/Current (CHARLS+ELSA both have Former; keep 3 levels)"
+        "Smoking = Never/Former/Current (CHARLS+ELSA both have Former; keep 3 levels);",
+        "Education: Above High school merged into High school and above"
       )
     ))
   }
@@ -539,12 +540,16 @@ cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
   }
   if ("Education" %in% names(data)) {
     x <- trimws(as.character(data$Education))
-    x[x %in% c("Higher education", "College and above", "College", "Above High school")] <-
-      "Above High school"
+    # 高学历并档：Above High school / College 等并入 High school and above
+    # （ELSA 原有第三档 High school and above；CHARLS 的 Above 同步改名）
+    x[x %in% c(
+      "Higher education", "College and above", "College", "Above High school",
+      "High school and above", "High school or above", "High School and above"
+    )] <- "High school and above"
     x[x %in% c("Non-higher education", "Less than high school", "Below High school")] <-
       "Below High school"
     x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
-    data$Education <- factor(x, levels = c("Below High school", "Above High school"))
+    data$Education <- factor(x, levels = c("Below High school", "High school and above"))
   }
   if ("Smoking" %in% names(data)) {
     x <- trimws(as.character(data$Smoking))

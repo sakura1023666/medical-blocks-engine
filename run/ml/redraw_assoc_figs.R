@@ -165,6 +165,68 @@ r4 <- tryCatch(
   error = function(e) { message("Fig4: ", conditionMessage(e)); NULL }
 )
 if (!is.null(r4$path) && file.exists(r4$path)) built <- c(built, r4$path)
+## 同步重写 Table S5（联合改为连续 LP 后数字必变）
+s5_paths <- character(0)
+if (!is.null(r4) && is.data.frame(r4$auc) && nrow(r4$auc)) {
+  s5_title <- paste0(
+    "Table S5. Discrimination (AUC with 95% CI) and DeLong tests versus ",
+    ia, " for ", ia, ", ", ib, ", continuous joint linear predictor (", ia, "+", ib,
+    " logistic LP locked on MIMIC train), APSIII, OASIS and GCS, by database ",
+    "(overall cohort, 28-day all-cause mortality)."
+  )
+  s5_out <- r4$auc
+  s5_out$predictor[s5_out$predictor == "Joint"] <- .ref_assoc_fig4_joint_lab()
+  s5_out$auc_fmt <- pub_format_est(s5_out$auc)
+  s5_out$ci_fmt <- ifelse(
+    is.finite(s5_out$ci_low),
+    paste0("(", pub_format_est(s5_out$ci_low), ", ",
+           pub_format_est(s5_out$ci_high), ")"),
+    "NE"
+  )
+  s5_out$delong_fmt <- ifelse(
+    s5_out$predictor == ia, "reference",
+    pub_format_p_cell(s5_out$delong_p)
+  )
+  s5_export <- s5_out[, c("database", "stratum", "predictor", "n", "events",
+                          "auc_fmt", "ci_fmt", "delong_fmt", "status")]
+  names(s5_export) <- c(
+    "Database", "Stratum", "Predictor", "N", "Events", "AUC", "95% CI",
+    paste0("DeLong P vs ", ia), "Status"
+  )
+  s5_tmp <- file.path(tmp, "Table S5 ROC discrimination DeLong.xlsx")
+  s5_fn <- c(
+    paste0(
+      "Joint = continuous logistic linear predictor of ", ia, " + ", ib,
+      " with coefficients locked on MIMIC development/train ",
+      "(applied to both databases; no refit on eICU)."
+    ),
+    "Not the four-level joint tertile group code used in Table 2 / KM.",
+    paste0("DeLong P compares each predictor with ", ia, " within the same database."),
+    "Outcome: 28-day all-cause mortality (Survivor / Non-survivor)."
+  )
+  tryCatch({
+    if (exists(".ref_assoc_export_xlsx", mode = "function")) {
+      .ref_assoc_export_xlsx(s5_tmp, s5_title, s5_export, footnotes = s5_fn)
+    } else {
+      sci_xlsx_single_header_booktabs(
+        s5_tmp, title = s5_title, df_body = s5_export, sheet = "Table S5",
+        footnotes = s5_fn
+      )
+    }
+    if (file.exists(s5_tmp)) s5_paths <- c(s5_paths, s5_tmp)
+  }, error = function(e) message("S5 export: ", conditionMessage(e)))
+  if (!is.null(r4$joint_lp)) {
+    message(
+      "Fig4 joint LP betas: ", ia, "=", signif(r4$joint_lp$beta_a, 4),
+      " ", ib, "=", signif(r4$joint_lp$beta_b, 4),
+      " | Overall Joint AUCs:"
+    )
+    jr <- s5_out[s5_out$predictor == .ref_assoc_fig4_joint_lab() |
+                   s5_out$predictor == "Joint",
+                 c("database", "auc_fmt", "ci_fmt"), drop = FALSE]
+    print(jr)
+  }
+}
 
 ## Fig5：文献式 PH landmark（MIMIC cox.zph → 最显违反层 → Schoenfeld β 过零选日）
 ## 可选覆盖：--force-landmark-day N / --force-landmark-stratum Overall
@@ -233,6 +295,19 @@ fig_roots <- unique(c(
   file.path(study, "by_index", paste0("【success】", index), "summary_result", "Figures"),
   file.path(study, "by_index", paste0("【success】", index), "publication_literature_final", "Figures")
 ))
+tab_roots <- unique(c(
+  file.path(delivery, "summary_result", "Tables"),
+  file.path(delivery, "publication_literature_final", "Tables"),
+  file.path(study, "by_index", paste0("【success】", index), "summary_result", "Tables"),
+  file.path(study, "by_index", paste0("【success】", index), "publication_literature_final", "Tables")
+))
+for (tr in tab_roots) {
+  if (!dir.exists(tr) || !length(s5_paths)) next
+  for (src in s5_paths) {
+    file.copy(src, file.path(tr, basename(src)), overwrite = TRUE)
+    message("table ", file.path(tr, basename(src)))
+  }
+}
 
 f8_name <- as.character(get_opt(
   "--rasterize-fig8",

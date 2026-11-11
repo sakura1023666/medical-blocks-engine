@@ -162,6 +162,29 @@ incidence_single_figure_target_bn <- function(role, src_bn, db = NA_character_) 
 #' 整理单库发病 Figures（pdf 子目录 + 根目录平铺）
 #'
 #' @return 删除文件数（近似）
+#' ML 课题判定：勿套「发病 S1 箱线 / S2 ROC」单库图序
+incidence_single_is_ml_project <- function(config = NULL) {
+  cfg <- config %||% list()
+  if (isTRUE(cfg$ml_batch$enable %||% FALSE)) return(TRUE)
+  if (is.list(cfg$ml_batch) && length(cfg$ml_batch)) {
+    sch <- as.character(
+      cfg$ml_batch$pub_figure_scheme %||%
+        cfg$incidence_batch$pub_figure_scheme %||%
+        cfg$survival_batch$pub_figure_scheme %||% ""
+    )[1L]
+    if (grepl("^ml_", sch)) return(TRUE)
+    ## 有 ML 块开关即视为 ML 课题（单库 ML 发病常见）
+    if (!is.null(cfg$ml_batch$omit_figure_s2) ||
+        !is.null(cfg$ml_batch$write_index_summary_results) ||
+        !is.null(cfg$ml_batch$curate_purge_pub_figures)) {
+      return(TRUE)
+    }
+  }
+  pipe <- as.character(cfg$pipeline$blocks %||% cfg$blocks %||% character(0))
+  if (any(grepl("^ml_|performance_ml|^shap$", pipe))) return(TRUE)
+  FALSE
+}
+
 incidence_curate_single_delivery_figures <- function(out_root, config = NULL) {
   out_root <- as.character(out_root %||% "")[1L]
   if (!nzchar(out_root) || !dir.exists(out_root)) return(invisible(0L))
@@ -169,6 +192,13 @@ incidence_curate_single_delivery_figures <- function(out_root, config = NULL) {
   if (isFALSE(pub$curate_incidence_figures)) return(invisible(0L))
   st <- tolower(as.character((config %||% list())$project$study_type %||% "")[1L])
   if (!identical(st, "incidence")) return(invisible(0L))
+  ## ML 单库发病：走 ml_* 图序（S1=LASSO），禁止套 main_mediation 的 S1 箱线/S2 ROC
+  if (isTRUE(incidence_single_is_ml_project(config))) {
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info("跳过单库发病图序：本课题为 ML（S1=特征选择，非箱线/ROC）")
+    }
+    return(invisible(0L))
+  }
 
   if (!exists("incidence_batch_dedupe_pub_figures_by_role", mode = "function")) {
     eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
@@ -380,6 +410,13 @@ incidence_single_finalize_after_pipeline <- function(out_root, config = NULL) {
   if (!nzchar(out_root) || !dir.exists(out_root)) return(invisible(NULL))
   st <- tolower(as.character((config %||% list())$project$study_type %||% "")[1L])
   if (!identical(st, "incidence")) return(invisible(NULL))
+  ## ML 课题：表/图定稿由 ml dual-batch finalize 负责，勿套发病 S1 箱线口径
+  if (isTRUE(incidence_single_is_ml_project(config))) {
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info("跳过 incidence_single_finalize：ML 课题")
+    }
+    return(invisible(NULL))
+  }
 
   eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = getwd())
   for (rel in c(

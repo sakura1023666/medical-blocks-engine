@@ -168,9 +168,30 @@
 }
 
 .fslcox10_draw_combined <- function(cvfit, selected, data_train, out_path,
-                                    label_a = "A", label_b = "B", label_c = "C") {
+                                    label_a = "A", label_b = "B", label_c = "C",
+                                    font_family = "Times New Roman") {
+  ## 发表铁律：Times 系；禁止默认 pdf()→Helvetica
+  .open_pdf <- function(path, width, height) {
+    if (exists("pipeline_pdf_device", mode = "function")) {
+      pipeline_pdf_device(path, width = width, height = height, family = font_family)
+    } else if (isTRUE(capabilities("cairo"))) {
+      grDevices::cairo_pdf(path, width = width, height = height, family = "Times New Roman")
+    } else {
+      grDevices::pdf(path, width = width, height = height, family = "Times")
+    }
+  }
+  .par_font <- function(...) {
+    ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+      resolve_plot_font_family(font_family)
+    } else {
+      "Times"
+    }
+    if (identical(ff, "Times New Roman")) ff <- "Times"
+    graphics::par(family = ff, ...)
+  }
   if (!length(selected)) {
-    grDevices::pdf(out_path, width = 12, height = 4.2)
+    .open_pdf(out_path, width = 12, height = 4.2)
+    .par_font()
     graphics::plot.new()
     graphics::title("LASSO-Cox: no selected features")
     grDevices::dev.off()
@@ -209,6 +230,11 @@
           short <- gsub("Has_Adenomyosis", "Adenomyosis", short, fixed = TRUE)
           short <- gsub("Adh_rAFS", "Adh×rAFS", short, fixed = TRUE)
           short <- gsub("Age_AMH", "Age×AMH", short, fixed = TRUE)
+          if (exists("pipeline_display_label", mode = "function")) {
+            short <- pipeline_display_label(short)
+          } else {
+            short <- gsub("_", " ", short, fixed = TRUE)
+          }
           names(num_df) <- short
           cm <- tryCatch(
             stats::cor(num_df, use = "pairwise.complete.obs", method = "pearson"),
@@ -252,6 +278,12 @@
       }
       if (length(b_abs)) {
         topn <- head(b_abs, n = min(12L, length(b_abs)))
+        nm <- names(topn)
+        if (exists("pipeline_display_label", mode = "function")) {
+          names(topn) <- pipeline_display_label(nm)
+        } else {
+          names(topn) <- gsub("_", " ", nm, fixed = TRUE)
+        }
         ok_c <- isTRUE(tryCatch({
           graphics::par(mar = c(5.5, 8.5, 2.8, 1.2))
           graphics::barplot(
@@ -275,22 +307,22 @@
   }
 
   stacked <- isTRUE(tryCatch({
-    grDevices::pdf(out_path, width = 13.5, height = 4.5)
+    .open_pdf(out_path, width = 13.5, height = 4.5)
     graphics::layout(matrix(1:3, nrow = 1L, ncol = 3L))
-    graphics::par(mar = c(4.5, 4.2, 2.8, 1.0), mgp = c(2.2, 0.7, 0))
+    .par_font(mar = c(4.5, 4.2, 2.8, 1.0), mgp = c(2.2, 0.7, 0))
     ## A：系数路径；xvar=lambda 自带 xlab，勿再 mtext 造成重叠
     tryCatch({
       plot(cvfit$glmnet.fit, xvar = "lambda", label = FALSE)
     }, error = function(e) graphics::plot.new())
     graphics::mtext(label_a, side = 3, line = 0.6, adj = 0, font = 2, cex = 1.15)
     ## B：CV 曲线
-    graphics::par(mar = c(4.5, 4.2, 2.8, 1.0), mgp = c(2.2, 0.7, 0))
+    .par_font(mar = c(4.5, 4.2, 2.8, 1.0), mgp = c(2.2, 0.7, 0))
     tryCatch({
       plot(cvfit)
     }, error = function(e) graphics::plot.new())
     graphics::mtext(label_b, side = 3, line = 0.6, adj = 0, font = 2, cex = 1.15)
     ## C：相关热图
-    graphics::par(mar = c(5.5, 5.0, 2.8, 2.5))
+    .par_font(mar = c(5.5, 5.0, 2.8, 2.5))
     .fslcox10_draw_panel_c()
     graphics::mtext(label_c, side = 3, line = 0.6, adj = 0, font = 2, cex = 1.15)
     grDevices::dev.off()
@@ -298,17 +330,17 @@
   }, error = function(e) FALSE))
 
   if (!stacked) {
-    grDevices::pdf(tmp_a, width = 4.5, height = 4.5)
-    graphics::par(mar = c(4.5, 4.2, 2.2, 1.2))
+    .open_pdf(tmp_a, width = 4.5, height = 4.5)
+    .par_font(mar = c(4.5, 4.2, 2.2, 1.2))
     tryCatch(plot(cvfit$glmnet.fit, xvar = "lambda", label = FALSE),
              error = function(e) graphics::plot.new())
     grDevices::dev.off()
-    grDevices::pdf(tmp_b, width = 4.5, height = 4.5)
-    graphics::par(mar = c(4.5, 4.2, 2.2, 1.2))
+    .open_pdf(tmp_b, width = 4.5, height = 4.5)
+    .par_font(mar = c(4.5, 4.2, 2.2, 1.2))
     tryCatch(plot(cvfit), error = function(e) graphics::plot.new())
     grDevices::dev.off()
-    grDevices::pdf(tmp_c, width = 4.5, height = 4.5)
-    graphics::par(mar = c(5.5, 5.0, 2.2, 2.5))
+    .open_pdf(tmp_c, width = 4.5, height = 4.5)
+    .par_font(mar = c(5.5, 5.0, 2.2, 2.5))
     .fslcox10_draw_panel_c()
     grDevices::dev.off()
     if (requireNamespace("magick", quietly = TRUE) && requireNamespace("pdftools", quietly = TRUE)) {
@@ -604,6 +636,13 @@ block_feature_selection_lasso_cox <- function(ctx, ...) {
       keep <- vapply(num_df, function(x) sum(is.finite(x)) >= 3L, logical(1L))
       num_df <- num_df[, keep, drop = FALSE]
       if (ncol(num_df) >= 2L) {
+        lab_nm <- names(num_df)
+        if (exists("pipeline_display_label", mode = "function")) {
+          lab_nm <- pipeline_display_label(lab_nm)
+        } else {
+          lab_nm <- gsub("_", " ", lab_nm, fixed = TRUE)
+        }
+        names(num_df) <- lab_nm
         cm <- tryCatch(
           stats::cor(num_df, use = "pairwise.complete.obs"),
           error = function(e) NULL

@@ -43,12 +43,27 @@
 .attrition_db_label <- function(ctx) {
   cfg <- ctx$config %||% list()
   dual <- cfg$dual_db %||% list()
-  db <- as.character(dual$current_db %||% "")[1L]
+  # 显式 db_label 优先（单库 CHARLS 占 nhanes 槽时避免标题写成 nhanes）
+  db <- as.character((cfg$attrition %||% list())$db_label %||% "")[1L]
+  if (!nzchar(db)) {
+    db <- as.character(dual$current_db %||% "")[1L]
+  }
   if (!nzchar(db)) {
     db <- as.character((cfg$project %||% list())$database %||% "")[1L]
   }
   if (!nzchar(db)) {
-    db <- as.character((cfg$attrition %||% list())$db_label %||% "")[1L]
+    db <- as.character(dual$primary_name %||% dual$primary_db %||% "")[1L]
+  }
+  # 单库占位槽 nhanes/mimic → 用真实主库名
+  if (tolower(trimws(db)) %in% c("nhanes", "mimic") &&
+      isTRUE((cfg$ml_batch %||% list())$single_db %||%
+               (cfg$dual_db %||% list())$workflow == "primary_only")) {
+    pn <- as.character(
+      dual$primary_name %||%
+        (cfg$project %||% list())$primary_name %||%
+        ""
+    )[1L]
+    if (nzchar(pn) && !identical(tolower(pn), "unused")) db <- pn
   }
   if (!nzchar(db)) return("")
   trimws(db)

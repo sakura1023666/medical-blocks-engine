@@ -2470,6 +2470,16 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
     }
     dest_pdf <- file.path(dirs[["pdf"]], paste0(stem, ".pdf"))
     file.copy(pdf_src, dest_pdf, overwrite = TRUE)
+    # PDF-only 交付也必须限幅/堆叠，不能只在栅格化路径里 normalize（否则 bad_pdf_geometry 永过不了）
+    tryCatch(
+      pub_figure_normalize_pdf(
+        dest_pdf,
+        max_edge_in = cfg$max_edge_in,
+        stack_pages = isTRUE(cfg$stack_multipage),
+        root_hint = root_hint
+      ),
+      error = function(e) FALSE
+    )
     ok_r <- TRUE
     if (want_raster) {
       dest_png <- if (isTRUE(cfg$export_png)) {
@@ -2546,6 +2556,15 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
     }
     dest_pdf <- file.path(dirs[["pdf"]], paste0(stem, ".pdf"))
     file.copy(fp, dest_pdf, overwrite = TRUE)
+    tryCatch(
+      pub_figure_normalize_pdf(
+        dest_pdf,
+        max_edge_in = cfg$max_edge_in,
+        stack_pages = isTRUE(cfg$stack_multipage),
+        root_hint = root_hint
+      ),
+      error = function(e) FALSE
+    )
     if (want_raster) {
       dest_png <- if (isTRUE(cfg$export_png)) {
         file.path(dirs[["png"]], paste0(stem, ".png"))

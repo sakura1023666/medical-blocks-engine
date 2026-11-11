@@ -449,14 +449,28 @@ attrition_finalize_rows <- function(ctx, config) {
       }
     }
   } else if (length(log) && isTRUE(attr_cfg$config_steps_only %||% FALSE)) {
-    # 配置步优先：禁止用 runtime log 整行覆盖（否则预筛 Age 的 dabiao 会把
-    # 「Age <45 n=280」冲成 excluded 0，Fig1 右侧像没人被排）
-    for (entry in log) {
-      sid <- as.character(entry$step_id)[1L]
-      hit <- which(rows_df$step_id == sid)
-      if (!length(hit)) {
-        rows_df <- rbind(rows_df, attrition_log_entry_to_row(entry))
-      }
+    # 配置步优先：
+    # 1) 禁止 runtime log 覆盖已有配置行（预筛 Age 会被冲成 excluded 0）
+    # 2) 禁止追加 After data cleaning / After imputation 等日志步
+    #    （ML 诚实纳排只要 config$attrition$steps）
+    invisible(NULL)
+  }
+
+  # 噪声步兜底剔除（即使旧 checkpoint / 误关 config_steps_only）
+  if (isTRUE(attr_cfg$config_steps_only %||% FALSE) ||
+      isTRUE(attr_cfg$ml_standard_layout %||% FALSE)) {
+    noise_ids <- c(
+      "after_data_clean", "after_data_cleaning", "after_imputation",
+      "after_mice", "after_complete", "after_train_validation"
+    )
+    noise_lab <- grepl(
+      "^(After data cleaning|After imputation|After MICE|After complete)",
+      as.character(rows_df$step %||% ""),
+      ignore.case = TRUE
+    )
+    drop <- (as.character(rows_df$step_id %||% "") %in% noise_ids) | noise_lab
+    if (any(drop) && sum(!drop) > 0L) {
+      rows_df <- rows_df[!drop, , drop = FALSE]
     }
   }
 
@@ -589,8 +603,21 @@ attrition_index_component_missing_counts <- function(df, index_name) {
     )
   }
   comps <- unique(comps[nzchar(comps)])
-  comps <- setdiff(comps, index_name)
+  # 公式成分仅自身（如 Albumin_CV / Hemoglobin_CV）时保留自身列计缺失；
+  # 禁止 setdiff 后空集导致 Fig1 漏写该指标排除 n。
+  comps_core <- setdiff(comps, index_name)
+  if (!length(comps_core)) {
+    comps_core <- if (index_name %in% names(df)) index_name else character(0)
+  }
+  comps <- comps_core
   if (!length(comps)) return(integer(0))
+  .count_miss_col <- function(x) {
+    as.integer(if (is.numeric(x)) {
+      sum(!is.finite(suppressWarnings(as.numeric(x))))
+    } else {
+      sum(is.na(x) | !nzchar(trimws(as.character(x))))
+    })
+  }
   if (exists("pipeline_expand_lab_var_aliases", mode = "function")) {
     # 每个规范成分选数据里实际存在的一列（优先规范名）
     out <- integer(0)
@@ -599,25 +626,14 @@ attrition_index_component_missing_counts <- function(df, index_name) {
       hit <- intersect(c(cn, aliases), names(df))
       if (!length(hit)) next
       col <- hit[[1L]]
-      x <- df[[col]]
-      n_miss <- if (is.numeric(x)) {
-        sum(!is.finite(suppressWarnings(as.numeric(x))))
-      } else {
-        sum(is.na(x) | !nzchar(trimws(as.character(x))))
-      }
-      out[[cn]] <- as.integer(n_miss)
+      out[[cn]] <- .count_miss_col(df[[col]])
     }
     return(out)
   }
   comps <- intersect(comps, names(df))
   if (!length(comps)) return(integer(0))
   stats::setNames(vapply(comps, function(v) {
-    x <- df[[v]]
-    as.integer(if (is.numeric(x)) {
-      sum(!is.finite(suppressWarnings(as.numeric(x))))
-    } else {
-      sum(is.na(x) | !nzchar(trimws(as.character(x))))
-    })
+    .count_miss_col(df[[v]])
   }, integer(1L)), comps)
 }
 

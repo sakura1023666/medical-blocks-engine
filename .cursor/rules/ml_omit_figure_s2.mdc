@@ -1,0 +1,24 @@
+# ML 套路禁止 Figure S2（全项目）
+
+凡 **ML dual-batch / 单库 ML / 预后 ML**（走 `ml_dual_shared_overrides` / `ml_dual_batch_build`）发表交付，**一律不要 Figure S2***。
+
+## 铁律
+
+1. **默认 `omit_figure_s2 = TRUE`**：`configs/ml_dual_shared_overrides.R`、`configs/study_interface/ml_dual_batch_build.R`；课题勿改回 `FALSE`。
+2. **源头关闭**：`boxplot$enable = FALSE`、`roc_simple$enable = FALSE`（曾占 S1/S2）。
+3. **定稿清扫**：`incidence_batch_curate_ml_pub_figures_dir` 默认删 `Figure S2*` 与箱线；`incidence_batch_ml_pub_figure_role` / `should_purge_pub_figure` 对 S2* 与 Boxplot 一律 `drop`。
+4. **Figure S1 仍要**：特征选择 LASSO（S2A+S2B 升格为 `Figure S1. Lasso.pdf`）。禁止把箱线/简单 ROC 当 S1。
+5. **交付面**：`summary_results/Figures` 与指标根 `Figures/pdf` **不得**残留 `Figure S2*` / 箱线；step* 草稿可留。
+6. **禁止** ML 课题套 `incidence_single` 的 `main_mediation` 图序（会把 S1 改成箱线、S2 改成 ROC）。
+7. **禁止**为「凑补充图」再把箱线/简单 ROC/S2C–G 草稿编进定稿 Figure S2。
+
+## 检查清单
+
+- [ ] 新 ML config 未写 `omit_figure_s2 = FALSE`
+- [ ] 跑完后 `find …/summary_results -iname 'Figure S2*'` 为空
+- [ ] 无 `Figure S1. Boxplot…` 进交付（箱线已关）
+
+## 反例（禁止）
+
+- 交付根再出现 `Figure S2. Boxplot…` / `Figure S2. Simple ROC…` / `Figure S2A.Lasso…`
+- 课题私设 `boxplot$enable=TRUE` 且不 omit，导致 S2 复活

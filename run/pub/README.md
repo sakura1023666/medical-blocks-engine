@@ -96,3 +96,9 @@ Rscript run/pub/surgical_xlsx_repair.R --xlsx "..." --set ...
 ## 课题特例
 
 病种定稿重画（如胆结石 Chen 样式）放在 `run/<disease>_*/`，且**必须调用**上表引擎函数；一次性脚本进 `_archive_oneoff/`。
+
+## 禁下划线 / Times / 白名单（2026-11-10）
+
+收口自动：`pub_delivery_scrub_tables_underscores`（xlsx 展示 `_`→空格）+ `pub_prune_delivery_root`。  
+规则：`pub_no_underscore_display.mdc`、`pub_times_new_roman.mdc`、`pub_delivery_whitelist.mdc`。  
+复用地图：`docs/reuse/2026-11-10-pub-underscore-times-delivery-reuse-map.md`。

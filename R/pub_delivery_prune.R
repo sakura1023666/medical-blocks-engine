@@ -167,6 +167,36 @@ pub_prune_delivery_root <- function(delivery_root,
   invisible(list(kept = keep, moved = move, archive = dest_batch))
 }
 
+#' 交付 Tables 展示层禁下划线兜底（全项目收口统一入口）
+#'
+#' 导表路径应已走 `pipeline_scrub_pub_df`；本函数给已落盘 xlsx 做外科 scrub，
+#' 挂在 `ml_finalize_index_summary_results` / `finalize_delivery_root` 等收口。
+pub_delivery_scrub_tables_underscores <- function(delivery_root, root = NULL) {
+  delivery_root <- as.character(delivery_root %||% "")[1L]
+  if (!nzchar(delivery_root) || !dir.exists(delivery_root)) {
+    return(invisible(list(n = 0L, skipped = TRUE)))
+  }
+  tab <- file.path(delivery_root, "Tables")
+  if (!dir.exists(tab)) tab <- file.path(delivery_root, "table")
+  if (!dir.exists(tab)) return(invisible(list(n = 0L, skipped = TRUE)))
+  if (!exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+    eng <- as.character(root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""))[1L]
+    if (!nzchar(eng)) eng <- getwd()
+    sx <- file.path(eng, "R", "pub_xlsx_surgical.R")
+    if (file.exists(sx)) {
+      try(source(sx, local = FALSE), silent = TRUE)
+    }
+  }
+  if (!exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+    return(invisible(list(n = 0L, error = "pub_xlsx_scrub_underscores_dir missing")))
+  }
+  out <- tryCatch(
+    pub_xlsx_scrub_underscores_dir(tab, root = root),
+    error = function(e) list(n = 0L, error = conditionMessage(e))
+  )
+  invisible(out)
+}
+
 #' 在指标根下的 summary_result / 课题 summary_result / summary_results 上修剪
 pub_prune_project_delivery_roots <- function(project_root) {
   project_root <- as.character(project_root %||% "")[1L]
