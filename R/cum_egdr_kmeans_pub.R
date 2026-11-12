@@ -1138,7 +1138,12 @@ ckm_stroke_build_table_s2_long <- function(
 # Figure 2: A elbow | B scatter+hull | C mean±SE
 # -----------------------------------------------------------------------------
 ckm_stroke_theme_paper <- function(base = 11) {
-  ggplot2::theme_classic(base_size = base) +
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "serif"
+  }
+  ggplot2::theme_classic(base_size = base, base_family = .ff) +
     ggplot2::theme(
       plot.title = ggplot2::element_text(face = "bold", size = base + 2, hjust = 0),
       axis.title = ggplot2::element_text(size = base),
@@ -1316,7 +1321,11 @@ ckm_stroke_fig2_abc <- function(
       .panels
     }
     # 只用 grid.draw，避免 grid.arrange 在已打开的 pdf() 上再开一页空白页
-    grDevices::pdf(outfile, width = width, height = .h, useDingbats = FALSE, onefile = TRUE)
+    if (exists("pipeline_pdf_device", mode = "function")) {
+      pipeline_pdf_device(outfile, width = width, height = .h)
+    } else {
+      grDevices::pdf(outfile, width = width, height = .h, useDingbats = FALSE, onefile = TRUE, family = "Times")
+    }
     grid::grid.newpage()
     grid::grid.draw(.g)
     grDevices::dev.off()
@@ -1339,15 +1348,20 @@ ckm_stroke_fig1_flowchart <- function(
     excl2_lab = NULL,
     note = "Note: denominators follow project construction (final N=4,983), not verbatim paper N=5,248.",
     width = 8.8, height = 7.6) {
-  pdf(outfile, width = width, height = height, useDingbats = FALSE)
+  .ff <- if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(outfile, width = width, height = height)
+  } else {
+    grDevices::pdf(outfile, width = width, height = height, useDingbats = FALSE, family = "Times")
+    "Times"
+  }
   on.exit(try(dev.off(), silent = TRUE), add = TRUE)
-  par(mar = c(0.35, 0.35, 0.35, 0.35), xpd = NA, family = "sans")
+  par(mar = c(0.35, 0.35, 0.35, 0.35), xpd = NA, family = .ff)
   plot(0, 0, type = "n", xlim = c(0, 10), ylim = c(1.85, 10.15),
        axes = FALSE, xlab = "", ylab = "")
   .box <- function(x, y, w, h, txt, cex = 0.85, font = 1) {
     rect(x - w / 2, y - h / 2, x + w / 2, y + h / 2,
          border = "black", lwd = 1.25, col = "white")
-    text(x, y, txt, cex = cex, font = font)
+    text(x, y, txt, cex = cex, font = font, family = .ff)
   }
   .fmtn <- function(x) format(as.integer(x), big.mark = ",")
   .sprintf_excl <- function(tpl, a) {
@@ -1817,15 +1831,20 @@ ckm_stroke_forest_free_stats <- function(
     paste(rep(" ", 12L), collapse = "")
   )
   teal <- "#008B8B"
+  .ff_forest <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "serif"
+  }
   tm <- forestploter::forest_theme(
     base_size = 9,
     refline_gp = grid::gpar(lty = 1, col = "grey60", lwd = 1),
     ci_pch = 16, ci_col = teal, ci_fill = teal, ci_alpha = 1,
     ci_lty = 1, ci_lwd = 1.6, ci_Theight = 0,
-    xaxis_gp = grid::gpar(fontsize = 7.5, col = "grey20"),
-    core = list(fg_params = list(hjust = 0, x = 0.01, fontfamily = ""),
+    xaxis_gp = grid::gpar(fontsize = 7.5, col = "grey20", fontfamily = .ff_forest),
+    core = list(fg_params = list(hjust = 0, x = 0.01, fontfamily = .ff_forest),
                 bg_params = list(fill = "white")),
-    colhead = list(fg_params = list(hjust = 0, x = 0.01, fontface = "bold", fontfamily = ""))
+    colhead = list(fg_params = list(hjust = 0, x = 0.01, fontface = "bold", fontfamily = .ff_forest))
   )
   est <- as.numeric(plot_df$`Point Estimate`)
   lo <- as.numeric(plot_df$Lower)
@@ -1930,7 +1949,16 @@ ckm_stroke_forest_free_stats <- function(
   }
   fig_w <- 10.2
   fig_h <- max(5.4, min(7.6, 0.245 * nrow(plot_df) + 1.35))
-  grDevices::pdf(outfile, width = fig_w, height = fig_h, useDingbats = FALSE)
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "Times"
+  }
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(outfile, width = fig_w, height = fig_h)
+  } else {
+    grDevices::pdf(outfile, width = fig_w, height = fig_h, useDingbats = FALSE, family = .ff)
+  }
   grid::grid.newpage()
   # 上下留白：避免标题压 Subgroup 表头、脚注压横轴刻度
   grid::pushViewport(grid::viewport(x = 0.5, y = 0.50, width = 0.98, height = 0.78))
@@ -1938,14 +1966,14 @@ ckm_stroke_forest_free_stats <- function(
   grid::popViewport()
   if (!is.null(title) && nzchar(title)) {
     grid::grid.text(title, x = 0.02, y = 0.975, just = c("left", "top"),
-                    gp = grid::gpar(fontsize = 9, fontface = "bold", col = "grey15"))
+                    gp = grid::gpar(fontsize = 9, fontface = "bold", col = "grey15", fontfamily = .ff))
   }
   sd_note <- as.character(sd_note)
   y0 <- 0.012 + 0.018 * (seq_along(sd_note) - 1L)
   y0 <- rev(y0)
   for (i in seq_along(sd_note)) {
     grid::grid.text(sd_note[i], x = 0.02, y = y0[i], just = c("left", "bottom"),
-                    gp = grid::gpar(fontsize = 6.5, col = "grey25", fontfamily = ""))
+                    gp = grid::gpar(fontsize = 6.5, col = "grey25", fontfamily = .ff))
   }
   grDevices::dev.off()
   attr(plot_df, "sd") <- sd_x

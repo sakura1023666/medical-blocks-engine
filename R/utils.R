@@ -7213,13 +7213,57 @@ render_queued_tables <- function(ctx) {
 }
 
 # plot_fn 只应 return 对象。ggsurvplot 默认 print(newpage=TRUE) 会先空一页。
-.print_queued_plot_object <- function(out) {
+## 递归把 gtable/grob 的 fontfamily 钉成 Times 系（消 SHAP colourbar NimbusSans）
+.pipeline_force_grob_fontfamily <- function(g, family = "Times New Roman") {
+  family <- as.character(family %||% "Times New Roman")[1L]
+  if (!nzchar(family)) family <- "Times New Roman"
+  walk <- function(x) {
+    if (is.null(x)) return(x)
+    if (!is.null(x$gp)) {
+      tryCatch({ x$gp$fontfamily <- family }, error = function(e) NULL)
+    }
+    if (!is.null(x$children) && length(x$children)) {
+      x$children <- lapply(x$children, walk)
+      if (!is.null(names(x$children)) && inherits(x$children, "gList")) {
+        class(x$children) <- c("gList", class(x$children))
+      }
+    }
+    if (!is.null(x$grobs) && length(x$grobs)) {
+      x$grobs <- lapply(x$grobs, walk)
+    }
+    x
+  }
+  walk(g)
+}
+
+.print_queued_plot_object <- function(out, font_family = NULL) {
   if (is.null(out)) return(invisible(NULL))
   if (inherits(out, "ggsurvplot")) {
     print(out, newpage = FALSE)
     return(invisible(out))
   }
   if (inherits(out, c("ggplot", "patchwork", "gg", "gtable", "grob", "HeatmapList", "Heatmap"))) {
+    ff <- font_family %||% getOption("medical_blocks.plot_font_family", NULL)
+    if (is.null(ff) || !nzchar(as.character(ff)[1L])) {
+      ff <- getOption("medical_blocks.render_font_family", NULL)
+    }
+    # 发表 PDF：把空/sans 字族钉成 Times，避免 colourbar / cowplot 残留 NimbusSans
+    if (!is.null(ff) && nzchar(as.character(ff)[1L]) &&
+        inherits(out, c("ggplot", "patchwork", "gg", "gtable", "grob")) &&
+        !inherits(out, c("HeatmapList", "Heatmap"))) {
+      g <- tryCatch({
+        if (inherits(out, c("gtable", "grob")) && !inherits(out, c("ggplot", "gg", "patchwork"))) {
+          out
+        } else {
+          ggplot2::ggplotGrob(out)
+        }
+      }, error = function(e) NULL)
+      if (!is.null(g)) {
+        g <- .pipeline_force_grob_fontfamily(g, as.character(ff)[1L])
+        grid::grid.draw(g)
+        return(invisible(out))
+      }
+    }
     print(out)
   }
   invisible(out)
@@ -7246,6 +7290,9 @@ render_queued_figures <- function(ctx) {
     font_family <- "Times"
     cli::cli_alert_info("plot$pdf_device=pdf：主题字体改用 Times（避免 PostScript DB 找不到 Times New Roman）。")
   }
+  # 供 .print_queued_plot_object 把 colourbar/cowplot 空字族钉成 Times（消 NimbusSans）
+  op_ff <- options(medical_blocks.render_font_family = font_family)
+  on.exit(options(op_ff), add = TRUE)
 
   .with_plot_theme <- function(plot_fn, ff = font_family) {
     old_theme <- ggplot2::theme_get()
@@ -7279,7 +7326,7 @@ render_queued_figures <- function(ctx) {
     # ggplot / patchwork 等需显式 print 才写入设备；否则会出现空 PDF（仅壳）。
     # 约定：plot_fn 只 return 对象，不要内部 print()——否则会打成两页。
     # 禁止在此处调用 grid::grid.ls()：它会初始化 grid，导致随后 print(ggplot) 变成 2 页。
-    .print_queued_plot_object(out)
+    .print_queued_plot_object(out, font_family = ff)
     invisible(out)
   }
 
@@ -7382,7 +7429,7 @@ render_queued_figures <- function(ctx) {
         )
         out <- it$plot_fn()
         out <- .patch_plot_font(out, ff_par)
-        .print_queued_plot_object(out)
+        .print_queued_plot_object(out, font_family = ff)
         grDevices::dev.off()
         opened <- FALSE
         invisible(TRUE)

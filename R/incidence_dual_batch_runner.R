@@ -2499,8 +2499,13 @@ incidence_batch_pub_figure_sort_key <- function(basename) {
 incidence_batch_should_purge_pub_figure <- function(basename, all_basenames) {
   bn <- as.character(basename)[1L]
   all_bn <- as.character(all_basenames)
-  ## ML 套路：一律不交 Figure S2*（含 ROC/箱线/S2A–G 特征选择草稿）
-  if (grepl("^Figure\\s*S2([A-G]|[.\\s]|$)", bn, ignore.case = TRUE, perl = TRUE)) return(TRUE)
+  ## ML 套路：不交 Figure S2* 草稿；但 S2A/B LASSO 须先升格为 S1，升格前禁止删
+  if (grepl("^Figure\\s*S2([A-G]|[.\\s]|$)", bn, ignore.case = TRUE, perl = TRUE)) {
+    is_lasso_ab <- grepl("S2A.*Lasso|S2B.*Lasso", bn, ignore.case = TRUE)
+    has_s1_lasso <- any(grepl("Figure\\s*S1.*Lasso", all_bn, ignore.case = TRUE))
+    if (is_lasso_ab && !has_s1_lasso) return(FALSE)
+    return(TRUE)
+  }
   if (grepl("Boxplot", bn, ignore.case = TRUE)) return(TRUE)
   ## 有 2×4 拼图时：ROC/DCA/校准/平行坐标等单面板不进汇总
   has_ml_combined <- any(grepl("ML performance combined 2x4|combined 2x4", all_bn, ignore.case = TRUE))
@@ -2543,10 +2548,16 @@ incidence_batch_purge_non_delivery_figures <- function(figures_dir) {
     return(invisible(0L))
   }
   pdf_dir <- file.path(figures_dir, "pdf")
-  work <- if (dir.exists(pdf_dir)) pdf_dir else figures_dir
-  files <- list.files(work, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+  ## 必须同时扫 pdf/ 与根平铺：否则 KM continuous 等草稿只在根目录时漏删（NPC 2026-11）
+  files <- character(0)
+  if (dir.exists(pdf_dir)) {
+    files <- c(files, list.files(pdf_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE))
+  }
+  flat <- list.files(figures_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+  flat <- flat[file.info(flat)$isdir %in% FALSE]
+  files <- unique(c(files, flat))
   if (!length(files)) return(invisible(0L))
-  all_bn <- basename(files)
+  all_bn <- unique(basename(files))
   drop_idx <- vapply(all_bn, function(bn) {
     incidence_batch_should_purge_pub_figure(bn, all_bn)
   }, logical(1L))
@@ -2595,8 +2606,17 @@ incidence_batch_pub_figure_scheme <- function(config) {
   as.character(bc$pub_figure_scheme %||% "default")[1L]
 }
 
+#' ML 发表图 scheme（含单库 ml_single_standard）
+#' 用于 LASSO S2A/B→S1 升格、ML 定稿 curate；勿仅限 dual。
+incidence_batch_is_ml_pub_scheme <- function(config) {
+  incidence_batch_pub_figure_scheme(config) %in% c(
+    "ml_dual_standard", "ml_dual_dev_ext", "ml_single_standard"
+  )
+}
+
 incidence_batch_is_ml_dual_pub_scheme <- function(config) {
-  incidence_batch_pub_figure_scheme(config) %in% c("ml_dual_standard", "ml_dual_dev_ext")
+  ## 历史名：实际含单库 standard；双库专属拼图仍另用 length(db_seq)>=2 门控
+  incidence_batch_is_ml_pub_scheme(config)
 }
 
 incidence_batch_ml_normalize_pub_bn <- function(bn, cfg = list()) {
@@ -2621,11 +2641,16 @@ incidence_batch_ml_extract_db_tag <- function(bn, cfg = list()) {
       dual_db_slot_path_name(cfg, "mimic")
     ))
   }
-  tags <- unique(tags[nzchar(tags)])
-  tags <- unique(unlist(lapply(tags[nzchar(tags)], function(t) {
-    if (exists(".ml_ptc_tag_aliases", mode = "function")) .ml_ptc_tag_aliases(t) else t
-  }), use.names = FALSE))
-  tags <- tags[order(-nchar(tags), tags)]
+  tags <- unique(as.character(tags[nzchar(as.character(tags))]))
+  if (length(tags)) {
+    tags <- unique(unlist(lapply(tags, function(t) {
+      if (exists(".ml_ptc_tag_aliases", mode = "function")) .ml_ptc_tag_aliases(t) else t
+    }), use.names = FALSE))
+    tags <- as.character(tags[nzchar(as.character(tags))])
+  } else {
+    tags <- character(0)
+  }
+  if (length(tags)) tags <- tags[order(-nchar(tags), tags)]
   for (tag in tags) {
     flex <- if (exists(".ml_ptc_tag_flex_re", mode = "function")) {
       .ml_ptc_tag_flex_re(tag)
@@ -3072,18 +3097,16 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
     }
   }
   ## 若仍有 S2A/B 且尚无 S1 Lasso：就地升格（防 collect 因路径失败漏掉）
-  s1_lasso_now <- list.files(
-    figures_dir, pattern = "(?i)Figure\\s*S1.*Lasso.*\\.pdf$",
-    full.names = TRUE
-  )
-  s2a_now <- list.files(
-    figures_dir, pattern = "(?i)Figure\\s*S2A.*LassoGenes.*\\.pdf$",
-    full.names = TRUE
-  )
-  s2b_now <- list.files(
-    figures_dir, pattern = "(?i)Figure\\s*S2B.*LassoModel.*\\.pdf$",
-    full.names = TRUE
-  )
+  ## recursive：export 后草稿常在 Figures/pdf/，顶层可能已空
+  .find_fig_pdf <- function(pat) {
+    hits <- list.files(
+      figures_dir, pattern = pat, full.names = TRUE, recursive = TRUE, ignore.case = TRUE
+    )
+    hits[endsWith(tolower(hits), ".pdf")]
+  }
+  s1_lasso_now <- .find_fig_pdf("(?i)Figure\\s*S1.*Lasso")
+  s2a_now <- .find_fig_pdf("(?i)Figure\\s*S2A.*LassoGenes")
+  s2b_now <- .find_fig_pdf("(?i)Figure\\s*S2B.*LassoModel")
   if (!length(s1_lasso_now) && length(s2a_now) && length(s2b_now) &&
       exists("pub_figure_combine_ab_pdfs", mode = "function")) {
     dest_s1 <- file.path(figures_dir, "Figure S1. Lasso.pdf")
@@ -3124,7 +3147,22 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
       )
     }
   }
-  files <- list.files(figures_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+  ## formats_dir 后主副本在 pdf/：角色判定须并入，否则误判「无 RCS」把 S1 LASSO 升成 Fig2
+  pdf_sub <- file.path(figures_dir, "pdf")
+  files_top <- list.files(figures_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+  files_top <- files_top[file.info(files_top)$isdir %in% FALSE]
+  files_pdf <- if (dir.exists(pdf_sub)) {
+    list.files(pdf_sub, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+  } else {
+    character(0)
+  }
+  ## 同名优先顶层（新升格的 S1），否则 pdf/
+  files <- files_top
+  if (length(files_pdf)) {
+    top_bn <- basename(files_top)
+    extra <- files_pdf[!basename(files_pdf) %in% top_bn]
+    files <- c(files, extra)
+  }
   if (!length(files)) return(invisible(0L))
   roles <- vapply(
     basename(files),
@@ -4127,7 +4165,9 @@ incidence_batch_curate_pub_figures_dir <- function(figures_dir, purge = FALSE, c
   if (!dir.exists(figures_dir)) return(invisible(0L))
   scheme <- if (!is.null(config)) incidence_batch_pub_figure_scheme(config) else "default"
   ## ml_dual_standard：默认 ML 定稿序；ml_with_correlation：仅课题开启时纳入相关热图为 Fig3
-  if (scheme %in% c("ml_dual_standard", "ml_dual_dev_ext", "ml_with_correlation")) {
+  if (scheme %in% c(
+    "ml_dual_standard", "ml_dual_dev_ext", "ml_single_standard", "ml_with_correlation"
+  )) {
     return(incidence_batch_curate_ml_pub_figures_dir(figures_dir, cfg = config %||% list()))
   }
   if (incidence_batch_is_prognosis_config(config)) {

@@ -500,6 +500,31 @@ cross_lagged_find_baseline_rdata <- function(study_root, db) {
   if (!length(hit)) NA_character_ else hit[[1L]]
 }
 
+#' Education 两档并档：Above/College → High school and above；Below 同义归并
+#'
+#' 作用于 `Education` / `T1_Education` / `T2_Education`（及同名单列）。
+#' 昼夜 Leisure 交付：RCS / 中介 / change / 亚组共用，禁止各 phase 再写一套 gsub。
+cross_lagged_harmonize_education <- function(data) {
+  if (is.null(data) || !is.data.frame(data) || !nrow(data)) return(data)
+  cols <- unique(c(
+    intersect(c("Education", "T1_Education", "T2_Education"), names(data)),
+    grep("(^|[._])Education$", names(data), value = TRUE)
+  ))
+  if (!length(cols)) return(data)
+  for (vn in cols) {
+    x <- trimws(as.character(data[[vn]]))
+    x[x %in% c(
+      "Higher education", "College and above", "College", "Above High school",
+      "High school and above", "High school or above", "High School and above"
+    )] <- "High school and above"
+    x[x %in% c("Non-higher education", "Less than high school", "Below High school")] <-
+      "Below High school"
+    x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
+    data[[vn]] <- factor(x, levels = c("Below High school", "High school and above"))
+  }
+  data
+}
+
 #' 从课题基线表按 ID 补回亚组列，并统一 Education / Smoking 水平名
 cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
   data <- as.data.frame(data)
@@ -538,19 +563,7 @@ cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
       }
     }
   }
-  if ("Education" %in% names(data)) {
-    x <- trimws(as.character(data$Education))
-    # 高学历并档：Above High school / College 等并入 High school and above
-    # （ELSA 原有第三档 High school and above；CHARLS 的 Above 同步改名）
-    x[x %in% c(
-      "Higher education", "College and above", "College", "Above High school",
-      "High school and above", "High school or above", "High School and above"
-    )] <- "High school and above"
-    x[x %in% c("Non-higher education", "Less than high school", "Below High school")] <-
-      "Below High school"
-    x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
-    data$Education <- factor(x, levels = c("Below High school", "High school and above"))
-  }
+  data <- cross_lagged_harmonize_education(data)
   if ("Smoking" %in% names(data)) {
     x <- trimws(as.character(data$Smoking))
     # 三档：Never / Former / Current（Former 同义归 Former，不并入 Never/Current）

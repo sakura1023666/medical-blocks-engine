@@ -1,0 +1,1 @@
+/mnt/e/01block/01Block-new-Final/Blocks/76_cum_egdr_kmeans_ckm_full/03block_kmeans_elbow_bivar.R

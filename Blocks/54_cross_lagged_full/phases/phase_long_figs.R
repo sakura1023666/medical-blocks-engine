@@ -559,6 +559,20 @@ for (db in dbs) {
     "{db} corr/mediation M2={paste(m2_med, collapse='+')}; change/Table2 M2={paste(m2_tab, collapse='+')}"
   )
 
+  # Education 并档：corr / mediation / change 与 Fig3 / RCS 同两档
+  if (exists("cross_lagged_harmonize_education", mode = "function")) {
+    if (is.data.frame(all_long[[db]]))
+      all_long[[db]] <- cross_lagged_harmonize_education(all_long[[db]])
+    if (is.data.frame(all_wide[[db]]))
+      all_wide[[db]] <- cross_lagged_harmonize_education(all_wide[[db]])
+    if (is.data.frame(all_med[[db]]))
+      all_med[[db]] <- cross_lagged_harmonize_education(all_med[[db]])
+    if (is.data.frame(all_ck_data[[db]]$imputed))
+      all_ck_data[[db]]$imputed <- cross_lagged_harmonize_education(all_ck_data[[db]]$imputed)
+    if (is.data.frame(all_ck_data[[db]]$cleaned))
+      all_ck_data[[db]]$cleaned <- cross_lagged_harmonize_education(all_ck_data[[db]]$cleaned)
+    cli::cli_alert_info("{db}: Education 已并档（corr/mediation/change）")
+  }
   ctx <- list(
     data = list(
       longitudinal = all_long[[db]],
@@ -639,7 +653,8 @@ for (db in dbs) {
 }
 
 # ── Pooled（可选；交叉滞后默认关闭）──────────────────────────────────────────
-if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
+# --with-pooled 即跑 Pooled；勿要求 --only 含 Pooled（--only 只筛分库 Pass1/2）
+if (isTRUE(run_pooled_long)) {
   cli::cli_h1("Cross-lagged figs: Pooled")
   out_dir <- file.path(study_root, "phase3_long_Pooled")
   dir.create(file.path(out_dir, "Tables"), recursive = TRUE, showWarnings = FALSE)
@@ -660,6 +675,12 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs)) {
   long_p <- .align_bind(all_long)
   wide_p <- .align_bind(all_wide)
   med_p <- .align_bind(all_med)
+  if (exists("cross_lagged_harmonize_education", mode = "function")) {
+    if (is.data.frame(long_p)) long_p <- cross_lagged_harmonize_education(long_p)
+    if (is.data.frame(wide_p)) wide_p <- cross_lagged_harmonize_education(wide_p)
+    if (is.data.frame(med_p)) med_p <- cross_lagged_harmonize_education(med_p)
+    cli::cli_alert_info("Pooled: Education 已并档（corr/mediation/change）")
+  }
   # 暴露量纲跨库不可比（如 Leisure_score CHARLS 0–11 vs ELSA 0–26）：
   # 按课题 .circadian_pooled_harmonize 在合并前做库内百分位/z，再标 Cohort=Pooled
   .treat_p <- if (exists(".circadian_index_var", inherits = TRUE)) {

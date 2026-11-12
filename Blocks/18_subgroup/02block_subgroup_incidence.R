@@ -561,24 +561,44 @@ block_subgroup_incidence <- function(ctx, ...) {
           "quartile"
       )[1L]
     }
-    if (!grp_method %in% c("quartile", "tertile", "binary")) grp_method <- "quartile"
+    # quintile 等闸门降级产物：亚组只支持 quartile/tertile/binary
+    if (identical(grp_method, "quintile")) grp_method <- "quartile"
+    if (!grp_method %in% c("quartile", "tertile", "binary", "median")) grp_method <- "quartile"
     store <- ctx$results$continuous_km_cutpoints[[index_var]]
     br <- store$breaks %||% NULL
     store_method <- as.character(store$method %||% "")[1L]
+    # pipeline_quantile_breaks 只认 quartile/tertile/median；binary → median
+    breaks_method <- if (grp_method %in% c("binary", "median")) "median" else grp_method
     if ((is.null(br) || !length(br) || !identical(store_method, grp_method)) &&
         exists("pipeline_quantile_breaks", mode = "function")) {
-      br <- pipeline_quantile_breaks(idx_num, method = grp_method)
+      br <- pipeline_quantile_breaks(idx_num, method = breaks_method)
       if (!is.null(br) && exists("pipeline_store_continuous_km_cutpoints", mode = "function")) {
         ctx <- pipeline_store_continuous_km_cutpoints(ctx, index_var, br, method = grp_method)
       }
     }
-    if (!exists("pipeline_quantile_group_factor", mode = "function")) {
-      stop("subgroup_incidence: 缺少 pipeline_quantile_group_factor", call. = FALSE)
+    if (grp_method %in% c("binary", "median")) {
+      med <- if (!is.null(br) && length(br) >= 2L) {
+        as.numeric(br[[2L]])
+      } else {
+        stats::median(idx_num, na.rm = TRUE)
+      }
+      rt[[index_var]] <- factor(
+        ifelse(is.finite(idx_num) & idx_num <= med, "Low", "High"),
+        levels = c("Low", "High")
+      )
+      forest_cap_mode <- "median_split"
+      cli::cli_alert_info(
+        "连续暴露 {.field {index_var}} 使用 binary/median: Low/High (cut={round(med, 4)})"
+      )
+    } else {
+      if (!exists("pipeline_quantile_group_factor", mode = "function")) {
+        stop("subgroup_incidence: 缺少 pipeline_quantile_group_factor", call. = FALSE)
+      }
+      rt[[index_var]] <- pipeline_quantile_group_factor(idx_num, method = grp_method, breaks = br)
+      cli::cli_alert_info(
+        "连续暴露 {.field {index_var}} 使用{grp_method}: {paste(levels(rt[[index_var]]), collapse=', ')}"
+      )
     }
-    rt[[index_var]] <- pipeline_quantile_group_factor(idx_num, method = grp_method, breaks = br)
-    cli::cli_alert_info(
-      "连续暴露 {.field {index_var}} 使用{grp_method}: {paste(levels(rt[[index_var]]), collapse=', ')}"
-    )
     ci_mode <- as.character(sub_cfg$continuous_index_mode %||% "highest_vs_lowest")[1L]
     .sgi_full_pop <- !identical(
       as.character(sub_cfg$forest_n_source %||% "full_stratum")[1L], "model_sample"

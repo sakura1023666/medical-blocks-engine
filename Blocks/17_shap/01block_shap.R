@@ -1380,7 +1380,7 @@
   } else {
     ff
   }
-  p + ggplot2::theme(
+  p <- p + ggplot2::theme(
     text          = ggplot2::element_text(family = ff_theme),
     axis.text     = ggplot2::element_text(family = ff_theme),
     axis.title    = ggplot2::element_text(family = ff_theme),
@@ -1389,8 +1389,28 @@
     plot.caption  = ggplot2::element_text(family = ff_theme),
     legend.text   = ggplot2::element_text(family = ff_theme),
     legend.title  = ggplot2::element_text(family = ff_theme),
-    strip.text    = ggplot2::element_text(family = ff_theme)
+    strip.text    = ggplot2::element_text(family = ff_theme),
+    plot.tag      = ggplot2::element_text(family = ff_theme)
   )
+  ## shapviz 连续色条常残留 NimbusSans：强制 colourbar 文字族
+  p <- tryCatch(
+    p + ggplot2::guides(
+      colour = ggplot2::guide_colourbar(
+        title.theme = ggplot2::element_text(family = ff_theme, size = 9),
+        label.theme = ggplot2::element_text(family = ff_theme, size = 8)
+      ),
+      color = ggplot2::guide_colourbar(
+        title.theme = ggplot2::element_text(family = ff_theme, size = 9),
+        label.theme = ggplot2::element_text(family = ff_theme, size = 8)
+      ),
+      fill = ggplot2::guide_colourbar(
+        title.theme = ggplot2::element_text(family = ff_theme, size = 9),
+        label.theme = ggplot2::element_text(family = ff_theme, size = 8)
+      )
+    ),
+    error = function(e) p
+  )
+  p
 }
 
 .shap_build_shapviz <- function(wf, X_mat, X_df) {

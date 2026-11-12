@@ -407,6 +407,10 @@ block_cross_lagged_change_logistic <- function(ctx, ...) {
     d <- .cross_lagged_change_build_two_wave(ctx$data$longitudinal_wide, bl, event)
   }
 
+  if (exists("cross_lagged_harmonize_education", mode = "function")) {
+    d <- cross_lagged_harmonize_education(d)
+  }
+
   has_time <- "T2_time" %in% names(d) && any(is.finite(as.numeric(d$T2_time)))
   if (has_time) d$T2_time <- pmax(as.numeric(d$T2_time), 0.01)
 

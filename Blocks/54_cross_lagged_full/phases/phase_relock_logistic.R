@@ -420,6 +420,14 @@ run_rcs_sxx <- function(db) {
     }
   }
   d <- ck$data$imputed %||% ck$data$cleaned
+  # 昼夜等：Education 并档后再跑 RCS / S-XX（与 Fig3 / 中介同口径）
+  if (!is.null(d) && exists("cross_lagged_harmonize_education", mode = "function")) {
+    d <- cross_lagged_harmonize_education(d)
+    ck$data$imputed <- d
+    if (!is.null(ck$data$cleaned)) ck$data$cleaned <- cross_lagged_harmonize_education(ck$data$cleaned)
+    if (!is.null(ck$data$mapped)) ck$data$mapped <- cross_lagged_harmonize_education(ck$data$mapped)
+    cli::cli_alert_info("{db}: Education 已并档为 Below / High school and above（RCS）")
+  }
   .idx_nm <- as.character(
     (e$config$incidence %||% list())$index_var %||%
       (.meta_lock$index_var %||% "FI")

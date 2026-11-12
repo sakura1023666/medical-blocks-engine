@@ -17,14 +17,34 @@ block_cum_exposure_build <- function(ctx, ...) {
   }
 
   mult <- as.numeric(bl$cum_multiplier %||% 3)
-  t1_col <- paste0(idx, "_t1")
-  t2_col <- paste0(idx, "_t2")
+  n_waves <- as.integer(bl$n_exposure_waves %||% 2L)[1L]
+  if (!is.finite(n_waves) || n_waves < 2L) n_waves <- 2L
+  t_cols <- paste0(idx, "_t", seq_len(n_waves))
   cum_col <- paste0("cum_", idx)
 
-  # 多指标：把当前 index 的两波/累积列别名到 eGDR_*，复用下游 Blocks
-  if (all(c(t1_col, t2_col) %in% names(data))) {
-    data$eGDR_t1 <- as.numeric(data[[t1_col]])
-    data$eGDR_t2 <- as.numeric(data[[t2_col]])
+  # 多指标：把当前 index 的多波/累积列别名到 eGDR_*，复用下游 Blocks
+  # 默认 n_exposure_waves=2（两波文献套路）；探索可设 3/4…
+  if (all(t_cols %in% names(data))) {
+    for (i in seq_len(n_waves)) {
+      data[[paste0("eGDR_t", i)]] <- as.numeric(data[[t_cols[i]]])
+    }
+    # 下游仍大量读 eGDR_t1/t2：末波别名到 t2（保留真 t2 当 n>2 时另存 eGDR_t2 原值）
+    if (n_waves == 2L) {
+      data$eGDR_t1 <- as.numeric(data[[t_cols[1]]])
+      data$eGDR_t2 <- as.numeric(data[[t_cols[2]]])
+    }
+    if (cum_col %in% names(data)) {
+      data$cum_eGDR <- as.numeric(data[[cum_col]])
+    } else {
+      mat <- as.matrix(data[, paste0("eGDR_t", seq_len(n_waves)), drop = FALSE])
+      data$cum_eGDR <- rowMeans(mat, na.rm = FALSE) * mult
+      data[[cum_col]] <- data$cum_eGDR
+    }
+  } else if (all(c(paste0(idx, "_t1"), paste0(idx, "_t2")) %in% names(data))) {
+    # 回退两波
+    n_waves <- 2L
+    data$eGDR_t1 <- as.numeric(data[[paste0(idx, "_t1")]])
+    data$eGDR_t2 <- as.numeric(data[[paste0(idx, "_t2")]])
     if (cum_col %in% names(data)) {
       data$cum_eGDR <- as.numeric(data[[cum_col]])
     } else {
@@ -33,15 +53,19 @@ block_cum_exposure_build <- function(ctx, ...) {
     }
   } else if (identical(toupper(idx), "EGDR")) {
     data <- ckm_stroke_recompute_egdr(data, bl)
+    n_waves <- 2L
   } else {
-    stop("cum_exposure_build: 缺少 ", t1_col, "/", t2_col, call. = FALSE)
+    stop("cum_exposure_build: 缺少 ", paste(t_cols, collapse = "/"), call. = FALSE)
   }
 
-  # 分析队列：两波完整 +（若有）结局非缺失
+  # 分析队列：各暴露波完整 +（若有）结局非缺失
   outcome <- ctx$config$data$outcome_column %||% "Osteoporosis"
-  ok <- is.finite(data$eGDR_t1) & is.finite(data$eGDR_t2)
+  ok <- Reduce(`&`, lapply(seq_len(n_waves), function(i) {
+    is.finite(as.numeric(data[[paste0("eGDR_t", i)]]))
+  }))
   if (outcome %in% names(data)) ok <- ok & !is.na(data[[outcome]])
   data <- data[ok, , drop = FALSE]
+  ctx$results$cum_exposure_n_waves <- n_waves
 
   # 指标级事先纳排：按 config$cum_egdr_kmeans$exclude_ids_by_index[[index]] 剔除（写进 Fig1）
   id_col <- ctx$config$data$id_column %||% "ID"

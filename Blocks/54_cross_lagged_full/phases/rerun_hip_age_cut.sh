@@ -296,12 +296,23 @@ if (!is.na(i)) lines <- c(lines[seq_len(i - 1L)], ins, lines[i:length(lines)])
 md <- file.path(study, "summary_result", "Methods_statistical_analysis.md")
 writeLines(lines, md)
 # Software versions
-sv <- file.path(study, "summary_result", "Methods_software_versions.txt")
+sum_root <- file.path(study, "summary_result")
+sv <- file.path(sum_root, "Methods_software_versions.txt")
+# 若误把文件路径当目录写成了嵌套，先拆平
+if (dir.exists(sv)) {
+  nested <- file.path(sv, "Methods_software_versions.txt")
+  if (file.exists(nested)) {
+    file.copy(nested, file.path(tempdir(), "Methods_software_versions.txt"), overwrite = TRUE)
+    unlink(sv, recursive = TRUE)
+    file.copy(file.path(tempdir(), "Methods_software_versions.txt"), sv, overwrite = TRUE)
+  } else {
+    unlink(sv, recursive = TRUE)
+  }
+}
 tryCatch({
   if (exists("pub_write_software_versions", mode = "function")) {
-    pub_write_software_versions(sv)
-  } else if (exists("pub_software_versions_lines", mode = "function")) {
-    writeLines(pub_software_versions_lines(), sv)
+    # API: 第一个参数是目录（index_root），不是文件路径
+    pub_write_software_versions(sum_root)
   } else {
     writeLines(c(
       paste0("R version: ", paste(R.version$major, R.version$minor, sep = ".")),
@@ -320,7 +331,7 @@ tryCatch({
 tryCatch({
   if (exists("pub_append_software_section_to_methods", mode = "function")) {
     pub_append_software_section_to_methods(md, sv)
-  } else if (file.exists(sv)) {
+  } else if (file.exists(sv) && !dir.exists(sv)) {
     cat("\n## Software\n\n", file = md, append = TRUE)
     cat(paste(readLines(sv, warn = FALSE), collapse = "\n"), "\n", file = md, append = TRUE)
   }

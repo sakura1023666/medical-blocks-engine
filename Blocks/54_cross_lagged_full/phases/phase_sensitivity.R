@@ -469,6 +469,10 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     if (!is.null(long2) && "ID" %in% names(long2)) {
       long2 <- long2[as.character(long2$ID) %in% as.character(ids_keep), , drop = FALSE]
     }
+    if (exists("cross_lagged_harmonize_education", mode = "function")) {
+      w2 <- cross_lagged_harmonize_education(w2)
+      if (is.data.frame(long2)) long2 <- cross_lagged_harmonize_education(long2)
+    }
     out_dir <- file.path(.out_root, scenario, db)
     cfg <- .make_base_config(db, out_dir, scenario)
     # Dementia：强制 two_wave（three_plus 硬编码 FI）；结局/时间来自 wide2 补齐列

@@ -61,7 +61,9 @@ authorized_indices <- c(
   "Glucose_mean+GV", "Potassium_FR+Potassium_CV", "WBC_first+WBC_CV",
   "Platelet_FR+Platelet_CV",
   # 白蛋白轴同轴优选（用户 2026-11-11：LAR+Albumin_CV 整合进 02block_result）
-  "LAR+Albumin_CV"
+  "LAR+Albumin_CV",
+  # 白蛋白轴联合 ROC+ML 综合优选（用户 2026-11-12）
+  "ANLR+Albumin_CV"
 )
 if (!index_label %in% authorized_indices) {
   stop("本终稿构建仅授权 --index 为: ", paste(authorized_indices, collapse = ", "),

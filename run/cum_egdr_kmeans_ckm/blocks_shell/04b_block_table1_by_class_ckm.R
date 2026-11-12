@@ -1,0 +1,1 @@
+/mnt/e/01block/01Block-new-Final/Blocks/76_cum_egdr_kmeans_ckm_full/04b_block_table1_by_class_ckm.R

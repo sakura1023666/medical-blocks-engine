@@ -20,12 +20,22 @@ block_kmeans_elbow_bivar <- function(ctx, ...) {
     ctx$results$kmeans_elbow_bivar <- list(skipped = TRUE)
     return(ctx)
   }
-  if (!all(c("eGDR_t1", "eGDR_t2") %in% names(data))) {
-    stop("缺少 eGDR_t1/eGDR_t2", call. = FALSE)
+  n_waves <- as.integer(bl$n_exposure_waves %||% ctx$results$cum_exposure_n_waves %||% 2L)[1L]
+  if (!is.finite(n_waves) || n_waves < 2L) n_waves <- 2L
+  t_names <- paste0("eGDR_t", seq_len(n_waves))
+  # 若配置了 4 波但列不全，回退到有的 eGDR_t*
+  have <- t_names[t_names %in% names(data)]
+  if (length(have) < 2L) {
+    stop("缺少 eGDR_t1/eGDR_t2（或多波 eGDR_t*）", call. = FALSE)
   }
-
-  mat <- cbind(as.numeric(data$eGDR_t1), as.numeric(data$eGDR_t2))
-  colnames(mat) <- c("t1", "t2")
+  if (length(have) < n_waves) {
+    cli::cli_alert_warning(
+      "kmeans: 配置 n_exposure_waves={n_waves} 但仅有 {length(have)} 列，按现有列拟合"
+    )
+  }
+  mat <- do.call(cbind, lapply(have, function(cn) as.numeric(data[[cn]])))
+  colnames(mat) <- paste0("t", seq_len(ncol(mat)))
+  n_waves <- ncol(mat)
 
   # 外验模式：固定发现队列中心，跳过本库重拟合
   fc_path <- bl$fixed_centers_csv %||% ""
@@ -84,21 +94,26 @@ block_kmeans_elbow_bivar <- function(ctx, ...) {
   }
 
   fit <- ckm_stroke_kmeans_fit(mat, k = k_use, seed = bl$seed %||% 2026L, nstart = bl$nstart %||% 25L)
-  cls <- ckm_stroke_anchor_classes(fit$cluster, data$eGDR_t1, data$eGDR_t2)
+  # 语义锚定仍用首波 vs 末波均值/变化
+  t_first <- mat[, 1L]
+  t_last <- mat[, ncol(mat)]
+  cls <- ckm_stroke_anchor_classes(fit$cluster, t_first, t_last)
   data$eGDR_Class <- cls
   data$Subphenotype <- cls
 
   # 发现队列：落盘语义类中心，供外验固定分配
   if (!is.null(fit$centers)) {
     cen_sem <- ckm_stroke_centers_by_semantic(fit$centers, fit$cluster, cls)
-    utils::write.csv(
-      data.frame(
-        class = rownames(cen_sem),
-        t1 = cen_sem[, 1], t2 = cen_sem[, 2],
-        stringsAsFactors = FALSE
-      ),
-      file.path(tab_dir, "Kmeans_semantic_centers.csv"), row.names = FALSE
-    )
+    cen_df <- data.frame(class = rownames(cen_sem), stringsAsFactors = FALSE)
+    for (j in seq_len(ncol(cen_sem))) {
+      cen_df[[paste0("t", j)]] <- cen_sem[, j]
+    }
+    utils::write.csv(cen_df, file.path(tab_dir, "Kmeans_semantic_centers.csv"), row.names = FALSE)
+  }
+  # 多波时草稿 Fig2 仍读 t1/t2：把 t2 指到末波，便于画首→末轨迹
+  if (n_waves > 2L) {
+    data$eGDR_t2_mid <- as.numeric(data$eGDR_t2)
+    data$eGDR_t2 <- as.numeric(t_last)
   }
 
   # Elbow 图
