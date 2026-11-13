@@ -181,13 +181,20 @@
     }
   }
   .par_font <- function(...) {
+    ## cairo_pdf 已开 Times New Roman 时勿改写成 "Times"（Windows 会落到 Arial）
     ff <- if (exists("resolve_plot_font_family", mode = "function")) {
       resolve_plot_font_family(font_family)
     } else {
-      "Times"
+      as.character(font_family %||% "Times New Roman")[1L]
     }
-    if (identical(ff, "Times New Roman")) ff <- "Times"
-    graphics::par(family = ff, ...)
+    if (!nzchar(ff)) ff <- "Times New Roman"
+    cur <- names(grDevices::dev.cur())
+    if (!identical(cur, "cairo_pdf") &&
+        identical(ff, "Times New Roman") &&
+        !isTRUE(capabilities("cairo"))) {
+      ff <- "Times"
+    }
+    graphics::par(family = ff, cex.lab = 1, cex.axis = 1, ...)
   }
   if (!length(selected)) {
     .open_pdf(out_path, width = 12, height = 4.2)
@@ -612,98 +619,25 @@ block_feature_selection_lasso_cox <- function(ctx, ...) {
     bl_cfg$fig_s1_name %||% "Figure S1.LASSO-Cox.pdf"
   )[1L]
 
-  ctx <- save_figure(ctx, fig_name, function() {
-    ## save_figure 会开 PDF 设备；这里改写为直接画到当前设备的三栏
-    graphics::layout(matrix(1:3, nrow = 1L))
-    graphics::par(mar = c(4.5, 4.2, 2.8, 1.2))
-    tryCatch({
-      plot(cvfit$glmnet.fit, xvar = "lambda", label = FALSE)
-    }, error = function(e) graphics::plot.new())
-    graphics::mtext("A", side = 3, line = 0.6, adj = 0, font = 2, cex = 1.2)
-    tryCatch({
-      plot(cvfit)
-    }, error = function(e) graphics::plot.new())
-    graphics::mtext("B", side = 3, line = 0.6, adj = 0, font = 2, cex = 1.2)
-
-    ## C 热图
-    graphics::par(mar = c(6, 6, 2.8, 3.5))
-    sel_plot <- intersect(selected, names(d))
-    drew <- FALSE
-    if (length(sel_plot) >= 2L) {
-      num_df <- as.data.frame(lapply(d[, sel_plot, drop = FALSE], function(x) {
-        if (is.numeric(x)) as.numeric(x) else if (is.factor(x)) as.numeric(x) else suppressWarnings(as.numeric(as.character(x)))
-      }), stringsAsFactors = FALSE)
-      keep <- vapply(num_df, function(x) sum(is.finite(x)) >= 3L, logical(1L))
-      num_df <- num_df[, keep, drop = FALSE]
-      if (ncol(num_df) >= 2L) {
-        lab_nm <- names(num_df)
-        if (exists("pipeline_display_label", mode = "function")) {
-          lab_nm <- pipeline_display_label(lab_nm)
-        } else {
-          lab_nm <- gsub("_", " ", lab_nm, fixed = TRUE)
-        }
-        names(num_df) <- lab_nm
-        cm <- tryCatch(
-          stats::cor(num_df, use = "pairwise.complete.obs"),
-          error = function(e) NULL
-        )
-        if (!is.null(cm)) {
-          if (requireNamespace("corrplot", quietly = TRUE)) {
-            tryCatch({
-              corrplot::corrplot(
-                cm, method = "color", type = "lower",
-                addCoef.col = "black", number.cex = 0.65,
-                tl.col = "black", tl.srt = 45, tl.cex = 0.75,
-                cl.cex = 0.65, diag = TRUE
-              )
-              drew <- TRUE
-            }, error = function(e) NULL)
-          }
-          if (!drew) {
-            n <- nrow(cm)
-            graphics::plot.new()
-            graphics::plot.window(xlim = c(0.5, n + 0.5), ylim = c(0.5, n + 0.5), asp = 1)
-            cols <- grDevices::colorRampPalette(c("#B2182B", "white", "#2166AC"))(101)
-            for (i in seq_len(n)) for (j in seq_len(i)) {
-              v <- cm[i, j]
-              if (!is.finite(v)) next
-              ci <- max(1L, min(101L, as.integer(round((v + 1) / 2 * 100)) + 1L))
-              graphics::rect(j - 0.5, n - i + 0.5, j + 0.5, n - i + 1.5, col = cols[ci], border = "grey80")
-              graphics::text(j, n - i + 1, sprintf("%.2f", v), cex = 0.6)
-            }
-            graphics::axis(1, at = seq_len(n), labels = colnames(cm), las = 2, cex.axis = 0.65)
-            graphics::axis(2, at = seq_len(n), labels = rev(colnames(cm)), las = 1, cex.axis = 0.65)
-            drew <- TRUE
-          }
-        }
-      }
-    }
-    if (!drew) graphics::plot.new()
-    graphics::mtext("C", side = 3, line = 0.6, adj = 0, font = 2, cex = 1.2)
-  }, width = 12, height = 4.2)
-
-  ## 同步一份 S1（单方法特征选择主图）
+  ## 只走 .fslcox10_draw_combined（cairo + Times New Roman）。
+  ## 禁止再 save_figure 入队：队列晚渲染会覆盖已写好的 Times PDF（且裸 Times→Arial）。
   fig_dir <- ctx$output_dir_figures %||% file.path(ctx$output_dir, "Figures")
-  src_fig <- file.path(fig_dir, fig_name)
-  if (file.exists(src_fig)) {
-    dest_s1 <- file.path(fig_dir, s1_name)
-    tryCatch(file.copy(src_fig, dest_s1, overwrite = TRUE), error = function(e) NULL)
-  }
-
-  ## 也写一份高清拼图（magick），覆盖同名更清晰
-  if (dir.exists(fig_dir)) {
-    hi <- file.path(fig_dir, fig_name)
+  if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+  hi <- file.path(fig_dir, fig_name)
+  tryCatch(
+    .fslcox10_draw_combined(cvfit, selected, d, hi, font_family = "Times New Roman"),
+    error = function(e) {
+      cli::cli_alert_warning("LASSO-Cox 拼图失败: {conditionMessage(e)}")
+    }
+  )
+  if (file.exists(hi)) {
     tryCatch(
-      .fslcox10_draw_combined(cvfit, selected, d, hi),
-      error = function(e) {
-        cli::cli_alert_warning("LASSO-Cox 高清拼图失败: {conditionMessage(e)}")
-      }
+      file.copy(hi, file.path(fig_dir, s1_name), overwrite = TRUE),
+      error = function(e) NULL
     )
-    if (file.exists(hi)) {
-      tryCatch(
-        file.copy(hi, file.path(fig_dir, s1_name), overwrite = TRUE),
-        error = function(e) NULL
-      )
+    if (exists("pub_mirror_saved", mode = "function")) {
+      try(pub_mirror_saved(ctx, hi), silent = TRUE)
+      try(pub_mirror_saved(ctx, file.path(fig_dir, s1_name)), silent = TRUE)
     }
   }
 

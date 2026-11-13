@@ -142,15 +142,21 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   st <- tolower(trimws(as.character(proj$study_type %||% "")[1L]))
   is_prog <- identical(st, "prognosis")
   is_incidence <- identical(st, "incidence") || identical(st, "cross_sectional")
-  ## analysis_group 常为 "1"/"0"；展示层用 disease 名，禁止 Methods 写 “analysis of 1”
+  ## analysis_group 常为 "1"/"0"/Dead/Alive；展示层用 disease 名，禁止 Methods 写 “analysis of Dead”
   ag_raw <- as.character(proj$analysis_group %||% mb$analysis_group %||% "")[1L]
   disease_nm <- as.character(proj$disease %||% proj$disease_cn %||% "")[1L]
-  disease <- if (nzchar(disease_nm) && (ag_raw %in% c("1", "0", "Yes", "No") || !nzchar(ag_raw))) {
-    disease_nm
-  } else if (nzchar(ag_raw) && !ag_raw %in% c("1", "0")) {
+  .ag_is_status <- tolower(trimws(ag_raw)) %in% c(
+    "1", "0", "yes", "no", "dead", "alive", "expired", "survivor",
+    "case", "control", "event", "nonevent"
+  )
+  disease <- if (nzchar(disease_nm)) {
+    if (exists("pipeline_display_label", mode = "function")) {
+      as.character(pipeline_display_label(disease_nm))[1L]
+    } else {
+      gsub("_", " ", disease_nm, fixed = TRUE)
+    }
+  } else if (nzchar(ag_raw) && !isTRUE(.ag_is_status)) {
     ag_raw
-  } else if (nzchar(disease_nm)) {
-    disease_nm
   } else {
     "the study outcome"
   }
@@ -333,7 +339,18 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   pred_mode <- identical(
     tolower(as.character((cfg$capability %||% list())$exposure_mode %||% "")[1L]),
     "all_ml_features"
-  )
+  ) || isTRUE((cfg$methods %||% list())$all_vars_ml %||% FALSE) ||
+    (
+      ## 全变量选特征 / 无单一暴露：survival index_var 空且 prediction 非单指标
+      !nzchar(as.character((cfg$survival %||% list())$index_var %||% "")[1L]) &&
+        isTRUE(is_prog) &&
+        isTRUE(include_ml_section) &&
+        (
+          is.null((cfg$index %||% list())$enable) ||
+            isFALSE((cfg$index %||% list())$enable) ||
+            identical(tolower(as.character((cfg$prediction %||% list())$index_mode %||% "")[1L]), "multi_combined")
+        )
+    )
   if (is_prog) {
     design_line <- paste0(
       "This was a prognostic survival analysis of ", disease,
@@ -393,7 +410,14 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
       )
     }
     shap_note <- if (nzchar(shap_rationale)) {
-      paste0(" SHAP / Shiny used ", shap_rationale, ".")
+      {
+        sr <- trimws(as.character(shap_rationale)[1L])
+        if (grepl("(?i)^shap\\b", sr)) {
+          paste0(" ", sr, if (grepl("\\.$", sr)) "" else ".")
+        } else {
+          paste0(" SHAP / Shiny used ", sr, ".")
+        }
+      }
     } else {
       paste0(
         " The primary ranking metric for discrimination was ", best_metric,
@@ -978,14 +1002,24 @@ ml_finalize_index_summary_results <- function(index_root,
   if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
     tryCatch(pub_delivery_clean_tables_xlsx_only(sum_root), error = function(e) NULL)
   }
-  ## 展示禁下划线兜底（已导 xlsx 外科 scrub；引擎级，全指标）
-  if (!exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+  ## 展示层 scrub：禁下划线 + 禁中文表 + image_information（引擎级，全指标）
+  if (!exists("pub_delivery_scrub_display", mode = "function") &&
+      !exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
     .ml_src("R/pub_delivery_prune.R")
   }
   if (!exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
     .ml_src("R/pub_xlsx_surgical.R")
   }
-  if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+  if (exists("pub_delivery_scrub_display", mode = "function")) {
+    tryCatch(
+      pub_delivery_scrub_display(sum_root),
+      error = function(e) {
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_warning("summary_results display scrub: {e$message}")
+        }
+      }
+    )
+  } else if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
     tryCatch(
       pub_delivery_scrub_tables_underscores(sum_root),
       error = function(e) {

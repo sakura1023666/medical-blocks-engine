@@ -309,11 +309,16 @@ for (tr in tab_roots) {
   }
 }
 
+## 默认不栅格 Fig8：交付 PDF 必须矢量（bad_pdf_raster=P0）。
+## 仅当显式 --rasterize-fig8 时写入 Figures/_raster_audit/，禁止覆盖交付 pdf/。
 f8_name <- as.character(get_opt(
   "--rasterize-fig8",
-  "Figure 8. Five-model ROC and SHAP in MIMIC-IV and eICU.pdf"
+  ""
 ))[1L]
-do_f8 <- !has_flag("--no-rasterize-fig8")
+do_f8 <- nzchar(f8_name) || has_flag("--rasterize-fig8")
+if (isTRUE(do_f8) && !nzchar(f8_name)) {
+  f8_name <- "Figure 8. Five-model ROC and SHAP in MIMIC-IV and eICU.pdf"
+}
 
 for (fr in fig_roots) {
   if (!dir.exists(fr)) next
@@ -328,19 +333,19 @@ for (fr in fig_roots) {
   if (isTRUE(do_f8) && nzchar(f8_name)) {
     f8_src <- file.path(pdf_dir, f8_name)
     if (file.exists(f8_src)) {
-      f8_tmp <- file.path(tmp, f8_name)
+      audit_dir <- file.path(fr, "_raster_audit")
+      dir.create(audit_dir, recursive = TRUE, showWarnings = FALSE)
+      f8_tmp <- file.path(audit_dir, f8_name)
       tryCatch({
         pub_figure_rasterize_pdf_page(f8_src, f8_tmp, dpi = 300L)
-        file.copy(f8_tmp, f8_src, overwrite = TRUE)
-        unlink(file.path(fr, "png", sub("\\.pdf$", ".png", f8_name)))
-        unlink(file.path(fr, "tiff", sub("\\.pdf$", ".tiff", f8_name)))
-        message("fig8 rasterized ", f8_src)
+        message("fig8 raster audit only (delivery pdf untouched): ", f8_tmp)
       }, error = function(e) message("fig8 raster fail: ", conditionMessage(e)))
     }
   }
   tryCatch(pub_figure_ensure_formats(fr), error = function(e) message("ensure: ", conditionMessage(e)))
   st <- pub_figure_formats_status(fr)
-  message("status ", fr, " ok=", isTRUE(st$ok), " bad_dpi=", length(st$bad_dpi %||% character(0)))
+  message("status ", fr, " ok=", isTRUE(st$ok), " bad_dpi=", length(st$bad_dpi %||% character(0)),
+          " bad_pdf_raster=", length(st$bad_pdf_raster %||% character(0)))
 }
 
 if (!is.null(r6$rows)) {

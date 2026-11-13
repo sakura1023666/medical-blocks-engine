@@ -48,11 +48,63 @@ pub_qc_scan_fonts <- function(project_root, pdf_dirs = NULL) {
   if (length(sum_dirs)) pdf_dirs <- sum_dirs
 
   pdffonts <- Sys.which("pdffonts")
+  ## Windows R 常找不到 pdffonts：试 PATH / Poppler / WSL
   if (!nzchar(pdffonts)) {
-    return(list(ok = TRUE, n_bad = 0L, hits = data.frame(
-      file = character(), font = character(), source = character(),
-      stringsAsFactors = FALSE
-    ), note = "pdffonts_missing_skip"))
+    extra <- c(
+      "/usr/bin/pdffonts",
+      "/usr/local/bin/pdffonts",
+      "C:/Program Files/poppler/Library/bin/pdffonts.exe",
+      "C:/poppler/Library/bin/pdffonts.exe"
+    )
+    hit <- extra[file.exists(extra)]
+    if (length(hit)) pdffonts <- hit[[1L]]
+  }
+  use_wsl <- FALSE
+  if ((!nzchar(pdffonts) || !file.exists(pdffonts)) &&
+      identical(.Platform$OS.type, "windows")) {
+    wsl <- Sys.which("wsl")
+    if (nzchar(wsl)) {
+      chk <- tryCatch(
+        system2(wsl, c("bash", "-lc", "command -v pdffonts"), stdout = TRUE, stderr = FALSE),
+        error = function(e) character(0)
+      )
+      if (length(chk) && nzchar(chk[1L])) {
+        use_wsl <- TRUE
+        pdffonts <- "wsl_pdffonts"
+      }
+    }
+  }
+  if ((!nzchar(pdffonts) || (!use_wsl && !file.exists(pdffonts)))) {
+    return(list(
+      ok = FALSE, n_bad = 1L,
+      hits = data.frame(
+        file = "(scanner)", font = "pdffonts_missing", source = "pub_qc_fonts",
+        stringsAsFactors = FALSE
+      ),
+      note = "pdffonts_missing_fail"
+    ))
+  }
+
+  .win_to_wsl_path <- function(p) {
+    p <- gsub("\\\\", "/", as.character(p)[1L])
+    if (grepl("^[A-Za-z]:/", p)) {
+      drv <- tolower(substr(p, 1L, 1L))
+      return(paste0("/mnt/", drv, "/", substring(p, 4L)))
+    }
+    p
+  }
+  .run_pdffonts <- function(fp) {
+    if (isTRUE(use_wsl)) {
+      wp <- .win_to_wsl_path(fp)
+      return(tryCatch(
+        system2(Sys.which("wsl"), c("pdffonts", wp), stdout = TRUE, stderr = TRUE),
+        error = function(e) character(0)
+      ))
+    }
+    tryCatch(
+      system2(pdffonts, args = shQuote(fp), stdout = TRUE, stderr = TRUE),
+      error = function(e) character(0)
+    )
   }
 
   allow_re <- .pub_qc_font_allow_re()
@@ -61,10 +113,7 @@ pub_qc_scan_fonts <- function(project_root, pdf_dirs = NULL) {
   for (d in pdf_dirs) {
     pdfs <- list.files(d, pattern = "(?i)\\.pdf$", full.names = TRUE)
     for (fp in pdfs) {
-      out <- tryCatch(
-        system2(pdffonts, args = shQuote(fp), stdout = TRUE, stderr = TRUE),
-        error = function(e) character(0)
-      )
+      out <- .run_pdffonts(fp)
       if (!length(out) || length(out) < 3L) next
       # skip header lines (usually 2)
       body <- out[-(1:2)]

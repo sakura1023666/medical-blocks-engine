@@ -542,11 +542,18 @@ r <- run_stage("figure1_flowchart", 300, {
       }
       if (nzchar(lab)) bits <- c(bits, lab)
     }
+    .ix_disp <- function(x) {
+      if (exists("pipeline_display_label", mode = "function")) {
+        pipeline_display_label(x)
+      } else {
+        gsub("_", " ", as.character(x), fixed = TRUE)
+      }
+    }
     bits <- c(
       bits,
       sprintf(
         "Excluded incomplete %s + %s (n = %s)",
-        INDEX_A, INDEX_B, fmtn(n_miss)
+        .ix_disp(INDEX_A), .ix_disp(INDEX_B), fmtn(n_miss)
       )
     )
     paste(bits, collapse = "\n")
@@ -1239,7 +1246,7 @@ run_stage("figureS1_ph_trend", 600, {
     survival:::plot.cox.zph(
       z, resid = TRUE, se = TRUE, df = 4, nsmo = 40, var = idx,
       xlab = "Time", ylab = "Beta(t) for Group",
-      main = sprintf("%s  %s\nCOX Regression PH Test Trend Plot_Group",
+      main = sprintf("%s  %s\nCOX Regression PH Test Trend Plot Group",
                      letter, db),
       col = 1, lwd = 1, lty = 1:2, pch = 1, cex = 0.55
     )
@@ -1256,15 +1263,33 @@ run_stage("figureS1_ph_trend", 600, {
     } else {
       "Figure S1. Time-varying PH coefficient trends by SOFA strata.pdf"
     })
-  grDevices::pdf(out_pdf, width = 11.2, height = 5.6, onefile = TRUE)
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "Times"
+  }
+  .ia_lab <- if (exists("pipeline_display_label", mode = "function")) {
+    pipeline_display_label(INDEX_A)
+  } else gsub("_", " ", INDEX_A, fixed = TRUE)
+  .ib_lab <- if (exists("pipeline_display_label", mode = "function")) {
+    pipeline_display_label(INDEX_B)
+  } else gsub("_", " ", INDEX_B, fixed = TRUE)
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(out_pdf, width = 11.2, height = 5.6, family = .ff)
+  } else if (isTRUE(capabilities("cairo"))) {
+    grDevices::cairo_pdf(out_pdf, width = 11.2, height = 5.6, family = .ff)
+  } else {
+    grDevices::pdf(out_pdf, width = 11.2, height = 5.6, family = .ff)
+  }
   graphics::par(mfrow = c(1, 2), mar = c(5.2, 4.2, 3.8, 1.2),
-                oma = c(2.8, 0.2, 0.2, 0.2))
+                oma = c(2.8, 0.2, 0.2, 0.2),
+                family = .ff)
   .plot_one(mi_z$zph, "A", mi_z$database, mi_z$p)
   .plot_one(ei_z$zph, "B", ei_z$database, ei_z$p)
   graphics::mtext(
     paste0(
       "Fig. S1  The trends of the proportional-hazards assumption test based on ",
-      "the COX regression model. Group = ", INDEX_A, "+", INDEX_B,
+      "the COX regression model. Group = ", .ia_lab, "+", .ib_lab,
       " joint tertile score; Age+Gender adjusted. Pink dashed: Beta(t)=0."
     ),
     side = 1, outer = TRUE, line = 1.4, cex = 0.78, adj = 0

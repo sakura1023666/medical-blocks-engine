@@ -273,7 +273,8 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       single_method_use_s2_plot = TRUE
     )
   )
-  ml_dual_sanitize_multicollinearity_anthropometric(config)
+  config <- ml_dual_sanitize_multicollinearity_anthropometric(config)
+  ml_dual_apply_pub_font_overrides(config)
 }
 
 ml_dual_default_ml_methods <- function() {
@@ -958,5 +959,26 @@ ml_dual_apply_regular_upstream_overrides <- function(config) {
   )
   if (!nzchar(as.character(pd$p_style %||% "")[1L])) pd$p_style <- "nejm"
   config$pub_digits <- pd
+  ## 发表字体：cairo 必须 Times New Roman（Windows 裸 Times→Arial）
+  config <- ml_dual_apply_pub_font_overrides(config)
+  config
+}
+
+#' 全 ML 课题发表字体 / 禁下划线展示默认
+ml_dual_apply_pub_font_overrides <- function(config) {
+  config$plot <- modifyList(
+    config$plot %||% list(),
+    list(
+      font_family = "Times New Roman",
+      pdf_device = "cairo_pdf"
+    )
+  )
+  if (!is.null(config$attrition) && is.list(config$attrition)) {
+    af <- as.character(config$attrition$font_family %||% "")[1L]
+    if (!nzchar(af) || identical(tolower(af), "times") ||
+        grepl("(?i)arial|helvetica|sans", af)) {
+      config$attrition$font_family <- "Times New Roman"
+    }
+  }
   config
 }

@@ -162,6 +162,13 @@
   isTRUE(frac01 >= 0.98) && length(u) <= 4L
 }
 
+#' 可否作连续色条 / dependence 横轴（纯数值且非二分类；factor/字符一律否）
+.shap_is_continuous_numeric <- function(x) {
+  if (is.null(x)) return(FALSE)
+  if (is.factor(x) || is.character(x) || is.logical(x)) return(FALSE)
+  is.numeric(x) && !.shap_is_binary_like(x)
+}
+
 #' dependence 着色变量：优先连续特征（暴露指标 > 最强连续交互 > |SHAP|）
 #'
 #' 无色会把「与二分类药的交互」画成上下两层横条，看起来像画错。
@@ -184,7 +191,8 @@
   if (is.null(Xv)) return(NULL)
   cand <- setdiff(names(Xv), as.character(v)[1L])
   if (!length(cand)) return(NULL)
-  cont <- cand[vapply(cand, function(nm) !.shap_is_binary_like(Xv[[nm]]), logical(1L))]
+  # 仅纯数值连续可作色条；多水平 factor/字符（如 Differentiation=1/2/3/Other）不可进 continuous gradient
+  cont <- cand[vapply(cand, function(nm) .shap_is_continuous_numeric(Xv[[nm]]), logical(1L))]
   if (!length(cont)) return(NULL)
 
   ## 1) 暴露/指标名优先（与横轴不同）
@@ -252,8 +260,10 @@
   if (!is.null(color_var) && !identical(color_var, "auto") &&
       !is.null(bee_low) && !is.null(bee_high)) {
     Xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
-    is_bin_col <- !is.null(Xv) && color_var %in% names(Xv) &&
-      .shap_is_binary_like(Xv[[color_var]])
+    col_x <- if (!is.null(Xv) && color_var %in% names(Xv)) Xv[[color_var]] else NULL
+    is_bin_col <- !is.null(col_x) && .shap_is_binary_like(col_x)
+    is_disc_col <- !is.null(col_x) &&
+      (is.factor(col_x) || is.character(col_x) || is.logical(col_x))
     if (is_bin_col) {
       p <- tryCatch(
         p + ggplot2::scale_color_manual(
@@ -265,7 +275,8 @@
         ),
         error = function(e) p
       )
-    } else {
+    } else if (!is_disc_col) {
+      # 仅纯数值着色才加 continuous gradient；多水平 factor 跳过（避免 print 时才爆）
       p <- tryCatch(
         p + ggplot2::scale_color_gradient(
           low = bee_low, high = bee_high, na.value = bee_high
@@ -1041,9 +1052,27 @@
     keep <- .shap_baked_columns_for_venn_features(ctx, pred_cols, venn)
     if (!length(keep)) keep <- as.character(pred_cols)
     keep <- unique(keep[nzchar(keep)])
+    # 韦恩对齐后仍须丢掉分类列，否则 bee/dependence 连续色阶遇 factor/字符会崩
+    if (!isFALSE(sh_cfg$exclude_categorical %||% TRUE)) {
+      cat_raw <- .shap_categorical_raw_features(ctx)
+      base <- ctx$data$imputed %||% ctx$data$cleaned
+      keep <- keep[!vapply(keep, function(col) {
+        if (.shap_is_baked_categorical_column(col, cat_raw)) return(TRUE)
+        if (is.data.frame(base) && col %in% names(base) &&
+            .shap_is_categorical_col(base[[col]])) {
+          return(TRUE)
+        }
+        FALSE
+      }, logical(1L))]
+    }
     cli::cli_alert_info(
       "block_shap: 韦恩对齐 SHAP 图列 n={length(keep)}（ML 特征 {length(venn)} 个）: {paste(head(keep, 12), collapse = ', ')}{if (length(keep) > 12) ', ...' else ''}"
     )
+    if (!length(keep)) {
+      cli::cli_alert_warning("block_shap: 韦恩对齐后排除分类无可用列，回退全部韦恩烘焙列。")
+      keep <- .shap_baked_columns_for_venn_features(ctx, pred_cols, venn)
+      keep <- unique(keep[nzchar(keep)])
+    }
     return(keep)
   }
   if (isFALSE(sh_cfg$exclude_categorical %||% TRUE)) return(pred_cols)
@@ -1539,10 +1568,14 @@
   Xv <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
   .ok_cont <- function(nms) {
     nms <- as.character(nms)
-    if (!skip_bin || is.null(Xv)) return(nms)
+    if (is.null(Xv)) return(nms)
     Keep <- vapply(nms, function(nm) {
       if (!nm %in% names(Xv)) return(TRUE)
-      !.shap_is_binary_like(Xv[[nm]])
+      x <- Xv[[nm]]
+      # factor/字符/逻辑不得进 D 面横轴（bee 连续色阶同样会炸）
+      if (is.factor(x) || is.character(x) || is.logical(x)) return(FALSE)
+      if (isTRUE(skip_bin) && .shap_is_binary_like(x)) return(FALSE)
+      is.numeric(x)
     }, logical(1L))
     nms[Keep]
   }

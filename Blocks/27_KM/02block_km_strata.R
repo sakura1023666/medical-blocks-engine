@@ -300,12 +300,81 @@
   invisible(TRUE)
 }
 
+## survminer geom_text/pval 常硬落 Arial；写盘前钉 Times + grob 递归强制
+.kms02_force_ggplot_times <- function(g, family = "Times New Roman") {
+  if (is.null(g) || !inherits(g, "ggplot")) return(g)
+  ff <- as.character(family %||% "Times New Roman")[1L]
+  if (!nzchar(ff)) ff <- "Times New Roman"
+  for (i in seq_along(g$layers)) {
+    tryCatch({
+      g$layers[[i]]$aes_params$family <- ff
+    }, error = function(e) NULL)
+  }
+  g + ggplot2::theme(
+    text = ggplot2::element_text(family = ff),
+    plot.title = ggplot2::element_text(family = ff),
+    plot.subtitle = ggplot2::element_text(family = ff),
+    axis.text = ggplot2::element_text(family = ff),
+    axis.title = ggplot2::element_text(family = ff),
+    legend.text = ggplot2::element_text(family = ff),
+    legend.title = ggplot2::element_text(family = ff),
+    strip.text = ggplot2::element_text(family = ff)
+  )
+}
+
+.kms02_print_surv_obj_times <- function(obj, family = "Times New Roman") {
+  ff <- as.character(family %||% "Times New Roman")[1L]
+  if (!nzchar(ff)) ff <- "Times New Roman"
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    try(ggplot2::update_geom_defaults("text", list(family = ff)), silent = TRUE)
+    try(ggplot2::update_geom_defaults("label", list(family = ff)), silent = TRUE)
+  }
+  if (inherits(obj, "ggsurvplot")) {
+    if (!is.null(obj$plot)) obj$plot <- .kms02_force_ggplot_times(obj$plot, ff)
+    if (!is.null(obj$table)) obj$table <- .kms02_force_ggplot_times(obj$table, ff)
+    if (!is.null(obj$cumevents)) obj$cumevents <- .kms02_force_ggplot_times(obj$cumevents, ff)
+    if (!is.null(obj$cumcensor)) obj$cumcensor <- .kms02_force_ggplot_times(obj$cumcensor, ff)
+    ## 转 grob 再钉 fontfamily，消 survminer 残留 Arial
+    g <- tryCatch({
+      if (requireNamespace("survminer", quietly = TRUE)) {
+        ## arrange 单张 → gtable
+        survminer::arrange_ggsurvplots(list(obj), print = FALSE, ncol = 1L, nrow = 1L)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(g) && exists(".pipeline_force_grob_fontfamily", mode = "function")) {
+      grid::grid.draw(.pipeline_force_grob_fontfamily(g, ff))
+      return(invisible(obj))
+    }
+    print(obj, newpage = FALSE)
+    return(invisible(obj))
+  }
+  if (inherits(obj, c("gtable", "grob", "gTree", "gList"))) {
+    if (exists(".pipeline_force_grob_fontfamily", mode = "function")) {
+      grid::grid.draw(.pipeline_force_grob_fontfamily(obj, ff))
+    } else {
+      grid::grid.draw(obj)
+    }
+    return(invisible(obj))
+  }
+  if (inherits(obj, c("ggplot", "gg", "patchwork"))) {
+    g <- tryCatch(ggplot2::ggplotGrob(obj), error = function(e) NULL)
+    if (!is.null(g) && exists(".pipeline_force_grob_fontfamily", mode = "function")) {
+      grid::grid.draw(.pipeline_force_grob_fontfamily(g, ff))
+      return(invisible(obj))
+    }
+  }
+  print(obj)
+  invisible(obj)
+}
+
 .kms02_write_pdf_atomic <- function(obj, path, width, height,
                                     family = "Times New Roman") {
   tmp <- tempfile(pattern = "km_", fileext = ".pdf")
   tryCatch({
     .kms02_pdf_open(tmp, width, height, family = family)
-    if (inherits(obj, "ggsurvplot")) print(obj, newpage = FALSE) else print(obj)
+    .kms02_print_surv_obj_times(obj, family = family)
     grDevices::dev.off()
     fi <- file.info(tmp)
     if (is.na(fi$size) || fi$size < 200L) stop("临时 PDF 过小")

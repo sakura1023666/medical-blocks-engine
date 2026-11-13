@@ -29,8 +29,20 @@ if (!exists("%||%", mode = "function")) {
 .ref_ia <- function() .ref_assoc_idx$a
 .ref_ib <- function() .ref_assoc_idx$b
 .ref_ilab <- function() .ref_assoc_idx$label
+## 图面/表题展示名（禁下划线）；路径/锁键仍用 .ref_ia/.ref_ib/.ref_ilab
+.ref_disp <- function(x) {
+  x <- as.character(x %||% "")
+  if (!length(x)) return(x)
+  if (exists("pipeline_display_label", mode = "function")) {
+    return(pipeline_display_label(x))
+  }
+  gsub("_", " ", x, fixed = TRUE)
+}
+.ref_ia_lab <- function() .ref_disp(.ref_ia())
+.ref_ib_lab <- function() .ref_disp(.ref_ib())
+.ref_ilab_disp <- function() paste0(.ref_ia_lab(), "+", .ref_ib_lab())
 # 图面显示名：联合四分组（各指标最高三分位 high × 其余 low）
-.ref_joint_lab <- function() paste0(.ref_ilab(), " joint")
+.ref_joint_lab <- function() paste0(.ref_ilab_disp(), " joint")
 
 
 .ref_assoc_require <- function(names) {
@@ -498,12 +510,12 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
   lab_map <- stats::setNames(ord, ord)
   g_hit <- grepl("^Group[0-9]+$", ord)
   if (any(g_hit)) {
-    ia <- .ref_ia(); ib <- .ref_ib()
+    ia_lab <- .ref_ia_lab(); ib_lab <- .ref_ib_lab()
     g_labs <- c(
-      Group1 = paste0("Low ", ia, " + Low ", ib),
-      Group2 = paste0("High ", ia, " + Low ", ib),
-      Group3 = paste0("Low ", ia, " + High ", ib),
-      Group4 = paste0("High ", ia, " + High ", ib)
+      Group1 = paste0("Low ", ia_lab, " + Low ", ib_lab),
+      Group2 = paste0("High ", ia_lab, " + Low ", ib_lab),
+      Group3 = paste0("Low ", ia_lab, " + High ", ib_lab),
+      Group4 = paste0("High ", ia_lab, " + High ", ib_lab)
     )
     # 图例顺序对齐原文：双低 → 仅B高 → 仅A高 → 双高
     paper_ord <- c("Group1", "Group3", "Group2", "Group4")
@@ -591,7 +603,11 @@ ref_assoc_layer_labels <- function(cutoff = c(4L, 10L)) {
       x = "Time (days)", y = "Survival Probability",
       title = title_lab, subtitle = NULL
     ) +
-    ggplot2::theme_classic(base_size = 11, base_family = "sans") +
+    ggplot2::theme_classic(
+      base_size = 11,
+      base_family = if (exists("resolve_plot_font_family", mode = "function"))
+        resolve_plot_font_family("Times New Roman") else "Times"
+    ) +
     ggplot2::theme(
       legend.position = "top",
       legend.title = ggplot2::element_text(size = 10, face = "bold"),
@@ -634,10 +650,10 @@ ref_assoc_fig2_km <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL,
   curves <- list()
   k <- 0L
   cols <- list(
-    list(column = ia, name = paste0(ia, " tertile"), legend = ia),
-    list(column = ib, name = paste0(ib, " tertile"), legend = ib),
-    list(column = "Joint", name = paste0(ilab, " joint"),
-         legend = paste0(ilab))
+    list(column = ia, name = paste0(.ref_ia_lab(), " tertile"), legend = .ref_ia_lab()),
+    list(column = ib, name = paste0(.ref_ib_lab(), " tertile"), legend = .ref_ib_lab()),
+    list(column = "Joint", name = paste0(.ref_ilab_disp(), " joint"),
+         legend = .ref_ilab_disp())
   )
   sofa_lv <- ref_assoc_layer_labels(cutoff)
   # overall-only：保留 Overall；有 SOFA 层时 KM 只画各 SOFA 层（不含 Overall 重复）
@@ -860,11 +876,12 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
         } else {
           paste0(a$stratum, ": ", a$p_lab, collapse = "\n")
         }
+        idx_lab <- .ref_disp(idx)
         lab <- if (isTRUE(overall_only) &&
                      length(unique(as.character(ann$database))) > 1L) {
-          paste0(db_s, " | ", idx, "\n", p_bit)
+          paste0(db_s, " | ", idx_lab, "\n", p_bit)
         } else {
-          paste0(idx, "\n", p_bit)
+          paste0(idx_lab, "\n", p_bit)
         }
         data.frame(
           database = dbn, index = idx, strip = lab,
@@ -907,7 +924,7 @@ ref_assoc_fig3_rcs <- function(db_frames, cutoff = c(4L, 10L), grid_n = 50L,
         x = "Exposure", y = "Adjusted HR (95% CI)",
         colour = NULL, fill = NULL
       ) +
-      ggplot2::theme_classic(base_size = if (single_db) 11 else 10) +
+      ggplot2::theme_classic(base_family = if (exists("resolve_plot_font_family", mode = "function")) resolve_plot_font_family("Times New Roman") else "Times", base_size = if (single_db) 11 else 10) +
       ggplot2::theme(
         legend.position = if (overall_only) "none" else "bottom",
         panel.grid.minor = ggplot2::element_blank(),
@@ -983,7 +1000,7 @@ ref_assoc_roc_predictors <- function() {
 }
 
 .ref_assoc_fig4_joint_lab <- function() {
-  paste0(.ref_ia(), " + ", .ref_ib(), " (LP)")
+  paste0(.ref_ia_lab(), " + ", .ref_ib_lab(), " (LP)")
 }
 
 ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
@@ -1106,8 +1123,8 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
     # 原文 Fig.4：图例仅曲线名（AUC→Table S5）；无 90 天/糖代谢层时，
     # 双库 Overall 分析集 = A/B 两面（对齐 Fig2/3，禁 ML train/val 分面）
     pred_lv <- preds
-    pred_labs <- pred_lv
-    pred_labs[pred_labs == "Joint"] <- .ref_assoc_fig4_joint_lab()
+    pred_labs <- .ref_disp(pred_lv)
+    pred_labs[pred_lv == "Joint"] <- .ref_assoc_fig4_joint_lab()
     curve$database <- .ref_assoc_factor_db(curve$database, short = FALSE)
     levels(curve$database) <- .ref_assoc_db_levels(short = TRUE)
     curve$stratum <- factor(curve$stratum, levels = stratum_order)
@@ -1133,7 +1150,7 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
           x = "1 - Specificity", y = "Sensitivity", colour = NULL,
           title = letter_lab
         ) +
-        ggplot2::theme_classic(base_size = 11) +
+        ggplot2::theme_classic(base_family = if (exists("resolve_plot_font_family", mode = "function")) resolve_plot_font_family("Times New Roman") else "Times", base_size = 11) +
         ggplot2::theme(
           legend.position = c(0.98, 0.02),
           legend.justification = c(1, 0),
@@ -1184,7 +1201,7 @@ ref_assoc_fig4_roc <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL) {
         ggplot2::labs(
           x = "1 - Specificity", y = "Sensitivity", colour = NULL
         ) +
-        ggplot2::theme_classic(base_size = if (single_db) 11 else 8) +
+        ggplot2::theme_classic(base_family = if (exists("resolve_plot_font_family", mode = "function")) resolve_plot_font_family("Times New Roman") else "Times", base_size = if (single_db) 11 else 8) +
         ggplot2::theme(
           legend.position = "bottom",
           legend.direction = "horizontal",
@@ -1413,11 +1430,12 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
     } else {
       ""
     }
+    ia_lab <- .ref_ia_lab(); ib_lab <- .ref_ib_lab()
     grp_levels <- c(
-      paste0("Low ", ia, " + Low ", ib),
-      paste0("Low ", ia, " + High ", ib),
-      paste0("High ", ia, " + Low ", ib),
-      paste0("High ", ia, " + High ", ib)
+      paste0("Low ", ia_lab, " + Low ", ib_lab),
+      paste0("Low ", ia_lab, " + High ", ib_lab),
+      paste0("High ", ia_lab, " + Low ", ib_lab),
+      paste0("High ", ia_lab, " + High ", ib_lab)
     )
     # Group1=双低, Group2=仅A高, Group3=仅B高, Group4=双高 → 图例序同原文
     map_g <- c(
@@ -1635,7 +1653,7 @@ ref_assoc_fig5_landmark <- function(train_aug, mimic_analysis, eicu_analysis,
             locked_layer, as.integer(locked_day), lock_subtitle_extra
           )
         ) +
-        ggplot2::theme_classic(base_size = if (single_db) 11 else 9) +
+        ggplot2::theme_classic(base_family = if (exists("resolve_plot_font_family", mode = "function")) resolve_plot_font_family("Times New Roman") else "Times", base_size = if (single_db) 11 else 9) +
         ggplot2::theme(
           legend.position = "bottom",
           legend.direction = "horizontal",
@@ -1946,13 +1964,28 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
       ci_lab <- "HR (95% CI)"
       disp <- plot_df[, c("Variable", ci_lab, " ", "P", "P for interaction"),
                       drop = FALSE]
+      # 展示层禁下划线（Age_Group → Age Group 等）
+      if (exists("pipeline_display_label", mode = "function")) {
+        disp$Variable <- pipeline_display_label(as.character(disp$Variable))
+      } else {
+        disp$Variable <- gsub("_", " ", as.character(disp$Variable), fixed = TRUE)
+      }
+      .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+        resolve_plot_font_family("Times New Roman")
+      } else {
+        "Times"
+      }
       tm <- forestploter::forest_theme(
         base_size = 9,
-        refline_gp = grid::gpar(col = "grey50", lty = 2, lwd = 1),
+        refline_gp = grid::gpar(col = "grey50", lty = 2, lwd = 1, fontfamily = .ff),
         ci_pch = 15, ci_col = "#2C7BB6", ci_fill = "#2C7BB6",
         ci_lty = 1, ci_lwd = 1.4, ci_Theight = 0.18,
-        core = list(fg_params = list(hjust = 0, x = 0.01),
-                    bg_params = list(fill = c("#ffffff", "#f7f7f7")))
+        core = list(
+          fg_params = list(hjust = 0, x = 0.01, fontfamily = .ff),
+          bg_params = list(fill = c("#ffffff", "#f7f7f7"))
+        ),
+        xlab_gp = grid::gpar(fontsize = 9, fontfamily = .ff),
+        ticks_gp = grid::gpar(fontsize = 8, fontfamily = .ff)
       )
       xlim <- c(0.2, 4)
       est <- plot_df$`Point Estimate`
@@ -2025,11 +2058,16 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
     }
 
     # forestploter 禁止嵌套 viewport 硬拼——易叠画/表头错位。
-    # 各面板单独按 get_wh 落临时 PDF，再用 magick 2×2 合成。
+    # 各面板单独落矢量 PDF，再用 PyMuPDF 2×N 矢量拼页（禁止 magick 整页栅格交付）。
     tmp_dir <- tempfile("fig6_panels_")
     dir.create(tmp_dir, recursive = TRUE)
     on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
-    panel_pngs <- character(0)
+    panel_pdfs <- character(0)
+    .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+      resolve_plot_font_family("Times New Roman")
+    } else {
+      "Times"
+    }
     for (ps in panel_specs) {
       pdf_df <- .fig6_panel_df(ps$sub)
       grob <- .fig6_one_forest(pdf_df)
@@ -2047,124 +2085,77 @@ ref_assoc_fig6_forest <- function(db_frames, cutoff = c(4L, 10L), out_pdf = NULL
       if (!is.finite(fig_h) || fig_h < 3) fig_h <- max(4.5, 0.28 * nrow(pdf_df) + 1.6)
       fig_w <- min(9.5, fig_w + 0.35)
       fig_h <- min(14, fig_h + 0.25)
-      pdf_i <- file.path(tmp_dir, sprintf("panel_%s.pdf", ps$letter))
-      png_i <- file.path(tmp_dir, sprintf("panel_%s.png", ps$letter))
-      # 整页只画 forest（禁止再套 viewport，否则表头/行会叠画）
-      grDevices::pdf(pdf_i, width = fig_w, height = fig_h, onefile = TRUE)
-      grid::grid.newpage()
-      grid::grid.draw(grob)
-      grDevices::dev.off()
-      # ImageMagick 常禁 PDF coder → 一律 pdftools 栅格化，再用 magick 拼图
-      if (!requireNamespace("pdftools", quietly = TRUE) ||
-          !requireNamespace("magick", quietly = TRUE)) {
-        stop("Figure 6 compose needs pdftools + magick.", call. = FALSE)
-      }
-      pdftools::pdf_convert(
-        pdf_i, format = "png", dpi = 200, pages = 1L,
-        filenames = file.path(tmp_dir, sprintf("panel_%s-%%d.%%s", ps$letter)),
-        verbose = FALSE
-      )
-      gen <- file.path(tmp_dir, sprintf("panel_%s-1.png", ps$letter))
-      if (file.exists(gen)) file.rename(gen, png_i)
-      if (!file.exists(png_i) || file.info(png_i)$size < 1000) {
-        stop("Figure 6 panel raster missing: ", png_i,
-             " pdf_bytes=", file.info(pdf_i)$size, call. = FALSE)
-      }
-      im <- magick::image_read(png_i)
-      title_h <- 48L
-      title_bar <- magick::image_blank(
-        magick::image_info(im)$width, title_h, "white"
-      )
-      # 单库时面板题对齐原文「A  SHR / B  GV」；双库才带库名
-      panel_lab <- if (length(db_lv) <= 1L) {
-        sprintf("%s  %s", ps$letter, ps$index)
+      # 面板题：展示名禁下划线
+      idx_lab <- if (exists("pipeline_display_label", mode = "function")) {
+        pipeline_display_label(ps$index)
       } else {
-        sprintf("%s  %s | %s", ps$letter, ps$dbn, ps$index)
+        gsub("_", " ", ps$index, fixed = TRUE)
       }
-      title_bar <- magick::image_annotate(
-        title_bar,
-        text = panel_lab,
-        size = 22, gravity = "west", location = "+12+0", weight = 700
+      panel_lab <- if (length(db_lv) <= 1L) {
+        sprintf("%s  %s", ps$letter, idx_lab)
+      } else {
+        sprintf("%s  %s | %s", ps$letter, ps$dbn, idx_lab)
+      }
+      title_grob <- grid::textGrob(
+        panel_lab, x = 0.01, hjust = 0, gp = grid::gpar(
+          fontsize = 11, fontface = "bold", fontfamily = .ff
+        )
       )
-      im <- magick::image_append(c(title_bar, im), stack = TRUE)
-      magick::image_write(im, path = png_i, format = "png")
-      panel_pngs <- c(panel_pngs, png_i)
+      pdf_i <- file.path(tmp_dir, sprintf("panel_%s.pdf", ps$letter))
+      if (exists("pipeline_pdf_device", mode = "function")) {
+        pipeline_pdf_device(pdf_i, width = fig_w, height = fig_h + 0.35, family = .ff)
+      } else if (isTRUE(capabilities("cairo"))) {
+        grDevices::cairo_pdf(pdf_i, width = fig_w, height = fig_h + 0.35, family = .ff)
+      } else {
+        grDevices::pdf(pdf_i, width = fig_w, height = fig_h + 0.35, family = .ff)
+      }
+      grid::grid.newpage()
+      grid::pushViewport(grid::viewport(layout = grid::grid.layout(
+        2L, 1L, heights = grid::unit(c(0.35, fig_h), "in")
+      )))
+      grid::pushViewport(grid::viewport(layout.pos.row = 1L))
+      grid::grid.draw(title_grob)
+      grid::popViewport()
+      grid::pushViewport(grid::viewport(layout.pos.row = 2L))
+      grid::grid.draw(grob)
+      grid::popViewport()
+      grDevices::dev.off()
+      panel_pdfs <- c(panel_pdfs, pdf_i)
     }
 
     path <- out_pdf
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
     n_col <- 2L
-    n_row <- as.integer(ceiling(length(panel_pngs) / n_col))
-    imgs <- lapply(panel_pngs, magick::image_read)
-    # 统一各面板画布高度（取最大）再拼，避免行高错位
-    target_h <- max(vapply(imgs, function(im) magick::image_info(im)$height, numeric(1)))
-    imgs <- lapply(imgs, function(im) {
-      info <- magick::image_info(im)
-      if (info$height < target_h) {
-        magick::image_extent(
-          im, geometry = sprintf("%dx%d", info$width, as.integer(target_h)),
-          gravity = "north", color = "white"
-        )
-      } else im
-    })
-    rows_im <- list()
-    for (r in seq_len(n_row)) {
-      ii <- ((r - 1L) * n_col + 1L):min(r * n_col, length(imgs))
-      row_imgs <- imgs[ii]
-      while (length(row_imgs) < n_col) {
-        blank <- magick::image_blank(
-          magick::image_info(row_imgs[[1]])$width,
-          magick::image_info(row_imgs[[1]])$height, "white"
-        )
-        row_imgs[[length(row_imgs) + 1L]] <- blank
-      }
-      rows_im[[r]] <- magick::image_append(do.call(c, row_imgs), stack = FALSE)
+    eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+    if (!nzchar(eng)) {
+      eng <- as.character(getOption("medical_blocks.root", default = ""))[1L]
     }
-    body <- if (length(rows_im) == 1L) rows_im[[1]] else
-      magick::image_append(do.call(c, rows_im), stack = TRUE)
-    # 总标题 + 脚注条
-    bw <- magick::image_info(body)$width
-    title_bar <- magick::image_blank(bw, 70, "white")
-    title_bar <- magick::image_annotate(
-      title_bar,
-      text = paste0("Figure 6. Subgroup analyses of ", ia, " and ", ib,
-                    " for 28-day mortality"),
-      size = 28, gravity = "west", location = "+20+0", weight = 700
-    )
-    foot_bar <- magick::image_blank(bw, 55, "white")
-    foot_bar <- magick::image_annotate(
-      foot_bar,
-      text = paste0(
-        "Exposure contrast = highest vs lowest tertile of ", ia, " / ", ib,
-        ". Adjusted for the same Model 3 covariates as Table 2/S4 ",
-        "(Age+Sex fallback if a stratum was not estimable). ",
-        "Subgroups: ",
-        paste(
-          if (exists("pipeline_display_label", mode = "function"))
-            pipeline_display_label(common_sgs)
-          else gsub("_", " ", common_sgs, fixed = TRUE),
-          collapse = ", "
-        ), "."
-      ),
-      size = 16, gravity = "west", location = "+20+0", color = "#555555"
-    )
-    final_im <- magick::image_append(c(title_bar, body, foot_bar), stack = TRUE)
-    tmp_png <- file.path(tmp_dir, "fig6_compose.png")
-    magick::image_write(final_im, path = tmp_png, format = "png")
-    # 勿用 magick 写 PDF（ImageMagick PDF policy 常拦截）；改 raster → cairo/pdf
-    info <- magick::image_info(final_im)
-    fig_w_in <- info$width / 200
-    fig_h_in <- info$height / 200
-    raster <- as.raster(final_im)
-    if (requireNamespace("grDevices", quietly = TRUE) &&
-        is.function(grDevices::cairo_pdf)) {
-      grDevices::cairo_pdf(path, width = fig_w_in, height = fig_h_in)
-    } else {
-      grDevices::pdf(path, width = fig_w_in, height = fig_h_in, onefile = TRUE)
+    mosaic_py <- file.path(eng, "python", "pub_pdf_mosaic_vector.py")
+    if (!nzchar(eng) || !file.exists(mosaic_py)) {
+      # 回退：仓库相对路径
+      mosaic_py <- file.path("python", "pub_pdf_mosaic_vector.py")
     }
-    grid::grid.newpage()
-    grid::grid.raster(raster, interpolate = TRUE)
-    grDevices::dev.off()
+    py <- Sys.which("python3")
+    if (!nzchar(py)) py <- Sys.which("python")
+    if (!nzchar(py) || !file.exists(mosaic_py)) {
+      stop("Figure 6 vector mosaic needs python3 + python/pub_pdf_mosaic_vector.py",
+           call. = FALSE)
+    }
+    ## stdout=TRUE 时 R 走 shell 拼接；路径含空格必须逐参 shQuote
+    .mosaic_args <- c(
+      mosaic_py, "--out", path, "--cols", as.character(n_col), panel_pdfs
+    )
+    st <- system2(
+      py,
+      vapply(.mosaic_args, shQuote, character(1L)),
+      stdout = TRUE, stderr = TRUE
+    )
+    if (!is.null(attr(st, "status")) && !identical(as.integer(attr(st, "status")), 0L)) {
+      stop("Figure 6 vector mosaic failed: ", paste(st, collapse = "\n"), call. = FALSE)
+    }
+    if (!file.exists(path) || file.info(path)$size < 1000) {
+      stop("Figure 6 vector mosaic missing output: ", path, call. = FALSE)
+    }
   }
   list(rows = fr, path = path, p_interaction_note = note)
 }
@@ -2634,7 +2625,7 @@ ref_assoc_run_all <- function(mimic, eicu, out_dir, cutoff = c(4L, 10L),
   combo <- rbind(panel_a, blank2, panel_b)
   rownames(combo) <- NULL
   t2_title <- paste0(
-    "Table 2. Association of ", ilab, " joint groups with 28-day all-cause ",
+    "Table 2. Association of ", .ref_ilab_disp(), " joint groups with 28-day all-cause ",
     "mortality (Cox regression; Group1 low/low = reference)."
   )
   lit_t2 <- any(as.character(t2$model) == "Model3", na.rm = TRUE)

@@ -327,6 +327,19 @@ ml_lit_sync_summary_result <- function(pub_root, summary_root = NULL) {
     )
     if (file.exists(pr)) source(pr, local = FALSE)
   }
+  if (!exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+    sx <- file.path(
+      Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."),
+      "R", "pub_xlsx_surgical.R"
+    )
+    if (file.exists(sx)) source(sx, local = FALSE)
+  }
+  if (exists("pub_delivery_scrub_display", mode = "function")) {
+    tryCatch(
+      pub_delivery_scrub_display(summary_root),
+      error = function(e) warning("display scrub: ", conditionMessage(e), call. = FALSE)
+    )
+  }
   if (exists("pub_prune_delivery_root", mode = "function")) {
     pub_prune_delivery_root(summary_root)
   }

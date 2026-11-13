@@ -65,7 +65,12 @@ if (isTRUE(prune_only)) {
     if (!dir.exists(dir)) stop("目录不存在: ", dir, call. = FALSE)
     pub_delivery_normalize_fig_tab_dirs(dir)
     pub_delivery_clean_tables_xlsx_only(dir)
-    if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+    if (exists("pub_delivery_scrub_display", mode = "function")) {
+      tryCatch(
+        pub_delivery_scrub_display(dir, root = engine),
+        error = function(e) warning("display scrub: ", conditionMessage(e), call. = FALSE)
+      )
+    } else if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
       tryCatch(
         pub_delivery_scrub_tables_underscores(dir, root = engine),
         error = function(e) warning("underscore scrub: ", conditionMessage(e), call. = FALSE)
@@ -93,7 +98,12 @@ dbs <- trimws(dbs)
 
 pub_delivery_normalize_fig_tab_dirs(dir)
 pub_delivery_clean_tables_xlsx_only(dir)
-if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+if (exists("pub_delivery_scrub_display", mode = "function")) {
+  tryCatch(
+    pub_delivery_scrub_display(dir, root = engine),
+    error = function(e) warning("display scrub: ", conditionMessage(e), call. = FALSE)
+  )
+} else if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
   tryCatch(
     pub_delivery_scrub_tables_underscores(dir, root = engine),
     error = function(e) warning("underscore scrub: ", conditionMessage(e), call. = FALSE)

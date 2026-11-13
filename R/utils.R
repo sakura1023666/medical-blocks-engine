@@ -4495,15 +4495,17 @@ resolve_plot_font_family <- function(preferred = "Times New Roman") {
   times_like <- tolower(pref0) %in% c("times new roman", "times", "serif", "nimbus roman")
   # cairo 必须实测：仅 capabilities("cairo") 不够；缺字时会 PostScript/invalid font 写出空壳 PDF
   if (isTRUE(capabilities("cairo"))) {
+    ## 禁止把裸 "Times" 放进 cairo 候选：Windows 上常映射成 Arial
     cairo_cands <- if (times_like) {
       c(
         "Times New Roman", "Liberation Serif", "DejaVu Serif", "FreeSerif",
         "Nimbus Roman", "serif"
       )
     } else {
-      c(pref0, "serif", "sans")
+      c(pref0, "serif")
     }
     cairo_cands <- unique(cairo_cands[nzchar(cairo_cands)])
+    cairo_cands <- cairo_cands[!tolower(cairo_cands) %in% c("times", "sans")]
     for (ff in cairo_cands) {
       ok <- tryCatch({
         tmp <- tempfile(fileext = ".pdf")
@@ -4627,6 +4629,10 @@ pipeline_pdf_device <- function(path, width, height, family = "Times New Roman")
     family
   }
   if (isTRUE(capabilities("cairo"))) {
+    ## Windows cairo：裸 "Times" 常映射成 Arial；发表必须用 Times New Roman
+    if (identical(ff, "Times") || identical(tolower(ff), "times")) {
+      ff <- "Times New Roman"
+    }
     grDevices::cairo_pdf(path, width = width, height = height, family = ff)
     return(invisible(ff))
   }
@@ -5546,6 +5552,9 @@ table1_section_insert_rows_from_gtsummary <- function(tbl, sections) {
 }
 
 #' Table1 小节：默认 sections + 当前暴露归入 Exposure（勿挂 Clinical Scores）
+#'
+#' 全变量 ML / 无因果暴露：设 `baseline_binary$omit_exposure_section = TRUE`
+#' （或 survival/incidence/logistic 的 index_var 全空）则不生成 Exposure 小节。
 table1_resolve_sections <- function(cfg, bl_cfg = NULL) {
   bl <- bl_cfg %||% cfg$baseline_binary %||% cfg$baseline_nhanes %||%
     cfg$baseline_multiclass %||% cfg$baseline %||% list()
@@ -5560,19 +5569,24 @@ table1_resolve_sections <- function(cfg, bl_cfg = NULL) {
   }
   if (!length(sec)) sec <- .default_table1_sections()
 
+  omit_exp <- isTRUE(bl$omit_exposure_section %||% FALSE) ||
+    isTRUE((cfg$baseline %||% list())$omit_exposure_section %||% FALSE)
+
   ix <- character(0)
-  if (exists("pipeline_index_exposure_var", mode = "function")) {
-    ix <- as.character(pipeline_index_exposure_var(cfg) %||% character(0))
-  }
-  ix <- unique(c(
-    ix,
-    as.character((cfg$incidence %||% list())$index_var %||% character(0)),
-    as.character((cfg$logistic %||% list())$index_var %||% character(0)),
-    as.character((cfg$survival %||% list())$index_var %||% character(0))
-  ))
-  ix <- ix[nzchar(ix)]
-  if (exists("index_alias_names", mode = "function") && length(ix)) {
-    ix <- unique(c(ix, unlist(lapply(ix, index_alias_names), use.names = FALSE)))
+  if (!omit_exp) {
+    if (exists("pipeline_index_exposure_var", mode = "function")) {
+      ix <- as.character(pipeline_index_exposure_var(cfg) %||% character(0))
+    }
+    ix <- unique(c(
+      ix,
+      as.character((cfg$incidence %||% list())$index_var %||% character(0)),
+      as.character((cfg$logistic %||% list())$index_var %||% character(0)),
+      as.character((cfg$survival %||% list())$index_var %||% character(0))
+    ))
+    ix <- ix[nzchar(ix)]
+    if (exists("index_alias_names", mode = "function") && length(ix)) {
+      ix <- unique(c(ix, unlist(lapply(ix, index_alias_names), use.names = FALSE)))
+    }
   }
   if (length(ix)) {
     for (nm in names(sec)) {
@@ -5589,12 +5603,18 @@ table1_resolve_sections <- function(cfg, bl_cfg = NULL) {
       ord <- unique(c(before, "Exposure", after))
       sec <- sec[ord]
     }
+  } else {
+    sec$Exposure <- character(0)
   }
-  # 去掉空小节（Exposure 有内容则保留）
+  # 去掉空小节；omit_exposure_section 时强制丢掉 Exposure
   keep <- vapply(sec, function(v) {
     length(as.character(v %||% character(0))[nzchar(as.character(v %||% character(0)))]) > 0L
   }, logical(1L))
-  if ("Exposure" %in% names(sec) && length(sec$Exposure)) keep[["Exposure"]] <- TRUE
+  if ("Exposure" %in% names(sec) && length(sec$Exposure) && !omit_exp) {
+    keep[["Exposure"]] <- TRUE
+  } else if ("Exposure" %in% names(keep)) {
+    keep[["Exposure"]] <- FALSE
+  }
   sec[keep]
 }
 
@@ -7304,11 +7324,15 @@ render_queued_figures <- function(ctx) {
         try(graphics::par(old_par), silent = TRUE)
       }
     }, add = FALSE)
-    # 标准 pdf 设备：par/theme 用 Times；cairo 可用系统字体名
+    # 标准 pdf 设备：par/theme 用 Times；cairo 必须用 Times New Roman（裸 Times→Arial）
     ff_par <- if (!isTRUE(capabilities("cairo")) || identical(pdf_dev, "pdf")) {
       if (identical(ff, "Times New Roman")) "Times" else ff
     } else {
-      ff
+      if (identical(ff, "Times") || identical(tolower(as.character(ff)[1L]), "times")) {
+        "Times New Roman"
+      } else {
+        ff
+      }
     }
     graphics::par(family = ff_par)
     ggplot2::theme_set(

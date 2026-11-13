@@ -593,8 +593,29 @@ ml_ref_roc_rows <- function(prob, truth, dataset = NA_character_,
   )
 }
 
+#' shapviz 展示层：特征名禁下划线（Albumin_CV → Albumin CV；Gender_Male → Gender Male）
+.ml_fshap_display_shp <- function(shp) {
+  if (is.null(shp)) return(shp)
+  .disp <- function(x) {
+    if (exists("pipeline_display_label", mode = "function")) {
+      pipeline_display_label(as.character(x))
+    } else {
+      gsub("_", " ", as.character(x), fixed = TRUE)
+    }
+  }
+  tryCatch({
+    S <- shapviz::get_shap_values(shp)
+    X <- shapviz::get_feature_values(shp)
+    cn <- .disp(colnames(S))
+    colnames(S) <- cn
+    if (!is.null(X) && NCOL(X) == length(cn)) colnames(X) <- cn
+    shapviz::shapviz(S, X = X, baseline = shapviz::get_baseline(shp))
+  }, error = function(e) shp)
+}
+
 #' shapviz importance(beeswarm/bar) 通用包装（统一主题 + 标题）。
 .ml_fshap_plot <- function(shp, kind, title) {
+  shp <- .ml_fshap_display_shp(shp)
   p <- if (identical(kind, "bee")) {
     tryCatch(shapviz::sv_importance(shp, kind = "bee", show_numbers = FALSE,
                                     max_display = 20L),
@@ -607,6 +628,7 @@ ml_ref_roc_rows <- function(prob, truth, dataset = NA_character_,
 }
 
 .ml_fshap_force <- function(shp, row_id, title) {
+  shp <- .ml_fshap_display_shp(shp)
   if (row_id < 1L || row_id > nrow(shapviz::get_shap_values(shp))) {
     stop("force row_id ", row_id, " outside SHAP matrix.", call. = FALSE)
   }
@@ -678,6 +700,7 @@ ml_ref_s5_forces <- function(items, out_pdf = NULL) {
 }
 
 .ml_fshap_waterfall <- function(shp, row_id, title) {
+  shp <- .ml_fshap_display_shp(shp)
   if (row_id < 1L || row_id > nrow(shapviz::get_shap_values(shp))) {
     stop("waterfall row_id ", row_id, " outside SHAP matrix (n=",
          nrow(shapviz::get_shap_values(shp)), ").", call. = FALSE)
@@ -740,8 +763,16 @@ ml_ref_boruta_panels <- function(boruta_by_stratum) {
                  stringsAsFactors = FALSE)
     }))
     pdf_df <- rbind(df, sdf)
-    pdf_df$feature <- factor(pdf_df$feature,
-                             levels = c(feats_sorted, colnames(imp)[is_shadow]))
+    .disp <- function(x) {
+      if (exists("pipeline_display_label", mode = "function")) {
+        pipeline_display_label(as.character(x))
+      } else {
+        gsub("_", " ", as.character(x), fixed = TRUE)
+      }
+    }
+    pdf_df$feature <- .disp(pdf_df$feature)
+    lev_disp <- .disp(c(feats_sorted, colnames(imp)[is_shadow]))
+    pdf_df$feature <- factor(pdf_df$feature, levels = unique(lev_disp))
     dfs[[sk]] <- pdf_df
     rows[[length(rows) + 1L]] <- data.frame(
       panel = sk, n_features = length(feats), n_shadow = sum(is_shadow),
