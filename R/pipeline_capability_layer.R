@@ -446,6 +446,22 @@ pipeline_dual_db_locked_sparse_drop_vars <- function(cfg, data = NULL, min_n = N
   unique(as.character(drop))
 }
 
+#' 双库 ML：是否强制「伙伴库超缺失列在本库也剔除」（两侧插补后都可用）
+#'
+#' - `dev_internal_ext` / 显式 `imputation$dual_db_partner_drop_even_if_self_ok=TRUE` → 严格
+#' - 发病/CHARLS 展示默认仍可「本库可用则保留」（旧行为）
+pipeline_dual_db_missing_union_strict <- function(cfg) {
+  imp <- cfg$imputation %||% list()
+  if (isTRUE(imp$dual_db_partner_drop_even_if_self_ok %||% FALSE)) return(TRUE)
+  if (isFALSE(imp$dual_db_partner_drop_even_if_self_ok %||% NULL)) return(FALSE)
+  sm <- as.character(
+    cfg$ml_batch$split_mode %||%
+      cfg$incidence_batch$split_mode %||%
+      ""
+  )[1L]
+  identical(sm, "dev_internal_ext") || identical(sm, "cross_db")
+}
+
 #' 双库：伙伴库中缺失率 > threshold 的列（用于与本库取并集剔除，保证 Table 1 列对齐）
 pipeline_dual_db_partner_high_missing_cols <- function(cfg, threshold = 0.4) {
   if (!pipeline_dual_db_enabled(cfg)) return(character(0))
@@ -461,14 +477,17 @@ pipeline_dual_db_partner_high_missing_cols <- function(cfg, threshold = 0.4) {
   drop <- names(miss)[is.finite(miss) & miss > thr]
   protect <- pipeline_sparse_categorical_protect_vars(cfg)
   partner_drop <- setdiff(drop, protect)
-  # 本库缺失率可接受时，不因伙伴库高缺失并集剔除（保留 CHARLS CRP 等次库可展示列）
-  cur <- as.character((cfg$dual_db %||% list())$current_db %||% "")[1L]
-  if (nzchar(cur)) {
-    df_self <- pipeline_dual_db_load_analysis_df(cfg, cur)
-    if (is.data.frame(df_self) && ncol(df_self)) {
-      miss_self <- vapply(df_self, function(x) mean(is.na(x)), numeric(1))
-      ok_self <- names(miss_self)[is.finite(miss_self) & miss_self <= thr]
-      partner_drop <- setdiff(partner_drop, ok_self)
+  # 非严格模式：本库缺失率可接受时不因伙伴库高缺失并集剔除（保留 CHARLS CRP 等展示列）
+  # ML 双库严格模式：伙伴库超阈值 → 本库一并剔除，避免主库训出外验没有的特征
+  if (!isTRUE(pipeline_dual_db_missing_union_strict(cfg))) {
+    cur <- as.character((cfg$dual_db %||% list())$current_db %||% "")[1L]
+    if (nzchar(cur)) {
+      df_self <- pipeline_dual_db_load_analysis_df(cfg, cur)
+      if (is.data.frame(df_self) && ncol(df_self)) {
+        miss_self <- vapply(df_self, function(x) mean(is.na(x)), numeric(1))
+        ok_self <- names(miss_self)[is.finite(miss_self) & miss_self <= thr]
+        partner_drop <- setdiff(partner_drop, ok_self)
+      }
     }
   }
   partner_drop

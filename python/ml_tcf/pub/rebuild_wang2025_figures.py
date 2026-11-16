@@ -351,7 +351,7 @@ def write_md(md_dir: Path, stem: str, body_lines: list[str], meta: dict):
         "",
         "## 分析上下文",
         f"- 暴露: {meta.get('exposure', '30 dual-intersect clinical/lab features (ALLVARS)')}",
-        f"- 结局: {meta.get('outcome', 'In-hospital death among SA-AKI')}",
+        f"- 结局: {meta.get('outcome', '28-day all-cause death among SA-AKI')}",
         f"- 样本量: {n_line or '未记录'}",
         f"- Grouping: {meta.get('grouping', 'TCF multi-algorithm fusion (TOPSIS alphas frozen)')}",
         f"- 数据库: {', '.join(meta.get('databases', ['MIMIC', 'eICU']))}",
@@ -486,7 +486,7 @@ def draw_wang_style_fig1(data, out_pdf: Path) -> Path:
         ax, 5.0, 12.15, 5.6, 1.15,
         [
             "Development cohort (MIMIC-IV)",
-            "Adult patients with SA-AKI (Age \u2265 18)",
+            "Adult SA-AKI patients (Age \u2265 18; unique subject_id)",
             f"n = {n_mimic_start:,}",
         ],
         title_fs=10.5, fs=9.0,
@@ -494,8 +494,9 @@ def draw_wang_style_fig1(data, out_pdf: Path) -> Path:
     # Longer connector: box bottom ~11.575 → analytic top ~10.05
     _fig1_vline_label(
         ax, 5.0, 11.52, 10.12,
-        f"Excluded: no linkable 28-day mortality outcome\n"
-        f"for a SA-AKI ICU stay (n = {n_mimic_drop:,})",
+        f"Excluded: no SA-AKI stay linkable to\n"
+        f"28-day mortality extract (patient-level;\n"
+        f"n = {n_mimic_drop:,})",
         side="right", fs=8.0,
     )
 
@@ -503,6 +504,7 @@ def draw_wang_style_fig1(data, out_pdf: Path) -> Path:
         ax, 5.0, 9.35, 5.6, 1.25,
         [
             "Development analytic cohort",
+            "(first linkable SA-AKI stay / patient)",
             f"n = {d['n_analytic']:,}",
             f"{d['d_analytic']:,} death within 28 days",
         ],
@@ -566,13 +568,14 @@ def draw_wang_style_fig1(data, out_pdf: Path) -> Path:
     _fig1_box(
         ax, ext_cx, ext_cy + 0.22, 6.4, 2.25,
         [
-            "eICU external validation cohort",
-            "Patients with SA-AKI identified in eICU",
-            f"Starting n = {n_eicu_start:,}; excluded not linkable to ICU baseline (n = {n_eicu_drop:,})",
+            "eICU external validation cohort (ICU stay-level)",
+            "SA-AKI stays (patientunitstayid) identified in eICU",
+            f"Starting n = {n_eicu_start:,}; excluded stay ID absent from",
+            f"ICU baseline extract (n = {n_eicu_drop:,})",
             f"Analytic / external set n = {d['n_external']:,} (entire cohort; no retraining)",
             f"{d['d_external']:,} death within 28 days",
         ],
-        title_fs=10.5, fs=8.6,
+        title_fs=10.5, fs=8.4,
     )
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -598,15 +601,17 @@ def build_fig1(P: StudyPaths, pdf_dir: Path, md_dir: Path, meta: dict, gaps: lis
         stem,
         [
             "本图为 Wang 2025 npj Digital Medicine Fig.1 风格的**单树层级**纳排流程图（非双栏拼图）。",
-            "开发支路（MIMIC-IV）：起始成人 SA-AKI 队列 n=7,767 → 排除无法链接 28 天死亡结局者 n=1,774 → "
-            f"分析集 n={d['n_analytic']:,}（其中 {d['d_analytic']:,} death within 28 days）→ "
+            "开发支路（MIMIC-IV，患者级 subject_id）：起始成人 SA-AKI 唯一患者 n=7,767 → "
+            "排除无任何 SA-AKI stay 可链接至 28 天死亡提取表者 n=1,774 → "
+            f"分析集（每患者首次可链接 stay）n={d['n_analytic']:,}（其中 {d['d_analytic']:,} death within 28 days）→ "
             f"分层随机 80/20：训练集 n={d['n_train']:,}（{d['d_train']:,} 死亡）/"
             f"内部验证集 n={d['n_valid']:,}（{d['d_valid']:,} 死亡）。",
-            "外验支路置于虚线框「external generalization data」：eICU 起始 n=7,424 → "
-            "排除无法链接 ICU baseline n=1,207 → "
+            "外验支路置于虚线框「external generalization data」（eICU，ICU stay 级 patientunitstayid）："
+            "起始 n=7,424 → 排除 stay ID 不在 ICU baseline 提取表中者 n=1,207"
+            "（与 MIMIC「结局不可链接」不同类；本队列 Age<18 非额外驱动）→ "
             f"整库外验分析集 n={d['n_external']:,}（{d['d_external']:,} death within 28 days；不重训）。",
             "图面本身无脚注/注释条；字体 Times New Roman（serif）。框内结局文案对齐 Wang「xxx death within 28 days」。",
-            "逐步人数与 redraw_fig1_dual_sa_aki.R 口径一致；死亡数由 train.csv / valid.csv / external.csv 的 y 列实算。",
+            "逐步人数与 prepare/redraw 口径一致；死亡数由 train.csv / valid.csv / external.csv 的 y 列实算。",
         ],
         {**meta, "combined": False, "outcome": "28-day all-cause death among SA-AKI"},
     )
@@ -1035,7 +1040,7 @@ def build_fig5(P: StudyPaths, data, pdf_dir, md_dir, meta, gaps):
             "分层依据：eICU dabiao/analytic **无 hospital_id / hospitalid**；"
             "TCF `external.csv` 亦无站点列。改用与 external 行序对齐的"
             " `eICU/step07_train_validation/Data/df_train.csv` 的 **unittype**"
-            "（fustatus 与 external y 逐行一致后切分）。"
+            "（28-day outcome label 与 external y 逐行一致后切分）。"
             "MIMIC 分析表无 careunit/specialty，故无开发中心专科 Cohort 1-1/1-2。",
             "图例格式：`Name AUC (lo–hi)`；点估计三位小数；"
             f"图例 AUC CI 与 Table S10 / Table 2 TCF 同源 `_boot_metric_cis`"
@@ -2317,7 +2322,7 @@ suppressPackageStartupMessages({{
 figures_dir <- "{figures_dir.as_posix()}"
 meta <- list(
   exposure = "{meta.get('exposure', '30 dual-intersect features')}",
-  outcome = "{meta.get('outcome', 'In-hospital death among SA-AKI')}",
+  outcome = "{meta.get('outcome', '28-day all-cause death among SA-AKI')}",
   outcome_column = "y",
   grouping = "TCF multi-algorithm fusion",
   databases = c("MIMIC", "eICU"),

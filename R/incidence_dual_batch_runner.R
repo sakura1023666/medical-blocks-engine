@@ -2496,17 +2496,32 @@ incidence_batch_pub_figure_sort_key <- function(basename) {
   9999L
 }
 
-incidence_batch_should_purge_pub_figure <- function(basename, all_basenames) {
+incidence_batch_should_purge_pub_figure <- function(basename, all_basenames, config = NULL) {
   bn <- as.character(basename)[1L]
   all_bn <- as.character(all_basenames)
-  ## ML 套路：不交 Figure S2* 草稿；但 S2A/B LASSO 须先升格为 S1，升格前禁止删
-  if (grepl("^Figure\\s*S2([A-G]|[.\\s]|$)", bn, ignore.case = TRUE, perl = TRUE)) {
-    is_lasso_ab <- grepl("S2A.*Lasso|S2B.*Lasso", bn, ignore.case = TRUE)
-    has_s1_lasso <- any(grepl("Figure\\s*S1.*Lasso", all_bn, ignore.case = TRUE))
-    if (is_lasso_ab && !has_s1_lasso) return(FALSE)
-    return(TRUE)
+  ## 仅 ML 发表 scheme 才删箱线 / Figure S2*（COPD MCMI 2026-11：发病走
+  ## ml_finalize_index_summary_results 时若无门控会把 S1 箱线/S2 ROC/中介图清光）
+  .is_ml <- FALSE
+  if (!is.null(config)) {
+    if (exists("incidence_batch_is_ml_pub_scheme", mode = "function")) {
+      .is_ml <- isTRUE(incidence_batch_is_ml_pub_scheme(config))
+    }
+    .st <- tolower(trimws(as.character(config$project$study_type %||% "")[1L]))
+    if (isTRUE(config$ml_batch$enable) || grepl("^ml", .st) ||
+        grepl("machine.?learn|ml_dual|ml_single", .st)) {
+      .is_ml <- TRUE
+    }
   }
-  if (grepl("Boxplot", bn, ignore.case = TRUE)) return(TRUE)
+  if (isTRUE(.is_ml)) {
+    ## ML 套路：不交 Figure S2* 草稿；但 S2A/B LASSO 须先升格为 S1，升格前禁止删
+    if (grepl("^Figure\\s*S2([A-G]|[.\\s]|$)", bn, ignore.case = TRUE, perl = TRUE)) {
+      is_lasso_ab <- grepl("S2A.*Lasso|S2B.*Lasso", bn, ignore.case = TRUE)
+      has_s1_lasso <- any(grepl("Figure\\s*S1.*Lasso", all_bn, ignore.case = TRUE))
+      if (is_lasso_ab && !has_s1_lasso) return(FALSE)
+      return(TRUE)
+    }
+    if (grepl("Boxplot", bn, ignore.case = TRUE)) return(TRUE)
+  }
   ## 有 2×4 拼图时：ROC/DCA/校准/平行坐标等单面板不进汇总
   has_ml_combined <- any(grepl("ML performance combined 2x4|combined 2x4", all_bn, ignore.case = TRUE))
   if (has_ml_combined &&
@@ -2543,7 +2558,8 @@ incidence_batch_should_purge_pub_figure <- function(basename, all_basenames) {
 }
 
 #' 从 Figures 四目录（或平铺）剔除不进交付汇总的冗余图
-incidence_batch_purge_non_delivery_figures <- function(figures_dir) {
+#' @param config 传入时：仅 ML scheme 才删箱线/S2*；发病 NHANES 保留 Boxplot/ROC/中介
+incidence_batch_purge_non_delivery_figures <- function(figures_dir, config = NULL) {
   if (is.null(figures_dir) || !nzchar(figures_dir) || !dir.exists(figures_dir)) {
     return(invisible(0L))
   }
@@ -2559,7 +2575,7 @@ incidence_batch_purge_non_delivery_figures <- function(figures_dir) {
   if (!length(files)) return(invisible(0L))
   all_bn <- unique(basename(files))
   drop_idx <- vapply(all_bn, function(bn) {
-    incidence_batch_should_purge_pub_figure(bn, all_bn)
+    incidence_batch_should_purge_pub_figure(bn, all_bn, config = config)
   }, logical(1L))
   if (!any(drop_idx)) return(invisible(0L))
   drop_bn <- all_bn[drop_idx]
@@ -3049,9 +3065,20 @@ incidence_batch_ml_collect_fs_figure <- function(index_root, config = list()) {
 incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list()) {
   if (!dir.exists(figures_dir)) return(invisible(0L))
   ## 用户 2026-11：ML 套路不交 Figure S2*（ROC/箱线/S2C–G）；
-  ## 但 S2A/S2B LASSO 草稿先留给 collect→升格 Figure S1，再删残留
+  ## 但 S2A/S2B LASSO 草稿先留给 collect→升格 Figure S1，再删残留。
+  ## 发病/预后 NHANES 等非 ML：默认保留 Boxplot / ROC / 中介路径图（COPD MCMI 2026-11
+  ## 踩坑：定向重跑 finalize 误用 ML 默认 TRUE 把 S1 箱线、S2 ROC、中介图删光）。
+  ## 勿用 write_index_summary_results 判断 ML：发病课题也会开指标级 summary_results
+  .study <- tolower(trimws(as.character(cfg$project$study_type %||% "")[1L]))
+  .is_ml_pub <- isTRUE(cfg$ml_batch$enable) ||
+    grepl("^ml", .study) ||
+    grepl("machine.?learn|ml_dual|ml_single", .study) ||
+    identical(as.character(cfg$pub_figure_scheme %||% ""), "ml_dual_standard") ||
+    identical(as.character(cfg$pub_figure_scheme %||% ""), "ml_dual_dev_ext") ||
+    identical(as.character(cfg$pub_figures$scheme %||% ""), "ml_dual_standard") ||
+    identical(as.character(cfg$pub_figures$scheme %||% ""), "ml_dual_dev_ext")
   omit_s2 <- !isFALSE(cfg$omit_figure_s2 %||% cfg$ml_batch$omit_figure_s2 %||%
-                        cfg$incidence_batch$omit_figure_s2 %||% TRUE)
+                        cfg$incidence_batch$omit_figure_s2 %||% .is_ml_pub)
   if (omit_s2) {
     s2_all <- list.files(
       figures_dir,
@@ -3109,7 +3136,14 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
   s2b_now <- .find_fig_pdf("(?i)Figure\\s*S2B.*LassoModel")
   if (!length(s1_lasso_now) && length(s2a_now) && length(s2b_now) &&
       exists("pub_figure_combine_ab_pdfs", mode = "function")) {
-    dest_s1 <- file.path(figures_dir, "Figure S1. Lasso.pdf")
+    ## 定稿副本常在 Figures/pdf/：S1 必须写进同层，否则根目录残留而 pdf/ 仍留 S2A/B
+    dest_dir <- if (dir.exists(file.path(figures_dir, "pdf"))) {
+      file.path(figures_dir, "pdf")
+    } else {
+      figures_dir
+    }
+    dest_s1 <- file.path(dest_dir, "Figure S1. Lasso.pdf")
+    dir.create(dirname(dest_s1), recursive = TRUE, showWarnings = FALSE)
     ok_up <- isTRUE(tryCatch(
       pub_figure_combine_ab_pdfs(s2a_now[[1L]], s2b_now[[1L]], dest_s1),
       error = function(e) FALSE
@@ -3127,11 +3161,26 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
   ## 升格后删交付面残留 S2A/B（step* 草稿保留）
   leftover_s2ab <- list.files(
     figures_dir,
-    pattern = "(?i)^Figure\\s*S2[AB].*Lasso",
+    pattern = "(?i)Figure\\s*S2[AB].*Lasso",
     full.names = TRUE, recursive = TRUE
   )
   if (length(leftover_s2ab)) {
     unlink(leftover_s2ab)
+  }
+  ## 有 Figure 5 亚组时删除错号 Figure 3. Subgroup（与 ML Fig3 撞号）
+  has_fig5_sg <- length(list.files(
+    figures_dir, pattern = "(?i)Figure\\s*5\\.?\\s*Subgroup",
+    full.names = TRUE, recursive = TRUE
+  )) > 0L
+  if (isTRUE(has_fig5_sg)) {
+    bad3_sg <- list.files(
+      figures_dir, pattern = "(?i)Figure\\s*3\\.?\\s*Subgroup",
+      full.names = TRUE, recursive = TRUE
+    )
+    if (length(bad3_sg)) {
+      unlink(bad3_sg)
+      cli::cli_alert_info("已删除与 Figure 5 重复的 Figure 3 亚组图 {length(bad3_sg)} 个")
+    }
   }
   s1_files <- list.files(
     figures_dir, pattern = "Figure S1.*\\.pdf$",
@@ -4181,7 +4230,7 @@ incidence_batch_curate_pub_figures_dir <- function(figures_dir, purge = FALSE, c
   n_purge <- 0L
   if (isTRUE(purge)) {
     purge_idx <- vapply(all_bn, function(bn) {
-      incidence_batch_should_purge_pub_figure(bn, all_bn)
+      incidence_batch_should_purge_pub_figure(bn, all_bn, config = config)
     }, logical(1L))
     n_purge <- sum(purge_idx)
     if (n_purge > 0L) {

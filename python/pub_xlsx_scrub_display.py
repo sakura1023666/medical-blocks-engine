@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Surgical display scrub for published xlsx: underscores -> spaces; strip/replace CJK.
+"""Surgical display scrub for published xlsx (全项目交付收口).
+
+- underscores -> spaces; strip/replace CJK
+- force Times New Roman on all cell/style fonts (pub_times_new_roman)
 
 Preserves styles via openpyxl after stripping dangling drawings.
 Usage:
   python3 python/pub_xlsx_scrub_display.py path.xlsx [path2.xlsx ...]
   python3 python/pub_xlsx_scrub_display.py --dir Tables/
+  python3 python/pub_xlsx_scrub_display.py --dir Tables/ --times-only
 """
 from __future__ import annotations
 
@@ -109,36 +113,75 @@ def strip_drawings(path: Path) -> None:
         print(f"strip_drawings warn {path}: {e}", file=sys.stderr)
 
 
-def scrub_file(path: Path) -> int:
+def force_times_fonts(wb) -> int:
+    """Force Times New Roman on cell fonts and workbook style fonts (pub_times_new_roman)."""
+    from copy import copy
+
+    changed = 0
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                f = cell.font
+                if f is None:
+                    continue
+                name = f.name or ""
+                if name != "Times New Roman":
+                    nf = copy(f)
+                    nf.name = "Times New Roman"
+                    cell.font = nf
+                    changed += 1
+    fonts = getattr(wb, "_fonts", None)
+    if fonts is not None:
+        for style in list(fonts):
+            if style is None:
+                continue
+            name = getattr(style, "name", None) or ""
+            if name and name != "Times New Roman":
+                try:
+                    style.name = "Times New Roman"
+                    changed += 1
+                except Exception:
+                    pass
+    return changed
+
+
+def scrub_file(path: Path, *, times_only: bool = False) -> tuple[int, int]:
     from openpyxl import load_workbook
 
     strip_drawings(path)
     wb = load_workbook(path)
-    n = 0
-    for ws in wb.worksheets:
-        for row in ws.iter_rows():
-            for cell in row:
-                v = cell.value
-                if not isinstance(v, str):
-                    continue
-                s1 = scrub_text(v)
-                if s1 != v:
-                    cell.value = s1
-                    n += 1
-        # sheet title
-        if "_" in (ws.title or "") or CJK_RE.search(ws.title or ""):
-            ws.title = scrub_text(ws.title)[:31]
-            n += 1
-    if n:
+    n_text = 0
+    if not times_only:
+        for ws in wb.worksheets:
+            for row in ws.iter_rows():
+                for cell in row:
+                    v = cell.value
+                    if not isinstance(v, str):
+                        continue
+                    s1 = scrub_text(v)
+                    if s1 != v:
+                        cell.value = s1
+                        n_text += 1
+            # sheet title
+            if "_" in (ws.title or "") or CJK_RE.search(ws.title or ""):
+                ws.title = scrub_text(ws.title)[:31]
+                n_text += 1
+    n_font = force_times_fonts(wb)
+    if n_text or n_font:
         wb.save(path)
         strip_drawings(path)
-    return n
+    return n_text, n_font
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="*")
     ap.add_argument("--dir", default="")
+    ap.add_argument(
+        "--times-only",
+        action="store_true",
+        help="Only force Times New Roman fonts (no underscore/CJK scrub)",
+    )
     args = ap.parse_args()
     files: list[Path] = []
     if args.dir:
@@ -147,15 +190,18 @@ def main() -> int:
     if not files:
         print("no files", file=sys.stderr)
         return 1
-    total = 0
+    total_text = 0
+    total_font = 0
     for f in files:
         if not f.exists():
             print(f"missing {f}", file=sys.stderr)
             continue
-        n = scrub_file(f)
-        print(f"{f.name}\tedits={n}")
-        total += n
-    print(f"TOTAL_EDITS\t{total}")
+        n_text, n_font = scrub_file(f, times_only=bool(args.times_only))
+        print(f"{f.name}\tedits={n_text}\tfonts={n_font}")
+        total_text += n_text
+        total_font += n_font
+    print(f"TOTAL_EDITS\t{total_text}")
+    print(f"TIMES_FONT_EDITS\t{total_font}")
     return 0
 
 

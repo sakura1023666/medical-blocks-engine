@@ -35,22 +35,38 @@ def _compute_midrank(x: np.ndarray) -> np.ndarray:
     return ranks
 
 
-def delong_auc_ci(y_true: np.ndarray, y_score: np.ndarray, alpha: float = 0.95):
-    """DeLong AUROC point + asymptotic 95% CI (Sun & Xu)."""
+def _delong_structural_components(y_true: np.ndarray, y_score: np.ndarray):
+    """DeLong structural components V10 (length m) and V01 (length n).
+
+    Uses Sun & Xu midrank form (same as pROC / common fastDeLong):
+      V10_i = (R_i^{all} - R_i^{pos}) / n
+      V01_j = 1 - (R_j^{all} - R_j^{neg}) / m
+    NOT (R - mean(R_group)) — that overstates variance and widens CIs / p-values.
+    """
     y_true = np.asarray(y_true).astype(int)
     y_score = np.asarray(y_score, dtype=float)
     pos = y_score[y_true == 1]
     neg = y_score[y_true == 0]
     m, n = len(pos), len(neg)
     if m < 1 or n < 1:
+        return m, n, None, None
+    tx = np.concatenate([pos, neg])
+    tz = _compute_midrank(tx)
+    tx_pos = _compute_midrank(pos)
+    ty_neg = _compute_midrank(neg)
+    v10 = (tz[:m] - tx_pos) / n
+    v01 = 1.0 - (tz[m:] - ty_neg) / m
+    return m, n, v10, v01
+
+
+def delong_auc_ci(y_true: np.ndarray, y_score: np.ndarray, alpha: float = 0.95):
+    """DeLong AUROC point + asymptotic 95% CI (Sun & Xu)."""
+    y_true = np.asarray(y_true).astype(int)
+    y_score = np.asarray(y_score, dtype=float)
+    m, n, v10, v01 = _delong_structural_components(y_true, y_score)
+    if v10 is None:
         return float("nan"), float("nan"), float("nan")
     auc = float(roc_auc_score(y_true, y_score))
-    # structural components
-    tx = np.concatenate([pos, neg])
-    mid = _compute_midrank(tx)
-    v10 = (mid[:m] - mid[:m].mean()) / n
-    v01 = 1.0 - (mid[m:] - mid[m:].mean()) / m
-    # sample variances of the structural components
     s10 = np.var(v10, ddof=1) if m > 1 else 0.0
     s01 = np.var(v01, ddof=1) if n > 1 else 0.0
     var = s10 / m + s01 / n
@@ -70,24 +86,12 @@ def delong_paired_pvalue(y_true, score_a, score_b) -> float:
     y_true = np.asarray(y_true).astype(int)
     sa = np.asarray(score_a, dtype=float)
     sb = np.asarray(score_b, dtype=float)
-    pos_a, neg_a = sa[y_true == 1], sa[y_true == 0]
-    pos_b, neg_b = sb[y_true == 1], sb[y_true == 0]
-    m, n = len(pos_a), len(neg_a)
-    if m < 2 or n < 2:
+    m, n, v10a, v01a = _delong_structural_components(y_true, sa)
+    _, _, v10b, v01b = _delong_structural_components(y_true, sb)
+    if v10a is None or v10b is None or m < 2 or n < 2:
         return float("nan")
     auc_a = float(roc_auc_score(y_true, sa))
     auc_b = float(roc_auc_score(y_true, sb))
-
-    def struct(pos, neg):
-        tx = np.concatenate([pos, neg])
-        mid = _compute_midrank(tx)
-        v10 = (mid[:m] - mid[:m].mean()) / n
-        v01 = 1.0 - (mid[m:] - mid[m:].mean()) / m
-        return v10, v01
-
-    v10a, v01a = struct(pos_a, neg_a)
-    v10b, v01b = struct(pos_b, neg_b)
-    # covariance of AUCs
     s10 = np.cov(np.vstack([v10a, v10b]))
     s01 = np.cov(np.vstack([v01a, v01b]))
     var_diff = (s10[0, 0] + s10[1, 1] - 2 * s10[0, 1]) / m + (

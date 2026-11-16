@@ -94,7 +94,15 @@
   lbl_a <- .path_lbl_p_below_ci(coef_a, p_a, ci_a_lo, ci_a_hi, .d_est)
   lbl_b <- .path_lbl_p_below_ci(coef_b, p_b, ci_b_lo, ci_b_hi, .d_est)
   lbl_d <- .path_lbl_p_below_ci(effect_total, p_total, ci_tot_lo, ci_tot_hi, .d_est)
-  pm_c <- if (!is.na(prop_pct) && is.finite(prop_pct)) .fc(prop_pct, .d_est) else "?"
+  # 比例 %：去掉尾随 0（38.2 勿写成 38.200）；与表「38.2%」对齐
+  .fc_prop_pct <- function(x) {
+    if (is.null(x) || length(x) == 0L || is.na(x) || !is.finite(x)) return("?")
+    s <- formatC(as.numeric(x), format = "f", digits = 3L)
+    s <- sub("0+$", "", s)
+    s <- sub("\\.$", "", s)
+    if (!nzchar(s)) "0" else s
+  }
+  pm_c <- if (!is.na(prop_pct) && is.finite(prop_pct)) .fc_prop_pct(prop_pct) else "?"
   lbl_pm <- paste0("Proportion mediated\n", pm_c, "%")
 
   .pad_equal_width <- function(s1, s2, s3) {

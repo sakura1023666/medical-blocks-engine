@@ -51,7 +51,12 @@ alwaysApply: true
 ## 5. 图 md 与图面（防陈旧抄录）
 
 1. `image_information` 图上标注 **必须与 PDF 图面一致**；图面 NE → md 写 NE，旧数值作废。
-2. 脚注声称 `weighted mean (SE) or median (IQR)` 但表内全是 median → **改单口径**（P1，交付前必改）。
+2. 脚注声称 `weighted mean (SE) or median (IQR)` / `weighted count` 但表内全是 median、分类 n 相加=未加权 N → **P0**：改脚注为 `weighted median (IQR)` + `unweighted counts with weighted percentages`（零数值改动；引擎 `table1_baseline_xlsx_footnotes(weighted=TRUE)` 已对齐）。
+2b. **不加权敏感性分母**：S10/S11（或等价）N 必须 = 分析集（权重缺失/非正已剔除后）；禁止残留权重剔除前池（如 9,272 vs 8,732）。引擎：`pipeline_align_survey_analytic_rows`（baseline_binary / logistic_*_glm）。
+2b2. **S10 变量集 = Table1**：禁止 `cycle` / `new_Weight` / WT* / SDMV* 进 Table1 或不加权基线（全项目铁律 `baseline_no_survey_meta_vars`；引擎自动剔除）。
+2c. **亚组森林**：CI 与 P 同源（z-CI↔z-P）；图 md/Methods 写明 Crude 或调整集。
+2d. **RCS 结点**：Methods 写 knots 加权/未加权口径；竖线与 Table1 加权中位不同源须脚注/图注。
+2e. **现患 vs 发病**：横断面自报 ever-diagnosed → prevalence/cross-sectional；禁 Methods/versions 写 incidence。
 3. 表题写「participants with \<Disease\>」实为全队列 → 改题名（P1）。
 
 ## 6. 主表去重 + 横断面脚注模板（cute_ran HHR 2026-11）
@@ -62,6 +67,32 @@ alwaysApply: true
 4. Path a 与 S8 β 标度不同时，脚注必须写清（如 path a=连续暴露单位、S8=per 1-SD），禁止两处都写 per 1-SD 却数值不可互推。
 5. `Methods_software_versions.txt` 与 Methods 软件表并集；无对应分析实体的 survival/cmprsk/glmnet 等 **不得**在正文/清单冒充本分析所用。
 
+## 7. MCMI / 空腹指标交付漏检（COPD×MCMI 2026-11；强制）
+
+踩坑：`55_COPD/incidence_38341157`【success】MCMI。未逐条过不得 PASS。
+
+### 7b. 三轮收口再踩（2026-11-16；强制防再犯）
+
+1. **禁止发病 config 挂空 `ml_batch`**：指标级 summary 只用 `pub$write_index_summary_results`；`incidence_single_is_ml_project` / `omit_figure_s2` / `purge_non_delivery_figures` **不得**仅凭 `write_index_summary_results` 判 ML。
+2. **`ml_finalize_index_summary_results` 清图必须传 config**：非 ML scheme **保留** Figure S1 箱线、S2 ROC、Figure 4 中介路径。
+3. **横断面 Table2 脚注禁止 `KM/`**：`mi_methods_footnote_lines(study_type="incidence")` + `.mi_scrub_incidence_survival_tokens`。
+4. **单库 A1 禁止 `-NHANES`**：finalize / remirror 后 `pub_sync_xlsx_a1_titles_to_filenames`；文件名与 A1 同号无库标签。
+5. **中介路径图 md 表号 = 实体 S9**（关联=S8）；禁止 md 写 S8 却指向中介数字。
+
+
+1. **权重一句一源**：Methods `survey_weight_formula` / §design **只能写本指标实际权重**（空腹血脂指标 = `new_Weight = WTSAF2YR / C`，写明 C）。**禁止** `WTMEC2YR (or WTSAF2YR…)` 二义模板与 Fig1「new Weight from WTSAF2YR」互斥。
+2. **MICE 结局入模写实**：须写 outcome **入 / 不入** predictor matrix（引擎默认：结局列 detach，不插补、不进 CART/PMM 预测矩阵）。禁止 “followed study imputation block defaults” 含糊句。
+3. **连续暴露尺度**：Table 2 / S7 final / 中介 Total continuous OR 必须标明 **per 1 unit / per SD / per IQR**；若 per unit 须给分布量级（median/IQR）。禁止只写 “continuous” 却让读者对 1.278 vs 1.302 无法裁决。
+4. **Model2 ∩ 中介候选**：若 M2 含 Platelet/LD/WBC 等亦出现在中介表 → 脚注或 Limitations **方案 A 写实**（部分反映共享实验室路径）或方案 B 重导无中介候选的 M2；禁止 silently。
+5. **S 表重号副本**：禁止同时存在「Table S7. Weighted associations…」与「Table S8. Weighted associations…」内容全等、仅 A1 错号；中介同理。实体收敛为清单角色各一件（associations=S8、mediation=S9 或课题编号规则）；Fig4 md 引用同号。
+6. **暴露成分与 Table1**：复合指标成分若因 `analysis_exclusion` 已硬删，Methods 须写「成分缺失即剔除 + 成分为何不在 Table1」；若作者补导成分行另案。禁止既无成分行又无说明。
+7. **不加权敏感性脚注**：S11（或等价 unweighted logistic）禁止残留 “survey-weighted svyglm”；须写 unweighted logistic / GLM。
+8. **多因素空 OR 行**：S5 等若 VIF 已剔变量仍留空 OR → 标 `NA (VIF-removed)` 或删行 + 脚注；禁止真空单元格交差。
+9. **问卷结局变量名链**：COPD 等须写 MCQ 变量名与任一阳性规则（如 MCQ160K OR MCQ160G），禁只写 “MCQ items (bronchitis/emphysema)”。
+10. **ROC 三件**：协变量集（须能对上 Model2 或明确另一集）、AUC CI 方法（DeLong/`pROC::ci.auc` 等）、in-sample 性质；Limitations 一句即可，禁算法自曝。
+11. **定义类出处**：课题自造复合指标须写操作性定义 + 近邻已发表指标（如 CMI）；**禁止** “previously described MCMI” 伪引用。
+12. **软件清单**：必用 `survey` / `forestploter` 须在列；未跑生存/竞争风险/LASSO 则不得留 survival/survminer/cmprsk/glmnet 冒充本分析所用。
+
 ## Agent 检查清单（每次 NHANES 发病 QC）
 
 ```
@@ -69,8 +100,15 @@ alwaysApply: true
 [ ] 根 Table2 M2 OR 字符串 = step 源表（无「只改脚注」漂移）
 [ ] 主切点=加权；S1/S9/S10 若另一套已标 unweighted
 [ ] S12/S9 总效应与 Table2 关系已脚注；路径数=图
-[ ] Methods：公式、定名、MICE(含结局是否入模)、权重**公式**、Fig1 起点桥接、RCS knots/竖线、终模路径、无 ROC 自曝
-[ ] 无 Table2≡Table3 重复主表；横断面脚注无 Cox/KM
+[ ] Methods：公式、定名、MICE(含结局是否入模)、权重**公式（单源）**、Fig1 起点桥接、RCS knots/竖线、终模路径、无 ROC 自曝
+[ ] Methods 权重句与 Fig1 weight 源一致（禁 WTMEC/WTSAF 二义）
+[ ] 连续 OR 尺度已写（per unit/SD/IQR）；中介 Total ≠ T2 连续已说明
+[ ] 无 associations/mediation 重号副本；Fig 引用 = 实体表号
+[ ] Model2∩中介候选已 Limitations/脚注；S5 空 OR 已 NA/删行
+[ ] 问卷结局 MCQ 变量名链；自造指标无伪引用
+[ ] ROC：协变量集 + DeLong/方法 + in-sample
+[ ] 软件清单含 survey；无 survival/cmprsk/glmnet 等未用包冒充
+[ ] 无 Table2≡Table3 重复主表；横断面脚注无 Cox/KM；S11 非加权脚注无 survey-weighted
 [ ] H1 勾清后 Methods 文件仍含上述句（防重传冲掉）
 [ ] Fig md NE/数字 = pdftotext 图面；无伪 0.00 CI
 [ ] 描述脚注口径与单元格一致；表题=内容
@@ -84,6 +122,10 @@ alwaysApply: true
 - Methods 不写 m/seed；fig md 自曝过拟合试验
 - Fig3 Yes=NE，md 仍写 0.00 (4.57e-07–…)
 - Methods 只写 “cycle scaling”，无 `WTMEC2YR/C`
+- Methods 写 `WTMEC2YR (or WTSAF2YR…)` 而 Fig1 写 WTSAF2YR（COPD MCMI 2026-11）
 - Table 3-NHANES 与 Table 2 逐格相同仍交付；中期把副本标成「表3」
 - 横断面表脚注残留 Cox/KM；H1 已勾但重传后 Methods 又变短仍报 PASS
 - S5 全模型暴露 NS、缩减 Model2 显著，Methods 不提筛选
+- 同时留 S7+S8 两份 associations（仅内部标题错号）；Fig4 仍引 Table S8 而实体已是 S9
+- 连续 OR 不写 per unit，却用中介 Total 与 T2 连续差做文章不注脚
+- versions.txt 有 survival/cmprsk 却无 survey

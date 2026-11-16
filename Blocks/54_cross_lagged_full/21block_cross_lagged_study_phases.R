@@ -292,7 +292,52 @@ cross_lagged_phase_summary_collect <- function(root, study_root, no_sync = FALSE
   }
   # summary 必刷课题盘
   cross_lagged_sync_to_project_disk(root, study_root, no_sync = no_sync)
+  # 交付收口：Methods/软件版本/禁下划线/Times 几何/QC/白名单
+  if (!exists("cross_lagged_finalize_delivery", mode = "function")) {
+    source(file.path(root, "R/cross_lagged_delivery_finalize.R"), local = FALSE)
+  }
+  tryCatch(
+    cross_lagged_finalize_delivery(
+      study_root,
+      sync_root = Sys.getenv("CROSS_LAGGED_SYNC_ROOT", ""),
+      run_qc = TRUE,
+      prune = TRUE,
+      ensure_figures = TRUE
+    ),
+    error = function(e) cli::cli_alert_warning("delivery finalize: {conditionMessage(e)}")
+  )
+  # 中期：若交付根已有 content.json，自动 build；否则提示 Agent 走 Aiya-NB004
+  tryCatch(
+    {
+      if (!exists("cross_lagged_try_build_midterm_pdf", mode = "function")) {
+        source(file.path(root, "R/cross_lagged_delivery_finalize.R"), local = FALSE)
+      }
+      if (exists("cross_lagged_try_build_midterm_pdf", mode = "function")) {
+        cross_lagged_try_build_midterm_pdf(study_root)
+      }
+    },
+    error = function(e) cli::cli_alert_warning("midterm auto-build: {conditionMessage(e)}")
+  )
   invisible(TRUE)
+}
+
+cross_lagged_phase_finalize_delivery <- function(root, study_root, no_sync = FALSE) {
+  if (!exists("cross_lagged_finalize_delivery", mode = "function")) {
+    source(file.path(root, "R/cross_lagged_delivery_finalize.R"), local = FALSE)
+  }
+  if (!isTRUE(no_sync)) {
+    tryCatch(
+      cross_lagged_sync_to_project_disk(root, study_root, no_sync = FALSE),
+      error = function(e) cli::cli_alert_warning("sync before finalize: {conditionMessage(e)}")
+    )
+  }
+  cross_lagged_finalize_delivery(
+    study_root,
+    sync_root = Sys.getenv("CROSS_LAGGED_SYNC_ROOT", ""),
+    run_qc = TRUE,
+    prune = TRUE,
+    ensure_figures = TRUE
+  )
 }
 
 cross_lagged_phase_summary_prune_logistic <- function(root, study_root) {
@@ -400,6 +445,11 @@ cross_lagged_dispatch_phase <- function(root, phase, opts = list()) {
         root, study_root, no_sync = no_sync
       ))
     },
+    "finalize" = ,
+    "delivery" = ,
+    "finalize_delivery" = cross_lagged_phase_finalize_delivery(
+      root, study_root, no_sync = no_sync
+    ),
     "prune" = ,
     "prune_logistic" = cross_lagged_phase_summary_prune_logistic(root, study_root),
     "pub_figs" = ,
@@ -432,13 +482,14 @@ cross_lagged_dispatch_phase <- function(root, phase, opts = list()) {
     stop(
       "未知 --phase: ", phase, "\n",
       "可用: vif_pooled | post_vif | relock | long_figs | long_mediation | ",
-      "subgroup | summary | prune | pub_figs | sensitivity | midterm | midterm_rmd | batch | sync",
+      "subgroup | summary | finalize | prune | pub_figs | sensitivity | midterm | midterm_rmd | batch | sync",
       call. = FALSE
     )
   )
   # 产出阶段：自动收图+表进 summary_result，再镜像课题盘
   if (!phase %in% c(
-    "summary", "collect", "sync", "prune", "prune_logistic",
+    "summary", "collect", "sync", "finalize", "delivery", "finalize_delivery",
+    "prune", "prune_logistic",
     "midterm", "midterm_pdf", "report", "midterm_rmd", "midterm_rmarkdown"
   )) {
     tryCatch(

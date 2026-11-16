@@ -675,6 +675,15 @@ tryCatch({
     incidence_batch_finalize_index_outputs(root, config_ix, ix, actual_db_seq),
     error = function(e2) NULL
   )
-  .write_status("error", error_message = msg)
+  ## 闸门类失败写 failed（与 BASELINE_INDEX_NS 同口径 → 【failed】目录）
+  st <- if (grepl(
+    "LASSO_EXPOSURE_NOT_SELECTED|COMPOSITE_NOT_IN_FEATURE_SELECTION|BASELINE_INDEX_NS_STOP",
+    msg
+  )) {
+    "failed"
+  } else {
+    "error"
+  }
+  .write_status(st, error_message = msg)
   quit(save = "no", status = 1)
 })

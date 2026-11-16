@@ -1,18 +1,57 @@
-# scripts — 78 数据库池化适配与实验封装
+# scripts — 78 数据库池化（正式源码位置）
 
-**本目录是正式源码位置。** `/tmp` 里的同名 `.py` 多为过期副本，下一课题禁止当入口。
+**本目录是正式源码。** `/tmp`、结果盘 `scripts/`、对话临时稿 **禁止当下一课题入口**。
+
+发表收口（全项目）：`Rscript run/dbpool/finalize_summary_delivery.R --dir …/summary_results`  
+规则：`.cursor/rules/dbpool_pub_reuse.mdc`  
+复用地图：`docs/reuse/2026-10-26-dbpool-delivery-midterm-reuse-map.md`
+
+---
+
+## A. 引擎级 / 下课题直接复用（改这里）
 
 | 文件 | 作用 |
 |---|---|
-| `adapt_realextraction_to_blendedlos.py` | RealExtraction → BlendedLoS 数据布局 |
-| `run_dbpool_experiment.py` | 按实验单元调用 `../upstream/BlendedLoS` |
-| `build_blendedlos_hourly.py` | 协调长表 → 每人小时宽表 |
-| `freeze_liver_acg.py` / `prepare_liver_acg_blendedlos.py` | ACG 酶≥2×ULN 队列冻结与划分 |
-| `finalize_easl_paper_pub.py` | 定稿 Table/Fig；末尾 `_finalize_delivery_root`（Methods+白名单） |
-| `rebuild_table_s1_allyn.py` / `rebuild_table_s2_moesm2.py` | Table S1 / S2 重建 |
-| `rebuild_table2_only.py` / `rebuild_table3_only.py` | Table 2 / 3 重建 |
+| `finalize_easl_paper_pub.py` | 定稿 Table/Fig；末尾调 `run/dbpool/finalize_summary_delivery.R` |
 | `eval_liver_paper_ci.py` | DeLong AUROC / bootstrap MAPE CI |
+| `rebuild_table2_only.py` / `rebuild_table3_only.py` | Table 2 / 3 重建 |
+| `rebuild_table_s1_allyn.py` / `rebuild_table_s2_moesm2.py` | Table S1 / S2 重建（版式模板；勿把 Allyn/MOESM 字样写进客户 Methods） |
+| `adapt_realextraction_to_blendedlos.py` | RealExtraction → BlendedLoS 布局 |
+| `run_dbpool_experiment.py` | 按实验单元调 `../upstream/BlendedLoS` |
+| `build_blendedlos_hourly.py` | 长表 → 小时宽表 |
+| `cross_eval_ams_mimic.py` | Amsterdam↔MIMIC 交叉 specialization |
+| `pack_uln_triple_summary.py` | ULN-all3 主包 + bili/ALT/AST 敏感性 S 表图 + 引擎收口 |
+| `refresh_uln_table3_after_cross.py` | 交叉评估后回填 Table 3 / S4/S6/S8 |
+| `redraw_uln_triple_figures.py` | ULN 三联 Figure 重画 |
+| `run_uln_cross_eval_four.sh` | 四队列交叉评估编排 |
+| `prepare_full_icu_blendedlos.py` / `prepare_*_blendedlos.py` | 各病种 BlendedLoS 准备（换病复制改参） |
+| `freeze_liver_*.py` / `prepare_liver_*.py` | 肝相关队列冻结与划分 |
 
-上游公开代码在 `../upstream/BlendedLoS/`。
+上游公开代码：`../upstream/BlendedLoS/`。
 
-发表收口：`run/dbpool/finalize_summary_delivery.R`（见 `docs/reuse/2026-10-26-dbpool-delivery-midterm-reuse-map.md`）。
+---
+
+## B. 课题一次性 / 训练运维（勿当发表入口）
+
+训练 watch、GPU keeper、resume 某次 bench、screen 草稿等：用完归档到本目录 `_archive_oneoff/`，或留在本目录但 **不要** 从下一课题复制当 finalize。
+
+示例（运维，非发表）：`weekend_gpu_keeper.sh`、`run_easl_paper_finalize_watch.sh`、`resume_easl_*.sh`、`schedule_uln_four_on_34.sh`、各类 `run_*_train*.sh`。
+
+---
+
+## C. 已并入引擎、勿在本目录再复制
+
+| 能力 | 引擎位置 |
+|---|---|
+| Methods + 软件版本 + 白名单 | `R/pub_dbpool_methods.R` + `run/dbpool/finalize_summary_delivery.R` |
+| 禁下划线 + Times xlsx | `python/pub_xlsx_scrub_display.py` |
+| 字体 QC | `R/pub_qc_fonts.R` |
+| 通用 finalize / QC | `run/pub/finalize_delivery_root.R`、`run/pub/run_pub_qc_after_project.R` |
+
+---
+
+## 标准收口顺序（每个 dbpool 课题）
+
+1. 训练 / pack 出 Tables+Figures  
+2. `Rscript run/dbpool/finalize_summary_delivery.R --dir <summary_results>`  
+3. Agent：Nature Layer D → 修 P0 → 中期 PDF → prune（交付仅五件套）

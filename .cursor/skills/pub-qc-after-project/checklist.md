@@ -30,6 +30,7 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 
 - [ ] Fig1 逐步 n = attrition CSV（分库）
 - [ ] Table1 总 N（或分析集）与 Fig1 终步 / status.json 一致（允许脚注说明的加权/子集）
+- [ ] **硬门控** Fig1 排版目检：末主框与粉/绿分叉不重叠、文字不被截断、Exclude 不压主框、箭头完整（打开 PDF/预览；不得只靠 pdftotext）
 - [ ] **硬门控** `sum(亚组表 Age Count) == analytic N`；其余分层 Count 之和同检（全分析集口径）
 - [ ] **硬门控** 森林图 PDF 图面 Age/主分层 N == 亚组表 Count（须读 PDF 文本，禁止只审 collision）
 - [ ] **硬门控** 交付表/图/md 无上一轮 analytic N 或旧 Age 分层 Count（legacy token）
@@ -68,19 +69,38 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 - [ ] **硬门控** 主文/Table1/Table2 分位 = **调查加权**；S1/不加权基线/不加权 GLM 若另一套中位数或切点 → 脚注写 unweighted 且不可与 Table2 互换
 - [ ] **硬门控** 中介 Total effect 与 Table2 最高分位 OR：同调整集已声明；数值不同须脚注「不必逐字相同」，禁止正文硬拗一致
 - [ ] **硬门控** 中介路径图数字 = 中介表对应行；实现口径写 `svyglm`/PSU bootstrap（B、seed），勿假写未用的包
-- [ ] **硬门控** Methods 含：暴露公式+定名、MICE(m/method/seed/**结局是否入预测矩阵**/complete)、权重**具体公式**（禁只写 cycle scaling）、Fig1 起点↔定义池桥接、RCS knots/竖线语义、终模路径（S3–S7）；S5 暴露效应消失须点名不藏
-- [ ] **硬门控** 无内容全等的 Table2≡Table3（或其它重复主表）；横断面脚注无 `Cox/`、`KM/`
+- [ ] **硬门控** Methods 含：暴露公式+定名、MICE(m/method/seed/**结局是否入预测矩阵**/complete)、权重**具体公式**（禁只写 cycle scaling；**禁** `WTMEC (or WTSAF)` 二义句与 Fig1 互斥）、Fig1 起点↔定义池桥接、RCS knots/竖线语义、终模路径（S3–S7）；S5 暴露效应消失须点名不藏
+- [ ] **硬门控** 连续暴露 OR 尺度写实（per 1 unit / per SD / per IQR）；中介 Total continuous ≠ Table2 continuous 须脚注（complete#1 vs Rubin / 规格差）
+- [ ] **硬门控** Path a 与实验室关联表标度差已脚注（如 path a=原生单位、S8=per 1-SD）；Fig 中介引用表号 = 实体 S 号（无重号副本）
+- [ ] **硬门控** 无内容全等的 Table2≡Table3（或其它重复主表）；无 S7/S8 associations 或 S8/S9 mediation **错号双份**；横断面脚注无 `Cox/`、`KM/`；不加权敏感性脚注无 `survey-weighted svyglm`
+- [ ] **硬门控** Model2 若含中介候选实验室 → Limitations/脚注方案 A 或 B；S5 空 OR → `NA (VIF-removed)`/删行
+- [ ] **硬门控** 问卷结局写 MCQ 变量名链；自造复合指标无 “previously described” 伪引用；ROC 写协变量集+CI 方法+in-sample
+- [ ] **硬门控** `Methods_software_versions.txt` 含实际用到的 `survey`（及 forestploter 若有森林图）；无 survival/survminer/cmprsk/glmnet 等未用包冒充
 - [ ] **硬门控** H1/Methods P0 勾清后，现行 Methods 文件仍含上述关键句（防重传短稿冲掉仍报 PASS）
 - [ ] **硬门控** ROC/`image_information` **无**「惩罚/GBM 训练 AUC 抬高、CV 掉下去所以图上不用」类自曝句；只报图面 AUC
 - [ ] **硬门控** 亚组图面 NE ↔ fig md NE；禁止 md 残留 `0.00`+假小 CI；NE 须有图注/脚注事实句
-- [ ] 描述脚注若写 mean (SE) or median，表内须真有 mean；否则改单口径（median only）
-- [ ] 表题「with \<Disease\>」等与表内容（全队列 vs 病例）一致
+- [ ] 描述脚注若写 mean (SE) or median / weighted count，表内须真有 mean 且分类 n 为加权计数；否则 **P0** 改单口径（weighted median (IQR)；unweighted counts with weighted percentages）——禁止清单有勾却放过
+- [ ] **硬门控** 不加权敏感性 S10/S11 N = 分析集（权重剔除后）；禁止残留剔除前池（如 9,272 vs 8,732）
+- [ ] **硬门控** Table1 / S10 无 `cycle`、`new_Weight` / WT* / SDMV*（不加权敏感性变量集=加权 Table1）；见 `baseline_no_survey_meta_vars`
+- [ ] **硬门控** 亚组森林 CI 与 P 同源（z-CI↔z-P；禁 t-P 配 ±1.96·SE）；图 md/Methods 写明 Crude 或调整集
+- [ ] **硬门控** RCS 竖线/结点若未加权，Methods+图 md 须写实；禁止与 Table1 加权中位静默混用
+- [ ] **硬门控** 横断面现患：Methods/versions 禁 incidence/发病/新发；写 prevalence/cross-sectional
+- [ ] **硬门控** MICE：可不插补结局值，但「结局未进预测矩阵」须 Limitations 披露衰减风险（勿与「不插补结局」混为一谈）
+- [ ] 表题「with \<Disease\>」等与表内容（全队列 vs 病例）一致；复合指标成分不在 Table1 时 Methods 有剔除/硬删说明
 
 冲突记录格式：`左侧来源 | 数值 | 右侧来源 | 数值 | 差分说明`
 
 > 踩坑：VitalDB AKI Sodium 2026-10 — Table3/Fig3 仍 N=6037 而 Fig1=3522；规则见 `.cursor/rules/pub_qc_denominator_crosscheck.mdc`。  
 > 踩坑：Psoriasis eGDR 2026-10 — Table2 无 Diabetes OR=0.528 vs 引擎含 Diabetes 0.487≈中介总效应；加权 9.39 vs 不加权 9.318；Fig3 md 抄旧伪 CI。  
-> 踩坑：cute_ran HHR 2026-11 — Table3≡Table2 副本；Methods 只写 cycle scaling / 无 knots·结局入模·起点桥接；S5 NS 不披露；横断面脚注 Cox/KM；H1 已勾但重传后 Methods 变短。
+> 踩坑：cute_ran HHR 2026-11 — Table3≡Table2 副本；Methods 只写 cycle scaling / 无 knots·结局入模·起点桥接；S5 NS 不披露；横断面脚注 Cox/KM；H1 已勾但重传后 Methods 变短。  
+> 踩坑：COPD MCMI 2026-11 — Methods WTMEC/WTSAF 二义 vs Fig1 WTSAF；连续尺度未写；S7/S8 重号副本；M2∩中介候选未披露；S11 仍写 survey-weighted；versions 缺 survey、残留 survival。  
+> 踩坑：COPD MCMI 2026-11 二轮 — Table1 脚注 mean(SE)/weighted count 与表体冲突；S10/S11=9,272；Fig3 CI×P 分裂+未标 Crude；RCS 3.19 vs 加权 3.13；versions 写 incidence；结局未进预测矩阵未入 Limitations。  
+> 踩坑：COPD MCMI 2026-11 三轮 — 发病 config 挂空 `ml_batch`/`write_index_summary_results` → finalize 按 ML 删 Fig4/S1/S2；Table2 脚注残留 `KM/`；单库 A1 残留 `-NHANES`；Fig4 md 误引 Table S8。
+
+- [ ] **硬门控** 纯发病课题 config **无**空 `ml_batch`；`summary_results` 图含应有的箱线/ROC/中介（非 ML 不得 omit）
+- [ ] **硬门控** 横断面主表脚注无 `KM/` / `Cox`
+- [ ] **硬门控** 单库表 A1 无 `-NHANES`/`-CHARLS`；与文件名同号
+- [ ] **硬门控** 中介路径图 image_information 引用表号 = 交付中介表（通常 S9）
 
 ## §B4 预后 v2 / Cox 文献发表漏检（2026-10 Hip AKI；未勾不得 PASS）
 
@@ -94,9 +114,17 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 - [ ] **硬门控** Fig RCS 字幕含 **P-linear** + **P-nonlinear**（对齐 Table 3 线性）；禁止只报多 df **P-overall** 当与 Table 3 可比
 - [ ] **硬门控** Boruta/SHAP 等展示层无临床特征下划线（`pipeline_display_label`）
 - [ ] **硬门控** Methods：暴露取材时点、MICE（m + 结局/暴露是否入模）、`cox.zph` + PH 表（如 S9）、分位锁定结果
+- [ ] **硬门控** Fig1 首框 N 与项目信息排除链一致：若 ESRD/透析/姑息/ICU≥2 等已在提取层执行，Methods 须写「先诊断码+排除码+停留时长，再 Fig1」；若未执行，不得假装已排除（须重导 Fig1 或码表层解释）
+- [ ] **硬门控** 疾病定义有最终 ICD 纳入/排除码表（含语义）；无表或含非目标病种残留码 → P0 / AUTHOR_INPUT
+- [ ] **硬门控** 暴露不可计算占比 &gt;40% 时 Methods/Limitations 承认选择偏倚（不可计算=成分未化验）
+- [ ] **硬门控** 敏感性表脚注 landmark（如 “primary X-day locked grouping”）= 主文 landmark；禁 28-day 模板残留于 14d 交付
+- [ ] **硬门控** Fig7 Overall HR 字符串 = Table 3 Model1 同对比（Numbers_Master 单一出处；禁 Rubin vs complete#1 静默差 0.001）
+- [ ] **硬门控** Methods 含 Boruta/SHAP 可复述参数（confirmed 规则、包/实现、ntree/seed、Model3 交集）与 RCS 结点数/位置
+- [ ] 同一表连续 per-1-SD 与分位方向强度相悖时：已复算尺度或已用 RCS 非线性写实
 - [ ] 收尾已跑 `pv2_pub_p0_gate()` 或等价 `pdftotext` 核验；失败不得 PASS
 
-> 踩坑：Hip AKI 2026-10 — Fig3 四分位 vs 锁 binary；Fig6 Total≠S8 Direct；Fig7 无 P-int / Q4vsQ1；Fig4 仅 P-overall；Fig2 下划线；S7 反向；无 PH/取材时点/MICE 裁决。
+> 踩坑：Hip AKI 2026-10 — Fig3 四分位 vs 锁 binary；Fig6 Total≠S8 Direct；Fig7 无 P-int / Q4vsQ1；Fig4 仅 P-overall；Fig2 下划线；S7 反向；无 PH/取材时点/MICE 裁决。  
+> 踩坑：Stroke ANLR 14d 2026-11 — Fig1 与项目信息排除链不一致；ICD 码表缺口；暴露缺失&gt;40% 未写入 Limitations；S5 脚注 28-day 残留；S5 连续 vs 分位相悖未说明；Fig7 Overall 0.256≠Table3 0.255；Boruta/SHAP/RCS knots 未入 Methods。
 
 ## §B5 发表数字格式（强制；2026-11 pneumonia DeLong；未勾不得 PASS）
 
@@ -110,6 +138,20 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 - [ ] 结构 QC 报告 Layer A2 = PASS；FAIL → 当场走 `pub_normalize_pub_df` / 重导，不得 PASS
 
 > 踩坑：肺炎 Ln_NLPR 2026-11 — DeLong S8 成片裸 `0`；NRI `0.000`；Fig1 图底 Analytic rule 脚注。
+
+## §B6 ML / TCF 预测发表漏检（强制；2026-11 SA-AKI multi-algorithm fusion；未勾不得 PASS）
+
+规则：`.cursor/rules/ml_tcf_pub_reuse.mdc`；nature-statistics `common-failure-modes.md` Medical Blocks 交付漏检表同步行。
+
+- [ ] **硬门控** 结局标签全稿一致：Fig1 / 中期封面 / Table1 / TRIPOD(S13) / Methods 同一套（28-day all-cause **或** in-hospital）；禁止事件数相同却两套标签；发表面无 `fustatus` 等内部字段名
+- [ ] **硬门控** 分析单位粒度：MIMIC 患者级 vs eICU（patientunitstayid / ICU-first）已在 Fig1 + Methods 写实；先实核 stay ID 是否唯一——仅当真有同患者多 stay 入样才要求 cluster-robust / Limitations，禁止假残留
+- [ ] **硬门控** Fig1 各排除框 = 实核剔除原因（「结局不可链接」≠「baseline 不可链接」）；Methods 有一句话定义
+- [ ] **硬门控** 数据集用途链：熵筛选 / RSCV = train；TOPSIS α = internal-validation metrics（若如此）；禁止笼统 development-set weights 掩盖泄漏面
+- [ ] **硬门控** `Methods_software_versions.txt` 含 Python + sklearn/XGBoost/LightGBM/SHAP/imblearn/pandas/numpy（TCF 主链）；无未用 survival/cmprsk/mediation 等预后模板残留
+- [ ] Methods 写实 `logistic_mi` 实现载体（R mice 方法映射）与 `complete_action=1` 操作层语义；分类器是否 Rubin 诚实披露
+- [ ] train_ratio / Fig1 划分比例与 Table1 列头 n 一致（80/20 vs 70/30 不得混用）
+
+> 踩坑：SA-AKI TCF ALLVARS 2026-11 — Table1/S13「In-hospital death (fustatus)」vs Fig1「death within 28 days」；Fig1 MIMIC 写成 stay 级结局不可链接、实为 subject 去重；eICU 1207=baseline 不可链接未入 Methods；软件清单无 Python；TOPSIS α 用内验却 Methods 写 development-set。
 
 ## §C 逻辑通顺（Agent）
 

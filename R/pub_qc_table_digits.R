@@ -81,6 +81,11 @@ pub_qc_table_digits_violations <- function(path) {
   if (grepl("Hyperparameter|超参", bn, ignore.case = TRUE)) {
     return(character(0))
   }
+  ## 邻接/相关矩阵：大量真零边权写成 0.000，不是 P 值 —— 豁免
+  if (grepl("CLPN adjacency|adjacency|correlation matrix|corr matrix|Network adjacency",
+            bn, ignore.case = TRUE)) {
+    return(character(0))
+  }
   cells <- .pub_qc_xlsx_cell_strings(path)
   if (!length(cells)) return(character(0))
   is_metric_ctx <- grepl(

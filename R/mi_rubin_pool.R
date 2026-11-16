@@ -530,23 +530,49 @@ mi_methods_footnote_lines <- function(m = 5L, maxit = 5L, seed = 1234L,
   } else {
     "Regression estimates were pooled across imputations using Rubin's rules."
   }
+  # 横断面/发病：禁止残留 KM；预后才写 KM
+  ops_bit <- if (identical(st, "prognosis") || identical(st, "survival")) {
+    "Operational steps (feature selection, KM/RCS plots, descriptive tables, survey design cutpoints) used the first completed dataset."
+  } else if (identical(st, "incidence")) {
+    "Operational steps (descriptive tables, RCS plots, subgroup forests, survey design cutpoints) used the first completed dataset."
+  } else {
+    "Operational steps (descriptive tables, RCS plots, survey design cutpoints) used the first completed dataset."
+  }
   c(
     sprintf(
       "Multiple imputation by chained equations (m = %d, maxit = %d, seed = %d).",
       as.integer(m), as.integer(maxit), as.integer(seed)
     ),
     pool_bit,
-    "Operational steps (feature selection, KM/RCS plots, descriptive tables, survey design cutpoints) used the first completed dataset."
+    ops_bit
   )
+}
+
+#' 横断面/发病脚注去掉生存残留（KM/Cox）
+.mi_scrub_incidence_survival_tokens <- function(notes) {
+  notes <- as.character(notes %||% character(0))
+  notes <- gsub("KM/RCS plots", "RCS plots", notes, fixed = TRUE)
+  notes <- gsub("KM/RCS", "RCS", notes, fixed = TRUE)
+  notes <- gsub("feature selection, KM/", "feature selection, ", notes, fixed = TRUE)
+  notes <- gsub("(?i)\\b(Cox|Kaplan-Meier|survminer)\\b", "logistic", notes, perl = TRUE)
+  ## 避免 "logistic models" 被改成奇怪串时仅替换独立词；上面已够用
+  notes
 }
 
 #' 若 ctx 启用 Rubin，把 MI 方法脚注接到发表表脚注末尾（全项目复用）
 mi_append_table_footnotes <- function(notes, ctx = NULL) {
   notes <- as.character(notes %||% character(0))
-  if (is.null(ctx) || !isTRUE(mi_rubin_enabled(ctx))) return(notes)
-  if (!exists("mi_methods_footnote_lines", mode = "function")) return(notes)
-  imp <- ctx$config$imputation %||% list()
   st <- as.character((ctx$config$project %||% list())$study_type %||% "")[1L]
+  .inc <- identical(tolower(trimws(st)), "incidence")
+  if (is.null(ctx) || !isTRUE(mi_rubin_enabled(ctx))) {
+    if (.inc) notes <- .mi_scrub_incidence_survival_tokens(notes)
+    return(notes)
+  }
+  if (!exists("mi_methods_footnote_lines", mode = "function")) {
+    if (.inc) notes <- .mi_scrub_incidence_survival_tokens(notes)
+    return(notes)
+  }
+  imp <- ctx$config$imputation %||% list()
   is_svy <- isTRUE((ctx$config$nhanes %||% list())$enable) ||
     !is.null((ctx$results %||% list())$nhanes_design) ||
     identical(tolower(as.character((ctx$config$column_mapping %||% list())$database_type %||% "")[1L]), "nhanes")
@@ -558,6 +584,11 @@ mi_append_table_footnotes <- function(notes, ctx = NULL) {
     survey = is_svy
   )
   # 幂等：已含 Rubin 句则不再追加
-  if (any(grepl("Rubin's rules", notes, fixed = TRUE))) return(notes)
-  c(notes, mi_lines)
+  if (any(grepl("Rubin's rules", notes, fixed = TRUE))) {
+    if (.inc) notes <- .mi_scrub_incidence_survival_tokens(notes)
+    return(notes)
+  }
+  out <- c(notes, mi_lines)
+  if (.inc) out <- .mi_scrub_incidence_survival_tokens(out)
+  out
 }

@@ -84,10 +84,21 @@ attrition_record_survey_weight_step <- function(ctx, design_n) {
       ((ctx$config %||% list())$nhanes %||% list())$survey_weight %||% "new_Weight"
     )[1L]
   }
-  exclude_label <- if (nzchar(src)) {
-    sprintf("Missing or non-positive survey weights (%s from %s)", wt, src)
+  # 图面展示禁下划线：new_Weight → new Weight（列名仍可保留编程名）
+  wt_disp <- if (exists("pipeline_display_label", mode = "function")) {
+    as.character(pipeline_display_label(wt))[1L]
   } else {
-    sprintf("Missing or non-positive survey weights (%s)", wt)
+    gsub("_", " ", wt, fixed = TRUE)
+  }
+  src_disp <- if (exists("pipeline_display_label", mode = "function")) {
+    as.character(pipeline_display_label(src))[1L]
+  } else {
+    gsub("_", " ", src, fixed = TRUE)
+  }
+  exclude_label <- if (nzchar(src_disp)) {
+    sprintf("Missing or non-positive survey weights (%s from %s)", wt_disp, src_disp)
+  } else {
+    sprintf("Missing or non-positive survey weights (%s)", wt_disp)
   }
   n_drop_meta <- if (is.finite(wi$n_dropped %||% NA_integer_)) {
     as.integer(wi$n_dropped)[1L]
@@ -474,6 +485,13 @@ attrition_finalize_rows <- function(ctx, config) {
     }
   }
 
+  # ML / 复合指标：config_steps_only 仍须追加「指标成分缺失」终步，
+  # 使分叉 N = Table1 分析集（禁止 7645 框直接分叉到 6897）。
+  if (isTRUE(attr_cfg$ml_standard_layout %||% FALSE) ||
+      isTRUE(attr_cfg$append_index_missing_step %||% FALSE)) {
+    rows_df <- attrition_append_index_missing_step(rows_df, ctx, config)
+  }
+
   if (!nrow(rows_df)) {
     n_cur <- attrition_n_current(ctx)
     if (is.finite(n_cur)) {
@@ -514,10 +532,12 @@ attrition_finalize_rows <- function(ctx, config) {
   rows_df[, keep, drop = FALSE]
 }
 
-#' 双库 CONSORT 纳排：各库先画单页，再横排 A|B（禁止旧式 mfrow 方框）。
+#' 双库 CONSORT 纳排：各库先画单页（默认无面板内 Figure 1 小标题），再横排拼图。
+#' 外标默认用库名（无 A/B 字母）；可用 titles 覆盖面板内标题。
 attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
                                           font_family = "Times New Roman",
-                                          footnotes_by_db = NULL) {
+                                          footnotes_by_db = NULL,
+                                          panel_labels = NULL) {
   if (is.null(rows_by_db) || !length(rows_by_db)) return(invisible(FALSE))
   nms <- names(rows_by_db)
   if (is.null(nms) || !any(nzchar(nms))) nms <- as.character(seq_along(rows_by_db))
@@ -530,7 +550,7 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
     title <- if (!is.null(titles) && length(titles) >= i && nzchar(as.character(titles[[i]])[1L])) {
       as.character(titles[[i]])[1L]
     } else {
-      nms[[i]]
+      ""
     }
     fn <- character(0)
     if (!is.null(footnotes_by_db)) {
@@ -553,9 +573,21 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
     ok <- file.copy(tmp[[1L]], dest, overwrite = TRUE)
     return(invisible(isTRUE(ok) && file.exists(dest)))
   }
+  labs <- if (!is.null(panel_labels) && length(panel_labels) >= 2L) {
+    as.character(panel_labels)[seq_len(2L)]
+  } else {
+    as.character(nms)[seq_len(2L)]
+  }
+  if (length(tmp) >= 2L && exists(".dual_db_compose_n_pdf_vector", mode = "function")) {
+    ok <- isTRUE(tryCatch({
+      .dual_db_compose_n_pdf_vector(tmp, labs, dest, layout = "side")
+      file.exists(dest)
+    }, error = function(e) FALSE))
+    if (isTRUE(ok)) return(invisible(TRUE))
+  }
   if (length(tmp) >= 2L && exists("pub_figure_combine_ab_pdfs", mode = "function")) {
     ok <- isTRUE(tryCatch(
-      pub_figure_combine_ab_pdfs(tmp[[1L]], tmp[[2L]], dest, stack = FALSE),
+      pub_figure_combine_ab_pdfs(tmp[[1L]], tmp[[2L]], dest, labels = labs, stack = FALSE),
       error = function(e) FALSE
     ))
     if (isTRUE(ok) && file.exists(dest)) return(invisible(TRUE))
@@ -587,6 +619,93 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
     }
   }
   rows[keep, , drop = FALSE]
+}
+
+#' 在 config 纳排末尾追加「指标可算分析集」步（成分缺失 Exclude 框）。
+#' 已有 after_index* / analytic_index 步时不重复追加。
+attrition_append_index_missing_step <- function(rows_df, ctx, config) {
+  if (is.null(rows_df) || !is.data.frame(rows_df) || !nrow(rows_df)) {
+    return(rows_df)
+  }
+  sid0 <- tolower(as.character(rows_df$step_id %||% ""))
+  if (any(grepl("after_index|index_calculable|analytic_index|after_exposure", sid0))) {
+    return(rows_df)
+  }
+  cfg <- config %||% list()
+  idx <- as.character(
+    cfg[["_current_index"]] %||%
+      (cfg$project %||% list())$index_var %||%
+      (cfg$incidence %||% list())$index_var %||%
+      (cfg$logistic %||% list())$index_var %||%
+      ""
+  )[1L]
+  if (!nzchar(idx) || identical(tolower(idx), "na")) return(rows_df)
+
+  n_cur <- attrition_n_current(ctx)
+  if (!is.finite(n_cur) || n_cur <= 0L) return(rows_df)
+  n_last <- suppressWarnings(as.integer(rows_df$n[nrow(rows_df)])[1L])
+  if (is.finite(n_last) && n_cur > n_last) return(rows_df)
+
+  df_counts <- ctx$data$raw %||% ctx$data$cleaned %||% ctx$data$mapped %||% NULL
+  if (is.data.frame(df_counts) && is.finite(n_last) && nrow(df_counts) > 0L &&
+      nrow(df_counts) != n_last) {
+    # 优先用与末配置步同 N 的帧计成分缺失；否则仍用 raw
+    if (is.data.frame(ctx$data$cleaned) && nrow(ctx$data$cleaned) == n_last) {
+      df_counts <- ctx$data$cleaned
+    } else if (is.data.frame(ctx$data$mapped) && nrow(ctx$data$mapped) == n_last) {
+      df_counts <- ctx$data$mapped
+    }
+  }
+  lab <- ""
+  if (is.data.frame(df_counts) && nrow(df_counts) > 0L) {
+    lab <- tryCatch(
+      attrition_index_component_missing_label(df_counts, idx),
+      error = function(e) ""
+    )
+  }
+  if (!nzchar(lab)) {
+    dn <- if (is.finite(n_last)) max(0L, as.integer(n_last - n_cur)) else NA_integer_
+    lab <- sprintf(
+      "Missing %s key variables (n = %s)",
+      gsub("_", " ", idx, fixed = TRUE),
+      if (is.finite(dn)) format(dn, big.mark = ",") else "\u2014"
+    )
+  }
+  idx_lab <- if (exists("pipeline_display_label", mode = "function")) {
+    as.character(pipeline_display_label(idx))[1L]
+  } else {
+    gsub("_", " ", idx, fixed = TRUE)
+  }
+  # 主框短标签，细节留在右侧 Exclude
+  new_row <- data.frame(
+    step = sprintf("%s calculable", idx_lab),
+    n = as.integer(n_cur),
+    source = "current",
+    kind = "include",
+    step_id = "after_index_calculable",
+    exclude_label = as.character(lab)[1L],
+    stringsAsFactors = FALSE
+  )
+  for (cn in c(
+    "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"
+  )) {
+    if (cn %in% names(rows_df) && !cn %in% names(new_row)) {
+      new_row[[cn]] <- if (grepl("_n$", cn)) NA_integer_ else NA_character_
+    }
+  }
+  # 清除上一行误挂的 outcome 分叉（分叉必须落在真正分析集终步）
+  for (cn in c(
+    "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"
+  )) {
+    if (cn %in% names(rows_df)) {
+      rows_df[[cn]] <- if (grepl("_n$", cn)) {
+        rep(NA_integer_, nrow(rows_df))
+      } else {
+        rep(NA_character_, nrow(rows_df))
+      }
+    }
+  }
+  rbind(rows_df, new_row)
 }
 
 #' 当前指标公式成分在数据中的缺失人数（含实验室短名别名；每成分取代表列）
@@ -651,10 +770,15 @@ attrition_index_component_missing_label <- function(df, index_name, counts = NUL
     gsub("_", " ", names(counts), fixed = TRUE)
   }
   labs <- trimws(as.character(labs))
-  bits <- sprintf("%s (n = %s)", labs, format(as.integer(counts), big.mark = ","))
+  bits <- sprintf(
+    "%s (n = %s)",
+    labs,
+    format(as.integer(counts), big.mark = ",", trim = TRUE)
+  )
+  # 短文案：避免 Fig1 Exclude 框过长导致折行/叠框
   paste0(
     "Missing ", gsub("_", " ", index_name, fixed = TRUE),
-    " key variables: ", paste(bits, collapse = "; ")
+    ": ", paste(bits, collapse = "; ")
   )
 }
 
@@ -1573,14 +1697,14 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
   mid_after <- if (has_mid) as.integer(mid_fork$after)[1L] else NA_integer_
   if (has_mid && (mid_after < 1L || mid_after >= n_box)) has_mid <- FALSE
   w <- 7.6
-  # 画布高度按内容估算，避免少步数时底部大片空白（勿再强制 4.6/8.2 寸底）
-  need_h <- 0.50 +
-    1.12 * n_box +
-    0.90 * max(n_box - 1L, 0L) +
-    if (has_fork) 1.55 else 0.18 +
+  # 画布高度按内容估算：步数↑ / 有分叉时加高，避免末框与结局分叉叠在一起
+  need_h <- 0.55 +
+    1.28 * n_box +
+    1.05 * max(n_box - 1L, 0L) +
+    if (has_fork) 2.05 else 0.20 +
     if (has_mid) 1.50 else 0 +
     if (length(footnote)) 0.55 else 0.08
-  h <- max(2.4, need_h)
+  h <- max(3.4, need_h)
   opened <- tryCatch({
     .attrition_pdf_device(pdf_path, w, h, ff)
     TRUE
@@ -1606,21 +1730,34 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
 
   y_top <- 0.93
   y_foot <- if (length(footnote)) 0.04 + 0.028 * length(footnote) else 0.03
-  # 按步数自上而下收紧：有无分叉都按 pack 落底，避免少框时把 span 拉满整页
   n_gap <- n_box - 1L + if (has_mid) 1L else 0L
   mid_slot <- if (has_mid) 0.20 else 0
-  pack_npc <- n_box * 0.105 + max(n_gap, 0L) * 0.078 +
-    if (has_fork) 0.22 else 0.04 + mid_slot
+  # 铁律：有结局分叉时先预留下方带宽，再把主列塞进剩余 span。
+  # 旧算法在步数多时把 y_fork_top 压到 ~0.04，末框与粉/绿分叉重叠（P0）。
+  fork_reserve <- if (has_fork) 0.22 else 0.06
   y_fork_top <- max(
-    if (length(footnote)) y_foot + 0.02 else 0.04,
-    min(if (has_fork) 0.18 else 0.12, y_top - pack_npc - 0.02)
+    if (length(footnote)) y_foot + 0.02 else 0.03,
+    fork_reserve
   )
-  span <- max(0.22, y_top - y_fork_top - 0.02 - mid_slot)
-  # 主框略收矮、间隙加大：Exclude 框须完整放进间隙内（旧版 eh=0.12 > gap=0.048 会压住主框）
-  box_h <- min(0.11, span / (n_box + max(n_gap, 1L) * 0.85))
-  gap <- min(0.085, max(0.055, box_h * 0.85))
-  box_h <- min(box_h, (span - n_gap * gap - mid_slot) / n_box)
-  if (!is.finite(box_h) || box_h < 0.05) box_h <- 0.07
+  span <- max(0.18, y_top - y_fork_top - 0.02 - mid_slot)
+  # 主框 + 间隙必须落入 span；Exclude 框高度 ≤ gap
+  box_h <- span / (n_box + max(n_gap, 0L) * 0.78)
+  box_h <- max(0.048, min(0.105, box_h))
+  gap <- if (n_gap > 0L) {
+    (span - n_box * box_h) / n_gap
+  } else {
+    0.06
+  }
+  gap <- max(0.048, min(0.090, gap))
+  # 溢出则等比收缩
+  while (n_gap > 0L &&
+           (n_box * box_h + n_gap * gap) > span + 1e-6 &&
+           box_h > 0.045) {
+    box_h <- box_h * 0.96
+    gap <- (span - n_box * box_h) / n_gap
+  }
+  if (!is.finite(box_h) || box_h < 0.045) box_h <- 0.05
+  if (!is.finite(gap) || gap < 0.045) gap <- 0.048
   # 若全程无右侧 Exclude（相邻步 n 不降且无权重步），主列居中，避免左偏留白
   .need_exclude_col <- FALSE
   if (n_box >= 2L) {
@@ -1718,9 +1855,10 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
         if (isTRUE(show_exclude)) {
           if (is.na(el) || !nzchar(el)) el <- .attrition_exclude_reason(sid, rows$step[i + 1L])
           if (is.na(el) || !nzchar(el)) el <- "Excluded"
-          el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
-          if (!nzchar(el)) el <- "Excluded"
-          ex_lab <- sprintf(
+        el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
+        if (!nzchar(el)) el <- "Excluded"
+        el <- gsub("_", " ", el, fixed = TRUE)
+        ex_lab <- sprintf(
             "Exclude: %s\n(n = %s)",
             el,
             format(as.integer(drop_n), big.mark = ",")
@@ -1765,6 +1903,8 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
         }
         el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
         if (!nzchar(el)) el <- "Excluded"
+        # 发表图面禁下划线（new_weight → new Weight）；编程列名不得上图
+        el <- gsub("_", " ", el, fixed = TRUE)
         # 原因能一行就一行，放不下再换行；框内左对齐
         # 分项已含 Var (n=…) 时，合计改写 total excluded，避免 “Weight (n=0) (n=0)” 粘连
         n_txt <- format(max(0L, as.integer(drop_n)), big.mark = ",")
@@ -1773,11 +1913,12 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
         } else {
           sprintf("Exclude: %s\n(n = %s)", el, n_txt)
         }
-        # 分项缺失等长文案需要更高 Exclude 框，避免挤成竖排看不清
+        # Exclude 框高不得超过 gap，否则会压进上下主框（多步 Fig1 P0）
         eh <- min(
-          max(gap * 0.92, 0.055),
-          if (nchar(el) > 48L) 0.12 else 0.075
+          gap * 0.90,
+          if (nchar(el) > 56L) 0.095 else if (nchar(el) > 36L) 0.078 else 0.068
         )
+        eh <- max(0.048, eh)
         .attrition_grid_roundbox(
           ex0, ymid - eh / 2, ex1, ymid + eh / 2,
           "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain",
@@ -1792,11 +1933,16 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
 
   if (has_fork) {
     last_y0 <- ys0[n_box]
+    # 末主框底缘不得侵入分叉预留带；否则上移起点再画分叉
+    if (is.finite(last_y0) && last_y0 < y_fork_top + 0.01) {
+      last_y0 <- y_fork_top + 0.01
+    }
     .attrition_draw_outcome_fork_boxes(
       cx, last_y0,
       fork$left_label, fork$left_n,
       fork$right_label, fork$right_n,
-      ff, y_floor = y_foot + 0.02
+      ff, y_floor = y_foot + 0.015,
+      oh = min(0.11, max(0.085, y_fork_top * 0.45))
     )
   }
 

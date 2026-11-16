@@ -138,6 +138,39 @@
   any(exposure %in% lasso_feats)
 }
 
+## 引擎铁律：暴露未进 LASSO（非零系数）→ 整指标 failed（不可靠 force_composite 事后塞入）
+.mlfsb_fail_if_exposure_not_in_lasso_enabled <- function(ctx) {
+  fs <- ctx$config$feature_selection %||% list()
+  fsv <- ctx$config$feature_selection_venn %||% list()
+  if (!is.null(fs$fail_if_exposure_not_in_lasso)) {
+    return(isTRUE(fs$fail_if_exposure_not_in_lasso))
+  }
+  ## 默认跟随 require_exposure_in_features（ML 共享 overrides 为 TRUE）
+  isTRUE(fsv$require_exposure_in_features %||% fs$require_exposure_in_features %||% FALSE)
+}
+
+.mlfsb_assert_exposure_in_lasso <- function(ctx, lasso_feats, method_lab = "LASSO") {
+  if (!.mlfsb_fail_if_exposure_not_in_lasso_enabled(ctx)) {
+    return(invisible(TRUE))
+  }
+  exposure <- .mlfsb_exposure_vars(ctx)
+  data_cols <- names(
+    ctx$data$train %||% ctx$data$imputed %||% ctx$data$cleaned %||% list()
+  )
+  exposure <- intersect(as.character(exposure), data_cols)
+  if (!length(exposure)) return(invisible(TRUE))
+  lasso_feats <- unique(as.character(lasso_feats %||% character(0)))
+  lasso_feats <- lasso_feats[nzchar(lasso_feats)]
+  missing <- setdiff(exposure, lasso_feats)
+  if (!length(missing)) return(invisible(TRUE))
+  stop(
+    "LASSO_EXPOSURE_NOT_SELECTED: 暴露指标 ",
+    paste(missing, collapse = ", "),
+    " 未进入 ", method_lab, " 筛选（非零系数），本指标判为 failed。",
+    call. = FALSE
+  )
+}
+
 .mlfsb_run_methods <- function(ctx) {
   .mlfsb_ensure_blocks(ctx)
   fs <- ctx$config$feature_selection %||% list()
@@ -188,6 +221,7 @@
         ctx$results$feature_selection_final %||% character(0)
     )
     cox_feats <- unique(cox_feats[nzchar(cox_feats)])
+    .mlfsb_assert_exposure_in_lasso(ctx, cox_feats, method_lab = "LASSO-Cox")
     if (length(cox_feats)) {
       ctx$results$feature_selection_final <- cox_feats
       ctx$results$feature_selection_venn_center <- cox_feats
@@ -237,6 +271,8 @@
     ctx <- run_one("lasso")
     lasso_feats <- as.character(ctx$results$feature_selection_by_model$lasso %||% character(0))
     lasso_feats <- unique(lasso_feats[nzchar(lasso_feats)])
+    ## 暴露必须被 LASSO 选中；未选中立即 failed（禁止再跑其它 FS / force 塞入）
+    .mlfsb_assert_exposure_in_lasso(ctx, lasso_feats, method_lab = "LASSO")
     use_lasso_only <- length(lasso_feats) > 0L && (
       only_lasso || (lasso_first && .mlfsb_lasso_sufficient(ctx, fs))
     )

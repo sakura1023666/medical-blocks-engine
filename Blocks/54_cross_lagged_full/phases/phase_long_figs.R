@@ -914,7 +914,7 @@ if (isTRUE(run_pooled_long)) {
       ok_p <- isTRUE(tryCatch(
         attrition_draw_pdf(
           rows1,
-          "Figure 1. Pooled — Inclusion / Exclusion",
+          "",
           pdf_path,
           footnote = fn,
           fork = list(
@@ -940,14 +940,10 @@ if (isTRUE(run_pooled_long)) {
   }
 }
 
-# ── Table S5：自动设计（2年=two_wave；≥3年=three_plus）──────────────────────
+# ── Table S5：全库 two_wave（原 S5.1；不再交付 three_plus 主表 / S5.1 双轨）──
 # 合并时尽量拼上 Pooled（即使本 run 未 --with-pooled，只要盘上已有 rds）
 .s5_merge_cohorts <- unique(c(.long_cohorts, "CHARLS", "ELSA", "HRS", "Pooled"))
-s5_rds <- file.path(
-  study_root,
-  paste0("phase3_long_", .s5_merge_cohorts),
-  "Tables", paste0(.change_stem, "_pub.rds")
-)
+# 仍可算 three_plus 单库草稿（_pub.rds），但不写入发表 Table S5
 s5_out <- file.path(
   study_root, "summary_result", "table",
   if (isTRUE(.change_leisure)) {
@@ -956,27 +952,20 @@ s5_out <- file.path(
     "Table S5. Change analysis Mean FI and FI change.xlsx"
   }
 )
-if (!isTRUE(corr_mediation_only) && any(file.exists(s5_rds))) {
-  tryCatch({
-    dir.create(dirname(s5_out), recursive = TRUE, showWarnings = FALSE)
-    res_s5 <- cross_lagged_change_build_table_s5(
-      s5_rds, s5_out, cohorts = .s5_merge_cohorts,
-      title = if (isTRUE(.change_leisure)) {
-        "Table S5. Change analysis of Leisure activity score"
-      } else "Table S5. Change analysis Mean FI and FI change"
-    )
-    cli::cli_alert_success(
-      "Table S5 已生成: scheme={res_s5$scheme}; cohorts={paste(res_s5$cohorts, collapse=', ')}"
-    )
-  }, error = function(e) cli::cli_alert_warning("Table S5 合并失败: {e$message}"))
+# 清掉旧 S5.1 文件名，避免与升格后的 S5 并存
+for (.old_s51 in c(
+  file.path(dirname(s5_out), "Table S5.1. Change analysis Mean FI and FI change.xlsx"),
+  file.path(dirname(s5_out), "Table S5.1. Change analysis of Leisure activity score.xlsx")
+)) {
+  if (file.exists(.old_s51)) unlink(.old_s51)
 }
 
-# ── Table S5.1：全库强制 two_wave（敏感性；与 S5 一并进汇总）────────────────
+# ── 全库强制 two_wave → 发表为 Table S5（唯一 change 主表）────────────────
 if (!isTRUE(corr_mediation_only)) {
-cli::cli_h1("Table S5.1: force two_wave for all cohorts")
+cli::cli_h1("Table S5: force two_wave for all cohorts (primary)")
 .run_change_twowave <- function(ctx_in, db_lab) {
   if (is.null(ctx_in) || is.null(ctx_in$data$longitudinal_wide)) {
-    cli::cli_alert_warning("{db_lab}: 无 wide，跳过 S5.1")
+    cli::cli_alert_warning("{db_lab}: 无 wide，跳过 S5 two_wave")
     return(invisible(NULL))
   }
   ctx2 <- ctx_in
@@ -992,7 +981,7 @@ cli::cli_h1("Table S5.1: force two_wave for all cohorts")
   tryCatch({
     block_cross_lagged_change_logistic(ctx2)
   }, error = function(e) {
-    cli::cli_alert_warning("{db_lab} S5.1 two_wave 失败: {e$message}")
+    cli::cli_alert_warning("{db_lab} S5 two_wave 失败: {e$message}")
     NULL
   })
 }
@@ -1006,7 +995,7 @@ for (db in c("CHARLS", "ELSA", "HRS")) {
   long <- all_long[[db]]
   if (is.null(wide)) {
     # 尝试从本轮未跑时跳过
-    cli::cli_alert_warning("S5.1 {db}: 无本轮 wide（请先跑 long_prepare/change）")
+    cli::cli_alert_warning("S5 {db}: 无本轮 wide（请先跑 long_prepare/change）")
     next
   }
   out_dir <- file.path(study_root, paste0("phase3_long_", db))
@@ -1078,35 +1067,27 @@ if (isTRUE(run_pooled_long) && (is.null(only_dbs) || "Pooled" %in% only_dbs) &&
   .run_change_twowave(ctx_twp, "Pooled")
 }
 
-s51_rds <- file.path(
+s5_tw_rds <- file.path(
   study_root,
   paste0("phase3_long_", .s5_merge_cohorts),
   "Tables", paste0(.change_stem, "_twowave_pub.rds")
 )
-s51_out <- file.path(
-  study_root, "summary_result", "table",
-  if (isTRUE(.change_leisure)) {
-    "Table S5.1. Change analysis of Leisure activity score.xlsx"
-  } else {
-    "Table S5.1. Change analysis Mean FI and FI change.xlsx"
-  }
-)
-if (any(file.exists(s51_rds))) {
+if (any(file.exists(s5_tw_rds))) {
   tryCatch({
-    dir.create(dirname(s51_out), recursive = TRUE, showWarnings = FALSE)
-    res_s51 <- cross_lagged_change_build_table_s5(
-      s51_rds, s51_out,
+    dir.create(dirname(s5_out), recursive = TRUE, showWarnings = FALSE)
+    res_s5 <- cross_lagged_change_build_table_s5(
+      s5_tw_rds, s5_out,
       cohorts = .s5_merge_cohorts,
       title = if (isTRUE(.change_leisure)) {
-        "Table S5.1. Change analysis of Leisure activity score"
-      } else "Table S5.1. Change analysis Mean FI and FI change"
+        "Table S5. Change analysis of Leisure activity score"
+      } else "Table S5. Change analysis Mean FI and FI change"
     )
     cli::cli_alert_success(
-      "Table S5.1 已生成: cohorts={paste(res_s51$cohorts, collapse=', ')}"
+      "Table S5 (two_wave) 已生成: cohorts={paste(res_s5$cohorts, collapse=', ')}"
     )
-  }, error = function(e) cli::cli_alert_warning("Table S5.1 合并失败: {e$message}"))
+  }, error = function(e) cli::cli_alert_warning("Table S5 合并失败: {e$message}"))
 }
-} # end !corr_mediation_only (S5.1)
+} # end !corr_mediation_only (S5 two_wave)
 
 # ── Table S6/S8：相关回归（三库合并；有 MV/VIF 槽位时写 S8）────────────────
 # pooled-mediation-only：S9.2 已单独写出；勿重拼 S8/S9 以免把分库定稿冲成含 Pooled

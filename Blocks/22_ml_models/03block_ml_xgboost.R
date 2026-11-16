@@ -10,10 +10,15 @@
 #    enable = TRUE,
 #    cv_folds = NULL,              # NULL → splitting$seed 链 / 默认 5
 #    seed = NULL,
+#    grid_size = NULL,             # 随机网格点数；NULL → 等于 cv_folds（常 5）
+#    tree_depth_range = NULL,      # 默认 c(1, 3)
+#    learn_rate_range = NULL,      # log10 尺度，默认 c(-3, -1)
+#    min_n_range = NULL,           # 默认 c(5, 20)
+#    loss_reduction_range = NULL,  # log10，默认 c(-3, 0)
+#    sample_prop_range = NULL,     # 默认 c(0.8, 1)
 #    limits = list(),              # 可选：min_total_n / min_class_n / min_train_n / max_train_n
 #    pause_enable = TRUE,
 #    pause_on_missing_data = TRUE,
-
 #  ),
 #
 #  register_block: "ml_xgboost"
@@ -511,7 +516,8 @@
 }
 
 .mlxgb03_run_xgboost <- function(traindata2, testdata2, folds, fold_num, seed,
-                              pred_ref_col, pred_ana_col, ref_g, ana_g) {
+                              pred_ref_col, pred_ana_col, ref_g, ana_g,
+                              bl_cfg = list()) {
   model_xgb <- parsnip::boost_tree(
     mode = "classification", engine = "xgboost",
     mtry = tune::tune(), trees = 1000, min_n = tune::tune(),
@@ -528,16 +534,30 @@
   n_pred <- max(1L, ncol(traindata2) - 1L)
   mtry_hi <- max(1L, min(8L, n_pred))
   mtry_lo <- max(1L, min(2L, mtry_hi))
+  td <- as.integer(bl_cfg$tree_depth_range %||% c(1L, 3L))
+  if (length(td) < 2L) td <- c(1L, 3L)
+  lr <- as.numeric(bl_cfg$learn_rate_range %||% c(-3, -1))
+  if (length(lr) < 2L) lr <- c(-3, -1)
+  mn <- as.integer(bl_cfg$min_n_range %||% c(5L, 20L))
+  if (length(mn) < 2L) mn <- c(5L, 20L)
+  lred <- as.numeric(bl_cfg$loss_reduction_range %||% c(-3, 0))
+  if (length(lred) < 2L) lred <- c(-3, 0)
+  sp <- as.numeric(bl_cfg$sample_prop_range %||% c(0.8, 1))
+  if (length(sp) < 2L) sp <- c(0.8, 1)
+  grid_size <- as.integer(bl_cfg$grid_size %||% fold_num)[1L]
+  if (!is.finite(grid_size) || grid_size < 2L) grid_size <- max(2L, as.integer(fold_num)[1L])
   hpset_xgb <- dials::parameters(
-    dials::mtry(range = c(mtry_lo, mtry_hi)), dials::min_n(range = c(5, 20)),
-    dials::tree_depth(range = c(1, 3)), dials::learn_rate(range = c(-3, -1)),
-    dials::loss_reduction(range = c(-3, 0)), dials::sample_prop(range = c(0.8, 1))
+    dials::mtry(range = c(mtry_lo, mtry_hi)), dials::min_n(range = c(mn[[1L]], mn[[2L]])),
+    dials::tree_depth(range = c(td[[1L]], td[[2L]])), dials::learn_rate(range = c(lr[[1L]], lr[[2L]])),
+    dials::loss_reduction(range = c(lred[[1L]], lred[[2L]])),
+    dials::sample_prop(range = c(sp[[1L]], sp[[2L]]))
   )
   set.seed(seed)
-  hpgrid_xgb <- dials::grid_random(hpset_xgb, size = fold_num)
+  hpgrid_xgb <- dials::grid_random(hpset_xgb, size = grid_size)
   if ("mtry" %in% names(hpgrid_xgb)) {
     hpgrid_xgb$mtry <- pmax(1L, pmin(as.integer(hpgrid_xgb$mtry), n_pred))
   }
+  cli::cli_alert_info("ml_xgboost 调参网格: size={grid_size}; tree_depth=[{td[[1]]},{td[[2]]}]; learn_rate(log10)=[{lr[[1]]},{lr[[2]]}]")
 
   set.seed(seed)
   tune_xgb <- wk_xgb %>%
@@ -621,7 +641,8 @@ block_ml_xgboost <- function(ctx, ...) {
       pred_ref_col = prep$pred_ref_col,
       pred_ana_col = prep$pred_ana_col,
       ref_g = prep$ref_group,
-      ana_g = prep$ana_group, fold_num = fold_num
+      ana_g = prep$ana_group, fold_num = fold_num,
+      bl_cfg = bl_cfg
     ),
     error = function(e) {
       cli::cli_alert_danger("{toupper(tag)} 失败: {e$message}")

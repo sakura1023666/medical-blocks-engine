@@ -493,9 +493,9 @@ _rebuild_s6_s7_from_rds
   echo "summary_result — Hip fracture × Frailty (cross-lagged PMID 40595747)"
   echo "generated: $(date -Iseconds)"
   echo "cohorts: CHARLS + ELSA + HRS + Pooled"
-  echo "tables: T1 + S1–S4 | Table2 tertile ONLY | S-XX RCS | S5 change(auto) | S5.1 change(all two_wave) | S6 corr (M1≠M2) | S7 mediation(merged only) | S8 CLPN labeled | S9–S17.1 sensitivity"
+  echo "tables: T1 + S1–S4 | Table2 tertile ONLY | S-XX RCS | S5 change (adjacent-wave Mean/Change) | S6 corr (M1≠M2) | S7 mediation(merged only) | S8 CLPN labeled | sensitivity as delivered"
   echo "figures: Missing | RCS | Subgroup | Fig1 flowchart | Fig4 CLPN | S1 edge-boot | S2 case-drop | S3 mediation | S4–S5 FI desc | L1-L4 long panels | S11 ROC"
-  echo "summary policy: main logistic=tertile; Change S5=auto(2y/3y+); S5.1=all two_wave; S6=corr Crude/M1/M2(M1≠M2); S7=merged longitudinal mediation only; S8=CLPN adjacency with FI item labels; S1/S2=CLPN bootstrap stability (lit Supp 25–26); S9–S17.1 sensitivity (chronic>=2 / complete-case unimputed listwise N may be <AfterMI / exclude event<=2y; competing_risk skipped); no per-DB S7; no S9 flowchart tables"
+  echo "summary policy: main logistic=tertile; Change S5=adjacent-wave Mean/Change; S6=corr Crude/M1/M2(M1≠M2); S7=merged longitudinal mediation only; S8=CLPN adjacency with FI item labels; S1/S2=CLPN bootstrap stability (lit Supp 25–26); sensitivity as delivered; competing_risk skipped; no per-DB S7"
   echo "attrition: drop if baseline ID absent from ALL follow-up years; FU time = first disease year else last FU year"
   echo
   echo "=== figure ==="; ls -1 "$OUT/figure" 2>/dev/null | sort || true

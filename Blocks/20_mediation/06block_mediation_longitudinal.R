@@ -320,12 +320,13 @@ block_mediation_longitudinal <- function(ctx, ...) {
             outcome_label  = out_lab,
             coef_a = r$a_coef, p_a = r$a_p,
             coef_b = r$b_coef, p_b = r$b_p,
-            effect_total = r$tau, p_total = r$tau_p,
+            # 底边 = Direct Effect (c'/z0)，与 Table S7 Direct 列一致（勿用 Total/tau）
+            effect_total = r$z0, p_total = r$z0_p,
             prop_pct = prop_pct, prop_lo_pct = NA_real_, prop_hi_pct = NA_real_,
             colors = sel_colors,
             ci_a_lo = r$a_ci[1], ci_a_hi = r$a_ci[2],
             ci_b_lo = r$b_ci[1], ci_b_hi = r$b_ci[2],
-            ci_tot_lo = r$tau_ci[1], ci_tot_hi = r$tau_ci[2],
+            ci_tot_lo = r$z0_ci[1], ci_tot_hi = r$z0_ci[2],
             output_path = pdf_file
           )
         }, error = function(e) {

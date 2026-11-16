@@ -382,6 +382,8 @@ study_batch_infer_failed_stage <- function(error_message) {
   keys <- c(
     "TRAJECTORY_CLUSTER_FAIL",
     "BASELINE_INDEX_NS_STOP",
+    "LASSO_EXPOSURE_NOT_SELECTED",
+    "COMPOSITE_NOT_IN_FEATURE_SELECTION",
     "MODEL_COVARIATE_INSUFFICIENT",
     "PAUSE_FOR_USER_DECISION: feature_selection_lasso",
     "PAUSE_FOR_USER_DECISION: feature_selection_random_forest",
@@ -392,6 +394,8 @@ study_batch_infer_failed_stage <- function(error_message) {
   stages <- c(
     "TRAJECTORY_CLUSTER_FAIL",
     "BASELINE_INDEX_NS_STOP",
+    "LASSO_EXPOSURE_NOT_SELECTED",
+    "COMPOSITE_NOT_IN_FEATURE_SELECTION",
     "MODEL_COVARIATE_INSUFFICIENT",
     "feature_selection_lasso",
     "feature_selection_random_forest",

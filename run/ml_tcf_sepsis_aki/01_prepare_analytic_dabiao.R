@@ -50,7 +50,12 @@ ids_e <- fread(file.path(data_dir, "eicu", "eicu_sepsis_aki_ids.csv"))
 out_m <- fread(file.path(data_dir, "mimic", "mimic预后数据-all.csv"))
 out_e <- fread(file.path(data_dir, "eicu", "EICU预后数据-all.csv"))
 
-# MIMIC: SA-AKI stays present in outcome; one earliest stay per subject
+# MIMIC unit = patient (subject_id):
+#   starting pool = unique subject_id in sepsis∩AKI ids;
+#   exclude subjects with no (subject_id, stay_id, hadm_id) row in the prognosis extract
+#   (Figure 1 “no linkable 28-day mortality”); keep earliest linkable stay_id per subject.
+# Outcome y = death_within_hosp_28days (ICU admission–anchored 28-day all-cause death).
+# Internal columns DN/fustatus store the same 0/1 label; publication text must say 28-day death.
 m_stay <- merge(ids_m, out_m, by = c("subject_id", "stay_id", "hadm_id"), all = FALSE)
 m_stay <- m_stay[order(stay_id)][, .SD[1], by = subject_id]
 mim2 <- merge(mim, m_stay, by.x = "ID", by.y = "subject_id", all = FALSE)
@@ -79,7 +84,12 @@ if (all(c("HR", "NBPS") %in% names(mim2))) {
 mim2 <- mim2[!is.na(DN)]
 message("MIMIC analytic n=", nrow(mim2), " events=", sum(mim2$DN == 1L))
 
-# eICU
+# eICU unit = patientunitstayid on ICU-first baseline extract:
+#   starting pool = SA-AKI stay IDs; exclude stays absent from ICU baseline extract
+#   (Figure 1 “not linkable to ICU baseline”; delivered gap 7,424→6,217 = 1,207).
+#   Analytic rows are unique stay IDs (no duplicate modelling rows); dabiao has no uniquepid.
+#   Age<18 was not an additional driver in the delivered analytic set.
+# Outcome y = Expired & hospital LOS ≤28 days (same 28-day all-cause horizon as MIMIC).
 ee <- merge(eic, out_e, by.x = "ID", by.y = "patientunitstayid", all = FALSE)
 ee <- ee[ID %in% ids_e$patientunitstayid]
 ee <- ee[is.na(Age) | Age >= 18]
@@ -87,7 +97,7 @@ ee[, DN := as.integer(
   tolower(as.character(hospdischargestatus)) == "expired" &
     !is.na(hosplosday) & hosplosday <= 28
 )]
-## 与 MIMIC 同字段：28 天全因死亡
+## 与 MIMIC 同字段语义：28 天全因死亡（非无限期院内死亡）
 ee[, `:=`(
   fustatus = as.integer(DN),
   futime = pmin(as.numeric(hosplosday), 28, na.rm = FALSE)

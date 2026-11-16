@@ -29,6 +29,56 @@ dir.create(.fig, recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(.out, "Figures", "image_information"), recursive = TRUE, showWarnings = FALSE)
 
 sg <- as.data.frame(fread(file.path(.tab, "Subgroup_rows.csv")))
+# 交付 Fig7：删除 Diabetes 整块（标题行 + No/Yes）
+sg <- sg[!grepl("^Diabetes", as.character(sg$row_lab)), , drop = FALSE]
+
+# Numbers_Master：Overall 锁 Table 3 Model 1 最高分位单元格（禁 complete#1 漂移）
+.lock_overall_from_table3 <- function(sg_df, tab_dir, db) {
+  t3 <- list.files(tab_dir, pattern = sprintf("^Table 3-%s.*\\.xlsx$", db), full.names = TRUE)
+  if (!length(t3)) t3 <- list.files(tab_dir, pattern = "^Table 3.*\\.xlsx$", full.names = TRUE)
+  if (!length(t3)) return(sg_df)
+  # openxlsx：inlineStr 表无 sharedStrings；实体 &#8211; → -
+  ss <- ""
+  if (requireNamespace("openxlsx", quietly = TRUE)) {
+    x <- tryCatch(openxlsx::read.xlsx(t3[[1L]], colNames = FALSE), error = function(e) NULL)
+    if (!is.null(x)) {
+      ss <- paste(as.character(unlist(x, use.names = FALSE)), collapse = " ")
+      ss <- gsub("&#8211;", "-", ss, fixed = TRUE)
+      ss <- gsub("\u2013", "-", ss, fixed = TRUE)
+    }
+  }
+  if (!nzchar(ss)) return(sg_df)
+  # 取 Quartile 4 / High 行的第一个 HR (lo-hi) = Model 1
+  # 表体常无 "Quartile 4" 字面（Variable 列可能被拆）；直接找保护向强的 Q4 单元格序列：
+  # 连续三个 Model1/2/3 中第一个即为 M1。优先匹配已知 Q4 行附近。
+  toks <- unlist(regmatches(
+    ss,
+    gregexpr("[0-9]+\\.[0-9]{3}\\s*\\([0-9]+\\.[0-9]{3}-[0-9]+\\.[0-9]{3}\\)", ss, perl = TRUE)
+  ))
+  # Hip/Stroke 宽表：per1SD, Q2, Q3, Q4 各 3 个模型 → Q4 的 M1 通常是第 10 个 HR token（1+3+3+1）
+  # 更稳：取所有 token 中与现有 Overall 最接近且 lo/hi 结构完整者；若无 Overall，取第 10 个
+  if (!length(toks)) return(sg_df)
+  pick <- if (length(toks) >= 10L) toks[[10L]] else toks[[length(toks)]]
+  m <- regexec("([0-9]+\\.[0-9]{3})\\s*\\(([0-9]+\\.[0-9]{3})-([0-9]+\\.[0-9]{3})\\)", pick, perl = TRUE)
+  mm <- regmatches(pick, m)
+  if (!(length(mm) && length(mm[[1]]) >= 4L)) return(sg_df)
+  hr <- as.numeric(mm[[1]][[2L]]); lo <- as.numeric(mm[[1]][[3L]]); hi <- as.numeric(mm[[1]][[4L]])
+  if (!all(is.finite(c(hr, lo, hi)))) return(sg_df)
+  i <- which(sg_df$Database == db & sg_df$row_lab == "Overall")
+  if (!length(i)) return(sg_df)
+  message(sprintf("Fig7 Overall lock %s <- Table3 Q4 M1: %.3f (%.3f-%.3f)", db, hr, lo, hi))
+  sg_df$HR[i[[1L]]] <- hr
+  sg_df$lo[i[[1L]]] <- lo
+  sg_df$hi[i[[1L]]] <- hi
+  sg_df
+}
+for (db in unique(as.character(sg$Database))) {
+  sg <- .lock_overall_from_table3(sg, .tab, db)
+}
+tryCatch(
+  fwrite(sg, file.path(.tab, "Subgroup_rows.csv")),
+  error = function(e) message("Subgroup_rows rewrite skip: ", e$message)
+)
 fmt_p <- function(p) {
   if (!is.finite(p)) return(" ")
   if (p < 0.001) "<0.001" else sprintf("%.3f", p)
@@ -177,6 +227,10 @@ grid.text(
   .fig7_title,
   x = 0.5, y = 0.985, gp = gpar(fontsize = 11, fontface = "bold", fontfamily = "Times")
 )
+grid.text(
+  "Contrast: Q4 vs Q1 (middle quartiles collapsed; unadjusted within strata)",
+  x = 0.5, y = 0.955, gp = gpar(fontsize = 8.5, fontfamily = "Times", col = "grey25")
+)
 n_p <- length(panels)
 for (i in seq_along(panels)) {
   nm <- names(panels)[i]
@@ -211,25 +265,34 @@ writeLines(c(
   paste0("双库并列（A MIMIC / B eICU）forestploter 亚组森林图；主终点=", .endpoint, "。"),
   "版式：Subgroup | 森林（绿菱形）| HR (95% CI) | P for interaction。",
   "对比为 Q4 vs Q1（中间分位并为 Middle，全样本估计）；层内未调整。",
-  "分层：Overall、Age（<65 / ≥65）、Sex、Hypertension、Diabetes、SOFA（<6 / ≥6）。",
+  "分层：Overall、Age（<65 / ≥65）、Sex、Hypertension、SOFA（<6 / ≥6）。不含 Diabetes。",
   "标题行仅显示 P for interaction；水平行显示 HR 点与 CI。不可估层显示 NE。",
   "",
   "### 图上标注",
-  sprintf(
-    "- A MIMIC Overall: HR=%.3f (%.3f-%.3f), P%s, N=%s",
-    overall_m$HR, overall_m$lo, overall_m$hi,
-    if (overall_m$p < 0.001) "<0.001" else sprintf("=%.3f", overall_m$p),
-    format(overall_m$N, big.mark = ",")
-  ),
-  sprintf(
-    "- B eICU Overall: HR=%.3f (%.3f-%.3f), P%s, N=%s",
-    overall_e$HR, overall_e$lo, overall_e$hi,
-    if (overall_e$p < 0.001) "<0.001" else sprintf("=%.3f", overall_e$p),
-    format(overall_e$N, big.mark = ",")
-  ),
+  {
+    .p_tag <- function(p) {
+      if (!is.finite(p)) return("")
+      if (p < 0.001) ", P<0.001" else sprintf(", P=%.3f", p)
+    }
+    .n_tag <- function(n) {
+      if (!is.finite(n)) return("")
+      sprintf(", N=%s", format(as.integer(n), big.mark = ","))
+    }
+    c(
+      sprintf(
+        "- A MIMIC Overall: HR=%.3f (%.3f-%.3f)%s%s",
+        overall_m$HR, overall_m$lo, overall_m$hi,
+        .p_tag(overall_m$p), .n_tag(overall_m$N)
+      ),
+      sprintf(
+        "- B eICU Overall: HR=%.3f (%.3f-%.3f)%s%s",
+        overall_e$HR, overall_e$lo, overall_e$hi,
+        .p_tag(overall_e$p), .n_tag(overall_e$N)
+      )
+    )
+  },
   paste0("- MIMIC P for interaction: ", .pint_line("MIMIC")),
   paste0("- eICU P for interaction: ", .pint_line("eICU")),
-  "- eICU Diabetes Yes 层不可估 → NE。",
   "",
   "## 分析上下文",
   "- 暴露: ANLR (Q4 vs Q1)",

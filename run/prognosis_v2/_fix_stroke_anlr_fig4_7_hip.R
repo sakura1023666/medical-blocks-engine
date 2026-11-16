@@ -306,12 +306,12 @@ for (nm in names(dbs)) {
   dbs[[nm]] <- d
 }
 
+# Diabetes 层双库 Yes 常 NE（事件稀疏），交付 Fig7 不展示该分层
 strata_spec <- list(
   list(lab = "Overall", var = NULL),
   list(lab = "Age", var = "Age_Group"),
   list(lab = "Sex", var = "Gender"),
   list(lab = "Hypertension", var = "Hypertension"),
-  list(lab = "Diabetes", var = "Diabetes"),
   list(lab = "SOFA", var = "SOFA_Group")
 )
 
@@ -469,7 +469,7 @@ message("Fig7 OK")
     "",
     "## 图面说明",
     paste0("双库 facet 森林图；主终点=", .endpoint, "；对比 ", .contrast_lab, "（中间分位并为 Middle，全样本估计）。"),
-    "层内未调整；分层标题行标注 P-int。分层：Age / Sex / Hypertension / Diabetes / SOFA。",
+    "层内未调整；分层标题行标注 P-int。分层：Age / Sex / Hypertension / SOFA。",
     "版式对齐 Hip Figure 7。",
     "",
     "## 分析上下文",

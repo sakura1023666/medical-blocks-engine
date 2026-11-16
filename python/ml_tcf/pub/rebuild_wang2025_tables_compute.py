@@ -440,7 +440,8 @@ def build_baseline_tables(tr, va, eu, vars_cont, vars_cat, outcome="fustatus"):
             _append_cat(v)
     rows_t1.append({"Characteristic": "Outcomes", n_lab["Training"]: "", n_lab["Internal validation"]: "", n_lab["eICU"]: ""})
     rows_t1.append({
-        "Characteristic": "In-hospital death, n (%)",
+        # y = ICU admission–anchored 28-day all-cause death (not unrestricted in-hospital death)
+        "Characteristic": "28-day all-cause death, n (%)",
         n_lab["Training"]: fmt_cat(tr[outcome], 1),
         n_lab["Internal validation"]: fmt_cat(va[outcome], 1),
         n_lab["eICU"]: fmt_cat(eu[outcome], 1),
@@ -1360,7 +1361,7 @@ def build_s13_tripod() -> pd.DataFrame:
     """Full TRIPOD+AI checklist rows (development+evaluation study)."""
     # Compact but expanded beyond short status table — official item structure
     items = [
-        ("Title", "1", "D,E", "Identify the study as developing and/or evaluating a multivariable prediction model, the target population, and the outcome to be predicted", "✓", "Title / project naming (SA-AKI TCF, in-hospital death)"),
+        ("Title", "1", "D,E", "Identify the study as developing and/or evaluating a multivariable prediction model, the target population, and the outcome to be predicted", "✓", "Title / project naming (SA-AKI TCF, 28-day all-cause death)"),
         ("Abstract", "2", "D,E", "Provide a summary of objectives, study design, setting, participants, sample size, predictors, outcome, methods, results, and conclusions", "Partial", "Methods_statistical_analysis.md / midterm; journal abstract TBD"),
         ("Background", "3a", "D,E", "Explain the healthcare context and rationale for developing or evaluating the prediction model", "✓", "Methods_statistical_analysis.md"),
         ("Background", "3b", "D,E", "Describe the target population and the care setting", "✓", "MIMIC development; eICU external ICU"),
@@ -1369,7 +1370,7 @@ def build_s13_tripod() -> pd.DataFrame:
         ("Source of data", "5b", "D,E", "Specify key study dates including start and accrual", "Partial", "Database versions noted; calendar accrual window in Methods if present"),
         ("Participants", "6a", "D,E", "Describe eligibility criteria and study setting/centres", "✓", "Figure 1 flowchart; SA-AKI cohort definition"),
         ("Participants", "6b", "D,E", "Describe treatments received if relevant", "Partial", "Ventilation and comorbidities tabulated; not intervention trial"),
-        ("Outcome", "7a", "D,E", "Define the outcome clearly, including measurement and timing", "✓", "In-hospital death (fustatus)"),
+        ("Outcome", "7a", "D,E", "Define the outcome clearly, including measurement and timing", "✓", "ICU admission–anchored 28-day all-cause death (MIMIC: death_within_hosp_28days; eICU: Expired & hospital LOS ≤28 days)"),
         ("Outcome", "7b", "D,E", "Report any actions to blind assessment of the outcome", "N/A", "Registry death flag; no separate adjudicator"),
         ("Predictors", "8a", "D", "Describe predictors and how/when measured", "✓", "Admission/ICU labs, vitals, comorbidities; final 30 features"),
         ("Predictors", "8b", "D", "Report any actions to blind assessment of predictors", "N/A", "Electronic extract; no manual blinding"),

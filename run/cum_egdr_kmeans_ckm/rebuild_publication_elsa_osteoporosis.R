@@ -403,55 +403,70 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       "eGDR_tertile", "T_num")
   )
   .mice_prep <- ckm_stroke_prepare_mice(.mice_md, .mice_impute, m = 5L, maxit = 5L, seed = 2026L)
+  .mice_exported <- FALSE
   if (is.null(.mice_prep)) {
-    stop("No covariate missingness: refusing to copy complete-case rows into MICE tables.", call. = FALSE)
-  }
-  .mice_row <- function(is_hr) {
-    function(dd, expo, cov) {
-      ckm_stroke_mice_fit_row(.mice_prep$imp, expo, cov, is_hr = is_hr, outcome = outcome)
+    # 协变量无缺失时禁止壳表：不出 S3/S4，并清掉旧残留
+    message("  MICE skipped (no covariate missingness); omitting Table S3/S4 shell tables.")
+    for (.old_mi in c(
+      "Table S3. Cox after MICE.xlsx",
+      "Table S4. Logistic after MICE.xlsx"
+    )) {
+      .p_old <- file.path(tab_dir, .old_mi)
+      if (file.exists(.p_old)) {
+        .arch_mi <- file.path(dirname(tab_dir), "_archive_non_pub_tables")
+        dir.create(.arch_mi, recursive = TRUE, showWarnings = FALSE)
+        file.rename(.p_old, file.path(.arch_mi, paste0(format(Sys.time(), "%Y%m%d_%H%M%S_"), .old_mi)))
+      }
     }
-  }
-  .mice_trend <- function(is_hr) {
-    function() {
-      vapply(c("Model1", "Model2", "Model3"), function(mn) {
-        row <- ckm_stroke_mice_fit_row(
-          .mice_prep$imp, "T_num", models[[mn]], is_hr = is_hr, outcome = outcome
-        )
-        if (is.null(row) || !nrow(row)) return("")
-        ckm_stroke_fmt_p(row$P[1L])
-      }, character(1))
+  } else {
+    .mice_row <- function(is_hr) {
+      function(dd, expo, cov) {
+        ckm_stroke_mice_fit_row(.mice_prep$imp, expo, cov, is_hr = is_hr, outcome = outcome)
+      }
     }
+    .mice_trend <- function(is_hr) {
+      function() {
+        vapply(c("Model1", "Model2", "Model3"), function(mn) {
+          row <- ckm_stroke_mice_fit_row(
+            .mice_prep$imp, "T_num", models[[mn]], is_hr = is_hr, outcome = outcome
+          )
+          if (is.null(row) || !nrow(row)) return("")
+          ckm_stroke_fmt_p(row$P[1L])
+        }, character(1))
+      }
+    }
+    .mice_fn <- c(
+      sprintf("Multiple imputation with mice, m=5, maxit=5, seed=2026. Imputed covariates: %s.",
+              paste(.mice_prep$imputed, collapse = ", ")),
+      "The outcome and the exposures are predictors in the imputation model and are not themselves imputed. Coefficients are combined with Rubin's rules (mice::pool).",
+      "Model 1 has no covariates, so its imputed-data estimate can match the complete-case crude estimate. Model 2 and Model 3 must not.",
+      paste0("Reference: Class 2 (", ref_disp, "); Tertile T1."),
+      class_disp$footnote
+    )
+    s3b <- ckm_stroke_build_table_s1_cox(
+      data, models, outcome = outcome, cmap = cmap, index_lab = ix_lab,
+      unit_delta = .ud,
+      row_fit = .mice_row(TRUE), trend_p = .mice_trend(TRUE)
+    )
+    ckm_stroke_assert_mice_not_shell(s1b$df, s3b$df)
+    ckm_stroke_export_assoc_xlsx(
+      s3b, file.path(tab_dir, "Table S3. Cox after MICE.xlsx"),
+      sprintf("Table S3. Association between %s change patterns, cumulative %s, and osteoporosis: Cox regression after multiple imputation", ix_lab, ix_lab),
+      .mice_fn
+    )
+    s4b <- ckm_stroke_build_table2_assoc(
+      data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = ix_lab,
+      unit_delta = .ud,
+      row_fit = .mice_row(FALSE), trend_p = .mice_trend(FALSE)
+    )
+    ckm_stroke_assert_mice_not_shell(t2b$df, s4b$df)
+    ckm_stroke_export_assoc_xlsx(
+      s4b, file.path(tab_dir, "Table S4. Logistic after MICE.xlsx"),
+      sprintf("Table S4. Association between %s change patterns, cumulative %s, and osteoporosis: logistic regression after multiple imputation", ix_lab, ix_lab),
+      .mice_fn
+    )
+    .mice_exported <- TRUE
   }
-  .mice_fn <- c(
-    sprintf("Multiple imputation with mice, m=5, maxit=5, seed=2026. Imputed covariates: %s.",
-            paste(.mice_prep$imputed, collapse = ", ")),
-    "The outcome and the exposures are predictors in the imputation model and are not themselves imputed. Coefficients are combined with Rubin's rules (mice::pool).",
-    "Model 1 has no covariates, so its imputed-data estimate can match the complete-case crude estimate. Model 2 and Model 3 must not.",
-    paste0("Reference: Class 2 (", ref_disp, "); Tertile T1."),
-    class_disp$footnote
-  )
-  s3b <- ckm_stroke_build_table_s1_cox(
-    data, models, outcome = outcome, cmap = cmap, index_lab = ix_lab,
-    unit_delta = .ud,
-    row_fit = .mice_row(TRUE), trend_p = .mice_trend(TRUE)
-  )
-  ckm_stroke_assert_mice_not_shell(s1b$df, s3b$df)
-  ckm_stroke_export_assoc_xlsx(
-    s3b, file.path(tab_dir, "Table S3. Cox after MICE.xlsx"),
-    sprintf("Table S3. Association between %s change patterns, cumulative %s, and osteoporosis: Cox regression after multiple imputation", ix_lab, ix_lab),
-    .mice_fn
-  )
-  s4b <- ckm_stroke_build_table2_assoc(
-    data, models, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = ix_lab,
-    unit_delta = .ud,
-    row_fit = .mice_row(FALSE), trend_p = .mice_trend(FALSE)
-  )
-  ckm_stroke_assert_mice_not_shell(t2b$df, s4b$df)
-  ckm_stroke_export_assoc_xlsx(
-    s4b, file.path(tab_dir, "Table S4. Logistic after MICE.xlsx"),
-    sprintf("Table S4. Association between %s change patterns, cumulative %s, and osteoporosis: logistic regression after multiple imputation", ix_lab, ix_lab),
-    .mice_fn
-  )
 
   message("  Table 3 / S2...")
   sg_defs <- list(
@@ -622,10 +637,14 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     data_age[age_hi, , drop = FALSE], "cum_eGDR", TRUE, "C  Age \u2265 60", "Odds Ratio of Osteoporosis",
     setdiff(covars, "Age"), outcome = outcome, xlab = xlab_cum, nknots = .nk
   )
-  pdf(file.path(fig_dir, sprintf("Figure 3. RCS of cumulative %s and osteoporosis.pdf", ix_lab)),
-      width = 12.8, height = 4.2, useDingbats = FALSE)
+  .fig3_pdf <- file.path(fig_dir, sprintf("Figure 3. RCS of cumulative %s and osteoporosis.pdf", ix_lab))
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(.fig3_pdf, width = 12.8, height = 4.2)
+  } else {
+    grDevices::cairo_pdf(.fig3_pdf, width = 12.8, height = 4.2)
+  }
   gridExtra::grid.arrange(p3a, p3b, p3c, ncol = 3)
-  dev.off()
+  grDevices::dev.off()
 
   # Fig S1：访视月 futime（Harmonized ELSA W8−W6）
   .probe <- file.path(.proj, "reports", "elsa_r6_r8_interview_futime_probe.csv")
@@ -659,10 +678,14 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     data_s1_age[age_hi_s1, , drop = FALSE], "cum_eGDR", FALSE, "C  Age \u2265 60", "Hazard Ratio of Osteoporosis",
     setdiff(covars, "Age"), outcome = outcome, xlab = xlab_cum, nknots = .nk
   )
-  pdf(file.path(fig_dir, sprintf("Figure S1. RCS cumulative %s Cox HR.pdf", ix_lab)),
-      width = 12.8, height = 4.2, useDingbats = FALSE)
+  .figs1_pdf <- file.path(fig_dir, sprintf("Figure S1. RCS cumulative %s Cox HR.pdf", ix_lab))
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(.figs1_pdf, width = 12.8, height = 4.2)
+  } else {
+    grDevices::cairo_pdf(.figs1_pdf, width = 12.8, height = 4.2)
+  }
   gridExtra::grid.arrange(pS1a, pS1b, pS1c, ncol = 3)
-  dev.off()
+  grDevices::dev.off()
 
   message("  Figure S2 / S3 forests...")
   model3_forest <- intersect(covars, names(data))
@@ -717,20 +740,22 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   if (length(.t1) && !is.na(.t1) && file.exists(.t1)) {
     try(ckm_stroke_style_table1_xlsx(.t1), silent = TRUE)
   }
+  .soft_extra <- c(
+    "Study title: association of trajectory clusters and cumulative exposure with incident osteoporosis (logistic, Cox, and restricted cubic splines). This is not a predictive model and not an artificial-intelligence analysis.",
+    "Inclusion: baseline age at least 50 years, applied at data ingest.",
+    "Incident osteoporosis equals Wave 8 DN = 1. The risk set requires Wave 6 DN = 0. Wave 4 DN is not an exclusion flag.",
+    "k-means uses unstandardized Wave 4 and Wave 6 values, nstart 25, seed 2026, iter.max 100. k is the elbow choice with a visual cap of 4.",
+    "Class display names are taken from the observed mean trajectory. A decline is called rapid only when the absolute mean change is at least 25 percent of the between-class Wave 4 range.",
+    "Model 3 candidates are screened at univariate P<0.05 and VIF<4. Age is forced into the candidate set. Component variables of the exposure stay out. The model is not fully adjusted.",
+    if (isTRUE(.mice_exported)) {
+      "Multiple imputation tables use mice with m=5 and Rubin's rules. They are not copies of the complete-case tables."
+    } else {
+      "Model 3 covariates had no missing values in this analytic sample, so Table S3/S4 multiple-imputation sensitivity tables were omitted (shell tables are not exported)."
+    },
+    "Author adjudication (retained): Figure 3 RCS P-overall may differ from the Table 2 linear continuous P, because the functional forms differ."
+  )
   try(
-    ckm_stroke_write_software_versions(
-      tab_dir,
-      extra = c(
-        "Study title: association of trajectory clusters and cumulative exposure with incident osteoporosis (logistic, Cox, and restricted cubic splines). This is not a predictive model and not an artificial-intelligence analysis.",
-        "Inclusion: baseline age at least 50 years, applied at data ingest.",
-        "Incident osteoporosis equals Wave 8 DN = 1. The risk set requires Wave 6 DN = 0. Wave 4 DN is not an exclusion flag.",
-        "k-means uses unstandardized Wave 4 and Wave 6 values, nstart 25, seed 2026, iter.max 100. k is the elbow choice with a visual cap of 4.",
-        "Class display names are taken from the observed mean trajectory. A decline is called rapid only when the absolute mean change is at least 25 percent of the between-class Wave 4 range.",
-        "Model 3 candidates are screened at univariate P<0.05 and VIF<4. Age is forced into the candidate set. Component variables of the exposure stay out. The model is not fully adjusted.",
-        "Multiple imputation tables use mice with m=5 and Rubin's rules. They are not copies of the complete-case tables.",
-        "Author adjudication (retained): Figure 3 RCS P-overall may differ from the Table 2 linear continuous P, because the functional forms differ."
-      )
-    ),
+    ckm_stroke_write_software_versions(tab_dir, extra = .soft_extra),
     silent = TRUE
   )
   .methods_txt <- file.path(tab_dir, "Methods_software_versions.txt")

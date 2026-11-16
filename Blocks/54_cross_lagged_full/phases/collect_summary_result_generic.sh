@@ -739,3 +739,16 @@ if [[ -z "$ENG_ROOT" ]]; then
   ENG_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 fi
 Rscript "$ENG_ROOT/Blocks/54_cross_lagged_full/phases/export_summary_figures.R" "$STUDY"
+
+# 引擎级收口：禁下划线 scrub + Figures/Tables 规范化 + 白名单五件套
+# （Methods/软件版本；不改动已有中期 PDF）。全项目交叉滞 collect 后强制执行。
+if [[ -f "$ENG_ROOT/run/pub/finalize_delivery_root.R" ]]; then
+  echo "[collect] finalize_delivery_root --study-type cross_lagged"
+  Rscript "$ENG_ROOT/run/pub/finalize_delivery_root.R" \
+    --dir "$OUT" \
+    --study-type cross_lagged \
+    --outcome "${OUTCOME_LAB:-Hypertension}" \
+    --exposure "${EXPOSURE_LAB:-Frailty Index}" \
+    --databases "$(IFS=,; echo "${XS[*]}")" || \
+    echo "[collect] WARN: finalize_delivery_root failed (tables/figures already collected)" >&2
+fi

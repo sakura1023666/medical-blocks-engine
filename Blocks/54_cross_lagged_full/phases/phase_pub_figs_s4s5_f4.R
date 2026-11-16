@@ -73,6 +73,11 @@ source(file.path(root, "R/cross_lagged_study_meta.R"))
 source(file.path(root, "R/cross_lagged_fi_item_labels.R"))
 source(file.path(root, "R/clpn_node_label_db.R"))
 source(file.path(root, "R/clpn_network_plot.R"))
+.plot_ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Times"
+}
 register_block <- function(...) invisible(NULL)
 if (file.exists(file.path(root, "Blocks/54_cross_lagged_full/17block_cross_lagged_network.R"))) {
   source(file.path(root, "Blocks/54_cross_lagged_full/17block_cross_lagged_network.R"), local = FALSE)
@@ -308,22 +313,34 @@ if (file.exists(.panel_f)) {
     ) +
     scale_y_continuous(limits = ylim, expand = expansion(mult = c(0, 0.02))) +
     labs(x = xlab, y = ylab, title = title) +
-    theme_classic(base_size = 13) +
+    theme_classic(base_size = 13, base_family = .plot_ff) +
     theme(
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-      axis.title = element_text(face = "bold"),
-      axis.text = element_text(colour = "black"),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14, family = .plot_ff),
+      axis.title = element_text(face = "bold", family = .plot_ff),
+      axis.text = element_text(colour = "black", family = .plot_ff),
       legend.position = "bottom",
       legend.direction = "horizontal",
-      legend.text = element_text(size = 11),
+      legend.text = element_text(size = 11, family = .plot_ff),
       legend.key.size = grid::unit(0.45, "cm"),
       panel.grid = element_blank()
     ) +
     guides(fill = guide_legend(nrow = 1, byrow = TRUE))
 
   dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
-  dev <- if (isTRUE(capabilities("cairo"))) grDevices::cairo_pdf else "pdf"
-  ggsave(outfile, p, width = width, height = height, device = dev)
+  .ggsave_times <- function(path, plot, width, height) {
+    if (exists("pipeline_pdf_device", mode = "function")) {
+      pipeline_pdf_device(path, width = width, height = height, family = .plot_ff)
+      print(plot)
+      grDevices::dev.off()
+    } else if (isTRUE(capabilities("cairo"))) {
+      grDevices::cairo_pdf(path, width = width, height = height, family = .plot_ff)
+      print(plot)
+      grDevices::dev.off()
+    } else {
+      ggsave(path, plot, width = width, height = height, device = "pdf")
+    }
+  }
+  .ggsave_times(outfile, p, width = width, height = height)
   invisible(list(plot = p, summary = sumd, p = ptab, path = outfile))
 }
 
@@ -444,8 +461,16 @@ pool <- do.call(rbind, lapply(all_long, function(d) {
   .person_baseline_ever(d)
 }))
 rownames(pool) <- NULL
+.norm_country <- function(x) {
+  x <- as.character(x)
+  x[x %in% c("UK", "United Kingdom", "England", "Britain")] <- "United Kingdom"
+  x[x %in% c("America", "USA", "US", "United States", "United States of America")] <-
+    "United States of America"
+  x[x %in% c("China", "PRC")] <- "China"
+  x
+}
 pool$Country <- factor(
-  as.character(pool$Country),
+  .norm_country(pool$Country),
   levels = c("United States of America", "China", "United Kingdom")
 )
 pool$Disease <- factor(pool$Disease, levels = c(.ref_lab, .ev_lab))
@@ -534,22 +559,31 @@ p5 <- ggplot(sumc, aes(x = Country, y = mean, fill = fill_id)) +
   scale_y_continuous(limits = c(0, y5), expand = expansion(mult = c(0, 0.02))) +
   labs(x = NULL, y = .index_ylab,
        title = sprintf("Mean %s by country (baseline / cross-section)", .index_ylab)) +
-  theme_classic(base_size = 13) +
+  theme_classic(base_size = 13, base_family = .plot_ff) +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    axis.title = element_text(face = "bold"),
-    axis.text = element_text(colour = "black"),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14, family = .plot_ff),
+    axis.title = element_text(face = "bold", family = .plot_ff),
+    axis.text = element_text(colour = "black", family = .plot_ff),
     legend.position = "bottom",
     legend.direction = "horizontal",
-    legend.text = element_text(size = 9.5),
+    legend.text = element_text(size = 9.5, family = .plot_ff),
     legend.key.size = grid::unit(0.4, "cm"),
     panel.grid = element_blank()
   ) +
   guides(fill = guide_legend(nrow = 2, byrow = TRUE))
 
 out5 <- file.path(fig_out, .s5_name())
-ggsave(out5, p5, width = 8.5, height = 6.0,
-       device = if (isTRUE(capabilities("cairo"))) grDevices::cairo_pdf else "pdf")
+if (exists("pipeline_pdf_device", mode = "function")) {
+  pipeline_pdf_device(out5, width = 8.5, height = 6.0, family = .plot_ff)
+  print(p5)
+  grDevices::dev.off()
+} else if (isTRUE(capabilities("cairo"))) {
+  grDevices::cairo_pdf(out5, width = 8.5, height = 6.0, family = .plot_ff)
+  print(p5)
+  grDevices::dev.off()
+} else {
+  ggsave(out5, p5, width = 8.5, height = 6.0, device = "pdf")
+}
 utils::write.csv(
   merge(as.data.frame(sumc), ptab_c[, c("Country", "p", "stars")], by = "Country", all.x = TRUE),
   file.path(tab_out, paste0("FigureS5_mean_", .index_file, "_by_country.csv")),

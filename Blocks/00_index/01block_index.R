@@ -310,6 +310,17 @@
     list(name = "WHtR",
          expr = "Waist_circumference / Height",
          digits = 4),
+    # Conicity Index（Valdez 1991）：WC(m) / (0.109 * sqrt(Weight(kg)/Height(m)))
+    list(name = "Conicity",
+         expr = paste0(
+           "(Waist_circumference / 100) / ",
+           "(0.109 * sqrt(Weight / (Height / 100)))"
+         ),
+         digits = 4),
+    # Ponderal Index（Corpulence）：Weight(kg) / Height(m)^3
+    list(name = "Ponderal",
+         expr = "Weight / (Height / 100)^3",
+         digits = 4),
     list(name = "CMI",
          expr = "(Triglycerides / HDL) * (Waist_circumference / Height)",
          digits = 4),
@@ -595,6 +606,18 @@
            "dplyr::case_when(",
            "Gender == 'Male' ~ (Waist_circumference - 65) * Triglycerides / 88.57, ",
            "Gender == 'Female' ~ (Waist_circumference - 85) * Triglycerides / 88.57, ",
+           "TRUE ~ NA_real_)"
+         ),
+         digits = 4),
+
+    # CVAI（Xia et al. Sci Rep 2016）：TG/HDL 须 mmol/L（mg/dL÷88.57 / ÷38.67）
+    list(name = "CVAI",
+         expr = paste0(
+           "dplyr::case_when(",
+           "Gender == 'Male' ~ -267.93 + 0.68 * Age + 0.03 * BMI + 4 * Waist_circumference + ",
+           "22 * log10(Triglycerides / 88.57) - 16.32 * (HDL / 38.67), ",
+           "Gender == 'Female' ~ -187.32 + 1.71 * Age + 4.23 * BMI + 1.12 * Waist_circumference + ",
+           "39.76 * log10(Triglycerides / 88.57) - 11.66 * (HDL / 38.67), ",
            "TRUE ~ NA_real_)"
          ),
          digits = 4)

@@ -76,6 +76,16 @@ if (isTRUE(prune_only)) {
         error = function(e) warning("underscore scrub: ", conditionMessage(e), call. = FALSE)
       )
     }
+    times_src <- file.path(engine, "R/pub_xlsx_force_times.R")
+    if (file.exists(times_src)) {
+      tryCatch(source(times_src, local = FALSE), error = function(e) NULL)
+    }
+    if (exists("pub_delivery_force_tables_times", mode = "function")) {
+      tryCatch(
+        pub_delivery_force_tables_times(dir),
+        error = function(e) warning("Times font force: ", conditionMessage(e), call. = FALSE)
+      )
+    }
     res <- pub_prune_delivery_root(dir, dry_run = has_flag("--dry-run"))
     cat("PRUNE_OK dir=", normalizePath(dir), " moved=", length(res$moved %||% character(0)), "\n", sep = "")
   } else if (nzchar(proj)) {
@@ -107,6 +117,17 @@ if (exists("pub_delivery_scrub_display", mode = "function")) {
   tryCatch(
     pub_delivery_scrub_tables_underscores(dir, root = engine),
     error = function(e) warning("underscore scrub: ", conditionMessage(e), call. = FALSE)
+  )
+}
+# Engine-level Times New Roman force on all Tables/*.xlsx (drop Calibri/Arial leftovers)
+times_src <- file.path(engine, "R/pub_xlsx_force_times.R")
+if (file.exists(times_src)) {
+  tryCatch(source(times_src, local = FALSE), error = function(e) NULL)
+}
+if (exists("pub_delivery_force_tables_times", mode = "function")) {
+  tryCatch(
+    pub_delivery_force_tables_times(dir),
+    error = function(e) warning("Times font force: ", conditionMessage(e), call. = FALSE)
   )
 }
 
@@ -163,9 +184,22 @@ config <- list(
       c("qgraph", "glmnet", "bootnet", "survey", "mice", "rms",
         "mediation", "pROC", "forestploter", "igraph")
     },
+    include_python = isTRUE(is_dbpool) || isTRUE(is_tst),
+    python_modules = if (isTRUE(is_dbpool)) {
+      c("torch", "numpy", "pandas", "scipy", "sklearn", "matplotlib", "openpyxl")
+    } else {
+      character(0)
+    },
+    python_modules_only = isTRUE(is_dbpool),
     # 全因死亡预后 v2：未做 Fine–Gray / 竞争风险，勿在 Methods 软件清单挂 cmprsk
+    # dbpool：剔除未用的 Cox/中介模板包
     exclude_pkgs = if (isTRUE(grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE))) {
       c("cmprsk")
+    } else if (isTRUE(is_dbpool)) {
+      c(
+        "survival", "survminer", "cmprsk", "mediation", "rms", "Boruta",
+        "glmnet", "Hmisc", "car", "tableone", "pROC", "patchwork", "dplyr"
+      )
     } else {
       character(0)
     }
@@ -174,9 +208,15 @@ config <- list(
 if (isTRUE(is_dbpool)) {
   config$project$cohort <- .env_chr(
     "DBPOOL_COHORT",
-    "ACG-style enzyme elevation (ALT/AST ≥2×ULN)"
+    "ULN-all3 enzyme elevation (AST≥38 U/L, ALT≥41 U/L, and total bilirubin≥1.3 mg/dL)"
   )
-  config$project$drop_features <- .env_chr("DBPOOL_DROP_FEATURES", "ALT and AST")
+  config$project$feature_set <- .env_chr(
+    "DBPOOL_FEATURE_SET",
+    paste0(
+      "covariates selected with reference to prior literature on ICU mortality ",
+      "and length-of-stay prediction (harmonised BlendedICU physiologic and laboratory channels)"
+    )
+  )
   config$project$model <- .env_chr(
     "DBPOOL_MODEL",
     "Temporal Pointwise Convolution (TPC) multitask network"
@@ -251,7 +291,10 @@ if (isTRUE(is_gallstone) && exists("gallstone_finalize_summary_delivery", mode =
     prune = TRUE
   )
   st <- if (dir.exists(fig_dir)) pub_figure_formats_status(fig_dir, config = list(
-    pub_figures = list(export_png = FALSE, export_tiff = FALSE)
+    pub_figures = list(
+      export_png = FALSE, export_tiff = FALSE,
+      max_edge_in = 16, require_vector_pdf = TRUE
+    )
   )) else list(ok = NA)
   cat(
     "FINALIZE_OK study=gallstone dir=", normalizePath(dir),
@@ -399,7 +442,17 @@ if (exists("pub_strip_db_tags_from_delivery", mode = "function") &&
 }
 
 pub_prune_delivery_root(dir)
-st <- if (dir.exists(fig_dir)) pub_figure_formats_status(fig_dir) else list(ok = NA)
+st <- if (dir.exists(fig_dir)) {
+  pub_figure_formats_status(
+    fig_dir,
+    config = list(pub_figures = list(
+      export_png = FALSE, export_tiff = FALSE,
+      max_edge_in = 16, require_vector_pdf = TRUE
+    ))
+  )
+} else {
+  list(ok = NA)
+}
 cat(
   "FINALIZE_OK dir=", normalizePath(dir),
   " fig_ok=", isTRUE(st$ok),

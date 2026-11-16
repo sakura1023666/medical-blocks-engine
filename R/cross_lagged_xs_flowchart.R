@@ -164,7 +164,7 @@ cross_lagged_draw_xs_fig1 <- function(study_root, db,
 
   pdf_name <- cross_lagged_xs_fig1_basename(db)
   pdf_path <- file.path(fig_dir, pdf_name)
-  title <- sprintf("Figure 1. %s — Inclusion / Exclusion (cross-section)", db)
+  title <- ""
   ok <- FALSE
   if (exists("attrition_draw_pdf", mode = "function")) {
     ok <- isTRUE(attrition_draw_pdf(rows, title, pdf_path))
@@ -311,7 +311,7 @@ cross_lagged_depression_htn_baseline_attrition <- function(study_root, db,
     right_n = as.integer(n_free)
   )
   pdf_path <- file.path(fig_dir, cross_lagged_xs_fig1_basename(db))
-  title <- sprintf("Figure 1. %s — Inclusion / Exclusion (baseline)", db)
+  title <- ""
   ok <- isTRUE(attrition_draw_pdf(rows, title, pdf_path, fork = fork))
   if (!isTRUE(ok)) return(invisible(NULL))
   invisible(pdf_path)

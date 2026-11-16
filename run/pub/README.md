@@ -97,8 +97,8 @@ Rscript run/pub/surgical_xlsx_repair.R --xlsx "..." --set ...
 
 病种定稿重画（如胆结石 Chen 样式）放在 `run/<disease>_*/`，且**必须调用**上表引擎函数；一次性脚本进 `_archive_oneoff/`。
 
-## 禁下划线 / Times / 白名单（2026-11-10）
+## 禁下划线 / Times / 白名单（2026-11-10；2026-11-16 Times 并入 scrub）
 
-收口自动：`pub_delivery_scrub_tables_underscores`（xlsx 展示 `_`→空格）+ `pub_prune_delivery_root`。  
-规则：`pub_no_underscore_display.mdc`、`pub_times_new_roman.mdc`、`pub_delivery_whitelist.mdc`。  
-复用地图：`docs/reuse/2026-11-10-pub-underscore-times-delivery-reuse-map.md`。
+收口自动：`pub_delivery_scrub_display` → `python/pub_xlsx_scrub_display.py`（xlsx `_`→空格 **且** 强制 Times New Roman）+ `pub_prune_delivery_root`。  
+dbpool 薄封装：`run/dbpool/finalize_summary_delivery.R`（规则 `dbpool_pub_reuse.mdc`）。  
+规则：`pub_no_underscore_display.mdc`、`pub_times_new_roman.mdc`、`pub_delivery_whitelist.mdc`、`dbpool_pub_reuse.mdc`。

@@ -566,7 +566,23 @@ pipeline_inject_primary_features_to_ctx <- function(cx, root, config, db_tag = "
   }
   present <- intersect(feats, names(dat))
   missing <- setdiff(feats, names(dat))
+  strict_miss <- FALSE
+  if (exists("pipeline_dual_db_missing_union_strict", mode = "function")) {
+    strict_miss <- isTRUE(pipeline_dual_db_missing_union_strict(config))
+  } else {
+    sm <- as.character(config$ml_batch$split_mode %||% config$incidence_batch$split_mode %||% "")[1L]
+    strict_miss <- identical(sm, "dev_internal_ext") || identical(sm, "cross_db")
+  }
   if (length(missing)) {
+    if (isTRUE(strict_miss)) {
+      stop(
+        "DUAL_DB_ML_ERROR: ", db_tag,
+        " 主库 ML 特征在外验/次库不可用（插补后缺列）: ",
+        paste(missing, collapse = ", "),
+        "。应在主库插补阶段按双库严格缺失并集剔除，禁止带单侧特征训练。",
+        call. = FALSE
+      )
+    }
     cli::cli_alert_warning(
       "{db_tag}: 主库特征在验证库中缺失 {length(missing)} 个，已跳过: {paste(head(missing, 8), collapse = ', ')}"
     )

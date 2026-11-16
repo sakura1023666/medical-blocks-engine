@@ -165,7 +165,25 @@ incidence_single_figure_target_bn <- function(role, src_bn, db = NA_character_) 
 #' ML 课题判定：勿套「发病 S1 箱线 / S2 ROC」单库图序
 incidence_single_is_ml_project <- function(config = NULL) {
   cfg <- config %||% list()
+  .st <- tolower(trimws(as.character(cfg$project$study_type %||% "")[1L]))
+  ## 纯发病/预后统计课题：禁止仅因 write_index_summary_results 被判成 ML
+  ## （COPD MCMI 2026-11：config 误挂空 ml_batch → finalize 删箱线/ROC/中介图）
+  if (identical(.st, "incidence") || identical(.st, "prognosis")) {
+    sch_inc <- as.character(
+      cfg$pub_figure_scheme %||%
+        cfg$incidence_batch$pub_figure_scheme %||%
+        cfg$survival_batch$pub_figure_scheme %||%
+        cfg$ml_batch$pub_figure_scheme %||% ""
+    )[1L]
+    if (!grepl("^ml_", sch_inc) && !isTRUE(cfg$ml_batch$enable)) {
+      pipe0 <- as.character(cfg$pipeline$blocks %||% cfg$blocks %||% character(0))
+      if (!any(grepl("^ml_|performance_ml|^shap$|lasso", pipe0, ignore.case = TRUE))) {
+        return(FALSE)
+      }
+    }
+  }
   if (isTRUE(cfg$ml_batch$enable %||% FALSE)) return(TRUE)
+  if (grepl("^ml", .st) || grepl("machine.?learn|ml_dual|ml_single", .st)) return(TRUE)
   if (is.list(cfg$ml_batch) && length(cfg$ml_batch)) {
     sch <- as.character(
       cfg$ml_batch$pub_figure_scheme %||%
@@ -173,10 +191,8 @@ incidence_single_is_ml_project <- function(config = NULL) {
         cfg$survival_batch$pub_figure_scheme %||% ""
     )[1L]
     if (grepl("^ml_", sch)) return(TRUE)
-    ## 有 ML 块开关即视为 ML 课题（单库 ML 发病常见）
-    if (!is.null(cfg$ml_batch$omit_figure_s2) ||
-        !is.null(cfg$ml_batch$write_index_summary_results) ||
-        !is.null(cfg$ml_batch$curate_purge_pub_figures)) {
+    ## 勿用 write_index_summary_results / omit_figure_s2 单独判 ML（发病也会开 summary_results）
+    if (isTRUE(cfg$ml_batch$curate_purge_pub_figures) && isTRUE(cfg$ml_batch$enable)) {
       return(TRUE)
     }
   }

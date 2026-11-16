@@ -525,7 +525,10 @@ block_subgroup_nhanes_weighted <- function(ctx) {
       }
       if (!length(tgt) || !is.finite(tgt[1L]) || tgt[1L] > nrow(co)) return(NULL)
       tgt <- tgt[1L]
-      est <- co[tgt,"Estimate"]; se <- co[tgt,"Std. Error"]; pv <- co[tgt,4]
+      # CI 用 Wald z(±1.96·SE)；P 须同源（禁止用 survey t-P 配 z-CI → 跨 1 却 p>0.05）
+      est <- co[tgt, "Estimate"]; se <- co[tgt, "Std. Error"]
+      z <- if (is.finite(se) && se > 0) est / se else NA_real_
+      pv <- if (is.finite(z)) 2 * stats::pnorm(-abs(z)) else NA_real_
       n_ev  <- sum(sub_d$variables$Disease_Group == 1, na.rm=TRUE)
       n_tot <- nrow(sub_d$variables)
       data.frame(
@@ -595,6 +598,18 @@ block_subgroup_nhanes_weighted <- function(ctx) {
     pipeline_subgroup_forest_caption(index_var, mode = forest_cap_mode %||% "highest_vs_lowest")
   } else {
     paste0("Subgroup analyses of ", index_var)
+  }
+  # 调整集：默认 Crude（层内仅暴露）；config$subgroup$adjust_covariates 非空则为 adjusted
+  adj_cov <- as.character(sub_cfg$adjust_covariates %||% character(0))
+  adj_cov <- adj_cov[nzchar(adj_cov)]
+  adj_lab <- if (length(adj_cov)) {
+    paste0("Adjusted for: ", paste(adj_cov, collapse = ", "))
+  } else {
+    "Crude (unadjusted) stratum-specific models; contrast = highest vs lowest quantile"
+  }
+  ctx$results$subgroup_nhanes_adjustment_note <- adj_lab
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info("NHANES 亚组森林调整集: {adj_lab}")
   }
   subgroup_render_forest_figure(
     ctx, plot_df, var_subgroups, sub_cfg,

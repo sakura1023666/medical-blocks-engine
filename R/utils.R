@@ -5877,16 +5877,17 @@ table1_baseline_xlsx_footnotes <- function(
   # （svy.wilcox.test），分类=survey 调整卡方（svy.chisq.test）——gtsummary 默认；
   # 百分比亦为加权估计。禁止加权表写非加权 Wilcoxon/Pearson 脚注。
   # weighted=FALSE（baseline_binary / 不加权敏感性基线）：禁止写 weighted mean/count。
+  # NHANES/加权 Table1 实测口径：连续多为 median (IQR)（无 mean(SE) 行），
+  # 分类列为 unweighted n + weighted %（禁止写 weighted count）。
+  # 不加权敏感性同理：禁 mean(SD) 空话，统一 median (IQR) + count (%).
   desc <- if (isTRUE(weighted)) {
     paste0(
-      "Continuous variables are presented as weighted mean (standard error) or weighted ",
-      "median (interquartile range) depending on their distribution. ",
-      "Categorical variables are presented as weighted count (weighted percentage)."
+      "Continuous variables are presented as weighted median (interquartile range). ",
+      "Categorical variables are presented as unweighted counts with weighted percentages."
     )
   } else {
     paste0(
-      "Continuous variables are presented as mean (standard deviation) or ",
-      "median (interquartile range) depending on their distribution. ",
+      "Continuous variables are presented as median (interquartile range). ",
       "Categorical variables are presented as count (percentage)."
     )
   }

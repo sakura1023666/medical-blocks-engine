@@ -132,14 +132,8 @@ block_attrition_flowchart <- function(ctx, ...) {
   pdf_ok <- FALSE
   if (isTRUE(cfg$draw_pdf %||% TRUE)) {
     db_lab <- .attrition_db_label(ctx)
+    # 全项目默认：面板内不印 Figure 1.… 小标题；多库拼图外标写库名
     title <- as.character(cfg$title %||% cfg$figure_title %||% "")[1L]
-    if (!nzchar(title)) {
-      title <- if (nzchar(db_lab)) {
-        paste0("Figure 1. Inclusion exclusion flowchart (", db_lab, ")")
-      } else {
-        "Figure 1. Inclusion exclusion flowchart"
-      }
-    }
     font_family <- as.character(cfg$font_family %||% "Times New Roman")[1L]
     box_fill <- "#F7F7F7"
     if (exists("is_pub_profile", mode = "function") &&

@@ -34,6 +34,8 @@ pub_delivery_keep_name <- function(name, figures_tables_only = FALSE) {
 #' figure/table → Figures/Tables（交付面统一）
 #'
 #' 注意：WSL/SMB 上对目录 `file.rename` 可能留下幽灵项；一律 copy + unlink。
+#' 若 `Figures`/`Tables` 已有内容，**禁止**用小写 `figure`/`table` 覆盖（抑郁课题曾用
+#' 残缺 figure/ 冲掉定稿 Figures/pdf 槽位）；小写目录整包归档到 delivery_workspace。
 pub_delivery_normalize_fig_tab_dirs <- function(delivery_root) {
   delivery_root <- as.character(delivery_root %||% "")[1L]
   if (!nzchar(delivery_root) || !dir.exists(delivery_root)) return(invisible(FALSE))
@@ -42,6 +44,32 @@ pub_delivery_normalize_fig_tab_dirs <- function(delivery_root) {
     low <- file.path(delivery_root, pr[[1L]])
     up <- file.path(delivery_root, pr[[2L]])
     if (!dir.exists(low)) next
+    up_n <- length(list.files(up, recursive = TRUE, all.files = TRUE, no.. = TRUE))
+    if (dir.exists(up) && up_n > 0L) {
+      arch <- file.path(
+        pub_delivery_archive_dir(delivery_root),
+        paste0("legacy_", pr[[1L]], "_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+      )
+      dir.create(dirname(arch), recursive = TRUE, showWarnings = FALSE)
+      ok <- FALSE
+      tryCatch({
+        file.rename(low, arch)
+        ok <- dir.exists(arch) && !dir.exists(low)
+      }, error = function(e) NULL)
+      if (!isTRUE(ok)) {
+        dir.create(arch, recursive = TRUE, showWarnings = FALSE)
+        for (f in list.files(low, full.names = TRUE, all.files = TRUE, no.. = TRUE)) {
+          file.copy(f, file.path(arch, basename(f)), recursive = TRUE, overwrite = TRUE)
+        }
+        unlink(low, recursive = TRUE, force = TRUE)
+      }
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_info(
+          "交付面已有 {pr[[2L]]}/，小写 {pr[[1L]]}/ 已归档（不覆盖定稿）: {arch}"
+        )
+      }
+      next
+    }
     dir.create(up, recursive = TRUE, showWarnings = FALSE)
     for (f in list.files(low, full.names = TRUE, all.files = TRUE, no.. = TRUE)) {
       file.copy(f, file.path(up, basename(f)), recursive = TRUE, overwrite = TRUE)
@@ -91,7 +119,8 @@ pub_delivery_archive_dir <- function(delivery_root) {
 #' @return list(kept, moved, archive)
 pub_prune_delivery_root <- function(delivery_root,
                                     dry_run = FALSE,
-                                    figures_tables_only = FALSE) {
+                                    figures_tables_only = FALSE,
+                                    keep_raster = NULL) {
   delivery_root <- as.character(delivery_root %||% "")[1L]
   if (!nzchar(delivery_root) || !dir.exists(delivery_root)) {
     stop("pub_prune_delivery_root: 目录不存在: ", delivery_root)
@@ -115,11 +144,18 @@ pub_prune_delivery_root <- function(delivery_root,
     return(invisible(list(kept = keep, moved = move, dry_run = TRUE)))
   }
   # 默认交付：Figures 内去掉遗留 png/tiff（与 pub_figure 默认一致）
+  # 骨质疏松 ABSI 式四目录交付：keep_raster=TRUE，或 Figures/.keep_raster 标记，或环境变量
   fig_dir <- file.path(delivery_root, "Figures")
+  if (is.null(keep_raster)) {
+    keep_raster <- identical(Sys.getenv("MEDICAL_BLOCKS_KEEP_RASTER", ""), "1") ||
+      (dir.exists(fig_dir) && file.exists(file.path(fig_dir, ".keep_raster")))
+  }
   if (dir.exists(fig_dir)) {
-    for (sub in c("png", "tiff")) {
-      d <- file.path(fig_dir, sub)
-      if (dir.exists(d)) unlink(d, recursive = TRUE, force = TRUE)
+    if (!isTRUE(keep_raster)) {
+      for (sub in c("png", "tiff")) {
+        d <- file.path(fig_dir, sub)
+        if (dir.exists(d)) unlink(d, recursive = TRUE, force = TRUE)
+      }
     }
     man <- file.path(fig_dir, "_rebuild_wang2025_manifest.json")
     if (file.exists(man)) {
@@ -375,5 +411,32 @@ pub_delivery_scrub_display <- function(delivery_root, root = NULL) {
     cjk <- if (dir.exists(tab)) pub_xlsx_scrub_chinese_dir(tab) else list(n = 0L)
   }
   im <- pub_delivery_scrub_image_information(delivery_root)
-  invisible(list(python = py_res, underscore = u, chinese = cjk, image_information = im))
+  # Times New Roman is applied inside python/pub_xlsx_scrub_display.py on every
+  # successful scrub pass. If python scrub failed, fall back to times-only CLI.
+  times <- list(n = 0L)
+  if (!isTRUE(py_res$ok) && dir.exists(tab)) {
+    times_src <- file.path(
+      as.character(root %||% Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""))[1L],
+      "R/pub_xlsx_force_times.R"
+    )
+    if (!nzchar(dirname(times_src)) || !file.exists(times_src)) {
+      times_src <- file.path(
+        Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "/mnt/e/01block/01Block-new-Final"),
+        "R/pub_xlsx_force_times.R"
+      )
+    }
+    if (file.exists(times_src)) {
+      tryCatch(source(times_src, local = FALSE), error = function(e) NULL)
+    }
+    if (exists("pub_delivery_force_tables_times", mode = "function")) {
+      times <- tryCatch(
+        pub_delivery_force_tables_times(delivery_root),
+        error = function(e) list(n = 0L, error = conditionMessage(e))
+      )
+    }
+  }
+  invisible(list(
+    python = py_res, underscore = u, chinese = cjk,
+    image_information = im, times = times
+  ))
 }

@@ -82,6 +82,42 @@ if (!exists("%||%", mode = "function", inherits = TRUE)) {
   unique(hrs)
 }
 
+.pv2_p0_xlsx_text_blob <- function(xlsx) {
+  xlsx <- as.character(xlsx %||% "")[1L]
+  if (!nzchar(xlsx) || !file.exists(xlsx)) return("")
+  # Prefer openxlsx (handles inlineStr / sharedStrings / HTML entities)
+  if (requireNamespace("openxlsx", quietly = TRUE)) {
+    x <- tryCatch(openxlsx::read.xlsx(xlsx, colNames = FALSE), error = function(e) NULL)
+    if (!is.null(x) && nrow(x)) {
+      blob <- paste(as.character(unlist(x, use.names = FALSE)), collapse = " ")
+      blob <- gsub("&lt;", "<", blob, fixed = TRUE)
+      blob <- gsub("&gt;", ">", blob, fixed = TRUE)
+      blob <- gsub("&amp;", "&", blob, fixed = TRUE)
+      blob <- gsub("&#8211;", "-", blob, fixed = TRUE)
+      blob <- gsub("\u2013", "-", blob, fixed = TRUE)
+      return(blob)
+    }
+  }
+  # Fallback: raw zip XML
+  ss <- tryCatch({
+    con <- unz(xlsx, "xl/sharedStrings.xml")
+    txt <- paste(readLines(con, warn = FALSE), collapse = " ")
+    close(con)
+    txt
+  }, error = function(e) "")
+  if (!nzchar(ss)) {
+    ss <- tryCatch({
+      con <- unz(xlsx, "xl/worksheets/sheet1.xml")
+      txt <- paste(readLines(con, warn = FALSE), collapse = " ")
+      close(con)
+      txt
+    }, error = function(e) "")
+  }
+  ss <- gsub("&#8211;", "-", ss, fixed = TRUE)
+  ss <- gsub("\u2013", "-", ss, fixed = TRUE)
+  ss
+}
+
 .pv2_p0_underscore_hits <- function(text) {
   if (!nzchar(text %||% "") || is.na(text)) return(character(0))
   m <- gregexpr("\\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]*\\b", text, perl = TRUE)
@@ -246,6 +282,49 @@ pv2_pub_p0_gate <- function(
     }
     if (!isTRUE(has_pint)) fails <- c(fails, "Fig7 subgroup: missing P-int / P for interaction on strata")
     if (isTRUE(stale_q)) fails <- c(fails, "Fig7 subgroup: locked binary but axis still shows Q4 vs Q1")
+
+    # Stroke ANLR 14d 2026-11: Fig7 Overall must match Table 3 Model 1 highest-vs-lowest cell
+    t3_paths <- list.files(tab_dir, pattern = "^Table 3.*\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+    if (length(t3_paths)) {
+      .extract_hr_ci_tokens <- function(xlsx) {
+        ss <- .pv2_p0_xlsx_text_blob(xlsx)
+        if (!nzchar(ss)) return(character(0))
+        unique(unlist(regmatches(
+          ss,
+          gregexpr("[0-9]+\\.[0-9]{3}\\s*\\([0-9]+\\.[0-9]{3}[-–][0-9]+\\.[0-9]{3}\\)", ss, perl = TRUE)
+        )))
+      }
+      # Overall line on Fig7: first HR (CI) after "Overall"
+      ov <- character(0)
+      m <- regexec("Overall\\s+([0-9]+\\.[0-9]{3}\\s*\\([0-9]+\\.[0-9]{3}[-–][0-9]+\\.[0-9]{3}\\))", sg_txt, perl = TRUE)
+      mm <- regmatches(sg_txt, m)
+      if (length(mm) && length(mm[[1]]) >= 2L) ov <- mm[[1]][[2L]]
+      if (nzchar(ov %||% "")) {
+        ov_n <- gsub("–", "-", ov, fixed = TRUE)
+        hit_any <- FALSE
+        read_ok <- FALSE
+        for (tp in t3_paths) {
+          toks <- .extract_hr_ci_tokens(tp)
+          if (length(toks)) read_ok <- TRUE
+          toks_n <- gsub("–", "-", toks, fixed = TRUE)
+          if (ov_n %in% toks_n) {
+            hit_any <- TRUE
+            break
+          }
+        }
+        checks$fig7_overall_in_table3 <- hit_any
+        if (!isTRUE(read_ok)) {
+          warns <- c(warns, "Fig7/Table3 lock: could not read Table 3 cell text")
+        } else if (!isTRUE(hit_any)) {
+          fails <- c(fails, paste0(
+            "Fig7 Overall '", ov, "' not found in any Table 3 HR cells ",
+            "(must lock Numbers_Master to Table 3 Model 1; ban complete#1 drift)"
+          ))
+        }
+      } else {
+        warns <- c(warns, "Fig7: could not parse Overall HR (95% CI) for Table 3 lock check")
+      }
+    }
   }
 
   # ---- Fig2 / SHAP 展示层下划线（主要扫 PDF 图面；md 只扫「图面说明」）----
@@ -303,13 +382,63 @@ pv2_pub_p0_gate <- function(
       mice = "MICE|multiple imputation|多重插补",
       mice_outcome = "not imputed|结局.*插补|death status|follow-up time|outcome.*(in|not)|imputation model",
       ph = "cox\\.zph|Schoenfeld|proportional.?hazard",
-      grouping = locked_scheme
+      grouping = locked_scheme,
+      # Stroke ANLR 14d 2026-11 lessons
+      rcs_knots = "knot|P10|P50|P90|P35|P65|35th|65th|ns\\(|rcspline|百分位|percentile",
+      boruta_params = "Boruta|maxRuns|ntree|TentativeRoughFix|seed",
+      shap_impl = "SHAP|xgboost|predcontrib|TreeSHAP"
     )
+    # Exposure missing selection bias (Stroke ANLR 14d): if Fig1 / attrition mentions
+    # "not computable" with large drop, Methods/Limitations must acknowledge selection.
+    fig1_txt <- .pv2_p0_pdf_text(.pv2_p0_find_fig(fig_dir, check_fig_numbers$flowchart %||% 1L))
+    if (!is.na(fig1_txt) && grepl("not computable|不可计算", fig1_txt, ignore.case = TRUE)) {
+      has_sel <- grepl(
+        "selection bias|选择偏倚|never assayed|未化验|non-ordering|missing exposure|暴露缺失",
+        meth,
+        ignore.case = TRUE
+      )
+      checks$methods_exposure_missing_selection <- has_sel
+      if (!isTRUE(has_sel)) {
+        fails <- c(fails, paste0(
+          "Methods missing selection-bias / never-assayed disclosure while Fig1 shows ",
+          "'not computable' exposure drop (Stroke ANLR 14d lesson)"
+        ))
+      }
+    }
     for (nm in names(need)) {
       ok <- grepl(need[[nm]], meth, ignore.case = TRUE)
       checks[[paste0("methods_", nm)]] <- ok
       if (!ok) {
         fails <- c(fails, paste0("Methods missing required token/group: ", nm, " (~/", need[[nm]], "/)"))
+      }
+    }
+    # Sensitivity footnote landmark drift (e.g. "primary 28-day" in a 14-day delivery)
+    s5 <- list.files(tab_dir, pattern = "Table S5.*\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+    day_m <- regmatches(meth, regexpr("\\b([0-9]+)\\s*-?\\s*day", meth, ignore.case = TRUE, perl = TRUE))
+    primary_day <- if (length(day_m)) sub(".*?([0-9]+).*", "\\1", day_m[[1]]) else NA_character_
+    if (length(s5) && !is.na(primary_day)) {
+      bad_s5 <- character(0)
+      unread <- character(0)
+      for (fp in s5) {
+        ss <- .pv2_p0_xlsx_text_blob(fp)
+        if (!nzchar(ss)) {
+          unread <- c(unread, basename(fp))
+          next
+        }
+        if (grepl("primary\\s+[0-9]+\\s*-?\\s*day\\s+locked\\s+grouping", ss, ignore.case = TRUE) &&
+            !grepl(paste0("primary\\s+", primary_day, "\\s*-?\\s*day\\s+locked\\s+grouping"), ss, ignore.case = TRUE)) {
+          bad_s5 <- c(bad_s5, basename(fp))
+        }
+      }
+      checks$s5_landmark_matches_methods <- length(bad_s5) == 0L
+      if (length(unread) && !length(bad_s5)) {
+        warns <- c(warns, paste0("Table S5 landmark check unread: ", paste(unread, collapse = ", ")))
+      }
+      if (length(bad_s5)) {
+        fails <- c(fails, paste0(
+          "Table S5 footnote landmark != Methods primary ", primary_day,
+          "-day (", paste(bad_s5, collapse = ", "), ")"
+        ))
       }
     }
     # 中介若存在：脚注诚实（若写 Model 3 须真有 CHARLSON 等 — 仅警告）

@@ -80,10 +80,10 @@ FEATURE_DROP_EN = os.environ.get(
 TABLE1_FOOTNOTE = os.environ.get(
     "LIVER_TABLE1_FOOTNOTE",
     "EASL/DILI cohort (first ALT≥200 or ALP≥230 U/L). "
-    "Continuous: mean [SD] (vitals/labs = stay-level hourly mean after MOESM1 physiological-range clip, "
+    "Continuous: mean [SD] (vitals/labs = stay-level hourly mean after physiological-range clip, "
     "then cohort mean [SD]). Drug exposure: any hourly dose >0 during the stay. "
     "Unit type from BlendedICU labels (HiRID often Unknown). ALT/ALP excluded from model features. "
-    "Vitals/labs clipped to MOESM1 physiological ranges (same bounds as model preprocess).",
+    "Vitals/labs clipped to a priori physiological ranges (same bounds as model preprocess).",
 ).strip()
 SCALE_FEATURE_NOTE = os.environ.get(
     "LIVER_SCALE_FEATURE_NOTE",
@@ -108,10 +108,36 @@ DB_FACE = {
     "HiRID": "#efe6c9",
 }
 
-# matplotlib publication defaults
+# matplotlib publication defaults — Times-family for pub_times_new_roman gate
+def _resolve_times_family() -> str:
+    from matplotlib import font_manager
+
+    preferred = (
+        "Times New Roman",
+        "Times",
+        "Nimbus Roman",
+        "Nimbus Roman No9 L",
+        "Liberation Serif",
+        "DejaVu Serif",
+    )
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    for name in preferred:
+        if name in available:
+            return name
+    return "serif"
+
+
+_TIMES_FAMILY = _resolve_times_family()
 plt.rcParams.update(
     {
-        "font.family": "DejaVu Sans",
+        "font.family": _TIMES_FAMILY,
+        "font.serif": [
+            "Times New Roman",
+            "Times",
+            "Nimbus Roman",
+            "Liberation Serif",
+            "DejaVu Serif",
+        ],
         "font.size": 9,
         "axes.labelsize": 10,
         "axes.titlesize": 11,
@@ -1109,11 +1135,11 @@ def make_fig1(out: Path, store: dict):
     steps = [
         (f"1  {COHORT_TITLE} cohort", COHORT_RULE_SHORT, "#d7e6f5"),
         ("2  Four ICU databases", "AmsterdamUMC, MIMIC-IV, eICU, HiRID (BlendedICU)", "#dceee4"),
-        ("3  Preprocess", "Physiological clip, MNAR ffill + mask, q5–q95 scale", "#efe6c9"),
-        ("4  Patient-level split", "70% / 15% / 15% (seed 974); main arms hold out eICU+HiRID", "#f6dfd4"),
-        ("5  TPC multitask model", "Hourly ICU death risk + remaining length of stay", "#e8dff5"),
+        ("3  Time zero t0 = ICU admission", "Predict from hour 5 onward; through ICU discharge", "#efe6c9"),
+        ("4  Preprocess + patient split", "Phys clip, MNAR ffill+mask, q5–q95; 70/15/15 seed 974", "#f6dfd4"),
+        ("5  TPC multitask model", "Hourly ICU mortality + remaining ICU LoS (RLoS, cap 10 d)", "#e8dff5"),
         ("6  Internal then external test", "AUROC, AUPRC, MAPE; four strategies in panel B", "#e6e4f4"),
-        ("7  Hourly clinical outputs", "Death probability; RLoS if predicted alive", "#f7f3ea"),
+        ("7  Hourly clinical outputs", "ICU death probability; RLoS if predicted alive", "#f7f3ea"),
     ]
     box_w, box_h, x0, top, gap = 8.75, 0.86, 0.6, 8.25, 0.16
     for i, (title, sub, face) in enumerate(steps):
@@ -1386,17 +1412,23 @@ def write_notes(out: Path, store: dict, size_tab: pd.DataFrame):
     (info / "Figure 1. Study pipeline.md").write_text(
         "# Figure 1. Study pipeline\n\n"
         "## 图面说明\n\n"
-        f"A 为七步研究流程（{COHORT_TITLE} 纳排 → 四库 → 预处理 → 划分 → TPC → 内外验 → 小时级输出）。\n"
+        f"A 为七步研究流程（{COHORT_TITLE} 纳排 → 四库 → t0=ICU 入科、自第 5 小时起预测 "
+        "→ 预处理与患者级划分 → TPC → 内外验 → 小时级输出）。\n"
         "B 为四种训练策略：① Amsterdam 单训；② MIMIC 单训；③ Transfer（MIMIC→Amsterdam）；"
         "④ Pooling。圆角色块标识数据库；策略 3 有预训练→微调箭头。\n\n"
         "图上标注：\n"
         f"- Amsterdam alone N={_fmt_n(n_ams)}\n"
         f"- MIMIC-IV alone N={_fmt_n(n_mim)}\n"
         f"- Transfer N={_fmt_n(n_tr)}\n"
-        f"- Pooling N={_fmt_n(n_pool)}\n\n"
+        f"- Pooling N={_fmt_n(n_pool)}\n"
+        "- Panel A step 3：t0 = ICU admission；predictions from hour 5 "
+        "(time_before_pred) through ICU discharge\n\n"
         "## 分析上下文\n\n"
-        "暴露为多库融合训练策略；结局为 ICU 死亡与存活者剩余住院时间；"
-        "主分析外验库为 eICU 与 HiRID。\n",
+        "暴露为多库融合训练策略；结局为 ICU mortality（BlendedICU mortality）与 "
+        "存活者剩余 ICU 住院时长 RLoS（true_lengthofstay，上限 10 天；非院内剩余住院日）；"
+        "主分析外验库为 eICU 与 HiRID。\n\n"
+        "特征集口径：模型协变量参考既往多数据库 ICU 死亡/剩余住院时长预测文献设定；"
+        f"仅用于定义分析队列的实验室指标不进入模型（{FEATURE_DROP_EN}）。\n",
         encoding="utf-8",
     )
     bits = []
@@ -1459,21 +1491,29 @@ def main():
             title="Table 2. Comparison of the TPC model's internal and external validation when training on subsets of the BlendedICU dataset",
             footnote="TPC trained on one database (100% trainval). "
             "Internal = same-database test stays; External = pooled stays from the other three databases (single CI). "
-            "AUROC 95% CI: DeLong (stay-level). MAPE/AUPRC 95% CI: patient-level bootstrap 10,000 (percentile). "
+            "Not the same experiment as Table 3 (four-strategy 70/15/15; different train N and cells). "
+            "AUROC 95% CI: DeLong (ICU-stay level; stays treated as independent). "
+            "MAPE/AUPRC 95% CI: patient-level bootstrap 10,000 (percentile). "
             "AUPRC cells include class-prevalence Baseline. "
-            "Variation = (external − internal) / internal × 100%.",
+            "Variation = (external − internal) / internal × 100%. "
+            "Cite row labels exactly (e.g. eICU internal 0.897 is not MIMIC-IV).",
         )
     t3 = table3_wide_matrix(store, ci)
     _save_table(
         t3,
         tables / "Table 3. Four training strategies",
         title="Table 3. Model performance on specialization and generalization in four separate training methods",
-        footnote="AUROC 95% CI: DeLong (stay-level). MAPE 95% CI: patient-level bootstrap 10,000. "
+        footnote="Endpoints: ICU mortality (BlendedICU mortality) and remaining ICU LoS (RLoS; cap 10 days; deaths excluded from MAPE). "
+        "t0 = ICU admission; predictions from hour 5. "
+        "Not the same experiment as Table 2 (single-DB 100% trainval benchmark). "
+        "AUROC 95% CI: DeLong (ICU-stay level; stays treated as independent; upper bound 1.00 possible in small cells). "
+        "MAPE 95% CI: patient-level bootstrap 10,000. "
         "Mcomposite = 0.5×[(MAPE/MAPE₀)+( (1−AUROC)/(1−AUROC₀) )] with Amsterdam-alone on Amsterdam as baseline; point estimate. "
         "¹Transfer learning: pretrain on MIMIC-IV then fine-tune on AmsterdamUMC; only Amsterdam specialization is reported. "
         "²Data pooling: AmsterdamUMC + MIMIC-IV. "
+        "Specialization off-diagonal cells (Amsterdam model on MIMIC-IV test; MIMIC-IV model on Amsterdam test) use peer-database cross-evaluation. "
         "Generalization = mean of eICU and HiRID (held out from training). "
-        "Dashes: strategy not applicable or evaluation database absent from that run's test predictions.",
+        "Dashes: strategy not applicable.",
     )
 
     q = list((MAIN_OUT / "liver_expD_pooled_mimic_amsterdam").rglob("train_q5q95.json"))
@@ -1577,6 +1617,7 @@ def main():
             )
 
     # Non-manuscript diagnostics → _internal only (not in Tables/)
+    internal.mkdir(parents=True, exist_ok=True)
     if ci is not None:
         ci.to_csv(internal / "Table_CI_DeLong_bootstrap10k.csv", index=False)
     pw = EXTRA / "ci_main_four_arms" / "Table_DeLong_Pooling_vs_MIMIC.csv"
@@ -1596,12 +1637,20 @@ def main():
         pd.Timestamp.utcnow().isoformat() + "Z\n", encoding="utf-8"
     )
 
-    _save_table(
-        table1_wide(),
-        tables / "Table 1. Cohort characteristics",
-        title="Table 1. Characteristics of ICU patient stays included in the study, according to the original database",
-        footnote=TABLE1_FOOTNOTE,
+    skip_table1 = os.environ.get("LIVER_SKIP_TABLE1", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
     )
+    if skip_table1:
+        print("[finalize] LIVER_SKIP_TABLE1=1 — skip Table 1 scan", flush=True)
+    else:
+        _save_table(
+            table1_wide(),
+            tables / "Table 1. Cohort characteristics",
+            title="Table 1. Characteristics of ICU patient stays included in the study, according to the original database",
+            footnote=TABLE1_FOOTNOTE,
+        )
     _purge_non_manuscript_tables(tables)
     (out / "PUBLISH_READY.time").write_text(
         pd.Timestamp.utcnow().isoformat() + "Z\n", encoding="utf-8"
@@ -1611,7 +1660,15 @@ def main():
 
     # Engine-level delivery: Methods + software versions + figure formats + whitelist prune.
     # summary_results keeps only Figures/ Tables/ Methods_*.md|txt / *中期*.pdf
-    _finalize_delivery_root(out)
+    skip_delivery = os.environ.get("LIVER_SKIP_DELIVERY", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    if skip_delivery:
+        print("[finalize] LIVER_SKIP_DELIVERY=1 — skip delivery root finalize", flush=True)
+    else:
+        _finalize_delivery_root(out)
 
 
 def _finalize_delivery_root(pub: Path) -> None:
@@ -1627,39 +1684,46 @@ def _finalize_delivery_root(pub: Path) -> None:
     env["MEDICAL_BLOCKS_ROOT"] = str(engine)
     env.setdefault("DBPOOL_COHORT", COHORT_TITLE)
     env.setdefault(
-        "DBPOOL_DROP_FEATURES",
-        os.environ.get("DBPOOL_DROP_TS", "ALT and AST").replace(",", " and ").replace("_", " "),
+        "DBPOOL_FEATURE_SET",
+        os.environ.get(
+            "LIVER_FEATURE_DROP_EN",
+            "covariates selected with reference to prior literature on ICU mortality "
+            "and length-of-stay prediction (harmonised BlendedICU physiologic and laboratory channels)",
+        ),
     )
-    cmd = [
-        "Rscript",
-        str(cli),
-        "--dir",
-        str(pub),
-        "--study-type",
-        "dbpool",
-        "--outcome",
-        "ICU mortality and remaining length of stay",
-        "--exposure",
-        "Multi-database pooling / transfer learning (TPC)",
-        "--databases",
-        "AmsterdamUMC,MIMIC-IV,eICU,HiRID",
-    ]
+    # Prefer thin engine wrapper (Methods + Times force + scrub + QC + prune)
+    thin = engine / "run" / "dbpool" / "finalize_summary_delivery.R"
+    if thin.exists():
+        cmd = [
+            "Rscript",
+            str(thin),
+            "--dir",
+            str(pub),
+            "--cohort",
+            env["DBPOOL_COHORT"],
+            "--feature-set",
+            env["DBPOOL_FEATURE_SET"],
+        ]
+    else:
+        cmd = [
+            "Rscript",
+            str(cli),
+            "--dir",
+            str(pub),
+            "--study-type",
+            "dbpool",
+            "--outcome",
+            "ICU mortality and remaining length of stay",
+            "--exposure",
+            "Multi-database pooling / transfer learning TPC",
+            "--databases",
+            "AmsterdamUMC,MIMIC-IV,eICU,HiRID",
+        ]
     print("[finalize] delivery root finalize …", flush=True)
     try:
         subprocess.run(cmd, check=False, env=env)
     except Exception as e:
         print(f"[finalize] WARN delivery finalize failed: {e}", flush=True)
-    # Structure QC stub (Agent still runs Nature Layer D)
-    qc = engine / "run" / "pub" / "run_pub_qc_after_project.R"
-    if qc.exists():
-        try:
-            subprocess.run(
-                ["Rscript", str(qc), "--project", str(pub)],
-                check=False,
-                env=env,
-            )
-        except Exception as e:
-            print(f"[finalize] WARN pub QC CLI failed: {e}", flush=True)
 
 
 if __name__ == "__main__":

@@ -531,7 +531,7 @@ config <- list(
     sig_cutoff = 0.05, strata = "Disease_Group",
     include_vars = NULL,
     exclude_vars = c(
-      "SEQN", "subject_id", "new_Weight",
+      "SEQN", "subject_id", "cycle", "Cycle", "new_Weight",
       "WTINT2YR", "WTMEC2YR", "WTMEC4YR",
       "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"
     ),

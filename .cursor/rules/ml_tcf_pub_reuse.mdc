@@ -27,9 +27,18 @@ alwaysApply: true
 3. Fig6 **禁止**画 Training 表观 AUC；Methods Limitations 写清。
 4. Methods 必须 `kind=tcf`，禁止落到 Cox 默认模板。
 5. 交付默认 PDF + image_information；白名单见 `pub_delivery_whitelist`。
+6. **结局标签生死线（2026-11 SA-AKI P0）**：y 为 ICU 入院锚定 **28-day all-cause death** 时，Table1 / TRIPOD / Methods / 封面 / Fig1 **禁止**写 In-hospital death；内部字段名（如 `fustatus`）**零出现在发表面**。
+7. **分析单位写实**：MIMIC 患者级（`subject_id` + 首次可链接 stay）与 eICU（`patientunitstayid` / ICU-first 提取）必须在 Fig1 文案 + Methods 区分。先实核分析集 stay ID 是否唯一、基线是否 ICU-first；**仅当**同患者多 stay 真入样时才写 cluster-robust / 独立性 Limitations——禁止在 ICU-first 且 stay ID 唯一时仍写「未做 cluster-robust」假残留。
+8. **排除定义分类**：eICU「不可链接 ICU baseline」≠ MIMIC「结局不可链接」；Methods 一句写清。
+9. **数据集用途链**：熵筛选 / RSCV = **train**；TOPSIS α = **internal validation metrics**；禁止笼统写 “development-set weights” 掩盖 α 用了内验。
+10. **软件两件套**：`Methods_software_versions.txt` 须含 **Python + scikit-learn/XGBoost/LightGBM/SHAP/imblearn/pandas/numpy**；剔除未用的 survival/cmprsk/mediation 等预后模板残留。
 
 ## 反例
 
 - 在 G:`scripts/` 继续改业务逻辑，引擎副本落后
 - Methods 写成 Cox/landmark 却跑 TCF+TOPSIS
 - Fig5 与 S10 用不同 stratum offset
+- Table1「In-hospital death」而 Fig1「death within 28 days」且事件数相同
+- Fig1 MIMIC 写 stay 级排除、实际是 subject 去重后结局不可链接
+- Methods 写 development-set TOPSIS 权重，表注却写 TOPSIS on internal-validation metrics
+- 软件清单只有 R survival 系、无 Python ML 包版本

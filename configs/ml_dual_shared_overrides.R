@@ -260,6 +260,8 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       restrict_to_train = TRUE,
       force_composite_features = TRUE,
       include_composite_in_ml = TRUE,
+      ## 暴露未进 LASSO 非零系数 → 整指标 failed（见 .mlfsb_assert_exposure_in_lasso）
+      fail_if_exposure_not_in_lasso = TRUE,
       ## 用户 2026-10-30：交付不再要 Figure S1 韦恩；特征筛选主图走 LASSO 等（如 Fig2）
       draw_venn = FALSE
     )
@@ -311,9 +313,14 @@ ml_dual_apply_train_validation_batch_overrides <- function(config) {
     )
   )
   # 预测模型默认：仅训练集拟合 MICE，再应用到 validation（须 pipeline 中 train_validation 在 imputation 前）
+  # 双库严格缺失并集：伙伴库超 missing_col_threshold 的列在本库一并剔除
+  # （避免主库训出 Globulin 等外验插补后没有的特征 → ml_eval_external 全军覆没）
   config$imputation <- modifyList(
     config$imputation %||% list(),
-    list(fit_on = "train")
+    list(
+      fit_on = "train",
+      dual_db_partner_drop_even_if_self_ok = TRUE
+    )
   )
   config
 }
@@ -633,6 +640,10 @@ ml_dual_apply_prognosis_ml_overrides <- function(config) {
       fig_combined_name = "Figure S2.LASSO-Cox.pdf",
       fig_s1_name = "Figure S1.LASSO-Cox.pdf"
     )
+  )
+  config$feature_selection <- modifyList(
+    config$feature_selection %||% list(),
+    list(fail_if_exposure_not_in_lasso = TRUE)
   )
   config$feature_selection_venn <- modifyList(
     config$feature_selection_venn %||% list(),

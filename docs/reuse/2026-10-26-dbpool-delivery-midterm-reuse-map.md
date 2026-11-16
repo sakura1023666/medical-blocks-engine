@@ -1,95 +1,82 @@
-# 复用地图：数据库池化交付收口 + 中期 intro 守卫（2026-10-26）
+# 复用地图：数据库池化交付收口 + Times/禁下划线 + 中期（2026-10-26；2026-11-16 收口）
 
-沉淀自 ACG 酶升高 BlendedLoS 多库包（`database_pooled_42151996`）对话。  
-**新课题直接走引擎，勿再抄 `/tmp`、课题结果目录或对话临时稿。**
+沉淀自 ACG / ULN-all3 BlendedLoS 多库包对话。  
+**新课题直接走引擎，勿抄 `/tmp`、结果目录或对话临时稿。**
+
+规则（alwaysApply）：`.cursor/rules/dbpool_pub_reuse.mdc`
+
+---
 
 ## 客户交付面（唯一）
 
-路径：`<project_root>/summary_results/`（或指标级同名）
+路径：`<project_root>/summary_results/`（或 `summary_results_uln_triple` 等包名）
 
 | 保留 | 说明 |
 |------|------|
-| `Figures/` | pdf / png / tiff / image_information |
+| `Figures/` | `pdf/` + `image_information/`（默认不强制 png/tiff） |
 | `Tables/` | 仅发表 `.xlsx` |
 | `Methods_statistical_analysis.md` | 方法（含 `## Software`） |
 | `Methods_software_versions.txt` | 软件版本 |
-| `*中期*.pdf` | 中期 PDF（Phase 7 写出后再 prune） |
+| `*中期*.pdf` | 中期 PDF（Phase 7 后再 prune） |
 
-中间稿（`content.json`、`_report_dump.md`、`项目信息-中期.md`、`reports/`）进同级  
-`summary_results_delivery_workspace/`，**不进客户目录**。
+中间稿（`content.json`、`_report_dump.md`、`项目信息-中期.md`、`reports/`）→ 同级 `*_delivery_workspace/`。
+
+---
 
 ## 引擎正式入口（改这里）
 
 | 能力 | 文件 | 何时跑 |
 |------|------|--------|
-| Methods 正文（dbpool） | `R/pub_dbpool_methods.R` → `pub_dbpool_methods_statistical_lines` | finalize |
-| 发表收口 CLI | `run/pub/finalize_delivery_root.R --study-type dbpool` | Methods + 软件版本 + 四目录 + 白名单 |
-| 薄封装（课题一键） | `run/dbpool/finalize_summary_delivery.R --dir …/summary_results` | 同上 + 结构 QC |
-| batch 自动挂点 | `Blocks/78_database_pooling_full/09block_dbpool_batch_finalize.R` | workers/tail 末尾 |
-| 定稿表图后自动挂 | `Blocks/78_database_pooling_full/scripts/finalize_easl_paper_pub.py` → `_finalize_delivery_root` | 重导 Table/Fig 后 |
-| 白名单 | `R/pub_delivery_prune.R` | finalize / prune-only |
-| 结构 QC + Phase7 队列 | `run/pub/run_pub_qc_after_project.R` + `R/pub_qc_after_finalize.R`（含 `summary_results`） | finalize 后 |
-| 中期 PDF | `.cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py`（`intro_paras`） | Nature P0 清零后 |
-| 规则 | `.cursor/rules/pub_delivery_whitelist.mdc`、`nature_pub_qc_after_project.mdc`、`midterm_after_pub_qc.mdc` |
+| Methods（t0 / ICU mortality+RLoS / 表2≠表3 / Transfer） | `R/pub_dbpool_methods.R` | finalize |
+| 禁下划线 + **Times xlsx** | `python/pub_xlsx_scrub_display.py` ← `pub_delivery_scrub_display` | finalize / prune-only |
+| Times 薄 CLI（旧调用兼容） | `R/pub_xlsx_force_times.R` → 转调 scrub `--times-only` | 可选 |
+| 字体 QC（括号文件名 OK） | `R/pub_qc_fonts.R` | pub-qc |
+| 软件版本（dbpool Python modules_only） | `R/pub_software_versions.R` | finalize |
+| 一键收口 | `run/dbpool/finalize_summary_delivery.R` | Methods+软件+scrub+QC+prune |
+| 通用 finalize | `run/pub/finalize_delivery_root.R --study-type dbpool` | 同上核心 |
+| batch 挂点 | `Blocks/78_…/09block_dbpool_batch_finalize.R` | workers 末尾 |
+| 定稿表图挂点 | `Blocks/78_…/scripts/finalize_easl_paper_pub.py` | 重导后 |
+| ULN 三联 pack | `Blocks/78_…/scripts/pack_uln_triple_summary.py` | 主+敏感性后调 thin finalize |
+| 交叉评估 | `cross_eval_ams_mimic.py` + `refresh_uln_table3_after_cross.py` | Transfer/off-diagonal |
+| 中期 PDF | `.cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py` | Nature P0 清零后 |
+| scripts 分层说明 | `Blocks/78_…/scripts/README.md`（A 复用 / B 运维 / C 已并引擎） | — |
 
-### 手工补收口（任意 dbpool 结果根）
+### 手工补收口
 
 ```bash
 Rscript run/dbpool/finalize_summary_delivery.R \
   --dir "/mnt/g/02block_result/.../summary_results" \
-  --cohort "ACG-style enzyme elevation (ALT/AST ≥2×ULN)"
+  --cohort "ULN-all3 laboratory gate (...)" \
+  --feature-set "Model covariates followed prior multi-database ICU …"
 ```
 
-或：
-
-```bash
-Rscript run/pub/finalize_delivery_root.R \
-  --dir ".../summary_results" --study-type dbpool
-```
+---
 
 ## 本对话「有用 vs 没用」
 
 ### 已进引擎（下一课题直接复用）
 
-- `R/pub_dbpool_methods.R`
-- `run/dbpool/finalize_summary_delivery.R`
-- `run/pub/finalize_delivery_root.R`（`--study-type dbpool` 分支）
-- `Blocks/78_database_pooling_full/09block_dbpool_batch_finalize.R`
-- `Blocks/78_database_pooling_full/scripts/finalize_easl_paper_pub.py`（末尾 delivery hook）
-- `R/pub_qc_after_finalize.R`（Phase7 队列含 `summary_results`）
-- `.cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py`（`intro_paras` + build 自检）
+- `R/pub_dbpool_methods.R`、`R/pub_qc_fonts.R`、`R/pub_software_versions.R`
+- `python/pub_xlsx_scrub_display.py`（Times + 禁下划线）
+- `run/dbpool/finalize_summary_delivery.R`、`run/pub/finalize_delivery_root.R`（dbpool 分支）
+- `Blocks/78_…/scripts/finalize_easl_paper_pub.py`、`pack_uln_triple_summary.py`、`cross_eval_ams_mimic.py`…
+- `.cursor/rules/dbpool_pub_reuse.mdc`、`pub_delivery_whitelist.mdc`、`pub_times_new_roman.mdc`
 
-### 课题/文献重建工具（留在 Block scripts，换病可改参调用，勿复制到 /tmp）
-
-- `rebuild_table_s1_allyn.py` / `rebuild_table_s2_moesm2.py` / `rebuild_table2_only.py` / `rebuild_table3_only.py`
-- `freeze_liver_acg.py` / `prepare_liver_acg_blendedlos.py`（ACG 门控定义）
-- `eval_liver_paper_ci.py`
-
-### 不要当源码（一次性 / 过期）
+### 不要当源码
 
 | 路径 | 说明 |
 |------|------|
-| `/tmp/finalize_easl_paper_pub.py`（~542 行） | **旧副本**；正式版在 Blocks（~1666 行） |
-| `/tmp/acg_midterm_pub/` | 中期合成工作区；交付 PDF 已在 G 盘 `summary_results` |
-| `/tmp/dbpool_*.log`、`/tmp/run_dbpool_experiment.py` 等 | 调试日志/草稿 |
-| `summary_results_delivery_workspace/` | 交付修剪归档，不是第二套引擎 |
-| 课题根以外手改的 skill 副本 | 以仓库 `.cursor/skills/Aiya-NB004-midterm-report/` 为准 |
+| `/tmp/finalize_*.py`、`/tmp/*uln*` | 过期/日志 |
+| 结果盘私有 `hotfix_*.R` | 一次性 |
+| `summary_results_delivery_workspace/` | 修剪归档，不是第二套引擎 |
+| `scripts/_archive_oneoff/` | 运维热修归档 |
 
-## 中期 intro 一字竖排（已修，禁止再犯）
+---
 
-根因：`content.json` 的 `intro` 是字符串时，`for p in intro` 会按**字符**迭代。  
-铁律：渲染必须 `intro_paras()`；build 启动自检；≥8 个单字段直接 `sys.exit`。
+## 检查清单
 
-## 新课题检查
-
-- [ ] 收口走 `finalize_delivery_root --study-type dbpool` 或 `run/dbpool/finalize_summary_delivery.R`
-- [ ] `summary_results` 根目录仅白名单五项
-- [ ] 未从 `/tmp` 抄 finalize / prune / Methods
-- [ ] 中期用仓库内 Aiya-NB004 引擎；`intro` 可为字符串或段落数组
-- [ ] Nature P0 清零后再出中期，出完再 `--prune-only`
-
-## 反例
-
-- 把 `/tmp/finalize_easl_paper_pub.py` 当定稿脚本
-- 交付目录留 `content.json` / `reports/`
-- 中期引擎绕过 `intro_paras` 再写 `for p in ch["intro"]`
+- [ ] 收口走 `run/dbpool/finalize_summary_delivery.R`
+- [ ] 交付仅五件套；QC 在 workspace/reports
+- [ ] Methods：文献特征集；Transfer 破折号有说明
+- [ ] 表 Times + 无 `_`；图 Times 系
+- [ ] Nature P0 清零 → 中期 → 再 prune

@@ -33,10 +33,80 @@ pub_collect_software_versions <- function(
   )
 }
 
+#' Collect Python + key scientific package versions (best-effort; omit if unavailable)
+#' @return character lines (may be empty)
+pub_collect_python_software_lines <- function(extra_modules = NULL, modules_only = FALSE) {
+  extra <- as.character(extra_modules %||% character(0))
+  extra <- extra[nzchar(extra)]
+  if (isTRUE(modules_only) && length(extra)) {
+    mods <- unique(extra)
+  } else {
+    mods <- unique(c(
+      "numpy", "pandas", "sklearn", "xgboost", "lightgbm", "shap",
+      "imblearn", "joblib", "openpyxl", "matplotlib",
+      extra
+    ))
+  }
+  mods <- mods[nzchar(mods)]
+  py <- Sys.which("python3")
+  if (!nzchar(py)) py <- Sys.which("python")
+  if (!nzchar(py)) return(character(0))
+  ## Write a temp .py (system2 -c cannot take multiline safely)
+  code <- paste0(
+    "import sys, importlib\n",
+    "print('Python', sys.version.split()[0])\n",
+    "mods = ", paste0("['", paste(mods, collapse = "','"), "']"), "\n",
+    "disp = {'sklearn':'scikit-learn','imblearn':'imbalanced-learn'}\n",
+    "for m in mods:\n",
+    "  try:\n",
+    "    mod = importlib.import_module(m)\n",
+    "    v = getattr(mod, '__version__', None)\n",
+    "    if v is None:\n",
+    "      import importlib.metadata as md\n",
+    "      dist = disp.get(m, m)\n",
+    "      try: v = md.version(dist)\n",
+    "      except Exception:\n",
+    "        try: v = md.version(m)\n",
+    "        except Exception: v = 'unknown'\n",
+    "    print(disp.get(m, m), v)\n",
+    "  except Exception:\n",
+    "    try:\n",
+    "      import importlib.metadata as md\n",
+    "      dist = disp.get(m, m)\n",
+    "      try: v = md.version(dist)\n",
+    "      except Exception: v = md.version(m)\n",
+    "      print(disp.get(m, m), v)\n",
+    "    except Exception:\n",
+    "      pass\n"
+  )
+  tf <- tempfile(fileext = ".py")
+  on.exit(unlink(tf), add = TRUE)
+  writeLines(code, tf, useBytes = TRUE)
+  out <- tryCatch(
+    system2(py, args = tf, stdout = TRUE, stderr = FALSE),
+    error = function(e) character(0)
+  )
+  out <- as.character(out %||% character(0))
+  out <- out[nzchar(trimws(out))]
+  if (!length(out)) return(character(0))
+  # First line Python x.y.z; rest "pkg ver"
+  lines <- character(0)
+  if (grepl("^Python\\s", out[[1L]])) {
+    lines <- c(out[[1L]], "")
+    rest <- out[-1L]
+  } else {
+    rest <- out
+  }
+  if (length(rest)) {
+    lines <- c(lines, "Python packages:", sprintf("  %s", rest))
+  }
+  lines
+}
+
 #' 将软件版本写到指标根（及可选项目根）
 #' @param index_root 指标输出根目录
 #' @param project_root 可选课题根；非空时同步一份到 project_root/Methods_software_versions.txt
-#' @param config 可选；读 config$software_versions$extra_pkgs
+#' @param config 可选；读 config$software_versions$extra_pkgs / exclude_pkgs / include_python
 #' @return 写出的主路径（不可见）
 pub_write_software_versions <- function(index_root, project_root = NULL, config = NULL) {
   if (is.null(index_root) || !nzchar(as.character(index_root)[1L])) {
@@ -48,9 +118,42 @@ pub_write_software_versions <- function(index_root, project_root = NULL, config 
   }
   extra <- character(0)
   exclude <- character(0)
+  include_python <- FALSE
+  py_extra <- character(0)
+  python_modules_only <- FALSE
   if (is.list(config)) {
-    extra <- as.character((config$software_versions %||% list())$extra_pkgs %||% character(0))
-    exclude <- as.character((config$software_versions %||% list())$exclude_pkgs %||% character(0))
+    sv <- config$software_versions %||% list()
+    extra <- as.character(sv$extra_pkgs %||% character(0))
+    exclude <- as.character(sv$exclude_pkgs %||% character(0))
+    include_python <- isTRUE(sv$include_python)
+    py_extra <- as.character(sv$python_modules %||% character(0))
+    python_modules_only <- isTRUE(sv$python_modules_only) ||
+      (length(py_extra) > 0L && !is.null(sv$python_modules))
+    ## TCF / sklearn 主链：默认剔除预后模板残留包，并收录 Python
+    is_tcf <- isTRUE((config$ml_tcf_sklearn_rscv %||% list())$enable) ||
+      identical(tolower(as.character((config$methods %||% list())$kind %||% "")[1L]), "tcf")
+    if (isTRUE(is_tcf)) {
+      include_python <- TRUE
+      exclude <- unique(c(
+        exclude,
+        "survival", "survminer", "rms", "cmprsk", "mediation",
+        "jstable", "tableone", "glmnet", "Hmisc", "car"
+      ))
+      extra <- unique(c(extra, "mice", "ggplot2", "patchwork", "dplyr",
+                        "data.table", "openxlsx", "pROC"))
+    }
+    ## 发病 / 横断面 ML：剔除未用的 Cox / 竞争风险 / 中介模板包
+    st <- tolower(as.character((config$project %||% list())$study_type %||% "")[1L])
+    mk <- tolower(as.character((config$methods %||% list())$kind %||% "")[1L])
+    is_ml_inc <- !is.null(config$ml_batch) &&
+      !identical(st, "survival") &&
+      !identical(mk, "survival") &&
+      !identical(mk, "prognosis") &&
+      is.null(config$survival_batch)
+    if (isTRUE(is_ml_inc) && !isTRUE(is_tcf)) {
+      exclude <- unique(c(exclude, "survival", "survminer", "cmprsk", "mediation"))
+      extra <- unique(c(extra, "forestploter", "glmnet", "pROC", "car"))
+    }
   }
   info <- pub_collect_software_versions(extra_pkgs = extra, exclude_pkgs = exclude)
   lines <- c(
@@ -60,10 +163,30 @@ pub_write_software_versions <- function(index_root, project_root = NULL, config 
     paste0("Platform: ", info$platform),
     "",
     "R packages:",
-    sprintf("  %s %s", names(info$packages), unname(info$packages)),
+    sprintf("  %s %s", names(info$packages), unname(info$packages))
+  )
+  if (isTRUE(include_python)) {
+    py_lines <- pub_collect_python_software_lines(
+      extra_modules = py_extra,
+      modules_only = isTRUE(python_modules_only)
+    )
+    if (length(py_lines)) {
+      lines <- c(lines, "", py_lines)
+    } else {
+      lines <- c(
+        lines, "",
+        "Python packages:",
+        "  (unavailable on finalize host; record analysis-host versions before delivery)"
+      )
+    }
+  }
+  lines <- c(
+    lines,
     "",
     "Note: Versions reflect the machine that finalized this index;",
-    "re-running on another host may change package patch levels."
+    "re-running on another host may change package patch levels.",
+    "For TCF studies, list only packages used on the delivered analysis path;",
+    "do not retain unused Cox/competing-risk template packages."
   )
   out1 <- file.path(index_root, "Methods_software_versions.txt")
   writeLines(lines, out1, useBytes = TRUE)

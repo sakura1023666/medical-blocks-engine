@@ -332,6 +332,8 @@ block_baseline_nhanes <- function(ctx, ...) {
   data_imp   <- design$variables
   excl_bl    <- as.character(bl_cfg$exclude_vars %||% character(0))
   excl_bl    <- excl_bl[nzchar(excl_bl)]
+  # 全项目铁律：加权 Table1 禁止 cycle / 调查权重列进表体（与不加权敏感性同口径）
+  excl_bl <- unique(c(excl_bl, "cycle", "Cycle", wt_col, "new_Weight", "new_weight", "new Weight"))
   excl_cols  <- if (exists("pipeline_nhanes_survey_design_exclude_cols", mode = "function")) {
     unique(c(
       pipeline_nhanes_survey_design_exclude_cols(names(data_imp), cfg),
@@ -343,7 +345,7 @@ block_baseline_nhanes <- function(ctx, ...) {
       "WTDRD1", "WTDR2D", "WTSOG2YR", "WTSA2YR", "WTSB2YR", "WTSC2YR", "WTSVOC2YR"
     ))
     excl_cols <- unique(c(wt_col, psu_col, str_col, extra_excl, excl_bl, cfg$data$id_column %||% "SEQN"))
-    auto_wt <- grep("^(WT[A-Z]|SDMV|Source_File)", names(data_imp), value = TRUE, ignore.case = TRUE)
+    auto_wt <- grep("^(WT[A-Z]|SDMV|Source_File|cycle)", names(data_imp), value = TRUE, ignore.case = TRUE)
     unique(c(excl_cols, setdiff(auto_wt, wt_col)))
   }
   if (exists("environment_patch_table1_sections", mode = "function")) {

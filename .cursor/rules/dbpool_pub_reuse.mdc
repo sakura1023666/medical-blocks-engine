@@ -1,0 +1,50 @@
+# 数据库池化 / BlendedLoS 发表复用铁律（全项目）
+
+本对话（肝酶 ULN-all3 多库 TPC / summary_results 白名单）沉淀的改动，**新 dbpool 课题直接走引擎**。禁止在结果目录或 `/tmp` 堆 Methods / Times / prune hotfix。
+
+## 已进引擎（勿课题私改绕过）
+
+| 能力 | 入口 |
+|---|---|
+| Methods（t0/ICU 结局/RLoS + 表2≠表3 + Transfer 破折号） | `R/pub_dbpool_methods.R` |
+| 一键收口（Methods + 软件 + Times/禁下划线 + 白名单 + QC） | `run/dbpool/finalize_summary_delivery.R` |
+| 通用 finalize | `run/pub/finalize_delivery_root.R --study-type dbpool` |
+| 禁下划线 + **Times 强制**（xlsx） | `python/pub_xlsx_scrub_display.py` ← `pub_delivery_scrub_display` |
+| 字体 QC（含括号文件名） | `R/pub_qc_fonts.R` |
+| 软件版本（dbpool 含 Python modules_only） | `R/pub_software_versions.R` |
+| 定稿表图末尾挂收口 | `Blocks/78_…/scripts/finalize_easl_paper_pub.py` → thin finalize |
+| batch 收口块 | `Blocks/78_…/09block_dbpool_batch_finalize.R` |
+| ULN 三联 pack（主+敏感性） | `Blocks/78_…/scripts/pack_uln_triple_summary.py` |
+| 复用地图 | `docs/reuse/2026-10-26-dbpool-delivery-midterm-reuse-map.md` |
+
+## 铁律
+
+1. **收口只用引擎**：`Rscript run/dbpool/finalize_summary_delivery.R --dir <summary_results>`（或 `finalize_delivery_root --study-type dbpool`）。
+2. **交付根白名单**：只留 `Figures/` `Tables/` `Methods_statistical_analysis.md` `Methods_software_versions.txt` `*中期*.pdf`。
+3. **特征集口径**：默认「既往文献参考」；用 `DBPOOL_FEATURE_SET` / `--feature-set` 覆盖，禁止再写 UV/LASSO 海选句当主文。
+4. **Transfer 破折号**：Table 3 类策略表中迁移臂空白须脚注「by design」，禁止当漏算重填。
+5. **Times + 禁下划线**：走 `pub_delivery_scrub_display`（已含 Times）；勿在课题目录再写一套 `force_times`。
+6. **一次性脚本**：训练 watch / GPU keeper / 对话 `/tmp` 草稿用完进 `Blocks/78_…/scripts/_archive_oneoff/` 或删除；可复用逻辑必须回写 `R/` / `run/` / `Blocks/78/scripts` 正式入口。
+
+## 新课题检查
+
+- [ ] 未从 `/tmp` 或结果目录复制 finalize hotfix
+- [ ] pack / finalize 末尾调用 `run/dbpool/finalize_summary_delivery.R`
+- [ ] `summary_results` 仅五件套；QC/Nature 报告在 `*_delivery_workspace/reports/`
+- [ ] Methods 写明 t0=ICU admission、`time_before_pred`、ICU mortality 与剩余 ICU LoS（非院内）
+- [ ] Methods / 脚注区分 Table 2（单库 100% trainval）与 Table 3（四策略 70/15/15）
+- [ ] 中期/正文举例 AUROC 时行名与表一致（禁止把 eICU 单元格写成 MIMIC）
+- [ ] Methods 有文献特征集 +（若有）Transfer 破折号说明
+- [ ] 表字体 Times；图 Times 系；无展示下划线
+- [ ] Nature P0 清零后出中期，再 prune
+
+## 反例（禁止）
+
+- 全文不写 t0 / 预测起点，却图1 从「门控」直接跳到「小时级输出」
+- Methods 写「院内死亡」而 Table 1 写 ICU mortality，且不交代 BlendedICU 标签局限
+- 把 Table 2 Amsterdam 内部 AUROC 与 Table 3 Amsterdam 单训 specialization 当成同一实验对读
+- 中期脚注「MIMIC 内部 0.897」实为表2 eICU 行
+- 在 `summary_results/` 手写 Methods / 改字体当长期方案
+- 依赖 `/tmp/finalize_easl_paper_pub.py` 旧副本
+- 新课题再复制一套 `xlsx_force_times` 私有脚本
+- 交付根残留 `content.json` / `reports/` / `项目信息-中期.md`

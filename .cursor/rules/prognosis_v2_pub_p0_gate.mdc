@@ -53,6 +53,13 @@ alwaysApply: true
 | MICE | m、method、seed、**结局/暴露/futime 是否入插补**、操作层 vs Rubin |
 | PH | `cox.zph` + 表号（如 Table S9）；违规则 Limitations 一句 |
 | 中介调整 | 实际 Model 与是否概念重叠剔除共病评分 |
+| Fig1 vs 项目信息排除链 | 首框 N 是否已含 ESRD/透析/姑息/ICU≥2 等；Methods 顺序写实；未执行不得假装 |
+| 疾病码表 | 最终 ICD 纳入/排除码+语义可核；禁非目标病种残留码 silently 入队 |
+| 暴露缺失选择 | 不可计算占比&gt;40% 须 Limitations 承认（成分未化验） |
+| landmark 脚注 | 敏感性 “primary X-day locked grouping” = 主文 landmark |
+| Fig7 Overall | = Table 3 Model1 同对比（Numbers_Master 单一出处） |
+| Boruta/SHAP | Methods 可复述参数 + Model3 交集规则 + 最终协变量 |
+| RCS knots | Methods 写结点数与位置（按代码） |
 
 有中介时须有 Table S8；有 Cox 主文时须有 PH 表（或 Methods 明确写未做并入 Limitations —— 默认不可接受，须用户书面接受）。
 
@@ -67,6 +74,11 @@ alwaysApply: true
 [ ] Fig4 有 P-linear + P-nonlinear；非仅 P-overall
 [ ] Fig2/展示层无临床特征下划线
 [ ] Methods：取材时点、MICE 结局入模裁决、cox.zph/S9
+[ ] Fig1 首框与项目信息排除链一致或已写实「提取后未再排除」
+[ ] ICD 最终码表可核（或 AUTHOR_INPUT 明示缺口）
+[ ] 暴露不可计算>40% 已入 Limitations
+[ ] 敏感性脚注 landmark = 主文；Fig7 Overall = Table3 M1
+[ ] Methods 含 Boruta/SHAP 参数与 RCS knots
 [ ] 已跑 pv2_pub_p0_gate() 或等价 pdftotext 核验
 ```
 

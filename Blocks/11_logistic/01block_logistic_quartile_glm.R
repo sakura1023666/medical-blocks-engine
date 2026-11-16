@@ -334,6 +334,33 @@ block_logistic_quartile_glm <- function(ctx, ...) {
     .lqg01_pause(ctx, "未找到分析数据（ctx$data$imputed / cleaned 均为空）",
                  "请先运行上游数据准备 block（imputation 或等价步骤）")
   }
+  # 加权主分析后的不加权敏感性：与 svydesign 分析集同分母
+  has_svy <- any(vapply(
+    c("nhanes_design_quart", "nhanes_design_tert", "nhanes_design_binary", "nhanes_design"),
+    function(nm) !is.null((ctx$results %||% list())[[nm]]),
+    logical(1L)
+  ))
+  align_svy <- bl_cfg$align_survey_analytic
+  if (is.null(align_svy)) align_svy <- has_svy
+  if (isTRUE(align_svy)) {
+    if (!exists("pipeline_align_survey_analytic_rows", mode = "function")) {
+      .er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      .p <- file.path(.er, "R", "nhanes_survey_weight.R")
+      if (!nzchar(.er) || !file.exists(.p)) {
+        .p <- file.path((cfg$project$root %||% getwd()), "R", "nhanes_survey_weight.R")
+      }
+      if (file.exists(.p)) suppressWarnings(source(.p, local = FALSE))
+    }
+    if (exists("pipeline_align_survey_analytic_rows", mode = "function")) {
+      data <- pipeline_align_survey_analytic_rows(
+        data, ctx = ctx, cfg = cfg, label = "logistic_quartile_glm"
+      )
+    } else {
+      cli::cli_alert_warning(
+        "logistic_quartile_glm: 需对齐调查分析集但未找到 pipeline_align_survey_analytic_rows"
+      )
+    }
+  }
 
   # ── 基本参数 ────────────────────────────────────────────────────────────────
   outcome_col   <- cfg$data$outcome_column %||% "Disease"

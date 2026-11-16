@@ -2202,11 +2202,19 @@ ckm_stroke_finalize_summary_delivery <- function(
   }
   fig_dir <- file.path(sr, "Figures")
   if (dir.exists(fig_dir) && exists("pub_figure_ensure_formats", mode = "function")) {
+    # 骨质疏松 ABSI 交付含 png/tiff@600；与 pdf/image_information 同目录齐套
     try(
       pub_figure_ensure_formats(
         fig_dir,
-        meta = list(study = "ELSA_cum_kmeans", index = index_lab),
-        config = list(pub_figures = list(dpi = 600L, formats_dir = TRUE)),
+        meta = list(study = "cum_kmeans", index = index_lab),
+        config = list(
+          pub_figures = list(
+            dpi = 600L,
+            formats_dir = TRUE,
+            export_png = TRUE,
+            export_tiff = TRUE
+          )
+        ),
         purge = FALSE
       ),
       silent = TRUE
@@ -2218,7 +2226,14 @@ ckm_stroke_finalize_summary_delivery <- function(
     if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
       pub_delivery_clean_tables_xlsx_only(sr)
     }
-    res <- pub_prune_delivery_root(sr)
+    # 与上方 ensure_formats(export_png/tiff=TRUE) 对齐，保留四目录栅格
+    if (dir.exists(fig_dir)) {
+      writeLines(
+        c("keep png/tiff for ABSI-style four-format delivery", format(Sys.time())),
+        file.path(fig_dir, ".keep_raster")
+      )
+    }
+    res <- pub_prune_delivery_root(sr, keep_raster = TRUE)
     moved <- res$moved %||% character(0)
   }
   invisible(list(

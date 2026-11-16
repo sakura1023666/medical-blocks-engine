@@ -732,7 +732,11 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
 
   message("  Flush tables / figure formats...")
   render_queued_tables(list(config = list(project = list(root = root, output_dir = .proj))))
-  config_stub <- list(project = list(root = root, output_dir = .proj, database = "HRS"))
+  # 对齐骨质疏松 ABSI summary_results：pdf + png + tiff@600 + image_information
+  config_stub <- list(
+    project = list(root = root, output_dir = .proj, database = "HRS"),
+    pub_figures = list(export_png = TRUE, export_tiff = TRUE, dpi = 600L)
+  )
   pub_figure_ensure_formats(
     fig_dir,
     meta = list(study = "HRS_cum_kmeans_cancer", index = index),

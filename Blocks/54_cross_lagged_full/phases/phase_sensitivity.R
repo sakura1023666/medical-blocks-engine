@@ -128,7 +128,7 @@ if (!is.null(only_dbs) && length(only_dbs)) {
   .validation_cohorts <- intersect(.validation_cohorts, only_dbs)
   .sens_xs_cohorts <- intersect(.sens_xs_cohorts, only_dbs)
 }
-.scenarios <- c("exclude_chronic_ge2", "complete_case", "exclude_event_le_2y")
+.scenarios <- c("exclude_chronic_ge2", "complete_case", "exclude_event_le_2y", "exclude_t2dm")
 if (.is_circadian && length(.validation_cohorts)) {
   # 仅当验证库确有插补后数据时才跑 external_validation（空 phase1_NHANES 目录不触发）
   .nhanes_ok <- vapply(.validation_cohorts, function(db) {
@@ -449,8 +449,8 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
 }
 
 .run_change_for_scenario <- function(scenario, id_keep_by_db) {
-  # 每库过滤 long/wide → change block → 收集 rds → build S11/S14/S17
-  rds_auto <- character(0)
+  # 与主文 Table S5 同口径：全库强制 two_wave（原 S5.1 / change_twowave 逻辑）
+  # 不再交付 three_plus auto change，也不再写 *.1 双轨表
   rds_two <- character(0)
   cohorts_ok <- character(0)
   for (db in .cohorts_long) {
@@ -475,7 +475,6 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     }
     out_dir <- file.path(.out_root, scenario, db)
     cfg <- .make_base_config(db, out_dir, scenario)
-    # Dementia：强制 two_wave（three_plus 硬编码 FI）；结局/时间来自 wide2 补齐列
     outcome_t2 <- if (.is_dementia) {
       if ("T2_Disease_Group" %in% names(w2)) "T2_Disease_Group" else "T2_Disease"
     } else {
@@ -486,10 +485,7 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
     } else {
       "T2_time"
     }
-    # Dementia Change：对齐主分析 C02.3 真实代码（非脚注）
-    #   Mean: mean_Index_q3 + T2_Age + T2_Alcohol_drinking
-    #   Change: Index_change_q3 不调整
-    #   三分位：用 Step05 预计算 *_q3（C01.1 ntile）
+    # Dementia Change：对齐主分析 C02.3（Mean 调 Age+Alcohol；Change 不调整；ntile 预计算）
     .chg_stem <- as.character(
       .meta$change_index_stem %||% (if (.is_dementia) "Leisure_activities" else "FI")
     )[1L]
@@ -514,50 +510,35 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
       file_stem = .chg_file_stem,
       outcome_t2 = outcome_t2,
       time_col = time_col,
-      output_suffix = ""
+      design = "two_wave",
+      output_suffix = "_twowave"
     )
-    # Dementia 始终 two_wave（auto + twowave 两次跑都走 pair；避开 three_plus 硬编码 FI）
-    if (.is_dementia) cfg$cross_lagged_change_logistic$design <- "two_wave"
-    ctx <- .init_ctx(cfg, w2, .M1, .M2)
-    ctx$data$longitudinal_wide <- w2
-    ctx$data$longitudinal <- long2
-    cli::cli_h2("{scenario} / {db} — Change S5-style (n={nrow(w2)})")
-    ctx <- tryCatch(block_cross_lagged_change_logistic(ctx), error = function(e) {
-      cli::cli_alert_warning("change auto 失败: {e$message}"); ctx
-    })
-    r_auto <- file.path(out_dir, "Tables", paste0(.chg_file_stem, "_pub.rds"))
-    # twowave（显式 suffix；Dementia 已在上表强制 design=two_wave）
-    cfg$cross_lagged_change_logistic$output_suffix <- "_twowave"
-    cfg$cross_lagged_change_logistic$design <- "two_wave"
     ctx2 <- .init_ctx(cfg, w2, .M1, .M2)
     ctx2$data$longitudinal_wide <- w2
     ctx2$data$longitudinal <- long2
     ctx2$config$cross_lagged_change_logistic <- cfg$cross_lagged_change_logistic
+    cli::cli_h2("{scenario} / {db} — Change two_wave (=主文 S5 口径) (n={nrow(w2)})")
     ctx2 <- tryCatch(block_cross_lagged_change_logistic(ctx2), error = function(e) {
-      cli::cli_alert_warning("change twowave 失败: {e$message}"); ctx2
+      cli::cli_alert_warning("change two_wave 失败: {e$message}"); ctx2
     })
     r_two <- file.path(out_dir, "Tables", paste0(.chg_file_stem, "_twowave_pub.rds"))
-    if (file.exists(r_auto)) {
-      rds_auto <- c(rds_auto, r_auto)
+    if (file.exists(r_two)) {
+      rds_two <- c(rds_two, r_two)
       cohorts_ok <- c(cohorts_ok, db)
     }
-    if (file.exists(r_two)) rds_two <- c(rds_two, r_two)
   }
-  if (!length(rds_auto) || !exists("cross_lagged_change_build_table_s5", mode = "function")) {
-    cli::cli_alert_warning("{scenario}: 无法合并 Change 表")
+  if (!length(rds_two) || !exists("cross_lagged_change_build_table_s5", mode = "function")) {
+    cli::cli_alert_warning("{scenario}: 无法合并 Change 表（two_wave）")
     return(invisible(NULL))
   }
-  # 对齐路径向量到 cohorts
-  # builder 期望与 cohorts 等长的路径向量
   cohorts_use <- unique(cohorts_ok)
   .chg_stem_collect <- as.character(
     .meta$change_index_stem %||% (if (.is_dementia) "Leisure_activities" else "FI")
   )[1L]
   .chg_file_stem_collect <- paste0("Table_Change_", .chg_stem_collect, "_mean_and_change")
-  paths_auto <- file.path(.out_root, scenario, cohorts_use, "Tables",
-                          paste0(.chg_file_stem_collect, "_pub.rds"))
   paths_two <- file.path(.out_root, scenario, cohorts_use, "Tables",
                          paste0(.chg_file_stem_collect, "_twowave_pub.rds"))
+  # 发表编号用 change（原 S13/S16/…），不再写 change_twowave（*.1）
   out_change <- file.path(
     .out_root, scenario,
     cross_lagged_sens_table_basename(
@@ -567,30 +548,38 @@ dir.create(.summary_tab, recursive = TRUE, showWarnings = FALSE)
       change_index_display = .meta$change_index_display %||% .meta$index_display
     )
   )
-  out_two <- file.path(
-    .out_root, scenario,
+  dir.create(dirname(out_change), recursive = TRUE, showWarnings = FALSE)
+  # 清掉旧 auto / *.1 change 交付名
+  old_two_name <- tryCatch(
     cross_lagged_sens_table_basename(
       scenario, "change_twowave",
       index_display = .meta$index_display,
       disease_display = .meta$disease_display,
       change_index_display = .meta$change_index_display %||% .meta$index_display
-    )
+    ),
+    error = function(e) NA_character_
   )
-  dir.create(dirname(out_change), recursive = TRUE, showWarnings = FALSE)
+  for (.old in c(
+    out_change,
+    if (is.character(old_two_name) && nzchar(old_two_name)) {
+      c(
+        file.path(.out_root, scenario, old_two_name),
+        file.path(study_root, "summary_result", "table", old_two_name),
+        file.path(study_root, "summary_result", "Tables", old_two_name)
+      )
+    } else {
+      character(0)
+    }
+  )) {
+    if (is.character(.old) && length(.old) && file.exists(.old)) unlink(.old)
+  }
   tryCatch({
     cross_lagged_change_build_table_s5(
-      paths_auto, out_change, cohorts = cohorts_use,
+      paths_two, out_change, cohorts = cohorts_use,
       title = sub("\\.xlsx$", "", basename(out_change))
     )
     .copy_to_summary(out_change, basename(out_change))
-  }, error = function(e) cli::cli_alert_warning("build change: {e$message}"))
-  tryCatch({
-    cross_lagged_change_build_table_s5(
-      paths_two, out_two, cohorts = cohorts_use,
-      title = sub("\\.xlsx$", "", basename(out_two))
-    )
-    .copy_to_summary(out_two, basename(out_two))
-  }, error = function(e) cli::cli_alert_warning("build change twowave: {e$message}"))
+  }, error = function(e) cli::cli_alert_warning("build change two_wave: {e$message}"))
   invisible(TRUE)
 }
 
@@ -676,6 +665,14 @@ for (sc in .scenarios) {
       note <- sprintf("exclude_chronic cols=%s min=%s; n_before=%s; n %s→%s (excl %s)",
                       paste(fr$comorbid_cols, collapse = ","), fr$min_count, n_before,
                       fr$n_before, fr$n_after, fr$n_excluded)
+    } else if (identical(sc, "exclude_t2dm")) {
+      raw <- cross_lagged_sens_load_imputed(study_root, db)
+      n_before <- nrow(raw)
+      fr <- cross_lagged_sens_filter_exclude_t2dm(raw, var = "T2DM")
+      note <- sprintf(
+        "exclude_t2dm var=%s; n_before=%s; n %s→%s (excl %s)",
+        fr$var, n_before, fr$n_before, fr$n_after, fr$n_excluded
+      )
     } else if (identical(sc, "exclude_event_le_2y")) {
       if (!db %in% .cohorts_long) {
         cli::cli_alert_info("{db}: 无纵向，跳过 exclude_event_le_2y（S15/S16）")
@@ -767,8 +764,9 @@ for (sc in .scenarios) {
 
   if (identical(sc, "external_validation")) next
 
-  # Change：对 chronic / complete_case，用横断面保留 ID；对 early_event 用 long 口径
-  if (identical(sc, "exclude_chronic_ge2") || identical(sc, "complete_case")) {
+  # Change：对 chronic / complete_case / exclude_t2dm，用横断面保留 ID；对 early_event 用 long 口径
+  if (identical(sc, "exclude_chronic_ge2") || identical(sc, "complete_case") ||
+      identical(sc, "exclude_t2dm")) {
     # 若横断面无 ID，从 long 按同样规则重算 keep
     for (db in .cohorts_long) {
       if (length(id_keep[[db]])) next
@@ -779,6 +777,9 @@ for (sc in .scenarios) {
         frw <- cross_lagged_sens_filter_exclude_chronic(
           w, stems = .sens_cfg$chronic_stems, min_count = .sens_cfg$chronic_min_count
         )
+        id_keep[[db]] <- as.character(frw$data$ID)
+      } else if (identical(sc, "exclude_t2dm")) {
+        frw <- cross_lagged_sens_filter_exclude_t2dm(w, var = "T2DM")
         id_keep[[db]] <- as.character(frw$data$ID)
       } else {
         # complete case on T1 index + T1_covars + outcome if present
@@ -818,7 +819,8 @@ writeLines(c(
     ),
     .meta$index_var
   ),
-  "S17–S19.1: exclude incident event within 2 years of baseline survey year (longitudinal cohorts only).",
+  "S17–S19: exclude incident event within 2 years of baseline survey year (longitudinal cohorts only).",
+  "Change tables (S13/S16/S19/S24): same adjacent-wave Mean/Change design as main Table S5.",
   if (.is_circadian && length(.validation_cohorts)) {
     paste0(
       "S20–S21: external_validation — ",
@@ -833,7 +835,7 @@ writeLines(c(
   paste0("Model2=", paste(.M2, collapse = "+")),
   if (.is_dementia) {
     paste0(
-      "NOTE: Dementia Change forces design=two_wave (T1/T2 pair; NOT three_plus). ",
+      "NOTE: Dementia Change uses two_wave (aligned with main S5). ",
       "Change aligns C02.3 actual code: Mean adjusts T2_Age+T2_Alcohol_drinking; ",
       "Change tertile unadjusted; uses Step05 precomputed mean_Index_q3/Index_change_q3. ",
       "wide prep: ID from D05_long wave1 + T2_* from *_wide2. ",

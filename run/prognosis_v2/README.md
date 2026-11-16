@@ -47,4 +47,4 @@
 5. **单库**：表/图文件名不加数据库前缀（`R/pv2_pub_names.R`）；多库才 `Table 1-NHANES.…`。
 6. **插补**：默认 `m=5`。Cox 必须 Rubin 合并；Boruta/图可用 complete#1。
 7. **S7/S8 协变量必须与脚注一致**：默认同 Table 3 Model 3；若因概念重叠（如 CHARLSON vs OASIS）改用 Model 2，脚注写明 Model 2 + 理由，**禁止**假称 Model 3 /「与 Table 2 一致」，也禁止把概念重叠写成假 VIF 共线。
-8. **收尾必跑** `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear、禁下划线、PH/Methods）。
+8. **收尾必跑** `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear/knots、禁下划线、PH/Methods、S5 landmark、Fig7 Overall=Table3 M1、暴露 not-computable⇒选择偏倚句）。见 `docs/reuse/2026-11-16-stroke-anlr-14d-p0-reuse-map.md`。

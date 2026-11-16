@@ -78,7 +78,7 @@ cross_lagged_redraw_xs_fig1_panels <- function(study_root, dbs = NULL) {
 #'
 #' @param study_root 课题根（含 phase1_* / phase3_long_*）
 #' @param redraw_xs 先重画 xs-only 面板（默认 TRUE）
-#' @param labels 面板标签；默认 A/B/C + 库名
+#' @param labels 面板标签；默认仅库名（无 A./B. 字母前缀）
 #' @param out_stem 主文图 stem（无扩展名）
 cross_lagged_remosaic_fig1 <- function(study_root,
                                        redraw_xs = TRUE,
@@ -109,8 +109,7 @@ cross_lagged_remosaic_fig1 <- function(study_root,
     stop("Fig1 拼图需要至少 2 个分库 PDF，当前: ", paste(dbs_ok, collapse = ", "), call. = FALSE)
   }
   if (is.null(labels) || !length(labels)) {
-    letters_lab <- LETTERS[seq_along(dbs_ok)]
-    labels <- paste0(letters_lab, ". ", dbs_ok)
+    labels <- as.character(dbs_ok)
   }
   fig_root <- file.path(study_root, "summary_result", "Figures")
   dir.create(file.path(fig_root, "pdf"), recursive = TRUE, showWarnings = FALSE)

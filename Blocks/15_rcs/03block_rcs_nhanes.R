@@ -616,22 +616,22 @@ block_rcs_nhanes <- function(ctx, ...) {
   show_cut_c <- !length(M3_vars) || !isTRUE(m3_sig)
   show_cut_d <- length(M3_vars) && isTRUE(m3_sig)
   pA <- if (!is.null(resA) && !is.null(fitA)) {
-    .rcn01_ggrcs_panel(plot_data, fitA, resA, index_var, plot_colors, "A.Crude Model", cutA,
+    .rcn01_ggrcs_panel(plot_data, fitA, resA, index_var, plot_colors, "Crude Model", cutA,
                        histper = histper, histbinwidth = histbinwidth,
                        show_cutoff_lines = FALSE, cutoff_label_digits = cutoff_label_digits)
   } else NULL
   pB <- if (!is.null(resB) && !is.null(fitB)) {
-    .rcn01_ggrcs_panel(plot_data, fitB, resB, index_var, plot_colors, "B.Model 1", cutB,
+    .rcn01_ggrcs_panel(plot_data, fitB, resB, index_var, plot_colors, "Model 1", cutB,
                        histper = histper, histbinwidth = histbinwidth,
                        show_cutoff_lines = FALSE, cutoff_label_digits = cutoff_label_digits)
   } else NULL
   pC <- if (!is.null(resC) && !is.null(fitC)) {
-    .rcn01_ggrcs_panel(plot_data, fitC, resC, index_var, plot_colors, "C.Model 2", cutC,
+    .rcn01_ggrcs_panel(plot_data, fitC, resC, index_var, plot_colors, "Model 2", cutC,
                        histper = histper, histbinwidth = histbinwidth,
                        show_cutoff_lines = show_cut_c, cutoff_label_digits = cutoff_label_digits)
   } else NULL
   pD <- if (length(M3_vars) && !is.null(resD) && !is.null(fitD)) {
-    .rcn01_ggrcs_panel(plot_data, fitD, resD, index_var, plot_colors, "D.Model 3", cutD,
+    .rcn01_ggrcs_panel(plot_data, fitD, resD, index_var, plot_colors, "Model 3", cutD,
                        histper = histper, histbinwidth = histbinwidth,
                        show_cutoff_lines = show_cut_d, cutoff_label_digits = cutoff_label_digits)
   } else NULL

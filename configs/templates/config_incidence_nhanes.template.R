@@ -232,7 +232,9 @@ config <- list(
     strata                = "Disease_Group",
     include_vars          = NULL,
     exclude_vars          = c(
-      "SEQN", "WTINT2YR", "WTMEC2YR", "SDMVPSU", "SDMVSTRA", "Source_File"
+      "SEQN", "cycle", "Cycle", "new_Weight",
+      "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR",
+      "SDMVPSU", "SDMVSTRA", "Source_File"
     ),
     pause_enable          = TRUE,
     pause_on_table1_fail  = TRUE,

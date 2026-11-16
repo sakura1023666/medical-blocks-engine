@@ -832,7 +832,8 @@ block_cross_lagged_long_prepare <- function(ctx, ...) {
     fig_dir,
     paste0("Figure 1-", cohort, ". Longitudinal inclusion exclusion flowchart.pdf")
   )
-  title <- sprintf("Figure 1. %s — Inclusion / Exclusion", cohort)
+  # 拼图外标才写库名；面板内不再印 Figure 1. XX — Inclusion / Exclusion
+  title <- ""
   fork <- list(
     left_label = out_lab,
     left_n = n_event_t2,

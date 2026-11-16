@@ -558,26 +558,45 @@ block_cross_lagged_change_logistic <- function(ctx, ...) {
   if (requireNamespace("openxlsx", quietly = TRUE) && nrow(tab))
     openxlsx::write.xlsx(tab, xlsx_path)
 
+  # 发表脚注不写 two_wave / three_plus 内部设计名
   design_lab <- switch(
     design,
-    three_plus = "three_plus (exposure=wave1+2, FU from wave3+)",
-    two_wave = "two_wave (pair T1/T2; overlapping windows)",
-    mixed = "mixed (per-cohort two_wave/three_plus)",
-    design
+    three_plus = "mean/change from the first two waves; event follow-up from later waves",
+    two_wave = "adjacent-wave mean and change",
+    mixed = "adjacent-wave mean and change (cohort-specific wave windows)",
+    "adjacent-wave mean and change"
   )
   yr_txt <- if (length(years)) paste(years, collapse = "/") else "panel"
+  .cov_disp <- function(v) {
+    v <- gsub("^T[12]_", "", as.character(v))
+    if (exists("pipeline_display_label", mode = "function")) {
+      v <- vapply(v, pipeline_display_label, character(1), USE.NAMES = FALSE)
+    } else {
+      v <- gsub("_", " ", v, fixed = TRUE)
+    }
+    v
+  }
   adj_note <- {
     mlab <- if (length(cov_use_m)) {
-      paste(gsub("^T[12]_", "", cov_use_m), collapse = " and ")
+      paste(.cov_disp(cov_use_m), collapse = " and ")
     } else "none"
     clab <- if (length(cov_use_c)) {
-      paste(gsub("^T[12]_", "", cov_use_c), collapse = " and ")
+      paste(.cov_disp(cov_use_c), collapse = " and ")
     } else "none"
     if (identical(mlab, clab)) mlab else paste0("Mean: ", mlab, "; Change: ", clab)
   }
+  # P0: always name model family + metric + time scale (forbid bare "HR" with no Cox note)
+  model_lab <- if (isTRUE(has_time)) {
+    "Cox proportional hazards (survival::coxph; Surv(follow-up time in years, event)); metric=HR"
+  } else {
+    "Binomial logistic GLM; metric=OR (no follow-up time available)"
+  }
   note <- sprintf(
-    "Note: Q1 is the reference group. Design=%s; survey years=%s. Grouping=%s (%d levels%s). Adjusted for %s.",
-    design_lab, yr_txt, scheme, nq,
+    paste0(
+      "Note: Q1 is the reference group. Model=%s. Design=%s; survey years=%s. ",
+      "Grouping=%s (%d levels%s). Adjusted for %s."
+    ),
+    model_lab, design_lab, yr_txt, scheme, nq,
     if (use_pre_q) "; precomputed q3" else if (gmeth %in% c("ntile", "dplyr_ntile", "equal_n")) "; ntile" else "",
     adj_note
   )
@@ -754,10 +773,6 @@ cross_lagged_change_build_table_s5 <- function(
   cov_note <- unique(unlist(lapply(objs[cohorts], function(o) o$note_covars %||% character(0))))
   cov_note <- gsub("^T1_", "", cov_note)
   cov_note <- setdiff(cov_note, "Country")
-  designs <- vapply(cohorts, function(db) {
-    as.character(objs[[db]]$change_design %||% objs[[db]]$meta$change_design %||% "?")[1L]
-  }, character(1))
-  design_txt <- paste(sprintf("%s=%s", cohorts, designs), collapse = "; ")
   n_ev_txt <- paste(vapply(cohorts, function(db) {
     sprintf(
       "%s N=%s, Events=%s",
@@ -781,14 +796,17 @@ cross_lagged_change_build_table_s5 <- function(
   notes <- c(
     sprintf(
       paste0(
-        "Note: Q1 is the reference group. Estimates are %s from %s models. ",
-        "Design by cohort: %s. ",
-        "Rule: 2 survey years → two_wave (T1/T2 pair); ≥3 years → three_plus ",
-        "(Mean/Change from wave1–2, follow-up from wave3+)."
+        "Note: Q1 is the reference group. Estimates are %s from %s models",
+        if (identical(model0, "cox")) {
+          " (survival::coxph; Surv(follow-up time in years, incident event))"
+        } else {
+          " (binomial GLM)"
+        },
+        ". Mean FI is the mean of FI across adjacent survey waves; ",
+        "FI change is the difference between those waves."
       ),
       metric,
-      if (identical(model0, "cox")) "Cox" else "logistic",
-      design_txt
+      if (identical(model0, "cox")) "Cox proportional hazards" else "logistic"
     ),
     sprintf(
       "Sample for change analysis: %s.",
@@ -797,7 +815,17 @@ cross_lagged_change_build_table_s5 <- function(
     sprintf(
       "Survey years (panel): %s. Grouping=%s (%d levels), aligned with main logistic gate. Adjusted for %s%s.",
       yr_txt, scheme, nq,
-      if (length(cov_note)) paste(cov_note, collapse = " and ") else "locked covariates",
+      if (length(cov_note)) {
+        cn <- cov_note
+        if (exists("pipeline_display_label", mode = "function")) {
+          cn <- vapply(cn, pipeline_display_label, character(1), USE.NAMES = FALSE)
+        } else {
+          cn <- gsub("_", " ", cn, fixed = TRUE)
+        }
+        paste(cn, collapse = " and ")
+      } else {
+        "locked covariates"
+      },
       if ("Pooled" %in% cohorts) " (Pooled additionally adjusted for Country)" else ""
     )
   )

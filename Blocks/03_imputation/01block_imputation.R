@@ -26,7 +26,8 @@
 #    table_s1_filename      = NULL,
 #    table_s1_exclude_vars  = NULL,   # 额外排除列；引擎默认再排除 fustatus /
 #                                     # survival$event_var / data$outcome_column（结局不作 S1 行）
-#    table_s1_include_vars  = NULL,   # 若非空：S1 只保留这些列（+暴露指标）
+#                                     # 以及当前暴露指标（如 FI；暴露应完整入组，不作插补展示行）
+#    table_s1_include_vars  = NULL,   # 若非空：S1 只保留这些列（默认仍排除暴露/结局）
 #    table_s1_align_table1  = NULL,   # TRUE/FALSE；NULL=当 baseline*_binary$include_vars
 #                                     # 非空时默认 TRUE（S1 与 Table 1 同变量集）
 #    fit_on                 = "all"   # TST 必须 "train"：仅 train 估计 MICE；
@@ -1770,11 +1771,28 @@ block_imputation <- function(ctx, ...) {
   s1_excl_outcome <- unique(c(
     as.character((cfg$survival %||% list())$event_var %||% character(0)),
     as.character((cfg$data %||% list())$outcome_column %||% character(0)),
-    as.character(table_strata %||% character(0))
+    as.character(table_strata %||% character(0)),
+    as.character((cfg$project %||% list())$analysis_group %||% character(0)),
+    "Disease_Group", "Disease01", "Hip_Fracture", "Hip fracture"
   ))
   s1_excl_outcome <- s1_excl_outcome[nzchar(s1_excl_outcome)]
+  # 暴露指标不作 S1 插补前后行（完整入组；Missing 本应为 0，列出易误解为“被插补”）
+  s1_excl_index <- unique(c(
+    if (exists("pipeline_index_exposure_var", mode = "function")) {
+      as.character(pipeline_index_exposure_var(cfg) %||% character(0))
+    } else {
+      character(0)
+    },
+    as.character((cfg$incidence %||% list())$index_var %||% character(0)),
+    as.character((cfg$survival %||% list())$index_var %||% character(0)),
+    as.character((cfg$project %||% list())$index_var %||% character(0)),
+    as.character((cfg$logistic %||% list())$index_var %||% character(0))
+  ))
+  s1_excl_index <- s1_excl_index[nzchar(s1_excl_index)]
   s1_excl_cfg <- as.character(imp_cfg$table_s1_exclude_vars %||% character(0))
-  s1_exclude <- unique(c(s1_excl_baseline, s1_excl_extra, s1_excl_outcome, s1_excl_cfg))
+  s1_exclude <- unique(c(
+    s1_excl_baseline, s1_excl_extra, s1_excl_outcome, s1_excl_index, s1_excl_cfg
+  ))
   s1_exclude <- intersect(s1_exclude, names(data_imputed))
   if (length(s1_exclude)) {
     cli::cli_alert_info("Table S1 排除变量: {paste(s1_exclude, collapse = ', ')}")
@@ -1789,15 +1807,9 @@ block_imputation <- function(ctx, ...) {
       num_cols
     )
   }
-  # 当前暴露指标 / force_keep 绝不当作 ID-like 剔除（否则 MCV 等高基数连续暴露会从 S1 消失）
+  # force_keep：仅课题显式列；暴露默认已从 S1 排除，不再强留进插补对照表
   force_keep_s1 <- unique(c(
-    as.character(imp_cfg$force_keep_columns %||% character(0)),
-    if (exists("pipeline_index_exposure_var", mode = "function")) {
-      pipeline_index_exposure_var(cfg)
-    } else {
-      character(0)
-    },
-    as.character((cfg$survival %||% list())$index_var %||% character(0))
+    as.character(imp_cfg$force_keep_columns %||% character(0))
   ))
   force_keep_s1 <- force_keep_s1[nzchar(force_keep_s1)]
   id_like <- vapply(num_cols, function(v) {

@@ -524,7 +524,10 @@ for (nm in names(dbs)) {
         ),
         body_h,
         footnotes = c(
-          "Endpoint redefined as in-hospital all-cause death; exposure cut-points follow the primary 28-day locked grouping.",
+          paste0(
+            "Endpoint redefined as in-hospital all-cause death; exposure cut-points follow the primary ",
+            .day_lab, " locked grouping."
+          ),
           cox_notes(m3)[1:4]
         )
       )

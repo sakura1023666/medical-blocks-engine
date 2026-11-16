@@ -1104,10 +1104,11 @@ block_rcs_incidence <- function(ctx, ...) {
   } else {
     gsub("_", " ", as.character(Index)[1L], fixed = TRUE)
   }
+  # 全项目：子图标题不用 A./B./C. 字母前缀（拼图外标才用库名）
   title_A <- if (length(CrudeFactors)) {
-    paste0("A.Crude (+", paste(CrudeFactors, collapse = "+"), ")")
+    paste0("Crude (+", paste(CrudeFactors, collapse = "+"), ")")
   } else {
-    "A.Crude Model"
+    "Crude Model"
   }
   x_plot_range <- range(plot_data[[Index]], na.rm = TRUE)
   plot_A <- .rci01_ggrcs_panel(
@@ -1122,7 +1123,7 @@ block_rcs_incidence <- function(ctx, ...) {
   )
   plot_B <- .rci01_ggrcs_panel(
     plot_data, resB$fit, Index, selected_colors3, resB$an, resB$out,
-    "B.Model 1", resB$cutoffs, histbin = histbin, plot_ff = plot_ff,
+    "Model 1", resB$cutoffs, histbin = histbin, plot_ff = plot_ff,
     cutoff_label_digits = cutoff_label_digits, show_cutoff_lines = FALSE,
     xlab_display = xlab_disp,
     ylim = ri_cfg$ylim, y_min = ri_cfg$y_min, y_max = ri_cfg$y_max,
@@ -1132,7 +1133,7 @@ block_rcs_incidence <- function(ctx, ...) {
   )
   plot_C <- .rci01_ggrcs_panel(
     plot_data, resC$fit, Index, selected_colors3, resC$an, resC$out,
-    "C.Model 2", resC$cutoffs, histbin = histbin, plot_ff = plot_ff,
+    "Model 2", resC$cutoffs, histbin = histbin, plot_ff = plot_ff,
     cutoff_label_digits = cutoff_label_digits, show_cutoff_lines = show_cut_c,
     cutoff_vline_mode = cutoff_vline_mode,
     xlab_display = xlab_disp,
@@ -1144,7 +1145,7 @@ block_rcs_incidence <- function(ctx, ...) {
   plot_D <- if (!is.null(resD)) {
     .rci01_ggrcs_panel(
       plot_data, resD$fit, Index, selected_colors3, resD$an, resD$out,
-      "D.Model 3", resD$cutoffs, histbin = histbin, plot_ff = plot_ff,
+      "Model 3", resD$cutoffs, histbin = histbin, plot_ff = plot_ff,
       cutoff_label_digits = cutoff_label_digits, show_cutoff_lines = show_cut_d,
       cutoff_vline_mode = cutoff_vline_mode,
       xlab_display = xlab_disp,

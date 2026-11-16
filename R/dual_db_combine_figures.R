@@ -40,7 +40,8 @@
     remove_singles = isTRUE(cfg$remove_singles %||% TRUE),
     drop_missing_overview = isTRUE(cfg$drop_missing_overview %||% TRUE),
     panel_order = as.character(cfg$panel_order %||% "primary_first")[1L],
-    label_format = as.character(cfg$label_format %||% "A. {db}")[1L],
+    # 全项目默认：外标仅库名（CHARLS / NHANES），不加 A./B. 字母前缀
+    label_format = as.character(cfg$label_format %||% "{db}")[1L],
     layout_by_role = cfg$layout_by_role %||% NULL,
     skip_roles = skip_roles,
     dpi = as.integer(cfg$dpi %||% 200L)[1L],
@@ -60,13 +61,18 @@
   )
 }
 
-.dual_db_panel_label <- function(letter, db, fmt = "A. {db}") {
+.dual_db_panel_label <- function(letter, db, fmt = "{db}") {
   db <- as.character(db %||% "")[1L]
+  letter <- as.character(letter %||% "A")[1L]
+  fmt <- as.character(fmt %||% "{db}")[1L]
+  if (!nzchar(fmt) || identical(fmt, "{db}") || identical(tolower(fmt), "db")) {
+    return(db)
+  }
   out <- gsub("{db}", db, fmt, fixed = TRUE)
-  # 允许配置写成 "A. {db}"；B 面板自动换字母
-  out <- sub("^[A-Z]\\.", paste0(letter, "."), out)
-  if (!grepl(paste0("^", letter, "\\."), out)) {
-    out <- paste0(letter, ". ", db)
+  out <- gsub("{letter}", letter, out, fixed = TRUE)
+  # 仅当格式本身带字母前缀（如 "A. {db}"）时，把首字母换成当前面板字母
+  if (grepl("^[A-Z]\\.", fmt)) {
+    out <- sub("^[A-Z]\\.", paste0(letter, "."), out)
   }
   out
 }
@@ -235,22 +241,27 @@
 
 .dual_db_layout_for_key <- function(key, layout_by_role = NULL) {
   key <- as.character(key %||% "")[1L]
+  .ok_layout <- function(v) {
+    v <- tolower(as.character(v %||% "")[1L])
+    if (v %in% c("stack", "side", "grid", "vertical", "col")) v else NA_character_
+  }
   if (is.list(layout_by_role) && length(layout_by_role)) {
     # 精确或关键词匹配
     if (!is.null(layout_by_role[[key]])) {
-      v <- tolower(as.character(layout_by_role[[key]])[1L])
-      if (v %in% c("stack", "side")) return(v)
+      v <- .ok_layout(layout_by_role[[key]])
+      if (!is.na(v)) return(v)
     }
     for (nm in names(layout_by_role)) {
       if (nzchar(nm) && grepl(nm, key, ignore.case = TRUE, fixed = TRUE)) {
-        v <- tolower(as.character(layout_by_role[[nm]])[1L])
-        if (v %in% c("stack", "side")) return(v)
+        v <- .ok_layout(layout_by_role[[nm]])
+        if (!is.na(v)) return(v)
       }
     }
   }
-  # 全局默认（后续所有 dual 项目）：
-  # - RCS / ML 表现 2×4 / SHAP：上下（竖着）
-  # - KM / 亚组森林：左右（横着）
+  # 全局默认（全项目）：
+  # - RCS / ML 表现 2×4 / SHAP：竖拼 stack
+  # - 亚组森林：side（2 库左右；≥4 库在 compose 里自动 2×2 grid，上下各二）
+  # - KM：左右 side
   if (grepl("\\bRCS\\b|Restricted\\s*Cubic", key, ignore.case = TRUE)) {
     return("stack")
   }
@@ -267,7 +278,10 @@
   )) {
     return("stack")
   }
-  if (grepl("Subgroup\\s*Forest|Kaplan-?Meier|\\bKM\\b", key, ignore.case = TRUE)) {
+  if (grepl("Subgroup(\\s*Forest)?|Subgroup\\s*analyses", key, ignore.case = TRUE)) {
+    return("side")
+  }
+  if (grepl("Kaplan-?Meier|\\bKM\\b", key, ignore.case = TRUE)) {
     return("side")
   }
   # 轨迹 Fig2 / Fig3 / 个体动态预测：默认上下竖拼（与单库宽高比一致）

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Cross-eval Amsterdam↔MIMIC for Allyn Table 3 specialization cells.
+"""Cross-eval Amsterdam↔MIMIC for Table 3 specialization off-diagonal cells.
 
 Solo extractions only put eICU/HiRID (not the peer train DB) into test.
 Score each solo best_model on the peer DB test stays; append CIs to
 ci_main_four_arms and merge predictions into the run folders.
+
+Env:
+  LIVER_ROOT, LIVER_BLENDED_SUBDIR (default blendedlos_acg),
+  DBPOOL_DROP_TS, DBPOOL_UPSTREAM, LIVER_TABLE2_N_BOOT
 """
 from __future__ import annotations
 
@@ -23,7 +27,7 @@ ROOT = Path(
 )
 MAIN = ROOT / "Output_physclip"
 EXTRA = ROOT / "Output_paper_extras_physclip"
-BLENDED = ROOT / "blendedlos_acg"
+BLENDED = ROOT / os.environ.get("LIVER_BLENDED_SUBDIR", "blendedlos_acg").strip()
 UPSTREAM = Path(
     os.environ.get(
         "DBPOOL_UPSTREAM",
@@ -230,6 +234,11 @@ def main():
         "DBPOOL_DROP_TS", "alanine_aminotransferase,aspartate_aminotransferase"
     )
     os.environ["DBPOOL_REEVAL"] = "0"
+    if not BLENDED.is_dir():
+        raise SystemExit(f"missing blended root: {BLENDED}")
+    print(f"[cross] ROOT={ROOT}", flush=True)
+    print(f"[cross] BLENDED={BLENDED}", flush=True)
+    print(f"[cross] DROP_TS={os.environ.get('DBPOOL_DROP_TS')}", flush=True)
     out_dir = EXTRA / "cross_eval_ams_mimic"
     out_dir.mkdir(parents=True, exist_ok=True)
     ci_path = EXTRA / "ci_main_four_arms" / "Table_CI_DeLong_bootstrap10k.csv"

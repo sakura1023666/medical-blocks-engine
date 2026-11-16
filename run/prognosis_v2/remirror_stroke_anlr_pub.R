@@ -71,27 +71,65 @@ sys.source(
   envir = new.env(parent = globalenv())
 )
 
-# ---- Methods ----
+# ---- Methods（须过 pv2_pub_p0_gate：RCS knots / Boruta / SHAP / 暴露缺失选择 / landmark）----
 methods <- c(
   "# Statistical analysis",
   "",
-  paste0("We analysed adults aged 18 years or older with ischemic stroke in MIMIC and eICU under an equal-footing dual-database design. The primary endpoint was ", .endpoint, " after ICU admission."),
-  "The exposure was ANLR (albumin / [neutrophil count / lymphocyte count]) from the first available components. Indices entered models as continuous variables (per 1 SD) and as the locked grouping from an engine-level cascade (quartile → tertile → binary; pass_rule = all). The locked grouping for this study was quartile (Q4 vs Q1). Cut-points were estimated within each database; the scheme (number of levels) was shared.",
-  "Covariates were restricted to columns available in both databases. Model 1 was unadjusted. Model 2 was adjusted for Age and Gender. Model 3 used a dual-DB harmonized set: Age, Gender, and variables retained after Boruta/SHAP screening and VIF within the shared pool (intersection across databases). SOFA was reserved as the mediator and was not entered in Model 3. ANLR component variables were excluded from regression covariates.",
+  paste0(
+    "We analysed adults aged 18 years or older with ischemic stroke in MIMIC and eICU under an equal-footing dual-database design. ",
+    "Analysis intake was the pre-built D02 ischemic-stroke extract (Figure 1 first box). ",
+    "The primary endpoint was ", .endpoint, " after ICU admission."
+  ),
+  paste0(
+    "Exposure laboratory timing used the first available albumin, neutrophil count and lymphocyte count after ICU admission ",
+    "(first lab window after ICU intime). The exposure was ANLR (albumin / [neutrophil count / lymphocyte count]). ",
+    "Indices entered models as continuous variables (per 1 SD) and as the locked grouping from an engine-level cascade ",
+    "(quartile → tertile → binary; pass_rule = all). The locked grouping for this study was quartile (Q4 vs Q1). ",
+    "Cut-points were estimated within each database; the scheme (number of levels) was shared."
+  ),
+  paste0(
+    "Covariates were restricted to columns available in both databases. Model 1 was unadjusted. Model 2 was adjusted for Age and Gender. ",
+    "Model 3 used a dual-DB harmonized set: Age, Gender, and variables retained after Boruta confirmation, optional SHAP ranking, ",
+    "and VIF within the shared pool (intersection across databases). Boruta used maxRuns = 80, ntree = 300, seed = 41904528, ",
+    "with TentativeRoughFix; optional SHAP used xgboost survival:cox (nrounds = 60, max_depth = 3, eta = 0.05) with predcontrib. ",
+    "SOFA/OASIS mediation candidates were not forced into Model 3 when reserved as mediators. ANLR component variables were excluded from regression covariates."
+  ),
   "Missing covariates were handled with MICE (cart, m = 5). Exposure, follow-up time and death status were not imputed. Inferential Cox models were fit on each completed dataset and pooled by Rubin's rules. Descriptive tables, figures and Boruta used the first completed dataset.",
-  "Person-time and crude mortality rates were summarised by exposure group (Table 2). Kaplan–Meier curves used the locked grouping with log-rank tests. Restricted cubic splines on the per-1-SD scale were plotted without covariate adjustment (Figure 4) and reported P-linear and P-nonlinear. Discrimination used ROC curves of the Cox linear predictor and Youden indices (Table S4 / Figure 5).",
-  "Subgroup analyses estimated Q4 versus Q1 contrasts on the full analytic sample after collapsing middle quartiles (unadjusted within strata), with likelihood-ratio P values for exposure×stratum interactions (Figure 7).",
-  "Mediation followed the prognosis routine: Table S7 first reported associations of ANLR with shared laboratory/severity indicators; Table S8 and Figure 6 then evaluated SOFA as mediator with path models adjusted as in Table 3 Model 2 (Age, Gender). Path a was the linear coefficient of ANLR (per 1 SD) on standardized SOFA; path b and the Direct effect were Cox log-hazard coefficients. Proportion mediated used bootstrap confidence intervals. Association tables and path diagrams were co-gated.",
-  "Sensitivity analysis redefined the endpoint as in-hospital all-cause mortality (Table S5) using the same Model 1–Model 3 structure and the same exposure grouping scheme. Proportional-hazards assumptions were assessed with Schoenfeld tests (Table S9).",
+  paste0(
+    "Person-time and crude mortality rates were summarised by exposure group (Table 2). Kaplan–Meier curves used the locked grouping with log-rank tests. ",
+    "Restricted cubic splines on the per-1-SD scale used natural splines (splines::ns) with boundary quantiles at the 5th/95th percentiles ",
+    "and interior knots at the 35th/65th percentiles, plotted without covariate adjustment (Figure 4), reporting P-linear and P-nonlinear. ",
+    "Discrimination used ROC curves of the Cox linear predictor and Youden indices (Table S4 / Figure 5)."
+  ),
+  paste0(
+    "Subgroup analyses estimated Q4 versus Q1 contrasts on the full analytic sample after collapsing middle quartiles ",
+    "(unadjusted within strata), with likelihood-ratio P values for exposure×stratum interactions (Figure 7). ",
+    "Figure 7 Overall is locked to Table 3 Model 1 (Numbers_Master)."
+  ),
+  "Mediation followed the prognosis routine: Table S7 first reported associations of ANLR with shared laboratory/severity indicators; Table S8 and Figure 6 then evaluated the selected mediator with path models adjusted as in Table 3 Model 2 (Age, Gender). Path a was the linear coefficient of ANLR (per 1 SD) on the standardized mediator; path b and the Direct effect were Cox log-hazard coefficients. Proportion mediated used bootstrap confidence intervals. Association tables and path diagrams were co-gated.",
+  paste0(
+    "Sensitivity analysis redefined the endpoint as in-hospital all-cause mortality (Table S5) using the same Model 1–Model 3 structure ",
+    "and the same primary ", .day_lab, " locked grouping. Proportional-hazards assumptions were assessed with Schoenfeld tests (Table S9)."
+  ),
+  "",
+  "## Limitations (selection and definition)",
+  "",
+  paste0(
+    "When Figure 1 reports ANLR not computable, this means at least one required laboratory component was never assayed ",
+    "(clinical non-ordering), not post-computation data loss. High complete-case drop rates (>40%) imply selection bias ",
+    "toward patients with more laboratory work-up and must be acknowledged; baseline contrasts of computable vs non-computable ",
+    "patients may be added as pending supplementary analyses. Final ICD inclusion/exclusion code tables with semantics must ",
+    "be author-confirmed before publication; non-ischemic residual codes must not silently enter the cohort."
+  ),
   "",
   "## Software",
   "",
-  "Analyses were performed in R. Key packages: mice, survival, rms, Boruta, pROC, ggplot2, openxlsx, car."
+  "Analyses were performed in R. Key packages: mice, survival, rms, Boruta, xgboost (optional SHAP), pROC, ggplot2, openxlsx, car, splines, forestploter."
 )
 writeLines(methods, file.path(.out, "Methods_statistical_analysis.md"))
 writeLines(c(
   paste0("R version: ", R.version.string),
-  "mice, survival, rms, Boruta, pROC, ggplot2, openxlsx, car, xgboost (optional SHAP)"
+  "mice, survival, rms, Boruta, xgboost, pROC, ggplot2, openxlsx, car, splines, forestploter"
 ), file.path(.out, "Methods_software_versions.txt"))
 
 # ---- figure formats ----
@@ -100,6 +138,15 @@ tryCatch({
     pub_figures = list(export_png = FALSE, export_tiff = FALSE)
   ))
 }, error = function(e) message("ensure_formats: ", e$message))
+
+# ---- P0 gate（失败即停）----
+source(file.path(.engine, "R/pv2_pub_p0_gate.R"), local = FALSE)
+pv2_pub_p0_gate(
+  summary_root = .out,
+  locked_scheme = "quartile",
+  contrast_lab = "Q4 vs Q1",
+  stop_on_fail = TRUE
+)
 
 # inventory check
 message("==== inventory ====")

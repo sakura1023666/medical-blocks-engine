@@ -157,7 +157,26 @@ clpn_plot_publication <- function(adj, stems, outfile, title = "",
   if (!is.finite(rad) || rad <= 0) rad <- 80
 
   dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
-  grDevices::pdf(outfile, width = 18, height = 14)
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "Times"
+  }
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(outfile, width = 18, height = 14, family = .ff)
+  } else if (isTRUE(capabilities("cairo"))) {
+    grDevices::cairo_pdf(outfile, width = 18, height = 14, family = .ff)
+  } else {
+    grDevices::pdf(outfile, width = 18, height = 14, family = .ff)
+  }
+  # qgraph/base 文本跟设备 family（Times 系）
+  if (exists("par", mode = "function")) {
+    op <- graphics::par(no.readonly = TRUE)
+    on.exit({
+      try(graphics::par(op), silent = TRUE)
+    }, add = TRUE)
+    try(graphics::par(family = .ff), silent = TRUE)
+  }
   set.seed(6008L)
   qgraph::qgraph(
     W_plot,

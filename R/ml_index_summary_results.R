@@ -22,6 +22,8 @@ ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
   if (!is.finite(m) || m < 1L) m <- 5L
   mi_method <- as.character(mi$method %||% "mice")[1L]
   fit_on <- tolower(trimws(as.character(mi$fit_on %||% "train")[1L]))
+  complete_action <- suppressWarnings(as.integer(mi$complete_action %||% 1L)[1L])
+  if (!is.finite(complete_action) || complete_action < 1L) complete_action <- 1L
   seed_split <- suppressWarnings(as.integer(
     (cfg$train_validation %||% list())$seed %||%
       (cfg$splitting %||% list())$seed %||% 42L
@@ -31,17 +33,51 @@ ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
       (cfg$splitting %||% list())$train_ratio %||% 0.8
   )[1L])
   rscv <- cfg$ml_tcf_sklearn_rscv %||% list()
-  cv <- suppressWarnings(as.integer(rscv$cv %||% 5L)[1L])
-  thr <- suppressWarnings(as.numeric(rscv$threshold %||% 0.5)[1L])
+  cv <- suppressWarnings(as.integer(
+    rscv$cv %||% (cfg$ml_models %||% list())$cv_folds %||% 5L
+  )[1L])
+  thr <- suppressWarnings(as.numeric(
+    rscv$threshold %||% (cfg$ml_topsis_fusion %||% list())$threshold %||% 0.5
+  )[1L])
   smote <- !isFALSE(rscv$smote %||% TRUE)
   miss_thr <- suppressWarnings(as.numeric(mi$missing_col_threshold %||% 0.30)[1L])
   primary <- as.character((cfg$dual_db$primary %||% list())$name %||% "MIMIC")[1L]
   secondary <- as.character((cfg$dual_db$secondary %||% list())$name %||% "eICU")[1L]
   outcome_note <- as.character(
     (cfg$methods %||% list())$outcome_definition %||%
-      "ICU admission–anchored 28-day all-cause death among sepsis-associated AKI (SA-AKI)"
+      "ICU admission-anchored 28-day all-cause death among sepsis-associated AKI (SA-AKI)"
+  )[1L]
+  unit_note <- as.character(
+    (cfg$methods %||% list())$analysis_unit_note %||%
+      paste0(
+        primary, " rows are patient-level (one earliest SA-AKI ICU stay per subject_id ",
+        "with a linkable 28-day mortality record). ", secondary,
+        " rows are keyed by patientunitstayid from the ICU-first baseline extract; ",
+        "the analytic external matrix has one modelling row per distinct stay ID ",
+        "(no duplicated stay IDs). A cross-stay patient key (e.g. uniquepid) is not in the ",
+        "delivered dabiao, so further person-level collapsing beyond the ICU-first extract ",
+        "was not applicable; independent-unit bootstrap CIs are used for external metrics."
+      )
+  )[1L]
+  eicu_excl_note <- as.character(
+    (cfg$methods %||% list())$eicu_exclusion_note %||%
+      paste0(
+        "On the ", secondary, " arm, SA-AKI stay IDs that could not be linked to the ",
+        "ICU baseline extract (and matched prognosis extract) were excluded ",
+        "(Figure 1: not linkable to ICU baseline); age <18 was not an additional driver ",
+        "in the delivered cohort."
+      )
   )[1L]
   pmid_note <- if (nzchar(pmid)) paste0(" (index PMID ", pmid, ")") else ""
+  mi_impl <- if (identical(tolower(mi_method), "logistic_mi")) {
+    paste0(
+      "R mice with method token `logistic_mi` (continuous = norm / linear; binary = logreg; ",
+      "unordered factor = polyreg; aligned to the study's IterativeImputer+LinearRegression ",
+      "comparison narrative)"
+    )
+  } else {
+    paste0("R mice (method = `", mi_method, "`)")
+  }
   c(
     "# Statistical analysis",
     "",
@@ -51,13 +87,21 @@ ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
       "This was a dual-database prognostic prediction study of SA-AKI", pmid_note, ". ",
       primary, " served as the development cohort (training + internal validation); ",
       secondary, " was used only for external validation without retraining. ",
-      "Cohort construction and exclusions follow Figure 1."
+      "Cohort construction and exclusions follow Figure 1. ",
+      unit_note, " ", eicu_excl_note
     ),
     "",
     "## Exposure and outcome",
     "",
     paste0(
       "The clinical endpoint was ", outcome_note, ". ",
+      "On MIMIC this equals the extract flag death_within_hosp_28days ",
+      "(death within 28 days of ICU admission); on eICU it equals hospital discharge status ",
+      "Expired with hospital length of stay \u2264 28 days. ",
+      "This is not unrestricted in-hospital death beyond day 28. ",
+      "Internal analysis columns may store the same 0/1 label for modelling; ",
+      "publication tables and TRIPOD checklists use the 28-day wording only ",
+      "(no internal field names in display text). ",
       "Candidate predictors were clinical and laboratory variables available after ",
       "analysis exclusions (disease-severity and severity scores removed from the covariate pool). ",
       "There was no single causal exposure index; the modelling target was multivariable risk prediction."
@@ -67,15 +111,19 @@ ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
     "",
     paste0(
       "Columns with missingness >", sprintf("%.0f", 100 * miss_thr),
-      "% were dropped. Remaining missing values were handled by multiple imputation ",
-      "(method = `", mi_method, "`, m = ", m, ", seed = ",
-      as.integer(mi$seed %||% 42L), "). ",
+      "% were dropped. Remaining missing values were handled by multiple imputation via ",
+      mi_impl, " with m = ", m, " and seed = ",
+      as.integer(mi$seed %||% 42L), ". ",
       if (identical(fit_on, "train")) {
         "The imputation model was fit on the training set and applied to validation/external sets. "
       } else {
         "Imputation fit_on followed the study configuration. "
       },
-      "Operational tables/figures used the first completed dataset (complete_action = 1). ",
+      "Operational tables, figures, entropy ranking, and classifier training used completed ",
+      "dataset #", complete_action,
+      " (complete_action = ", complete_action,
+      "; first completed draw when complete_action = 1). ",
+      "Rubin pooling across m imputations was not used for the TCF classifier metrics. ",
       "Development patients were randomly split ",
       sprintf("%.0f/%.0f", 100 * train_ratio, 100 * (1 - train_ratio)),
       " into training/internal validation with stratification on the outcome (seed = ",
@@ -85,8 +133,9 @@ ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
     "## Feature selection",
     "",
     paste0(
-      "Entropy-based stepwise feature selection was run on the development data; ",
-      "the final feature set was restricted to the dual-database computable intersection ",
+      "Entropy-based stepwise feature selection (including correlation screening and the ",
+      "AUC-vs-k path) was fit on the MIMIC training set only after imputation. ",
+      "The final feature set was restricted to the dual-database computable intersection ",
       "so that external validation used the same predictors without silent column dropout."
     ),
     "",
@@ -95,31 +144,36 @@ ml_index_methods_statistical_lines_tcf <- function(config = NULL) {
     paste0(
       "Seven base classifiers (decision tree, random forest, support-vector machine, ",
       "naive Bayes, gradient boosting, XGBoost, LightGBM) were tuned by RandomizedSearchCV ",
-      "(", cv, "-fold CV", if (isTRUE(smote)) "; training MinMax scaling + SMOTE" else "",
+      "(", cv, "-fold CV", if (isTRUE(smote)) "; MinMax scaling + SMOTE fit on the training set only" else "",
       ") inside the Python TCF bundle. ",
-      "TOPSIS fused the seven probability outputs into the TCF score using development-set ",
-      "weights that were frozen for external scoring. ",
+      "Hyperparameter search therefore used training folds only. ",
+      "TOPSIS fusion weights (\u03b1) were computed from the six discrimination metrics of the ",
+      "seven base learners on the internal validation set (equal criterion weights; ",
+      "Table S8 / Figure S8), then frozen for external scoring without refitting. ",
+      "Because \u03b1 uses internal-validation metrics, that holdout is not an untouched pure ",
+      "holdout for fusion-weight selection; primary generalization claims therefore emphasise ",
+      "the external ", secondary, " cohort. ",
       "Classification used probability threshold ", thr,
       ". Discrimination metrics (AUC, ACC, PRE, SEN, SPE, F1) with bootstrap 95% CIs ",
       "(n_boot = 400, seed = 42) are reported for internal validation and external cohorts. ",
-      "SHAP explanations used the best-performing base learner on the internal validation set."
+      "SHAP explanations used the best-performing base learner scored on the internal validation set."
     ),
     "",
     "## Limitations (apparent training performance)",
     "",
     paste0(
-      "Because SMOTE and deep tree learners were fit on the development training set, ",
+      "Because SMOTE and deep tree learners were fit on the MIMIC training set, ",
       "in-sample fused TCF predictions can yield an apparent training AUC near 1.000. ",
       "That row is disclosed in Table S10 as apparent/in-sample only and is omitted from ",
-      "the main forest figure of cohort metrics. Primary discrimination claims use the ",
-      "internal validation set and the external database (including planned strata). ",
+      "the main forest figure of cohort metrics. ",
+      "Internal-validation metrics also entered TOPSIS \u03b1 selection as noted above. ",
       "Figure ROC legend AUC confidence intervals are bootstrap-locked to the TCF performance ",
       "tables (n_boot = 400; shared stratum seeds)."
     ),
     "",
     "## Software",
     "",
-    "Package versions are listed in Methods_software_versions.txt and the Software subsection below.",
+    "Package versions (R and Python) are listed in Methods_software_versions.txt and the Software subsection below.",
     ""
   )
 }
@@ -160,11 +214,21 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
   } else {
     "the study outcome"
   }
+  ## 必须用「当前指标」；禁止默认 index_vars[[1]]（批量首项如 TCBI 会污染 UA_CR Methods）
   exposure <- as.character(
-    proj$exposure %||% mb$index_vars[[1L]] %||% cfg$index$vars[[1L]] %||%
+    proj$index_var %||% proj$exposure_var %||% proj$exposure %||%
+      (cfg$`_current_index` %||% character(0))[1L] %||%
+      (cfg$survival %||% list())$index_var %||%
+      mb$index_vars[[1L]] %||% cfg$index$vars[[1L]] %||%
       (cfg$index$only %||% character(0))[1L] %||%
       "the primary exposure index"
   )[1L]
+  if (exists("pipeline_display_label", mode = "function") &&
+      nzchar(exposure) && !identical(exposure, "the primary exposure index")) {
+    exposure <- as.character(pipeline_display_label(exposure))[1L]
+  } else {
+    exposure <- gsub("_", " ", exposure, fixed = TRUE)
+  }
   ## 流水线是否含 ML 训练块；纯发病/关联课题禁止写 Machine learning 节
   pipe_blocks_detect <- as.character((cfg$pipeline %||% list())$blocks %||% character(0))
   if (!length(pipe_blocks_detect)) {
@@ -779,21 +843,45 @@ ml_finalize_index_summary_results <- function(index_root,
 
   ## 确保指标根 Figures 四目录齐全
   fig_src <- file.path(index_root, "Figures")
-  ## 若指标根已有 png/tiff，或发病单库默认，保持栅格导出（避免 ensure 把已有栅格清掉）
+  ## 默认 PDF-only（2026-11-02）；仅当指标根已有 png/tiff 或显式 TRUE 才保留栅格
   if (!is.list(config)) config <- list()
   if (!is.list(config$pub_figures)) config$pub_figures <- list()
   has_png <- dir.exists(file.path(fig_src, "png")) &&
     length(list.files(file.path(fig_src, "png"), pattern = "\\.png$", ignore.case = TRUE)) > 0L
   has_tiff <- dir.exists(file.path(fig_src, "tiff")) &&
     length(list.files(file.path(fig_src, "tiff"), pattern = "\\.tiff?$", ignore.case = TRUE)) > 0L
-  st0 <- tolower(as.character((config$project %||% list())$study_type %||% "")[1L])
-  if (is.null(config$pub_figures$export_png) && (isTRUE(has_png) || identical(st0, "incidence"))) {
-    config$pub_figures$export_png <- TRUE
+  if (is.null(config$pub_figures$export_png)) {
+    config$pub_figures$export_png <- isTRUE(has_png)
   }
-  if (is.null(config$pub_figures$export_tiff) && (isTRUE(has_tiff) || identical(st0, "incidence"))) {
-    config$pub_figures$export_tiff <- TRUE
+  if (is.null(config$pub_figures$export_tiff)) {
+    config$pub_figures$export_tiff <- isTRUE(has_tiff)
   }
   if (is.null(config$pub_figures$dpi)) config$pub_figures$dpi <- 600L
+  ## 当前指标名 → Methods 暴露（禁止批量名单首项污染）
+  bn0 <- basename(index_root)
+  ix_guess <- sub("^\u3010(success|failed)\u3011\\s*", "", bn0)
+  ix_guess <- sub("^\\[(success|failed)\\]\\s*", "", ix_guess, ignore.case = TRUE)
+  if (!is.list(config$project)) config$project <- list()
+  if (!nzchar(as.character(config$project$index_var %||% "")[1L]) && nzchar(ix_guess)) {
+    config$project$index_var <- ix_guess
+  }
+  config$`_current_index` <- ix_guess
+  ## ML 图定稿：S2A/B→S1、删错号 Figure 3 亚组（每次 finalize 强制）
+  if (dir.exists(fig_src)) {
+    if (!exists("incidence_batch_curate_ml_pub_figures_dir", mode = "function")) {
+      .ml_src("R/incidence_dual_batch_runner.R")
+    }
+    if (exists("incidence_batch_curate_ml_pub_figures_dir", mode = "function")) {
+      tryCatch(
+        incidence_batch_curate_ml_pub_figures_dir(fig_src, cfg = config),
+        error = function(e) {
+          if (requireNamespace("cli", quietly = TRUE)) {
+            cli::cli_alert_warning("summary_results: ML 图 curate 失败: {e$message}")
+          }
+        }
+      )
+    }
+  }
   if (dir.exists(fig_src) && exists("pub_figure_ensure_formats", mode = "function")) {
     tryCatch(
       pub_figure_ensure_formats(fig_src, config = config),
@@ -849,6 +937,19 @@ ml_finalize_index_summary_results <- function(index_root,
     unlink(fig_dst, recursive = TRUE, force = TRUE)
     ## file.copy(src_dir, parent) → parent/basename(src_dir)
     file.copy(fig_src, sum_root, recursive = TRUE, overwrite = TRUE)
+    if (dir.exists(fig_dst) &&
+        exists("incidence_batch_curate_ml_pub_figures_dir", mode = "function")) {
+      tryCatch(
+        incidence_batch_curate_ml_pub_figures_dir(fig_dst, cfg = config),
+        error = function(e) NULL
+      )
+    }
+    if (dir.exists(fig_dst) && exists("pub_figure_ensure_formats", mode = "function")) {
+      tryCatch(
+        pub_figure_ensure_formats(fig_dst, config = config),
+        error = function(e) NULL
+      )
+    }
   }
 
   ## Shiny：指标根 Shiny/（或根级 ShinyApp/）→ summary_results（交付白名单保留）
@@ -879,13 +980,14 @@ ml_finalize_index_summary_results <- function(index_root,
   }
 
   ## 汇总只留主文/必要补充：剔除 ML panel、Prognosis 校准/DCA、重复 LASSO、单层 KM
+  ## 必须传 config：发病 NHANES 不得按 ML 默认删 Boxplot/S2 ROC（COPD MCMI 2026-11）
   if (dir.exists(fig_dst)) {
     if (!exists("incidence_batch_purge_non_delivery_figures", mode = "function")) {
       .ml_src("R/incidence_dual_batch_runner.R")
     }
     if (exists("incidence_batch_purge_non_delivery_figures", mode = "function")) {
       tryCatch(
-        incidence_batch_purge_non_delivery_figures(fig_dst),
+        incidence_batch_purge_non_delivery_figures(fig_dst, config = config),
         error = function(e) {
           if (requireNamespace("cli", quietly = TRUE)) {
             cli::cli_alert_warning("summary_results 图清理跳过: {e$message}")
@@ -904,7 +1006,10 @@ ml_finalize_index_summary_results <- function(index_root,
   ## ensure_formats 可能从旧根再生成冗余 panel → 再清一次
   if (dir.exists(fig_dst) &&
       exists("incidence_batch_purge_non_delivery_figures", mode = "function")) {
-    tryCatch(incidence_batch_purge_non_delivery_figures(fig_dst), error = function(e) NULL)
+    tryCatch(
+      incidence_batch_purge_non_delivery_figures(fig_dst, config = config),
+      error = function(e) NULL
+    )
   }
 
   ## 保留指标根已有中期 PDF

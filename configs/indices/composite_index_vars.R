@@ -84,6 +84,9 @@
   "BRI",          # 364.2 - 365.5 * sqrt(1 - (WC/(2*pi)/(0.5*H))^2)
   "WWI",          # Waist_circumference / sqrt(Weight)
   "WHtR",         # Waist_circumference / Height
+  "Conicity",     # (WC/100) / (0.109 * sqrt(Weight/(Height/100)))  Valdez 1991
+  "Ponderal",     # Weight / (Height/100)^3
+  "CVAI",         # 中国内脏脂肪指数 Xia 2016（性别条件；TG/HDL 转 mmol）
   "CMI",          # (TG/HDL) * (WC/Height)
   "AIP_BMI",      # AIP * BMI
   "TyG_BMI",      # TyG * BMI
