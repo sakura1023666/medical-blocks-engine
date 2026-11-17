@@ -270,9 +270,24 @@
 .kms02_safe_logrank_p <- function(formula, data) {
   pv <- .kms02_logrank_p_numeric(formula, data)
   if (!is.finite(pv)) return("Log-rank p = NA")
-  # 参考发表图：Log-rank p = 0.007274；极小值用 < 0.001
-  if (pv < 0.001) return("Log-rank p < 0.001")
-  paste0("Log-rank p = ", formatC(pv, digits = 6, format = "f"))
+  # 与 pub_digits / fmt_pval 对齐：默认 3 位；极小值 <0.001（禁止 6 位如 0.034887）
+  p_lab <- if (exists("fmt_pval", mode = "function")) {
+    as.character(fmt_pval(pv))[1L]
+  } else if (exists("pub_format_p", mode = "function")) {
+    as.character(pub_format_p(pv))[1L]
+  } else if (isTRUE(pv < 0.001)) {
+    "<0.001"
+  } else {
+    formatC(pv, digits = 3L, format = "f")
+  }
+  # fmt_pval 已含 "<0.001"；勿写成 "Log-rank p = <0.001"；统一 "Log-rank p < 0.001"
+  if (startsWith(p_lab, "<") || startsWith(p_lab, ">")) {
+    op <- substr(p_lab, 1L, 1L)
+    rest <- sub("^[<>]\\s*", "", p_lab)
+    paste0("Log-rank p ", op, " ", rest)
+  } else {
+    paste0("Log-rank p = ", p_lab)
+  }
 }
 
 .kms02_pdf_open <- function(path, width, height, family = "Times New Roman") {

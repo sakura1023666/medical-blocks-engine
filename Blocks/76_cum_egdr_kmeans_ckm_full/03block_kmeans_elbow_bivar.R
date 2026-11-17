@@ -78,9 +78,14 @@ block_kmeans_elbow_bivar <- function(ctx, ...) {
     seed = as.integer(bl$seed %||% 2026L),
     nstart = as.integer(bl$nstart %||% 25L)
   )
-  # 选 k：force_k 优先；否则肘部自动；若肘点 > elbow_visual_cap 则目视取 cap（对齐原文 Fig2A）
+  # 选 k：force_k_by_index[[index]] > force_k > 肘部自动；肘点 > elbow_visual_cap 则目视取 cap
   k_auto <- as.integer(el$elbow_k %||% 4L)
-  if (!is.null(bl$force_k) && is.finite(as.numeric(bl$force_k)[1L])) {
+  k_by <- bl$force_k_by_index
+  k_ix <- if (is.list(k_by) && length(k_by)) k_by[[idx]] else NULL
+  if (!is.null(k_ix) && is.finite(as.numeric(k_ix)[1L])) {
+    k_use <- as.integer(k_ix)[1L]
+    cli::cli_alert_info("kmeans: force_k_by_index[{idx}] = {k_use}")
+  } else if (!is.null(bl$force_k) && is.finite(as.numeric(bl$force_k)[1L])) {
     k_use <- as.integer(bl$force_k)[1L]
   } else {
     k_use <- k_auto
@@ -94,10 +99,14 @@ block_kmeans_elbow_bivar <- function(ctx, ...) {
   }
 
   fit <- ckm_stroke_kmeans_fit(mat, k = k_use, seed = bl$seed %||% 2026L, nstart = bl$nstart %||% 25L)
-  # 语义锚定仍用首波 vs 末波均值/变化
+  # 语义锚定仍用首波 vs 末波均值/变化；丢掉未出现的水平（k=3 时无 Rapid_decrease）
   t_first <- mat[, 1L]
   t_last <- mat[, ncol(mat)]
   cls <- ckm_stroke_anchor_classes(fit$cluster, t_first, t_last)
+  cls <- factor(as.character(cls), levels = intersect(
+    c("Persistent_low", "Moderate_high_stable", "Stable_high", "Rapid_decrease"),
+    unique(as.character(stats::na.omit(cls)))
+  ))
   data$eGDR_Class <- cls
   data$Subphenotype <- cls
 

@@ -59,7 +59,10 @@ PUB = Path(
         str(ROOT / "summary_results"),
     )
 )
-BLENDED = ROOT / "blendedlos_icuaaki"
+BLENDED = ROOT / os.environ.get(
+    "LIVER_BLENDED_SUBDIR",
+    os.environ.get("ICUAKI_BLENDED_SUBDIR", "blendedlos_icuaaki"),
+).strip()
 N_BOOT = int(os.environ.get("ICUAKI_N_BOOT", "10000"))
 ENGINE_SCRIPTS = Path(__file__).resolve().parent
 

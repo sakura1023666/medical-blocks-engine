@@ -15,6 +15,7 @@
 | 定稿表图末尾挂收口 | `Blocks/78_…/scripts/finalize_easl_paper_pub.py` → thin finalize |
 | batch 收口块 | `Blocks/78_…/09block_dbpool_batch_finalize.R` |
 | ULN 三联 pack（主+敏感性） | `Blocks/78_…/scripts/pack_uln_triple_summary.py` |
+| **四库单位调和+门控**（血糖 mmol/L、Hb g/dL） | `Blocks/78_…/scripts/harmonize_blendedlos_units.py`（见 `dbpool_units_harmonize.mdc`） |
 | 复用地图 | `docs/reuse/2026-10-26-dbpool-delivery-midterm-reuse-map.md` |
 
 ## 铁律

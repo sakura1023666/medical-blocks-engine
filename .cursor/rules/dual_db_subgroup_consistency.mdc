@@ -20,6 +20,10 @@ alwaysApply: true
  - **禁止**：主文 tertile 却把亚组硬编码 quartile；MIMIC/NHANES 一侧全人群、一侧 Q1+Q4 子集拼成一张 Fig3。
 5. **同一森林画布**：`forest_xlim` / `force_forest_xlim` 双库一致（拼图观感）；库特异超宽 CI 用同一上限策略，勿只改一侧。
 6. **forbid 同步**：`forbid_subgroup_vars` 双库同一黑名单（疾病泄漏、通气小时、单库人口学等）。
+7. **汇总必须双库拼图（硬）**：指标根 / `summary_results` 的亚组森林（Fig3 / Fig8 等）**必须**是 eICU|MIMIC（或 NHANES|次库）左右拼图，文件名无库后缀。禁止把单库森林拷成无标签 `Figure N. Subgroup…` 交差。
+   - 实现：`dual_db_combine_paired_figures` + `.dual_db_pdf_looks_like_dual_panel`；无标签图若与分库同尺寸 → 当假拼图删除并重拼；`purge_redundant` 仅在真拼图存在时才删分库底稿。
+   - 图号不一致时走 role_buckets（`fig8_subgroup` 等），出图名须含 **Subgroup Forest**。
+   - 只重跑一侧亚组后必须 remirror/finalize，确认拼图页宽明显高于单库（或宽高比≥2）。
 
 ## 实现入口
 
@@ -60,9 +64,12 @@ subgroup = list(
 - [ ] 各亚组水平 N 之和 ≈ 该库分析集 N（非约一半）
 - [ ] `force_subgroup_vars` / `forest_xlim` / `continuous_index_mode` / `forest_n_source` 写入 code 包 overrides
 - [ ] 只重跑一侧亚组后须 **双库 remirror/finalize**，避免汇总 Figures 只剩单库图
+- [ ] 汇总 `Figure *. Subgroup Forest…pdf` 为拼图（非单库尺寸拷贝）；两侧分库底稿可删但拼图必须在
 
 ## 反例（禁止）
 
 - NHANES 森林 N=7523 口径、CHARLS 森林 N≈一半（仅 Q1+Q4）却拼成一张 Fig3
 - Gate D 锁了 7 个亚组，NHANES 仍按 Table1 多出 Race/PIR
 - 改 `force_forest_xlim` 只重跑 CHARLS，NHANES 面板刻度仍旧
+- 汇总 Fig8 无标签 PDF 实为 MIMIC 单库拷贝，eICU 面板被 purge 掉仍交差
+- 日志写「已有多库合成图」却 pdfinfo 页宽与单库相同

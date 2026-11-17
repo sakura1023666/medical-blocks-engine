@@ -153,6 +153,22 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 
 > 踩坑：SA-AKI TCF ALLVARS 2026-11 — Table1/S13「In-hospital death (fustatus)」vs Fig1「death within 28 days」；Fig1 MIMIC 写成 stay 级结局不可链接、实为 subject 去重；eICU 1207=baseline 不可链接未入 Methods；软件清单无 Python；TOPSIS α 用内验却 Methods 写 development-set。
 
+
+
+## §B7 数据库池化 / BlendedLoS 漏检（强制；2026-11 ULN-triple；未勾不得 PASS）
+
+规则：nature-statistics `common-failure-modes.md`「Medical Blocks 数据库池化 / BlendedLoS 漏检」；Methods 引擎 `R/pub_dbpool_methods.R`。
+
+- [ ] **硬门控** 数据溯源口径唯一：Methods / Data Availability / Fig1 md 写「harmonized extract following BlendedICU v0.3.2 protocol」(B) 或明确官方包(A)；与 seed 974 / upstream README 一致；禁混用
+- [ ] **硬门控** Figure 2（及 S 训练规模图）末点 ≠ Table 3 / S4/S6/S8 MIMIC Generalization；脚注与 image_information 有「禁止对读」
+- [ ] **硬门控** Table S1：MOESM1 经验界写实；N clipped=post-norm；PLT/尿量下界抬中位有母方案句；葡萄糖单位混杂披露
+- [ ] **硬门控** TPC 选型句（对齐母方案）+ Table S2 描述性 equal-n；CI 覆盖写实
+- [ ] Methods 含超参要点、单次 seed 跑、特征/DROP_TS、equal-n 规则；缺项标 AUTHOR_INPUT
+- [ ] Table 2 AUPRC Baseline = 预测 stay 框患病率，非 Table 1 三库池化死亡率
+
+> 踩坑：50_Cirrhosis ULN-triple 2026-11 — Methods 写 BlendedICU extract 与配方#13 自建映射冲突；Fig2 n=3547 AUROC 0.736 vs Table3 Gen 0.83；S1 “physiological” vs MOESM1 怪界；AUPRC Baseline≠Table1。
+
+
 ## §C 逻辑通顺（Agent）
 
 - [ ] 暴露/结局命名在表题、图题、md 上下文一致（疾病显示名，非裸列名泄漏）

@@ -543,6 +543,16 @@ def run_unit(unit: str, blended_out: Path, work_dir: Path, dry_run: bool = False
         print(json.dumps({"dry_run": True, **meta}, indent=2))
         return 0
 
+    # Engine unit gate: refuse train if glucose/Hb still mixed across DBs.
+    # Set DBPOOL_SKIP_UNITS_GATE=1 only for deliberate debug (never publication).
+    if os.environ.get("DBPOOL_SKIP_UNITS_GATE", "").strip() not in ("1", "true", "yes"):
+        try:
+            from harmonize_blendedlos_units import assert_units_harmonized
+        except ImportError:
+            sys.path.insert(0, str(BLOCK78 / "scripts"))
+            from harmonize_blendedlos_units import assert_units_harmonized
+        assert_units_harmonized(Path(blended_out))
+
     # Guard: this unit's train_on split must exist (cirrhosis units are not Amsterdam).
     need = _split_marker(unit, Path(blended_out))
     if unit != "generate_tables" and not need.exists():

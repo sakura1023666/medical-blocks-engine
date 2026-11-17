@@ -547,14 +547,17 @@ def build_cover_alice(info: dict, ym: str) -> str:
             datasrc = f"{datasrc}–{typ}"
     else:
         title_html = f'<h1>{html.escape(title1)}</h1><h1>{html.escape(phrase)}{cust_suffix}</h1>'
+    date_row = (
+        ""
+        if (not ym) or str(ym).strip() in ("无", "-", "—", "无日期", "none", "None", "NA")
+        else f'<p><span class="lbl">分析日期：</span>{html.escape(ym)}</p>'
+    )
     return (
         f'<div class="cover">'
         f'{title_html}'
         f'{sub_p}'
         f'<p class="datasrc">{html.escape(datasrc)}</p>'
-        f'<div class="info-list">{info_items}'
-        f'<p><span class="lbl">分析日期：</span>{html.escape(ym)}</p>'
-        f'</div>'
+        f'<div class="info-list">{info_items}{date_row}</div>'
         f'<div class="bottom-note">'
         f'<p class="disclaimer">本报告为中期分析结果，包含主要统计分析内容及图表。</p>'
         f'</div>'
@@ -1078,15 +1081,24 @@ def cmd_build(args):
         if has_chapters:
             # Alice 样式:探针渲染(定位页码) → 终稿渲染(目录带页码) → 合并后盖页眉页码
             chapter_blocks = build_chapter_blocks(content, pngs, proj, main_t + supp_t, main_f + supp_f)
-            now = date.today()
-            ymd = f"{now.year}年{now.month}月{now.day}日"
+            # 项目信息「分析日期」可覆盖系统当天；填 无/-/—/无日期 则封面与文末均不写日期
+            ymd_override = (info.get("分析日期") or info.get("报告日期") or info.get("日期") or "").strip()
+            _hide_date = ymd_override in ("无", "-", "—", "无日期", "none", "None", "NA")
+            if _hide_date:
+                ymd = ""
+            elif ymd_override:
+                ymd = ymd_override
+            else:
+                now = date.today()
+                ymd = f"{now.year}年{now.month}月{now.day}日"
             # 结尾声明并入最后一个竖版作业紧跟正文;先以 0 高占位渲染,
             # 打印后按实测差距垫高占位(bottom_end_note)把声明推到当页页底
+            _date_p = "" if _hide_date or not ymd else f"<p>分析日期：{ymd}</p>"
             end_note = ('portrait',
                         '<div class="end-spacer" style="height:0px"></div>'
                         '<div class="end-note">'
                         '<p>本报告为中期分析结果，最终结论以正式交付为准。</p>'
-                        f'<p>分析日期：{ymd}</p></div>')
+                        f'{_date_p}</div>')
 
             # 探针渲染:封面 + 目录(页码留空) + 章节一起打印,前置分页与终稿完全一致
             # (目录超过一页也不会导致页码错位);标记 [chN]/[scN.M] 落在各自标题所在页

@@ -830,6 +830,20 @@ subgroup_build_one_forest <- function(plot_df, final_subgroup_vars, sub_cfg,
     .col_or_blank("P value"),
     .col_or_blank("P for interaction")
   ))
+  ## 强制 P / P-int 为三位小数字符串（禁止图面 0.5 / 0.06 这种去尾随 0）
+  for (pc in c("P value", "P for interaction")) {
+    if (!pc %in% names(disp)) next
+    disp[[pc]] <- vapply(seq_len(nrow(disp)), function(i) {
+      raw <- disp[[pc]][[i]]
+      if (is.null(raw) || length(raw) < 1L) return(" ")
+      s <- trimws(as.character(raw)[1L])
+      if (!nzchar(s) || toupper(s) %in% c("NA", "NE", "NAN", "-")) return(if (toupper(s) == "NE") "NE" else " ")
+      if (grepl("^[<>]", s)) return(s)
+      xv <- suppressWarnings(as.numeric(gsub("[^0-9.eE+-]", "", s)))
+      if (!is.finite(xv)) return(s)
+      subgroup_format_p(xv)
+    }, character(1L))
+  }
   ci_col_idx <- which(forest_col_names == " ")[[1L]]
 
   if (x_trans %in% c("log", "log2", "log10")) {

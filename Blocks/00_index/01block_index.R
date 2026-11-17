@@ -517,11 +517,12 @@
          digits = 4,
          intermediate = TRUE),
 
+    # Greve CVD-risk ePWV (m/s)：末项必须为 -0.01832*MBP（非裸常数）
     list(name = "ePWV",
          expr = paste0(
            "9.587 - 0.402 * Age + 0.00456 * Age^2 ",
            "- 0.00002621 * Age^2 * MBP ",
-           "+ 0.003176 * Age * MBP - 0.01832"
+           "+ 0.003176 * Age * MBP - 0.01832 * MBP"
          ),
          digits = 4),
 

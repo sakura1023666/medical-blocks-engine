@@ -25,8 +25,12 @@ ROOT = Path(
         "/mnt/sda/BlendedICU/data/liver_dysfunction_acg_42151996",
     )
 )
-MAIN = ROOT / "Output_physclip"
-EXTRA = ROOT / "Output_paper_extras_physclip"
+_OUT_TAG = os.environ.get("OUT_TAG", "physclip").strip() or "physclip"
+MAIN = Path(os.environ.get("EASL_MAIN_OUT", "").strip() or str(ROOT / f"Output_{_OUT_TAG}"))
+EXTRA = Path(
+    os.environ.get("EASL_EXTRA_OUT", "").strip()
+    or str(ROOT / f"Output_paper_extras_{_OUT_TAG}")
+)
 BLENDED = ROOT / os.environ.get("LIVER_BLENDED_SUBDIR", "blendedlos_acg").strip()
 UPSTREAM = Path(
     os.environ.get(

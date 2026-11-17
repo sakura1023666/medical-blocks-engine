@@ -1221,33 +1221,88 @@ def make_fig1(out: Path, store: dict):
 
 
 def fig2_training_size(extra_root: Path, out: Path) -> pd.DataFrame:
-    """Allyn Fig.2 layout: left=Composite; right inner=RLoS MAPE; right outer=Mortality AUROC."""
+    """Allyn Fig.2 layout: left=Composite; right inner=RLoS MAPE; right outer=Mortality AUROC.
+
+    Metrics are **stay-level** eICU+HiRID means from test_predictions_* (same path as
+    Table 2/3 Gen), not hour-level metrics_multitask.csv. The 100% training-size
+    endpoint is pinned to ci_main_four_arms expB Gen (mean eICU+HiRID stay AUROC/MAPE)
+    so Figure 2 endpoint == Table 3 Gen.
+    """
     ud = extra_root / "liver_training_size_study"
+    ci_mod = _import_paper_ci()
     rows = []
-    for mpath in sorted(ud.glob("results/**/metrics_multitask.csv")):
-        spec = _last_test(mpath)
-        aucs = [spec[d]["auc"] for d in ("eicu", "hirid") if d in spec]
-        mapes = [spec[d]["mape"] for d in ("eicu", "hirid") if d in spec]
-        if not aucs:
-            continue
+    for mort_p in sorted(ud.glob("results/**/test_predictions_mort.csv")):
         pct = None
-        for part in mpath.parts:
+        for part in mort_p.parts:
             if part.startswith("mimic4_"):
                 try:
                     pct = int(part.split("_")[1])
                 except Exception:
-                    pass
+                    pct = None
+                break
+        if pct is None:
+            continue
+        los_p = mort_p.parent / "test_predictions_los.csv"
+        mort = pd.read_csv(mort_p)
+        los = pd.read_csv(los_p) if los_p.exists() else None
+        stay, _hourly = ci_mod._stay_frame(mort, los)
+        aucs, mapes = [], []
+        for db in ("eicu", "hirid"):
+            sub = stay[stay["eval_on"] == db]
+            if sub.empty:
+                continue
+            y = sub["y_mort"].to_numpy()
+            p = sub["pred_mort"].to_numpy()
+            if np.unique(y).size >= 2:
+                aucs.append(float(ci_mod.roc_auc_score(y, p)))
+            if "mape" in sub.columns and sub["mape"].notna().any():
+                mapes.append(float(sub["mape"].dropna().mean()))
+        if not aucs:
+            continue
+        mcsv = mort_p.parent / "metrics_multitask.csv"
+        n_train = None
+        if mcsv.exists():
+            try:
+                n_train = int(pd.read_csv(mcsv)["n_train"].dropna().iloc[-1])
+            except Exception:
+                n_train = None
         rows.append(
             {
-                "n_train": spec["n_train"],
+                "n_train": n_train,
                 "pct_trainval": pct,
                 "auc": float(np.mean(aucs)),
-                "mape": float(np.mean(mapes)),
+                "mape": float(np.mean(mapes)) if mapes else float("nan"),
             }
         )
-    tab = pd.DataFrame(rows).drop_duplicates("n_train").sort_values("n_train")
+    tab = pd.DataFrame(rows)
+    if tab.empty or "n_train" not in tab.columns:
+        return pd.DataFrame()
+    tab = tab.dropna(subset=["n_train"]).drop_duplicates("n_train").sort_values("n_train")
     if tab.empty:
         return tab
+    # Pin 100% endpoint to Table 3 Gen (expB stay-level eICU+HiRID)
+    ci_path = extra_root / "ci_main_four_arms" / "Table_CI_DeLong_bootstrap10k.csv"
+    pin = os.environ.get("LIVER_FIG2_PIN_TABLE3_GEN", "1").strip().lower() in ("1", "true", "yes")
+    if pin and ci_path.exists():
+        ci = pd.read_csv(ci_path)
+        b = ci[
+            (ci["unit"].astype(str).str.contains("expB_mimic"))
+            & (ci["eval_on"].isin(["eicu", "hirid"]))
+        ]
+        auc_col = "auroc_stay" if "auroc_stay" in b.columns else None
+        mape_col = "mape_stay_mean" if "mape_stay_mean" in b.columns else None
+        if auc_col and mape_col and len(b) >= 2:
+            auc_pin = float(b[auc_col].mean())
+            mape_pin = float(b[mape_col].mean())
+            hit = tab["pct_trainval"] == 100
+            if hit.any():
+                tab.loc[hit, "auc"] = auc_pin
+                tab.loc[hit, "mape"] = mape_pin
+                print(
+                    f"[fig2] pinned 100% endpoint to Table3 Gen stay-level "
+                    f"AUROC={auc_pin:.3f} MAPE={mape_pin:.1f}",
+                    flush=True,
+                )
     base_mape = float(tab["mape"].iloc[-1])
     base_auc = float(tab["auc"].iloc[-1])
     tab["Mcomposite"] = [

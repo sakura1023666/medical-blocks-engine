@@ -95,6 +95,10 @@ STAGING = Path(
         "/mnt/sda/liver_uln_pub/_staging_uln_sens",
     )
 )
+# Match run_one_cohort_physclip.sh OUT_TAG (default physclip; glu retrain: physclip_glu_mmol)
+OUT_TAG = os.environ.get("OUT_TAG", "physclip").strip() or "physclip"
+MAIN_DIRNAME = f"Output_{OUT_TAG}"
+EXTRA_DIRNAME = f"Output_paper_extras_{OUT_TAG}"
 ACG_TABLE4 = Path(
     os.environ.get(
         "ACG_TABLE4",
@@ -112,6 +116,10 @@ def _run_finalize(key: str, out: Path, *, skip_table1: bool = False, skip_delive
         {
             "LIVER_ROOT": str(root),
             "LIVER_PUB_OUT": str(out),
+            "EASL_ROOT": str(root),
+            "EASL_MAIN_OUT": str(root / MAIN_DIRNAME),
+            "EASL_EXTRA_OUT": str(root / EXTRA_DIRNAME),
+            "OUT_TAG": OUT_TAG,
             "LIVER_BLENDED_SUBDIR": meta["blended"],
             "LIVER_COHORT_TITLE": meta["title"],
             "LIVER_COHORT_RULE_SHORT": meta["rule"],
@@ -130,7 +138,10 @@ def _run_finalize(key: str, out: Path, *, skip_table1: bool = False, skip_delive
                 "Vitals/labs clipped to a priori physiological ranges (same bounds as model preprocess)."
             ),
             "LIVER_SCALE_FEATURE_NOTE": meta["drop_en"],
-            "MEDICAL_BLOCKS_ROOT": "/mnt/sda/r-platform-data/user02/home/medical-blocks/engine",
+            "MEDICAL_BLOCKS_ROOT": os.environ.get(
+                "MEDICAL_BLOCKS_ROOT",
+                "/mnt/sda/liver_sofa2_train",
+            ),
             "ACG_TABLE4": str(ACG_TABLE4) if ACG_TABLE4.exists() else str(
                 Path("/mnt/sda/liver_uln_pub/_seed/Table 4. Literature comparison.xlsx")
             ),
@@ -337,10 +348,10 @@ def main() -> None:
     if not FINALIZE.exists():
         raise SystemExit(f"missing {FINALIZE}")
     for k, root in ROOTS.items():
-        if not (root / "Output_physclip").is_dir():
-            raise SystemExit(f"missing Output_physclip for {k}: {root}")
-        if not (root / "Output_paper_extras_physclip").is_dir():
-            raise SystemExit(f"missing extras for {k}: {root}")
+        if not (root / MAIN_DIRNAME).is_dir():
+            raise SystemExit(f"missing {MAIN_DIRNAME} for {k}: {root}")
+        if not (root / EXTRA_DIRNAME).is_dir():
+            raise SystemExit(f"missing {EXTRA_DIRNAME} for {k}: {root}")
 
     # 1) main all3 (reuse if already finalized)
     main_ready = (

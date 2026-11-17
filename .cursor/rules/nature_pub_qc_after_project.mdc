@@ -23,6 +23,8 @@ alwaysApply: true
 
 **ML/TCF 预测加检（用户 2026-11-16；SA-AKI TCF）：** 另须过 checklist **§B6** 与规则 `ml_tcf_pub_reuse.mdc`（结局标签生死线 28-day vs in-hospital、分析单位患者级/stay 级、排除定义分类、熵/RSCV/TOPSIS α 数据集用途链、Python 软件两件套、complete_action/logistic_mi 写实）。无 TCF/多算法融合可 N/A。
 
+**数据库池化 / BlendedLoS 加检（用户 2026-11-17；ULN-triple）：** 另须过 checklist **§B7** 与 nature-statistics「Medical Blocks 数据库池化 / BlendedLoS 漏检」（数据溯源 A/B 口径、Fig2≠Table3 禁对读、S1 MOESM1/N clipped 语义、TPC 选型、超参/特征/equal-n 写实、AUPRC Baseline=预测框患病率）。无 dbpool 可 N/A。
+
 **发表数字格式加检（用户 2026-11-03；肺炎 DeLong）：** 另须过 `pub_digits_consistency.mdc` 与 checklist **§B5**；结构 CLI 已跑 `pub_qc_scan_table_digits`（Layer A2）。P/DeLong/NRI/AUC 裸 `0`/`0.000` = **P0**；Fig1 图底长脚注 = P0/P1。未过不得 PASS。
 
 ## 强制技能（只审发表产物）

@@ -400,7 +400,11 @@ for (db in actual_db_seq) {
       ml_batch_is_all_vars_job(indices)) {
     cli::cli_alert_info("[{toupper(db)}] ALLVARS：跳过指标缺失/极端值过滤")
   } else if (length(indices) == 1L) {
-    incidence_batch_apply_filter_and_trim(alias_dst, indices[[1L]], 0)
+    ## 传入 config：课题可设 incidence_batch$index_value_bounds 做临床绝对窗
+    ## （未配置则 p_trim=0，仅删 NA；不改变其它课题默认）
+    incidence_batch_apply_filter_and_trim(
+      alias_dst, indices[[1L]], p_trim = 0, config = config_ix
+    )
   } else if (file.exists(alias_dst)) {
     obj <- tryCatch(readRDS(alias_dst), error = function(e) NULL)
     if (!is.null(obj) && !is.null(obj$ctx)) {

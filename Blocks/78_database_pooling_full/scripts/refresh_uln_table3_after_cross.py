@@ -67,8 +67,12 @@ FOOT = (
 def _rebuild_one(spec: dict) -> None:
     root = spec["root"]
     fin.ROOT = root
-    fin.MAIN_OUT = root / "Output_physclip"
-    fin.EXTRA = root / "Output_paper_extras_physclip"
+    _tag = os.environ.get("OUT_TAG", "physclip").strip() or "physclip"
+    fin.MAIN_OUT = Path(os.environ.get("EASL_MAIN_OUT", "").strip() or str(root / f"Output_{_tag}"))
+    fin.EXTRA = Path(
+        os.environ.get("EASL_EXTRA_OUT", "").strip()
+        or str(root / f"Output_paper_extras_{_tag}")
+    )
     store = fin.collect_main()
     ci_path = fin.EXTRA / "ci_main_four_arms" / "Table_CI_DeLong_bootstrap10k.csv"
     ci = pd.read_csv(ci_path)

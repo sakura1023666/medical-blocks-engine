@@ -42,8 +42,11 @@ def _write_index(folder: Path) -> int:
     return len(idx)
 
 
-def _link_stays(out: Path, db: str, patients: list[str]) -> dict:
-    src_dir = READY / "preprocessed_timeseries" / db
+def _link_stays(
+    out: Path, db: str, patients: list[str], *, ready_root: Path | None = None
+) -> dict:
+    ready_root = Path(ready_root) if ready_root is not None else READY
+    src_dir = ready_root / "preprocessed_timeseries" / db
     dst = out / "preprocessed_timeseries" / db
     dst.mkdir(parents=True, exist_ok=True)
     linked = missing = skipped_exists = 0
@@ -88,8 +91,9 @@ def _dn1_patients(db: str) -> list[str]:
     return [f"{db}-{x}" for x in df["raw_id"].astype(str)]
 
 
-def assemble(out: Path) -> pd.DataFrame:
-    ready = pd.read_parquet(READY / "preprocessed_labels.parquet")
+def assemble(out: Path, ready_root: Path | None = None) -> pd.DataFrame:
+    ready_root = Path(ready_root) if ready_root is not None else READY
+    ready = pd.read_parquet(ready_root / "preprocessed_labels.parquet")
     if "patient" not in ready.columns:
         ready = ready.reset_index()
     ready["patient"] = ready["patient"].astype(str)
@@ -102,7 +106,7 @@ def assemble(out: Path) -> pd.DataFrame:
         # only keep IDs present in ready labels
         ready_ids = set(ready.loc[ready["source_dataset"] == db, "patient"].astype(str))
         ids = [p for p in ids if p in ready_ids]
-        counts[db] = _link_stays(out, db, ids)
+        counts[db] = _link_stays(out, db, ids, ready_root=ready_root)
         present = set(
             pd.read_csv(
                 out / "preprocessed_timeseries" / db / "index.csv",
@@ -143,7 +147,9 @@ def assemble(out: Path) -> pd.DataFrame:
         "source: blendedlos_ready filtered by cohort_source/dn1_ids_*.csv\n"
         "DROP_TS: creatinine, urine_output (inclusion leakage)\n"
         "split: amsterdam+mimic4 70/15/15 seed=974; eicu+hirid held-out test\n"
-        "preprocess: MOESM1 physio clip at train (DBPOOL_PHYSIO_CLIP=1)\n",
+        "preprocess: MOESM1 physio clip at train (DBPOOL_PHYSIO_CLIP=1)\n"
+        "units: blood_glucose=mmol/L; hemoglobin=g/dL "
+        "(harmonize_blendedlos_units.py + assert gate)\n",
         encoding="utf-8",
     )
     (out / "assemble_counts.json").write_text(json.dumps(counts, indent=2), encoding="utf-8")
@@ -215,11 +221,34 @@ def write_splits(out: Path, lab: pd.DataFrame) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(DEFAULT_OUT))
+    ap.add_argument(
+        "--ready",
+        default=str(READY),
+        help="blendedlos_ready root (units harmonized before assemble)",
+    )
+    ap.add_argument("--skip-unit-harmonize", action="store_true")
     args = ap.parse_args()
     out = Path(args.out)
+    ready = Path(args.ready)
     out.mkdir(parents=True, exist_ok=True)
-    lab = assemble(out)
+
+    # Engine gate: never assemble mixed-unit ready into a train tree.
+    if not args.skip_unit_harmonize:
+        from harmonize_blendedlos_units import assert_units_harmonized, harmonize_root
+
+        print(f"[prepare_icuaaki] harmonize units on ready={ready}", flush=True)
+        harmonize_root(ready, dbs=DBS, run_assert=True)
+
+    lab = assemble(out, ready_root=ready)
     write_splits(out, lab)
+
+    if not args.skip_unit_harmonize:
+        from harmonize_blendedlos_units import assert_units_harmonized, harmonize_root
+
+        print(f"[prepare_icuaaki] harmonize+assert assembled out={out}", flush=True)
+        harmonize_root(out, dbs=DBS, run_assert=True)
+        assert_units_harmonized(out, dbs=DBS, require_dbs=DBS)
+
     print("DONE", out)
 
 

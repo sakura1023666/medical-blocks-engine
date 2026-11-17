@@ -241,3 +241,16 @@ Fix:
 | 抑郁人群课题 FI 含 CES-D 量表条目却无排除说明；或 Psychiatric disease 与 CES-D 混为一谈 | P0 | 核 frailty 成分；CES-D 仅入组；psyche≠CES-D；结局 hibpe 必须剔出分析 FI/CLPN 缺陷节点 |
 | 参数（RCS knots、亚组模型、CLPN 波次、FI 条目数）Methods 有写但项目内无表/图/字典可核 | P0/P1 | 每个参数必须能指到交付 xlsx/PDF/meta/Numbers_Master；否则改写为“见图面/见表头”或删无法核的句 |
 
+## Medical Blocks 数据库池化 / BlendedLoS 漏检（强制；2026-11 ULN-triple / 配方#13）
+
+凡审 **database_pooled / dbpool / BlendedLoS / summary_results_uln_*** 发表根，在通用交付漏检之外另过本表。引擎 Methods：`R/pub_dbpool_methods.R`。
+
+| 信号 | 级别 | 必做 |
+|------|------|------|
+| Methods 通篇写 “BlendedICU harmonised extract / BlendedICU package” 却配方/上游 README 实为自建映射（v0.3.2 protocol + RealExtraction；seed 974） | P0 | 口径二选一写实：**默认 B**「harmonized extract following BlendedICU v0.3.2 protocol」；Data Availability / PhysioNet EULA / 引用链同步；禁止假装官方包产物 |
+| Figure 2 / S1–S3 训练规模末点与 Table 3 / S4/S6/S8 MIMIC Generalization 对读（同 N 不同 AUROC/MAPE） | P0 | Methods+脚注+image_information 写「禁止对读」；Fig2=`training_size_study`/`metrics_multitask`；Table3=四策略 stay-level CI；若要求数值同一则 AUTHOR 重导 |
+| Table S1 写 “a priori physiological ranges” 却界值为 MOESM1 经验帽（BUN 负下界、GCS>15、PLT/尿量下界抬中位）；或把 post-norm “N clipped” 当成硬裁剪计数 | P0 | Methods/脚注写实 MOESM1 协议复制界；N clipped=\|scaled\|>4；Before/After=硬裁剪；葡萄糖单位混杂进 Limitations/AUTHOR_INPUT |
+| 主模型=TPC 但 Table S2 LSTM/Transformer 全面占优且无选型句；或 S2 无 CI 却写推断性“显著优于” | P0 | 写预指定对齐母方案；S2 降为描述性单次 equal-n；CI models available 写实 |
+| 缺 TPC 超参 / torch 版本 / 单次 vs 多轮 / First 定义 / 特征清单 / equal-n 抽样规则 / 门控前纳排链 | P0/P1 | Methods 能核多少写多少；其余 AUTHOR_INPUT；禁正文编造 |
+| Table 2 AUPRC Baseline 与 Table 1 其余三库池化死亡率对不上却脚注写“患病率=全库” | P0 | Baseline=**该单元格预测 stay 框**患病率；禁止对读 Table 1 全 stays |
+

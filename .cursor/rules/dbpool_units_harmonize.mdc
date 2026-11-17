@@ -1,0 +1,38 @@
+# 数据库池化单位调和铁律（全项目）
+
+凡 **BlendedLoS / BlendedICU / dbpool / ICUAKI / 肝硬化 / CSA-AKI / ULN** 等四库（或双库）时序训练，必须保证各库实验室量纲与 Allyn MOESM1 clip 一致。踩坑：ICUAKI 2026-11 MIMIC `blood_glucose` 仍为 mg/dL、HiRID `hemoglobin` 为 100×g/dL，却按 mmol/L / g/dL clip 训练。
+
+## 目标量纲（硬）
+
+| 变量 | 目标单位 | MOESM1 量级 |
+|---|---|---|
+| `blood_glucose` | **mmol/L** | ~2.8–12.4 |
+| `hemoglobin` | **g/dL** | ~6–14 |
+
+检测口径（文件非空中位数）：
+
+- 血糖 median > 30 → 当 mg/dL，×`0.0555`（BlendedICU 官方）
+- Hb median ∈ [40,250] → g/L，÷10；∈ [400,2500] 且 ÷100 落入 g/dL → ÷100（HiRID 自建 ready 常见）
+
+## 铁律
+
+1. **单一入口**：`Blocks/78_database_pooling_full/scripts/harmonize_blendedlos_units.py`（`harmonize_root` / `assert_units_harmonized`）。禁止课题再写一次性 `fix_*_glucose.py` 长期分叉。
+2. **prepare 必调和**：`prepare_*_blendedlos.py`（至少 ICUAKI）在 assemble 前调和 `blendedlos_ready`，assemble 后再调和并 assert 产物树。
+3. **训练必门控**：`run_dbpool_experiment.py` → `assert_units_harmonized(blended_out)`；失败即停。仅 debug 可设 `DBPOOL_SKIP_UNITS_GATE=1`，**禁止**用于发表重训。
+4. **旧脚本兼容**：`fix_mimic_blood_glucose_mmol.py` 仅为薄包装，转调全量 harmonize。
+5. **重训不覆写旧包**：单位修正后的 Output / summary 用新 tag（如 `_units` / `physclip_glu_mmol`），旧 `summary_results` 保留。
+6. **禁止**只修一侧库或只改脚注假装 harmonized。
+
+## 新课题检查
+
+- [ ] prepare / 重训日志有 `[units]` / `[units-gate] PASS`
+- [ ] 各库抽样 glu median ∈ [3,15] mmol/L、Hb ∈ [6,16] g/dL
+- [ ] 存在 `preprocessed_timeseries/_units_harmonized.json`
+- [ ] 旧交付目录未被新 Output 覆盖
+
+## 反例（禁止）
+
+- MIMIC 血糖 ~130、Amsterdam ~7 同批训练
+- HiRID Hb ~900、其余库 ~10 同批训练
+- 关掉 `DBPOOL_SKIP_UNITS_GATE` 交差
+- 只跑 `fix_mimic_blood_glucose` 却不修 Hb

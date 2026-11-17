@@ -532,13 +532,23 @@ ml_dual_apply_nhanes_logistic_outputs_overrides <- function(config) {
     list(enable = FALSE)
   )
   config$omit_figure_s2 <- TRUE
+  ## 用户 2026-11-17：ML 交付默认不要 Figure S1（有 RCS/Fig2 LASSO 时防重复）
+  config$omit_figure_s1 <- TRUE
   config$ml_batch <- modifyList(
     config$ml_batch %||% list(),
-    list(omit_figure_s2 = TRUE, curate_purge_pub_figures = TRUE)
+    list(
+      omit_figure_s1 = TRUE,
+      omit_figure_s2 = TRUE,
+      curate_purge_pub_figures = TRUE
+    )
   )
   config$incidence_batch <- modifyList(
     config$incidence_batch %||% list(),
-    list(omit_figure_s2 = TRUE, curate_purge_pub_figures = TRUE)
+    list(
+      omit_figure_s1 = TRUE,
+      omit_figure_s2 = TRUE,
+      curate_purge_pub_figures = TRUE
+    )
   )
   if (is.null(config$data)) config$data <- list()
   config$data$outcome_column <- "Disease_Group"
@@ -952,13 +962,14 @@ ml_dual_apply_regular_upstream_overrides <- function(config) {
     list(enable = FALSE)
   )
   config$omit_figure_s2 <- TRUE
+  config$omit_figure_s1 <- TRUE
   config$ml_batch <- modifyList(
     config$ml_batch %||% list(),
-    list(omit_figure_s2 = TRUE)
+    list(omit_figure_s1 = TRUE, omit_figure_s2 = TRUE)
   )
   config$incidence_batch <- modifyList(
     config$incidence_batch %||% list(),
-    list(omit_figure_s2 = TRUE)
+    list(omit_figure_s1 = TRUE, omit_figure_s2 = TRUE)
   )
   ## 发表位数：ICMJE/NEJM（P 可变位 + 效应量三位）；课题可显式 p_style="fixed" 覆盖
   pd <- modifyList(

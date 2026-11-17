@@ -2919,7 +2919,7 @@ incidence_batch_ml_pub_figure_target_bn <- function(role, src_bn, cfg = list()) 
     },
     fig8_subgroup = {
       if (!grepl("Subgroup", cap, ignore.case = TRUE)) {
-        cap <- "Subgroup analyses"
+        cap <- "Subgroup Forest analyses"
       }
       paste0("Figure 8", db_inf, ". ", cap, ".pdf")
     },
@@ -3123,6 +3123,44 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
       )
     }
   }
+  ## 用户 2026-11-17：ML 交付默认不要 Figure S1（LASSO 已作 Figure 2 或有 RCS 占 Fig2 时不再交 S1）
+  ## omit_figure_s1=TRUE（或 ml_batch / incidence_batch 同名）→ 删全部 Figure S1*
+  omit_s1 <- isTRUE(cfg$omit_figure_s1 %||% cfg$ml_batch$omit_figure_s1 %||%
+                      cfg$incidence_batch$omit_figure_s1 %||% FALSE)
+  if (isTRUE(.is_ml_pub) && isFALSE(omit_s1)) {
+    ## ML 默认：有 Figure 2 Feature selection / RCS 时自动省略 S1 Lasso（防与 Fig2 重复）
+    has_fig2_fs <- length(list.files(
+      figures_dir,
+      pattern = "(?i)Figure\\s*2.*Feature selection|Figure\\s*2.*LASSO",
+      full.names = TRUE, recursive = TRUE
+    )) > 0L
+    has_fig2_rcs <- length(list.files(
+      figures_dir,
+      pattern = "(?i)Figure\\s*2.*RCS|RCS of|RCS plot",
+      full.names = TRUE, recursive = TRUE
+    )) > 0L
+    if (has_fig2_fs || has_fig2_rcs) omit_s1 <- TRUE
+  }
+  if (isTRUE(omit_s1)) {
+    s1_all <- list.files(
+      figures_dir,
+      pattern = "(?i)^Figure\\s*S1",
+      full.names = TRUE, recursive = TRUE
+    )
+    ## 同步清 image_information 幽灵 md
+    s1_md <- list.files(
+      file.path(figures_dir, "image_information"),
+      pattern = "(?i)^Figure\\s*S1",
+      full.names = TRUE
+    )
+    drop_s1 <- unique(c(s1_all, s1_md))
+    if (length(drop_s1)) {
+      unlink(drop_s1)
+      cli::cli_alert_info(
+        "已按配置省略 Figure S1（{length(drop_s1)} 个文件；LASSO 保留为 Figure 2 或仅留 RCS）"
+      )
+    }
+  }
   ## 若仍有 S2A/B 且尚无 S1 Lasso：就地升格（防 collect 因路径失败漏掉）
   ## recursive：export 后草稿常在 Figures/pdf/，顶层可能已空
   .find_fig_pdf <- function(pat) {
@@ -3244,6 +3282,25 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
     roles[roles == "s1_fs"] <- "fig2_fs"
     cli::cli_alert_info("ML 图定稿: 无 RCS，特征选择图升为 Figure 2")
   }
+  ## omit_figure_s1：丢弃 s1_fs；若同时有 RCS 与 Feature selection Fig2，保留 RCS 为 Fig2、删 LASSO 撞号
+  omit_s1_role <- isTRUE(cfg$omit_figure_s1 %||% cfg$ml_batch$omit_figure_s1 %||%
+                           cfg$incidence_batch$omit_figure_s1 %||% FALSE)
+  if (isTRUE(omit_s1_role) || (any(roles == "fig2_rcs") && any(roles %in% c("fig2_fs", "s1_fs")))) {
+    drop_fs <- roles %in% c("s1_fs")
+    if (any(roles == "fig2_rcs") && any(roles == "fig2_fs")) {
+      ## RCS 占 Figure 2 时不再保留第二张 Feature selection 撞号
+      drop_fs <- drop_fs | (roles == "fig2_fs")
+    }
+    if (any(drop_fs)) {
+      unlink(files[drop_fs])
+      cli::cli_alert_info(
+        "ML 图定稿: 已省略特征选择 S1/撞号 Fig2（{sum(drop_fs)} 张）；Fig2 保留 RCS"
+      )
+      files <- files[!drop_fs]
+      roles <- roles[!drop_fs]
+    }
+  }
+  if (!length(files)) return(invisible(n_purge))
 
   ## 同 role+库 多份时保留体积最大（完整亚组森林优先于旧截断版）
   targets <- vapply(seq_along(files), function(i) {

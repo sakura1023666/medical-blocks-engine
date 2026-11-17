@@ -270,6 +270,28 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
       (cfg$dual_db$primary %||% list())$name %||%
       mb$primary_name %||% proj$databases[[1L]] %||% "the study database"
   )[1L]
+  sec_db <- as.character(
+    (cfg$dual_db$secondary %||% list())$name %||%
+      mb$secondary_name %||% ""
+  )[1L]
+  ## 展示层禁下划线（Methods 正文）
+  .db_disp <- function(x) {
+    x <- as.character(x %||% "")[1L]
+    if (!nzchar(x)) return(x)
+    if (exists("pipeline_display_label", mode = "function")) {
+      as.character(pipeline_display_label(x))[1L]
+    } else {
+      gsub("_", " ", x, fixed = TRUE)
+    }
+  }
+  db_disp <- .db_disp(db)
+  sec_disp <- .db_disp(sec_db)
+  has_dual_db <- nzchar(sec_disp) &&
+    !identical(tolower(sec_disp), "unused") &&
+    !identical(tolower(sec_disp), tolower(db_disp))
+  split_mode <- tolower(as.character(
+    mb$split_mode %||% (cfg$dual_db %||% list())$split_mode %||% ""
+  )[1L])
   age_f <- as.character((cfg$data_clean %||% list())$age_filter %||% "")[1L]
   age_note <- if (nzchar(age_f)) {
     paste0(" Age eligibility followed `", age_f, "`.")
@@ -417,8 +439,16 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
     )
   if (is_prog) {
     design_line <- paste0(
-      "This was a prognostic survival analysis of ", disease,
-      " in ", db, ".", age_note,
+      if (isTRUE(has_dual_db)) {
+        paste0(
+          "This was a dual-database prognostic survival analysis of ", disease,
+          " with development/internal validation in ", db_disp,
+          " and external validation in ", sec_disp, "."
+        )
+      } else {
+        paste0("This was a prognostic survival analysis of ", disease, " in ", db_disp, ".")
+      },
+      age_note,
       " The analytic sample followed the study inclusion flowchart (Figure 1). ",
       "Follow-up time was recorded in `", time_var,
       "` with event indicator `", event_var, "`."
@@ -500,8 +530,16 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
     )
   } else {
     design_line <- paste0(
-      "This was a cross-sectional analysis of ", disease,
-      " in ", db, ".", age_note,
+      if (isTRUE(has_dual_db)) {
+        paste0(
+          "This was a dual-database cross-sectional analysis of ", disease,
+          " with development/internal validation in ", db_disp,
+          " and external validation in ", sec_disp, "."
+        )
+      } else {
+        paste0("This was a cross-sectional analysis of ", disease, " in ", db_disp, ".")
+      },
+      age_note,
       " The analytic sample followed the study inclusion flowchart (Figure 1). ",
       if (nzchar(fig1_bridge)) paste0(fig1_bridge, " ") else "",
       "Unweighted participant counts are reported alongside weighted percentages where labelled."
@@ -542,10 +580,23 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
     )
     ml_line <- if (isTRUE(include_ml_section)) {
       paste0(
-        "Participants were split into training and validation sets for supervised prediction of ",
-        disease, ". ",
+        if (identical(split_mode, "dev_internal_ext") && isTRUE(has_dual_db)) {
+          paste0(
+            "In ", db_disp, ", participants were split into training and internal validation sets; ",
+            sec_disp, " served as the external validation cohort for supervised prediction of ",
+            disease, ". "
+          )
+        } else {
+          paste0(
+            "Participants were split into training and validation sets for supervised prediction of ",
+            disease, ". "
+          )
+        },
         "Feature selection (LASSO) and candidate classifiers followed the study ML blocks. ",
-        "The primary model for SHAP/Shiny used the highest ", best_metric, " on the validation set. ",
+        "The primary reporting model followed the study primary_model_rule ",
+        "(default: external-validation discrimination when available); ",
+        "SHAP used the declared shap_explain_rule and must not be labelled simply as ",
+        "\"the best model\" without that rule. ",
         "Discrimination, calibration, and related metrics are reported in the performance tables."
       )
     } else {

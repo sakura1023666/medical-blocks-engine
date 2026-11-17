@@ -24,6 +24,10 @@
 | `refresh_uln_table3_after_cross.py` | 交叉评估后回填 Table 3 / S4/S6/S8 |
 | `redraw_uln_triple_figures.py` | ULN 三联 Figure 重画 |
 | `run_uln_cross_eval_four.sh` | 四队列交叉评估编排 |
+| `harmonize_blendedlos_units.py` | **引擎级** 四库单位调和+门控（血糖→mmol/L、血红蛋白→g/dL）；prepare/train 必挂 |
+| `fix_mimic_blood_glucose_mmol.py` | 薄包装 → `harmonize_blendedlos_units`（旧 ULN shell 兼容） |
+| `schedule_uln_glu_retrain_34.sh` | 单位修正后四队列重训 → `summary(new)`（不覆写旧 Output_physclip） |
+| `run_icuaaki_units_retrain_29.sh` | ICUAKI 单位修正后在 29 重训（新 Output_*_units，旧结果保留） |
 | `prepare_full_icu_blendedlos.py` / `prepare_*_blendedlos.py` | 各病种 BlendedLoS 准备（换病复制改参） |
 | `freeze_liver_*.py` / `prepare_liver_*.py` | 肝相关队列冻结与划分 |
 

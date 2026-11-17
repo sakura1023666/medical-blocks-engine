@@ -82,10 +82,14 @@ case "$COHORT" in
     ;;
 esac
 
-MAIN_OUT=$ROOT/Output_physclip
-OUT=$ROOT/Output_paper_extras_physclip
+# OUT_TAG: default physclip (legacy). Use physclip_glu_mmol for glucose-fixed retrain
+# so existing Output_physclip is not overwritten.
+OUT_TAG="${OUT_TAG:-physclip}"
+MAIN_OUT=$ROOT/Output_${OUT_TAG}
+OUT=$ROOT/Output_paper_extras_${OUT_TAG}
 LOGDIR=/mnt/sda/liver_easl_paper_extras/logs_physclip_queue
 mkdir -p "$LOGDIR" "$MAIN_OUT" "$OUT"
+echo "OUT_TAG=$OUT_TAG MAIN_OUT=$MAIN_OUT EXTRA=$OUT" > "$MAIN_OUT/OUT_TAG.txt"
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 export DBPOOL_FULL_EPOCHS=1
@@ -105,9 +109,25 @@ run_unit() {
   return $ec
 }
 
-log "BEGIN physclip DROP=[$DROP] data=$DATA"
+log "BEGIN physclip DROP=[$DROP] data=$DATA OUT_TAG=$OUT_TAG"
 echo "DBPOOL_PHYSIO_CLIP=1 DROP=$DROP" > "$MAIN_OUT/PHYSIO_CLIP.txt"
 echo "DROP=$DROP" > "$MAIN_OUT/DROPPED_FEATURES.txt"
+
+# FAIL_FAST=1 (default for glu retrain): stop on first unit failure instead of || true
+FAIL_FAST="${FAIL_FAST:-1}"
+run_or_die() {
+  local unit="$1" wdir="$2"
+  if run_unit "$unit" "$wdir"; then
+    return 0
+  fi
+  local ec=$?
+  if [ "$FAIL_FAST" = "1" ]; then
+    log "FATAL unit=$unit ec=$ec (FAIL_FAST=1)"
+    exit "$ec"
+  fi
+  log "WARN unit=$unit ec=$ec (continuing)"
+  return 0
+}
 
 # extend four-DB splits (idempotent)
 "$PY" "$EXTEND" --blended-out "$DATA" | tee "$LOGDIR/${COHORT}_extend_$(date +%Y%m%d_%H%M%S).log"
@@ -124,27 +144,27 @@ PY
 log "MIN_TRAIN_PER_DB=$MIN_TRAIN"
 
 # main four arms sequential on this GPU (A→B→C→D)
-run_unit liver_expA_amsterdam_solo "$MAIN_OUT/liver_expA_amsterdam_solo" || true
-run_unit liver_expB_mimic_solo "$MAIN_OUT/liver_expB_mimic_solo" || true
-run_unit liver_expC_mimic2amsterdam_transfer "$MAIN_OUT/liver_expC_mimic2amsterdam_transfer" || true
-run_unit liver_expD_pooled_mimic_amsterdam "$MAIN_OUT/liver_expD_pooled_mimic_amsterdam" || true
+run_or_die liver_expA_amsterdam_solo "$MAIN_OUT/liver_expA_amsterdam_solo"
+run_or_die liver_expB_mimic_solo "$MAIN_OUT/liver_expB_mimic_solo"
+run_or_die liver_expC_mimic2amsterdam_transfer "$MAIN_OUT/liver_expC_mimic2amsterdam_transfer"
+run_or_die liver_expD_pooled_mimic_amsterdam "$MAIN_OUT/liver_expD_pooled_mimic_amsterdam"
 
 # extras
 export DBPOOL_TRAIN_STAYS_PER_DB="$MIN_TRAIN"
-run_unit liver_model_benchmark_equaln "$OUT/liver_model_benchmark_equaln" || true
+run_or_die liver_model_benchmark_equaln "$OUT/liver_model_benchmark_equaln"
 unset DBPOOL_TRAIN_STAYS_PER_DB
-run_unit liver_dataset_benchmark "$OUT/liver_dataset_benchmark" || true
-run_unit liver_model_benchmark "$OUT/liver_model_benchmark" || true
-run_unit liver_training_size_study "$OUT/liver_training_size_study" || true
+run_or_die liver_dataset_benchmark "$OUT/liver_dataset_benchmark"
+run_or_die liver_model_benchmark "$OUT/liver_model_benchmark"
+run_or_die liver_training_size_study "$OUT/liver_training_size_study"
 
 # CI
 log "CI"
 "$PY" "$CI" --root "$MAIN_OUT" \
   --units liver_expA_amsterdam_solo,liver_expB_mimic_solo,liver_expC_mimic2amsterdam_transfer,liver_expD_pooled_mimic_amsterdam \
-  --n-boot 10000 --out "$OUT/ci_main_four_arms" || true
+  --n-boot 10000 --out "$OUT/ci_main_four_arms"
 for u in liver_model_benchmark liver_model_benchmark_equaln liver_training_size_study liver_dataset_benchmark; do
   if [ -d "$OUT/$u/results" ]; then
-    "$PY" "$CI" --root "$OUT" --units "$u" --n-boot 10000 --out "$OUT/ci_$u" || true
+    "$PY" "$CI" --root "$OUT" --units "$u" --n-boot 10000 --out "$OUT/ci_$u"
   fi
 done
 

@@ -392,7 +392,8 @@ ckm_stroke_fit_hr_row <- function(df, exposure, covars = NULL) {
   out
 }
 
-# 暴露成分不得进 Model（BMI 指数时踢 BMI；eGDR 不踢 BMI）
+# 暴露成分不得进 Model（公式原始列 + 临床近义代理；eGDR 不踢 BMI）
+# 例：ePWV = f(Age, MBP←SBP/DBP) → 踢 Age / SBP / DBP / MBP / Hypertension
 ckm_stroke_model_drop_exposure_components <- function(vars, index_name = NULL, bl = list()) {
   vars <- unique(as.character(vars %||% character(0)))
   idx <- as.character(index_name %||% bl$current_index %||% "")[1L]
@@ -404,7 +405,38 @@ ckm_stroke_model_drop_exposure_components <- function(vars, index_name = NULL, b
       drop <- c(drop, "BMI")
     }
   }
-  setdiff(vars, drop)
+  # 公式传递闭包（若 index 定义表已加载）
+  comps <- character(0)
+  if (nzchar(idx) && exists("pipeline_index_raw_components", mode = "function")) {
+    comps <- tryCatch(
+      as.character(pipeline_index_raw_components(idx)),
+      error = function(e) character(0)
+    )
+  }
+  # ePWV / MBP 未加载定义表时的硬兜底
+  if (grepl("^ePWV$", idx, ignore.case = TRUE)) {
+    comps <- unique(c(comps, "Age", "MBP", "SBP", "DBP"))
+  }
+  if (grepl("^MBP$", idx, ignore.case = TRUE)) {
+    comps <- unique(c(comps, "SBP", "DBP"))
+  }
+  if (grepl("^CVAI$", idx, ignore.case = TRUE)) {
+    comps <- unique(c(comps, "Age"))
+  }
+  drop <- c(drop, comps)
+  # 列名别名（ELSA NBPS/NBPD ↔ SBP/DBP）
+  if (any(c("SBP", "DBP", "MBP", "NBPS", "NBPD") %in% comps) ||
+      grepl("^ePWV$|^MBP$", idx, ignore.case = TRUE)) {
+    drop <- c(drop, "SBP", "DBP", "MBP", "NBPS", "NBPD",
+              "Hypertension", "Hypertension_w4", "Hypertension_t2")
+  }
+  if ("Age" %in% comps) drop <- c(drop, "Age")
+  if ("BMI" %in% comps) drop <- c(drop, "BMI")
+  if (any(c("Waist_circumference", "WC", "Weight", "Height") %in% comps)) {
+    # 体成分指数：不把整个人体测量池全踢，仅踢公式里出现的列名本身
+    drop <- c(drop, intersect(comps, c("Waist_circumference", "WC", "Weight", "Height")))
+  }
+  setdiff(vars, unique(as.character(drop)))
 }
 
 # 单因素 logistic P（连续=系数 P；因子=LRT 整体 P）
@@ -558,8 +590,52 @@ ckm_stroke_resolve_models_uv_vif <- function(
   )
 }
 
+ckm_stroke_apply_force_adjust_by_index <- function(models, bl, data, index_name = NULL) {
+  ix <- as.character(index_name %||% bl$current_index %||% "")[1L]
+  force_map <- bl$force_adjust_by_index
+  if (!length(ix) || !nzchar(ix) || is.null(force_map) || !length(force_map)) {
+    return(models)
+  }
+  # 兼容 list(HbA1c_HDL_C=...) / 带空格展示名
+  hit <- force_map[[ix]]
+  if (is.null(hit)) {
+    nm <- names(force_map)
+    key <- nm[toupper(gsub("[^A-Za-z0-9]", "", nm)) == toupper(gsub("[^A-Za-z0-9]", "", ix))]
+    if (length(key)) hit <- force_map[[key[[1L]]]]
+  }
+  if (is.null(hit) || !is.list(hit)) return(models)
+  m2 <- intersect(as.character(hit$Model2 %||% hit$model2 %||% character(0)), names(data))
+  m3 <- intersect(as.character(hit$Model3 %||% hit$model3 %||% character(0)), names(data))
+  # 也支持仅排除名单：在 uv/fixed 结果上踢变量
+  excl <- unique(as.character(hit$exclude %||% hit$adjust_exclude %||% character(0)))
+  if (length(excl)) {
+    if (!length(m2)) m2 <- setdiff(as.character(models$Model2 %||% character(0)), excl)
+    if (!length(m3)) m3 <- setdiff(as.character(models$Model3 %||% character(0)), excl)
+    m2 <- setdiff(m2, excl)
+    m3 <- setdiff(m3, excl)
+  }
+  if (length(m2) || length(m3)) {
+    if (length(m2)) models$Model2 <- m2
+    if (length(m3)) {
+      # 显式 Model3 名单为准；若只给了增量则并入 Model2
+      models$Model3 <- if (length(m2) && !all(m2 %in% m3)) unique(c(m2, m3)) else unique(m3)
+    } else if (length(m2)) {
+      models$Model3 <- unique(c(m2, setdiff(as.character(models$Model3 %||% character(0)), excl)))
+    }
+    models$force_adjust_index <- ix
+    models$force_adjust_note <- sprintf(
+      "force_adjust_by_index[%s]: M2=%s; M3=%s",
+      ix,
+      paste(models$Model2, collapse = "+"),
+      paste(models$Model3, collapse = "+")
+    )
+  }
+  models
+}
+
 ckm_stroke_model_sets <- function(bl, data, index_name = NULL, outcome = NULL) {
   mode <- tolower(as.character(bl$covariate_mode %||% "fixed")[1L])
+  out <- NULL
   if (identical(mode, "uv_vif")) {
     oc <- as.character(outcome %||% bl$outcome_column %||% "Osteoporosis")[1L]
     if (!oc %in% names(data)) {
@@ -569,21 +645,22 @@ ckm_stroke_model_sets <- function(bl, data, index_name = NULL, outcome = NULL) {
       }
     }
     res <- ckm_stroke_resolve_models_uv_vif(data, oc, bl = bl, index_name = index_name)
-    return(list(
+    out <- list(
       Model1 = res$Model1, Model2 = res$Model2, Model3 = res$Model3,
       uv_vif = res
-    ))
+    )
+  } else {
+    m1 <- character(0)
+    m2 <- intersect(as.character(bl$model2 %||% c("Age", "Gender", "Marital")), names(data))
+    m3 <- intersect(as.character(bl$model3 %||% c(
+      "Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
+      "eGFR", "Dyslipidemia", "Diabetes"
+    )), names(data))
+    m2 <- ckm_stroke_model_drop_exposure_components(m2, index_name, bl)
+    m3 <- ckm_stroke_model_drop_exposure_components(m3, index_name, bl)
+    out <- list(Model1 = m1, Model2 = m2, Model3 = m3)
   }
-
-  m1 <- character(0)
-  m2 <- intersect(as.character(bl$model2 %||% c("Age", "Gender", "Marital")), names(data))
-  m3 <- intersect(as.character(bl$model3 %||% c(
-    "Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
-    "eGFR", "Dyslipidemia", "Diabetes"
-  )), names(data))
-  m2 <- ckm_stroke_model_drop_exposure_components(m2, index_name, bl)
-  m3 <- ckm_stroke_model_drop_exposure_components(m3, index_name, bl)
-  list(Model1 = m1, Model2 = m2, Model3 = m3)
+  ckm_stroke_apply_force_adjust_by_index(out, bl, data, index_name = index_name)
 }
 
 ckm_stroke_prepare_age_group <- function(df, cutoff = 60L) {

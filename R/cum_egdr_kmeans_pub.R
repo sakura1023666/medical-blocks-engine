@@ -53,7 +53,89 @@ ckm_stroke_default_project_paths <- function(
 
 # -----------------------------------------------------------------------------
 # Class map (paper Class 1–4) — disease-agnostic via overrides
+# 编号仍固定：Persistent_low→Class2 等；参照类按指标方向重挑，不再写死 Class 2
 # -----------------------------------------------------------------------------
+
+# 指标方向：higher_better（如 eGDR）vs higher_worse（ABSI/WWI/ePWV 等）
+ckm_stroke_index_risk_direction <- function(index_name) {
+  idx <- as.character(index_name %||% "")[1L]
+  if (!nzchar(idx)) return("higher_worse")
+  if (grepl("^eGDR$", idx, ignore.case = TRUE)) return("higher_better")
+  "higher_worse"
+}
+
+# 按本指标数据挑参照 Class（返回 paper Class 名 + 语义名 + 理由）
+ckm_stroke_pick_ref_class <- function(
+    data,
+    index_name,
+    class_col = "Class_paper",
+    t1_col = "eGDR_t1",
+    outcome = NULL,
+    policy = c("direction_mean", "lowest_event_rate", "force"),
+    force_ref_class = NULL,
+    cmap_base = NULL) {
+  policy <- match.arg(policy)
+  cmap_base <- cmap_base %||% ckm_stroke_class_map_paper()
+  classes <- as.character(cmap_base$order_paper)
+  if (!class_col %in% names(data)) {
+    stop("ckm_stroke_pick_ref_class: missing ", class_col, call. = FALSE)
+  }
+  if (identical(policy, "force") && !is.null(force_ref_class) &&
+      as.character(force_ref_class)[1L] %in% classes) {
+    ref_cl <- as.character(force_ref_class)[1L]
+    reason <- sprintf("forced reference %s", ref_cl)
+  } else if (identical(policy, "lowest_event_rate") &&
+             !is.null(outcome) && outcome %in% names(data)) {
+    y <- as.integer(as.numeric(data[[outcome]]) == 1L)
+    rates <- vapply(classes, function(cl) {
+      keep <- as.character(data[[class_col]]) == cl
+      if (!any(keep)) return(Inf)
+      mean(y[keep], na.rm = TRUE)
+    }, numeric(1))
+    ref_cl <- names(which.min(rates))[1L]
+    reason <- sprintf(
+      "lowest crude event rate (%.1f%%) among Class 1–4",
+      100 * as.numeric(rates[[ref_cl]])
+    )
+  } else {
+    # direction_mean（默认）：higher_worse → 最低 Wave4 均值类；higher_better → 最高
+    if (!t1_col %in% names(data)) {
+      stop("ckm_stroke_pick_ref_class: missing ", t1_col, call. = FALSE)
+    }
+    means <- vapply(classes, function(cl) {
+      keep <- as.character(data[[class_col]]) == cl
+      mean(as.numeric(data[[t1_col]][keep]), na.rm = TRUE)
+    }, numeric(1))
+    direction <- ckm_stroke_index_risk_direction(index_name)
+    if (identical(direction, "higher_better")) {
+      ref_cl <- names(which.max(means))[1L]
+      reason <- sprintf(
+        "%s is higher-better; reference = highest Wave-4 mean class (%s, mean=%.3f)",
+        index_name, ref_cl, as.numeric(means[[ref_cl]])
+      )
+    } else {
+      ref_cl <- names(which.min(means))[1L]
+      reason <- sprintf(
+        "%s is higher-worse; reference = lowest Wave-4 mean class (%s, mean=%.3f)",
+        index_name, ref_cl, as.numeric(means[[ref_cl]])
+      )
+    }
+  }
+  ref_sem <- as.character(cmap_base$semantic_of[[ref_cl]] %||% NA_character_)[1L]
+  if (!nzchar(ref_sem) || is.na(ref_sem)) {
+    # semantic_of 是 Class→语义；map 是语义→Class
+    hit <- names(cmap_base$map)[cmap_base$map == ref_cl]
+    ref_sem <- if (length(hit)) hit[[1L]] else NA_character_
+  }
+  list(
+    ref_class = ref_cl,
+    ref_semantic = ref_sem,
+    reason = reason,
+    policy = policy,
+    order_table_ref_first = c(ref_cl, setdiff(classes, ref_cl))
+  )
+}
+
 ckm_stroke_class_map_paper <- function(
     map = c(
       Moderate_high_stable = "Class 1",
@@ -62,13 +144,25 @@ ckm_stroke_class_map_paper <- function(
       Rapid_decrease = "Class 4"
     ),
     order_paper = c("Class 1", "Class 2", "Class 3", "Class 4"),
-    order_table_ref_first = c("Class 2", "Class 1", "Class 3", "Class 4"),
+    order_table_ref_first = NULL,
     colors = c(`Class 1` = "#E41A1C", `Class 2` = "#4DAF4A",
                `Class 3` = "#377EB8", `Class 4` = "#984EA3"),
     shapes = c(`Class 1` = 16, `Class 2` = 17, `Class 3` = 15, `Class 4` = 8),
-    semantic_of = NULL) {
+    semantic_of = NULL,
+    ref_class = NULL,
+    ref_semantic = NULL,
+    ref_reason = NULL) {
   if (is.null(semantic_of)) {
     semantic_of <- setNames(names(map), unname(map))
+  }
+  # 默认仍可用 Persistent_low/Class2，但正式发表须经 ckm_stroke_class_map_for_index 重挑
+  if (is.null(ref_class)) ref_class <- "Class 2"
+  if (is.null(ref_semantic)) {
+    ref_semantic <- names(map)[map == ref_class]
+    ref_semantic <- if (length(ref_semantic)) ref_semantic[[1L]] else "Persistent_low"
+  }
+  if (is.null(order_table_ref_first)) {
+    order_table_ref_first <- c(ref_class, setdiff(order_paper, ref_class))
   }
   list(
     map = map,
@@ -77,8 +171,72 @@ ckm_stroke_class_map_paper <- function(
     colors = colors,
     shapes = shapes,
     semantic_of = semantic_of,
-    ref_class = "Class 2",
-    ref_semantic = "Persistent_low"
+    ref_class = as.character(ref_class)[1L],
+    ref_semantic = as.character(ref_semantic)[1L],
+    ref_reason = as.character(ref_reason %||% "")[1L]
+  )
+}
+
+# 按数据中实际出现的语义类建 map（k=3 时无 Rapid_decrease / Class 4）
+ckm_stroke_class_map_from_present <- function(semantic) {
+  sem <- unique(as.character(stats::na.omit(semantic)))
+  # 固定文献编号：中高稳→1，持续低→2，稳定高→3，快速降→4；缺谁丢谁
+  full_map <- c(
+    Moderate_high_stable = "Class 1",
+    Persistent_low = "Class 2",
+    Stable_high = "Class 3",
+    Rapid_decrease = "Class 4"
+  )
+  keep <- names(full_map)[names(full_map) %in% sem]
+  if (!length(keep)) keep <- names(full_map)
+  map <- full_map[keep]
+  order_paper <- unname(map)
+  ckm_stroke_class_map_paper(
+    map = map,
+    order_paper = order_paper,
+    ref_class = if ("Persistent_low" %in% names(map)) map[["Persistent_low"]] else order_paper[1L],
+    ref_semantic = if ("Persistent_low" %in% names(map)) "Persistent_low" else names(map)[1L]
+  )
+}
+
+# 编号随实际类数 + 按指标数据重挑参照
+ckm_stroke_class_map_for_index <- function(
+    data,
+    index_name,
+    class_col = "Class_paper",
+    t1_col = "eGDR_t1",
+    outcome = NULL,
+    policy = "direction_mean",
+    force_ref_class = NULL,
+    semantic_col = "eGDR_Class") {
+  # 优先用语义列推断实际类数
+  if (semantic_col %in% names(data)) {
+    base <- ckm_stroke_class_map_from_present(data[[semantic_col]])
+  } else {
+    base <- ckm_stroke_class_map_paper()
+  }
+  # 若尚未挂 Class_paper，先按语义编号挂一次
+  if (!class_col %in% names(data) && semantic_col %in% names(data)) {
+    data <- ckm_stroke_attach_class_paper(data, semantic_col, base)
+    class_col <- "Class_paper"
+  }
+  picked <- ckm_stroke_pick_ref_class(
+    data,
+    index_name = index_name,
+    class_col = class_col,
+    t1_col = t1_col,
+    outcome = outcome,
+    policy = policy,
+    force_ref_class = force_ref_class,
+    cmap_base = base
+  )
+  ckm_stroke_class_map_paper(
+    map = base$map,
+    order_paper = base$order_paper,
+    ref_class = picked$ref_class,
+    ref_semantic = picked$ref_semantic,
+    order_table_ref_first = picked$order_table_ref_first,
+    ref_reason = picked$reason
   )
 }
 
@@ -89,9 +247,10 @@ ckm_stroke_attach_class_paper <- function(data, class_col = "eGDR_Class",
     unname(cmap$map[as.character(data[[class_col]])]),
     levels = cmap$order_paper
   )
-  data[[class_col]] <- stats::relevel(
+  ref_sem <- as.character(cmap$ref_semantic %||% "Persistent_low")[1L]
+  data[[class_col]] <- .ckm_relevel_class_safe(
     factor(data[[class_col]]),
-    ref = cmap$ref_semantic
+    ref_sem
   )
   data
 }
@@ -332,30 +491,31 @@ ckm_stroke_build_table1_by_class <- function(
     ),
     outcome = "Stroke",
     outcome_lab = "Incident stroke, n (%)") {
-  levels_cls <- cmap$order_paper
+  levels_cls <- as.character(cmap$order_paper %||% c("Class 1", "Class 2", "Class 3", "Class 4"))
+  # 仅保留样本中实际出现的类（k=3 时无 Class 4）
+  present <- intersect(levels_cls, unique(as.character(data[[class_col]])))
+  if (length(present)) levels_cls <- present
   cls <- factor(data[[class_col]], levels = levels_cls)
   n_all <- nrow(data)
   n_by_class <- as.integer(table(cls))
   names(n_by_class) <- names(table(cls))
 
+  .row_shell <- function(lab, overall, by_named, p = "") {
+    out <- data.frame(Characteristics = lab, Overall = overall,
+                      check.names = FALSE, stringsAsFactors = FALSE)
+    for (lv in levels_cls) out[[lv]] <- as.character(by_named[[lv]] %||% "")
+    out[["P-value"]] <- p
+    out
+  }
   .empty_row <- function(lab, p = "") {
-    data.frame(
-      Characteristics = lab, Overall = "",
-      `Class 1` = "", `Class 2` = "", `Class 3` = "", `Class 4` = "",
-      `P-value` = p, check.names = FALSE, stringsAsFactors = FALSE
-    )
+    .row_shell(lab, "", setNames(rep("", length(levels_cls)), levels_cls), p)
   }
   .cont_row <- function(lab, x) {
     overall <- ckm_stroke_mean_sd(x)
     by <- vapply(levels_cls, function(lv) ckm_stroke_mean_sd(x[as.character(cls) == lv]), character(1))
+    names(by) <- levels_cls
     pv <- tryCatch(stats::kruskal.test(x ~ cls)$p.value, error = function(e) NA_real_)
-    data.frame(
-      Characteristics = lab, Overall = overall,
-      `Class 1` = by["Class 1"], `Class 2` = by["Class 2"],
-      `Class 3` = by["Class 3"], `Class 4` = by["Class 4"],
-      `P-value` = ckm_stroke_fmt_p(pv),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
+    .row_shell(lab, overall, by, ckm_stroke_fmt_p(pv))
   }
   .cat_block <- function(lab, x) {
     x <- factor(x)
@@ -371,12 +531,9 @@ ckm_stroke_build_table1_by_class <- function(
         den <- sum(!is.na(x[keep]))
         ckm_stroke_n_pct(n, den)
       }, character(1))
-      rows[[length(rows) + 1L]] <- data.frame(
-        Characteristics = paste0("  ", lvx),
-        Overall = ckm_stroke_n_pct(n_o, den_o),
-        `Class 1` = by["Class 1"], `Class 2` = by["Class 2"],
-        `Class 3` = by["Class 3"], `Class 4` = by["Class 4"],
-        `P-value` = "", check.names = FALSE, stringsAsFactors = FALSE
+      names(by) <- levels_cls
+      rows[[length(rows) + 1L]] <- .row_shell(
+        paste0("  ", lvx), ckm_stroke_n_pct(n_o, den_o), by, ""
       )
     }
     do.call(rbind, rows)
@@ -447,17 +604,18 @@ ckm_stroke_build_table1_by_class <- function(
 
   t1 <- do.call(rbind, parts)
   rownames(t1) <- NULL
-  names(t1) <- c(
+  hdr <- c(
     "Characteristics",
     sprintf("Overall\n(N = %s)", format(n_all, big.mark = ",")),
-    sprintf("Class 1\n(N = %s)", format(n_by_class[["Class 1"]] %||% 0L, big.mark = ",")),
-    sprintf("Class 2\n(N = %s)", format(n_by_class[["Class 2"]] %||% 0L, big.mark = ",")),
-    sprintf("Class 3\n(N = %s)", format(n_by_class[["Class 3"]] %||% 0L, big.mark = ",")),
-    sprintf("Class 4\n(N = %s)", format(n_by_class[["Class 4"]] %||% 0L, big.mark = ",")),
+    vapply(levels_cls, function(cl) {
+      sprintf("%s\n(N = %s)", cl, format(n_by_class[[cl]] %||% 0L, big.mark = ","))
+    }, character(1)),
     "P-value"
   )
+  names(t1) <- hdr
   level_idx <- which(grepl("^  ", t1[[1]])) + 1L
-  list(df = t1, n_all = n_all, n_by_class = n_by_class, excel_level_row_idx = level_idx)
+  list(df = t1, n_all = n_all, n_by_class = n_by_class, excel_level_row_idx = level_idx,
+       levels_cls = levels_cls)
 }
 
 ckm_stroke_style_table1_xlsx <- function(xlsx_path) {
@@ -954,7 +1112,7 @@ ckm_stroke_export_assoc_xlsx <- function(built, filepath, title, footnotes) {
 }
 
 # -----------------------------------------------------------------------------
-# Table 3 subgroup (Class2 ref wide)
+# Table 3 subgroup（参照类按 cmap$order_table_ref_first，不再写死 Class 2）
 # -----------------------------------------------------------------------------
 ckm_stroke_build_table3_subgroup <- function(
     data, models,
@@ -983,9 +1141,15 @@ ckm_stroke_build_table3_subgroup <- function(
     if (sg_var == "BMI_Group") return("BMI")
     if (sg_var == "Smoke_ne") return("Smoke")
     if (sg_var == "Drink_ne") return("Drink")
-    if (sg_var %in% c("Gender", "Dyslipidemia", "Diabetes", "Hypertension")) return(sg_var)
+    if (sg_var %in% c("Gender", "Dyslipidemia", "Diabetes", "Hypertension", "Marital", "Education")) {
+      return(sg_var)
+    }
     character(0)
   }
+  ord <- as.character(cmap$order_table_ref_first %||% cmap$order_paper)
+  ref_cl <- as.character(cmap$ref_class %||% ord[1L])[1L]
+  if (!length(ord)) ord <- c("Class 1", "Class 2", "Class 3", "Class 4")
+  if (!ref_cl %in% ord) ord <- c(ref_cl, setdiff(ord, ref_cl))
   t3_rows <- list()
   for (sg in sg_defs) {
     if (!sg$var %in% names(data_sg)) next
@@ -1006,37 +1170,43 @@ ckm_stroke_build_table3_subgroup <- function(
       dsub[[class_col]] <- .ckm_relevel_class_safe(dsub[[class_col]], cmap$ref_semantic)
       rr <- if (nrow(dsub) >= 40L) ckm_stroke_fit_or_row(dsub, class_col, outcome, cov) else NULL
       cell <- function(cl) {
+        if (identical(cl, ref_cl)) return("Reference")
         sem <- sem_of(cl)
         if (is.na(sem)) return("NE")
         h <- .ckm_get_term(rr, paste0(sem, "$"))
         if (is.null(h)) return("NE")
         ckm_stroke_fmt_orci(h$OR, h$CI_low, h$CI_high)
       }
-      c1 <- cell("Class 1"); c3 <- cell("Class 3"); c4 <- cell("Class 4")
-      # 参照类 0 事件时三列都是 NE，空层不进表
-      if (all(c(c1, c3, c4) == "NE")) next
-      level_rows[[length(level_rows) + 1L]] <- data.frame(
+      cells <- vapply(ord, cell, character(1))
+      # 非参照列全 NE → 空层不进表
+      if (all(cells[ord != ref_cl] == "NE")) next
+      row_df <- data.frame(
         Subgroup = paste0("  ", lv),
-        `Class 2` = "Reference",
-        `Class 1` = c1, `Class 3` = c3, `Class 4` = c4,
-        `P for interaction` = "",
         check.names = FALSE, stringsAsFactors = FALSE
       )
+      for (j in seq_along(ord)) row_df[[ord[j]]] <- cells[[j]]
+      row_df[["P for interaction"]] <- ""
+      level_rows[[length(level_rows) + 1L]] <- row_df
     }
     if (!length(level_rows)) next
     pint_txt <- if (length(level_rows) >= 2L) ckm_stroke_fmt_p(pint) else "\u2014"
-    t3_rows[[length(t3_rows) + 1L]] <- data.frame(
-      Subgroup = sg$label,
-      `Class 2` = "", `Class 1` = "", `Class 3` = "", `Class 4` = "",
-      `P for interaction` = pint_txt,
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
+    hdr <- data.frame(Subgroup = sg$label, check.names = FALSE, stringsAsFactors = FALSE)
+    for (cl in ord) hdr[[cl]] <- ""
+    hdr[["P for interaction"]] <- pint_txt
+    t3_rows[[length(t3_rows) + 1L]] <- hdr
     t3_rows <- c(t3_rows, level_rows)
+  }
+  if (!length(t3_rows)) {
+    empty <- data.frame(Subgroup = character(0), check.names = FALSE)
+    for (cl in ord) empty[[cl]] <- character(0)
+    empty[["P for interaction"]] <- character(0)
+    return(list(df = empty, excel_level_row_idx = integer(0)))
   }
   t3 <- do.call(rbind, t3_rows)
   rownames(t3) <- NULL
-  names(t3) <- c("Subgroup", "Class 2 Reference", "Class 1", "Class 3", "Class 4",
-                 "P for interaction")
+  col_labs <- ord
+  col_labs[1L] <- paste0(ord[1L], " Reference")
+  names(t3) <- c("Subgroup", col_labs, "P for interaction")
   list(df = t3, excel_level_row_idx = which(grepl("^  ", t3$Subgroup)) + 1L)
 }
 
@@ -1413,16 +1583,48 @@ ckm_stroke_fig1_flowchart <- function(
   .box(xc, y2, bw, bh,
        sprintf("%s subjects in final analysis", .fmtn(a$n_final)), cex = 0.95)
 
+  # 底部分叉：只画实际出现且 n>0 的类（k=3 时不留 Class 4 空框）
+  .cls_labs <- character(0)
+  .cls_ns <- integer(0)
+  if (!is.null(class_n) && length(class_n)) {
+    nm <- names(class_n)
+    if (is.null(nm) || !any(nzchar(nm))) {
+      nm <- paste0("Class ", seq_along(class_n))
+      names(class_n) <- nm
+    }
+    # 优先按 Class 1..k 排序；否则保持传入顺序
+    ord <- order(match(nm, paste0("Class ", seq_len(20L)), nomatch = 999L), nm)
+    nm <- nm[ord]
+    vv <- as.integer(class_n[nm])
+    keep <- !is.na(vv) & vv > 0L
+    .cls_labs <- nm[keep]
+    .cls_ns <- vv[keep]
+  }
+  if (!length(.cls_labs)) {
+    .cls_labs <- paste0("Class ", 1:4)
+    .cls_ns <- rep(0L, 4L)
+  }
+  n_cls <- length(.cls_labs)
+  # 横排居中：2/3/4 类自适应间距
+  if (n_cls == 1L) {
+    xs <- 5.0
+  } else if (n_cls == 2L) {
+    xs <- c(2.8, 7.2)
+  } else if (n_cls == 3L) {
+    xs <- c(2.0, 5.0, 8.0)
+  } else {
+    xs <- seq(1.2, 8.8, length.out = n_cls)
+  }
+  box_w <- if (n_cls <= 3L) 2.35 else 1.95
+  cex_cls <- if (n_cls <= 3L) 0.88 else 0.82
+
   y_bar <- y_cls + bh_cls / 2 + 0.42
   arrows(xc, y2 - bh / 2, xc, y_bar, length = 0.08, lwd = 1.3)
-  xs <- c(1.2, 3.4, 5.6, 7.8)
-  segments(xs[1], y_bar, xs[4], y_bar, lwd = 1.3)
-  for (i in seq_along(xs)) {
-    lab <- paste0("Class ", i)
-    nn <- if (!is.null(class_n) && lab %in% names(class_n)) as.integer(class_n[[lab]]) else 0L
+  segments(xs[1L], y_bar, xs[n_cls], y_bar, lwd = 1.3)
+  for (i in seq_len(n_cls)) {
     arrows(xs[i], y_bar, xs[i], y_cls + bh_cls / 2, length = 0.08, lwd = 1.3)
-    .box(xs[i], y_cls, 1.95, bh_cls,
-         sprintf("%s\n(n=%s)", lab, .fmtn(nn)), cex = 0.82)
+    .box(xs[i], y_cls, box_w, bh_cls,
+         sprintf("%s\n(n=%s)", .cls_labs[i], .fmtn(.cls_ns[i])), cex = cex_cls)
   }
   if (nzchar(as.character(note %||% "")[1L])) {
     text(5, 2.1, note, cex = 0.62, col = "grey30")
@@ -2043,7 +2245,9 @@ ckm_stroke_kill_fig2_splits <- function(fig_dir) {
 #'
 #' @param index_lab 指标展示名（如 ABSI / WWI）
 #' @param n_analytic 分析集人数
+#' @param model2_covars Model 2 协变量
 #' @param model3_covars Model 3 协变量字符向量
+#' @param ref_class_note 参照类按指标重挑的说明
 #' @param unit_delta 连续项步长（ABSI 默认 0.1）
 #' @param min_age 纳入年龄下界
 #' @param database 数据库名
@@ -2051,15 +2255,20 @@ ckm_stroke_kill_fig2_splits <- function(fig_dir) {
 ckm_stroke_elsa_methods_statistical_lines <- function(
     index_lab = "ABSI",
     n_analytic = NA_integer_,
+    model2_covars = character(0),
     model3_covars = c("Age", "Gender", "Marital", "Dyslipidemia", "Hypertension"),
+    ref_class_note = "",
     unit_delta = NULL,
     min_age = 50L,
     database = "ELSA",
-    outcome_lab = "incident osteoporosis") {
+    outcome_lab = "incident osteoporosis",
+    k_clusters = NULL,
+    k_note = NULL) {
   ix <- as.character(index_lab %||% "index")[1L]
   ud <- if (is.null(unit_delta)) ckm_stroke_cont_unit_delta(ix) else as.numeric(unit_delta)[1L]
   if (!is.finite(ud) || ud <= 0) ud <- 1
   ud_lab <- ckm_stroke_unit_delta_label(ud)
+  cov2_txt <- paste(as.character(model2_covars %||% character(0)), collapse = ", ")
   cov_txt <- paste(as.character(model3_covars %||% character(0)), collapse = ", ")
   n_txt <- if (is.finite(as.numeric(n_analytic)[1L])) {
     format(as.integer(n_analytic)[1L], big.mark = ",")
@@ -2079,15 +2288,36 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
       as.integer(min_age)[1L], db, ix, n_txt
     )
   }
+  .k_sentence <- {
+    kn <- as.character(k_note %||% "")[1L]
+    if (nzchar(kn)) {
+      kn
+    } else if (!is.null(k_clusters) && is.finite(as.numeric(k_clusters)[1L])) {
+      sprintf(
+        "k was pre-specified as %d for this index (config force_k_by_index).",
+        as.integer(k_clusters)[1L]
+      )
+    } else {
+      "k was chosen from the elbow plot with a visual cap of 4."
+    }
+  }
   exposure_para <- if (is_elsa) {
-    sprintf(
-      "Wave-specific %s used the standard anthropometric definition available in the harmonised files. Cumulative exposure was ((%s Wave 4 + %s Wave 6)/2) × 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 4 and Wave 6 values (nstart = 25, seed = 2026, iter.max = 100); k was chosen from the elbow plot with a visual cap of 4. Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 4 mean range.",
-      ix, ix, ix, ud_lab
+    paste0(
+      sprintf(
+        "Wave-specific %s used the standard anthropometric definition available in the harmonised files. Cumulative exposure was ((%s Wave 4 + %s Wave 6)/2) \u00d7 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 4 and Wave 6 values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 4 mean range. ",
+        ix, ix, ix, ud_lab, .k_sentence
+      ),
+      "The regression reference class was re-selected for each index (not hard-coded to Class 2): higher-worse indices use the lowest Wave-4 mean class; higher-better indices (eGDR) use the highest Wave-4 mean class.",
+      if (nzchar(as.character(ref_class_note %||% "")[1L])) {
+        paste0(" For this index: ", as.character(ref_class_note)[1L], ".")
+      } else {
+        ""
+      }
     )
   } else {
     sprintf(
-      "Wave-specific %s used the study anthropometric definition. Cumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); k was chosen from the elbow plot with a visual cap of 4. Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
-      ix, ud_lab
+      "Wave-specific %s used the study anthropometric definition. Cumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
+      ix, ud_lab, .k_sentence
     )
   }
   outcome_para <- if (is_elsa) {
@@ -2118,8 +2348,29 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
     outcome_para,
     "",
     "## Regression models",
-    "Model 1 was unadjusted. Model 2 adjusted for the study demographic core (typically Age and Gender, plus Marital when used). Model 3 candidates forced Age, excluded exposure-component variables, retained univariate associations at P < 0.05, then removed terms with VIF ≥ 4. Model 3 is not fully adjusted.",
-    sprintf("Locked Model 3 covariates for this index: %s.", cov_txt),
+    {
+      m2v <- as.character(model2_covars %||% character(0))
+      m3v <- as.character(model3_covars %||% character(0))
+      paste0(
+        "Model 1 was unadjusted. ",
+        if (length(m2v)) {
+          sprintf("Model 2 adjusted for: %s. ", paste(m2v, collapse = ", "))
+        } else {
+          "Model 2 used the study demographic core after univariate/VIF screening. "
+        },
+        if (length(m3v)) {
+          sprintf(
+            "Model 3 adjusted for: %s (univariate P < 0.05 then VIF < 4 where screening applied; exposure-component variables and proxies excluded; not fully adjusted). ",
+            paste(m3v, collapse = ", ")
+          )
+        } else {
+          "Model 3 extended Model 2 with clinical candidates after univariate/VIF screening (not fully adjusted). "
+        },
+        "The same locked Model 2 / Model 3 sets were used for Table 2, Table S1, RCS, and subgroup forests (stratification variable dropped within its own stratum)."
+      )
+    },
+    if (nzchar(cov2_txt)) sprintf("Locked Model 2 covariates for this index: %s.", cov2_txt) else NULL,
+    sprintf("Locked Model 3 covariates for this index (used for Table 2/S1/S3/S4, Table 3, RCS, and subgroup forests): %s.", cov_txt),
     "Odds ratios and hazard ratios are reported to three decimal places with 95% confidence intervals. Tertile P for trend used the ordinal tertile score. Unordered trajectory classes did not receive a P for trend.",
     "",
     "## Restricted cubic splines and subgroups",
@@ -2145,20 +2396,33 @@ ckm_stroke_finalize_summary_delivery <- function(
     summary_root,
     index_lab = "ABSI",
     n_analytic = NA_integer_,
+    model2_covars = character(0),
     model3_covars = c("Age", "Gender", "Marital", "Dyslipidemia", "Hypertension"),
+    ref_class_note = "",
     unit_delta = NULL,
     min_age = 50L,
     database = "ELSA",
     outcome_lab = "incident osteoporosis",
     software_extra = character(0),
-    prune = TRUE) {
+    prune = TRUE,
+    k_clusters = NULL,
+    k_note = NULL) {
   sr <- as.character(summary_root %||% "")[1L]
   if (!nzchar(sr) || !dir.exists(sr)) {
     stop("ckm_stroke_finalize_summary_delivery: summary_root missing: ", sr, call. = FALSE)
   }
+  .repo <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = Sys.getenv("BLOCK_REPO_ROOT", unset = "."))
   if (!exists("pub_prune_delivery_root", mode = "function")) {
-    pr <- file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."), "R/pub_delivery_prune.R")
+    pr <- file.path(.repo, "R/pub_delivery_prune.R")
     if (file.exists(pr)) source(pr, local = FALSE)
+  }
+  if (!exists("pub_delivery_scrub_display", mode = "function") &&
+      !exists("pub_xlsx_scrub_underscores_dir", mode = "function")) {
+    px <- file.path(.repo, "R/pub_xlsx_surgical.R")
+    if (file.exists(px)) source(px, local = FALSE)
+    if (file.exists(file.path(.repo, "R/pub_delivery_prune.R"))) {
+      source(file.path(.repo, "R/pub_delivery_prune.R"), local = FALSE)
+    }
   }
   if (exists("pub_delivery_normalize_fig_tab_dirs", mode = "function")) {
     pub_delivery_normalize_fig_tab_dirs(sr)
@@ -2166,15 +2430,36 @@ ckm_stroke_finalize_summary_delivery <- function(
   if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
     pub_delivery_clean_tables_xlsx_only(sr)
   }
+  # 展示层铁律：禁下划线 + Times New Roman（表 xlsx + image_information）
+  scrub_res <- NULL
+  if (exists("pub_delivery_scrub_display", mode = "function")) {
+    scrub_res <- tryCatch(
+      pub_delivery_scrub_display(sr, root = .repo),
+      error = function(e) {
+        warning("pub_delivery_scrub_display failed: ", conditionMessage(e))
+        NULL
+      }
+    )
+  } else if (exists("pub_delivery_scrub_tables_underscores", mode = "function")) {
+    scrub_res <- tryCatch(
+      pub_delivery_scrub_tables_underscores(sr, root = .repo),
+      error = function(e) NULL
+    )
+  }
   lines <- ckm_stroke_elsa_methods_statistical_lines(
     index_lab = index_lab,
     n_analytic = n_analytic,
+    model2_covars = model2_covars,
     model3_covars = model3_covars,
+    ref_class_note = ref_class_note,
     unit_delta = unit_delta,
     min_age = min_age,
     database = database,
-    outcome_lab = outcome_lab
+    outcome_lab = outcome_lab,
+    k_clusters = k_clusters,
+    k_note = k_note
   )
+  lines <- lines[!vapply(lines, is.null, logical(1))]
   md_path <- file.path(sr, "Methods_statistical_analysis.md")
   writeLines(lines, md_path, useBytes = TRUE)
   soft_extra <- unique(c(
@@ -2190,7 +2475,10 @@ ckm_stroke_finalize_summary_delivery <- function(
         if (is.null(unit_delta)) ckm_stroke_cont_unit_delta(index_lab) else unit_delta
       )
     ),
-    "Model 3: univariate P<0.05 then VIF<4; Age forced; exposure components excluded; not fully adjusted.",
+    sprintf(
+      "Model 3: univariate P<0.05 then VIF<4; exposure components/proxies excluded%s; not fully adjusted.",
+      if ("Age" %in% as.character(model3_covars %||% character(0))) "; Age forced when allowed" else ""
+    ),
     "Subgroup forests may use mice(m=5)+Rubin for incomplete Model 3 covariates; Table2/S1 Model3 remain complete-case.",
     as.character(software_extra %||% character(0))
   ))
@@ -2202,7 +2490,7 @@ ckm_stroke_finalize_summary_delivery <- function(
   }
   fig_dir <- file.path(sr, "Figures")
   if (dir.exists(fig_dir) && exists("pub_figure_ensure_formats", mode = "function")) {
-    # 骨质疏松 ABSI 交付含 png/tiff@600；与 pdf/image_information 同目录齐套
+    # 全项目默认 PDF + image_information；不交付 png/tiff
     try(
       pub_figure_ensure_formats(
         fig_dir,
@@ -2211,14 +2499,35 @@ ckm_stroke_finalize_summary_delivery <- function(
           pub_figures = list(
             dpi = 600L,
             formats_dir = TRUE,
-            export_png = TRUE,
-            export_tiff = TRUE
+            export_png = FALSE,
+            export_tiff = FALSE
           )
         ),
         purge = FALSE
       ),
       silent = TRUE
     )
+    if (exists("pub_figure_drop_raster_dirs", mode = "function")) {
+      try(pub_figure_drop_raster_dirs(fig_dir), silent = TRUE)
+    } else {
+      unlink(file.path(fig_dir, c("png", "tiff")), recursive = TRUE, force = TRUE)
+    }
+  }
+  # 图文件名禁下划线（展示层）
+  if (dir.exists(fig_dir) && exists("pipeline_display_no_underscore", mode = "function")) {
+    for (sub in c("pdf", "image_information", "")) {
+      base <- if (nzchar(sub)) file.path(fig_dir, sub) else fig_dir
+      if (!dir.exists(base)) next
+      for (f in list.files(base, full.names = TRUE)) {
+        if (dir.exists(f)) next
+        bn <- basename(f)
+        bn2 <- pipeline_display_no_underscore(bn)
+        if (!identical(bn, bn2)) {
+          dest <- file.path(dirname(f), bn2)
+          if (!file.exists(dest)) file.rename(f, dest)
+        }
+      }
+    }
   }
   moved <- character(0)
   if (isTRUE(prune) && exists("pub_prune_delivery_root", mode = "function")) {
@@ -2226,20 +2535,190 @@ ckm_stroke_finalize_summary_delivery <- function(
     if (exists("pub_delivery_clean_tables_xlsx_only", mode = "function")) {
       pub_delivery_clean_tables_xlsx_only(sr)
     }
-    # 与上方 ensure_formats(export_png/tiff=TRUE) 对齐，保留四目录栅格
+    # 删除遗留 .keep_raster，避免 prune 误留 png/tiff
     if (dir.exists(fig_dir)) {
-      writeLines(
-        c("keep png/tiff for ABSI-style four-format delivery", format(Sys.time())),
-        file.path(fig_dir, ".keep_raster")
+      unlink(file.path(fig_dir, ".keep_raster"), force = TRUE)
+    }
+    res <- pub_prune_delivery_root(sr, keep_raster = FALSE)
+    moved <- res$moved %||% character(0)
+  }
+  # 白名单：根目录只留 Figures/Tables/Methods_*.md|txt/*中期*.pdf
+  # （prune 已执行；此处再断言，失败只警告不阻断）
+  if (isTRUE(prune)) {
+    allow_root <- c(
+      "Figures", "Tables",
+      "Methods_statistical_analysis.md", "Methods_software_versions.txt"
+    )
+    left <- list.files(sr, all.files = FALSE, no.. = TRUE)
+    bad <- setdiff(left, c(allow_root, left[grepl("\u4e2d\u671f", left)]))
+    if (length(bad)) {
+      warning(
+        "ckm_stroke_finalize_summary_delivery: delivery root has non-whitelist items: ",
+        paste(bad, collapse = ", ")
       )
     }
-    res <- pub_prune_delivery_root(sr, keep_raster = TRUE)
-    moved <- res$moved %||% character(0)
   }
   invisible(list(
     summary_root = normalizePath(sr, winslash = "/", mustWork = FALSE),
     methods = md_path,
     software = soft_path,
-    moved = moved
+    moved = moved,
+    scrub = scrub_res
   ))
+}
+
+#' 引擎级中期：客户名可配；默认不写日期；出完再 prune 白名单
+ckm_stroke_write_midterm_report <- function(
+    summary_root,
+    index_lab,
+    client = "vivili",
+    no_date = TRUE,
+    formula_lines = character(0),
+    model2_covars = character(0),
+    model3_covars = character(0),
+    n_analytic = NA_integer_,
+    outcome_lab = "新发骨质疏松",
+    methods_lab = "k-means轨迹聚类、Logistic、Cox、限制性立方样条",
+    database = "ELSA") {
+  sr <- as.character(summary_root %||% "")[1L]
+  stopifnot(dir.exists(sr))
+  ix <- as.character(index_lab %||% "index")[1L]
+  ix <- if (exists("pipeline_display_label", mode = "function")) pipeline_display_label(ix) else gsub("_", " ", ix, fixed = TRUE)
+  client <- as.character(client %||% "vivili")[1L]
+  if (!nzchar(client)) client <- "vivili"
+  info <- file.path(sr, "项目信息-中期.md")
+  formula_txt <- if (length(formula_lines)) paste(formula_lines, collapse = "；") else sprintf("%s（见 Methods）", ix)
+  writeLines(
+    c(
+      sprintf("客户: %s", client),
+      sprintf("暴露指标: %s", ix),
+      sprintf("结局: %s", outcome_lab),
+      sprintf("报告标题: %s轨迹类别与累积暴露和%s的关联分析", ix, outcome_lab),
+      "标题副题: 中期分析结果",
+      sprintf("研究人群: %s 基线年龄≥50岁成人", database),
+      sprintf("分析方法: %s", methods_lab),
+      sprintf("数据集: %s", database),
+      "类型: 中期分析结果",
+      sprintf("指标计算公式: %s", formula_txt),
+      if (isTRUE(no_date)) "分析日期: 无" else NULL,
+      if (isTRUE(no_date)) "日期: 无" else NULL,
+      ""
+    ),
+    info,
+    useBytes = TRUE
+  )
+  # 最小 content.json：由表图文件名驱动；数字在 build 前由 inspect dump 校验
+  tabs <- list.files(file.path(sr, "Tables"), pattern = "\\.xlsx$", full.names = FALSE)
+  figs <- character(0)
+  pdf_dir <- file.path(sr, "Figures", "pdf")
+  if (dir.exists(pdf_dir)) {
+    figs <- list.files(pdf_dir, pattern = "\\.pdf$", full.names = FALSE)
+  } else {
+    figs <- list.files(file.path(sr, "Figures"), pattern = "\\.pdf$", full.names = FALSE)
+  }
+  .pick <- function(pats, pool) {
+    for (p in pats) {
+      hit <- pool[grepl(p, pool, ignore.case = TRUE)]
+      if (length(hit)) return(hit[[1L]])
+    }
+    NA_character_
+  }
+  t1 <- .pick("^Table 1\\.", tabs)
+  t2 <- .pick("^Table 2\\.", tabs)
+  t3 <- .pick("^Table 3\\.", tabs)
+  s1 <- .pick("^Table S1\\.", tabs)
+  s2 <- .pick("^Table S2\\.", tabs)
+  f1 <- .pick("^Figure 1\\.", figs)
+  f2 <- .pick("^Figure 2\\.", figs)
+  f3 <- .pick("^Figure 3\\.", figs)
+  fs1 <- .pick("^Figure S1\\.", figs)
+  fs2 <- .pick("^Figure S2\\.", figs)
+  fs3 <- .pick("^Figure S3\\.", figs)
+  m2txt <- paste(as.character(model2_covars %||% character(0)), collapse = ", ")
+  m3txt <- paste(as.character(model3_covars %||% character(0)), collapse = ", ")
+  n_txt <- if (is.finite(as.numeric(n_analytic)[1L])) format(as.integer(n_analytic)[1L], big.mark = ",") else "见 Table 1"
+  chapters <- list(
+    list(
+      title = "研究背景与方法摘要",
+      intro = list(
+        sprintf("本研究基于 %s，评估累计 %s 与 k-means 轨迹类别和%s的关联。分析集 N=%s。", database, ix, outcome_lab, n_txt),
+        sprintf("全文锁定 Model 2 = %s；Model 3 = %s。表、图、森林与 RCS 同源。非预测模型，亦非人工智能分析。",
+                if (nzchar(m2txt)) m2txt else "（未调整）",
+                if (nzchar(m3txt)) m3txt else "（未调整）")
+      ),
+      formula = as.list(if (length(formula_lines)) formula_lines else list(sprintf("%s（见 Methods_statistical_analysis.md）", ix)))
+    )
+  )
+  sec <- function(title, table = NULL, figure = NULL, caption = "", annotation = "") {
+    out <- list(title = title, caption = caption, annotation = annotation)
+    if (!is.null(table) && !is.na(table)) out$table <- table
+    if (!is.null(figure) && !is.na(figure)) out$figure <- figure
+    out
+  }
+  body_secs <- list()
+  if (!is.na(f1)) body_secs[[length(body_secs) + 1L]] <- sec("纳排流程", figure = f1, caption = "纳排流程图", annotation = sprintf("终步分析集 N=%s。", n_txt))
+  if (!is.na(f2)) body_secs[[length(body_secs) + 1L]] <- sec("轨迹图", figure = f2, caption = sprintf("%s 轨迹类别", ix), annotation = "k-means 肘部与轨迹面板。")
+  if (!is.na(t1)) body_secs[[length(body_secs) + 1L]] <- sec("基线特征", table = t1, caption = "基线特征", annotation = "按轨迹类别分层。")
+  if (!is.na(t2)) body_secs[[length(body_secs) + 1L]] <- sec("Logistic 主表", table = t2, caption = "Logistic 关联", annotation = sprintf("Model2=%s；Model3=%s。", m2txt, m3txt))
+  if (!is.na(f3)) body_secs[[length(body_secs) + 1L]] <- sec("RCS", figure = f3, caption = "限制性立方样条", annotation = "Overall | BMI<30 | Age≥60；调整集=Model 3。")
+  if (!is.na(t3)) body_secs[[length(body_secs) + 1L]] <- sec("亚组", table = t3, caption = "亚组分析", annotation = "分层变量含 Gender 时仅作分层，不进入调整集（若 Model 已排除 Gender）。")
+  chapters[[length(chapters) + 1L]] <- list(title = "主要结果", sections = body_secs)
+  supp <- list()
+  if (!is.na(s1)) supp[[length(supp) + 1L]] <- sec("Cox 主表", table = s1, caption = "Cox 关联", annotation = "调整集与 Table 2 一致。")
+  if (!is.na(fs1)) supp[[length(supp) + 1L]] <- sec("Cox RCS", figure = fs1, caption = "Cox RCS", annotation = "与 Figure 3 同面板。")
+  if (!is.na(fs2)) supp[[length(supp) + 1L]] <- sec("Cox 森林", figure = fs2, caption = "亚组森林（HR）", annotation = "Model 3；分层变量自身不进入该层。")
+  if (!is.na(fs3)) supp[[length(supp) + 1L]] <- sec("Logistic 森林", figure = fs3, caption = "亚组森林（OR）", annotation = "与 Figure S2 同口径。")
+  if (!is.na(s2)) supp[[length(supp) + 1L]] <- sec("Cox 亚组表", table = s2, caption = "Cox 亚组详表", annotation = "调整集同 Model 3。")
+  if (length(supp)) chapters[[length(chapters) + 1L]] <- list(title = "补充分析", sections = supp)
+  content <- list(
+    exclude_figures = list(),
+    abbreviations = list(
+      list(缩写词 = database, 对应英文 = "English Longitudinal Study of Ageing", 对应中文 = "英国老龄化纵向研究", 单位 = ""),
+      list(缩写词 = "OR", 对应英文 = "Odds Ratio", 对应中文 = "比值比", 单位 = ""),
+      list(缩写词 = "HR", 对应英文 = "Hazard Ratio", 对应中文 = "风险比", 单位 = ""),
+      list(缩写词 = "CI", 对应英文 = "Confidence Interval", 对应中文 = "置信区间", 单位 = ""),
+      list(缩写词 = "RCS", 对应英文 = "Restricted Cubic Spline", 对应中文 = "限制性立方样条", 单位 = "")
+    ),
+    chapters = chapters
+  )
+  cj <- file.path(sr, "content.json")
+  jsonlite::write_json(content, cj, auto_unbox = TRUE, pretty = TRUE)
+  eng <- file.path(
+    Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."),
+    ".cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py"
+  )
+  if (!file.exists(eng)) {
+    warning("midterm engine missing: ", eng)
+    return(invisible(NULL))
+  }
+  # 文件名避免空格（system2/部分 shell 会拆参）；展示用连字符
+  ix_fn <- gsub("[[:space:]]+", "-", ix)
+  out_pdf <- file.path(
+    sr,
+    sprintf(
+      "%s_%s_%s_中期分析结果.pdf",
+      ix_fn,
+      gsub("[[:space:]]+", "", outcome_lab),
+      gsub("、", "-", methods_lab)
+    )
+  )
+  py <- Sys.which("python3")
+  if (!nzchar(py)) py <- Sys.which("python")
+  # inspect（可选）
+  try(
+    system2(py, shQuote(c(eng, "--inspect", "--project", sr)), stdout = TRUE, stderr = TRUE),
+    silent = TRUE
+  )
+  st <- system2(
+    py,
+    shQuote(c(eng, "--build", "--project", sr, "--content", cj, "--out", out_pdf)),
+    stdout = TRUE, stderr = TRUE
+  )
+  ok <- file.exists(out_pdf)
+  if (!ok) warning("midterm build failed: ", paste(utils::tail(st, 40), collapse = "\n"))
+  # prune：移走 content/dump/项目信息
+  if (exists("pub_prune_delivery_root", mode = "function")) {
+    try(pub_prune_delivery_root(sr, keep_raster = FALSE), silent = TRUE)
+  }
+  invisible(if (ok) normalizePath(out_pdf, winslash = "/", mustWork = FALSE) else NULL)
 }

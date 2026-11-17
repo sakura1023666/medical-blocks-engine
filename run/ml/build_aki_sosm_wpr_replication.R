@@ -63,7 +63,9 @@ authorized_indices <- c(
   # 白蛋白轴同轴优选（用户 2026-11-11：LAR+Albumin_CV 整合进 02block_result）
   "LAR+Albumin_CV",
   # 白蛋白轴联合 ROC+ML 综合优选（用户 2026-11-12）
-  "ANLR+Albumin_CV"
+  "ANLR+Albumin_CV",
+  # 白蛋白轴 PNI（用户 2026-11-17：对齐 LAR summary_result 文献终稿）
+  "PNI+Albumin_CV"
 )
 if (!index_label %in% authorized_indices) {
   stop("本终稿构建仅授权 --index 为: ", paste(authorized_indices, collapse = ", "),
@@ -155,13 +157,60 @@ staging <- paste0(out_final, ".__staging__")
 ## ---------------------------------------------------------------------------
 ## 路径：checkpoints / attrition CSV / D02 / 旧表
 ## ---------------------------------------------------------------------------
-mi_assoc_ckpt <- file.path(ck_root, "MIMIC_IV", "step16_ml_assoc_bundle.rds")
-ei_assoc_ckpt <- file.path(ck_root, "eICU", "step15_ml_assoc_bundle.rds")
-mi_ml_ckpt <- file.path(ck_root, "MIMIC_IV", "step17_ml_models_bundle.rds")
-ei_ext_ckpt <- file.path(ck_root, "eICU", "step16_ml_eval_external.rds")
-for (f in c(mi_assoc_ckpt, ei_assoc_ckpt, mi_ml_ckpt, ei_ext_ckpt)) {
-  if (!file.exists(f)) stop("缺关键 checkpoint（禁止编造输入）: ", f, call. = FALSE)
+## 研究 config（先读 dual_db，支持 eICU-primary / MIMIC-primary）
+cfg <- tryCatch({
+  # 课题 config.R 内部以 source(local=FALSE) 挂接 study_interface 构建脚本，
+  # 因此须在全局环境加载（独立 CLI 进程，退出即释放）。
+  sys.source(config_path, envir = .GlobalEnv)
+  if (exists("config", envir = .GlobalEnv, inherits = FALSE)) {
+    get("config", envir = .GlobalEnv, inherits = FALSE)
+  } else list()
+}, error = function(e) {
+  message("config 读取失败（用 ctx 内嵌 config + 默认 pub_digits 兜底）: ",
+          conditionMessage(e))
+  list()
+})
+
+.dual <- cfg$dual_db %||% list()
+.pri_db <- as.character((.dual$primary %||% list())$name %||% "MIMIC_IV")[1L]
+.sec_db <- as.character((.dual$secondary %||% list())$name %||% "eICU")[1L]
+if (!nzchar(.pri_db)) .pri_db <- "MIMIC_IV"
+if (!nzchar(.sec_db)) .sec_db <- "eICU"
+message(sprintf("[build] dual roles: primary=%s secondary=%s", .pri_db, .sec_db))
+
+## 按角色找最新 step* checkpoint（主库 assoc/models；次库 assoc/external）
+.find_latest_ckpt <- function(db_dir, patterns) {
+  root <- file.path(ck_root, db_dir)
+  if (!dir.exists(root)) return(NA_character_)
+  hits <- character(0)
+  for (pat in patterns) {
+    hits <- c(hits, list.files(root, pattern = pat, full.names = TRUE))
+  }
+  hits <- unique(hits[file.exists(hits)])
+  if (!length(hits)) return(NA_character_)
+  steps <- suppressWarnings(as.integer(sub(".*step([0-9]+).*", "\\1", basename(hits))))
+  steps[!is.finite(steps)] <- -1L
+  normalizePath(hits[order(steps, decreasing = TRUE)][[1L]], winslash = "/",
+                mustWork = FALSE)
 }
+
+## 历史变量名 mi_* = 开发主库；ei_* = 外验次库（不再写死 MIMIC/eICU）
+mi_assoc_ckpt <- .find_latest_ckpt(.pri_db, c("^step[0-9]+_ml_assoc_bundle\\.rds$", "^ml_assoc_bundle\\.rds$"))
+ei_assoc_ckpt <- .find_latest_ckpt(.sec_db, c("^step[0-9]+_ml_assoc_bundle\\.rds$", "^ml_assoc_bundle\\.rds$"))
+mi_ml_ckpt <- .find_latest_ckpt(.pri_db, c("^step[0-9]+_ml_models_bundle\\.rds$", "^ml_models_bundle\\.rds$"))
+ei_ext_ckpt <- .find_latest_ckpt(.sec_db, c("^step[0-9]+_ml_eval_external\\.rds$", "^ml_eval_external\\.rds$"))
+for (nm in c("mi_assoc_ckpt", "ei_assoc_ckpt", "mi_ml_ckpt", "ei_ext_ckpt")) {
+  f <- get(nm)
+  if (!nzchar(f %||% "") || is.na(f) || !file.exists(f)) {
+    stop("缺关键 checkpoint（禁止编造输入）: ", nm, " under primary=", .pri_db,
+         " secondary=", .sec_db, call. = FALSE)
+  }
+}
+message("[build] mi_assoc=", mi_assoc_ckpt)
+message("[build] ei_assoc=", ei_assoc_ckpt)
+message("[build] mi_ml=", mi_ml_ckpt)
+message("[build] ei_ext=", ei_ext_ckpt)
+
 find_attrition_csv <- function(db_dir) {
   root <- file.path(index_root, db_dir)
   hits <- list.files(root, pattern = "attrition_flowchart[/\\\\]Tables[/\\\\].*\\.csv$",
@@ -177,25 +226,12 @@ find_attrition_csv <- function(db_dir) {
   normalizePath(hits[order(steps, decreasing = TRUE)][1], winslash = "/",
                 mustWork = FALSE)
 }
-mimic_csv <- find_attrition_csv("MIMIC_IV")   # 槽名 Flowchart_attrition_nhanes.csv，按目录判库
-eicu_csv <- find_attrition_csv("eICU")        # 槽名 Flowchart_attrition_mimic.csv，按目录判库
+## 面板 A/B：开发主库 + 外验次库（历史变量名保留 mimic_csv/eicu_csv）
+mimic_csv <- find_attrition_csv(.pri_db)
+eicu_csv <- find_attrition_csv(.sec_db)
 old_tables <- file.path(index_root, "Tables")
 old_fig_pdf <- file.path(index_root, "Figures", "pdf")
 data_dir <- file.path(study_root, "data")
-
-## 研究 config（失败不致命：各 ctx 自带 config）
-cfg <- tryCatch({
-  # 课题 config.R 内部以 source(local=FALSE) 挂接 study_interface 构建脚本，
-  # 因此须在全局环境加载（独立 CLI 进程，退出即释放）。
-  sys.source(config_path, envir = .GlobalEnv)
-  if (exists("config", envir = .GlobalEnv, inherits = FALSE)) {
-    get("config", envir = .GlobalEnv, inherits = FALSE)
-  } else list()
-}, error = function(e) {
-  message("config 读取失败（用 ctx 内嵌 config + 默认 pub_digits 兜底）: ",
-          conditionMessage(e))
-  list()
-})
 
 ## ---------------------------------------------------------------------------
 ## 34 角色 profile + 来源映射（dry-run 与实际共用）
