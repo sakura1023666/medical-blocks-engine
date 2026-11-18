@@ -134,11 +134,18 @@
         )
         m <- stats::glm(stats::as.formula(fo), data = sub, family = stats::binomial())
         co <- summary(m)$coefficients
+        # 多水平暴露（Q1|Middle|Q4）时 treatment 哑变量按水平名排序进系数表；
+        # 禁止 hit[1]（常为 Middle vs Q1）——须取最高水平（Q4 vs Q1）系数。
         hit <- grep(paste0("^", index_var), rownames(co), value = TRUE)
         if (length(hit)) {
-          or <- exp(co[hit[1], 1]); lo <- exp(co[hit[1], 1] - 1.959963985 * co[hit[1], 2])
-          hi <- exp(co[hit[1], 1] + 1.959963985 * co[hit[1], 2])
-          pv <- fmt_p(co[hit[1], 4])
+          idx_lv <- levels(droplevels(factor(as.character(sub[[index_var]]))))
+          end_lv <- if (length(idx_lv)) idx_lv[length(idx_lv)] else ""
+          pick <- if (nzchar(end_lv)) hit[endsWith(hit, end_lv)] else character(0)
+          if (!length(pick)) pick <- hit[length(hit)]
+          nm <- pick[[1L]]
+          or <- exp(co[nm, 1]); lo <- exp(co[nm, 1] - 1.959963985 * co[nm, 2])
+          hi <- exp(co[nm, 1] + 1.959963985 * co[nm, 2])
+          pv <- fmt_p(co[nm, 4])
         }
       }, error = function(e) NULL)
       rows[[length(rows) + 1L]] <- .empty_row(
@@ -541,31 +548,57 @@ block_subgroup_incidence <- function(ctx, ...) {
     n_unique_num > 5L
   forest_cap_mode <- "continuous"
   rt_full_for_n <- NULL
+  .sgi_fold_end_lv <- NULL
   if (is_cont_idx) {
-    grp_method <- as.character(
-      (cfg$logistic_quartile_glm %||% list())$scheme %||%
-        (cfg$cox_ml_continuous_batch %||% list())$method %||%
-        (cfg$km_continuous %||% list())$method %||%
-        "quartile"
-    )[1L]
-    if (!grp_method %in% c("quartile", "tertile")) grp_method <- "quartile"
+    # 与主文 logistic/Cox 分位闸门同 scheme（ctx$logistic_grouping_scheme 等优先）
+    grp_method <- if (exists("subgroup_resolve_main_scheme", mode = "function")) {
+      subgroup_resolve_main_scheme(ctx, cfg, default = "quartile")
+    } else {
+      as.character(
+        (cfg$logistic_quartile_glm %||% list())$scheme %||%
+          (cfg$cox_ml_continuous_batch %||% list())$method %||%
+          (cfg$km_continuous %||% list())$method %||%
+          "quartile"
+      )[1L]
+    }
+    # quintile 等闸门降级产物：亚组只支持 quartile/tertile/binary
+    if (identical(grp_method, "quintile")) grp_method <- "quartile"
+    if (!grp_method %in% c("quartile", "tertile", "binary", "median")) grp_method <- "quartile"
     store <- ctx$results$continuous_km_cutpoints[[index_var]]
     br <- store$breaks %||% NULL
     store_method <- as.character(store$method %||% "")[1L]
+    # pipeline_quantile_breaks 只认 quartile/tertile/median；binary → median
+    breaks_method <- if (grp_method %in% c("binary", "median")) "median" else grp_method
     if ((is.null(br) || !length(br) || !identical(store_method, grp_method)) &&
         exists("pipeline_quantile_breaks", mode = "function")) {
-      br <- pipeline_quantile_breaks(idx_num, method = grp_method)
+      br <- pipeline_quantile_breaks(idx_num, method = breaks_method)
       if (!is.null(br) && exists("pipeline_store_continuous_km_cutpoints", mode = "function")) {
         ctx <- pipeline_store_continuous_km_cutpoints(ctx, index_var, br, method = grp_method)
       }
     }
-    if (!exists("pipeline_quantile_group_factor", mode = "function")) {
-      stop("subgroup_incidence: 缺少 pipeline_quantile_group_factor", call. = FALSE)
+    if (grp_method %in% c("binary", "median")) {
+      med <- if (!is.null(br) && length(br) >= 2L) {
+        as.numeric(br[[2L]])
+      } else {
+        stats::median(idx_num, na.rm = TRUE)
+      }
+      rt[[index_var]] <- factor(
+        ifelse(is.finite(idx_num) & idx_num <= med, "Low", "High"),
+        levels = c("Low", "High")
+      )
+      forest_cap_mode <- "median_split"
+      cli::cli_alert_info(
+        "连续暴露 {.field {index_var}} 使用 binary/median: Low/High (cut={round(med, 4)})"
+      )
+    } else {
+      if (!exists("pipeline_quantile_group_factor", mode = "function")) {
+        stop("subgroup_incidence: 缺少 pipeline_quantile_group_factor", call. = FALSE)
+      }
+      rt[[index_var]] <- pipeline_quantile_group_factor(idx_num, method = grp_method, breaks = br)
+      cli::cli_alert_info(
+        "连续暴露 {.field {index_var}} 使用{grp_method}: {paste(levels(rt[[index_var]]), collapse=', ')}"
+      )
     }
-    rt[[index_var]] <- pipeline_quantile_group_factor(idx_num, method = grp_method, breaks = br)
-    cli::cli_alert_info(
-      "连续暴露 {.field {index_var}} 使用{grp_method}: {paste(levels(rt[[index_var]]), collapse=', ')}"
-    )
     ci_mode <- as.character(sub_cfg$continuous_index_mode %||% "highest_vs_lowest")[1L]
     .sgi_full_pop <- !identical(
       as.character(sub_cfg$forest_n_source %||% "full_stratum")[1L], "model_sample"
@@ -583,15 +616,26 @@ block_subgroup_incidence <- function(ctx, ...) {
     } else if (!identical(ci_mode, "keep_quantile") && nlevels(rt[[index_var]]) > 2L) {
       lv <- levels(rt[[index_var]])
       keep_lv <- c(lv[1L], lv[length(lv)])
+      .sgi_fold_end_lv <- keep_lv[2L]
       n0 <- nrow(rt)
-      # 保留全分析集用于森林图 N（展示分层样本量，如全部女性）；模型仍只用 Q1+Q4
-      rt_full_for_n <- rt
-      rt <- rt[as.character(rt[[index_var]]) %in% keep_lv, , drop = FALSE]
-      rt[[index_var]] <- factor(as.character(rt[[index_var]]), levels = keep_lv)
-      forest_cap_mode <- "highest_vs_lowest"
-      cli::cli_alert_info(
-        "亚组森林图：连续暴露取最高 vs 最低（{keep_lv[2]} vs {keep_lv[1]}），模型 n {n0} → {nrow(rt)}；图上 N 默认用全分层（mode={ci_mode}）"
-      )
+      if (isTRUE(.sgi_full_pop) &&
+          exists("subgroup_collapse_middle_levels", mode = "function")) {
+        # 全人群（默认）：中间分位并为 Middle（不删行）；最高 vs 最低系数与主文同分位对比
+        rt[[index_var]] <- subgroup_collapse_middle_levels(rt[[index_var]], levels = lv)
+        forest_cap_mode <- "highest_vs_lowest"
+        cli::cli_alert_info(
+          "亚组森林图：全分析集估计（n={n0}），各层报告 {keep_lv[2]} vs {keep_lv[1]}（中间分位并为 Middle；mode={ci_mode}）"
+        )
+      } else {
+        # 旧口径：模型仅 Q1+Q4 子集；图上 N 仍可用全分层覆盖
+        rt_full_for_n <- rt
+        rt <- rt[as.character(rt[[index_var]]) %in% keep_lv, , drop = FALSE]
+        rt[[index_var]] <- factor(as.character(rt[[index_var]]), levels = keep_lv)
+        forest_cap_mode <- "highest_vs_lowest"
+        cli::cli_alert_info(
+          "亚组森林图：连续暴露取最高 vs 最低（{keep_lv[2]} vs {keep_lv[1]}），模型 n {n0} → {nrow(rt)}；图上 N 默认用全分层（mode={ci_mode}）"
+        )
+      }
     }
   } else {
     if (is.factor(idx_raw) || is.character(idx_raw)) {
@@ -676,11 +720,13 @@ block_subgroup_incidence <- function(ctx, ...) {
   ## 下游 forest/表格渲染零改动。
   adj_covs <- as.character(sub_cfg$adjust_covariates %||% character(0))
   adj_covs <- adj_covs[nzchar(trimws(adj_covs))]
-  adj_covs <- setdiff(adj_covs, c(index_var, disease_col, final_subgroup_vars))
+  # 只剔除暴露/结局；分层变量本身在层内 glm 再剔（勿在此全局踢掉 Gender/Education 等，
+  # 否则非该分层的层会丢 Model2 协变量，与 Table 2 口径分裂）
+  adj_covs <- setdiff(adj_covs, c(index_var, disease_col))
   adj_covs <- intersect(adj_covs, names(rt))
   if (length(adj_covs)) {
     cli::cli_alert_info(
-      "亚组森林图（调整版）: Q4 vs Q1 + adjust for {paste(adj_covs, collapse = ', ')}"
+      "亚组森林图（调整版）: 最高 vs 最低 + adjust for {paste(adj_covs, collapse = ', ')}"
     )
     rt$.y01 <- if (is.numeric(rt[[disease_col]]) && all(na.omit(rt[[disease_col]]) %in% c(0, 1))) {
       as.integer(rt[[disease_col]])
@@ -726,6 +772,15 @@ block_subgroup_incidence <- function(ctx, ...) {
   if (!isTRUE(res_ok)) {
     cli::cli_alert_warning("No valid subgroup table (empty, wrong shape, or error above)")
     return(ctx)
+  }
+
+  if (!is.null(.sgi_fold_end_lv) &&
+      exists("subgroup_fold_quantile_contrast_rows", mode = "function")) {
+    res <- subgroup_fold_quantile_contrast_rows(res, index_var, .sgi_fold_end_lv)
+    if (!is.data.frame(res) || !nrow(res)) {
+      cli::cli_alert_warning("Subgroup table empty after quantile fold")
+      return(ctx)
+    }
   }
 
   res <- res[-1, , drop = FALSE]
@@ -785,7 +840,9 @@ block_subgroup_incidence <- function(ctx, ...) {
     }
   }
 
-  fig_cap <- if (exists("pipeline_subgroup_forest_caption", mode = "function")) {
+  fig_cap <- if (nzchar(as.character(sub_cfg$figure_caption %||% "")[1L])) {
+    as.character(sub_cfg$figure_caption)[1L]
+  } else if (exists("pipeline_subgroup_forest_caption", mode = "function")) {
     pipeline_subgroup_forest_caption(index_var, mode = forest_cap_mode %||% "highest_vs_lowest")
   } else {
     paste0("Subgroup Forest analyses of ", index_var)

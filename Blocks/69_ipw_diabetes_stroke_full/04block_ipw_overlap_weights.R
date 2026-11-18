@@ -108,9 +108,14 @@ block_ipw_overlap_weights <- function(ctx, ...) {
   d <- data[, keep_cols, drop = FALSE]
   d[[tvar]] <- suppressWarnings(as.numeric(d[[tvar]]))
   d[[yvar]] <- suppressWarnings(as.numeric(d[[yvar]]))
-  d[[exp_var]] <- suppressWarnings(as.numeric(d[[exp_var]]))
+  # 禁止 as.numeric(factor)：水平码 1/2 会被当成数值，导致 0/1 暴露对调、HR 方向反转
+  if (exists("pipeline_outcome_as_01", mode = "function")) {
+    d[[exp_var]] <- as.integer(pipeline_outcome_as_01(d[[exp_var]]))
+  } else {
+    xc <- trimws(as.character(d[[exp_var]]))
+    d[[exp_var]] <- as.integer(xc %in% c("1", "Yes", "yes", "TRUE", "True"))
+  }
   d <- d[stats::complete.cases(d) & is.finite(d[[tvar]]) & d[[tvar]] >= 0, , drop = FALSE]
-  d[[exp_var]] <- as.integer(d[[exp_var]] == 1L)
 
   if (!nrow(d) || length(unique(d[[exp_var]])) < 2L) {
     msg <- "ipw_overlap_weights: 有效样本不足或暴露组不足 2 个水平。"

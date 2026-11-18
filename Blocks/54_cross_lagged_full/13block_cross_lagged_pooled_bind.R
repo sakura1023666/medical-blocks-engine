@@ -52,7 +52,9 @@ cross_lagged_harmonize_exposure <- function(x, method = "percentile") {
 block_cross_lagged_pooled_bind <- function(ctx, ...) {
   cfg <- ctx$config
   bl <- cfg$cross_lagged_pooled_bind %||% list()
-  country_map <- bl$country_map %||% list(CHARLS = "China", ELSA = "UK", HRS = "America")
+  country_map <- bl$country_map %||% list(
+    CHARLS = "China", ELSA = "UK", HRS = "America", SHARE = "Europe"
+  )
   id_col <- bl$id_column %||% cfg$data$id_column %||% "ID"
   out_col <- bl$outcome_column %||% cfg$data$outcome_column %||% "Disease_Group"
   index_var <- bl$index_var %||% cfg$incidence$index_var %||% "FI"

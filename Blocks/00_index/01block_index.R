@@ -57,10 +57,11 @@
 
   # ──────────────── 第一组：基础指标（无依赖）───────────────────────
   basic <- list(
-    # --- 人体测量 ---
+    # --- 人体测量（仅中间量，供 ABSI/HSI/VAI 等链式公式；禁止作批量暴露）---
     list(name = "BMI",
          expr = "Weight / (Height / 100)^2",
-         digits = 2),
+         digits = 2,
+         intermediate = TRUE),
 
     # --- 炎症 / 免疫比值 ---
     list(name = "NLR",
@@ -94,14 +95,7 @@
          expr = "WBC / Platelet_Count",
          digits = 4),
 
-    # --- 血脂单指标（原生列 / 估算，作暴露时可单独批跑）---
-    # HDL / LDL：表中原生列，按原生指标注册（组成=自身），非比值复合
-    list(name = "HDL",
-         expr = "HDL",
-         digits = 2),
-    list(name = "LDL",
-         expr = "LDL",
-         digits = 2),
+    # --- 血脂（禁止 HDL/LDL 组成=自身透传；原料列直接用 dabiao 名）---
     # VLDL：Friedewald 估算 VLDL-C = TG/5（mg/dL）；非直接测定
     list(name = "VLDL",
          expr = "Triglycerides / 5",
@@ -138,20 +132,12 @@
     list(name = "CRI_II",
          expr = "LDL / HDL",
          digits = 4),
-    # 22_depression 课题：牙周炎分级（原生列，0=无 1=轻 2=中 3=重）按原生指标注册，
-    # 供 analysis_exclusion / pipeline_indices_using_vars 解析组成变量（=自身）
-    list(name = "Periodontitis",
-         expr = "Periodontitis",
-         digits = 0L),
-  # HRS OAScore_z：由 Age + HbA1c + Total_Cholesterol 线性组合（与 D08 标定一致）
-    list(name = "OAScore_z",
-         expr = "-3.4545580572 + 0.0878582042*Age - 0.4612526460*HbA1c + 0.0005126326*Total_Cholesterol",
-         digits = 6),
     list(name = "LCI",
          expr = "((Total_Cholesterol / 38.67) * (Triglycerides / 88.57) * (LDL / 38.67)) / (HDL / 38.67)",
          digits = 4),
+    # 标准 CHG = ln[TC × Glucose / (2 × HDL)]（校正旧式 HDL/2 误写）。
     list(name = "CHG",
-         expr = "log(Total_Cholesterol * Glucose / (HDL / 2))",
+         expr = "log(Total_Cholesterol * Glucose / (2 * HDL))",
          digits = 4),
     list(name = "AIP_BMI",
          expr = "log10(Triglycerides / HDL) * Weight / (Height / 100)^2",
@@ -216,12 +202,95 @@
     list(name = "CAR",
          expr = "Creatinine / Albumin",
          digits = 4),
+    # 血糖–白蛋白应激比（无 HbA1c 时作 SHR 同轴替代，常与 GV 成对）
+    list(name = "GAR",
+         expr = "Glucose / Albumin",
+         digits = 4),
+    # 乳酸–白蛋白比（灌注轴；常与 Lactate_CV 成对）
+    list(name = "LactAlb",
+         expr = "Lactate / Albumin",
+         digits = 4),
+    # 炎症–营养轴白蛋白比（文献比值；常与 Albumin_CV 同轴成对）
+    # NAR = ANC(10^9/L) / Albumin(g/dL)；勿用中性粒百分比
+    list(name = "NAR",
+         expr = "Neutrophil_Count / Albumin",
+         digits = 4),
+    # WAR = WBC(10^9/L) / Albumin(g/dL)
+    list(name = "WAR",
+         expr = "WBC / Albumin",
+         digits = 4),
+    # NaAR = Sodium(mEq/L) / Albumin(g/dL)
+    list(name = "NaAR",
+         expr = "Sodium / Albumin",
+         digits = 4),
+    # CaAR = 血清总钙 CalciumTotal(mg/dL) / Albumin；禁止 Free_Calcium/离子钙
+    list(name = "CaAR",
+         expr = "CalciumTotal / Albumin",
+         digits = 4),
+    # UAR = 尿酸(mg/dL) / Albumin(g/dL)；文献尿酸–营养轴
+    list(name = "UAR",
+         expr = "Uric_Acid / Albumin",
+         digits = 4),
+    # ClAR / KAR 等电解质–白蛋白比（文献同轴筛选用）
+    list(name = "ClAR",
+         expr = "Chloride / Albumin",
+         digits = 4),
+    list(name = "KAR",
+         expr = "Potassium / Albumin",
+         digits = 4),
+    # AlbCr = Albumin/Creatinine（CAR 倒数；营养–肾轴）
+    list(name = "AlbCr",
+         expr = "Albumin / Creatinine",
+         digits = 4),
+    # LymWBC = 淋巴占白细胞比；常与 WBC_CV 同轴
+    list(name = "LymWBC",
+         expr = "Lymphocytes / WBC",
+         digits = 4),
+    # PHAR = 动脉血 pH / Albumin
+    list(name = "PHAR",
+         expr = "PH / Albumin",
+         digits = 4),
+    # RDWPLT = RDW / Platelet；常与 Platelet_CV 同轴
+    list(name = "RDWPLT",
+         expr = "RDW / Platelet_Count",
+         digits = 4),
+    # CaNa = 总钙 / 钠；常与 Sodium_CV 同轴（列名跟 CaAR：CalciumTotal）
+    list(name = "CaNa",
+         expr = "CalciumTotal / Sodium",
+         digits = 4),
     list(name = "UA_CR",
          expr = "Uric_Acid / Creatinine",
          digits = 4),
     list(name = "BUN_Cr",
          expr = "BUN / Creatinine",
          digits = 4),
+    # 宽表已预计算：SAR = 第一次肌酐/基线肌酐；CrCV = 肌酐标准差/肌酐均值。
+    # 单次 Creatinine 列无法重算轨迹，公式为 identity。协变量侧须另排除 Creatinine。
+    list(name = "SAR",
+         expr = "SAR",
+         digits = 4),
+    list(name = "CrCV",
+         expr = "CrCV",
+         digits = 4),
+    # 宽表已预计算：GV = 血糖标准差 / 血糖均值（单次 Glucose 无法重算）。
+    # 协变量侧须另排除 Glucose（及 CHG 组成 TC/HDL）。
+    list(name = "GV",
+         expr = "GV",
+         digits = 4),
+    # 纵向日级预计算（ICU day1–30）：FR=第一次/基线，CV=SD/mean，first/mean=日级汇总。
+    list(name = "Potassium_FR", expr = "Potassium_FR", digits = 4),
+    list(name = "Potassium_CV", expr = "Potassium_CV", digits = 4),
+    list(name = "Platelet_FR",  expr = "Platelet_FR",  digits = 4),
+    list(name = "Platelet_CV",  expr = "Platelet_CV",  digits = 4),
+    list(name = "Glucose_first", expr = "Glucose_first", digits = 4),
+    list(name = "Glucose_mean",  expr = "Glucose_mean",  digits = 4),
+    list(name = "WBC_first", expr = "WBC_first", digits = 4),
+    list(name = "WBC_CV",    expr = "WBC_CV",    digits = 4),
+    list(name = "Sodium_mean", expr = "Sodium_mean", digits = 4),
+    list(name = "Sodium_CV",   expr = "Sodium_CV",   digits = 4),
+    list(name = "Hemoglobin_CV", expr = "Hemoglobin_CV", digits = 4),
+    list(name = "Albumin_CV",    expr = "Albumin_CV",    digits = 4),
+    list(name = "Lactate_CV",    expr = "Lactate_CV",    digits = 4),
     list(name = "UACR",
          expr = "if (exists('Urine_Creatinine')) get(if (exists('Albumin_Urine')) 'Albumin_Urine' else 'AlbuminUrine') / (Urine_Creatinine * 0.01) else get(if (exists('Albumin_Creatinine')) 'Albumin_Creatinine' else 'AlbuminCreatinine')",
          digits = 4),
@@ -267,7 +336,7 @@
          expr = "LD * Creatinine / Platelet_Count",
          digits = 4),
     list(name = "SOSM",
-         expr = "1.86 * (Sodium + Potassium) + 1.15 * Glucose / 18 + BUN * 0.375 + 14",
+         expr = "1.86 * (Sodium + Potassium) + 1.15 * Glucose / 18 + BUN * 0.357 + 14",
          digits = 4),
     list(name = "ACAG",
          expr = "(4.4 - Albumin) * 2.5 + AnionGap",
@@ -288,6 +357,17 @@
          digits = 4),
     list(name = "WHtR",
          expr = "Waist_circumference / Height",
+         digits = 4),
+    # Conicity Index（Valdez 1991）：WC(m) / (0.109 * sqrt(Weight(kg)/Height(m)))
+    list(name = "Conicity",
+         expr = paste0(
+           "(Waist_circumference / 100) / ",
+           "(0.109 * sqrt(Weight / (Height / 100)))"
+         ),
+         digits = 4),
+    # Ponderal Index（Corpulence）：Weight(kg) / Height(m)^3
+    list(name = "Ponderal",
+         expr = "Weight / (Height / 100)^3",
          digits = 4),
     list(name = "CMI",
          expr = "(Triglycerides / HDL) * (Waist_circumference / Height)",
@@ -485,11 +565,12 @@
          digits = 4,
          intermediate = TRUE),
 
+    # Greve CVD-risk ePWV (m/s)：末项必须为 -0.01832*MBP（非裸常数）
     list(name = "ePWV",
          expr = paste0(
            "9.587 - 0.402 * Age + 0.00456 * Age^2 ",
            "- 0.00002621 * Age^2 * MBP ",
-           "+ 0.003176 * Age * MBP - 0.01832"
+           "+ 0.003176 * Age * MBP - 0.01832 * MBP"
          ),
          digits = 4),
 
@@ -574,6 +655,18 @@
            "dplyr::case_when(",
            "Gender == 'Male' ~ (Waist_circumference - 65) * Triglycerides / 88.57, ",
            "Gender == 'Female' ~ (Waist_circumference - 85) * Triglycerides / 88.57, ",
+           "TRUE ~ NA_real_)"
+         ),
+         digits = 4),
+
+    # CVAI（Xia et al. Sci Rep 2016）：TG/HDL 须 mmol/L（mg/dL÷88.57 / ÷38.67）
+    list(name = "CVAI",
+         expr = paste0(
+           "dplyr::case_when(",
+           "Gender == 'Male' ~ -267.93 + 0.68 * Age + 0.03 * BMI + 4 * Waist_circumference + ",
+           "22 * log10(Triglycerides / 88.57) - 16.32 * (HDL / 38.67), ",
+           "Gender == 'Female' ~ -187.32 + 1.71 * Age + 4.23 * BMI + 1.12 * Waist_circumference + ",
+           "39.76 * log10(Triglycerides / 88.57) - 11.66 * (HDL / 38.67), ",
            "TRUE ~ NA_real_)"
          ),
          digits = 4)
@@ -783,6 +876,54 @@ pipeline_index_definition_map <- function() {
 
 pipeline_exclusion_normalize_name <- function(x) {
   tolower(gsub("[^[:alnum:]]", "", as.character(x)))
+}
+
+#' 实验室/人体测量常见列名别名组（规范名 + 短名/原始表别名）
+#'
+#' 用于暴露成分硬排除：公式写 Total_Cholesterol / Triglycerides 时，
+#' 数据里残留的 TC / TG 也必须从协变量与 ML 特征中剔除。
+.pipeline_lab_var_alias_groups <- function() {
+  list(
+    c("Triglycerides", "TG", "Triglyceride", "TRIG", "triglycerides"),
+    c("Total_Cholesterol", "TC", "Cholesterol", "Chol", "TCHO", "CHOL", "TotChol"),
+    c("HDL", "HDL_C", "HDLC", "HDL_Cholesterol"),
+    c("LDL", "LDL_C", "LDLC", "LDL_Cholesterol"),
+    c("Weight", "BW", "BodyWeight", "Body_Weight", "body_weight"),
+    c("Height", "HT", "BodyHeight", "body_height"),
+    c("BMI", "BodyMassIndex", "body_mass_index"),
+    c("Waist_circumference", "Waist", "WC", "waist", "WaistCircumference"),
+    c("Glucose", "GLU", "FBG", "FPG", "Glu", "glucose"),
+    c("HbA1c", "HBA1C", "hba1c", "Glycohemoglobin"),
+    c("Creatinine", "Cr", "SCR", "Scr", "CREA", "creatinine"),
+    c("Uric_Acid", "UA", "UricAcid", "SUA", "uric_acid"),
+    c("BUN", "UreaNitrogen", "Urea_Nitrogen", "UN", "urea_nitrogen"),
+    c("Platelet_Count", "PLT", "PlateletCount", "Platelets", "platelet"),
+    c("Albumin", "ALB", "albumin"),
+    c("Hemoglobin", "Hb", "HGB", "hemoglobin"),
+    c("Neutrophil_Count", "NeutrophilCount", "Neutrophils", "NEUT"),
+    c("Lymphocytes", "Lymphocyte", "LYM", "Lymphocyte_Count"),
+    c("CalciumTotal", "Calcium", "Calcium_Total", "Total_Calcium"),
+    c("AST", "Aspartate_Aminotransferase", "GOT"),
+    c("ALT", "Alanine_Aminotransferase", "GPT")
+  )
+}
+
+#' 将变量名扩展为同义别名全集（含自身）；供成分硬排除 / 协变量 / ML 特征共用
+pipeline_expand_lab_var_aliases <- function(vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[!is.na(vars) & nzchar(vars)]
+  if (!length(vars)) return(character(0))
+  groups <- .pipeline_lab_var_alias_groups()
+  norms <- pipeline_exclusion_normalize_name(vars)
+  out <- vars
+  for (g in groups) {
+    g <- unique(as.character(g))
+    g_norm <- pipeline_exclusion_normalize_name(g)
+    if (any(norms %in% g_norm) || any(vars %in% g)) {
+      out <- unique(c(out, g))
+    }
+  }
+  out
 }
 
 pipeline_index_raw_components <- function(

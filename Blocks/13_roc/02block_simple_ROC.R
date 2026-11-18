@@ -42,6 +42,54 @@
   mode
 }
 
+#' 将 ROC 分析框对齐调查加权分析集（与 Table1 / svydesign 同分母）
+#' @return data.frame（可能已删行）；无权重/design 时原样返回
+.sroc_align_survey_analytic_rows <- function(data_imp, ctx, cfg, r_cfg = list()) {
+  data_imp <- as.data.frame(data_imp)
+  n0 <- nrow(data_imp)
+  des <- NULL
+  for (nm in c(
+    "nhanes_design_quart", "nhanes_design_tert", "nhanes_design_binary",
+    "nhanes_design"
+  )) {
+    d_try <- (ctx$results %||% list())[[nm]]
+    if (!is.null(d_try) && !is.null(d_try$variables)) {
+      des <- d_try
+      break
+    }
+  }
+  id_col <- as.character((cfg$data %||% list())$id_column %||% "ID")[1L]
+  if (!is.null(des) && nzchar(id_col) &&
+      id_col %in% names(data_imp) && id_col %in% names(des$variables)) {
+    keep <- data_imp[[id_col]] %in% des$variables[[id_col]]
+    data_imp <- data_imp[keep, , drop = FALSE]
+  } else {
+    wt <- as.character(
+      (cfg$nhanes %||% list())$survey_weight %||%
+        (r_cfg$survey_weight %||% "")
+    )[1L]
+    if (!nzchar(wt)) {
+      for (cand in c("WTSAF2YR", "new_Weight", "WTMEC2YR", "WTMEC4YR")) {
+        if (cand %in% names(data_imp)) {
+          wt <- cand
+          break
+        }
+      }
+    }
+    if (nzchar(wt) && wt %in% names(data_imp)) {
+      w <- suppressWarnings(as.numeric(data_imp[[wt]]))
+      keep <- is.finite(w) & w > 0
+      data_imp <- data_imp[keep, , drop = FALSE]
+    }
+  }
+  if (nrow(data_imp) < n0 && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "simple_ROC: 对齐调查加权分析集 {n0} → {nrow(data_imp)}（与 Table1 / svydesign 同口径）"
+    )
+  }
+  data_imp
+}
+
 .sroc_resolve_outcome_var <- function(r_cfg = list(), cfg = list()) {
   explicit <- trimws(as.character(r_cfg$outcome_var %||% "")[1L])
   if (nzchar(explicit)) return(explicit)
@@ -305,6 +353,12 @@ block_simple_ROC <- function(ctx, ...) {
   inc_cfg <- cfg$incidence %||% list()
   log_cfg <- cfg$logistic %||% list()
   dat_cfg <- cfg$data %||% list()
+
+  # NHANES / 调查加权：ROC 分母与 Table1 / svydesign 分析集对齐（剔除权重 NA/非正）
+  # 可用 roc_simple$align_survey_analytic=FALSE 显式关闭
+  if (!isFALSE(r_cfg$align_survey_analytic %||% TRUE)) {
+    data_imp <- .sroc_align_survey_analytic_rows(data_imp, ctx, cfg, r_cfg)
+  }
 
   index_var   <- r_cfg$index_var %||% inc_cfg$index_var %||% log_cfg$index_var %||%
     (cfg$survival %||% list())$index_var

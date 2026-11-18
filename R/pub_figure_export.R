@@ -1,6 +1,9 @@
 ###############################################################################
-# pub_figure_export.R — 汇总 Figures → pdf/png/tiff + image_information
+# pub_figure_export.R — 汇总 Figures → pdf + image_information
 # Spec: docs/superpowers/specs/2026-08-20-pub-figures-formats-and-image-information-design.md
+#
+# 2026-11-02 引擎默认：只导出 PDF + image_information；不再默认出 png/tiff。
+# 若期刊仍要栅格，课题可设 config$pub_figures$export_png/export_tiff = TRUE（须 ≥600 dpi）。
 ###############################################################################
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
@@ -14,38 +17,68 @@
 
 .pub_figure_cfg <- function(config = list()) {
   cfg <- (config$pub_figures %||% list())
+  # 栅格仅在显式开启时导出；开启后仍强制 ≥600 dpi
+  dpi <- as.integer(cfg$dpi %||% 600L)[1L]
+  if (!is.finite(dpi) || dpi < 600L) dpi <- 600L
+  # 超大页（Shiny 截图等）长边上限（英寸）；多页默认堆成单页再栅格
+  max_edge_in <- suppressWarnings(as.numeric(cfg$max_edge_in %||% 11)[1L])
+  if (!is.finite(max_edge_in) || max_edge_in < 4) max_edge_in <- 11
+  export_png <- isTRUE(cfg$export_png %||% FALSE)
+  export_tiff <- isTRUE(cfg$export_tiff %||% FALSE)
+  # 交付 PDF 默认真矢量；仅截图类 stem 可豁免（EMs 2026-11：Fig3/4/6 被整页栅格交差）
+  require_vector_pdf <- !isFALSE(cfg$require_vector_pdf %||% TRUE)
+  allow_pat <- cfg$allow_raster_pdf_patterns %||% c(
+    "shiny", "screenshot", "web calculator", "ui capture", "screen capture"
+  )
+  allow_pat <- as.character(allow_pat)
+  allow_pat <- allow_pat[nzchar(allow_pat)]
   list(
     enable = isTRUE(cfg$formats_dir %||% TRUE),
-    dpi = as.integer(cfg$dpi %||% 300L)[1L],
+    dpi = dpi,
+    export_png = export_png,
+    export_tiff = export_tiff,
     tiff_compression = "lzw",
-    write_image_information = isTRUE(cfg$write_image_information %||% TRUE)
+    write_image_information = isTRUE(cfg$write_image_information %||% TRUE),
+    max_edge_in = max_edge_in,
+    stack_multipage = !isFALSE(cfg$stack_multipage %||% TRUE),
+    require_vector_pdf = require_vector_pdf,
+    allow_raster_pdf_patterns = allow_pat
   )
 }
 
-pub_figure_ensure_format_dirs <- function(figures_dir) {
+pub_figure_ensure_format_dirs <- function(figures_dir, config = list()) {
   figures_dir <- as.character(figures_dir %||% "")[1L]
   stopifnot(nzchar(figures_dir))
+  cfg <- .pub_figure_cfg(config)
+  # 始终返回四键路径（避免 character[[缺失名]] 下标越界）；仅对启用的格式 mkdir
   dirs <- c(
     pdf = file.path(figures_dir, "pdf"),
     png = file.path(figures_dir, "png"),
     tiff = file.path(figures_dir, "tiff"),
     image_information = file.path(figures_dir, "image_information")
   )
-  for (d in dirs) dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  create <- c("pdf", "image_information")
+  if (isTRUE(cfg$export_png)) create <- c(create, "png")
+  if (isTRUE(cfg$export_tiff)) create <- c(create, "tiff")
+  for (nm in create) dir.create(dirs[[nm]], recursive = TRUE, showWarnings = FALSE)
   dirs
 }
 
-#' 清空 pdf/png/tiff/image_information，避免旧命名残留
-#' 清空汇总图四目录中的旧导出。
+#' 清空 pdf[/png/tiff]/image_information，避免旧命名残留
+#' 清空汇总图格式子目录中的旧导出。
 #' @param only_stems 非 NULL 时【外科式】只删这些 stem 的文件（本次将被重导出的图）；
 #'   其余图的 pdf/png/tiff/md 一律保留。否则部分块单独重跑（如 pub_finalize 只出
 #'   Figures 1–6）会把其它块的 Figure 7/8/9 全目录清光且无人补写。
 #' @param keep_md TRUE 时完全不动 image_information（补格式调用）。
-pub_figure_purge_format_subdirs <- function(figures_dir, keep_md = FALSE, only_stems = NULL) {
+#' @param also_purge_raster TRUE 时即使当前 config 不导出栅格，也清掉遗留 png/tiff。
+pub_figure_purge_format_subdirs <- function(figures_dir, keep_md = FALSE, only_stems = NULL,
+                                           also_purge_raster = TRUE) {
   figures_dir <- as.character(figures_dir %||% "")[1L]
   if (!nzchar(figures_dir) || !dir.exists(figures_dir)) return(invisible(0L))
   n <- 0L
-  for (sub in c("pdf", "png", "tiff", "image_information")) {
+  subs <- c("pdf", "image_information")
+  if (isTRUE(also_purge_raster)) subs <- c(subs, "png", "tiff")
+  for (sub in unique(subs)) {
     d <- file.path(figures_dir, sub)
     if (!dir.exists(d)) next
     files <- list.files(d, full.names = TRUE, recursive = FALSE)
@@ -60,6 +93,17 @@ pub_figure_purge_format_subdirs <- function(figures_dir, keep_md = FALSE, only_s
     }
   }
   invisible(n)
+}
+
+#' 删除 Figures 下遗留的 png/tiff 目录（默认交付不再保留栅格）
+pub_figure_drop_raster_dirs <- function(figures_dir) {
+  figures_dir <- as.character(figures_dir %||% "")[1L]
+  if (!nzchar(figures_dir) || !dir.exists(figures_dir)) return(invisible(FALSE))
+  for (sub in c("png", "tiff")) {
+    d <- file.path(figures_dir, sub)
+    if (dir.exists(d)) unlink(d, recursive = TRUE, force = TRUE)
+  }
+  invisible(TRUE)
 }
 
 .pub_figure_is_missing_overview <- function(bn) {
@@ -303,12 +347,14 @@ pub_figure_purge_format_subdirs <- function(figures_dir, keep_md = FALSE, only_s
   bits
 }
 
-.pub_figure_cutoff_clause <- function(cut_info, exp = "") {
+.pub_figure_cutoff_clause <- function(cut_info, exp = "", metric = "OR") {
   if (is.null(cut_info) || !length(cut_info$values)) return("")
   vals <- paste(signif(as.numeric(cut_info$values), 4), collapse = "、")
   who <- if (nzchar(cut_info$db %||% "")) paste0(cut_info$db, "中") else ""
   what <- if (nzchar(exp)) paste0(exp, " ") else ""
-  sprintf("%s%sHR=1参考/切点约在 %s", who, what, vals)
+  metric <- toupper(as.character(metric %||% "OR")[1L])
+  if (!metric %in% c("HR", "OR")) metric <- "OR"
+  sprintf("%s%s%s=1参考/切点约在 %s", who, what, metric, vals)
 }
 
 .pub_figure_fmt_p_label <- function(label, pv) {
@@ -320,15 +366,19 @@ pub_figure_purge_format_subdirs <- function(figures_dir, keep_md = FALSE, only_s
 }
 
 .pub_figure_extract_cox_rcs_p <- function(p) {
+  coef_m <- tryCatch(as.matrix(p$coefficients), error = function(e) NULL)
   list(
     p_overall = tryCatch(
       suppressWarnings(as.numeric(p$logtest[3L]))[1L],
       error = function(e) NA_real_
     ),
-    p_nonlinear = tryCatch(
-      suppressWarnings(as.numeric(p$coefficients[2L, 5L]))[1L],
-      error = function(e) NA_real_
-    )
+    p_nonlinear = tryCatch({
+      if (is.null(coef_m) || nrow(coef_m) < 2L || ncol(coef_m) < 5L) {
+        NA_real_
+      } else {
+        suppressWarnings(as.numeric(coef_m[2L, 5L]))[1L]
+      }
+    }, error = function(e) NA_real_)
   )
 }
 
@@ -598,6 +648,17 @@ pub_figure_purge_format_subdirs <- function(figures_dir, keep_md = FALSE, only_s
   items
 }
 
+#' 竞争风险事件过少时写入表注。返回字符向量，事件数达到阈值则返回空。
+pub_competing_sparse_footnote <- function(n_event, min_events = 30L) {
+  n_event <- suppressWarnings(as.integer(n_event)[1L])
+  min_events <- as.integer(min_events %||% 30L)[1L]
+  if (!is.finite(n_event) || n_event >= min_events) return(character(0))
+  sprintf(
+    "Supplementary only: %d events. This competing-risk table does not replace the primary model.",
+    n_event
+  )
+}
+
 #' 从 Figures 旁 Tables/ 与各库 step* cutoff_*.csv / checkpoint 收获可写入正文的结果要点
 pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
   figures_dir <- as.character(figures_dir %||% "")[1L]
@@ -645,7 +706,14 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
     # 纳排逐步人数：优先指标 Tables，再回退课题根 Tables
     # index_root = .../by_index/【success】IX → study_root = dirname(dirname(index_root))
     attr_pat <- "^Flowchart_attrition.*\\.csv$"
-    attr_csv <- list.files(tab_dir, pattern = attr_pat, full.names = TRUE, ignore.case = TRUE)
+    ck_dirs <- unique(c(
+      file.path(dirname(tab_dir), "checkpoints"),
+      file.path(dirname(figures_dir), "checkpoints")
+    ))
+    attr_csv <- unlist(lapply(c(tab_dir, ck_dirs), function(d) {
+      if (!dir.exists(d)) return(character(0))
+      list.files(d, pattern = attr_pat, full.names = TRUE, ignore.case = TRUE)
+    }), use.names = FALSE)
     if (!length(attr_csv)) {
       study_root <- dirname(dirname(index_root))
       proj_tabs <- unique(c(
@@ -675,12 +743,16 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
         if (!nzchar(step) || !is.finite(n)) next
         out$attrition[[length(out$attrition) + 1L]] <- list(
           db = db, step = step, n = n, path = fp,
+          ledger_source = if ("ledger_source" %in% names(df)) as.character(df$ledger_source[i])[1L] else "",
           fork_left_label = if ("fork_left_label" %in% names(df)) as.character(df$fork_left_label[i])[1L] else NA_character_,
           fork_left_n = if ("fork_left_n" %in% names(df)) suppressWarnings(as.integer(df$fork_left_n[i])[1L]) else NA_integer_,
           fork_right_label = if ("fork_right_label" %in% names(df)) as.character(df$fork_right_label[i])[1L] else NA_character_,
           fork_right_n = if ("fork_right_n" %in% names(df)) suppressWarnings(as.integer(df$fork_right_n[i])[1L]) else NA_integer_
         )
       }
+    }
+    if (length(out$attrition) && any(vapply(out$attrition, function(r) identical(r$ledger_source, "outcome_figure"), logical(1)))) {
+      out$attrition <- Filter(function(r) identical(r$ledger_source, "outcome_figure"), out$attrition)
     }
   }
 
@@ -842,6 +914,36 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
       }
     }
   }
+
+  # 图上 RCS 的 P 若已写成 csv（Figure4_rcs_p.csv），图注必须能读到，不能只等 rds panel_stats。
+  rcs_dirs <- unique(c(tab_dir, file.path(dirname(tab_dir), "checkpoints"),
+                       file.path(dirname(figures_dir), "checkpoints")))
+  rcs_csv <- unlist(lapply(rcs_dirs, function(d) {
+    if (!dir.exists(d)) return(character(0))
+    list.files(d, pattern = "rcs_p\\.csv$", full.names = TRUE, ignore.case = TRUE)
+  }), use.names = FALSE)
+  for (fp in rcs_csv) {
+    df <- tryCatch(utils::read.csv(fp, stringsAsFactors = FALSE), error = function(e) NULL)
+    if (is.null(df) || !nrow(df)) next
+    cn <- tolower(names(df))
+    if (!all(c("p_overall", "p_nonlinear") %in% cn)) next
+    db_col <- if ("database" %in% cn) names(df)[which(cn == "database")[1L]] else NULL
+    po <- names(df)[which(cn == "p_overall")[1L]]
+    pn <- names(df)[which(cn == "p_nonlinear")[1L]]
+    for (i in seq_len(nrow(df))) {
+      db <- if (!is.null(db_col)) as.character(df[[db_col]][i])[1L] else ""
+      if (nzchar(db) && db %in% seen_rcs) next
+      out$rcs[[length(out$rcs) + 1L]] <- list(
+        db = db,
+        panels = list(list(
+          name = "spline",
+          p_overall = suppressWarnings(as.numeric(df[[po]][i])[1L]),
+          p_nonlinear = suppressWarnings(as.numeric(df[[pn]][i])[1L])
+        ))
+      )
+      if (nzchar(db)) seen_rcs <- c(seen_rcs, db)
+    }
+  }
   out
 }
 
@@ -862,8 +964,12 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
   assoc_join <- if (length(assoc_txt)) paste(assoc_txt, collapse = "；") else ""
   cut_txt <- character(0)
   exp <- as.character(meta$exposure %||% "")[1L]
+  metric_default <- toupper(as.character(meta$metric %||% "OR")[1L])
+  if (!metric_default %in% c("HR", "OR")) metric_default <- "OR"
   for (c in cuts) {
-    cl <- .pub_figure_cutoff_clause(c, exp = exp)
+    m1 <- toupper(as.character(c$metric %||% metric_default)[1L])
+    if (!m1 %in% c("HR", "OR")) m1 <- metric_default
+    cl <- .pub_figure_cutoff_clause(c, exp = exp, metric = m1)
     if (nzchar(cl)) cut_txt <- c(cut_txt, cl)
   }
   cut_join <- if (length(cut_txt)) paste(unique(cut_txt), collapse = "；") else ""
@@ -1043,12 +1149,12 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
     return(lines)
   }
 
-  if (grepl("Flowchart|Inclusion|Exclusion|Attrition", s, ignore.case = TRUE)) {
+  if (grepl("Flowchart|Flow diagram|Inclusion|Exclusion|Attrition", s, ignore.case = TRUE)) {
     who <- if (nzchar(out)) sprintf("%s", out) else "本研究"
     lines <- c(
       lines,
       sprintf(
-        "本图为 CONSORT 式纳排流程图%s，展示%s相关分析队列从原始提取到最终纳入的逐步筛选。主列为纳入人数，右侧 Exclude 框为相邻步差额与排除原因；底部分叉为发病病例/对照（或预后死亡/存活）。",
+        "本图为纳排流程图%s，展示%s相关分析队列从原始提取到最终纳入的逐步筛选。左列为主流程，右侧为对应排除原因与人数，底部分叉为发病病例/对照（或预后死亡/存活）。",
         cohort, who
       ),
       ""
@@ -1056,7 +1162,7 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
     if (nzchar(panel_note)) lines <- c(lines, panel_note, "")
     attr_lines <- .pub_figure_attrition_lines(meta)
     if (length(attr_lines)) {
-      lines <- c(lines, "各库逐步人数（来自 `Tables/Flowchart_attrition*.csv`，相邻步差额为本步排除人数）：", "", attr_lines)
+      lines <- c(lines, "各库逐步人数（来自与图1同一来源的 Flowchart_attrition.csv，相邻步差额为本步排除人数）：", "", attr_lines)
     } else {
       lines <- c(lines, "未找到纳排 CSV（`Flowchart_attrition*.csv`），无法逐条列出排除人数；请核对 Tables 目录。", "")
     }
@@ -1310,11 +1416,12 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
   }
 
   if (grepl("Boxplot|box\\s*plot", s, ignore.case = TRUE)) {
+    by_lab <- if (nzchar(out)) out else "分组"
     lines <- c(
       lines,
       sprintf(
-        "本图为箱线图%s：按生存状态（或指定分组）比较 %s 的分布差异（中位数、四分位距与离群点）；总体/两两检验方法见课题 boxplot 配置与图注。",
-        cohort, if (nzchar(exp)) exp else "指标"
+        "本图为箱线图%s：按 %s 分组比较 %s 的分布差异（中位数、四分位距与离群点）；总体/两两检验方法见课题 boxplot 配置与图注。",
+        cohort, by_lab, if (nzchar(exp)) exp else "指标"
       ),
       ""
     )
@@ -1330,23 +1437,48 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
     ))
   }
 
-  if (grepl("Mediation|path diagram", s, ignore.case = TRUE)) {
+  if (grepl("Cross-lagged", s, ignore.case = TRUE) &&
+      !grepl("Mediation", s, ignore.case = TRUE)) {
     lines <- c(
       lines,
       sprintf(
-        "本图为中介路径图%s：展示暴露（%s）→中介→结局（%s）的 path a / path b，以及底边 Direct Effect（c'）与 Proportion mediated；数字须与同目录 Table S9（Mediation analysis）同源同一位数。",
-        cohort, if (nzchar(exp)) exp else "指标", of_out
+        "本图为两波交叉滞后示意%s。左侧为 Index（T0，出院前约 3 天），右侧为 1st（T1，出院后约 1 个月）。框和箭头按 Index 预测变量分色：HAMD-17 红、HAMA-14 蓝、C-SSRS 绿。自回归只在 Index 框左侧画自环，1st 不画圈。P < 0.05 为实线，P ≥ 0.05 为同色虚线，每条路径的系数紧贴对应箭头。",
+        cohort
+      ),
+      ""
+    )
+    if (nzchar(panel_note)) lines <- c(lines, panel_note, "")
+    ann <- as.character(meta$cross_lag_lines %||% character(0))
+    ann <- ann[nzchar(ann)]
+    if (length(ann)) {
+      lines <- c(lines, "图上标注：", "", ann, "")
+    } else {
+      lines <- c(lines, "图上标注：未收获路径系数，请核对 Table 2。", "")
+    }
+    return(lines)
+  }
+
+  if (grepl("Mediation|path diagram", s, ignore.case = TRUE)) {
+    med_tab_lab <- .pub_figure_resolve_mediation_table_label(meta)
+    lines <- c(
+      lines,
+      sprintf(
+        "本图为中介路径图%s：展示暴露（%s）→中介→结局（%s）的 path a / path b，以及底边 Direct Effect（c'）与 Proportion mediated；数字须与同目录 %s（Mediation analysis）同源同一位数。",
+        cohort, if (nzchar(exp)) exp else "指标", of_out, med_tab_lab
       ),
       ""
     )
     if (nzchar(panel_note)) lines <- c(lines, panel_note, "")
     med_lines <- .pub_figure_mediation_annotation_lines(meta)
     if (length(med_lines)) {
-      lines <- c(lines, "图上标注（摘自 Table S9 最佳/对齐中介行）：", "", med_lines, "")
+      lines <- c(lines, sprintf("图上标注（摘自 %s 最佳/对齐中介行）：", med_tab_lab), "", med_lines, "")
     } else {
       lines <- c(
         lines,
-        "图上标注：以路径图面 path a/b、Direct Effect、Proportion mediated 为准；结构化未收获时请核对 Table S9，禁止用 Table 2 分位 HR 代替中介效应。",
+        sprintf(
+          "图上标注：以路径图面 path a/b、Direct Effect、Proportion mediated 为准；结构化未收获时请核对 %s，禁止用 Table 2 分位效应量代替中介效应。",
+          med_tab_lab
+        ),
         ""
       )
     }
@@ -1356,6 +1488,33 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
   # 兜底：展开旧一句话 + 上下文
   legacy <- .pub_figure_manuscript_sentence_legacy(stem, meta)
   c(legacy, "", if (nzchar(panel_note)) panel_note else NULL, "")
+}
+
+#' 解析交付 Tables 中介表编号标签（如 Table S8；缺省 Table S9）
+.pub_figure_resolve_mediation_table_label <- function(meta = list()) {
+  tab_dir <- as.character(meta$tables_dir %||% "")[1L]
+  if (!nzchar(tab_dir) || !dir.exists(tab_dir)) {
+    fig_dir <- as.character(meta$figures_dir %||% meta$fig_dir %||% "")[1L]
+    if (nzchar(fig_dir)) {
+      cand <- file.path(dirname(fig_dir), "Tables")
+      if (dir.exists(cand)) tab_dir <- cand
+    }
+  }
+  if (!nzchar(tab_dir) || !dir.exists(tab_dir)) return("Table S9")
+  files <- list.files(
+    tab_dir,
+    pattern = "Mediation analysis.*\\.xlsx$",
+    full.names = FALSE,
+    ignore.case = TRUE
+  )
+  if (!length(files)) return("Table S9")
+  m <- regmatches(files, regexpr("Table S\\d+", files, ignore.case = TRUE))
+  m <- unique(m[nzchar(m)])
+  if (!length(m)) return("Table S9")
+  # 多库同号时取众数/首个；展示统一用无库后缀的角色号
+  nums <- suppressWarnings(as.integer(sub("(?i)^Table S", "", m)))
+  keep <- m[order(nums, na.last = TRUE)]
+  as.character(keep[[1L]])
 }
 
 #' 从同目录 Tables 的 Mediation analysis xlsx 摘最佳中介行（供路径图 image_information）
@@ -1384,6 +1543,8 @@ pub_figure_harvest_findings <- function(figures_dir, meta = list()) {
     if (grepl("-eICU", bn, ignore.case = TRUE)) db <- "eICU"
     else if (grepl("-MIMIC", bn, ignore.case = TRUE)) db <- "MIMIC"
     else if (grepl("-NHANES", bn, ignore.case = TRUE)) db <- "NHANES"
+    else if (grepl("-CHARLS", bn, ignore.case = TRUE)) db <- "CHARLS"
+    else if (grepl("-ELSA", bn, ignore.case = TRUE)) db <- "ELSA"
     df <- tryCatch({
       if (requireNamespace("readxl", quietly = TRUE)) {
         as.data.frame(readxl::read_excel(fp, col_names = TRUE), stringsAsFactors = FALSE)
@@ -1467,6 +1628,19 @@ pub_figure_write_image_md <- function(md_path, stem, meta = list(), tech = list(
   dbs <- .pub_figure_db_labels(meta)
   if (!length(dbs)) dbs <- "未记录"
 
+  if ((is.null(meta$n_by_db) || !length(meta$n_by_db)) &&
+      grepl("Flowchart|Flow diagram|Inclusion|Exclusion|Attrition", stem, ignore.case = TRUE)) {
+    rows <- (meta$findings %||% list())$attrition %||% list()
+    if (length(rows)) {
+      n_by <- stats::setNames(integer(0), character(0))
+      for (r in rows) {
+        db <- as.character(r$db %||% "")[1L]
+        n <- suppressWarnings(as.integer(r$n)[1L])
+        if (nzchar(db) && is.finite(n)) n_by[[db]] <- n
+      }
+      if (length(n_by)) meta$n_by_db <- n_by
+    }
+  }
   n_line <- if (!is.null(meta$n_by_db) && length(meta$n_by_db)) {
     paste0(
       paste(sprintf("%s=%s", names(meta$n_by_db), meta$n_by_db), collapse = "; "),
@@ -1590,6 +1764,16 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
 
 .pub_figure_python_exe <- function() {
   py <- Sys.getenv("MEDICAL_BLOCKS_PYTHON", unset = "")
+  # WSL/Linux：优先本机 python3，避免 PATH 里的 Windows python.exe 导致 CreateProcess 失败、DPI 读不到
+  if (!nzchar(py) && .Platform$OS.type == "unix") {
+    for (cand in c("/usr/bin/python3", "/usr/local/bin/python3", Sys.which("python3"))) {
+      if (nzchar(cand) && file.exists(cand) &&
+          !grepl("WindowsApps|/mnt/c/|/mnt/d/", cand, ignore.case = TRUE)) {
+        py <- cand
+        break
+      }
+    }
+  }
   if (!nzchar(py) && exists(".dual_db_find_python", mode = "function")) {
     py <- .dual_db_find_python()
   }
@@ -1624,13 +1808,160 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
   NULL
 }
 
-.pub_figure_rasterize_one <- function(pdf_path, png_path, tiff_path, dpi, root_hint = NULL) {
+#' Probe PDF page count / max edge inches (pymupdf). Returns NULL on failure.
+.pub_figure_pdf_geometry <- function(pdf_path, root_hint = NULL) {
+  pdf_path <- as.character(pdf_path %||% "")[1L]
+  if (!nzchar(pdf_path) || !file.exists(pdf_path)) return(NULL)
+  py <- .pub_figure_python_exe()
+  if (!nzchar(py)) return(NULL)
+  # Temp script + ASCII copy：避开路径空格/括号被 shell 拆开（Figure S2 (RSF)）
+  tmp <- tempfile("pub_geo_")
+  dir.create(tmp, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+  pdf_s <- file.path(tmp, "in.pdf")
+  script <- file.path(tmp, "geo.py")
+  if (!isTRUE(file.copy(pdf_path, pdf_s, overwrite = TRUE))) return(NULL)
+  writeLines(c(
+    "import sys",
+    "import pymupdf",
+    "d = pymupdf.open(sys.argv[1])",
+    "mx = 0.0",
+    "for p in d:",
+    "    mx = max(mx, p.rect.width / 72.0, p.rect.height / 72.0)",
+    "print('%d\\t%.6f' % (d.page_count, mx))",
+    "d.close()"
+  ), script, useBytes = TRUE)
+  out <- tryCatch(
+    system2(py, args = c(script, pdf_s), stdout = TRUE, stderr = FALSE),
+    error = function(e) character(0)
+  )
+  if (!length(out)) return(NULL)
+  line <- trimws(out[[length(out)]])
+  parts <- strsplit(line, "\t", fixed = TRUE)[[1L]]
+  if (length(parts) < 2L) return(NULL)
+  pg <- suppressWarnings(as.integer(parts[[1L]])[1L])
+  ed <- suppressWarnings(as.numeric(parts[[2L]])[1L])
+  if (!is.finite(pg) || !is.finite(ed)) return(NULL)
+  list(pages = pg, max_edge_in = ed)
+}
+
+#' Detect image-only (整页栅格) PDFs that look like photos, not vectors.
+#' Heuristic: page 1 has ≥1 embedded image, ≤2 drawings, and 0 extractable text.
+#' @return list(image_only, n_images, n_drawings, n_text) or NULL on probe failure
+.pub_figure_pdf_vector_probe <- function(pdf_path, root_hint = NULL) {
+  pdf_path <- as.character(pdf_path %||% "")[1L]
+  if (!nzchar(pdf_path) || !file.exists(pdf_path)) return(NULL)
+  py <- .pub_figure_python_exe()
+  if (!nzchar(py)) return(NULL)
+  tmp <- tempfile("pub_vec_")
+  dir.create(tmp, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+  pdf_s <- file.path(tmp, "in.pdf")
+  script <- file.path(tmp, "vec.py")
+  if (!isTRUE(file.copy(pdf_path, pdf_s, overwrite = TRUE))) return(NULL)
+  writeLines(c(
+    "import sys",
+    "import pymupdf",
+    "d = pymupdf.open(sys.argv[1])",
+    "p = d[0]",
+    "imgs = p.get_images(full=True)",
+    "draws = p.get_drawings()",
+    "txt = (p.get_text('text') or '').strip()",
+    "n_img = len(imgs)",
+    "n_draw = len(draws)",
+    "n_txt = len(txt)",
+    "# 整页栅格：有位图、几乎无矢量路径、无可抽取文字（collision 热修常见产物）",
+    "image_only = int(n_img >= 1 and n_draw <= 2 and n_txt == 0)",
+    "print('%d\\t%d\\t%d\\t%d' % (image_only, n_img, n_draw, n_txt))",
+    "d.close()"
+  ), script, useBytes = TRUE)
+  out <- tryCatch(
+    system2(py, args = c(script, pdf_s), stdout = TRUE, stderr = FALSE),
+    error = function(e) character(0)
+  )
+  if (!length(out)) return(NULL)
+  line <- trimws(out[[length(out)]])
+  parts <- strsplit(line, "\t", fixed = TRUE)[[1L]]
+  if (length(parts) < 4L) return(NULL)
+  vals <- suppressWarnings(as.integer(parts[seq_len(4L)]))
+  if (any(!is.finite(vals))) return(NULL)
+  list(
+    image_only = identical(as.integer(vals[[1L]]), 1L),
+    n_images = vals[[2L]],
+    n_drawings = vals[[3L]],
+    n_text = vals[[4L]]
+  )
+}
+
+.pub_figure_stem_allows_raster_pdf <- function(stem, patterns = character(0)) {
+  stem <- tolower(as.character(stem %||% "")[1L])
+  if (!nzchar(stem)) return(FALSE)
+  pats <- tolower(as.character(patterns %||% character(0)))
+  pats <- pats[nzchar(pats)]
+  if (!length(pats)) return(FALSE)
+  any(vapply(pats, function(p) grepl(p, stem, fixed = TRUE), logical(1L)))
+}
+
+#' Normalize delivery PDF: clamp oversized media box; stack multipage → 1 page.
+#' Rewrites ``pdf_path`` in place when changed. Soft-fail returns FALSE.
+pub_figure_normalize_pdf <- function(pdf_path,
+                                     max_edge_in = 11,
+                                     stack_pages = TRUE,
+                                     root_hint = NULL) {
+  pdf_path <- as.character(pdf_path %||% "")[1L]
+  if (!nzchar(pdf_path) || !file.exists(pdf_path)) return(FALSE)
+  script <- .pub_figure_python_script("pub_figure_normalize_pdf.py", root_hint = root_hint)
+  if (is.null(script)) return(FALSE)
+  py <- .pub_figure_python_exe()
+  if (!nzchar(py)) return(FALSE)
+
+  tmp <- tempfile("pub_norm_")
+  dir.create(tmp, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+  pdf_in <- file.path(tmp, "in.pdf")
+  pdf_out <- file.path(tmp, "out.pdf")
+  if (!isTRUE(file.copy(pdf_path, pdf_in, overwrite = TRUE))) return(FALSE)
+  args <- c(
+    script, "--pdf", pdf_in, "--out", pdf_out,
+    "--max-edge-in", as.character(as.numeric(max_edge_in)[1L])
+  )
+  if (isTRUE(stack_pages)) args <- c(args, "--stack-pages")
+  status <- system2(py, args = args, stdout = TRUE, stderr = TRUE)
+  if (!isTRUE(file.exists(pdf_out)) || !isTRUE(file.info(pdf_out)$size > 100L)) {
+    return(FALSE)
+  }
+  # SMB-safe replace
+  tryCatch({
+    if (file.exists(pdf_path)) {
+      try(Sys.chmod(pdf_path, mode = "0666"), silent = TRUE)
+      try(unlink(pdf_path), silent = TRUE)
+    }
+    file.copy(pdf_out, pdf_path, overwrite = TRUE)
+  }, error = function(e) return(FALSE))
+  invisible(TRUE)
+}
+
+.pub_figure_rasterize_one <- function(pdf_path, png_path, tiff_path, dpi,
+                                      root_hint = NULL,
+                                      max_edge_in = 11,
+                                      stack_multipage = TRUE) {
   script <- .pub_figure_python_script("pub_figure_rasterize.py", root_hint = root_hint)
   if (is.null(script)) stop("找不到 python/pub_figure_rasterize.py", call. = FALSE)
   py <- .pub_figure_python_exe()
   if (!nzchar(py)) {
     stop("找不到 Python。可设环境变量 MEDICAL_BLOCKS_PYTHON。", call. = FALSE)
   }
+
+  # 先规范化 PDF：多页堆叠 + 超大页限幅，保证交付 PDF 与 PNG 同画面
+  tryCatch(
+    pub_figure_normalize_pdf(
+      pdf_path,
+      max_edge_in = max_edge_in,
+      stack_pages = isTRUE(stack_multipage),
+      root_hint = root_hint
+    ),
+    error = function(e) FALSE
+  )
 
   # ASCII 临时路径：避免【】在 Windows 命令行/编码下失败
   tmp <- tempfile("pub_ras_")
@@ -1644,7 +1975,8 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
   }
   args <- c(
     script, "--pdf", pdf_s, "--png", png_s, "--tiff", tiff_s,
-    "--dpi", as.character(as.integer(dpi)[1L])
+    "--dpi", as.character(as.integer(dpi)[1L]),
+    "--max-edge-in", as.character(as.numeric(max_edge_in)[1L])
   )
   err <- tempfile(fileext = ".txt")
   out <- tempfile(fileext = ".txt")
@@ -1664,8 +1996,17 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
   }
   dir.create(dirname(png_path), recursive = TRUE, showWarnings = FALSE)
   dir.create(dirname(tiff_path), recursive = TRUE, showWarnings = FALSE)
-  if (file.exists(png_s)) file.copy(png_s, png_path, overwrite = TRUE)
-  if (file.exists(tiff_s)) file.copy(tiff_s, tiff_path, overwrite = TRUE)
+  # SMB-safe overwrite for png/tiff
+  .safe_copy <- function(from, to) {
+    if (!file.exists(from)) return(FALSE)
+    if (file.exists(to)) {
+      try(Sys.chmod(to, mode = "0666"), silent = TRUE)
+      try(unlink(to), silent = TRUE)
+    }
+    file.copy(from, to, overwrite = TRUE)
+  }
+  if (file.exists(png_s)) .safe_copy(png_s, png_path)
+  if (file.exists(tiff_s)) .safe_copy(tiff_s, tiff_path)
   ## 铁律兜底：SMB/WSL 上 TIFF 直写常落成 0 字节（历史多次踩坑）。
   ## 只要 tiff 缺失或过小，就用已写好的 PNG 重导 LZW TIFF；失败只告警不阻断。
   if (!pub_figure_ensure_tiff_from_png(png_path, tiff_path, root_hint = root_hint)) {
@@ -1687,7 +2028,12 @@ pub_figure_ensure_tiff_from_png <- function(png_path, tiff_path, root_hint = NUL
   tiff_path <- as.character(tiff_path %||% "")[1L]
   if (!nzchar(tiff_path)) return(FALSE)
   t_ok <- function() {
-    file.exists(tiff_path) && isTRUE(file.info(tiff_path)$size > 800L)
+    if (!file.exists(tiff_path) || !isTRUE(file.info(tiff_path)$size > 800L)) {
+      return(FALSE)
+    }
+    # dpi=1 的 TIFF（libtiff 丢掉分辨率标签）不能算合格
+    d <- .pub_figure_read_dpi(tiff_path)
+    is.finite(d) && d + 1e-6 >= 600
   }
   if (t_ok()) return(TRUE)
   if (!nzchar(png_path) || !file.exists(png_path) ||
@@ -1706,10 +2052,22 @@ pub_figure_ensure_tiff_from_png <- function(png_path, tiff_path, root_hint = NUL
     script <- file.path(tmp, "png2tiff.py")
     writeLines(c(
       "import sys",
+      "import PIL.TiffImagePlugin as tiff_plugin",
       "from PIL import Image",
       "im = Image.open(sys.argv[1])",
       "if im.mode not in ('RGB', 'L'): im = im.convert('RGB')",
-      "im.save(sys.argv[2], format='TIFF', compression='tiff_lzw')",
+      "dpi = im.info.get('dpi', (600, 600))",
+      "try:",
+      "    d0 = float(dpi[0]) if isinstance(dpi, (tuple, list)) else float(dpi)",
+      "except Exception:",
+      "    d0 = 600.0",
+      "if d0 < 100: d0 = 600.0",
+      "previous = getattr(tiff_plugin, 'WRITE_LIBTIFF', False)",
+      "tiff_plugin.WRITE_LIBTIFF = False",
+      "try:",
+      "    im.save(sys.argv[2], format='TIFF', compression='tiff_lzw', dpi=(d0, d0), resolution_unit=2)",
+      "finally:",
+      "    tiff_plugin.WRITE_LIBTIFF = previous",
       "print('ok')"
     ), script)
     status <- tryCatch(
@@ -1750,13 +2108,75 @@ pub_figure_ensure_tiff_from_png <- function(png_path, tiff_path, root_hint = NUL
   if (requireNamespace("magick", quietly = TRUE)) {
     ok <- tryCatch({
       img <- magick::image_read(png_path)
-      img <- magick::image_convert(img, format = "tiff", compression = "LZW")
-      magick::image_write(img, path = tiff_path, format = "tiff")
+      # 本机 magick 无 image_density；density 写在 image_write
+      magick::image_write(
+        img, path = tiff_path, format = "tiff",
+        compression = "LZW", density = "600x600"
+      )
       TRUE
     }, error = function(e) FALSE)
     if (isTRUE(ok) && t_ok()) return(TRUE)
   }
   FALSE
+}
+
+#' 读取 png/tiff 嵌入 DPI（优先 python/PIL；回退 magick）
+#' @return numeric(1) dpi，读不到则 NA
+.pub_figure_read_dpi <- function(path) {
+  path <- as.character(path %||% "")[1L]
+  if (!nzchar(path) || !file.exists(path)) return(NA_real_)
+  py <- .pub_figure_python_exe()
+  if (nzchar(py)) {
+    tmp_py <- tempfile(fileext = ".py")
+    # 目标路径常含空格/括号（Figure 1. … (IPW…)）；Unix system2 走 shell，须 ASCII 临时副本 + 引号
+    ext <- tolower(tools::file_ext(path))
+    if (!nzchar(ext)) ext <- "img"
+    tmp_img <- tempfile("pub_dpi_", fileext = paste0(".", ext))
+    on.exit(unlink(c(tmp_py, tmp_img)), add = TRUE)
+    writeLines(c(
+      "import sys",
+      "from PIL import Image",
+      "Image.MAX_IMAGE_PIXELS = None  # 上下拼大图 600dpi 超默认炸弹阈值",
+      "im = Image.open(sys.argv[1])",
+      "dpi = im.info.get('dpi')",
+      "if dpi is None:",
+      "    print('NA')",
+      "else:",
+      "    try:",
+      "        d = float(dpi[0]) if isinstance(dpi, (tuple, list)) else float(dpi)",
+      "        print(d if d == d else 'NA')",
+      "    except Exception:",
+      "        print('NA')"
+    ), tmp_py)
+    copied <- isTRUE(file.copy(path, tmp_img, overwrite = TRUE))
+    img_arg <- if (copied) tmp_img else path
+    args <- if (.Platform$OS.type == "unix") {
+      c(shQuote(tmp_py), shQuote(img_arg))
+    } else {
+      c(tmp_py, img_arg)
+    }
+    out <- tryCatch(
+      system2(py, args = args, stdout = TRUE, stderr = FALSE),
+      error = function(e) character(0)
+    )
+    if (length(out)) {
+      v <- suppressWarnings(as.numeric(trimws(out[[length(out)]])))
+      # PNG pHYs 为整数像素/米。旧写法读回 599.9988，属性里显示 599，不合格。
+      if (is.finite(v) && v > 0) return(v)
+    }
+  }
+  if (requireNamespace("magick", quietly = TRUE)) {
+    dens <- tryCatch({
+      info <- magick::image_info(magick::image_read(path))
+      as.character(info$density[1L])
+    }, error = function(e) NA_character_)
+    if (is.character(dens) && nzchar(dens)) {
+      # e.g. "600x600"；magick 偶发给无意义低密度（如 72/236），不可当合格 DPI
+      num <- suppressWarnings(as.numeric(strsplit(dens, "[xX]")[[1L]][1L]))
+      if (is.finite(num) && num >= 100) return(num)
+    }
+  }
+  NA_real_
 }
 
 #' 批量修复：扫描 Figures/tiff 下 0 字节或过小 TIFF，用同名 png 重导
@@ -1791,7 +2211,7 @@ pub_figure_repair_zero_tiffs <- function(figures_dir) {
   s <- as.character(stem %||% "")[1L]
   if (!nzchar(s)) return(meta)
   if (grepl("Flowchart|attrition|Inclusion", s, ignore.case = TRUE)) {
-    meta$outcome <- meta$outcome %||% "cohort attrition"
+    meta$outcome <- "outpatient cohort construction"
     return(meta)
   }
   if (grepl("28-day|28 day|Mortality|mortality|death", s, ignore.case = TRUE) &&
@@ -1851,7 +2271,8 @@ pub_figure_pdf_best_content_page <- function(src, dest = NULL) {
   NA_character_
 }
 
-#' 优先 PyMuPDF show_pdf_page，禁止 magick 栅格嵌 PDF。
+#' 优先 PyMuPDF show_pdf_page；qgraph/bootnet 黑底时自动 `--as-images` 白底栅格叠图。
+#' 改完 PDF 后须再跑 `pub_figure_ensure_formats`，保证 pdf/png/tiff 同源。
 #' @param pdf_a,pdf_b 源 PDF（各取第 1 页；可用 pub_figure_pdf_best_content_page 预处理）
 #' @param dest 目标单页 PDF
 #' @param labels 左上角 A/B 标注
@@ -1859,12 +2280,14 @@ pub_figure_pdf_best_content_page <- function(src, dest = NULL) {
 #' @param density 仅矢量失败时的栅格回退 DPI
 #' @param best_content_page TRUE 时先对两端做内容页抽取（KM 空白首页）
 #' @param label_band 为 A/B 标签预留的顶部空白（PDF point）；0 保持旧版覆盖式标签
+#' @param as_images TRUE 强制白底栅格叠图（qgraph/CLPN 推荐）
 pub_figure_combine_ab_pdfs <- function(pdf_a, pdf_b, dest,
                                        labels = c("A", "B"),
                                        stack = TRUE,
                                        density = 160,
                                        best_content_page = FALSE,
-                                       label_band = 0) {
+                                       label_band = 0,
+                                       as_images = FALSE) {
   pdf_a <- as.character(pdf_a)[1L]
   pdf_b <- as.character(pdf_b)[1L]
   dest <- as.character(dest)[1L]
@@ -1899,6 +2322,7 @@ pub_figure_combine_ab_pdfs <- function(pdf_a, pdf_b, dest,
       )
       if (!isTRUE(stack)) args <- c(args, "--side")
       else args <- c(args, "--stack")
+      if (isTRUE(as_images)) args <- c(args, "--as-images")
       status <- tryCatch(
         system2(py, args = args, stdout = FALSE, stderr = FALSE),
         error = function(e) 1L
@@ -1974,19 +2398,26 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
   if (is.null(meta$tables_dir) || !nzchar(as.character(meta$tables_dir %||% "")[1L])) {
     meta$tables_dir <- file.path(dirname(figures_dir), "Tables")
   }
-  dirs <- pub_figure_ensure_format_dirs(figures_dir)
+  dirs <- pub_figure_ensure_format_dirs(figures_dir, config = config)
   if (!isTRUE(cfg$enable)) {
     return(invisible(list(exported = character(), missing_raster = character(), md = character())))
   }
+  want_raster <- isTRUE(cfg$export_png) || isTRUE(cfg$export_tiff)
+  if (!want_raster) {
+    # 默认交付：去掉历史 png/tiff，避免客户目录残留栅格
+    pub_figure_drop_raster_dirs(figures_dir)
+  }
   if (isTRUE(purge)) {
     # 外科式：只清「根目录有平铺稿=本次将重导」的图；无平铺稿的图（其它块的 7/8/9 等）
-    # 四目录文件一律保留，防止单块重跑把别的块产物清光
+    # 格式子目录文件一律保留，防止单块重跑把别的块产物清光
     .flat <- list.files(figures_dir, pattern = "^Figure.*\\.(pdf|png)$",
                         ignore.case = TRUE)
     .flat <- .flat[file.info(file.path(figures_dir, .flat))$isdir %in% FALSE]
     .purge_stems <- unique(sub("\\.(pdf|png)$", "", .flat, ignore.case = TRUE))
     n_purge <- pub_figure_purge_format_subdirs(
-      figures_dir, keep_md = isTRUE(preserve_md), only_stems = .purge_stems)
+      figures_dir, keep_md = isTRUE(preserve_md), only_stems = .purge_stems,
+      also_purge_raster = want_raster
+    )
     if (n_purge > 0L && requireNamespace("cli", quietly = TRUE)) {
       cli::cli_alert_info("已清空旧发表图导出 {n_purge} 个: {.file {basename(figures_dir)}}")
     }
@@ -2029,26 +2460,54 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
     }
     pdf_src <- fp
     if (grepl("\\.png$", bn, ignore.case = TRUE)) {
-      # 仅有 png：仍复制到 png/，pdf/tiff 尽量跳过并记 missing
-      file.copy(fp, file.path(dirs[["png"]], paste0(stem, ".png")), overwrite = TRUE)
-      exported <- c(exported, stem)
+      # 仅有 png 底稿：仅在开启 export_png 时收入 png/；否则丢弃根残留
+      if (isTRUE(cfg$export_png) && !is.null(dirs[["png"]])) {
+        file.copy(fp, file.path(dirs[["png"]], paste0(stem, ".png")), overwrite = TRUE)
+        exported <- c(exported, stem)
+      }
       unlink(fp)
       next
     }
     dest_pdf <- file.path(dirs[["pdf"]], paste0(stem, ".pdf"))
     file.copy(pdf_src, dest_pdf, overwrite = TRUE)
-    dest_png <- file.path(dirs[["png"]], paste0(stem, ".png"))
-    dest_tiff <- file.path(dirs[["tiff"]], paste0(stem, ".tiff"))
-    ok_r <- tryCatch({
-      .pub_figure_rasterize_one(dest_pdf, dest_png, dest_tiff, cfg$dpi, root_hint = root_hint)
-      TRUE
-    }, error = function(e) {
-      if (exists("cli_alert_warning", mode = "function") || requireNamespace("cli", quietly = TRUE)) {
-        cli::cli_alert_warning("栅格化失败 [{stem}]: {e$message}")
+    # PDF-only 交付也必须限幅/堆叠，不能只在栅格化路径里 normalize（否则 bad_pdf_geometry 永过不了）
+    tryCatch(
+      pub_figure_normalize_pdf(
+        dest_pdf,
+        max_edge_in = cfg$max_edge_in,
+        stack_pages = isTRUE(cfg$stack_multipage),
+        root_hint = root_hint
+      ),
+      error = function(e) FALSE
+    )
+    ok_r <- TRUE
+    if (want_raster) {
+      dest_png <- if (isTRUE(cfg$export_png)) {
+        file.path(dirs[["png"]], paste0(stem, ".png"))
+      } else {
+        file.path(tempdir(), paste0(stem, ".png"))
       }
-      FALSE
-    })
-    if (!isTRUE(ok_r)) missing_raster <- c(missing_raster, stem)
+      dest_tiff <- if (isTRUE(cfg$export_tiff)) {
+        file.path(dirs[["tiff"]], paste0(stem, ".tiff"))
+      } else {
+        file.path(tempdir(), paste0(stem, ".tiff"))
+      }
+      ok_r <- tryCatch({
+        .pub_figure_rasterize_one(
+          dest_pdf, dest_png, dest_tiff, cfg$dpi,
+          root_hint = root_hint,
+          max_edge_in = cfg$max_edge_in,
+          stack_multipage = cfg$stack_multipage
+        )
+        TRUE
+      }, error = function(e) {
+        if (exists("cli_alert_warning", mode = "function") || requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_warning("栅格化失败 [{stem}]: {e$message}")
+        }
+        FALSE
+      })
+      if (!isTRUE(ok_r)) missing_raster <- c(missing_raster, stem)
+    }
 
     if (isTRUE(cfg$write_image_information)) {
       md_path <- file.path(dirs[["image_information"]], paste0(stem, ".md"))
@@ -2073,7 +2532,7 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
     unlink(fp)
   }
 
-  # 铁律：汇总 Figures 根目录不得残留发表图；一律进 pdf/png/tiff/image_information
+  # 铁律：汇总 Figures 根目录不得残留发表图；一律进 pdf[/png/tiff]/image_information
   leftovers <- list.files(
     figures_dir, pattern = "^Figure.*\\.(pdf|png)$",
     full.names = TRUE, ignore.case = TRUE
@@ -2081,33 +2540,59 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
   leftovers <- leftovers[file.info(leftovers)$isdir %in% FALSE]
   if (length(leftovers) && requireNamespace("cli", quietly = TRUE)) {
     cli::cli_alert_warning(
-      "发表图仍残留在 Figures 根目录 {length(leftovers)} 个，已强制收进四目录"
+      "发表图仍残留在 Figures 根目录 {length(leftovers)} 个，已强制收进格式子目录"
     )
   }
   for (fp in leftovers) {
     bn <- basename(fp)
     stem <- sub("\\.(pdf|png)$", "", bn, ignore.case = TRUE)
     if (grepl("\\.png$", bn, ignore.case = TRUE)) {
-      file.copy(fp, file.path(dirs[["png"]], paste0(stem, ".png")), overwrite = TRUE)
+      if (isTRUE(cfg$export_png) && !is.null(dirs[["png"]])) {
+        file.copy(fp, file.path(dirs[["png"]], paste0(stem, ".png")), overwrite = TRUE)
+        exported <- c(exported, stem)
+      }
       unlink(fp)
-      exported <- c(exported, stem)
       next
     }
     dest_pdf <- file.path(dirs[["pdf"]], paste0(stem, ".pdf"))
     file.copy(fp, dest_pdf, overwrite = TRUE)
-    dest_png <- file.path(dirs[["png"]], paste0(stem, ".png"))
-    dest_tiff <- file.path(dirs[["tiff"]], paste0(stem, ".tiff"))
     tryCatch(
-      .pub_figure_rasterize_one(dest_pdf, dest_png, dest_tiff, cfg$dpi, root_hint = root_hint),
-      error = function(e) NULL
+      pub_figure_normalize_pdf(
+        dest_pdf,
+        max_edge_in = cfg$max_edge_in,
+        stack_pages = isTRUE(cfg$stack_multipage),
+        root_hint = root_hint
+      ),
+      error = function(e) FALSE
     )
+    if (want_raster) {
+      dest_png <- if (isTRUE(cfg$export_png)) {
+        file.path(dirs[["png"]], paste0(stem, ".png"))
+      } else {
+        file.path(tempdir(), paste0(stem, ".png"))
+      }
+      dest_tiff <- if (isTRUE(cfg$export_tiff)) {
+        file.path(dirs[["tiff"]], paste0(stem, ".tiff"))
+      } else {
+        file.path(tempdir(), paste0(stem, ".tiff"))
+      }
+      tryCatch(
+        .pub_figure_rasterize_one(
+          dest_pdf, dest_png, dest_tiff, cfg$dpi,
+          root_hint = root_hint,
+          max_edge_in = cfg$max_edge_in,
+          stack_multipage = cfg$stack_multipage
+        ),
+        error = function(e) NULL
+      )
+    }
     if (isTRUE(cfg$write_image_information)) {
       md_path <- file.path(dirs[["image_information"]], paste0(stem, ".md"))
       if (!file.exists(md_path)) {
         pub_figure_write_image_md(
           md_path, stem, meta = meta,
           tech = list(dpi = cfg$dpi, width = "未记录", height = "未记录"),
-          raster_ok = file.exists(dest_png)
+          raster_ok = TRUE
         )
       }
     }
@@ -2141,24 +2626,63 @@ export_pub_figures <- function(figures_dir, meta = list(), config = list(),
   }
 
   if (length(exported) && requireNamespace("cli", quietly = TRUE)) {
+    fmt_lab <- if (want_raster) {
+      paste0(
+        "pdf",
+        if (isTRUE(cfg$export_png)) "/png" else "",
+        if (isTRUE(cfg$export_tiff)) "/tiff" else "",
+        "/image_information"
+      )
+    } else {
+      "pdf/image_information"
+    }
     cli::cli_alert_success(
-      "发表图已落入四目录（pdf/png/tiff/image_information）: {length(unique(exported))} 张"
+      "发表图已落入 {fmt_lab}: {length(unique(exported))} 张"
     )
   }
 
   invisible(list(exported = unique(exported), missing_raster = unique(missing_raster), md = md_files))
 }
 
-#' 校验 Figures 是否已齐全 pdf/png/tiff（且根目录无残留发表 PDF）
-#' @return list(ok, stems, missing_png, missing_tiff, flat_leftovers)
-pub_figure_formats_status <- function(figures_dir) {
+#' 校验 Figures：默认只要求 pdf + 根目录无残留；栅格仅在 config 开启时必检
+#'
+#' 另检 PDF 几何：多页未堆叠、长边超过 ``max_edge_in``（默认 11in）→
+#' ``bad_pdf_geometry``，触发 ensure_formats 重导（EMs Shiny/RCS 教训）。
+#' ``stale_raster``：仅当 ``export_png/export_tiff=TRUE`` 时检
+#' png/tiff mtime 明显早于同 stem 的 pdf（cute_ran HHR Fig3 2026-11 教训）。
+#' ``bad_pdf_raster``：交付 PDF 被整页栅格化（像图片）→ P0；截图类 stem 可白名单。
+#' @return list(ok, stems, missing_png, missing_tiff, flat_leftovers, bad_pdf_geometry,
+#'   bad_pdf_raster, stale_raster)
+pub_figure_formats_status <- function(figures_dir, require_dpi = 600L,
+                                      max_edge_in = NULL, check_pdf_geometry = TRUE,
+                                      check_pdf_vector = NULL,
+                                      stale_tol_sec = 2, config = list(),
+                                      require_png = NULL, require_tiff = NULL) {
   figures_dir <- as.character(figures_dir %||% "")[1L]
+  cfg <- .pub_figure_cfg(config)
+  if (is.null(require_png)) require_png <- isTRUE(cfg$export_png)
+  if (is.null(require_tiff)) require_tiff <- isTRUE(cfg$export_tiff)
+  if (is.null(check_pdf_vector)) check_pdf_vector <- isTRUE(cfg$require_vector_pdf)
+  require_dpi <- as.integer(require_dpi %||% cfg$dpi %||% 600L)[1L]
+  if (!is.finite(require_dpi) || require_dpi < 600L) require_dpi <- 600L
+  ## 默认 NULL：优先 config$pub_figures$max_edge_in（三集宽板/SHAP 常 >11in）
+  ## 禁止用形参默认 11 盖掉课题放宽值（BUN_Cr 2026-11 已踩）
+  max_edge_in <- suppressWarnings(as.numeric(max_edge_in %||% cfg$max_edge_in %||% 11)[1L])
+  if (!is.finite(max_edge_in) || max_edge_in < 4) max_edge_in <- 11
+  stale_tol_sec <- suppressWarnings(as.numeric(stale_tol_sec %||% 2)[1L])
+  if (!is.finite(stale_tol_sec) || stale_tol_sec < 0) stale_tol_sec <- 2
   empty <- list(
     ok = FALSE, stems = character(0), missing_png = character(0),
-    missing_tiff = character(0), flat_leftovers = character(0)
+    missing_tiff = character(0), bad_dpi = character(0),
+    bad_pdf_geometry = character(0), bad_pdf_raster = character(0),
+    stale_raster = character(0),
+    flat_leftovers = character(0), require_dpi = require_dpi,
+    max_edge_in = max_edge_in,
+    require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff),
+    require_vector_pdf = isTRUE(check_pdf_vector)
   )
   if (!nzchar(figures_dir) || !dir.exists(figures_dir)) return(empty)
-  dirs <- pub_figure_ensure_format_dirs(figures_dir)
+  dirs <- pub_figure_ensure_format_dirs(figures_dir, config = config)
   pdfs <- list.files(dirs[["pdf"]], pattern = "^Figure.*\\.pdf$", ignore.case = TRUE)
   stems <- sub("\\.pdf$", "", pdfs, ignore.case = TRUE)
   flat <- list.files(
@@ -2171,47 +2695,143 @@ pub_figure_formats_status <- function(figures_dir) {
   if (!length(stems) && !length(flat)) {
     return(list(
       ok = TRUE, stems = character(0), missing_png = character(0),
-      missing_tiff = character(0), flat_leftovers = character(0)
+      missing_tiff = character(0), bad_dpi = character(0),
+      bad_pdf_geometry = character(0), bad_pdf_raster = character(0),
+      stale_raster = character(0),
+      flat_leftovers = character(0), require_dpi = require_dpi,
+      max_edge_in = max_edge_in,
+      require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff),
+      require_vector_pdf = isTRUE(check_pdf_vector)
     ))
   }
   # 根目录仍有发表图 → 未完成收纳
   if (length(flat)) {
     return(list(
       ok = FALSE, stems = stems, missing_png = character(0),
-      missing_tiff = character(0), flat_leftovers = flat
+      missing_tiff = character(0), bad_dpi = character(0),
+      bad_pdf_geometry = character(0), bad_pdf_raster = character(0),
+      stale_raster = character(0),
+      flat_leftovers = flat, require_dpi = require_dpi,
+      max_edge_in = max_edge_in,
+      require_png = isTRUE(require_png), require_tiff = isTRUE(require_tiff),
+      require_vector_pdf = isTRUE(check_pdf_vector)
     ))
   }
   miss_png <- character(0)
   miss_tiff <- character(0)
+  bad_dpi <- character(0)
+  bad_geom <- character(0)
+  bad_raster <- character(0)
+  stale_raster <- character(0)
   # 0 字节 / 过小 TIFF（SMB 直写坑）视为缺失，触发 ensure_formats 兜底重导
   .size_ok <- function(p, min_size = 800L) {
     file.exists(p) && isTRUE(file.info(p)$size > min_size)
   }
+  .dpi_ok <- function(p) {
+    d <- .pub_figure_read_dpi(p)
+    # 缺元数据、垃圾值、以及 PNG 旧 pHYs 的 599.9988 都不合格。
+    # 合格写入见 python/pub_figure_rasterize.py 的 png_save_dpi()（读回 ≥600）。
+    is.finite(d) && d + 1e-6 >= require_dpi
+  }
+  .mtime <- function(p) {
+    info <- suppressWarnings(file.info(p))
+    as.numeric(info$mtime[1L])
+  }
+  root_hint <- tryCatch(
+    dirname(.PUB_FIGURE_EXPORT_DIR),
+    error = function(e) getwd()
+  )
   for (st in stems) {
-    if (!.size_ok(file.path(dirs[["png"]], paste0(st, ".png")))) miss_png <- c(miss_png, st)
-    if (!.size_ok(file.path(dirs[["tiff"]], paste0(st, ".tiff")))) miss_tiff <- c(miss_tiff, st)
+    pdf_p <- file.path(dirs[["pdf"]], paste0(st, ".pdf"))
+    png_p <- file.path(dirs[["png"]], paste0(st, ".png"))
+    tiff_p <- file.path(dirs[["tiff"]], paste0(st, ".tiff"))
+    if (isTRUE(require_png)) {
+      if (!.size_ok(png_p)) miss_png <- c(miss_png, st)
+      if (.size_ok(png_p) && !.dpi_ok(png_p)) bad_dpi <- c(bad_dpi, paste0(st, ".png"))
+    }
+    if (isTRUE(require_tiff)) {
+      if (!.size_ok(tiff_p)) miss_tiff <- c(miss_tiff, st)
+      if (.size_ok(tiff_p) && !.dpi_ok(tiff_p)) bad_dpi <- c(bad_dpi, paste0(st, ".tiff"))
+    }
+    # PDF 新于 png/tiff → 栅格陈旧（仅在要求栅格时判定）
+    if ((isTRUE(require_png) || isTRUE(require_tiff)) &&
+        .size_ok(pdf_p) && (.size_ok(png_p) || .size_ok(tiff_p))) {
+      mt_pdf <- .mtime(pdf_p)
+      mt_png <- if (.size_ok(png_p)) .mtime(png_p) else Inf
+      mt_tiff <- if (.size_ok(tiff_p)) .mtime(tiff_p) else Inf
+      if (is.finite(mt_pdf)) {
+        if (isTRUE(require_png) && is.finite(mt_png) && (mt_pdf - mt_png) > stale_tol_sec) {
+          stale_raster <- c(stale_raster, paste0(st, ".png"))
+        }
+        if (isTRUE(require_tiff) && is.finite(mt_tiff) && (mt_pdf - mt_tiff) > stale_tol_sec) {
+          stale_raster <- c(stale_raster, paste0(st, ".tiff"))
+        }
+      }
+    }
+    if (isTRUE(check_pdf_geometry)) {
+      geo <- .pub_figure_pdf_geometry(pdf_p, root_hint = root_hint)
+      if (!is.null(geo)) {
+        pages <- as.integer(geo$pages %||% 1L)[1L]
+        edge <- as.numeric(geo$max_edge_in %||% 0)[1L]
+        # 允许多页仅当页数=1；超大页长边 > max_edge_in + 0.25in 容差
+        if (is.finite(pages) && pages > 1L) {
+          bad_geom <- c(bad_geom, paste0(st, " (pages=", pages, ")"))
+        } else if (is.finite(edge) && edge > max_edge_in + 0.25) {
+          bad_geom <- c(
+            bad_geom,
+            sprintf("%s (max_edge=%.2fin>%.2f)", st, edge, max_edge_in)
+          )
+        }
+      }
+    }
+    if (isTRUE(check_pdf_vector) &&
+        !.pub_figure_stem_allows_raster_pdf(st, cfg$allow_raster_pdf_patterns)) {
+      vp <- .pub_figure_pdf_vector_probe(pdf_p, root_hint = root_hint)
+      if (isTRUE(vp$image_only)) {
+        bad_raster <- c(bad_raster, st)
+      }
+    }
   }
   list(
-    ok = !length(miss_png) && !length(miss_tiff),
+    ok = !length(miss_png) && !length(miss_tiff) && !length(bad_dpi) &&
+      !length(bad_geom) && !length(bad_raster) && !length(stale_raster),
     stems = stems,
     missing_png = miss_png,
     missing_tiff = miss_tiff,
-    flat_leftovers = character(0)
+    bad_dpi = unique(bad_dpi),
+    bad_pdf_geometry = unique(bad_geom),
+    bad_pdf_raster = unique(bad_raster),
+    stale_raster = unique(stale_raster),
+    flat_leftovers = character(0),
+    require_dpi = require_dpi,
+    max_edge_in = max_edge_in,
+    require_png = isTRUE(require_png),
+    require_tiff = isTRUE(require_tiff),
+    require_vector_pdf = isTRUE(check_pdf_vector)
   )
 }
 
-#' 若四目录不齐，强制 export_pub_figures（可从 pdf/ 回填到根目录再导出）
+#' 若格式子目录不齐，强制 export_pub_figures（可从 pdf/ 回填到根目录再导出）
 pub_figure_ensure_formats <- function(figures_dir, meta = list(), config = list(),
                                       purge = NULL) {
   figures_dir <- as.character(figures_dir %||% "")[1L]
   if (!nzchar(figures_dir) || !dir.exists(figures_dir)) {
     return(invisible(list(ok = FALSE, action = "missing_dir")))
   }
-  st <- pub_figure_formats_status(figures_dir)
+  cfg0 <- .pub_figure_cfg(config)
+  if (!isTRUE(cfg0$export_png) && !isTRUE(cfg0$export_tiff)) {
+    pub_figure_drop_raster_dirs(figures_dir)
+  }
+  st <- pub_figure_formats_status(
+    figures_dir,
+    require_dpi = cfg0$dpi,
+    max_edge_in = cfg0$max_edge_in,
+    config = config
+  )
   if (isTRUE(st$ok)) {
     return(invisible(list(ok = TRUE, action = "already_ok", status = st)))
   }
-  dirs <- pub_figure_ensure_format_dirs(figures_dir)
+  dirs <- pub_figure_ensure_format_dirs(figures_dir, config = config)
   # 仅有 pdf/ 子目录、根目录无平铺 PDF：先拷回根目录供 export 收纳
   flat_now <- list.files(figures_dir, pattern = "^Figure.*\\.pdf$", ignore.case = TRUE)
   flat_now <- flat_now[file.info(file.path(figures_dir, flat_now))$isdir %in% FALSE]
@@ -2237,15 +2857,123 @@ pub_figure_ensure_formats <- function(figures_dir, meta = list(), config = list(
       e
     }
   )
-  st2 <- pub_figure_formats_status(figures_dir)
+  cfg2 <- .pub_figure_cfg(config)
+  st2 <- pub_figure_formats_status(
+    figures_dir,
+    require_dpi = cfg2$dpi,
+    max_edge_in = cfg2$max_edge_in,
+    config = config
+  )
   if (!isTRUE(st2$ok) && requireNamespace("cli", quietly = TRUE)) {
     cli::cli_alert_danger(
-      "发表图四目录仍不完整: missing_png={length(st2$missing_png)}, missing_tiff={length(st2$missing_tiff)}, flat={length(st2$flat_leftovers)}"
+      paste0(
+        "发表图格式仍不完整: missing_png=", length(st2$missing_png),
+        ", missing_tiff=", length(st2$missing_tiff),
+        ", bad_dpi=", length(st2$bad_dpi %||% character(0)),
+        ", bad_pdf_geometry=", length(st2$bad_pdf_geometry %||% character(0)),
+        ", bad_pdf_raster=", length(st2$bad_pdf_raster %||% character(0)),
+        ", stale_raster=", length(st2$stale_raster %||% character(0)),
+        " (require>=", st2$require_dpi %||% 600L, ")",
+        ", flat=", length(st2$flat_leftovers),
+        "; raster_required=",
+        isTRUE(st2$require_png) || isTRUE(st2$require_tiff)
+      )
     )
   } else if (isTRUE(st2$ok) && requireNamespace("cli", quietly = TRUE)) {
+    lab <- if (isTRUE(cfg2$export_png) || isTRUE(cfg2$export_tiff)) {
+      paste0(
+        "pdf",
+        if (isTRUE(cfg2$export_png)) "/png" else "",
+        if (isTRUE(cfg2$export_tiff)) "/tiff" else "",
+        " @ ", st2$require_dpi %||% 600L, " dpi"
+      )
+    } else {
+      "pdf/image_information（默认不导出 png/tiff）"
+    }
     cli::cli_alert_success(
-      "发表图四目录校验通过: {length(st2$stems)} 张 × pdf/png/tiff"
+      "发表图校验通过: {length(st2$stems)} 张 × {lab}"
     )
   }
   invisible(list(ok = isTRUE(st2$ok), action = "exported", status = st2, result = res))
+}
+
+###############################################################################
+# Text-layer collision audit helper: bake one PDF page into an image-only PDF.
+# 2026-11 铁律：dest 不得覆盖交付 Figures/pdf/ 矢量稿；只写 _raster_audit/ 等旁路。
+# nature-figure 对密文本可能仍报 collision；交付面必须保持矢量（bad_pdf_raster=P0）。
+###############################################################################
+
+#' Rasterize a PDF page into an image-only PDF (same page size).
+#'
+#' **禁止**把 ``dest`` 指到交付 ``Figures/pdf/``。交付 PDF 必须矢量；
+#' 本函数仅供 collision 审计旁路 / 非交付副本。
+#' @param src existing PDF path
+#' @param dest output PDF path（须在 `_raster_audit/` 等非交付目录）
+#' @param dpi raster density (default 300 for audit; delivery png/tiff still go through pub_figure_ensure_formats @600)
+#' @return dest (invisible)
+.pub_figure_rasterize_pdf_page_pymupdf <- function(src, dest, dpi = 300L) {
+  py <- .pub_figure_python_exe()
+  if (!nzchar(py)) stop("python required for pymupdf rasterize fallback", call. = FALSE)
+  code <- paste(
+    "import fitz, sys, os",
+    "src, dest, dpi = sys.argv[1], sys.argv[2], int(sys.argv[3])",
+    "doc = fitz.open(src)",
+    "out = fitz.open()",
+    "for i in range(len(doc)):",
+    "    page = doc[i]",
+    "    mat = fitz.Matrix(dpi/72.0, dpi/72.0)",
+    "    pix = page.get_pixmap(matrix=mat, alpha=False)",
+    "    rect = page.rect",
+    "    npage = out.new_page(width=rect.width, height=rect.height)",
+    "    npage.insert_image(rect, pixmap=pix)",
+    "os.makedirs(os.path.dirname(dest) or '.', exist_ok=True)",
+    "out.save(dest, deflate=True)",
+    "out.close(); doc.close()",
+    sep = "\n"
+  )
+  status <- system2(py, c("-c", code, src, dest, as.character(dpi)), stdout = TRUE, stderr = TRUE)
+  if (!file.exists(dest)) {
+    stop("pymupdf rasterize failed: ", paste(status, collapse = " "), call. = FALSE)
+  }
+  invisible(dest)
+}
+
+pub_figure_rasterize_pdf_page <- function(src, dest, dpi = 300L) {
+  src <- as.character(src %||% "")[1L]
+  dest <- as.character(dest %||% "")[1L]
+  dpi <- as.integer(dpi %||% 300L)[1L]
+  if (!nzchar(src) || !file.exists(src)) {
+    stop("pub_figure_rasterize_pdf_page: src missing: ", src, call. = FALSE)
+  }
+  if (!nzchar(dest)) stop("pub_figure_rasterize_pdf_page: dest required", call. = FALSE)
+  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+
+  # Prefer magick; fall back to PyMuPDF when Ghostscript/magick assert on some PDFs
+  ok_magick <- FALSE
+  if (requireNamespace("magick", quietly = TRUE) && requireNamespace("grid", quietly = TRUE)) {
+    ok_magick <- tryCatch({
+      im <- magick::image_read_pdf(src, density = dpi)
+      info <- magick::image_info(im)
+      if (is.null(info) || !nrow(info) || is.na(info$width[[1]])) stop("empty magick frame")
+      w_in <- info$width[[1]] / dpi
+      h_in <- info$height[[1]] / dpi
+      tmp_png <- tempfile(fileext = ".png")
+      on.exit(unlink(tmp_png), add = TRUE)
+      magick::image_write(im, path = tmp_png, format = "png")
+      ras <- as.raster(magick::image_read(tmp_png))
+      if (is.function(grDevices::cairo_pdf)) {
+        grDevices::cairo_pdf(dest, width = w_in, height = h_in)
+      } else {
+        grDevices::pdf(dest, width = w_in, height = h_in)
+      }
+      grid::grid.newpage()
+      grid::grid.raster(ras, interpolate = TRUE)
+      grDevices::dev.off()
+      TRUE
+    }, error = function(e) FALSE)
+  }
+  if (!isTRUE(ok_magick) || !file.exists(dest)) {
+    .pub_figure_rasterize_pdf_page_pymupdf(src, dest, dpi = dpi)
+  }
+  invisible(dest)
 }

@@ -128,6 +128,7 @@ config <- list(
     max_iter = 5L,
     seed = 1234L,
     complete_action = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig = FALSE,
     export_table_s1 = FALSE
   ),
@@ -149,7 +150,7 @@ config <- list(
   multicollinearity_screen = list(enable = FALSE),
   multicollinearity_final = list(enable = FALSE),
 
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
 
   study_batch = list(
     output_base = .batch_project_root,

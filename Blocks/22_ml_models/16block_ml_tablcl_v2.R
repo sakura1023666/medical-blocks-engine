@@ -304,7 +304,10 @@
   ana_g1 <- as.character(ana_g)[1L]
   if (!all(c(ref_g1, ana_g1) %in% lv)) return(eval_ml)
   ev_ana <- if (identical(lv[2L], ana_g1)) "second" else "first"
-  ref_col <- intersect(c(paste0(".pred_", ref_g1), ref_g1), names(fp))[1L]
+  # 同上 check.names 兼容：".pred_No CSVD"/"No CSVD" 在 R 里会被改写成 "No.CSVD"
+  ref_col <- intersect(c(paste0(".pred_", ref_g1), ref_g1,
+                         paste0(".pred_", make.names(ref_g1)), make.names(ref_g1)),
+                       names(fp))[1L]
   if (is.na(ref_col)) return(eval_ml)
   ds <- tolower(as.character(fp$dataset))
   sel_train <- grepl("train", ds)
@@ -370,8 +373,19 @@
   eval_best_cv5_ml_sens  <- .rd(paste0("eval_best_cv5_", sheet_stem, "_sens"))
   eval_best_cv5_ml_sens$model <- model_label
 
+  # 2026-11-05（study 21 CSVD）：openxlsx::read.xlsx(check.names=TRUE) 会把含空格
+  # 标签列（"No CSVD"）改写成 "No.CSVD" → 按字面标签选择报 "undefined columns
+  # selected"。对 原标签 / make.names(标签) 两种写法做兼容匹配。
+  .pcol <- function(df, g) {
+    hit <- intersect(c(g, make.names(g)), names(df))
+    if (!length(hit))
+      stop(model_label, ": 预测表缺少概率列 ", g, "；现有列: ",
+           paste(names(df), collapse = ", "), call. = FALSE)
+    hit[1L]
+  }
   .fix_pred <- function(df) {
-    df <- df[, c(ref_g, ana_g, "Group", "dataset", "model")]
+    df <- df[, c(.pcol(df, ref_g), .pcol(df, ana_g), "Group", "dataset", "model"),
+             drop = FALSE]
     colnames(df) <- c(pred_ref_col, pred_ana_col, "Group", "dataset", "model")
     df$model <- model_label
     df

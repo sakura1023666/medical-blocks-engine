@@ -55,7 +55,12 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
   proj_cfg <- cfg$project %||% list()
   nhanes_cfg <- cfg$nhanes %||% list()
   outcome_col <- cfg$data$outcome_column %||% "Disease_Group"
-  disease_lbl <- proj_cfg$analysis_group %||% proj_cfg$disease %||% "Case"
+  # 禁止直接用 analysis_group="1"：列常已是 Depression/No Depression，会编成全 0 → OR≈1.3 假值
+  disease_lbl <- if (exists("pipeline_outcome_case_label", mode = "function")) {
+    pipeline_outcome_case_label(cfg)
+  } else {
+    as.character(proj_cfg$disease %||% proj_cfg$analysis_group %||% "Case")[1L]
+  }
   cluster_col <- nhanes_cfg$survey_cluster %||% "SDMVPSU"
 
   design <- ctx$results$nhanes_design
@@ -85,9 +90,14 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
   }
 
   design <- stats::update(design,
-    Disease_Group = pipeline_outcome_as_01(design$variables[[outcome_col]], case_label = disease_lbl)
+    Disease_Group = pipeline_outcome_as_01(
+      design$variables[[outcome_col]], cfg = cfg, case_label = disease_lbl
+    )
   )
   outcome <- bl_cfg$outcome %||% "Disease_Group"
+  cli::cli_alert_info(
+    "mediation_nhanes_weighted: 结局 0/1 阳性标签={disease_lbl}；Disease_Group 均值={round(mean(design$variables$Disease_Group, na.rm = TRUE), 4)}"
+  )
 
   models <- .lnw00_resolve_models(ctx, cfg, bl_cfg, design, index_var)
   M1_vars <- models$M1
@@ -102,7 +112,8 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     cli::cli_alert_info("mediation_nhanes_weighted: Model1 为空，LM/中介按无（或极少）协变量运行。")
   }
 
-  mediators <- bl_cfg$mediators
+  ## 必须 [[ ]]：`$mediators` 会部分匹配 mediators_strict_only
+  mediators <- bl_cfg[["mediators"]]
   # 路径默认 crude；path_use_covariates=TRUE 时用锁定 Model2 / 配置 covariates
   covariates <- if (exists("pipeline_mediation_resolve_path_covariates", mode = "function")) {
     pipeline_mediation_resolve_path_covariates(cfg, bl_cfg, names(design$variables), ctx = ctx)
@@ -141,25 +152,57 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     pval <- as.numeric(cf[i, pcol])
     lo <- beta - 1.96 * se
     hi <- beta + 1.96 * se
-    ci <- paste0("(", round(lo, 3), ",", round(hi, 3), ")")
+    ci <- if (exists(".mi02_fmt_assoc_ci", mode = "function")) {
+      .mi02_fmt_assoc_ci(lo, hi)
+    } else {
+      paste0("(", round(lo, 3), ",", round(hi, 3), ")")
+    }
     list(beta = beta, ci = ci, p = pval, se = se)
   }
 
+  # Path a 方向：实验室 ~ 暴露_z（旧版误写暴露 ~ 实验室 → β≈0 / CI(0,0)）
+  .assoc_scale_exp <- isTRUE(bl_cfg$lab_assoc_scale_exposure %||% TRUE)
+  .assoc_scale_lab <- isTRUE(
+    bl_cfg$lab_assoc_scale_lab %||% isTRUE(bl_cfg$standardize_mediator %||% TRUE)
+  )
+  .mnw_exp_term <- if (isTRUE(.assoc_scale_exp)) paste0("I(as.numeric(scale(", exposure, ")))") else exposure
   .mnw01_cor_row <- function(lab_var, M1, M2) {
-    rhs_crude <- lab_var
-    rhs_m1 <- paste(unique(c(lab_var, setdiff(M1, lab_var))), collapse = "+")
-    rhs_m2 <- paste(unique(c(lab_var, setdiff(M2, lab_var))), collapse = "+")
-    f_crude <- stats::as.formula(paste(exposure, "~", rhs_crude))
-    f_m1 <- stats::as.formula(paste(exposure, "~", rhs_m1))
-    f_m2 <- stats::as.formula(paste(exposure, "~", rhs_m2))
-    fit_crude <- tryCatch(survey::svyglm(f_crude, design = design, family = gaussian()), error = function(e) NULL)
-    fit_m1 <- tryCatch(survey::svyglm(f_m1, design = design, family = gaussian()), error = function(e) NULL)
-    fit_m2 <- tryCatch(survey::svyglm(f_m2, design = design, family = gaussian()), error = function(e) NULL)
-    r1 <- .mnw01_svy_pick(fit_crude, lab_var)
-    r2 <- .mnw01_svy_pick(fit_m1, lab_var)
-    r3 <- .mnw01_svy_pick(fit_m2, lab_var)
-    # P/β 先存原始数值字符串，供下游筛选用 as.numeric；发表格式在导出前再统一美化
-    # （若此处先写成 "< 0.001"，筛选用 as.numeric 会变 NA，导致中介被误跳过）
+    # 临时把实验室 z 化进 design（避免改全局列名）
+    lab_term <- lab_var
+    des_use <- design
+    if (isTRUE(.assoc_scale_lab) && lab_var %in% names(des_use$variables) &&
+        is.numeric(des_use$variables[[lab_var]])) {
+      zname <- paste0(".__lab_z_", lab_var)
+      des_use$variables[[zname]] <- as.numeric(scale(des_use$variables[[lab_var]]))
+      lab_term <- zname
+    }
+    rhs_cov_m1 <- paste(setdiff(M1, c(lab_var, exposure)), collapse = "+")
+    rhs_cov_m2 <- paste(setdiff(M2, c(lab_var, exposure)), collapse = "+")
+    f_crude <- stats::as.formula(paste(lab_term, "~", .mnw_exp_term))
+    f_m1 <- if (nzchar(rhs_cov_m1)) {
+      stats::as.formula(paste(lab_term, "~", .mnw_exp_term, "+", rhs_cov_m1))
+    } else {
+      f_crude
+    }
+    f_m2 <- if (nzchar(rhs_cov_m2)) {
+      stats::as.formula(paste(lab_term, "~", .mnw_exp_term, "+", rhs_cov_m2))
+    } else {
+      f_crude
+    }
+    fit_crude <- tryCatch(survey::svyglm(f_crude, design = des_use, family = gaussian()), error = function(e) NULL)
+    fit_m1 <- tryCatch(survey::svyglm(f_m1, design = des_use, family = gaussian()), error = function(e) NULL)
+    fit_m2 <- tryCatch(survey::svyglm(f_m2, design = des_use, family = gaussian()), error = function(e) NULL)
+    # 系数名可能是 I(as.numeric(scale(HHR))) — 取非截距首项
+    .pick_exp <- function(fit) {
+      if (is.null(fit)) return(.mnw01_svy_pick(NULL, exposure))
+      rn <- rownames(summary(fit)$coefficients)
+      hit <- rn[rn != "(Intercept)"][1L]
+      if (!length(hit) || is.na(hit)) hit <- exposure
+      .mnw01_svy_pick(fit, hit)
+    }
+    r1 <- .pick_exp(fit_crude)
+    r2 <- .pick_exp(fit_m1)
+    r3 <- .pick_exp(fit_m2)
     .fmt_beta_raw <- function(b) {
       if (!is.finite(b)) return("")
       formatC(b, format = "f", digits = 8, drop0trailing = TRUE)
@@ -178,9 +221,16 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     mat
   }
 
-  if (is.null(mediators) || !length(mediators)) {
+  # 即使配置锁定 mediators，也始终构建实验室关联表（export_lab_assoc_even_if_ns /
+  # 门控通过后导出 Associations）；仅「自动筛选中介名单」在 mediators 为空时启用。
+  .mnw_preset_mediators <- mediators
+  .mnw_auto_mediators <- is.null(mediators) || !length(mediators)
+  if (TRUE) {
     lab_pool <- .mi02_resolve_lab_indicator_pool(
       cfg, bl_cfg, names(design$variables), exposure
+    )
+    lab_pool <- .mi02_apply_dual_shared_lab_pool(
+      cfg, bl_cfg, lab_pool, names(design$variables)
     )
   # 相关性仅筛候选：排除暴露/结局/疾病泄漏/指标组分。
   # 双库发病：不因已在 Model1/Model2 而剔除（与 CHARLS mediation_incidence 对齐；
@@ -240,9 +290,14 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     }
 
     if (!length(lab_pool)) {
-      cli::cli_alert_warning("mediation_nhanes_weighted: 排除协变量后无可用中介候选，跳过。")
-      return(ctx)
-    }
+      if (isTRUE(.mnw_auto_mediators)) {
+        cli::cli_alert_warning("mediation_nhanes_weighted: 排除协变量后无可用中介候选，跳过。")
+        return(ctx)
+      }
+      cli::cli_alert_warning(
+        "mediation_nhanes_weighted: 实验室候选池为空；保留配置锁定中介，跳过 Associations 构建。"
+      )
+    } else {
     cli::cli_alert_info(
       "mediation_nhanes_weighted: 中介候选池 {length(lab_pool)} 个（血检+共病等，已排除协变量）— {paste(head(lab_pool, 8), collapse = ', ')}{if (length(lab_pool) > 8) '...' else ''}"
     )
@@ -299,13 +354,20 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     if (length(rt_list)) {
       rt <- do.call(rbind, rt_list)
       rt <- data.frame(rt, stringsAsFactors = FALSE)
-      colnames(rt) <- c("variable", "β value", "95% CI", "P value")
-      # 统一：β 3 位小数；P 3 位，<0.001 显示为 < 0.001
-      beta_num <- suppressWarnings(as.numeric(rt[["β value"]]))
-      rt[["β value"]] <- ifelse(
-        is.na(beta_num) | !nzchar(as.character(rt[["β value"]])),
-        as.character(rt[["β value"]]),
-        formatC(round(beta_num, 3), format = "f", digits = 3)
+      beta_hdr <- if (isTRUE(.assoc_scale_exp)) "β per 1-SD exposure" else "β value"
+      colnames(rt) <- c("variable", beta_hdr, "95% CI", "P value")
+      beta_num <- suppressWarnings(as.numeric(rt[[beta_hdr]]))
+      rt[[beta_hdr]] <- ifelse(
+        is.na(beta_num) | !nzchar(as.character(rt[[beta_hdr]])),
+        as.character(rt[[beta_hdr]]),
+        vapply(seq_along(beta_num), function(i) {
+          if (is.na(beta_num[[i]])) return(as.character(rt[[beta_hdr]][[i]]))
+          if (exists(".mi02_fmt_assoc_beta", mode = "function")) {
+            .mi02_fmt_assoc_beta(beta_num[[i]])
+          } else {
+            formatC(beta_num[[i]], format = "f", digits = 3)
+          }
+        }, character(1L))
       )
       p_chr <- as.character(rt[["P value"]])
       p_num <- suppressWarnings(as.numeric(p_chr))
@@ -318,23 +380,45 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
       ctx$results$mediation_nhanes_correlation_lm_rt <- rt
     }
 
-    if (dual_lm) {
-      mediators <- unique(intersect(sig_from_lm, names(design$variables)))
-      if (!length(mediators) && fallback_m2) {
-        mediators <- unique(intersect(sig_m2, names(design$variables)))
-        cli::cli_alert_warning(
-          "加权 LM 无 Model1∩Model2 交集，回退 Model2 显著血检（{length(mediators)} 个）"
-        )
+    if (isTRUE(.mnw_auto_mediators)) {
+      if (dual_lm) {
+        mediators <- unique(intersect(sig_from_lm, names(design$variables)))
+        if (!length(mediators) && fallback_m2) {
+          mediators <- unique(intersect(sig_m2, names(design$variables)))
+          cli::cli_alert_warning(
+            "加权 LM 无 Model1∩Model2 交集，回退 Model2 显著血检（{length(mediators)} 个）"
+          )
+        } else {
+          beta_rule <- if (lm_nonneg) ">=0" else "任意"
+          cli::cli_alert_info(
+            "加权 LM 交集（Model1 与 Model2 均 beta{beta_rule} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
+          )
+        }
       } else {
-        beta_rule <- if (lm_nonneg) ">=0" else "任意"
-        cli::cli_alert_info(
-          "加权 LM 交集（Model1 与 Model2 均 beta{beta_rule} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
-        )
+        mediators <- unique(intersect(sig_from_lm, names(design$variables)))
+        cli::cli_alert_info("加权 LM Model2 筛选: {length(mediators)} 个中介候选")
       }
     } else {
-      mediators <- unique(intersect(sig_from_lm, names(design$variables)))
-      cli::cli_alert_info("加权 LM Model2 筛选: {length(mediators)} 个中介候选")
+      mediators <- .mnw_preset_mediators
+      if (!.mnw_auto_mediators &&
+          isTRUE(.mi02_also_include_lm_sig_mediators(cfg, bl_cfg)) &&
+          length(sig_from_lm)) {
+        mediators <- unique(c(as.character(mediators), as.character(sig_from_lm)))
+        mediators <- unique(intersect(mediators, names(design$variables)))
+        cli::cli_alert_info(
+          "mediation_nhanes_weighted: 预设中介 + LM 显著共享实验室（also_include_lm_sig_mediators）：{paste(mediators, collapse = ', ')}"
+        )
+      }
+      n_assoc <- if (!is.null(ctx$results$mediation_nhanes_correlation_lm_rt)) {
+        nrow(ctx$results$mediation_nhanes_correlation_lm_rt)
+      } else {
+        0L
+      }
+      cli::cli_alert_info(
+        "mediation_nhanes_weighted: 使用配置锁定中介（{paste(as.character(mediators), collapse = ', ')}）；已构建实验室关联表（{n_assoc} 行）"
+      )
     }
+    } # lab_pool non-empty
   }
 
   mediators <- as.character(mediators %||% character(0))
@@ -734,12 +818,24 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     "Proportion mediated"
   )
 
-  # 规则：最佳中介 Proportion mediated + Direct Effect 均显著才导出；否则不出表/图/关联表
+  # 规则：最佳中介达门槛才导出中介表/路径图；默认关联表同生共死
+  # export_lab_assoc_even_if_ns=TRUE 时仍可出实验室相关表（发病「相关性」附表）
   med_export_ok <- .mi02_mediation_should_export(final_table, cfg, bl_cfg)
   if (!med_export_ok) {
     ctx$results$mediation_nhanes_weighted <- final_table
     ctx$results$mediation_nhanes_ns_skipped <- TRUE
     reason <- .mi02_mediation_skip_reason(final_table, cfg, bl_cfg)
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    if (isTRUE(keep_lab)) {
+      cli::cli_alert_warning(
+        "mediation_nhanes_weighted: {reason}；中介表/路径图不出，仍导出实验室相关表。"
+      )
+      .mi02_unlink_mediation_exports(ctx)
+      .mi02_export_lab_association_table(
+        ctx, ctx$results$mediation_nhanes_correlation_lm_rt, exposure, weighted = TRUE
+      )
+      return(ctx)
+    }
     cli::cli_alert_warning(
       "mediation_nhanes_weighted: {reason}，按规则不导出中介表、路径图与实验室关联表。"
     )
@@ -781,8 +877,9 @@ block_mediation_nhanes_weighted <- function(ctx, ...) {
     }
     sel_colors <- .mi02_palettes[[sample(names(.mi02_palettes), 1L)]]
     outcome_diag_label <- .mediation_outcome_diag_label(cfg)
+    # 与 CHARLS Mediation path diagram 同名，便于双库 Figure S3 拼图
     fig_caption <- paste0(
-      "Weighted mediation path diagram of ", exposure, " and ", outcome_diag_label
+      "Mediation path diagram of ", exposure, " and ", outcome_diag_label
     )
     # 发病双库发表规范：中介路径图 = Figure S3（与 CHARLS 统一）
     fig_kind <- as.character((cfg$mediation_nhanes_weighted %||% list())$figure_kind %||% "supp_figure")[1L]

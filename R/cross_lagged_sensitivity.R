@@ -83,6 +83,30 @@ cross_lagged_sens_filter_exclude_chronic <- function(df, stems = NULL, min_count
   )
 }
 
+#' 场景 A2：剔除基线 T2DM（糖尿病）阳性
+#'
+#' 用于共病≥2 敏感性使部分库主效应掉显著性时，改用单病种排除且仍有真实减员。
+cross_lagged_sens_filter_exclude_t2dm <- function(df, var = "T2DM") {
+  var <- as.character(var %||% "T2DM")[1L]
+  if (!var %in% names(df)) {
+    stop("exclude_t2dm: 数据无列 ", var, call. = FALSE)
+  }
+  x <- df[[var]]
+  pos <- if (is.numeric(x) || is.integer(x)) {
+    !is.na(x) & as.numeric(x) > 0
+  } else {
+    as.character(x) %in% c("1", "Yes", "yes", "TRUE", "True", "T2DM")
+  }
+  keep <- !pos
+  list(
+    data = df[keep, , drop = FALSE],
+    n_before = nrow(df),
+    n_after = sum(keep),
+    n_excluded = sum(!keep),
+    var = var
+  )
+}
+
 #' 场景 B：未插补完整病例（listwise；不做 MI）
 #'
 #' 读插补前 dabiao 后调用。仅对分析变量
@@ -201,33 +225,42 @@ cross_lagged_sens_table_basename <- function(scenario, kind, db = NULL,
                                              disease_display = "Hip fracture",
                                              grouping = "tertile",
                                              change_index_display = NULL) {
-  # kind: baseline | logistic | change | change_twowave
+  # kind: baseline | logistic | change
+  # change = 全库 two_wave（与主文 Table S5 / 原 *.1 同口径）；不再交付 three_plus 或 *.1 双轨
+  # 编号：敏感性从 S11 起；change_twowave 仅兼容旧调用，映射到与 change 同一号
   map <- list(
     exclude_chronic_ge2 = list(
-      baseline = "S9", logistic = "S10", change = "S11", change_twowave = "S11.1",
+      baseline = "S11", logistic = "S12", change = "S13", change_twowave = "S13",
       tag = "Sensitivity exclude chronic ge2"
     ),
     complete_case = list(
-      baseline = "S12", logistic = "S13", change = "S14", change_twowave = "S14.1",
+      baseline = "S14", logistic = "S15", change = "S16", change_twowave = "S16",
       tag = sprintf(
         "Sensitivity complete case unimputed listwise"
       )
     ),
     exclude_event_le_2y = list(
-      baseline = "S15", logistic = "S16", change = "S17", change_twowave = "S17.1",
+      baseline = "S17", logistic = "S18", change = "S19", change_twowave = "S19",
       tag = "Sensitivity exclude event within 2y"
     ),
+    # 髋部等「仅保留一套敏感性」课题：S9 基线 / S10 logistic / S11 change(two_wave)
+    exclude_t2dm = list(
+      baseline = "S9", logistic = "S10", change = "S11", change_twowave = "S11",
+      tag = "Sensitivity exclude T2DM"
+    ),
     external_validation = list(
-      baseline = "S18", logistic = "S19",
+      baseline = "S20", logistic = "S21",
       tag = "External validation locked covariates CHARLS+ELSA"
     )
   )
   sc <- map[[scenario]]
   if (is.null(sc)) stop("未知敏感性场景: ", scenario, call. = FALSE)
-  num <- sc[[kind]]
+  # 兼容旧 kind=change_twowave → 与 change 同号同题
+  kind_use <- if (identical(kind, "change_twowave")) "change" else kind
+  num <- sc[[kind_use]] %||% sc[[kind]]
   tag <- sc$tag
   ch_disp <- change_index_display %||% index_display
-  if (kind %in% c("change", "change_twowave")) {
+  if (kind_use %in% c("change", "change_twowave") || identical(kind, "change_twowave")) {
     change_title <- sprintf("Mean %s and %s change", ch_disp, ch_disp)
     title <- sprintf("Table %s. %s — Change analysis %s", num, tag, change_title)
     return(paste0(title, ".xlsx"))

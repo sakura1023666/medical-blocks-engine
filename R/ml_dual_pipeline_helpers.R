@@ -374,6 +374,8 @@ pipeline_export_primary_assoc_covariates <- function(ctx, root, config) {
   m2 <- unique(as.character(
     ctx$results$assoc_model2_factors %||%
       ctx$results$logistic_model2_factors %||%
+      ## 铁律 A resolve 常只写 Model2Factors；缺此回退会导出陈旧/空 M2，外验继承成 Albumin 截断集
+      ctx$results$Model2Factors %||%
       character(0)
   ))
   m1 <- m1[nzchar(m1)]
@@ -564,7 +566,23 @@ pipeline_inject_primary_features_to_ctx <- function(cx, root, config, db_tag = "
   }
   present <- intersect(feats, names(dat))
   missing <- setdiff(feats, names(dat))
+  strict_miss <- FALSE
+  if (exists("pipeline_dual_db_missing_union_strict", mode = "function")) {
+    strict_miss <- isTRUE(pipeline_dual_db_missing_union_strict(config))
+  } else {
+    sm <- as.character(config$ml_batch$split_mode %||% config$incidence_batch$split_mode %||% "")[1L]
+    strict_miss <- identical(sm, "dev_internal_ext") || identical(sm, "cross_db")
+  }
   if (length(missing)) {
+    if (isTRUE(strict_miss)) {
+      stop(
+        "DUAL_DB_ML_ERROR: ", db_tag,
+        " 主库 ML 特征在外验/次库不可用（插补后缺列）: ",
+        paste(missing, collapse = ", "),
+        "。应在主库插补阶段按双库严格缺失并集剔除，禁止带单侧特征训练。",
+        call. = FALSE
+      )
+    }
     cli::cli_alert_warning(
       "{db_tag}: 主库特征在验证库中缺失 {length(missing)} 个，已跳过: {paste(head(missing, 8), collapse = ', ')}"
     )
@@ -755,6 +773,14 @@ inject_feature_selection_compound_indices <- function(cx, db_tag = "DB") {
 ml_dual_assert_primary_larger_n <- function(config, ix = NULL, stop_on_fail = TRUE) {
   dual <- config$dual_db %||% list()
   if (!isTRUE(dual$enable %||% FALSE)) return(invisible(NULL))
+  ## 课题显式授权「人少库做主库」（如加权 NHANES 主分析 / MIMIC 开发 eICU 外验）时可放行，仅警告不硬停
+  allow_smaller <- isTRUE(dual$allow_primary_smaller_n %||% FALSE) ||
+    isTRUE((config$ml_batch %||% list())$allow_primary_smaller_n %||% FALSE) ||
+    isTRUE((config$project %||% list())$allow_primary_smaller_n %||% FALSE) ||
+    isTRUE((config$.study %||% list())$allow_primary_smaller_n %||% FALSE)
+  if (isTRUE(allow_smaller)) {
+    stop_on_fail <- FALSE
+  }
   bc <- config$ml_batch %||% config$incidence_batch %||% list()
   shared_base <- bc$shared_ck_base %||% file.path(
     dual$checkpoint_base %||% "checkpoints", "_shared"

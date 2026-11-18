@@ -20,13 +20,30 @@
 .dual_db_combine_cfg <- function(config) {
   dd <- config$dual_db %||% list()
   cfg <- dd$combine_figures %||% list()
+  ## Jin Fig2 = 三时点×双库六页全宽；禁止左右并排压缩（刻度必叠）
+  skip_roles <- as.character(cfg$skip_roles %||% character(0))
+  .jin_scheme <- FALSE
+  if (exists("jin_index_sofa_is_pub_scheme", mode = "function")) {
+    .jin_scheme <- isTRUE(jin_index_sofa_is_pub_scheme(config))
+  } else {
+    .sch <- tolower(as.character(
+      (config$survival_batch %||% config$incidence_batch %||%
+         config$ml_batch %||% list())$pub_figure_scheme %||% ""
+    )[1L])
+    .jin_scheme <- identical(.sch, "jin_index_sofa")
+  }
+  if (isTRUE(.jin_scheme)) {
+    skip_roles <- unique(c(skip_roles, "fig2_nomogram"))
+  }
   list(
     enable = isTRUE(cfg$enable %||% TRUE),
     remove_singles = isTRUE(cfg$remove_singles %||% TRUE),
     drop_missing_overview = isTRUE(cfg$drop_missing_overview %||% TRUE),
     panel_order = as.character(cfg$panel_order %||% "primary_first")[1L],
-    label_format = as.character(cfg$label_format %||% "A. {db}")[1L],
+    # 全项目默认：外标仅库名（CHARLS / NHANES），不加 A./B. 字母前缀
+    label_format = as.character(cfg$label_format %||% "{db}")[1L],
     layout_by_role = cfg$layout_by_role %||% NULL,
+    skip_roles = skip_roles,
     dpi = as.integer(cfg$dpi %||% 200L)[1L],
     label_cex = as.numeric(cfg$label_cex %||% 1.15)[1L],
     primary = as.character((dd$primary %||% list())$name %||% "primary")[1L],
@@ -44,13 +61,20 @@
   )
 }
 
-.dual_db_panel_label <- function(letter, db, fmt = "A. {db}") {
+.dual_db_panel_label <- function(letter, db, fmt = "{db}") {
   db <- as.character(db %||% "")[1L]
-  out <- gsub("{db}", db, fmt, fixed = TRUE)
-  # 允许配置写成 "A. {db}"；B 面板自动换字母
-  out <- sub("^[A-Z]\\.", paste0(letter, "."), out)
-  if (!grepl(paste0("^", letter, "\\."), out)) {
-    out <- paste0(letter, ". ", db)
+  # 展示层禁下划线：MIMIC_IV → MIMIC IV（目录名可保留下划线）
+  db_disp <- gsub("_", " ", db, fixed = TRUE)
+  letter <- as.character(letter %||% "A")[1L]
+  fmt <- as.character(fmt %||% "{db}")[1L]
+  if (!nzchar(fmt) || identical(fmt, "{db}") || identical(tolower(fmt), "db")) {
+    return(db_disp)
+  }
+  out <- gsub("{db}", db_disp, fmt, fixed = TRUE)
+  out <- gsub("{letter}", letter, out, fixed = TRUE)
+  # 仅当格式本身带字母前缀（如 "A. {db}"）时，把首字母换成当前面板字母
+  if (grepl("^[A-Z]\\.", fmt)) {
+    out <- sub("^[A-Z]\\.", paste0(letter, "."), out)
   }
   out
 }
@@ -64,14 +88,18 @@
 .dual_db_normalize_pair_key <- function(key) {
   key <- as.character(key %||% "")[1L]
   if (!nzchar(key)) return(key)
-  # 发病双库：去掉 Weighted 前缀，统一 RCS / 亚组标题，便于 NHANES↔CHARLS 成对
+  # 发病双库：去掉 Weighted 前缀，统一 RCS / 亚组 / 中介路径标题，便于 NHANES↔CHARLS 成对
   key <- sub("Weighted\\s+RCS\\s+of\\s+", "RCS of ", key, ignore.case = TRUE, perl = TRUE)
   key <- sub("RCS\\s+plot\\s+between\\s+", "RCS of ", key, ignore.case = TRUE, perl = TRUE)
+  # 统一为「Subgroup Forest analyses」（保留 Forest，供 ML Fig8 交付名；勿再收成无 Forest）
   key <- sub("Weighted\\s+Subgroup\\s+(Forest\\s+)?(analyses\\s+)?of\\s+",
-             "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
-  key <- sub("Subgroup\\s+Forest\\s+analyses\\s+of\\s+",
-             "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
-  key <- sub("Subgroup\\s+of\\s+", "Subgroup analyses of ", key, ignore.case = TRUE, perl = TRUE)
+             "Subgroup Forest analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Subgroup\\s+analyses\\s+of\\s+",
+             "Subgroup Forest analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Subgroup\\s+of\\s+", "Subgroup Forest analyses of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Weighted\\s+mediation\\s+path\\s+diagram\\s+of\\s+",
+             "Mediation path diagram of ", key, ignore.case = TRUE, perl = TRUE)
+  key <- sub("Weighted\\s+[Mm]ediation\\s+", "Mediation ", key, ignore.case = TRUE, perl = TRUE)
   # "RCS of X and Diabetic Nephropathy" vs "RCS of X and DN"
   key <- gsub("Diabetic\\s+Nephropathy", "DN", key, ignore.case = TRUE, perl = TRUE)
   key
@@ -129,10 +157,17 @@
     if (exists("incidence_batch_pub_figure_scheme", mode = "function")) {
       incidence_batch_pub_figure_scheme(config)
     } else {
-      as.character((config$ml_batch %||% config$incidence_batch %||% list())$pub_figure_scheme %||% "")[1L]
+      as.character(
+        (config$survival_batch %||% config$ml_batch %||%
+           config$incidence_batch %||% list())$pub_figure_scheme %||% ""
+      )[1L]
     },
     error = function(e) ""
   )
+  if (identical(tolower(as.character(scheme)[1L]), "jin_index_sofa") &&
+      exists("jin_index_sofa_figure_role", mode = "function")) {
+    return(jin_index_sofa_figure_role)
+  }
   if (scheme %in% c("ml_dual_standard", "ml_dual_dev_ext", "ml_with_correlation") &&
       exists("incidence_batch_ml_pub_figure_role", mode = "function")) {
     return(function(bn) incidence_batch_ml_pub_figure_role(bn, config))
@@ -186,7 +221,7 @@
       fig3_subgroup = sprintf("Figure 3. Subgroup analyses of %s.pdf", ix),
       fig4_subgroup = sprintf("Figure 4. Subgroup Forest analyses of %s.pdf", ix),
       fig5_subgroup = sprintf("Figure 5. Subgroup analyses of %s.pdf", ix),
-      fig8_subgroup = sprintf("Figure 8. Subgroup analyses of %s.pdf", ix),
+      fig8_subgroup = sprintf("Figure 8. Subgroup Forest analyses of %s.pdf", ix),
       s1_boxplot = sprintf("Figure S1. Boxplot %s by %s.pdf", ix, outcome_label),
       s2_mediation = sprintf("Figure S3. Mediation path diagram of %s and %s.pdf", ix, outcome_label),
       s3_roc = sprintf("Figure S2. ROC Multivariable %s.pdf", ix),
@@ -209,22 +244,27 @@
 
 .dual_db_layout_for_key <- function(key, layout_by_role = NULL) {
   key <- as.character(key %||% "")[1L]
+  .ok_layout <- function(v) {
+    v <- tolower(as.character(v %||% "")[1L])
+    if (v %in% c("stack", "side", "grid", "vertical", "col")) v else NA_character_
+  }
   if (is.list(layout_by_role) && length(layout_by_role)) {
     # 精确或关键词匹配
     if (!is.null(layout_by_role[[key]])) {
-      v <- tolower(as.character(layout_by_role[[key]])[1L])
-      if (v %in% c("stack", "side")) return(v)
+      v <- .ok_layout(layout_by_role[[key]])
+      if (!is.na(v)) return(v)
     }
     for (nm in names(layout_by_role)) {
       if (nzchar(nm) && grepl(nm, key, ignore.case = TRUE, fixed = TRUE)) {
-        v <- tolower(as.character(layout_by_role[[nm]])[1L])
-        if (v %in% c("stack", "side")) return(v)
+        v <- .ok_layout(layout_by_role[[nm]])
+        if (!is.na(v)) return(v)
       }
     }
   }
-  # 全局默认（后续所有 dual 项目）：
-  # - RCS / ML 表现 2×4 / SHAP：上下（竖着）
-  # - KM / 亚组森林：左右（横着）
+  # 全局默认（全项目）：
+  # - RCS / ML 表现 2×4 / SHAP：竖拼 stack
+  # - 亚组森林：side（2 库左右；≥4 库在 compose 里自动 2×2 grid，上下各二）
+  # - KM：左右 side
   if (grepl("\\bRCS\\b|Restricted\\s*Cubic", key, ignore.case = TRUE)) {
     return("stack")
   }
@@ -241,7 +281,10 @@
   )) {
     return("stack")
   }
-  if (grepl("Subgroup\\s*Forest|Kaplan-?Meier|\\bKM\\b", key, ignore.case = TRUE)) {
+  if (grepl("Subgroup(\\s*Forest)?|Subgroup\\s*analyses", key, ignore.case = TRUE)) {
+    return("side")
+  }
+  if (grepl("Kaplan-?Meier|\\bKM\\b", key, ignore.case = TRUE)) {
     return("side")
   }
   # 轨迹 Fig2 / Fig3 / 个体动态预测：默认上下竖拼（与单库宽高比一致）
@@ -255,8 +298,10 @@
 }
 
 .dual_db_is_per_db_fig1_flowchart <- function(bn) {
+  # 发病：Figure 1-DB. Inclusion exclusion flowchart.pdf
+  # 交叉滞后纵向：Figure 1-DB. Longitudinal inclusion exclusion flowchart.pdf
   grepl(
-    "^Figure\\s+1-.+\\.\\s*Inclusion\\s+exclusion\\s+flowchart\\.pdf$",
+    "^Figure\\s+1-.+\\.\\s*(Longitudinal\\s+)?Inclusion\\s+exclusion\\s+flowchart\\.pdf$",
     bn,
     ignore.case = TRUE
   )
@@ -690,6 +735,47 @@
   paste0("-(", alt, ")\\.")
 }
 
+#' PDF 页宽/高（pts）；失败返回 NULL
+.dual_db_pdf_page_size <- function(path) {
+  path <- as.character(path %||% "")[1L]
+  if (!nzchar(path) || !file.exists(path)) return(NULL)
+  info <- tryCatch(
+    system2("pdfinfo", shQuote(path), stdout = TRUE, stderr = FALSE),
+    error = function(e) character(0)
+  )
+  hit <- info[grepl("^Page size:", info)]
+  if (!length(hit)) return(NULL)
+  m <- regmatches(hit[[1L]], regexec("Page size:\\s*([0-9.]+)\\s*x\\s*([0-9.]+)", hit[[1L]]))[[1L]]
+  if (length(m) < 3L) return(NULL)
+  list(width = as.numeric(m[[2L]]), height = as.numeric(m[[3L]]))
+}
+
+#' 判断无库标签 PDF 是否真像双库拼图（防把单库拷贝当「已拼图」）
+#'
+#' 相对分库底稿：宽或高 ≥1.25×；同尺寸 → 否。无底稿时：宽≥1000 或 宽高比≥2.0 且宽≥700。
+.dual_db_pdf_looks_like_dual_panel <- function(path, ref_singles = NULL) {
+  sz <- .dual_db_pdf_page_size(path)
+  if (is.null(sz) || !is.finite(sz$width) || !is.finite(sz$height)) return(FALSE)
+  refs <- as.character(ref_singles %||% character(0))
+  refs <- refs[nzchar(refs) & file.exists(refs)]
+  if (length(refs)) {
+    for (rp in refs) {
+      rs <- .dual_db_pdf_page_size(rp)
+      if (is.null(rs)) next
+      if (abs(sz$width - rs$width) < 8 && abs(sz$height - rs$height) < 8) {
+        return(FALSE)
+      }
+      if (sz$width >= 1.25 * rs$width || sz$height >= 1.25 * rs$height) {
+        return(TRUE)
+      }
+    }
+  }
+  aspect <- sz$width / max(sz$height, 1e-6)
+  if (isTRUE(sz$width >= 1000)) return(TRUE)
+  if (isTRUE(aspect >= 2.0 && sz$width >= 700)) return(TRUE)
+  FALSE
+}
+
 .dual_db_compose_n_pdf_vector <- function(paths, labels, out_path, layout = "side",
                                           label_cex = 1.15) {
   paths <- as.character(paths)
@@ -717,13 +803,21 @@
   out_safe <- file.path(tmp_dir, "out.pdf")
 
   font_size <- max(10, round(12 * as.numeric(label_cex %||% 1.15)[1L], 1))
-  n_layout <- if (length(paths) == 4L) "grid" else "side"
+  # 尊重调用方 layout：RCS 等竖拼须传 stack；仅未指定时 4 面板默认 2×2
+  want_layout <- tolower(as.character(layout %||% "side")[1L])
+  if (!nzchar(want_layout) || !want_layout %in% c("side", "stack", "grid", "vertical", "col")) {
+    want_layout <- "side"
+  }
+  if (identical(want_layout, "side") && length(paths) == 4L) {
+    want_layout <- "grid"
+  }
+  if (want_layout %in% c("vertical", "col")) want_layout <- "stack"
   args <- c(
     script,
     "--out", out_safe,
     "--inputs", safe_paths,
     "--labels", labels,
-    "--layout", n_layout,
+    "--layout", want_layout,
     "--font-size", as.character(font_size)
   )
   if (grepl("Subgroup\\s*Forest", basename(out_path), ignore.case = TRUE)) {
@@ -768,29 +862,56 @@
   margin_in <- 0.35
   gap_in <- 0.25
 
-  cols <- if (n == 4L) 2L else n
-  rows <- if (n == 4L) 2L else 1L
+  want_layout <- tolower(as.character(layout %||% "side")[1L])
+  if (want_layout %in% c("vertical", "col")) want_layout <- "stack"
+  if (identical(want_layout, "stack")) {
+    cols <- 1L
+    rows <- as.integer(n)
+  } else if (identical(want_layout, "grid") || (identical(want_layout, "side") && n == 4L)) {
+    cols <- 2L
+    rows <- 2L
+  } else {
+    cols <- as.integer(n)
+    rows <- 1L
+  }
   grid <- vector("list", n)
   idx <- 1L
   for (r in seq_len(rows)) {
     row_idx <- idx:min(idx + cols - 1L, n)
     panel_h <- max(vapply(infos[row_idx], function(x) x$h / dpi, numeric(1)))
-    row_w <- 0
-    for (i in row_idx) {
-      w_in <- infos[[i]]$w / dpi
-      h_in <- infos[[i]]$h / dpi
-      sc <- panel_h / h_in
-      grid[[i]] <- list(w = w_in * sc, h = panel_h, raster = infos[[i]]$raster)
-      row_w <- row_w + w_in * sc
+    # 竖拼：各行按统一内容宽缩放，避免一列宽窄不一
+    if (identical(want_layout, "stack")) {
+      target_w <- max(vapply(infos[row_idx], function(x) x$w / dpi, numeric(1)))
+      row_w <- target_w
+      for (i in row_idx) {
+        w_in <- infos[[i]]$w / dpi
+        h_in <- infos[[i]]$h / dpi
+        sc <- target_w / w_in
+        grid[[i]] <- list(w = target_w, h = h_in * sc, raster = infos[[i]]$raster, row_w = row_w)
+      }
+    } else {
+      row_w <- 0
+      for (i in row_idx) {
+        w_in <- infos[[i]]$w / dpi
+        h_in <- infos[[i]]$h / dpi
+        sc <- panel_h / h_in
+        grid[[i]] <- list(w = w_in * sc, h = panel_h, raster = infos[[i]]$raster)
+        row_w <- row_w + w_in * sc
+      }
+      row_w <- row_w + gap_in * max(0L, length(row_idx) - 1L)
+      for (i in row_idx) grid[[i]]$row_w <- row_w
     }
-    row_w <- row_w + gap_in * max(0L, length(row_idx) - 1L)
-    for (i in row_idx) grid[[i]]$row_w <- row_w
     idx <- idx + cols
   }
 
   content_w <- max(vapply(grid, function(g) g$row_w %||% g$w, numeric(1)))
-  content_h <- rows * (label_h_in + max(vapply(grid, function(g) g$h, numeric(1)))) +
-    gap_in * max(0L, rows - 1L)
+  if (identical(want_layout, "stack")) {
+    content_h <- sum(vapply(grid, function(g) label_h_in + g$h, numeric(1))) +
+      gap_in * max(0L, n - 1L)
+  } else {
+    content_h <- rows * (label_h_in + max(vapply(grid, function(g) g$h, numeric(1)))) +
+      gap_in * max(0L, rows - 1L)
+  }
   total_w <- max(content_w + 2 * margin_in, 4)
   total_h <- content_h + 2 * margin_in
 
@@ -899,13 +1020,22 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
       pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
     }
   }
-  # 汇总目录只要 Figure 1. Flowchart.pdf；分库 Inclusion exclusion 底稿仅留在各库子目录
+  # 若汇总目录已有无库标签的 Figure 1（发病 dual-panel / 已拼好），才删分库 Fig1 底稿；
+  # 否则保留分库底稿供下方 bucket 拼成 Figure 1. …flowchart.pdf（交叉滞后纵向）
   fig1_singles <- pdfs[.dual_db_is_per_db_fig1_flowchart(basename(pdfs))]
   if (length(fig1_singles)) {
-    unlink(fig1_singles)
-    deleted <- c(deleted, basename(fig1_singles))
-    cli::cli_alert_info("已删除汇总目录分库 Figure 1 纳排图 {length(fig1_singles)} 个")
-    pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+    has_combined_fig1 <- any(vapply(basename(pdfs), function(bn) {
+      grepl("^Figure\\s+1\\.", bn, ignore.case = TRUE) &&
+        !grepl(.dual_db_per_db_tag_pattern(c(
+          "CHARLS", "ELSA", "HRS", "NHANES", "MIMIC", "eICU", "Pooled", "CLHLS", "SHARE"
+        )), bn, ignore.case = TRUE, perl = TRUE)
+    }, logical(1L)))
+    if (isTRUE(has_combined_fig1)) {
+      unlink(fig1_singles)
+      deleted <- c(deleted, basename(fig1_singles))
+      cli::cli_alert_info("已删除汇总目录分库 Figure 1 纳排图 {length(fig1_singles)} 个（已有拼图）")
+      pdfs <- list.files(figs, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
+    }
   }
 
   db_names <- if (length(cfg$databases)) cfg$databases else unique(c(cfg$primary, cfg$secondary, cfg$tertiary))
@@ -945,12 +1075,191 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
     order_dbs <- c(order_dbs[2L], order_dbs[1L], order_dbs[-c(1L, 2L)])
   }
 
+  # 汇总 Figures 缺一侧时，从 index_root/<db>/Figures 回填同角色底稿（误 purge 后仍能拼亚组）
+  if (dir.exists(index_root)) {
+    db_dir_names <- unique(c(
+      db_names,
+      gsub(" ", "_", db_names, fixed = TRUE),
+      gsub("_", " ", db_names, fixed = TRUE)
+    ))
+    for (dd in list.dirs(index_root, recursive = FALSE, full.names = TRUE)) {
+      if (!basename(dd) %in% db_dir_names) next
+      fdir <- file.path(dd, "Figures")
+      if (!dir.exists(fdir)) next
+      for (fp in list.files(fdir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)) {
+        parsed <- .dual_db_parse_paired_figure_bn(basename(fp), db_names)
+        if (is.null(parsed)) next
+        role <- role_fn(basename(fp))
+        if (is.na(role) || !nzchar(role) || role %in% c("other", "drop", "fig1")) next
+        if (is.null(role_buckets[[role]])) role_buckets[[role]] <- list()
+        if (is.null(role_buckets[[role]][[parsed$db]])) {
+          dest <- file.path(figs, basename(fp))
+          if (!file.exists(dest)) {
+            okc <- isTRUE(tryCatch(file.copy(fp, dest, overwrite = FALSE), error = function(e) FALSE))
+            if (!okc) dest <- fp
+          }
+          role_buckets[[role]][[parsed$db]] <- dest
+          key <- parsed$key
+          if (is.null(buckets[[key]])) buckets[[key]] <- list()
+          if (is.null(buckets[[key]][[parsed$db]])) {
+            buckets[[key]][[parsed$db]] <- dest
+          }
+        }
+      }
+    }
+  }
+
   combined <- character(0)
   skipped <- character(0)
   combined_sources <- character(0)
 
   .combine_pair_bucket <- function(pair, key, layout_key = key) {
     dbs_have <- names(pair)
+    role_early <- tryCatch(role_fn(key), error = function(e) NA_character_)
+    if (!is.na(role_early) && nzchar(role_early) &&
+        role_early %in% as.character(cfg$skip_roles %||% character(0))) {
+      ## Jin Fig2：双库各三时点 → 六页全宽交错（禁止左右并排）
+      prim <- cfg$primary
+      sec <- cfg$secondary
+      src_p <- NULL
+      src_s <- NULL
+      if (!is.null(pair[[prim]])) src_p <- pair[[prim]]
+      if (!is.null(pair[[sec]])) src_s <- pair[[sec]]
+      if (is.null(src_p)) {
+        hit <- dbs_have[tolower(dbs_have) == tolower(prim)]
+        if (length(hit)) src_p <- pair[[hit[[1L]]]]
+      }
+      if (is.null(src_s)) {
+        hit <- dbs_have[tolower(dbs_have) == tolower(sec)]
+        if (length(hit)) src_s <- pair[[hit[[1L]]]]
+      }
+      if (is.null(src_p) && length(dbs_have)) src_p <- pair[[dbs_have[[1L]]]]
+      if (is.null(src_s) && length(dbs_have) >= 2L) {
+        rest <- setdiff(dbs_have, names(which(vapply(dbs_have, function(d) identical(pair[[d]], src_p), logical(1L)))))
+        if (!length(rest)) rest <- setdiff(dbs_have, character(0))
+        ## 取非主库的第一份
+        for (d in dbs_have) {
+          if (!is.null(src_p) && identical(
+            normalizePath(pair[[d]], winslash = "/", mustWork = FALSE),
+            normalizePath(src_p, winslash = "/", mustWork = FALSE)
+          )) next
+          src_s <- pair[[d]]
+          if (is.null(sec) || !nzchar(sec)) sec <- d
+          break
+        }
+      }
+      out_bn <- "Figure 2. Nomogram for in-hospital, 30-day and 365-day mortality.pdf"
+      if (!identical(role_early, "fig2_nomogram")) {
+        out_bn <- if (exists(".dual_db_role_combined_basename", mode = "function")) {
+          .dual_db_role_combined_basename(role_early, config, ix_hint = ix_hint) %||% out_bn
+        } else out_bn
+      }
+      out_path <- file.path(figs, out_bn)
+      wrote <- FALSE
+      if (identical(role_early, "fig2_nomogram") &&
+          !is.null(src_p) && !is.null(src_s) &&
+          file.exists(src_p) && file.exists(src_s)) {
+        py <- NULL
+        for (r in unique(c(
+          Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""),
+          if (!is.na(.DUAL_DB_COMBINE_DIR)) dirname(.DUAL_DB_COMBINE_DIR) else "",
+          getwd()
+        ))) {
+          if (!nzchar(r)) next
+          cand <- file.path(r, "R", "dual_db_compose_nomogram_horizons.py")
+          if (file.exists(cand)) { py <- cand; break }
+        }
+        ## combine_panels=TRUE 时各库 Nomogram 已是单页 A|B|C；
+        ## 专用 2×3 必须用 step_logistic_nomogram 三面板，勿把单页当三页喂入。
+        .nomogram_panel_triplet <- function(db_label) {
+          db_label <- as.character(db_label)[1L]
+          if (!nzchar(db_label)) return(NULL)
+          ## 只在该库目录下找，避免 MIMIC/eICU 面板串库
+          cands <- c(
+            file.path(index_root, db_label),
+            file.path(index_root, gsub(" ", "_", db_label, fixed = TRUE)),
+            file.path(index_root, gsub("_", " ", db_label, fixed = TRUE))
+          )
+          cands <- unique(cands[dir.exists(cands)])
+          for (db_root in cands) {
+            hits <- list.files(
+              db_root,
+              pattern = "^nomogram_panel_A_hosp\\.pdf$",
+              recursive = TRUE, full.names = TRUE
+            )
+            if (!length(hits)) next
+            step_dir <- dirname(hits[[1L]])
+            pa <- file.path(step_dir, "nomogram_panel_A_hosp.pdf")
+            pb <- file.path(step_dir, "nomogram_panel_B_d30.pdf")
+            pc <- file.path(step_dir, "nomogram_panel_C_d365.pdf")
+            if (file.exists(pa) && file.exists(pb) && file.exists(pc)) {
+              return(c(pa, pb, pc))
+            }
+          }
+          NULL
+        }
+        panels_p <- .nomogram_panel_triplet(prim)
+        panels_s <- .nomogram_panel_triplet(sec)
+        if (is.null(panels_p) || is.null(panels_s)) {
+          for (dlab in dbs_have) {
+            trip <- .nomogram_panel_triplet(dlab)
+            if (is.null(trip)) next
+            if (is.null(panels_p)) panels_p <- trip
+            else if (is.null(panels_s) && !identical(trip[[1L]], panels_p[[1L]])) {
+              panels_s <- trip
+            }
+          }
+        }
+        if (!is.null(py)) {
+          wrote <- isTRUE(tryCatch({
+            args <- c(py, "--layout", "grid", "--max-edge-in", "16")
+            if (!is.null(panels_p) && !is.null(panels_s)) {
+              args <- c(
+                args,
+                "--primary-a", normalizePath(panels_p[[1L]], winslash = "/", mustWork = TRUE),
+                "--primary-b", normalizePath(panels_p[[2L]], winslash = "/", mustWork = TRUE),
+                "--primary-c", normalizePath(panels_p[[3L]], winslash = "/", mustWork = TRUE),
+                "--secondary-a", normalizePath(panels_s[[1L]], winslash = "/", mustWork = TRUE),
+                "--secondary-b", normalizePath(panels_s[[2L]], winslash = "/", mustWork = TRUE),
+                "--secondary-c", normalizePath(panels_s[[3L]], winslash = "/", mustWork = TRUE)
+              )
+            } else {
+              args <- c(
+                args,
+                "--primary", normalizePath(src_p, winslash = "/", mustWork = TRUE),
+                "--secondary", normalizePath(src_s, winslash = "/", mustWork = TRUE)
+              )
+            }
+            args <- c(
+              args,
+              "--primary-label", as.character(prim %||% "primary")[1L],
+              "--secondary-label", as.character(sec %||% "secondary")[1L],
+              "--out", normalizePath(out_path, winslash = "/", mustWork = FALSE)
+            )
+            st <- system2("python3", args, stdout = TRUE, stderr = TRUE)
+            file.exists(out_path) && isTRUE((file.info(out_path)$size %||% 0) > 1000)
+          }, error = function(e) FALSE))
+        }
+      }
+      if (!isTRUE(wrote) && !is.null(src_p) && file.exists(src_p)) {
+        if (!identical(
+          normalizePath(src_p, winslash = "/", mustWork = FALSE),
+          normalizePath(out_path, winslash = "/", mustWork = FALSE)
+        )) {
+          file.copy(src_p, out_path, overwrite = TRUE)
+        }
+        cli::cli_alert_warning(
+          "skip_roles={role_early}: 双库 2×3 一页拼版失败，回退主库 {out_bn}"
+        )
+      } else if (isTRUE(wrote)) {
+        cli::cli_alert_info(
+          "skip_roles={role_early}: 双库一页 2×3（上{prim}/下{sec} × ABC）→ {out_bn}"
+        )
+      }
+      if (file.exists(out_path)) combined <<- c(combined, out_bn)
+      skipped <<- c(skipped, key)
+      return(invisible(FALSE))
+    }
     if (length(dbs_have) < 2L) {
       skipped <<- c(skipped, key)
       cli::cli_alert_warning(
@@ -973,11 +1282,21 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
         identical(role_fn(bn), role)
       }, logical(1L))]
       if (length(same_role) && !length(split_same_role)) {
-        cli::cli_alert_info("已有多库合成图 {basename(same_role[[1L]])}，跳过再拼 {key}")
-        skipped <<- c(skipped, key)
-        return(invisible(FALSE))
+        cand <- same_role[[1L]]
+        # 无分库底稿时：仅当无标签 PDF 真像拼图才跳过（防 MIMIC 单库拷贝冒充）
+        if (.dual_db_pdf_looks_like_dual_panel(cand, ref_singles = unlist(pair, use.names = FALSE))) {
+          cli::cli_alert_info("已有多库合成图 {basename(cand)}，跳过再拼 {key}")
+          skipped <<- c(skipped, key)
+          return(invisible(FALSE))
+        }
+        unlink(same_role)
+        deleted <<- unique(c(deleted, basename(same_role)))
+        cli::cli_alert_warning(
+          "无标签图非双库拼图（疑似单库拷贝），删除后重拼: {basename(cand)}"
+        )
       }
       if (length(same_role) && length(split_same_role)) {
+        # 分库仍在：清掉同角色无标签旧稿（含假拼图），再拼
         unlink(same_role)
         deleted <<- unique(c(deleted, basename(same_role)))
         cli::cli_alert_info(
@@ -1000,8 +1319,28 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
       skipped <<- c(skipped, key)
       return(invisible(FALSE))
     }
+    # 源文件必须仍在（防上一轮 remove_singles 后角色循环空拼）
+    pdf_check <- vapply(paths, function(x) x$path, character(1))
+    if (sum(file.exists(pdf_check)) < 2L) {
+      skipped <<- c(skipped, key)
+      cli::cli_alert_warning("拼图源 PDF 不足 2 个，跳过: {key}")
+      return(invisible(FALSE))
+    }
     layout <- .dual_db_layout_for_key(layout_key, cfg$layout_by_role)
-    out_path <- file.path(figs, key)
+    # 交付名：分库去标签后再走 normalize（Weighted RCS→RCS；亚组统一 Subgroup Forest）
+    out_bn_write <- {
+      src_bn <- basename(pdf_check[[1L]])
+      stripped <- sub(.dual_db_per_db_tag_pattern(db_names), ".", src_bn,
+                      ignore.case = TRUE, perl = TRUE)
+      if (nzchar(stripped) &&
+          !grepl(.dual_db_per_db_tag_pattern(db_names), stripped,
+                 ignore.case = TRUE, perl = TRUE)) {
+        .dual_db_normalize_pair_key(stripped)
+      } else {
+        .dual_db_normalize_pair_key(key)
+      }
+    }
+    out_path <- file.path(figs, out_bn_write)
     labels <- vapply(seq_along(paths), function(i) {
       .dual_db_panel_label(LETTERS[[i]], paths[[i]]$db, cfg$label_format)
     }, character(1))
@@ -1029,7 +1368,7 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
       skipped <<- c(skipped, key)
       return(invisible(FALSE))
     }
-    combined <<- c(combined, key)
+    combined <<- unique(c(combined, key, basename(out_path)))
     combined_sources <<- unique(c(combined_sources, pdf_paths))
     if (isTRUE(cfg$remove_singles)) {
       victims <- unique(pdf_paths)
@@ -1051,14 +1390,48 @@ dual_db_combine_paired_figures <- function(index_root, config, figures_dir = NUL
   for (role in names(role_buckets)) {
     pair <- role_buckets[[role]]
     if (length(pair) < 2L) next
-    out_bn <- .dual_db_role_combined_basename(role, config, ix_hint = ix_hint)
+    # 优先用分库文件名去标签，保证 ML Fig8「Subgroup Forest」与模板一致
+    src0 <- as.character(pair[[1L]])[1L]
+    out_bn_src <- if (nzchar(src0) && file.exists(src0)) {
+      sub(.dual_db_per_db_tag_pattern(db_names), ".", basename(src0),
+          ignore.case = TRUE, perl = TRUE)
+    } else {
+      NA_character_
+    }
+    out_bn <- if (!is.na(out_bn_src) && nzchar(out_bn_src) &&
+                 !grepl(.dual_db_per_db_tag_pattern(db_names), out_bn_src,
+                        ignore.case = TRUE, perl = TRUE)) {
+      out_bn_src
+    } else {
+      .dual_db_role_combined_basename(role, config, ix_hint = ix_hint)
+    }
     if (is.null(out_bn) || !nzchar(out_bn)) next
     if (out_bn %in% combined) next
-    out_path <- file.path(figs, out_bn)
-    if (file.exists(out_path)) {
-      combined <- c(combined, out_bn)
+    if (.dual_db_normalize_pair_key(out_bn) %in% vapply(combined, .dual_db_normalize_pair_key, character(1))) {
       next
     }
+    out_path <- file.path(figs, out_bn)
+    src_alive <- sum(vapply(pair, function(p) isTRUE(file.exists(p)), logical(1L)))
+    if (file.exists(out_path)) {
+      if (.dual_db_pdf_looks_like_dual_panel(
+        out_path, ref_singles = unlist(pair, use.names = FALSE)
+      )) {
+        combined <- c(combined, out_bn)
+        next
+      }
+      if (src_alive < 2L) {
+        cli::cli_alert_warning(
+          "角色 {role} 无标签疑似假拼图但分库底稿已缺失，跳过: {out_bn}"
+        )
+        next
+      }
+      unlink(out_path)
+      deleted <- unique(c(deleted, basename(out_path)))
+      cli::cli_alert_warning(
+        "角色 {role} 无标签图非双库拼图，删除后重拼: {out_bn}"
+      )
+    }
+    if (src_alive < 2L) next
     .combine_pair_bucket(pair, out_bn, layout_key = out_bn)
   }
 
@@ -1142,10 +1515,22 @@ dual_db_purge_redundant_split_figures <- function(figs_dir,
       agg_bn <- sub(split_pat, ".", bn, ignore.case = TRUE, perl = TRUE)
       # 对应无标签汇总图是否存在于任一四目录
       agg_stem <- sub(paste0("\\", ext, "$"), "", agg_bn, ignore.case = TRUE)
-      agg_exists <- any(vapply(c("pdf", "png", "tiff"), function(k) {
-        file.exists(file.path(figs_dir, subs[[k]], paste0(agg_stem, exts[[k]])))
-      }, logical(1L)))
-      if (!agg_exists) next
+      agg_pdf <- file.path(figs_dir, "pdf", paste0(agg_stem, ".pdf"))
+      if (!file.exists(agg_pdf)) {
+        agg_pdf <- file.path(figs_dir, paste0(agg_stem, ".pdf"))
+      }
+      # 无标签汇总图必须真像拼图，才允许删分库底稿（防单库拷贝冒充 → 误删对侧）
+      if (!file.exists(agg_pdf)) next
+      if (identical(ext, ".pdf") || identical(kind, "pdf") || identical(kind, "md") ||
+          identical(kind, "png") || identical(kind, "tiff")) {
+        ref <- if (identical(ext, ".pdf")) f else {
+          cand <- file.path(dirname(f), sub(paste0("\\", ext, "$"), ".pdf", bn, ignore.case = TRUE))
+          if (!file.exists(cand)) cand <- file.path(figs_dir, "pdf", sub(paste0("\\", ext, "$"), ".pdf", bn, ignore.case = TRUE))
+          if (!file.exists(cand)) cand <- NULL
+          cand
+        }
+        if (!isTRUE(.dual_db_pdf_looks_like_dual_panel(agg_pdf, ref_singles = ref))) next
+      }
       unlink(f)
       purged <- c(purged, bn)
     }

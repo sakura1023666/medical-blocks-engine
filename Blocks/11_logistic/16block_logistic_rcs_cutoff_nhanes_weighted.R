@@ -35,7 +35,7 @@
 }
 
 .lrc16_svyglm_fit <- function(design, formula_str) {
-  tryCatch(survey::svyglm(stats::as.formula(formula_str), design = design, family = stats::quasibinomial()), error = function(e) NULL)
+  .lnw00_svyglm_fit(design, formula_str)
 }
 
 .lrc16_group_pct <- function(design, level) {
@@ -103,12 +103,14 @@
   ix <- as.character(bl_cfg$index_var %||% "exposure")[1L]
   # 「RCS cutoff」须在括号外，否则 shorten 剥括号后无法归入 Table S-XX
   cap <- paste0("Weighted logistic regression of ", ix, " RCS cutoff")
-  footnotes <- .lnw00_table_footnotes(M1, M2, M3, m3_significant)
+  footnotes <- .lnw00_table_footnotes(M1, M2, M3, m3_significant, ctx = ctx)
   .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = FALSE, table_footnotes = footnotes,
                        family = "rcs")
 }
 
 block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
+  .lnw00_set_mi_ctx(ctx)
+  on.exit(.lnw00_clear_mi_ctx(), add = TRUE)
   options(survey.lonely.psu = "adjust")
   cfg <- ctx$config
   bl_cfg <- cfg$logistic_rcs_cutoff_nhanes_weighted %||% list()
@@ -156,11 +158,12 @@ block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
     return(ctx)
   }
 
-  # 规则：单库默认要求非线性显著才导出 RCS cutoff 表。
-  # 双库发病：为与对侧 S-XX 对齐，只要有切点就导出（脚注可反映非线性 P）。
+  # 规则：默认要求非线性显著才导出 RCS cutoff 表（Table S-XX）。
+  # 双库：任一侧 NS → 两侧都不导出（见 incidence_batch_omit_dual_sxx_if_either_ns）。
+  # 仅显式 dual_db_export_even_if_linear=TRUE 才在本侧强制导出。
   require_nl <- isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)
   if (isTRUE((cfg$dual_db %||% list())$enable) &&
-      !isFALSE(bl_cfg$dual_db_export_even_if_linear %||% TRUE)) {
+      isTRUE(bl_cfg$dual_db_export_even_if_linear %||% FALSE)) {
     require_nl <- FALSE
   }
   if (isTRUE(require_nl)) {
@@ -175,7 +178,7 @@ block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
     if (is.finite(p_nl) && p_nl >= 0.05) {
       ctx$results$logistic_rcs_cutoff_nhanes_ns_skipped <- TRUE
       cli::cli_alert_warning(
-        "logistic_rcs_cutoff_nhanes_weighted: RCS 非线性 P={round(p_nl,3)} >= 0.05，按规则不导出 Table S8（cutoff 分组 Logistic）。"
+        "logistic_rcs_cutoff_nhanes_weighted: RCS 非线性 P={round(p_nl,3)} >= 0.05，按规则不导出 Table S-XX（cutoff 分组 Logistic）。"
       )
       return(ctx)
     }
@@ -186,7 +189,7 @@ block_logistic_rcs_cutoff_nhanes_weighted <- function(ctx, ...) {
     ))
     if (is.finite(p_nl) && p_nl >= 0.05) {
       cli::cli_alert_info(
-        "logistic_rcs_cutoff_nhanes_weighted: 双库对齐仍导出 RCS cutoff 表（非线性 P={round(p_nl, 3)}）"
+        "logistic_rcs_cutoff_nhanes_weighted: dual_db_export_even_if_linear=TRUE，仍导出 RCS cutoff 表（非线性 P={round(p_nl, 3)}）"
       )
     }
   }

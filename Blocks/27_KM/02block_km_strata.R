@@ -270,9 +270,24 @@
 .kms02_safe_logrank_p <- function(formula, data) {
   pv <- .kms02_logrank_p_numeric(formula, data)
   if (!is.finite(pv)) return("Log-rank p = NA")
-  # 参考发表图：Log-rank p = 0.007274；极小值用 < 0.001
-  if (pv < 0.001) return("Log-rank p < 0.001")
-  paste0("Log-rank p = ", formatC(pv, digits = 6, format = "f"))
+  # 与 pub_digits / fmt_pval 对齐：默认 3 位；极小值 <0.001（禁止 6 位如 0.034887）
+  p_lab <- if (exists("fmt_pval", mode = "function")) {
+    as.character(fmt_pval(pv))[1L]
+  } else if (exists("pub_format_p", mode = "function")) {
+    as.character(pub_format_p(pv))[1L]
+  } else if (isTRUE(pv < 0.001)) {
+    "<0.001"
+  } else {
+    formatC(pv, digits = 3L, format = "f")
+  }
+  # fmt_pval 已含 "<0.001"；勿写成 "Log-rank p = <0.001"；统一 "Log-rank p < 0.001"
+  if (startsWith(p_lab, "<") || startsWith(p_lab, ">")) {
+    op <- substr(p_lab, 1L, 1L)
+    rest <- sub("^[<>]\\s*", "", p_lab)
+    paste0("Log-rank p ", op, " ", rest)
+  } else {
+    paste0("Log-rank p = ", p_lab)
+  }
 }
 
 .kms02_pdf_open <- function(path, width, height, family = "Times New Roman") {
@@ -300,12 +315,81 @@
   invisible(TRUE)
 }
 
+## survminer geom_text/pval 常硬落 Arial；写盘前钉 Times + grob 递归强制
+.kms02_force_ggplot_times <- function(g, family = "Times New Roman") {
+  if (is.null(g) || !inherits(g, "ggplot")) return(g)
+  ff <- as.character(family %||% "Times New Roman")[1L]
+  if (!nzchar(ff)) ff <- "Times New Roman"
+  for (i in seq_along(g$layers)) {
+    tryCatch({
+      g$layers[[i]]$aes_params$family <- ff
+    }, error = function(e) NULL)
+  }
+  g + ggplot2::theme(
+    text = ggplot2::element_text(family = ff),
+    plot.title = ggplot2::element_text(family = ff),
+    plot.subtitle = ggplot2::element_text(family = ff),
+    axis.text = ggplot2::element_text(family = ff),
+    axis.title = ggplot2::element_text(family = ff),
+    legend.text = ggplot2::element_text(family = ff),
+    legend.title = ggplot2::element_text(family = ff),
+    strip.text = ggplot2::element_text(family = ff)
+  )
+}
+
+.kms02_print_surv_obj_times <- function(obj, family = "Times New Roman") {
+  ff <- as.character(family %||% "Times New Roman")[1L]
+  if (!nzchar(ff)) ff <- "Times New Roman"
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    try(ggplot2::update_geom_defaults("text", list(family = ff)), silent = TRUE)
+    try(ggplot2::update_geom_defaults("label", list(family = ff)), silent = TRUE)
+  }
+  if (inherits(obj, "ggsurvplot")) {
+    if (!is.null(obj$plot)) obj$plot <- .kms02_force_ggplot_times(obj$plot, ff)
+    if (!is.null(obj$table)) obj$table <- .kms02_force_ggplot_times(obj$table, ff)
+    if (!is.null(obj$cumevents)) obj$cumevents <- .kms02_force_ggplot_times(obj$cumevents, ff)
+    if (!is.null(obj$cumcensor)) obj$cumcensor <- .kms02_force_ggplot_times(obj$cumcensor, ff)
+    ## 转 grob 再钉 fontfamily，消 survminer 残留 Arial
+    g <- tryCatch({
+      if (requireNamespace("survminer", quietly = TRUE)) {
+        ## arrange 单张 → gtable
+        survminer::arrange_ggsurvplots(list(obj), print = FALSE, ncol = 1L, nrow = 1L)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(g) && exists(".pipeline_force_grob_fontfamily", mode = "function")) {
+      grid::grid.draw(.pipeline_force_grob_fontfamily(g, ff))
+      return(invisible(obj))
+    }
+    print(obj, newpage = FALSE)
+    return(invisible(obj))
+  }
+  if (inherits(obj, c("gtable", "grob", "gTree", "gList"))) {
+    if (exists(".pipeline_force_grob_fontfamily", mode = "function")) {
+      grid::grid.draw(.pipeline_force_grob_fontfamily(obj, ff))
+    } else {
+      grid::grid.draw(obj)
+    }
+    return(invisible(obj))
+  }
+  if (inherits(obj, c("ggplot", "gg", "patchwork"))) {
+    g <- tryCatch(ggplot2::ggplotGrob(obj), error = function(e) NULL)
+    if (!is.null(g) && exists(".pipeline_force_grob_fontfamily", mode = "function")) {
+      grid::grid.draw(.pipeline_force_grob_fontfamily(g, ff))
+      return(invisible(obj))
+    }
+  }
+  print(obj)
+  invisible(obj)
+}
+
 .kms02_write_pdf_atomic <- function(obj, path, width, height,
                                     family = "Times New Roman") {
   tmp <- tempfile(pattern = "km_", fileext = ".pdf")
   tryCatch({
     .kms02_pdf_open(tmp, width, height, family = family)
-    if (inherits(obj, "ggsurvplot")) print(obj, newpage = FALSE) else print(obj)
+    .kms02_print_surv_obj_times(obj, family = family)
     grDevices::dev.off()
     fi <- file.info(tmp)
     if (is.na(fi$size) || fi$size < 200L) stop("临时 PDF 过小")
@@ -572,7 +656,14 @@
   fun_arg <- bl_cfg$fun %||% "pct"
   if (identical(fun_arg, "none") || identical(fun_arg, NULL)) fun_arg <- NULL
 
-  xlab <- bl_cfg$xlab %||% km_cfg$xlab %||% "Follow-up time (days)"
+  ## 横轴单位跟 time_var / config；禁止默认 Time (d) 却在 RFS_Months 上画 0–60
+  .kms02_default_xlab <- function(tv) {
+    tv <- tolower(as.character(tv %||% "")[1L])
+    if (grepl("month", tv, fixed = TRUE)) return("Time (months)")
+    if (grepl("year", tv, fixed = TRUE)) return("Time (years)")
+    "Follow-up time (days)"
+  }
+  xlab <- bl_cfg$xlab %||% km_cfg$xlab %||% .kms02_default_xlab(time_col)
   ylab <- bl_cfg$ylab %||% km_cfg$ylab %||% "Survival probability (%)"
   time_axis <- .kms02_resolve_time_axis(fit, rt_plot, time_col, time_div, bl_cfg, km_cfg)
   km_xlim <- time_axis$xlim
@@ -583,7 +674,9 @@
   } else {
     km_ylim <- km_ylim[1:2]
   }
-  risk_tbl <- isTRUE(bl_cfg$risk_table %||% TRUE) && !for_combined
+  # 合并图默认关风险表（多面板挤）；单面板或显式 risk_table_on_combined=TRUE 时可开
+  risk_on_combined <- isTRUE(bl_cfg$risk_table_on_combined %||% FALSE)
+  risk_tbl <- isTRUE(bl_cfg$risk_table %||% TRUE) && (!for_combined || risk_on_combined)
   risk_y_text <- isTRUE(bl_cfg$risk_table_y_text %||% TRUE)
   legend_in_table <- isTRUE(bl_cfg$risk_table_legend_in_table %||% FALSE)
   risk_y_col <- isTRUE(bl_cfg$risk_table_y_text_col %||% risk_y_text)
@@ -681,7 +774,8 @@
       break.time.by = if (for_combined) NULL else km_break,
       title = .kms02_sanitize_legend(title_raw),
       subtitle = if (!for_combined && nzchar(subtitle_raw)) .kms02_sanitize_legend(subtitle_raw) else NULL,
-      xlab = .kms02_sanitize_legend(if (for_combined) "Time (d)" else xlab),
+      # 合并图也跟 config xlab（如 Time (months)），禁止写死 Time (d)
+      xlab = .kms02_sanitize_legend(xlab),
       ylab = .kms02_sanitize_legend(if (for_combined) "Prob (%)" else ylab),
       # 参考图：图例标题 = "{index} quartile"
       legend.title = .kms02_sanitize_legend(legend_title_raw),
@@ -1049,7 +1143,8 @@ block_km_strata <- function(ctx, ...) {
         time_col = time_var, time_div = time_div,
         for_combined = TRUE, config = cfg
       )
-      plot_list[[strata_col]] <- pinfo_c$build(FALSE, TRUE)
+      # 与单图一致：允许合并图带风险表（需 risk_table + risk_table_on_combined）
+      plot_list[[strata_col]] <- pinfo_c$build(isTRUE(pinfo_c$risk_table), TRUE)
     }
   }
 

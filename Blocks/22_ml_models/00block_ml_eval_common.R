@@ -6,6 +6,67 @@
 #  ROC/AUC 仍可用 .pred_<reference> + event_level="first"（与 P(Case) 等价，AUC 不变）。
 ###############################################################################
 
+#' TCF / TOPSIS 规范名（Wang 2025 七模型）
+.ml_tcf_canonical_name <- function(nm) {
+  nm <- as.character(nm)[1L]
+  if (!nzchar(nm) || is.na(nm)) return(NA_character_)
+  alias <- c(
+    DT = "DT", dt = "DT", ml_dt = "DT", DecisionTree = "DT",
+    RF = "RF", rf = "RF", ml_rf = "RF", RandomForest = "RF",
+    XGB = "XGB", xgboost = "XGB", ml_xgboost = "XGB", xgb = "XGB",
+    XGBoost = "XGB",
+    LGBM = "LGBM", lightgbm = "LGBM", ml_lightgbm = "LGBM", lgbm = "LGBM",
+    LightGBM = "LGBM",
+    SVM = "SVM", rsvm = "SVM", ml_rsvm = "SVM", svm = "SVM", RSVM = "SVM",
+    NB = "NB", naive_bayes = "NB", ml_naive_bayes = "NB", NaiveBayes = "NB",
+    GBDT = "GBDT", gbdt = "GBDT", ml_gbdt = "GBDT"
+  )
+  ## 未知名用 [[ ]] 会 subscript out of bounds；先 %in% 再取
+  if (nm %in% names(alias)) return(as.character(alias[[nm]]))
+  tl <- tolower(nm)
+  if (!is.na(tl) && tl %in% names(alias)) return(as.character(alias[[tl]]))
+  NA_character_
+}
+
+#' 从 tidymodels final_predictions 抽 test 上的 analysis 概率列
+.ml_extract_test_ana_prob <- function(preds_df) {
+  if (!is.data.frame(preds_df) || !nrow(preds_df)) return(NULL)
+  ds <- if ("dataset" %in% names(preds_df)) as.character(preds_df$dataset) else character(nrow(preds_df))
+  is_te <- tolower(trimws(ds)) %in% c(
+    "validation set", "test", "test set", "validation", "external", "holdout"
+  )
+  if (!any(is_te)) {
+    ## 无 dataset 列时：若整表行数像单折 test，整列都用
+    is_te <- rep(TRUE, nrow(preds_df))
+  }
+  pv <- grep("_predicted_value$", names(preds_df), value = TRUE)
+  if (!length(pv)) {
+    ## 兜底：.pred_<ana> 类列（排除 .pred_class）
+    pv <- grep("^\\.pred_", names(preds_df), value = TRUE)
+    pv <- pv[!grepl("class$", pv, ignore.case = TRUE)]
+  }
+  if (!length(pv)) return(NULL)
+  p <- as.numeric(preds_df[[pv[[1L]]]][is_te])
+  if (!length(p) || !any(is.finite(p))) return(NULL)
+  p
+}
+
+#' 写入 ctx$results$ml_model_probs（供 ml_topsis_fusion 七模型真融合）
+.ml_register_model_probs <- function(ctx, tag, p = NULL, preds_df = NULL) {
+  key <- .ml_tcf_canonical_name(tag)
+  if (is.na(key)) return(ctx)
+  if (is.null(p) && !is.null(preds_df)) {
+    p <- .ml_extract_test_ana_prob(preds_df)
+  }
+  if (is.null(p)) return(ctx)
+  p <- as.numeric(p)
+  if (!length(p) || !any(is.finite(p))) return(ctx)
+  ctx$results$ml_model_probs <- ctx$results$ml_model_probs %||% list()
+  ctx$results$ml_model_probs[[key]] <- p
+  ctx$results$ml_model_probs[[as.character(tag)[1L]]] <- p
+  ctx
+}
+
 #' yardstick conf_mat / sens / spec 的事件水平（analysis_group = second）
 .ml_yardstick_event_level <- function() {
   "second"

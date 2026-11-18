@@ -77,4 +77,55 @@ stopifnot(!file.exists(file.path(figs3, "Figure 2-NHANES. Weighted RCS of SOSM a
 stopifnot(!file.exists(file.path(figs3, "Figure 2-MIMIC. RCS plot between SOSM and Uterine fibroids.pdf")))
 unlink(ix3, recursive = TRUE)
 
+# 假拼图守卫：无标签图实为单库拷贝时不得跳过；purge 不得删对侧底稿
+ix4 <- tempfile("ix_fake_dual_")
+figs4 <- file.path(ix4, "Figures")
+dir.create(file.path(figs4, "pdf"), recursive = TRUE)
+make_min_pdf(file.path(figs4, "Figure 8-eICU. Subgroup Forest analyses of ACAG.pdf"))
+make_min_pdf(file.path(figs4, "Figure 8-MIMIC IV. Subgroup Forest analyses of ACAG.pdf"))
+# 冒充已拼图：拷贝 MIMIC 单库为无标签
+file.copy(
+  file.path(figs4, "Figure 8-MIMIC IV. Subgroup Forest analyses of ACAG.pdf"),
+  file.path(figs4, "Figure 8. Subgroup Forest analyses of ACAG.pdf"),
+  overwrite = TRUE
+)
+file.copy(
+  file.path(figs4, "Figure 8. Subgroup Forest analyses of ACAG.pdf"),
+  file.path(figs4, "pdf/Figure 8. Subgroup Forest analyses of ACAG.pdf"),
+  overwrite = TRUE
+)
+cfg4 <- list(
+  project = list(study_type = "incidence", exposure_var = "ACAG", disease = "T2DM"),
+  ml_batch = list(pub_figure_scheme = "ml_dual_dev_ext"),
+  dual_db = list(
+    combine_figures = list(enable = TRUE, remove_singles = TRUE, dpi = 72L),
+    primary = list(name = "eICU"),
+    secondary = list(name = "MIMIC IV")
+  )
+)
+stopifnot(!isTRUE(.dual_db_pdf_looks_like_dual_panel(
+  file.path(figs4, "Figure 8. Subgroup Forest analyses of ACAG.pdf"),
+  ref_singles = file.path(figs4, "Figure 8-MIMIC IV. Subgroup Forest analyses of ACAG.pdf")
+)))
+fake_sz <- file.info(file.path(figs4, "Figure 8. Subgroup Forest analyses of ACAG.pdf"))$size
+dual_db_combine_paired_figures(ix4, cfg4)
+out4 <- file.path(figs4, "Figure 8. Subgroup Forest analyses of ACAG.pdf")
+stopifnot(file.exists(out4))
+# 重拼后不应仍是单库拷贝尺寸
+stopifnot(!identical(as.integer(file.info(out4)$size), as.integer(fake_sz)) ||
+            isTRUE(.dual_db_pdf_looks_like_dual_panel(out4)))
+# purge：同尺寸假无标签不得清掉分库底稿
+make_min_pdf(file.path(figs4, "pdf/_single_ref.pdf"))
+file.copy(file.path(figs4, "pdf/_single_ref.pdf"),
+          file.path(figs4, "pdf/Figure 8. Subgroup Forest analyses of ACAG.pdf"),
+          overwrite = TRUE)
+file.copy(file.path(figs4, "pdf/_single_ref.pdf"),
+          file.path(figs4, "pdf/Figure 8-eICU. Subgroup Forest analyses of ACAG.pdf"),
+          overwrite = TRUE)
+purged4 <- dual_db_purge_redundant_split_figures(
+  figs4, db_names = c("eICU", "MIMIC IV", "MIMIC")
+)
+stopifnot(!any(grepl("Figure 8-eICU", purged4, fixed = TRUE)))
+unlink(ix4, recursive = TRUE)
+
 cat("test_dual_db_combine_n_panel: OK\n")

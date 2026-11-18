@@ -239,7 +239,7 @@
               gtsummary::all_continuous() ~ "kruskal.test",
               gtsummary::all_categorical() ~ "chisq.test"
             ),
-            pvalue_fun = ~ gtsummary::style_pvalue(.x, digits = 3)
+            pvalue_fun = function(x) fmt_pval(x)
           )
       ),
       error = function(e) tb

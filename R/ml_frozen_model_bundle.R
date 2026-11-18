@@ -161,6 +161,26 @@ ml_frozen_default_methods <- function() {
     ))
   }
   cand <- setdiff(cand, never)
+  ## 暴露复合指标进 ML 候选。冻结路径：force/include 显式开时忽略 use_venn_center 短路
+  fs <- cfg$feature_selection %||% list()
+  force_comp <- isTRUE(fs$force_composite_features %||% FALSE) ||
+    isTRUE(fs$include_composite_in_ml %||% FALSE) ||
+    isTRUE((cfg$ml %||% list())$include_composite_index %||% FALSE)
+  include_comp <- force_comp || (
+    exists("pipeline_ml_include_composite_index", mode = "function") &&
+      isTRUE(pipeline_ml_include_composite_index(cfg))
+  )
+  if (isTRUE(include_comp)) {
+    tags <- if (exists("pipeline_ml_composite_feature_tags", mode = "function")) {
+      pipeline_ml_composite_feature_tags(cfg)
+    } else {
+      unique(c(
+        as.character(fs$composite_features %||% character(0)),
+        as.character((cfg$prediction %||% list())$index_vars %||% character(0))
+      ))
+    }
+    cand <- unique(c(cand, intersect(tags, names(data_ref))))
+  }
   cand <- intersect(unique(cand[nzchar(cand)]), names(data_ref))
   cand
 }
@@ -172,6 +192,9 @@ ml_frozen_default_methods <- function() {
     root <- paste0("/mnt/", tolower(substr(root, 1L, 1L)), substring(root, 3L))
   }
   c(
+    ## 必须先于各模型块：提供 .ml_register_model_probs 等公共函数
+    ## （缺它时 dt/rf/xgboost/lightgbm 训完仍登记失败 → 假降级 smoke_only）
+    eval_common = file.path(root, "Blocks/22_ml_models/00block_ml_eval_common.R"),
     boruta = file.path(root, "Blocks/19_feature_selection/02block_feature_selection_boruta.R"),
     logistic = file.path(root, "Blocks/22_ml_models/08block_ml_logistic.R"),
     dt = file.path(root, "Blocks/22_ml_models/01block_ml_dt.R"),
@@ -186,6 +209,15 @@ ml_frozen_default_methods <- function() {
   for (nm in names(files)) {
     if (!file.exists(files[[nm]])) {
       stop("缺少引擎块源码: ", files[[nm]], call. = FALSE)
+    }
+    if (identical(nm, "eval_common")) {
+      if (!exists(".ml_register_model_probs", mode = "function")) {
+        source(files[[nm]], local = FALSE)
+      }
+      if (!exists(".ml_register_model_probs", mode = "function")) {
+        stop("无法加载 .ml_register_model_probs（", files[[nm]], "）", call. = FALSE)
+      }
+      next
     }
     fn_name <- if (identical(nm, "boruta")) "block_feature_selection_boruta"
     else paste0("block_ml_", nm)
@@ -290,10 +322,21 @@ ml_fit_stratum_bundle <- function(
          call. = FALSE)
   }
 
-  work_root <- file.path(
-    if (is.null(assets_root)) tempdir() else as.character(assets_root)[1L],
-    paste0(".work_frozen_", key)
-  )
+  ## lightgbm 等在 SMB/UNC 工作区常 "cannot open the connection"；训练落本地 temp
+  assets_root_chr <- if (is.null(assets_root)) {
+    tempdir()
+  } else {
+    as.character(assets_root)[1L]
+  }
+  use_local_work <- grepl("^(/mnt/[a-z]/|[A-Za-z]:/|\\\\\\\\|//)", assets_root_chr) &&
+    !grepl("^/tmp|^/var/tmp|^/home", assets_root_chr)
+  work_parent <- if (isTRUE(use_local_work)) {
+    file.path(tempdir(), "ml_frozen_work")
+  } else {
+    assets_root_chr
+  }
+  dir.create(work_parent, recursive = TRUE, showWarnings = FALSE)
+  work_root <- file.path(work_parent, paste0(".work_frozen_", key))
   unlink(work_root, recursive = TRUE)
   dir.create(work_root, recursive = TRUE, showWarnings = FALSE)
   on.exit(unlink(work_root, recursive = TRUE), add = TRUE)
@@ -345,10 +388,54 @@ ml_fit_stratum_bundle <- function(
     cli::cli_alert_info("ml_frozen: 层 {key} feature_selection$enable=FALSE，本层用候选全集 {length(cand)} 特征。")
   }
   feats <- unique(as.character(feats))
+  ## 暴露复合指标强制进最终特征（Boruta 未确认也保留）
+  fs_child <- child$config$feature_selection %||% list()
+  force_comp <- isTRUE(fs_child$force_composite_features %||% FALSE) ||
+    isTRUE(fs_child$include_composite_in_ml %||% FALSE) ||
+    isTRUE((child$config$ml %||% list())$include_composite_index %||% FALSE)
+  if (isTRUE(force_comp)) {
+    tags <- if (exists("pipeline_ml_composite_feature_tags", mode = "function")) {
+      pipeline_ml_composite_feature_tags(child$config)
+    } else {
+      unique(c(
+        as.character(fs_child$composite_features %||% character(0)),
+        as.character((child$config$prediction %||% list())$index_vars %||% character(0))
+      ))
+    }
+    data_cols <- names(child$data$train %||% child$data$imputed %||% list())
+    forced <- intersect(tags, data_cols)
+    if (length(forced)) {
+      miss <- setdiff(forced, feats)
+      feats <- unique(c(forced, feats))
+      if (length(miss)) {
+        cli::cli_alert_info(
+          "ml_frozen: 层 {key} 强制保留暴露特征: {paste(miss, collapse = ', ')}"
+        )
+      }
+    }
+  }
   # ml_rf 引擎网格固定 mtry<=10（Blocks/22 不改）；本层特征不足 10 列时用
   # 候选全集补齐到 10（仍限定在本层候选域内，Boruta 结果优先保留）。
   if ("rf" %in% methods && length(feats) < 10L) {
     extra <- setdiff(cand, feats)
+    # 候选仍不够时，从训练集数值/二值列再补（排除结局/时间/ID/暴露黑名单）
+    if (length(feats) + length(extra) < 10L) {
+      train_df0 <- child$data$train
+      never <- unique(c(
+        as.character(child$config$ml_frozen_bundle$never_features %||% character(0)),
+        "futime", "fustatus", "ID", "SEQN", "DN", "Group",
+        if (is.null(stratum)) character(0) else as.character(stratum$variable)
+      ))
+      pool <- setdiff(names(train_df0), c(feats, extra, never))
+      ok <- vapply(pool, function(cn) {
+        x <- train_df0[[cn]]
+        if (is.factor(x) || is.character(x)) {
+          return(length(unique(stats::na.omit(as.character(x)))) <= 8L)
+        }
+        is.numeric(x) && sum(is.finite(x)) >= 10L
+      }, logical(1))
+      extra <- unique(c(extra, pool[ok]))
+    }
     if (length(feats) + length(extra) >= 10L) {
       feats <- c(feats, utils::head(extra, 10L - length(feats)))
       cli::cli_alert_info(
@@ -360,6 +447,26 @@ ml_fit_stratum_bundle <- function(
     }
   }
   child$results$feature_selection_final <- feats
+
+  # 字符列（如 Gender）在打包 factor_levels 时会整层失败。按训练集水平
+  # 先升成因子，外验未见水平在预测时再变成 NA。
+  train_df <- child$data$train
+  char_feats <- intersect(feats, names(train_df))
+  char_feats <- char_feats[vapply(char_feats, function(cn) {
+    is.character(train_df[[cn]])
+  }, logical(1))]
+  if (length(char_feats)) {
+    locked_levels <- lapply(char_feats, function(cn) levels(factor(train_df[[cn]])))
+    names(locked_levels) <- char_feats
+    for (slot in names(child$data)) {
+      df <- child$data[[slot]]
+      if (!is.data.frame(df)) next
+      for (cn in intersect(char_feats, names(df))) {
+        df[[cn]] <- factor(as.character(df[[cn]]), levels = locked_levels[[cn]])
+      }
+      child$data[[slot]] <- df
+    }
+  }
 
   for (m in c("ml_dt", "ml_rf", "ml_xgboost", "ml_lightgbm", "ml_logistic",
               "feature_selection_boruta")) {

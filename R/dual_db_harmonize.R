@@ -13,6 +13,158 @@ dual_db_preferred_mediator_path <- function(root, cfg) {
   file.path(dual_db_harmonization_dir(root, cfg), "preferred_mediator.rds")
 }
 
+dual_db_shared_lab_indicator_pool_path <- function(root, cfg) {
+  file.path(dual_db_harmonization_dir(root, cfg), "shared_lab_indicator_pool.rds")
+}
+
+dual_db_shared_lm_mediators_path <- function(root, cfg) {
+  file.path(dual_db_harmonization_dir(root, cfg), "shared_lm_mediators.rds")
+}
+
+dual_db_db_lm_mediators_path <- function(root, cfg, db) {
+  db <- as.character(db %||% "")[1L]
+  if (!nzchar(db)) db <- "unknown"
+  file.path(dual_db_harmonization_dir(root, cfg), paste0("lm_mediators_", db, ".rds"))
+}
+
+dual_db_save_db_lm_mediators <- function(root, cfg, db, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  dir <- dual_db_harmonization_dir(root, cfg)
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  saveRDS(
+    list(db = as.character(db)[1L], vars = vars, saved_at = Sys.time()),
+    dual_db_db_lm_mediators_path(root, cfg, db)
+  )
+  invisible(TRUE)
+}
+
+dual_db_load_db_lm_mediators <- function(root, cfg, db) {
+  path <- dual_db_db_lm_mediators_path(root, cfg, db)
+  if (!file.exists(path)) return(character(0))
+  obj <- tryCatch(readRDS(path), error = function(e) NULL)
+  as.character(obj$vars %||% character(0))
+}
+
+dual_db_save_shared_lm_mediators <- function(root, cfg, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  dir <- dual_db_harmonization_dir(root, cfg)
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  saveRDS(
+    list(vars = vars, saved_at = Sys.time()),
+    dual_db_shared_lm_mediators_path(root, cfg)
+  )
+  invisible(TRUE)
+}
+
+dual_db_load_shared_lm_mediators <- function(root, cfg) {
+  path <- dual_db_shared_lm_mediators_path(root, cfg)
+  if (!file.exists(path)) return(character(0))
+  obj <- tryCatch(readRDS(path), error = function(e) NULL)
+  as.character(obj$vars %||% character(0))
+}
+
+#' 两库 LM 显著中介取交并落盘；任一侧未写入则返回 character(0)
+dual_db_try_lock_shared_lm_mediators <- function(root, cfg, db_seq) {
+  if (!isTRUE((cfg$dual_db %||% list())$enable)) return(character(0))
+  if (length(db_seq) < 2L) return(character(0))
+  lists <- lapply(db_seq, function(db) dual_db_load_db_lm_mediators(root, cfg, db))
+  if (any(!vapply(lists, length, integer(1L)))) return(character(0))
+  common <- Reduce(intersect, lists)
+  dual_db_save_shared_lm_mediators(root, cfg, common)
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success(
+      "双库 LM 显著中介交集已锁定：{length(common)} 个（{paste(head(common, 8), collapse = ', ')}{if (length(common) > 8) '...' else ''}）"
+    )
+  }
+  common
+}
+
+dual_db_save_shared_lab_indicator_pool <- function(root, cfg, vars) {
+  vars <- unique(as.character(vars %||% character(0)))
+  vars <- vars[nzchar(vars)]
+  dir <- dual_db_harmonization_dir(root, cfg)
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  saveRDS(
+    list(vars = vars, saved_at = Sys.time()),
+    dual_db_shared_lab_indicator_pool_path(root, cfg)
+  )
+  invisible(TRUE)
+}
+
+dual_db_load_shared_lab_indicator_pool <- function(root, cfg) {
+  path <- dual_db_shared_lab_indicator_pool_path(root, cfg)
+  if (!file.exists(path)) return(character(0))
+  obj <- tryCatch(readRDS(path), error = function(e) NULL)
+  as.character(obj$vars %||% character(0))
+}
+
+#' 从单库 checkpoint 取可用列名（imputed/cleaned）
+dual_db_probe_data_colnames <- function(root, cfg, db_name) {
+  ck_dir <- tryCatch(
+    dual_db_checkpoint_dir(root, cfg, db_name),
+    error = function(e) NULL
+  )
+  if (is.null(ck_dir) || !dir.exists(ck_dir)) return(character(0))
+  candidates <- c(
+    "imputation", "trim_index_extreme", "baseline_binary",
+    "mediation_incidence", "mediation_nhanes_weighted",
+    "multicollinearity_final", "dual_db_covariate_harmonize"
+  )
+  for (blk in candidates) {
+    path <- file.path(ck_dir, paste0(blk, ".rds"))
+    if (!file.exists(path)) next
+    obj <- tryCatch(readRDS(path), error = function(e) NULL)
+    if (is.null(obj) || is.null(obj$ctx)) next
+    data <- obj$ctx$data$imputed %||% obj$ctx$data$cleaned
+    if (is.data.frame(data) && ncol(data) > 0L) return(names(data))
+    des <- obj$ctx$results$nhanes_design
+    if (!is.null(des) && is.data.frame(des$variables) && ncol(des$variables) > 0L) {
+      return(names(des$variables))
+    }
+  }
+  character(0)
+}
+
+#' 双库锁定同一实验室关联候选池（各库可用列 ∩ lab pool 后再取交集）
+#' @return character 共享变量；不足两侧时返回 character(0) 且不落盘
+dual_db_lock_shared_lab_indicator_pool <- function(root, cfg,
+                                                   db_seq = c("nhanes", "mimic")) {
+  if (!isTRUE((cfg$dual_db %||% list())$enable)) return(character(0))
+  if (length(db_seq) < 2L) return(character(0))
+  bl <- cfg$mediation_incidence %||% cfg$mediation_nhanes_weighted %||%
+    cfg$mediation_prognosis %||% list()
+  exposure <- as.character(
+    bl$exposure %||%
+      (cfg$survival %||% list())$index_var %||%
+      (cfg$logistic %||% list())$index_var %||% ""
+  )[1L]
+  pools <- list()
+  for (db in db_seq) {
+    cols <- dual_db_probe_data_colnames(root, cfg, db)
+    if (!length(cols)) {
+      cli::cli_alert_warning("双库实验室池：{db} 无可用列，暂不锁定")
+      return(character(0))
+    }
+    if (exists(".mi02_resolve_lab_indicator_pool", mode = "function")) {
+      pools[[db]] <- .mi02_resolve_lab_indicator_pool(cfg, bl, cols, exposure)
+    } else {
+      pools[[db]] <- character(0)
+    }
+  }
+  if (any(!vapply(pools, length, integer(1L)))) {
+    cli::cli_alert_warning("双库实验室池：至少一侧候选为空，暂不锁定")
+    return(character(0))
+  }
+  common <- Reduce(intersect, pools)
+  dual_db_save_shared_lab_indicator_pool(root, cfg, common)
+  cli::cli_alert_success(
+    "双库实验室关联候选池已锁定：{length(common)} 个（{paste(head(common, 8), collapse = ', ')}{if (length(common) > 8) '...' else ''}）"
+  )
+  common
+}
+
 dual_db_save_preferred_mediator <- function(root, cfg, mediator) {
   med <- as.character(mediator %||% "")[1L]
   if (!nzchar(med)) return(invisible(FALSE))
@@ -64,7 +216,8 @@ dual_db_load_mediation_result_table <- function(root, cfg, db_name,
 }
 
 #' 双库锁定同一路径图中介：
-#' 取两库 Mediator 交集，按两库 Prop_Med 均值最大者（优先均值为正）。
+#' 1) 中介表行集优先 = 双库 LM 显著交集（shared_lm_mediators；否则表内 Mediator 交集）
+#' 2) 路径图 best = 两库 path a/b/indirect 均显著者中，双库 Prop_Med 均值最大（优先均值为正）
 #' @return list(best_mediator, mediators, score, detail) 或 NULL
 dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "mimic"),
                                               exposure = NULL) {
@@ -77,6 +230,9 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
       (cfg$survival %||% list())$index_var %||%
       (cfg$logistic %||% list())$index_var %||% ""
   )[1L]
+  alpha <- as.numeric(bl$mediation_path_alpha %||% 0.05)[1L]
+  if (!is.finite(alpha)) alpha <- 0.05
+  require_both_sig <- isTRUE(bl$dual_db_require_both_significant %||% TRUE)
 
   .clean_meds <- function(tbl) {
     if (is.null(tbl) || !is.data.frame(tbl) || !nrow(tbl)) return(character(0))
@@ -100,6 +256,26 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
     suppressWarnings(as.numeric(tbl$Prop_Med_num[hit[1L]]))
   }
 
+  .row_for <- function(tbl, med) {
+    if (is.null(tbl) || !nrow(tbl)) return(NULL)
+    hit <- which(as.character(tbl$Mediator) == med)
+    if (!length(hit)) return(NULL)
+    tbl[hit[1L], , drop = FALSE]
+  }
+
+  .sig_in_tbl <- function(tbl, med) {
+    one <- .row_for(tbl, med)
+    if (is.null(one)) return(FALSE)
+    if (exists(".mi02_mediation_paths_significant", mode = "function")) {
+      return(isTRUE(.mi02_mediation_paths_significant(one, alpha)))
+    }
+    pa <- suppressWarnings(as.numeric(one$.raw_p_a[1L]))
+    pb <- suppressWarnings(as.numeric(one$.raw_p_b[1L]))
+    pi <- suppressWarnings(as.numeric(one$.raw_p_indirect[1L]))
+    is.finite(pa) && is.finite(pb) && is.finite(pi) &&
+      pa < alpha && pb < alpha && pi < alpha
+  }
+
   tbls <- list()
   for (db in db_seq) {
     tbls[[db]] <- dual_db_load_mediation_result_table(root, cfg, db)
@@ -109,36 +285,98 @@ dual_db_lock_shared_best_mediator <- function(root, cfg, db_seq = c("nhanes", "m
   sets <- lapply(tbls, .clean_meds)
   if (any(!vapply(sets, length, integer(1)))) return(NULL)
   common <- Reduce(intersect, sets)
+
+  # 优先用双库 LM 显著交集作为统一中介行集（相关变量 = 中介变量）
+  shared_lm <- dual_db_load_shared_lm_mediators(root, cfg)
+  if (!length(shared_lm)) {
+    shared_lm <- dual_db_try_lock_shared_lm_mediators(root, cfg, db_seq)
+  }
+  if (length(shared_lm)) {
+    common_lm <- intersect(common, shared_lm)
+    if (length(common_lm)) {
+      common <- common_lm
+    } else {
+      # 表尚未按共享 LM 重跑时：以 LM 交集为 mediators 目标集，best 仍从现有交集里挑
+      cli::cli_alert_info(
+        "闸门 E：中介表与 LM 交集尚未对齐（表交 {length(common)}，LM 交 {length(shared_lm)}）；重跑将固定 mediators=LM 交集"
+      )
+    }
+  }
+
   if (!length(common)) {
     cli::cli_alert_warning("闸门 E：两库中介结果无交集，无法锁定统一路径图中介")
     return(NULL)
   }
 
-  scores <- vapply(common, function(m) {
+  # 路径图 best：两库均显著
+  sig_pool <- common
+  if (isTRUE(require_both_sig)) {
+    sig_pool <- common[vapply(common, function(m) {
+      all(vapply(db_seq, function(db) .sig_in_tbl(tbls[[db]], m), logical(1L)))
+    }, logical(1L))]
+    if (!length(sig_pool)) {
+      cli::cli_alert_warning(
+        "闸门 E：交集 {length(common)} 个中介中无「两库 path a/b/indirect 均 P<{alpha}」者，无法锁定路径图"
+      )
+      return(NULL)
+    }
+  }
+
+  scores <- vapply(sig_pool, function(m) {
     vals <- vapply(db_seq, function(db) .prop(tbls[[db]], m), numeric(1))
     if (any(!is.finite(vals))) return(NA_real_)
     mean(vals)
   }, numeric(1))
-  names(scores) <- common
+  names(scores) <- sig_pool
   ok <- names(scores)[is.finite(scores)]
   if (!length(ok)) return(NULL)
 
   pos <- ok[scores[ok] > 0]
   pool <- if (length(pos)) pos else ok
   best <- pool[which.max(scores[pool])]
-  # 展示顺序：按双库平均 Prop_Med 降序
-  ord <- order(scores[common], decreasing = TRUE, na.last = TRUE)
-  mediators_ord <- common[ord]
+
+  # 课题显式 best_mediator（且在两库显著候选池内）优先于 Prop_Med 均值
+  pin <- as.character(
+    (cfg$mediation_prognosis %||% cfg$mediation_incidence %||%
+       cfg$mediation_nhanes_weighted %||% list())$best_mediator %||% ""
+  )[1L]
+  if (nzchar(pin) && pin %in% sig_pool) {
+    best <- pin
+    cli::cli_alert_info("闸门 E：采用 config best_mediator={pin}")
+  }
+
+  # 发表中介表行集：优先完整 LM 交集（两库相关变量一致）；否则用表交集
+  mediators_table <- if (length(shared_lm)) {
+    unique(c(best, shared_lm))
+  } else {
+    common
+  }
+  # 展示顺序：best 置顶，其余按双库平均 Prop_Med（有分数的）降序
+  score_all <- vapply(mediators_table, function(m) {
+    vals <- vapply(db_seq, function(db) .prop(tbls[[db]], m), numeric(1))
+    if (any(!is.finite(vals))) return(NA_real_)
+    mean(vals)
+  }, numeric(1))
+  names(score_all) <- mediators_table
+  rest <- setdiff(mediators_table, best)
+  rest <- rest[order(score_all[rest], decreasing = TRUE, na.last = TRUE)]
+  mediators_ord <- c(best, rest)
 
   dual_db_save_preferred_mediator(root, cfg, best)
   cli::cli_alert_success(
-    "闸门 E：双库统一路径图中介 = {best}（交集 {length(common)} 个；双库均值 Prop_Med={round(scores[[best]], 2)}%）"
+    paste0(
+      "闸门 E：双库统一路径图中介 = ", best,
+      "（表行 ", length(mediators_ord), "；两库均显著候选 ", length(sig_pool),
+      "；双库均值 Prop_Med=", round(scores[[best]], 2), "%）"
+    )
   )
   list(
     best_mediator = best,
     mediators = mediators_ord,
     score = unname(scores[[best]]),
     scores = scores,
+    dual_significant = sig_pool,
+    shared_lm = shared_lm,
     detail = lapply(db_seq, function(db) {
       list(db = db, prop_med = .prop(tbls[[db]], best))
     })
@@ -348,25 +586,54 @@ dual_db_path_name_to_slot <- function(cfg, path_name) {
   NA_character_
 }
 
-#' 解析已存在的目录：优先新名（eICU），回退 legacy（nhanes）
+#' 解析已存在的目录：优先显示名（eICU/MIMIC…），谨慎回退槽位名（nhanes/mimic）
+#'
+#' 禁止：
+#' 1) 按「主库=eICU、次库=MIMIC」硬编码交叉回退；
+#' 2) 在大小写不敏感盘（Windows/G:）上把次库槽位名 `mimic` 解析到主库 `MIMIC` 目录
+#'    （MIMIC 主库 + eICU 次库时会误判 eICU shared 已存在）。
 dual_db_resolve_slot_dir <- function(parent, cfg, slot) {
   parent <- as.character(parent)[1L]
   slot   <- dual_db_normalize_slot(slot)
-  disp <- dual_db_slot_path_name(cfg, slot)
+  disp <- as.character(dual_db_slot_path_name(cfg, slot))[1L]
+  other_slot <- if (dual_db_slot_is_primary(slot)) {
+    dual_db_slot_secondary()
+  } else {
+    dual_db_slot_primary()
+  }
+  other_disp <- as.character(dual_db_slot_path_name(cfg, other_slot))[1L]
+
   candidates <- unique(c(
     file.path(parent, disp),
     file.path(parent, tolower(disp)),
-    file.path(parent, toupper(disp)),
-    file.path(parent, slot),
-    # 轨迹预后等课题常用小写 eicu/mimic 子目录
-    if (dual_db_slot_is_primary(slot)) {
-      c(file.path(parent, "eicu"), file.path(parent, "EICU"))
-    } else {
-      c(file.path(parent, "mimic"), file.path(parent, "MIMIC"))
-    }
+    file.path(parent, toupper(disp))
   ))
+  # 内部槽位名回退：仅当不会与对侧显示名在大小写折叠后撞车
+  if (!identical(tolower(slot), tolower(other_disp))) {
+    candidates <- unique(c(candidates, file.path(parent, slot)))
+  }
+  dn <- tolower(gsub("[^A-Za-z0-9]+", "", disp))
+  if (identical(dn, "eicu") || startsWith(dn, "eicu")) {
+    candidates <- unique(c(
+      candidates,
+      file.path(parent, "eicu"),
+      file.path(parent, "eICU"),
+      file.path(parent, "EICU")
+    ))
+  }
+  if (identical(dn, "mimic") || startsWith(dn, "mimic")) {
+    candidates <- unique(c(
+      candidates,
+      file.path(parent, "mimic"),
+      file.path(parent, "MIMIC")
+    ))
+  }
   for (d in candidates) {
-    if (dir.exists(d)) return(d)
+    if (!dir.exists(d)) next
+    # 再挡一层：已存在目录名不得等于对侧显示名（大小写不敏感）
+    bn <- basename(d)
+    if (identical(tolower(bn), tolower(other_disp))) next
+    return(d)
   }
   candidates[[1L]]
 }
@@ -1054,7 +1321,8 @@ dual_db_load_mapped_frame <- function(root, db_cfg, cfg) {
 dual_db_compute_gate_a <- function(root, cfg) {
   p <- cfg$dual_db$primary
   s <- cfg$dual_db$secondary
-  harm <- cfg$dual_db$harmonization %||% list()
+  harm <- cfg$dual_db[["harmonization"]]
+  if (!is.list(harm)) harm <- list()
   demo_kw <- as.character(harm$demo_keywords %||% c(
     "Age", "Gender", "Sex", "Race", "Education", "PIR",
     "Smoke", "Marital", "Insurance", "Language", "Income",
@@ -1237,7 +1505,11 @@ dual_db_filter_data_columns <- function(data, keep_cols, label = "dual_db") {
 }
 
 dual_db_column_keep_for_db <- function(cfg, db_name, gate_a = NULL) {
-  gate_a <- gate_a %||% (cfg$dual_db$harmonization %||% list())
+  ## 精确 [[harmonization]]：避免与 harmonization_dir 部分匹配成路径字符串
+  if (is.null(gate_a)) {
+    gate_a <- (cfg$dual_db %||% list())[["harmonization"]]
+  }
+  if (!is.list(gate_a)) gate_a <- list()
   db_name <- as.character(db_name %||% "")[1L]
   keys <- unique(c(
     paste0("column_keep_", db_name),

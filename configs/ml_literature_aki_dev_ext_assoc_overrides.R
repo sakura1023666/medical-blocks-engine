@@ -7,12 +7,14 @@
 # Model 1: unadjusted
 # Model 2: Age + Sex/Gender
 # Model 3: clinical_covariates ∩ UV-significant ∩ VIF-pass (VIF < 5)
+#          **不含** APSIII/OASIS/SOFA/GCS/Ventilation 等严重度（防过度调整翻转 HR）
 #
 # 不改全局 ml_dual_shared_overrides 默认铁律；仅本套路 opt-in。
 ###############################################################################
 
 ## AKI ICU 临床有意义底稿（映射 PMID 文献 Model3；课题按 _column_review 裁剪）
 ## 禁止写入 Acute_Renal_Failure / AKI 诊断旗标等结局泄漏列。
+## 严重度评分可仍列在 clinical 底稿供候选，但默认经 model3_exclude 踢出主文 Model3。
 .ml_literature_aki_clinical_covariates_default <- function() {
   c(
     "GCS", "APSIII", "OASIS",
@@ -26,12 +28,20 @@
 
 ml_literature_aki_dev_ext_apply_assoc_overrides <- function(config,
                                                            clinical_covariates = NULL,
-                                                           sex_var = "Gender") {
+                                                           sex_var = "Gender",
+                                                           model3_exclude = NULL) {
   if (is.null(clinical_covariates)) {
     clinical_covariates <- .ml_literature_aki_clinical_covariates_default()
   }
   clinical_covariates <- unique(as.character(clinical_covariates))
   clinical_covariates <- clinical_covariates[nzchar(clinical_covariates)]
+  if (is.null(model3_exclude)) {
+    model3_exclude <- if (exists("ml_assoc_default_model3_exclude", mode = "function")) {
+      ml_assoc_default_model3_exclude()
+    } else {
+      c("APSIII", "OASIS", "SOFA", "SAPSII", "Ventilation", "GCS", "CRRT")
+    }
+  }
   config$assoc_covariate <- modifyList(
     config$assoc_covariate %||% list(),
     list(
@@ -40,6 +50,7 @@ ml_literature_aki_dev_ext_apply_assoc_overrides <- function(config,
       force_model1 = "Age",
       sex_var = as.character(sex_var)[1L],
       clinical_covariates = clinical_covariates,
+      model3_exclude = unique(as.character(model3_exclude)),
       demo_uv_to_model1 = FALSE,
       uv_source = "tb1",
       model2_from_vif_pass = TRUE,

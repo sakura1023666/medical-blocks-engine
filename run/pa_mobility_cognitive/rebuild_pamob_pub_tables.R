@@ -283,13 +283,19 @@ sens_n <- file.path(nhanes_u, "Table_S_NHANES_Sensitivity_Regressions.csv")
 if (file.exists(sens_n)) {
   sn <- read.csv(sens_n, stringsAsFactors = FALSE, check.names = FALSE)
   sn <- sn[grepl("^phenotype", sn$term), , drop = FALSE]
+  # 答 5 在交付 D04 中 mobility_limited 为缺失，未进入主样本；样本内标志为 0，
+  # Sens_PFQ5_exclude_* 与主模型逐字相同，不进入发表表。
+  if ("model" %in% names(sn)) {
+    sn <- sn[!grepl("^Sens_PFQ5_exclude", sn$model), , drop = FALSE]
+  }
   sn_pub <- pamob_format_coef_pub(sn, outcome_col = if ("outcome" %in% names(sn)) "outcome" else NULL)
   s4_path <- file.path(tab_root, "Table S4. NHANES sensitivity analyses.xlsx")
   pamob_write_sci_xlsx(
     sn_pub, s4_path,
     title = "Table S4. NHANES sensitivity analyses",
     footnotes = c(
-      "Includes PFQ answer-5 exclusion, stroke exclusion, and NfL Model3 + eGFR \u00b1 CRP extensions as available.",
+      "Stroke exclusion and NfL Model 3 + eGFR extensions. PFQ answer-5 exclusion is omitted:",
+      "in the delivered mobility file those respondents have missing mobility status and never entered the DSST or sNfL sample, so the within-sample flag is 0.",
       "Coefficients are phenotype contrasts vs Active\u2013preserved under the survey design."
     )
   )
@@ -349,14 +355,21 @@ if (file.exists(ctx_by)) {
     file.path(tab_root, "Table S8. Contextual distribution by phenotype.xlsx"),
     title = "Table S8. Contextual variable distribution by PA\u2013mobility phenotype",
     footnotes = c(
-      "Binary: percent yes among non-missing; continuous: mean (SD)."
+      "Binary: percent yes among non-missing; continuous: mean (SD).",
+      "CHARLS stratum n sums to the Table 1 analytic IDs (baseline phenotype, not the 2011 cognition-row subset).",
+      "NHANES stratum n is the DSST main sample."
     )
   )
   written <- c(written, "Table S8. Contextual distribution by phenotype.xlsx")
   message("OK Table S8. Contextual distribution by phenotype.xlsx")
 }
 ctx_primary <- file.path(ctx_dir, "primary_mobility_stratum_PA_contrasts.csv")
-if (!file.exists(ctx_primary) && file.exists(ctx_disc)) {
+ctx_paired <- file.path(ctx_dir, "paired_contrasts_primary_and_secondary.csv")
+if (!file.exists(ctx_primary) && file.exists(ctx_paired)) {
+  dtmp <- read.csv(ctx_paired, stringsAsFactors = FALSE, check.names = FALSE)
+  if ("role" %in% names(dtmp)) dtmp <- dtmp[grepl("^primary_", dtmp$role), , drop = FALSE]
+  ctx_primary_data <- dtmp
+} else if (!file.exists(ctx_primary) && file.exists(ctx_disc)) {
   dtmp <- read.csv(ctx_disc, stringsAsFactors = FALSE, check.names = FALSE)
   if ("role" %in% names(dtmp)) dtmp <- dtmp[grepl("^primary_", dtmp$role), , drop = FALSE]
   ctx_primary_data <- dtmp
@@ -373,7 +386,8 @@ if (!is.null(ctx_primary_data) && nrow(ctx_primary_data)) {
     footnotes = c(
       "Primary 1: Inactive\u2013preserved vs Active\u2013preserved (mobility preserved) \u2014 correlates of inactivity.",
       "Primary 2: Active\u2013limited vs Inactive\u2013limited (mobility limited) \u2014 correlates of remaining active.",
-      "Cross-discordant Active\u2013limited vs Inactive\u2013preserved is secondary only (see Contextual/*.csv); mediation deferred."
+      "Secondary cross-discordant Active\u2013limited vs Inactive\u2013preserved is Table S11 (not a second Table S9).",
+      "Descriptive only; no mediation or causal interpretation."
     )
   )
   written <- c(written, "Table S9. Contextual primary mobility-stratum PA contrasts.xlsx")
@@ -406,21 +420,55 @@ if (file.exists(dsst_ctr)) {
   message("OK Table S10 DSST direct contrasts")
 }
 
-# ── Table S11 Cognitive construction (optional source) ──
+# ── Table S11 secondary AL vs IP contextual（原误标为第二个 S9）──
+ctx_secondary_data <- NULL
+if (file.exists(ctx_paired)) {
+  dsec <- read.csv(ctx_paired, stringsAsFactors = FALSE, check.names = FALSE)
+  if ("role" %in% names(dsec)) {
+    ctx_secondary_data <- dsec[grepl("secondary_cross_discordant", dsec$role), , drop = FALSE]
+  }
+}
+if ((is.null(ctx_secondary_data) || !nrow(ctx_secondary_data)) && file.exists(ctx_disc)) {
+  dsec <- read.csv(ctx_disc, stringsAsFactors = FALSE, check.names = FALSE)
+  if ("role" %in% names(dsec)) {
+    ctx_secondary_data <- dsec[grepl("secondary_cross_discordant", dsec$role), , drop = FALSE]
+  } else if ("contrast" %in% names(dsec)) {
+    ctx_secondary_data <- dsec[grepl("Active_limited vs Inactive_preserved", dsec$contrast), , drop = FALSE]
+  }
+}
+if (!is.null(ctx_secondary_data) && nrow(ctx_secondary_data)) {
+  # 清除旧的重复 S9 文件名
+  old_dup <- file.path(tab_root, "Table S9. Contextual discordant phenotype contrast.xlsx")
+  if (file.exists(old_dup)) unlink(old_dup)
+  pamob_write_sci_xlsx(
+    ctx_secondary_data,
+    file.path(tab_root, "Table S11. Contextual secondary discordant AL vs IP.xlsx"),
+    title = "Table S11. Contextual profiles: secondary cross-discordant contrast (Active\u2013limited vs Inactive\u2013preserved)",
+    footnotes = c(
+      "Secondary only: crosses both PA and mobility dimensions; not a primary same-mobility contrast.",
+      "Primary within-mobility contrasts are Table S9 (Inactive\u2013preserved vs Active\u2013preserved; Active\u2013limited vs Inactive\u2013limited).",
+      "Descriptive only; no mediation or causal interpretation."
+    )
+  )
+  written <- c(written, "Table S11. Contextual secondary discordant AL vs IP.xlsx")
+  message("OK Table S11 secondary discordant contextual")
+}
+
+# ── Table S12 Cognitive construction (optional source) ──
 cog_src <- file.path(batch, "Manuscript", "Table_S6_cognition_construction_source.csv")
 if (file.exists(cog_src)) {
   cog <- read.csv(cog_src, stringsAsFactors = FALSE)
-  s11_path <- file.path(tab_root, "Table S11. CHARLS cognitive score construction.xlsx")
+  s12_path <- file.path(tab_root, "Table S12. CHARLS cognitive score construction.xlsx")
   pamob_write_sci_xlsx(
-    cog, s11_path,
-    title = "Table S11. CHARLS cognitive score construction",
+    cog, s12_path,
+    title = "Table S12. CHARLS cognitive score construction",
     footnotes = c(
       "Global cognition (0\u201321) follows Chai et al. 2024.",
       "Episodic memory is Table 3 / Table S2. CES-D-10 is a covariate only."
     )
   )
-  written <- c(written, basename(s11_path))
-  message("OK ", basename(s11_path))
+  written <- c(written, basename(s12_path))
+  message("OK ", basename(s12_path))
 }
 
 readme <- c(

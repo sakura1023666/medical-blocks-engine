@@ -302,6 +302,12 @@ block_trajectory_dynpred <- function(ctx, ...) {
     all_traj_vals <- unlist(lapply(class_traj_list, `[[`, "mean_outcome"))
     y_min <- min(all_traj_vals, na.rm = TRUE)
     y_max <- max(all_traj_vals, na.rm = TRUE)
+    # 双库共用纵轴：config$trajectory_dynpred$ylim 或 jlcm$ylim = c(lo, hi)
+    yl_cfg <- dyn_bl$ylim %||% jlcm_cfg$ylim %||% NULL
+    if (length(yl_cfg) >= 2L && all(is.finite(as.numeric(yl_cfg[1:2])))) {
+      y_min <- as.numeric(yl_cfg[1L])
+      y_max <- as.numeric(yl_cfg[2L])
+    }
 
     # 生存概率显示范围
     pred_vals <- dyn_df$surv[!is.na(dyn_df$surv)]
@@ -367,7 +373,10 @@ block_trajectory_dynpred <- function(ctx, ...) {
                      fill = class_label),
         alpha = 0.2, na.rm = TRUE
       ) +
-      ggplot2::facet_wrap(~ assessment_time, labeller = ggplot2::label_both) +
+      ggplot2::facet_wrap(
+        ~ assessment_time,
+        labeller = ggplot2::as_labeller(function(x) paste0("Landmark ", x, " d"))
+      ) +
       ggplot2::scale_x_continuous(
         name   = "Day",
         limits = c(0, cycle),

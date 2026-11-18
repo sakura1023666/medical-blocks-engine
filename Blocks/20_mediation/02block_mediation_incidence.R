@@ -50,7 +50,8 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   surv_cfg <- cfg$survival %||% list()
 
   exposure <- exposure %||% bl_cfg$exposure %||% surv_cfg$index_var %||% cfg$logistic$index_var
-  mediators <- mediators %||% bl_cfg$mediators
+  ## 必须 [[ ]]：`$mediators` 会部分匹配 mediators_strict_only
+  mediators <- mediators %||% bl_cfg[["mediators"]]
   # 路径默认 crude（全项目）；显式 path_use_covariates=TRUE 才用 covariates
   covariates <- if (exists("pipeline_mediation_resolve_path_covariates", mode = "function")) {
     pipeline_mediation_resolve_path_covariates(cfg, bl_cfg, names(data), ctx = ctx)
@@ -61,11 +62,15 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   standardize_mediator <- isTRUE(bl_cfg$standardize_mediator %||% TRUE)
   seed <- seed %||% bl_cfg$seed %||% cfg$splitting$seed %||% 1234
 
-  if (is.null(mediators) || length(mediators) == 0) {
+  # 即使配置锁定 mediators，也始终构建实验室关联表；仅自动筛选中介名单在 mediators 为空时启用。
+  .mi_preset_mediators <- mediators
+  .mi_auto_mediators <- is.null(mediators) || length(mediators) == 0
+  if (TRUE) {
     a <- colnames(data)
     Index <- exposure
     # 与 NHANES 同一实验室池：禁止把饮酒/婚姻/身高/血压等扫进 S8「实验室指标」
     var_input <- .mi02_resolve_lab_indicator_pool(cfg, bl_cfg, a, exposure)
+    var_input <- .mi02_apply_dual_shared_lab_pool(cfg, bl_cfg, var_input, a)
     b <- bl_cfg$lm_screen_exclude_vars
     if (is.null(b) || length(b) == 0L) {
       b <- character(0)
@@ -134,6 +139,12 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       Data
     }
 
+    # Path a 方向：实验室 ~ 暴露（旧版误写暴露 ~ 实验室 z，导致 β≈0 / CI(0,0)）
+    # 默认：暴露标准化为 1-SD；实验室是否标准化跟 standardize_mediator / lab_assoc_scale_lab
+    .assoc_scale_exp <- isTRUE(bl_cfg$lab_assoc_scale_exposure %||% TRUE)
+    .assoc_scale_lab <- isTRUE(
+      bl_cfg$lab_assoc_scale_lab %||% isTRUE(bl_cfg$standardize_mediator %||% TRUE)
+    )
     Tb_ModelGroup3_Corlm <- function(ResultName, CorName, Model1Factors, Model2Factors, Data) {
       pick_beta_ci_p <- function(fit, var) {
         if (is.null(fit)) return(c(NA_real_, NA_character_, NA_real_))
@@ -149,44 +160,56 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
           betas <- suppressWarnings(as.numeric(cf[hits, 1]))
           use <- hits[which.max(abs(betas))]
         }
+        beta <- as.numeric(cf[use, 1])
+        pval <- as.numeric(cf[use, 4])
         if (is.null(conf) || !(use %in% rownames(conf))) {
-          ci <- NA_character_
+          se <- if (ncol(cf) >= 2L) as.numeric(cf[use, 2]) else NA_real_
+          lo <- beta - 1.96 * se
+          hi <- beta + 1.96 * se
         } else {
-          ci <- paste0("(", round(conf[use, 1], 3), ",", round(conf[use, 2], 3), ")")
+          lo <- as.numeric(conf[use, 1])
+          hi <- as.numeric(conf[use, 2])
         }
-        c(
-          round(as.numeric(cf[use, 1]), 3),
-          ci,
-          round(as.numeric(cf[use, 4]), 3)
-        )
+        ci <- if (exists(".mi02_fmt_assoc_ci", mode = "function")) {
+          .mi02_fmt_assoc_ci(lo, hi)
+        } else {
+          paste0("(", round(lo, 3), ",", round(hi, 3), ")")
+        }
+        beta_chr <- if (exists(".mi02_fmt_assoc_beta", mode = "function")) {
+          .mi02_fmt_assoc_beta(beta)
+        } else {
+          formatC(beta, format = "f", digits = 3)
+        }
+        c(beta_chr, ci, formatC(pval, format = "f", digits = 10, drop0trailing = TRUE))
       }
 
       Data <- .mi02_prepare_cor_numeric(Data, CorName)
-      if (CorName %in% names(Data) && is.numeric(Data[[CorName]])) {
+      Data <- .mi02_prepare_cor_numeric(Data, ResultName)
+      # 实验室 outcome
+      if (CorName %in% names(Data) && is.numeric(Data[[CorName]]) && isTRUE(.assoc_scale_lab)) {
         Data[[CorName]] <- as.numeric(scale(Data[[CorName]]))
       }
-      if (ResultName %in% names(Data)) {
-        y <- Data[[ResultName]]
-        if (is.character(y) || is.factor(y)) {
-          Data[[ResultName]] <- as.numeric(factor(y))
-        }
+      # 暴露 predictor：默认 1-SD（与脚注 / Path a 可比尺度）
+      if (ResultName %in% names(Data) && is.numeric(Data[[ResultName]]) && isTRUE(.assoc_scale_exp)) {
+        Data[[ResultName]] <- as.numeric(scale(Data[[ResultName]]))
       }
 
-      fml_c01 <- as.formula(paste0(ResultName, "~", CorName))
-      rhs2 <- unique(c(CorName, Model1Factors))
-      rhs2 <- rhs2[rhs2 != ResultName]
-      fml_c02 <- as.formula(paste0(ResultName, "~", paste(rhs2, collapse = "+")))
-      rhs3 <- unique(c(CorName, Model2Factors))
-      rhs3 <- rhs3[rhs3 != ResultName]
-      fml_c03 <- as.formula(paste0(ResultName, "~", paste(rhs3, collapse = "+")))
+      # lab ~ exposure (+ cov)；系数取暴露
+      fml_c01 <- as.formula(paste0(CorName, "~", ResultName))
+      rhs2 <- unique(c(ResultName, Model1Factors))
+      rhs2 <- rhs2[rhs2 != CorName]
+      fml_c02 <- as.formula(paste0(CorName, "~", paste(rhs2, collapse = "+")))
+      rhs3 <- unique(c(ResultName, Model2Factors))
+      rhs3 <- rhs3[rhs3 != CorName]
+      fml_c03 <- as.formula(paste0(CorName, "~", paste(rhs3, collapse = "+")))
 
       crude_model <- tryCatch(lm(fml_c01, data = Data), error = function(e) NULL)
       model1 <- tryCatch(lm(fml_c02, data = Data), error = function(e) NULL)
       model2 <- tryCatch(lm(fml_c03, data = Data), error = function(e) NULL)
 
-      r1 <- pick_beta_ci_p(crude_model, CorName)
-      r2 <- pick_beta_ci_p(model1, CorName)
-      r3 <- pick_beta_ci_p(model2, CorName)
+      r1 <- pick_beta_ci_p(crude_model, ResultName)
+      r2 <- pick_beta_ci_p(model1, ResultName)
+      r3 <- pick_beta_ci_p(model2, ResultName)
 
       colum1 <- c(CorName, "Crude Model", "Model1", "Model2")
       colum2 <- c("", as.character(r1[1]), as.character(r2[1]), as.character(r3[1]))
@@ -250,13 +273,21 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
 
       rt <- do.call(rbind, rt_list)
       rt <- data.frame(rt, stringsAsFactors = FALSE)
-      colnames(rt) <- c("variable", "β per 1-SD", "95% CI", "P value")
-      beta_col <- "β per 1-SD"
+      beta_hdr <- if (isTRUE(.assoc_scale_exp)) "β per 1-SD exposure" else "β per 1-unit exposure"
+      colnames(rt) <- c("variable", beta_hdr, "95% CI", "P value")
+      beta_col <- beta_hdr
       beta_num <- suppressWarnings(as.numeric(rt[[beta_col]]))
       rt[[beta_col]] <- ifelse(
         is.na(beta_num) | !nzchar(as.character(rt[[beta_col]])),
         as.character(rt[[beta_col]]),
-        formatC(round(beta_num, 3), format = "f", digits = 3)
+        vapply(seq_along(beta_num), function(i) {
+          if (is.na(beta_num[[i]])) return(as.character(rt[[beta_col]][[i]]))
+          if (exists(".mi02_fmt_assoc_beta", mode = "function")) {
+            .mi02_fmt_assoc_beta(beta_num[[i]])
+          } else {
+            formatC(beta_num[[i]], format = "f", digits = 3)
+          }
+        }, character(1L))
       )
       p_chr <- as.character(rt[["P value"]])
       p_num <- suppressWarnings(as.numeric(p_chr))
@@ -269,29 +300,50 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       ctx$results$mediation_incidence_correlation_lm_rt <- rt
     }
 
-    if (dual_lm) {
-      ctx$results$mediation_incidence_lm_sig_model1_only <- unique(intersect(sig_m1, names(data)))
-      ctx$results$mediation_incidence_lm_sig_model2_only <- unique(intersect(sig_m2, names(data)))
-      mediators <- unique(intersect(sig_from_lm, names(data)))
-      if (length(mediators) == 0L && fallback_m2) {
-        mediators <- unique(intersect(sig_m2, names(data)))
-        cli::cli_alert_warning(
-          "双库 LM 无交集（Model1∩Model2），已回退为仅 Model2 显著集（{length(mediators)} 个）"
-        )
+    if (isTRUE(.mi_auto_mediators)) {
+      if (dual_lm) {
+        ctx$results$mediation_incidence_lm_sig_model1_only <- unique(intersect(sig_m1, names(data)))
+        ctx$results$mediation_incidence_lm_sig_model2_only <- unique(intersect(sig_m2, names(data)))
+        mediators <- unique(intersect(sig_from_lm, names(data)))
+        if (length(mediators) == 0L && fallback_m2) {
+          mediators <- unique(intersect(sig_m2, names(data)))
+          cli::cli_alert_warning(
+            "双库 LM 无交集（Model1∩Model2），已回退为仅 Model2 显著集（{length(mediators)} 个）"
+          )
+        } else {
+          beta_rule_txt <- if (lm_nonneg) ">=0" else "任意"
+          cli::cli_alert_info(
+            "双库 LM 交集（Model1 与 Model2 均 beta{beta_rule_txt} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
+          )
+        }
       } else {
-        beta_rule_txt <- if (lm_nonneg) ">=0" else "任意"
-        cli::cli_alert_info(
-          "双库 LM 交集（Model1 与 Model2 均 beta{beta_rule_txt} 且 P<{lm_alpha}）: {length(mediators)} 个中介候选"
-        )
+        mediators <- unique(intersect(sig_from_lm, names(data)))
+        cli::cli_alert_info("Auto-selected {length(mediators)} mediators from lm screening (Model2 only)")
       }
     } else {
-      mediators <- unique(intersect(sig_from_lm, names(data)))
-      cli::cli_alert_info("Auto-selected {length(mediators)} mediators from lm screening (Model2 only)")
+      mediators <- .mi_preset_mediators
+      if (!.mi_auto_mediators &&
+          isTRUE(.mi02_also_include_lm_sig_mediators(cfg, bl_cfg)) &&
+          length(sig_from_lm)) {
+        mediators <- unique(c(as.character(mediators), as.character(sig_from_lm)))
+        mediators <- unique(intersect(mediators, names(data)))
+        cli::cli_alert_info(
+          "mediation_incidence: 预设中介 + LM 显著共享实验室（also_include_lm_sig_mediators）：{paste(mediators, collapse = ', ')}"
+        )
+      }
+      n_assoc <- if (!is.null(ctx$results$mediation_incidence_correlation_lm_rt)) {
+        nrow(ctx$results$mediation_incidence_correlation_lm_rt)
+      } else {
+        0L
+      }
+      cli::cli_alert_info(
+        "mediation_incidence: 使用配置锁定中介（{paste(as.character(mediators), collapse = ', ')}）；已构建实验室关联表（{n_assoc} 行）"
+      )
     }
 
     if (length(mediators) > 0L) {
       list_path <- file.path(ctx$output_dir, "list_value.txt")
-      writeLines(mediators, list_path)
+      writeLines(as.character(mediators), list_path)
     }
   }
 
@@ -299,7 +351,16 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   if (is.null(exposure)) stop("Please specify 'exposure' (independent variable)")
   if (is.null(mediators) || length(mediators) == 0) {
     cli::cli_alert_warning("No mediators available. Skipping mediation analysis.")
+    # 空中介时默认 unlink；若配置仍要实验室关联表，先保留 LM rt 再导出
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    rt_lab <- ctx$results$mediation_incidence_correlation_lm_rt
     .mi02_unlink_mediation_exports(ctx)
+    if (isTRUE(keep_lab) && is.data.frame(rt_lab) && nrow(rt_lab) > 0L) {
+      cli::cli_alert_warning(
+        "mediation_incidence: 无可用中介；中介表/路径图不出，仍导出实验室相关表。"
+      )
+      .mi02_export_lab_association_table(ctx, rt_lab, exposure)
+    }
     return(ctx)
   }
 
@@ -316,7 +377,17 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
   cli::cli_alert_info("Outcome (Y): {outcome}")
 
   mediators <- intersect(mediators, names(data))
-  mediators <- mediators[sapply(mediators, function(m) is.numeric(data[[m]]) && !is.factor(data[[m]]))]
+  mediators <- as.character(mediators %||% character(0))
+  mediators <- mediators[nzchar(mediators)]
+  mediators <- intersect(mediators, names(data))
+  if (length(mediators)) {
+    ok_num <- vapply(
+      mediators,
+      function(m) is.numeric(data[[m]]) && !is.factor(data[[m]]),
+      logical(1L)
+    )
+    mediators <- mediators[ok_num]
+  }
   if (exists("pipeline_mediation_lab_exclude_vars", mode = "function")) {
     drop_comp <- intersect(mediators, pipeline_mediation_lab_exclude_vars(cfg, names(data)))
     if (length(drop_comp)) {
@@ -335,6 +406,11 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
     cli::cli_alert_warning(
       "mediation_incidence: 筛选后无有效数值中介变量，跳过该指标中介分析（不阻断主分析）。"
     )
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    rt_lab <- ctx$results$mediation_incidence_correlation_lm_rt
+    if (isTRUE(keep_lab) && is.data.frame(rt_lab) && nrow(rt_lab) > 0L) {
+      .mi02_export_lab_association_table(ctx, rt_lab, exposure)
+    }
     return(ctx)
   }
 
@@ -801,12 +877,23 @@ block_mediation_incidence <- function(ctx, exposure = NULL, mediators = NULL,
       "Mediator-outcome OR"
   }
 
-  # 规则：最佳中介 Proportion mediated + Direct Effect 均显著才导出；否则不出表/图
+  # 规则：最佳中介达门槛才导出中介表/路径图；默认关联表同生共死
   path_alpha_inc <- as.numeric(bl_cfg$mediation_path_alpha %||% 0.05)
   if (!.mi02_mediation_should_export(final_table, cfg, bl_cfg)) {
     ctx$results$mediation_incidence <- final_table
     ctx$results$mediation_incidence_ns_skipped <- TRUE
     reason <- .mi02_mediation_skip_reason(final_table, cfg, bl_cfg)
+    keep_lab <- isTRUE(bl_cfg$export_lab_assoc_even_if_ns %||% FALSE)
+    if (isTRUE(keep_lab)) {
+      cli::cli_alert_warning(
+        "mediation_incidence: {reason}；中介表/路径图不出，仍导出实验室相关表。"
+      )
+      .mi02_unlink_mediation_exports(ctx)
+      .mi02_export_lab_association_table(
+        ctx, ctx$results$mediation_incidence_correlation_lm_rt, exposure
+      )
+      return(ctx)
+    }
     cli::cli_alert_warning(
       "mediation_incidence: {reason}，按规则不导出中介表、路径图与实验室关联表。"
     )

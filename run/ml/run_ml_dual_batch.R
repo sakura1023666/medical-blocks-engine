@@ -8,7 +8,20 @@
     self <- grep("^--file=", ca, value = TRUE)
     if (length(self)) {
       self <- sub("^--file=", "", self[1L])
-      status <- system2(rscript_ml, c(self, commandArgs(trailingOnly = TRUE)))
+      ## WSL→Windows Rscript：含空格路径必须逐参加引号，否则 config 路径在空格处被截断
+      .win_q <- function(x) {
+        x <- as.character(x)
+        vapply(x, function(a) {
+          if (!nzchar(a)) return('""')
+          if (grepl("[[:space:]]", a) || grepl('"', a, fixed = TRUE)) {
+            paste0('"', gsub('"', '\\"', a, fixed = TRUE), '"')
+          } else a
+        }, character(1), USE.NAMES = FALSE)
+      }
+      status <- system2(
+        rscript_ml,
+        .win_q(c(self, commandArgs(trailingOnly = TRUE)))
+      )
       quit(save = "no", status = status)
     }
   }
@@ -93,6 +106,8 @@ root <- root_guess
 
 config_path <- if (!is.null(run_opts$config) && nzchar(run_opts$config)) {
   normalizePath(run_opts$config, winslash = "/", mustWork = TRUE)
+} else if (nzchar(Sys.getenv("MEDICAL_BLOCKS_CONFIG", unset = ""))) {
+  normalizePath(Sys.getenv("MEDICAL_BLOCKS_CONFIG"), winslash = "/", mustWork = TRUE)
 } else {
   file.path(root, "configs/templates/config_ml_dual_batch.template.R")
 }

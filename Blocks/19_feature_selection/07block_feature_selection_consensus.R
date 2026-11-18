@@ -775,6 +775,11 @@ block_feature_selection_consensus <- function(ctx, ...) {
     list_in_full = list_in_full
   )
 
+  if (exists("pipeline_strip_exposure_component_vars", mode = "function")) {
+    final <- pipeline_strip_exposure_component_vars(
+      final, cfg, label = "feature_selection_final"
+    )
+  }
   ctx$results$feature_selection_by_model <- by_model
   ctx$results$feature_selection_final <- final
   ctx$results$ml_feature_names <- final

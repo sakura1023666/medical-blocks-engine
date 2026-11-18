@@ -32,7 +32,7 @@ circadian_epwv_from_age_bp <- function(age, sbp, dbp) {
   dbp <- circadian_num(dbp)
   mbp <- dbp + 0.4 * (sbp - dbp)
   9.587 - 0.402 * age + 0.00456 * age^2 -
-    0.00002621 * age^2 * mbp + 0.003176 * age * mbp - 0.01832
+    0.00002621 * age^2 * mbp + 0.003176 * age * mbp - 0.01832 * mbp
 }
 
 .circadian_pick <- function(df, cands) {

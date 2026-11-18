@@ -114,12 +114,23 @@
   if (!is.finite(landmark)) landmark <- 28
 
   if (has_weight) {
-    lr <- .wkm03_ipw_logrank_p(sub, "surv_time_use", "surv_event_use", "Group", weight_col)
-    pf <- pub_format_p(lr$p)
-    p_lab <- if (grepl("^[<>]", pf)) {
-      sprintf("%s P%s", lr$method, pf)
+    annot_stat <- tolower(as.character(km_cfg$annot_stat %||% bl_cfg$annot_stat %||% "cox")[1L])
+    if (identical(annot_stat, "logrank")) {
+      lr <- .wkm03_ipw_logrank_p(sub, "surv_time_use", "surv_event_use", "Group", weight_col)
+      pf <- pub_format_p(lr$p)
+      p_lab <- if (grepl("^[<>]", pf)) {
+        sprintf("%s P%s", lr$method, pf)
+      } else {
+        sprintf("%s P=%s", lr$method, pf)
+      }
     } else {
-      sprintf("%s P=%s", lr$method, pf)
+      cox_s <- .wkm03_cox_hr(sub, "surv_time_use", "surv_event_use", "Group", weight_col)
+      pf <- pub_format_p(cox_s$p)
+      p_suffix <- if (grepl("^[<>]", pf)) pf else paste0("=", pf)
+      p_lab <- sprintf(
+        "IPW-weighted HR = %.2f (95%% CI %.2f\u2013%.2f), P%s",
+        cox_s$hr, cox_s$lower, cox_s$upper, p_suffix
+      )
     }
     rate_hdr <- sprintf("Weighted %s-day survival rate", as.integer(landmark))
   } else {
@@ -211,7 +222,12 @@ block_ipw_subgroup_km_pub <- function(ctx, ...) {
   d <- data[, keep_cols, drop = FALSE]
   d[[tvar]] <- suppressWarnings(as.numeric(d[[tvar]]))
   d[[yvar]] <- suppressWarnings(as.numeric(d[[yvar]]))
-  d[[exp_var]] <- suppressWarnings(as.numeric(d[[exp_var]]))
+  # 禁止 as.numeric(factor)：会把 0/1 暴露对调
+  if (exists("pipeline_outcome_as_01", mode = "function")) {
+    d[[exp_var]] <- as.integer(pipeline_outcome_as_01(d[[exp_var]]))
+  } else {
+    d[[exp_var]] <- as.integer(trimws(as.character(d[[exp_var]])) %in% c("1", "Yes", "yes"))
+  }
   d$.age_num <- suppressWarnings(as.numeric(d[[age_var]]))
   if (has_weight) d[[weight_col]] <- suppressWarnings(as.numeric(d[[weight_col]]))
   d <- d[is.finite(d[[tvar]]) & d[[tvar]] >= 0 & !is.na(d[[yvar]]) &

@@ -426,10 +426,7 @@ body <- c(
   .para("在纵向设计下评估平均 FI 及 FI 变化与髋部骨折的关系。"),
   .h2("Table S5"),
   .tab_file("^Table S5\\. Change", "Table S5. Change analysis: Mean FI and FI change",
-            "主变化分析。", logistic = TRUE),
-  .h2("Table S5.1"),
-  .tab_file("^Table S5\\.1", "Table S5.1. Change analysis Mean FI and FI change",
-            "变化分析补充表。", logistic = TRUE),
+            "相邻调查波次 Mean FI / FI change（唯一交付口径）。", logistic = TRUE),
 
   # ── 中介：表 + 路径图 ──────────────────────────────────────────────
   .h1("七、抑郁中介路径"),

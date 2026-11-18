@@ -23,10 +23,22 @@
   "PHR",          # Platelet_Count / HDL
   "HALP",         # Hemoglobin * Albumin * Lymphocytes / Platelet_Count
   "GLR",          # Glucose / Lymphocytes
+  "GAR",          # Glucose / Albumin（无 HbA1c 时血糖轴应激比，常与 GV 成对）
+  "LactAlb",      # Lactate / Albumin（灌注轴，常与 Lactate_CV 成对）
+  "NAR",          # Neutrophil_Count / Albumin（炎症–营养；常与 Albumin_CV 成对）
+  "WAR",          # WBC / Albumin
+  "NaAR",         # Sodium / Albumin
+  "CaAR",         # CalciumTotal / Albumin（总钙；非离子钙）
+  "UAR",          # Uric_Acid / Albumin
+  "ClAR",         # Chloride / Albumin
+  "KAR",          # Potassium / Albumin
+  "AlbCr",        # Albumin / Creatinine
+  "LymWBC",       # Lymphocytes / WBC
+  "PHAR",         # PH / Albumin
+  "RDWPLT",       # RDW / Platelet_Count
+  "CaNa",         # CalciumTotal / Sodium
   "WPR",          # WBC / Platelet_Count
-  # 血脂单指标 / 估算（HDL/LDL=原生列；VLDL=TG/5 Friedewald）
-  "HDL",          # 原生 HDL（组成=自身）
-  "LDL",          # 原生 LDL（组成=自身）
+  # 血脂（禁止 HDL/LDL 原生透传进库；VLDL=TG/5 Friedewald 估算）
   "VLDL",         # Triglycerides / 5（估算 VLDL-C，mg/dL）
   # 血脂比值
   "AIP",          # log10(Triglycerides / HDL)
@@ -40,7 +52,7 @@
   "CRI_I",        # Total_Cholesterol / HDL
   "CRI_II",       # LDL / HDL
   "LCI",          # TG * TC * LDL / (HDL^4)
-  "CHG",          # log(Total_Cholesterol * Glucose / (HDL/2))
+  "CHG",          # log(Total_Cholesterol * Glucose / (2 * HDL))
   # 糖代谢
   "SHR",          # Glucose / (28.7 * HbA1c - 46.7)
   "HGI",          # HbA1c - (0.01 * Glucose + 5.04)
@@ -56,6 +68,16 @@
   "log2LAR",      # log2(LD / Albumin)
   # 肾功能
   "CAR",          # Creatinine / Albumin
+  "SAR",          # 预计算：第一次肌酐 / 基线肌酐（宽表列，非单次 Creatinine 重算）
+  "CrCV",         # 预计算：肌酐标准差 / 肌酐均值
+  "GV",           # 预计算：血糖标准差 / 血糖均值
+  # 纵向日级预计算（第一次/均值/CV/FR=第一次÷基线；宽表 identity）
+  "Potassium_FR", "Potassium_CV",
+  "Platelet_FR", "Platelet_CV",
+  "Glucose_first", "Glucose_mean",
+  "WBC_first", "WBC_CV",
+  "Sodium_mean", "Sodium_CV",
+  "Hemoglobin_CV", "Albumin_CV", "Lactate_CV",
   "UA_CR",        # UA/CR = Uric_Acid(mg/dL) / Creatinine(mg/dL)
   "BUN_Cr",       # BUN / Creatinine
   # 血液学
@@ -64,9 +86,8 @@
   # 综合
   "PNI",          # 10*Albumin + 5*Lymphocytes
   "EASIX",        # LD * Creatinine / Platelet_Count
-  "SOSM",         # 1.86*(Na+K) + 1.15*Glucose/18 + BUN*0.375 + 14
-  # 人体测量（两库均有 BMI）
-  "BMI"           # Weight / (Height/100)^2
+  "SOSM"          # 1.86*(Na+K) + 1.15*Glucose/18 + BUN*0.357 + 14
+  # 禁止 BMI 作暴露（人体测量原生/两列公式，非复合指标库主暴露）
 )
 
 # ── Group B：含 Waist_circumference，仅 NHANES 可计算 ──────────────────────
@@ -75,6 +96,9 @@
   "BRI",          # 364.2 - 365.5 * sqrt(1 - (WC/(2*pi)/(0.5*H))^2)
   "WWI",          # Waist_circumference / sqrt(Weight)
   "WHtR",         # Waist_circumference / Height
+  "Conicity",     # (WC/100) / (0.109 * sqrt(Weight/(Height/100)))  Valdez 1991
+  "Ponderal",     # Weight / (Height/100)^3
+  "CVAI",         # 中国内脏脂肪指数 Xia 2016（性别条件；TG/HDL 转 mmol）
   "CMI",          # (TG/HDL) * (WC/Height)
   "AIP_BMI",      # AIP * BMI
   "TyG_BMI",      # TyG * BMI

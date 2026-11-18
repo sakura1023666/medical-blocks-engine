@@ -84,10 +84,21 @@ attrition_record_survey_weight_step <- function(ctx, design_n) {
       ((ctx$config %||% list())$nhanes %||% list())$survey_weight %||% "new_Weight"
     )[1L]
   }
-  exclude_label <- if (nzchar(src)) {
-    sprintf("Missing or non-positive survey weights (%s from %s)", wt, src)
+  # 图面展示禁下划线：new_Weight → new Weight（列名仍可保留编程名）
+  wt_disp <- if (exists("pipeline_display_label", mode = "function")) {
+    as.character(pipeline_display_label(wt))[1L]
   } else {
-    sprintf("Missing or non-positive survey weights (%s)", wt)
+    gsub("_", " ", wt, fixed = TRUE)
+  }
+  src_disp <- if (exists("pipeline_display_label", mode = "function")) {
+    as.character(pipeline_display_label(src))[1L]
+  } else {
+    gsub("_", " ", src, fixed = TRUE)
+  }
+  exclude_label <- if (nzchar(src_disp)) {
+    sprintf("Missing or non-positive survey weights (%s from %s)", wt_disp, src_disp)
+  } else {
+    sprintf("Missing or non-positive survey weights (%s)", wt_disp)
   }
   n_drop_meta <- if (is.finite(wi$n_dropped %||% NA_integer_)) {
     as.integer(wi$n_dropped)[1L]
@@ -449,11 +460,36 @@ attrition_finalize_rows <- function(ctx, config) {
       }
     }
   } else if (length(log) && isTRUE(attr_cfg$config_steps_only %||% FALSE)) {
-    for (entry in log) {
-      sid <- as.character(entry$step_id)[1L]
-      hit <- which(rows_df$step_id == sid)
-      if (length(hit)) rows_df[hit[1L], ] <- attrition_log_entry_to_row(entry)
+    # 配置步优先：
+    # 1) 禁止 runtime log 覆盖已有配置行（预筛 Age 会被冲成 excluded 0）
+    # 2) 禁止追加 After data cleaning / After imputation 等日志步
+    #    （ML 诚实纳排只要 config$attrition$steps）
+    invisible(NULL)
+  }
+
+  # 噪声步兜底剔除（即使旧 checkpoint / 误关 config_steps_only）
+  if (isTRUE(attr_cfg$config_steps_only %||% FALSE) ||
+      isTRUE(attr_cfg$ml_standard_layout %||% FALSE)) {
+    noise_ids <- c(
+      "after_data_clean", "after_data_cleaning", "after_imputation",
+      "after_mice", "after_complete", "after_train_validation"
+    )
+    noise_lab <- grepl(
+      "^(After data cleaning|After imputation|After MICE|After complete)",
+      as.character(rows_df$step %||% ""),
+      ignore.case = TRUE
+    )
+    drop <- (as.character(rows_df$step_id %||% "") %in% noise_ids) | noise_lab
+    if (any(drop) && sum(!drop) > 0L) {
+      rows_df <- rows_df[!drop, , drop = FALSE]
     }
+  }
+
+  # ML / 复合指标：config_steps_only 仍须追加「指标成分缺失」终步，
+  # 使分叉 N = Table1 分析集（禁止 7645 框直接分叉到 6897）。
+  if (isTRUE(attr_cfg$ml_standard_layout %||% FALSE) ||
+      isTRUE(attr_cfg$append_index_missing_step %||% FALSE)) {
+    rows_df <- attrition_append_index_missing_step(rows_df, ctx, config)
   }
 
   if (!nrow(rows_df)) {
@@ -496,10 +532,12 @@ attrition_finalize_rows <- function(ctx, config) {
   rows_df[, keep, drop = FALSE]
 }
 
-#' 双库 CONSORT 纳排：各库先画单页，再横排 A|B（禁止旧式 mfrow 方框）。
+#' 双库 CONSORT 纳排：各库先画单页（默认无面板内 Figure 1 小标题），再横排拼图。
+#' 外标默认用库名（无 A/B 字母）；可用 titles 覆盖面板内标题。
 attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
                                           font_family = "Times New Roman",
-                                          footnotes_by_db = NULL) {
+                                          footnotes_by_db = NULL,
+                                          panel_labels = NULL) {
   if (is.null(rows_by_db) || !length(rows_by_db)) return(invisible(FALSE))
   nms <- names(rows_by_db)
   if (is.null(nms) || !any(nzchar(nms))) nms <- as.character(seq_along(rows_by_db))
@@ -512,7 +550,7 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
     title <- if (!is.null(titles) && length(titles) >= i && nzchar(as.character(titles[[i]])[1L])) {
       as.character(titles[[i]])[1L]
     } else {
-      nms[[i]]
+      ""
     }
     fn <- character(0)
     if (!is.null(footnotes_by_db)) {
@@ -535,9 +573,21 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
     ok <- file.copy(tmp[[1L]], dest, overwrite = TRUE)
     return(invisible(isTRUE(ok) && file.exists(dest)))
   }
+  labs <- if (!is.null(panel_labels) && length(panel_labels) >= 2L) {
+    as.character(panel_labels)[seq_len(2L)]
+  } else {
+    as.character(nms)[seq_len(2L)]
+  }
+  if (length(tmp) >= 2L && exists(".dual_db_compose_n_pdf_vector", mode = "function")) {
+    ok <- isTRUE(tryCatch({
+      .dual_db_compose_n_pdf_vector(tmp, labs, dest, layout = "side")
+      file.exists(dest)
+    }, error = function(e) FALSE))
+    if (isTRUE(ok)) return(invisible(TRUE))
+  }
   if (length(tmp) >= 2L && exists("pub_figure_combine_ab_pdfs", mode = "function")) {
     ok <- isTRUE(tryCatch(
-      pub_figure_combine_ab_pdfs(tmp[[1L]], tmp[[2L]], dest, stack = FALSE),
+      pub_figure_combine_ab_pdfs(tmp[[1L]], tmp[[2L]], dest, labels = labs, stack = FALSE),
       error = function(e) FALSE
     ))
     if (isTRUE(ok) && file.exists(dest)) return(invisible(TRUE))
@@ -550,6 +600,616 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
     return(invisible(isTRUE(ok)))
   }
   invisible(FALSE)
+}
+
+#' 发病纳排版式（对齐预后 v2 Figure 1）：左列三框，右侧两格排除，底部分叉。
+.attrition_pv2_collapse_rows <- function(rows) {
+  if (is.null(rows) || !nrow(rows) || nrow(rows) <= 2L) return(rows)
+  keep <- rep(TRUE, nrow(rows))
+  for (i in seq.int(2L, nrow(rows) - 1L)) {
+    dn <- suppressWarnings(as.integer(rows$n[i - 1L]) - as.integer(rows$n[i]))
+    el <- if ("exclude_label" %in% names(rows)) as.character(rows$exclude_label[i])[1L] else ""
+    if (is.na(el) || identical(el, "NA")) el <- ""
+    sid <- if ("step_id" %in% names(rows)) as.character(rows$step_id[i])[1L] else ""
+    if (is.na(sid) || identical(sid, "NA")) sid <- ""
+    weight <- identical(sid, "after_survey_weight") ||
+      grepl("survey weight", el, ignore.case = TRUE)
+    if (is.finite(dn) && dn == 0L && !nzchar(trimws(el)) && !isTRUE(weight)) {
+      keep[i] <- FALSE
+    }
+  }
+  rows[keep, , drop = FALSE]
+}
+
+#' 在 config 纳排末尾追加「指标可算分析集」步（成分缺失 Exclude 框）。
+#' 已有 after_index* / analytic_index 步时不重复追加。
+attrition_append_index_missing_step <- function(rows_df, ctx, config) {
+  if (is.null(rows_df) || !is.data.frame(rows_df) || !nrow(rows_df)) {
+    return(rows_df)
+  }
+  sid0 <- tolower(as.character(rows_df$step_id %||% ""))
+  if (any(grepl("after_index|index_calculable|analytic_index|after_exposure", sid0))) {
+    return(rows_df)
+  }
+  cfg <- config %||% list()
+  idx <- as.character(
+    cfg[["_current_index"]] %||%
+      (cfg$project %||% list())$index_var %||%
+      (cfg$incidence %||% list())$index_var %||%
+      (cfg$logistic %||% list())$index_var %||%
+      ""
+  )[1L]
+  if (!nzchar(idx) || identical(tolower(idx), "na")) return(rows_df)
+
+  n_cur <- attrition_n_current(ctx)
+  if (!is.finite(n_cur) || n_cur <= 0L) return(rows_df)
+  n_last <- suppressWarnings(as.integer(rows_df$n[nrow(rows_df)])[1L])
+  if (is.finite(n_last) && n_cur > n_last) return(rows_df)
+
+  df_counts <- ctx$data$raw %||% ctx$data$cleaned %||% ctx$data$mapped %||% NULL
+  if (is.data.frame(df_counts) && is.finite(n_last) && nrow(df_counts) > 0L &&
+      nrow(df_counts) != n_last) {
+    # 优先用与末配置步同 N 的帧计成分缺失；否则仍用 raw
+    if (is.data.frame(ctx$data$cleaned) && nrow(ctx$data$cleaned) == n_last) {
+      df_counts <- ctx$data$cleaned
+    } else if (is.data.frame(ctx$data$mapped) && nrow(ctx$data$mapped) == n_last) {
+      df_counts <- ctx$data$mapped
+    }
+  }
+  lab <- ""
+  if (is.data.frame(df_counts) && nrow(df_counts) > 0L) {
+    lab <- tryCatch(
+      attrition_index_component_missing_label(df_counts, idx),
+      error = function(e) ""
+    )
+  }
+  if (!nzchar(lab)) {
+    dn <- if (is.finite(n_last)) max(0L, as.integer(n_last - n_cur)) else NA_integer_
+    lab <- sprintf(
+      "Missing %s key variables (n = %s)",
+      gsub("_", " ", idx, fixed = TRUE),
+      if (is.finite(dn)) format(dn, big.mark = ",") else "\u2014"
+    )
+  }
+  idx_lab <- if (exists("pipeline_display_label", mode = "function")) {
+    as.character(pipeline_display_label(idx))[1L]
+  } else {
+    gsub("_", " ", idx, fixed = TRUE)
+  }
+  # 主框短标签，细节留在右侧 Exclude
+  new_row <- data.frame(
+    step = sprintf("%s calculable", idx_lab),
+    n = as.integer(n_cur),
+    source = "current",
+    kind = "include",
+    step_id = "after_index_calculable",
+    exclude_label = as.character(lab)[1L],
+    stringsAsFactors = FALSE
+  )
+  for (cn in c(
+    "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"
+  )) {
+    if (cn %in% names(rows_df) && !cn %in% names(new_row)) {
+      new_row[[cn]] <- if (grepl("_n$", cn)) NA_integer_ else NA_character_
+    }
+  }
+  # 清除上一行误挂的 outcome 分叉（分叉必须落在真正分析集终步）
+  for (cn in c(
+    "fork_left_label", "fork_left_n", "fork_right_label", "fork_right_n"
+  )) {
+    if (cn %in% names(rows_df)) {
+      rows_df[[cn]] <- if (grepl("_n$", cn)) {
+        rep(NA_integer_, nrow(rows_df))
+      } else {
+        rep(NA_character_, nrow(rows_df))
+      }
+    }
+  }
+  rbind(rows_df, new_row)
+}
+
+#' 当前指标公式成分在数据中的缺失人数（含实验室短名别名；每成分取代表列）
+attrition_index_component_missing_counts <- function(df, index_name) {
+  index_name <- as.character(index_name %||% "")[1L]
+  if (!nzchar(index_name) || is.null(df) || !is.data.frame(df) || !nrow(df)) {
+    return(integer(0))
+  }
+  comps <- character(0)
+  if (exists("index_get_formula_components", mode = "function")) {
+    comps <- tryCatch(
+      as.character(index_get_formula_components(index_name) %||% character(0)),
+      error = function(e) character(0)
+    )
+  }
+  comps <- unique(comps[nzchar(comps)])
+  # 公式成分仅自身（如 Albumin_CV / Hemoglobin_CV）时保留自身列计缺失；
+  # 禁止 setdiff 后空集导致 Fig1 漏写该指标排除 n。
+  comps_core <- setdiff(comps, index_name)
+  if (!length(comps_core)) {
+    comps_core <- if (index_name %in% names(df)) index_name else character(0)
+  }
+  comps <- comps_core
+  if (!length(comps)) return(integer(0))
+  .count_miss_col <- function(x) {
+    as.integer(if (is.numeric(x)) {
+      sum(!is.finite(suppressWarnings(as.numeric(x))))
+    } else {
+      sum(is.na(x) | !nzchar(trimws(as.character(x))))
+    })
+  }
+  if (exists("pipeline_expand_lab_var_aliases", mode = "function")) {
+    # 每个规范成分选数据里实际存在的一列（优先规范名）
+    out <- integer(0)
+    for (cn in comps) {
+      aliases <- pipeline_expand_lab_var_aliases(cn)
+      hit <- intersect(c(cn, aliases), names(df))
+      if (!length(hit)) next
+      col <- hit[[1L]]
+      out[[cn]] <- .count_miss_col(df[[col]])
+    }
+    return(out)
+  }
+  comps <- intersect(comps, names(df))
+  if (!length(comps)) return(integer(0))
+  stats::setNames(vapply(comps, function(v) {
+    .count_miss_col(df[[v]])
+  }, integer(1L)), comps)
+}
+
+#' 指标成分缺失排除框文案：每个关键变量都写 n（即使全是 0 也要写清）
+attrition_index_component_missing_label <- function(df, index_name, counts = NULL) {
+  index_name <- as.character(index_name %||% "")[1L]
+  if (!nzchar(index_name)) return("")
+  if (is.null(counts)) {
+    counts <- attrition_index_component_missing_counts(df, index_name)
+  }
+  if (!length(counts)) return("")
+  labs <- if (exists("pipeline_display_label", mode = "function")) {
+    pipeline_display_label(names(counts))
+  } else {
+    gsub("_", " ", names(counts), fixed = TRUE)
+  }
+  labs <- trimws(as.character(labs))
+  bits <- sprintf(
+    "%s (n = %s)",
+    labs,
+    format(as.integer(counts), big.mark = ",", trim = TRUE)
+  )
+  # 短文案：避免 Fig1 Exclude 框过长导致折行/叠框
+  paste0(
+    "Missing ", gsub("_", " ", index_name, fixed = TRUE),
+    ": ", paste(bits, collapse = "; ")
+  )
+}
+
+#' 指标算不出时，用公式里真正缺失的组成变量写排除框（含各成分缺失 n）。
+#' 无任何人因指标 NA 被剔时，仍返回全队列成分缺失分项（可为全 0）。
+attrition_key_missing_label_from_index <- function(df, index_name) {
+  index_name <- as.character(index_name %||% "")[1L]
+  if (!nzchar(index_name) || is.null(df) || !is.data.frame(df)) {
+    return("")
+  }
+  attrition_index_component_missing_label(df, index_name)
+}
+
+.attrition_pv2_fmt_n <- function(x) {
+  x <- suppressWarnings(as.integer(x)[1L])
+  if (!is.finite(x)) return("—")
+  format(max(0L, x), big.mark = ",")
+}
+
+.attrition_pv2_reason <- function(rows, i) {
+  el <- if ("exclude_label" %in% names(rows)) {
+    raw <- rows$exclude_label[i]
+    if (is.na(raw)) "" else as.character(raw)[1L]
+  } else {
+    ""
+  }
+  if (identical(el, "NA")) el <- ""
+  sid <- if ("step_id" %in% names(rows)) {
+    raw <- rows$step_id[i]
+    if (is.na(raw)) "" else as.character(raw)[1L]
+  } else {
+    ""
+  }
+  if (!nzchar(el)) el <- .attrition_exclude_reason(sid, rows$step[i])
+  if (!nzchar(el)) el <- as.character(rows$step[i])[1L]
+  el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
+  el <- trimws(el)
+  if (!nzchar(el) || identical(el, "NA")) el <- "Excluded"
+  el <- gsub("_", " ", el, fixed = TRUE)
+  el
+}
+
+.attrition_pv2_count_line <- function(label, n, width = 72L) {
+  label <- as.character(label %||% "")[1L]
+  bits <- strsplit(label, "\n", fixed = TRUE)[[1L]]
+  bits <- trimws(gsub("[[:space:]]+", " ", bits))
+  bits <- bits[nzchar(bits)]
+  if (!length(bits)) bits <- ""
+  bits[length(bits)] <- sprintf("%s (n = %s)", bits[length(bits)], .attrition_pv2_fmt_n(n))
+  paste(vapply(bits, function(b) .attrition_wrap_label(b, width), character(1L)), collapse = "\n")
+}
+
+#' 发病 Figure 1：第一框写数据库和年份，第一格排除年龄，其余排除编号放在第二格。
+.attrition_pv2_panel_from_cohort <- function(rows, letter, cohort) {
+  db <- toupper(trimws(as.character(cohort$database %||% "NHANES")[1L]))
+  years <- trimws(as.character(cohort$years %||% "")[1L])
+  ## 无年份时两行（Participants in DB / n=），与截图版式一致；有年份才三行
+  top <- if (nzchar(years)) {
+    sprintf(
+      "Participants in %s\n%s\n(n = %s)",
+      db, years, .attrition_pv2_fmt_n(cohort$n_source)
+    )
+  } else {
+    sprintf(
+      "Participants in %s\n(n = %s)",
+      db, .attrition_pv2_fmt_n(cohort$n_source)
+    )
+  }
+  sw <- suppressWarnings(as.integer(cohort$side_line_width)[1L])
+  if (!is.finite(sw) || sw < 16L) sw <- 26L
+  ## side1_items：首段排除可多条编号（如 Age<20 与 COPD items non-assessable 分列）
+  side1_items <- cohort$side1_items %||% NULL
+  if (is.data.frame(side1_items)) {
+    side1_items <- lapply(seq_len(nrow(side1_items)), function(i) as.list(side1_items[i, , drop = FALSE]))
+  }
+  if (is.list(side1_items) && length(side1_items)) {
+    lines1 <- character(0)
+    k1 <- 0L
+    for (one in side1_items) {
+      lab <- trimws(as.character(one$label %||% one$exclude_label %||% "")[1L])
+      nn <- suppressWarnings(as.integer(one$n %||% one$exclude_n %||% NA_integer_)[1L])
+      if (!nzchar(lab) || !is.finite(nn)) next
+      k1 <- k1 + 1L
+      lines1 <- c(
+        lines1,
+        .attrition_pv2_count_line(
+          sprintf("%d. %s", k1, lab),
+          nn,
+          max(16L, sw - 3L)
+        )
+      )
+    }
+    side1 <- if (length(lines1)) paste(lines1, collapse = "\n") else ""
+  } else {
+    side1 <- .attrition_pv2_count_line(cohort$age_exclude_label, cohort$age_exclude_n, sw)
+  }
+  mid <- sprintf(
+    "%s\n(n = %s)",
+    as.character(cohort$age_keep_label)[1L],
+    .attrition_pv2_fmt_n(cohort$age_keep_n)
+  )
+  items <- list()
+  pre <- cohort$pre_exclusions %||% list()
+  if (is.data.frame(pre)) pre <- lapply(seq_len(nrow(pre)), function(i) as.list(pre[i, , drop = FALSE]))
+  for (one in pre) {
+    items[[length(items) + 1L]] <- list(
+      label = as.character(one$label)[1L],
+      n = one$n
+    )
+  }
+  rows2 <- .attrition_pv2_collapse_rows(rows)
+  if (nrow(rows2) >= 2L) {
+    for (i in seq.int(2L, nrow(rows2))) {
+      sid <- if ("step_id" %in% names(rows2)) as.character(rows2$step_id[i])[1L] else ""
+      ## 年龄排除已在 side1（cohort$age_exclude_*），勿再塞进编号列表
+      if (identical(sid, "after_age_filter") || identical(sid, "age_filter") ||
+          grepl("(?i)^age\\s*filter", as.character(rows2$step[i])[1L])) {
+        next
+      }
+      dn <- suppressWarnings(as.integer(rows2$n[i - 1L]) - as.integer(rows2$n[i]))
+      el <- .attrition_pv2_reason(rows2, i)
+      km <- trimws(as.character(cohort$key_missing_label %||% "")[1L])
+      if (nzchar(km) && grepl("^Missing key variables$", el)) el <- km
+      weight <- identical(sid, "after_survey_weight") ||
+        grepl("survey weight", el, ignore.case = TRUE)
+      wl <- trimws(as.character(cohort$survey_weight_label %||% "")[1L])
+      if (isTRUE(weight) && nzchar(wl) && !identical(wl, "NA")) el <- wl
+      if (!is.finite(dn)) dn <- 0L
+      if (dn > 0L || isTRUE(weight)) {
+        items[[length(items) + 1L]] <- list(label = el, n = max(0L, dn))
+      }
+    }
+  }
+  if (!length(items)) {
+    side2 <- ""
+  } else {
+    lines <- vapply(seq_along(items), function(k) {
+      .attrition_pv2_count_line(
+        sprintf("%d. %s", k, items[[k]]$label),
+        items[[k]]$n,
+        max(16L, sw - 3L)
+      )
+    }, character(1L))
+    side2 <- paste(lines, collapse = "\n")
+  }
+  inc_n <- if (nrow(rows2)) rows2$n[nrow(rows2)] else cohort$age_keep_n
+  inc <- sprintf("Participants included\n(n = %s)", .attrition_pv2_fmt_n(inc_n))
+  fork <- .attrition_fork_from_rows(rows)
+  if (is.null(fork)) {
+    left <- "Cases\n(n = —)"
+    right <- "Controls\n(n = —)"
+    has_fork <- FALSE
+  } else {
+    left <- sprintf("%s\n(n = %s)", .attrition_wrap_label(fork$left_label, 18L), .attrition_pv2_fmt_n(fork$left_n))
+    right <- sprintf("%s\n(n = %s)", .attrition_wrap_label(fork$right_label, 18L), .attrition_pv2_fmt_n(fork$right_n))
+    has_fork <- TRUE
+  }
+  list(
+    letter = as.character(letter %||% "")[1L],
+    top = top, mid = mid, inc = inc, side1 = side1, side2 = side2,
+    death = left, alive = right, has_fork = has_fork
+  )
+}
+
+.attrition_pv2_panel_spec <- function(rows, letter = "", cohort = NULL) {
+  if (is.list(cohort) && is.finite(suppressWarnings(as.numeric(cohort$n_source)[1L]))) {
+    return(.attrition_pv2_panel_from_cohort(rows, letter, cohort))
+  }
+  rows <- .attrition_pv2_collapse_rows(rows)
+  n <- nrow(rows)
+  plain <- function(i) {
+    lab <- sub(";\\s*excluded.*$", "", as.character(rows$step[i])[1L], ignore.case = TRUE)
+    lab <- sub("\\s*\\(excluded[^)]*\\)\\s*", "", lab, ignore.case = TRUE)
+    trimws(lab)
+  }
+  box_lab <- function(i) {
+    sprintf("%s\n(n = %s)", .attrition_wrap_label(plain(i), 32L), .attrition_pv2_fmt_n(rows$n[i]))
+  }
+  if (n <= 1L) {
+    top <- mid <- inc <- box_lab(1L)
+    side1 <- ""
+    side2 <- ""
+  } else if (n == 2L) {
+    dn <- suppressWarnings(as.integer(rows$n[1L]) - as.integer(rows$n[2L]))
+    top <- box_lab(1L)
+    mid <- box_lab(2L)
+    inc <- sprintf("Participants included\n(n = %s)", .attrition_pv2_fmt_n(rows$n[2L]))
+    side1 <- if (is.finite(dn) && dn > 0L) {
+      sprintf(
+        "%s\n(n = %s)",
+        .attrition_wrap_label(.attrition_pv2_reason(rows, 2L), 28L),
+        .attrition_pv2_fmt_n(dn)
+      )
+    } else {
+      ""
+    }
+    side2 <- ""
+  } else {
+    top <- box_lab(1L)
+    mid <- box_lab(2L)
+    inc <- box_lab(n)
+    dn1 <- suppressWarnings(as.integer(rows$n[1L]) - as.integer(rows$n[2L]))
+    side1 <- sprintf(
+      "%s\n(n = %s)",
+      .attrition_wrap_label(.attrition_pv2_reason(rows, 2L), 28L),
+      .attrition_pv2_fmt_n(dn1)
+    )
+    lines <- character(0)
+    k <- 0L
+    for (i in seq.int(3L, n)) {
+      k <- k + 1L
+      dn <- suppressWarnings(as.integer(rows$n[i - 1L]) - as.integer(rows$n[i]))
+      lines <- c(lines, sprintf(
+        "%d. %s (n = %s)",
+        k,
+        .attrition_wrap_label(.attrition_pv2_reason(rows, i), 26L),
+        .attrition_pv2_fmt_n(dn)
+      ))
+    }
+    side2 <- paste(lines, collapse = "\n")
+  }
+  fork <- .attrition_fork_from_rows(rows)
+  if (is.null(fork)) {
+    left <- "Cases\n(n = —)"
+    right <- "Controls\n(n = —)"
+    has_fork <- FALSE
+  } else {
+    left <- sprintf(
+      "%s\n(n = %s)",
+      .attrition_wrap_label(fork$left_label, 18L),
+      .attrition_pv2_fmt_n(fork$left_n)
+    )
+    right <- sprintf(
+      "%s\n(n = %s)",
+      .attrition_wrap_label(fork$right_label, 18L),
+      .attrition_pv2_fmt_n(fork$right_n)
+    )
+    has_fork <- TRUE
+  }
+  list(
+    letter = as.character(letter %||% "")[1L],
+    top = top, mid = mid, inc = inc,
+    side1 = side1, side2 = side2,
+    death = left, alive = right, has_fork = has_fork
+  )
+}
+
+.attrition_pv2_draw_panel <- function(p) {
+  ff <- "Times"
+  box <- function(x0, y0, x1, y1, lab, fs = 7.2, just = "centre") {
+    if (!nzchar(lab %||% "")) return(invisible(NULL))
+    grid::grid.roundrect(
+      x = grid::unit((x0 + x1) / 2, "npc"), y = grid::unit((y0 + y1) / 2, "npc"),
+      width = grid::unit(x1 - x0, "npc"), height = grid::unit(y1 - y0, "npc"),
+      r = grid::unit(0.02, "npc"),
+      gp = grid::gpar(fill = "white", col = "black", lwd = 0.8)
+    )
+    if (identical(just, "left")) {
+      grid::grid.text(
+        lab, x = x0 + 0.012, y = (y0 + y1) / 2, just = c("left", "centre"),
+        gp = grid::gpar(fontsize = fs, fontfamily = ff, lineheight = 0.95)
+      )
+    } else {
+      grid::grid.text(
+        lab, x = (x0 + x1) / 2, y = (y0 + y1) / 2,
+        gp = grid::gpar(fontsize = fs, fontfamily = ff, lineheight = 0.95)
+      )
+    }
+  }
+  varrow <- function(x, y1, y0) {
+    grid::grid.lines(
+      x = grid::unit(c(x, x), "npc"), y = grid::unit(c(y1, y0), "npc"),
+      arrow = grid::arrow(length = grid::unit(0.09, "inches"), type = "closed"),
+      gp = grid::gpar(fill = "black", col = "black", lwd = 0.7)
+    )
+  }
+  harrow <- function(x0, x1, y) {
+    grid::grid.lines(
+      x = grid::unit(c(x0, x1), "npc"), y = grid::unit(c(y, y), "npc"),
+      arrow = grid::arrow(length = grid::unit(0.09, "inches"), type = "closed"),
+      gp = grid::gpar(fill = "black", col = "black", lwd = 0.7)
+    )
+  }
+  ## 单栏 Fig1：整块流程图水平居中（旧版贴左 0.02，右侧大片留白）
+  ## 主列 [ml, mr]、中轴 cx、排除列 [sx0, sx1_max] 对称落在画布中部。
+  ml <- 0.14
+  mr <- 0.54
+  cx <- (ml + mr) / 2
+  sx0 <- 0.60
+  sx1_max <- 0.94
+  fork_gap <- 0.04
+  fork_w <- (mr - ml - fork_gap) / 2
+  if (nzchar(p$letter %||% "")) {
+    grid::grid.text(
+      p$letter, x = ml - 0.06, y = 0.985, just = c("left", "top"),
+      gp = grid::gpar(fontsize = 11, fontface = "bold", fontfamily = ff)
+    )
+  }
+  # 左列主流程固定。右侧排除框按行数收高，避免大块空白。
+  box(ml, 0.78, mr, 0.94, p$top, fs = 8)
+  box(ml, 0.50, mr, 0.64, p$mid, fs = 8)
+  box(ml, 0.22, mr, 0.36, p$inc, fs = 8)
+  if (isTRUE(p$has_fork)) {
+    box(ml, 0.02, ml + fork_w, 0.13, p$death, fs = 7.2)
+    box(mr - fork_w, 0.02, mr, 0.13, p$alive, fs = 7.2)
+  }
+  nline <- function(lab) max(1L, length(strsplit(as.character(lab %||% ""), "\n", fixed = TRUE)[[1L]]))
+  side_h <- function(lab) min(0.18, max(0.075, 0.028 * nline(lab) + 0.030))
+  side_just <- function(lab) {
+    if (grepl("\n", as.character(lab %||% ""), fixed = TRUE)) "left" else "centre"
+  }
+  # 排除框贴在箭头右侧。单行放不下就按剩余页宽换行，不把字画到页外。
+  side_box <- function(y, lab, fs) {
+    pad <- 0.028
+    avail <- sx1_max - sx0 - pad
+    lab <- .attrition_fit_side_text(lab, fs, ff, avail)
+    lines <- strsplit(as.character(lab %||% ""), "\n", fixed = TRUE)[[1L]]
+    gp <- grid::gpar(fontsize = fs, fontfamily = ff)
+    tw <- max(vapply(lines, function(ln) {
+      if (!nzchar(ln)) return(0)
+      grid::convertWidth(
+        grid::grobWidth(grid::textGrob(ln, gp = gp)),
+        "npc", valueOnly = TRUE
+      )
+    }, numeric(1L)))
+    x1 <- min(sx1_max, sx0 + tw + pad)
+    h <- side_h(lab)
+    box(sx0, y - h / 2, x1, y + h / 2, lab, fs = fs, just = side_just(lab))
+    harrow(cx, sx0, y)
+  }
+  y1 <- 0.71
+  y2 <- 0.43
+  varrow(cx, 0.78, 0.64)
+  side_box(y1, p$side1, 7.2)
+  varrow(cx, 0.50, 0.36)
+  side_box(y2, p$side2, 7)
+  if (isTRUE(p$has_fork)) {
+    fl <- ml + fork_w / 2
+    fr <- mr - fork_w / 2
+    grid::grid.lines(
+      x = grid::unit(c(cx, cx), "npc"), y = grid::unit(c(0.22, 0.165), "npc"),
+      gp = grid::gpar(col = "black", lwd = 0.7)
+    )
+    grid::grid.lines(
+      x = grid::unit(c(fl, fr), "npc"), y = grid::unit(c(0.165, 0.165), "npc"),
+      gp = grid::gpar(col = "black", lwd = 0.7)
+    )
+    varrow(fl, 0.165, 0.13)
+    varrow(fr, 0.165, 0.13)
+  }
+}
+
+attrition_pv2_letter <- function(rows, index = 1L) {
+  db <- ""
+  if (is.data.frame(rows) && "database" %in% names(rows)) {
+    db <- toupper(trimws(as.character(rows$database[1L])[1L]))
+  }
+  db <- sub("_COPY$", "", db)
+  lab <- c("A", "B", "C", "D", "E", "F")
+  L <- if (index <= length(lab)) lab[[index]] else as.character(index)
+  if (!nzchar(db)) return(L)
+  paste(L, db)
+}
+
+#' 单库或双库发病纳排图，版式与预后 v2 Figure 1 相同。
+attrition_draw_pv2_pdf <- function(rows_by_db, pdf_path, cohort = NULL, width = NULL) {
+  if (is.data.frame(rows_by_db)) {
+    rows_by_db <- list(rows_by_db)
+  }
+  if (is.null(rows_by_db) || !length(rows_by_db)) return(invisible(FALSE))
+  rows_by_db <- rows_by_db[vapply(rows_by_db, function(x) {
+    is.data.frame(x) && nrow(x) > 0L && all(c("step", "n") %in% names(x))
+  }, logical(1L))]
+  if (!length(rows_by_db)) return(invisible(FALSE))
+  dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
+  n <- length(rows_by_db)
+  w <- if (is.numeric(width) && is.finite(width[1L])) width[1L] else if (n == 1L) 5.6 else 5.2 * n
+  h <- 6.35
+  ok <- tryCatch({
+    grDevices::cairo_pdf(pdf_path, width = w, height = h, family = "Times")
+    TRUE
+  }, error = function(e) {
+    tryCatch({
+      grDevices::pdf(pdf_path, width = w, height = h, family = "Times")
+      TRUE
+    }, error = function(e2) FALSE)
+  })
+  if (!isTRUE(ok)) return(invisible(FALSE))
+  on.exit(grDevices::dev.off(), add = TRUE)
+  grid::grid.newpage()
+  for (i in seq_len(n)) {
+    grid::pushViewport(grid::viewport(
+      x = (i - 0.5) / n, y = 0.5, width = 1 / n, height = 1
+    ))
+    # 仅当本面板数据库与 cohort$database 一致时套用年份/年龄首框；
+    # 次库面板回退为按 attrition 行画的同款 pv2 版式，避免 CHARLS 误贴 NHANES 年号。
+    cohort_i <- cohort
+    if (is.list(cohort) && length(cohort)) {
+      want_db <- toupper(trimws(as.character(cohort$database %||% "")[1L]))
+      panel_db <- ""
+      rows_i <- rows_by_db[[i]]
+      if (is.data.frame(rows_i) && "database" %in% names(rows_i)) {
+        panel_db <- toupper(trimws(as.character(rows_i$database[1L])[1L]))
+      }
+      panel_nm <- toupper(trimws(as.character(names(rows_by_db)[i] %||% "")[1L]))
+      if (!nzchar(panel_db)) panel_db <- panel_nm
+      panel_db <- sub("_COPY$", "", panel_db)
+      if (nzchar(want_db) && nzchar(panel_db) &&
+          !identical(want_db, panel_db) &&
+          !grepl(want_db, panel_db, fixed = TRUE) &&
+          !grepl(panel_db, want_db, fixed = TRUE)) {
+        cohort_i <- NULL
+      }
+    }
+    ## 单库假槽位（db_mode=nhanes 实为 CHARLS）时，letter 优先用 cohort$database
+    letter_i <- attrition_pv2_letter(rows_by_db[[i]], i)
+    if (is.list(cohort_i) && nzchar(trimws(as.character(cohort_i$database %||% "")[1L]))) {
+      lab <- c("A", "B", "C", "D", "E", "F")
+      L <- if (i <= length(lab)) lab[[i]] else as.character(i)
+      letter_i <- paste(
+        L,
+        toupper(trimws(as.character(cohort_i$database)[1L]))
+      )
+    }
+    spec <- .attrition_pv2_panel_spec(
+      rows_by_db[[i]], letter_i, cohort = cohort_i
+    )
+    .attrition_pv2_draw_panel(spec)
+    grid::popViewport()
+  }
+  invisible(file.exists(pdf_path))
 }
 
 .attrition_pdf_device <- function(pdf_path, width, height, family) {
@@ -629,10 +1289,128 @@ attrition_weight_footnote <- function(ctx) {
   c(line1, line2)
 }
 
+.attrition_fit_side_text <- function(txt, fontsize, family, avail_npc) {
+  txt <- as.character(txt %||% "")[1L]
+  if (!nzchar(txt) || !is.finite(avail_npc) || avail_npc <= 0) return(txt)
+  gp <- grid::gpar(fontsize = fontsize, fontfamily = family)
+  widest <- function(block) {
+    lines <- strsplit(block, "\n", fixed = TRUE)[[1L]]
+    max(vapply(lines, function(ln) {
+      if (!nzchar(ln)) return(0)
+      grid::convertWidth(
+        grid::grobWidth(grid::textGrob(ln, gp = gp)),
+        "npc", valueOnly = TRUE
+      )
+    }, numeric(1L)))
+  }
+  lines <- strsplit(txt, "\n", fixed = TRUE)[[1L]]
+  out <- character(0)
+  for (ln in lines) {
+    if (!nzchar(ln) || widest(ln) <= avail_npc) {
+      out <- c(out, ln)
+      next
+    }
+    plain <- gsub("[[:space:]]+", " ", trimws(ln))
+    fitted <- plain
+    for (w in seq.int(max(16L, nchar(plain) - 4L), 16L, by = -2L)) {
+      wrapped <- paste(strwrap(plain, width = w), collapse = "\n")
+      fitted <- wrapped
+      if (widest(wrapped) <= avail_npc) break
+    }
+    out <- c(out, strsplit(fitted, "\n", fixed = TRUE)[[1L]])
+  }
+  paste(out, collapse = "\n")
+}
+
 .attrition_wrap_label <- function(txt, width = 32L) {
   txt <- as.character(txt %||% "")[1L]
   if (!nzchar(txt)) return("")
   paste(strwrap(txt, width = as.integer(width)[1L]), collapse = "\n")
+}
+
+# 把人工换行收成逻辑行。编号项各自成句；同一句里的 (n =) 拼回这一句。
+.attrition_logical_lines <- function(txt) {
+  raw <- strsplit(as.character(txt %||% "")[1L], "\n", fixed = TRUE)[[1L]]
+  blocks <- character(0)
+  cur <- ""
+  flush <- function() {
+    if (nzchar(cur)) blocks <<- c(blocks, trimws(cur))
+    cur <<- ""
+  }
+  for (ln in raw) {
+    ln <- trimws(ln)
+    if (!nzchar(ln)) {
+      flush()
+      next
+    }
+    new_item <- grepl("^[0-9]+\\.\\s", ln) || grepl("(?i)^exclude:", ln)
+    if (new_item && nzchar(cur)) flush()
+    cur <- if (!nzchar(cur)) ln else paste(cur, ln)
+  }
+  flush()
+  blocks
+}
+
+#' 纳排文字在给定宽度下需要的框高（npc），含上下留白。
+attrition_label_height_npc <- function(txt, width_npc, fontsize = 10, family = "Times",
+                                       pad_npc = 0.012, min_npc = 0.045) {
+  avail <- max(0.02, as.numeric(width_npc)[1L] - 2 * pad_npc)
+  fitted <- attrition_reflow_label(txt, avail, fontsize, family)
+  nln <- length(strsplit(fitted, "\n", fixed = TRUE)[[1L]])
+  if (!nln) nln <- 1L
+  lh <- grid::convertHeight(grid::stringHeight("Hg"), "npc", valueOnly = TRUE) * 1.15
+  max(min_npc, lh * nln + 2 * pad_npc)
+}
+
+#' 纳排框文字：能放进宽度就一行，放不下再按词换行。返回带 \\n 的字符串。
+attrition_reflow_label <- function(txt, width_npc, fontsize = 10, family = "Times") {
+  txt <- as.character(txt %||% "")[1L]
+  if (!nzchar(txt)) return("")
+  width_npc <- as.numeric(width_npc)[1L]
+  if (!is.finite(width_npc) || width_npc <= 0) return(txt)
+  blocks <- .attrition_logical_lines(txt)
+  if (!length(blocks)) return("")
+  fitted <- vapply(blocks, function(block) {
+    .attrition_fit_side_text(block, fontsize, family, width_npc)
+  }, character(1L))
+  paste(fitted, collapse = "\n")
+}
+
+#' 框内文字。align = "centre" 为流程主框；"left" 为右侧排除框。
+#' reflow = TRUE 时按框宽把能放下的句子收成一行。
+attrition_draw_box_text <- function(text, x0, y0, x1, y1, fontsize = 10,
+                                    family = "Times", fontface = "plain",
+                                    pad_npc = 0.012, align = c("centre", "left"),
+                                    reflow = FALSE) {
+  align <- match.arg(align)
+  avail <- max(0.02, abs(x1 - x0) - 2 * pad_npc)
+  fitted <- if (isTRUE(reflow)) attrition_reflow_label(text, avail, fontsize, family) else as.character(text)[1L]
+  lines <- strsplit(fitted, "\n", fixed = TRUE)[[1L]]
+  lines <- lines[nzchar(lines)]
+  if (!length(lines)) return(invisible(NULL))
+  gp <- grid::gpar(fontsize = fontsize, fontface = fontface, fontfamily = family,
+                   col = "#111111")
+  lh <- grid::convertHeight(grid::stringHeight("Hg"), "npc", valueOnly = TRUE) * 1.15
+  total <- lh * length(lines)
+  box_h <- abs(y1 - y0)
+  y_mid <- (y0 + y1) / 2
+  y_first <- if (total < box_h - 2 * pad_npc) {
+    y_mid + total / 2 - lh / 2
+  } else {
+    max(y0, y1) - pad_npc - lh / 2
+  }
+  x_pos <- if (align == "left") min(x0, x1) + pad_npc else (x0 + x1) / 2
+  hjust <- if (align == "left") "left" else "centre"
+  for (k in seq_along(lines)) {
+    grid::grid.text(
+      lines[k],
+      x = grid::unit(x_pos, "npc"),
+      y = grid::unit(y_first - (k - 1) * lh, "npc"),
+      just = c(hjust, "centre"),
+      gp = gp
+    )
+  }
+  invisible(fitted)
 }
 
 .attrition_fork_from_rows <- function(rows) {
@@ -648,8 +1426,143 @@ attrition_weight_footnote <- function(ctx) {
   list(left_label = ll, left_n = ln, right_label = rl, right_n = rn)
 }
 
+#' 从步骤文案解析底部分叉（如 "Depression: 130; No Depression: 658"）
+.attrition_parse_fork_from_step_text <- function(txt) {
+  txt <- as.character(txt %||% "")[1L]
+  if (!nzchar(txt)) return(NULL)
+  # Label: n; Label: n  （允许括号 / after excluding）
+  m <- regexec(
+    "(?i)([A-Za-z][A-Za-z0-9 /_-]{1,48})\\s*[:=]\\s*([0-9][0-9,]*)\\s*[;/,]\\s*([A-Za-z][A-Za-z0-9 /_-]{1,48})\\s*[:=]\\s*([0-9][0-9,]*)",
+    txt,
+    perl = TRUE
+  )
+  g <- regmatches(txt, m)[[1L]]
+  if (length(g) < 5L) return(NULL)
+  ll <- trimws(g[[2L]])
+  ln <- suppressWarnings(as.integer(gsub(",", "", g[[3L]], fixed = TRUE)))
+  rl <- trimws(g[[4L]])
+  rn <- suppressWarnings(as.integer(gsub(",", "", g[[5L]], fixed = TRUE)))
+  if (!is.finite(ln) || !is.finite(rn) || !nzchar(ll) || !nzchar(rl)) return(NULL)
+  if (!grepl("(?i)group|case|control|depression|cataract|disease|death|surviv|yes|no|with|without",
+             paste(ll, rl))) {
+    # 仍接受常见结局对；否则也允许（数字可信即可）
+  }
+  list(left_label = ll, left_n = ln, right_label = rl, right_n = rn)
+}
+
+.attrition_infer_exclude_label <- function(step_label, n_drop) {
+  lab <- as.character(step_label %||% "")[1L]
+  n_drop <- suppressWarnings(as.integer(n_drop)[1L])
+  if (!is.finite(n_drop) || n_drop <= 0L) return(NA_character_)
+  el <- .attrition_exclude_reason("", lab)
+  if (nzchar(el)) return(el)
+  if (grepl("CKD|chronic kidney", lab, ignore.case = TRUE)) {
+    return("Without chronic kidney disease")
+  }
+  if (grepl("periodontitis|depression outcome|available", lab, ignore.case = TRUE)) {
+    return("Missing periodontitis grade or depression outcome")
+  }
+  if (grepl("extreme", lab, ignore.case = TRUE) ||
+      grepl("final analytic|participants included", lab, ignore.case = TRUE)) {
+    return("Extreme exposure or outcome values")
+  }
+  if (grepl("survey weight", lab, ignore.case = TRUE)) {
+    return("Missing or non-positive survey weights")
+  }
+  # After excluding missing HHR / missing exposure index
+  if (grepl("(?i)exclud(?:e|ing)\\s+missing\\s+([A-Za-z0-9_]+)", lab, perl = TRUE) ||
+      grepl("(?i)missing\\s+([A-Za-z0-9_]+)", lab, perl = TRUE)) {
+    m <- regmatches(
+      lab,
+      regexpr("(?i)(?:exclud(?:e|ing)\\s+)?missing\\s+([A-Za-z0-9_]+)", lab, perl = TRUE)
+    )
+    ix <- sub("(?i)^(?:exclud(?:e|ing)\\s+)?missing\\s+", "", m)
+    ix <- gsub("_", " ", ix, fixed = TRUE)
+    if (nzchar(ix) && !grepl("^(key|or)\\b", ix, ignore.case = TRUE)) {
+      return(sprintf("Missing %s", ix))
+    }
+    return("Missing exposure index")
+  }
+  if (grepl("imput", lab, ignore.case = TRUE)) {
+    return("Missing key variables")
+  }
+  if (grepl("age", lab, ignore.case = TRUE)) {
+    return("Age not in eligible range")
+  }
+  if (grepl("clean", lab, ignore.case = TRUE)) {
+    return("Incomplete covariates")
+  }
+  "Did not meet inclusion criteria"
+}
+
+#' 旧版仅 step/n 的纳排 CSV → pv2 所需列（exclude_label + fork）
+#' @param rows data.frame
+#' @param database 库名标签
+#' @return 增强后的 rows
+attrition_enrich_rows_for_pv2 <- function(rows, database = NULL) {
+  if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(rows)
+  if (!all(c("step", "n") %in% names(rows))) return(rows)
+  rows <- rows[is.finite(suppressWarnings(as.integer(rows$n))), , drop = FALSE]
+  if (!nrow(rows)) return(rows)
+  rows$step <- as.character(rows$step)
+  rows$n <- as.integer(rows$n)
+  if (!"database" %in% names(rows) || all(!nzchar(as.character(rows$database %||% "")))) {
+    db <- as.character(database %||% "NHANES")[1L]
+    rows$database <- db
+  }
+  for (nm in c(
+    "exclude_label", "fork_left_label", "fork_left_n",
+    "fork_right_label", "fork_right_n"
+  )) {
+    if (!nm %in% names(rows)) {
+      rows[[nm]] <- if (grepl("_n$", nm)) NA_integer_ else NA_character_
+    }
+  }
+  # 逐步补 exclude_label（NA / "NA" / "" 均视为缺失；nzchar(NA)=TRUE 勿误判）
+  for (i in seq_len(nrow(rows))) {
+    el_raw <- rows$exclude_label[i]
+    el <- if (is.na(el_raw)) "" else trimws(as.character(el_raw)[1L])
+    if (identical(el, "NA")) el <- ""
+    if (nzchar(el)) next
+    if (i == 1L) {
+      rows$exclude_label[i] <- NA_character_
+      next
+    }
+    dn <- as.integer(rows$n[i - 1L]) - as.integer(rows$n[i])
+    rows$exclude_label[i] <- .attrition_infer_exclude_label(rows$step[i], dn)
+  }
+  # 末步 fork：列已有则用列；否则从 step 文案解析
+  last <- nrow(rows)
+  fork <- .attrition_fork_from_rows(rows)
+  if (is.null(fork)) {
+    fork <- .attrition_parse_fork_from_step_text(rows$step[last])
+  }
+  if (!is.null(fork)) {
+    rows$fork_left_label[last] <- fork$left_label
+    rows$fork_left_n[last] <- fork$left_n
+    rows$fork_right_label[last] <- fork$right_label
+    rows$fork_right_n[last] <- fork$right_n
+    # 清理末框文案，去掉括号内结局计数
+    clean <- sub("\\s*\\([^)]*[:=]\\s*[0-9].*\\)\\s*$", "", rows$step[last])
+    clean <- sub(
+      "(?i)\\s*(after\\s+)?excluding\\s+extreme\\s+values\\s*.*$",
+      "",
+      clean,
+      perl = TRUE
+    )
+    clean <- trimws(clean)
+    if (!nzchar(clean) || grepl("(?i)^final analytic", clean)) {
+      clean <- "Final analytic cohort"
+    }
+    rows$step[last] <- clean
+  }
+  rows
+}
+
 .attrition_grid_roundbox <- function(x0, y0, x1, y1, fill, family, text,
-                                     fontsize = 10, fontface = "bold") {
+                                     fontsize = 10, fontface = "bold",
+                                     align = c("centre", "left"), reflow = FALSE) {
+  align <- match.arg(align)
   grid::grid.roundrect(
     x = grid::unit((x0 + x1) / 2, "npc"),
     y = grid::unit((y0 + y1) / 2, "npc"),
@@ -658,14 +1571,10 @@ attrition_weight_footnote <- function(ctx) {
     r = grid::unit(0.012, "npc"),
     gp = grid::gpar(fill = fill, col = "#222222", lwd = 1.2)
   )
-  grid::grid.text(
-    text,
-    x = grid::unit((x0 + x1) / 2, "npc"),
-    y = grid::unit((y0 + y1) / 2, "npc"),
-    gp = grid::gpar(
-      fontsize = fontsize, fontface = fontface, fontfamily = family,
-      lineheight = 1.15, col = "#111111"
-    )
+  attrition_draw_box_text(
+    text, x0, y0, x1, y1,
+    fontsize = fontsize, family = family, fontface = fontface,
+    align = align, reflow = reflow
   )
 }
 
@@ -683,8 +1592,26 @@ attrition_weight_footnote <- function(ctx) {
     ""
   )
   if (nzchar(hit)) return(hit)
-  # 从标签兜底（"After data cleaning" → data cleaning 相关）
+  # after_index_missing_HHR / after_index_extreme_HHR
+  if (grepl("^after_index_missing", sid)) {
+    ix <- sub("^after_index_missing_?", "", sid)
+    ix <- gsub("_", " ", ix, fixed = TRUE)
+    if (nzchar(ix)) return(sprintf("Missing %s", ix))
+    return("Missing exposure index")
+  }
+  if (grepl("^after_index_extreme", sid) || grepl("extreme", lab, ignore.case = TRUE)) {
+    return("Extreme exposure or outcome values")
+  }
+  # 从标题兜底（"After data cleaning" → data cleaning 相关）
   if (grepl("clean", lab, ignore.case = TRUE)) return("Incomplete covariates after data cleaning")
+  if (grepl("(?i)exclud(?:e|ing)\\s+missing\\s+([A-Za-z0-9_]+)", lab, perl = TRUE)) {
+    m <- regmatches(
+      lab,
+      regexpr("(?i)exclud(?:e|ing)\\s+missing\\s+([A-Za-z0-9_]+)", lab, perl = TRUE)
+    )
+    ix <- sub("(?i)^exclud(?:e|ing)\\s+missing\\s+", "", m)
+    return(sprintf("Missing %s", gsub("_", " ", ix, fixed = TRUE)))
+  }
   if (grepl("imput", lab, ignore.case = TRUE)) return("Missing exposure or key covariates")
   if (grepl("age", lab, ignore.case = TRUE)) return("Age outside inclusion criteria")
   ""
@@ -699,11 +1626,58 @@ attrition_weight_footnote <- function(ctx) {
   )
 }
 
+#' 画粉/绿结局分叉（主列中点 cx 下方）。返回 list(y_bottom=分叉框底缘)。
+.attrition_draw_outcome_fork_boxes <- function(cx, y_from, left_label, left_n,
+                                              right_label, right_n, ff,
+                                              y_floor = 0.03, oh = 0.11,
+                                              gapf = 0.06) {
+  ow <- min(0.28, cx - gapf / 2 - 0.02)
+  left_x0 <- cx - gapf / 2 - ow
+  right_x0 <- cx + gapf / 2
+  y_out <- max(y_floor, y_from - 0.06 - oh)
+  t_y <- y_out + oh + 0.022
+  grid::grid.lines(
+    x = grid::unit(c(cx, cx), "npc"),
+    y = grid::unit(c(y_from, t_y), "npc"),
+    gp = grid::gpar(col = "#222222", lwd = 1.15)
+  )
+  grid::grid.lines(
+    x = grid::unit(c(left_x0 + ow / 2, right_x0 + ow / 2), "npc"),
+    y = grid::unit(c(t_y, t_y), "npc"),
+    gp = grid::gpar(col = "#222222", lwd = 1.15)
+  )
+  .attrition_grid_arrow(left_x0 + ow / 2, t_y, left_x0 + ow / 2, y_out + oh, ff)
+  .attrition_grid_arrow(right_x0 + ow / 2, t_y, right_x0 + ow / 2, y_out + oh, ff)
+  left_txt <- sprintf(
+    "%s\n(n = %s)",
+    left_label,
+    format(as.integer(left_n), big.mark = ",")
+  )
+  right_txt <- sprintf(
+    "%s\n(n = %s)",
+    right_label,
+    format(as.integer(right_n), big.mark = ",")
+  )
+  .attrition_grid_roundbox(
+    left_x0, y_out, left_x0 + ow, y_out + oh,
+    "#fff5f5", ff, left_txt, fontsize = 10
+  )
+  .attrition_grid_roundbox(
+    right_x0, y_out, right_x0 + ow, y_out + oh,
+    "#f3fff5", ff, right_txt, fontsize = 10
+  )
+  list(y_bottom = y_out, right_cx = right_x0 + ow / 2, oh = oh)
+}
+
 #' CONSORT 纳排图（对齐 TST Figure 1）：主列圆角纳入框、右侧 Exclude、
 #' 底部分叉为发病病例/对照或预后 Expired/Alive。
+#'
+#' @param mid_fork 可选中间分叉，如基线 Hypertension / No Hypertension。
+#'   `list(after=1L, left_label, left_n, right_label, right_n)`；
+#'   `after` 为主列第几框之后；该步不再画右侧 Exclude，续行从右臂（无病）往下。
 attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New Roman",
                                footnote = character(0), box_fill = "#FFFFFF",
-                               fork = NULL) {
+                               fork = NULL, mid_fork = NULL) {
   if (is.null(rows) || !is.data.frame(rows) || !nrow(rows)) return(invisible(FALSE))
   dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
   ff <- if (exists("resolve_plot_font_family", mode = "function")) {
@@ -717,8 +1691,20 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
   n_box <- nrow(rows)
   has_fork <- is.list(fork) &&
     is.finite(fork$left_n %||% NA_real_) && is.finite(fork$right_n %||% NA_real_)
+  has_mid <- is.list(mid_fork) &&
+    is.finite(suppressWarnings(as.integer(mid_fork$after %||% NA_integer_))[1L]) &&
+    is.finite(mid_fork$left_n %||% NA_real_) && is.finite(mid_fork$right_n %||% NA_real_)
+  mid_after <- if (has_mid) as.integer(mid_fork$after)[1L] else NA_integer_
+  if (has_mid && (mid_after < 1L || mid_after >= n_box)) has_mid <- FALSE
   w <- 7.6
-  h <- max(8.2, 1.55 * n_box + if (has_fork) 3.1 else 1.6 + if (length(footnote)) 0.7 else 0)
+  # 画布高度按内容估算：步数↑ / 有分叉时加高，避免末框与结局分叉叠在一起
+  need_h <- 0.55 +
+    1.28 * n_box +
+    1.05 * max(n_box - 1L, 0L) +
+    if (has_fork) 2.05 else 0.20 +
+    if (has_mid) 1.50 else 0 +
+    if (length(footnote)) 0.55 else 0.08
+  h <- max(3.4, need_h)
   opened <- tryCatch({
     .attrition_pdf_device(pdf_path, w, h, ff)
     TRUE
@@ -744,26 +1730,86 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
 
   y_top <- 0.93
   y_foot <- if (length(footnote)) 0.04 + 0.028 * length(footnote) else 0.03
-  y_fork_top <- if (has_fork) 0.22 else y_foot + 0.02
-  span <- max(0.35, y_top - y_fork_top - 0.02)
-  # 主框略收矮、间隙加大：Exclude 框须完整放进间隙内（旧版 eh=0.12 > gap=0.048 会压住主框）
-  box_h <- min(0.095, span / (n_box + max(n_box - 1L, 1L) * 0.85))
-  gap <- min(0.085, max(0.06, box_h * 0.85))
-  box_h <- min(box_h, (span - (n_box - 1L) * gap) / n_box)
-  cx <- 0.30
-  mw <- 0.44
+  n_gap <- n_box - 1L + if (has_mid) 1L else 0L
+  mid_slot <- if (has_mid) 0.20 else 0
+  # 铁律：有结局分叉时先预留下方带宽，再把主列塞进剩余 span。
+  # 旧算法在步数多时把 y_fork_top 压到 ~0.04，末框与粉/绿分叉重叠（P0）。
+  fork_reserve <- if (has_fork) 0.22 else 0.06
+  y_fork_top <- max(
+    if (length(footnote)) y_foot + 0.02 else 0.03,
+    fork_reserve
+  )
+  span <- max(0.18, y_top - y_fork_top - 0.02 - mid_slot)
+  # 主框 + 间隙必须落入 span；Exclude 框高度 ≤ gap
+  box_h <- span / (n_box + max(n_gap, 0L) * 0.78)
+  box_h <- max(0.048, min(0.105, box_h))
+  gap <- if (n_gap > 0L) {
+    (span - n_box * box_h) / n_gap
+  } else {
+    0.06
+  }
+  gap <- max(0.048, min(0.090, gap))
+  # 溢出则等比收缩
+  while (n_gap > 0L &&
+           (n_box * box_h + n_gap * gap) > span + 1e-6 &&
+           box_h > 0.045) {
+    box_h <- box_h * 0.96
+    gap <- (span - n_box * box_h) / n_gap
+  }
+  if (!is.finite(box_h) || box_h < 0.045) box_h <- 0.05
+  if (!is.finite(gap) || gap < 0.045) gap <- 0.048
+  # 若全程无右侧 Exclude（相邻步 n 不降且无权重步），主列居中，避免左偏留白
+  .need_exclude_col <- FALSE
+  if (n_box >= 2L) {
+    for (.i in seq_len(n_box - 1L)) {
+      .dn <- as.integer(rows$n[.i]) - as.integer(rows$n[.i + 1L])
+      .el <- if ("exclude_label" %in% names(rows)) {
+        as.character(rows$exclude_label[.i + 1L])[1L]
+      } else {
+        NA_character_
+      }
+      .sid <- if ("step_id" %in% names(rows)) {
+        as.character(rows$step_id[.i + 1L])[1L]
+      } else {
+        NA_character_
+      }
+      .wt <- identical(.sid, "after_survey_weight") ||
+        grepl("survey weight", .el %||% "", ignore.case = TRUE) ||
+        grepl(
+          "Eligible survey-weighted",
+          as.character(rows$step[.i + 1L])[1L],
+          ignore.case = TRUE
+        )
+      .has_el <- !is.na(.el) && nzchar(trimws(.el)) && !identical(toupper(trimws(.el)), "NA")
+      # 显式 exclude_label（含剔除 0 人）也要右侧 Exclude 列，避免年龄/指标缺失框消失
+      if ((is.finite(.dn) && .dn > 0L) || isTRUE(.wt) || isTRUE(.has_el)) {
+        .need_exclude_col <- TRUE
+        break
+      }
+    }
+  }
+  if (isTRUE(.need_exclude_col)) {
+    cx <- 0.30
+    mw <- 0.44
+    ex0 <- 0.565
+    ex1 <- 0.985
+  } else {
+    cx <- 0.50
+    mw <- 0.50
+    ex0 <- 0.78
+    ex1 <- 0.98
+  }
   x0 <- cx - mw / 2
   x1 <- cx + mw / 2
   # Exclude 框加宽：文字尽量横排一行（对齐 12_AKI/AF），勿挤成竖排
-  ex0 <- 0.565
-  ex1 <- 0.985
   fill_main <- if (identical(box_fill, "#F7F7F7")) "#FFFFFF" else box_fill
   if (!nzchar(as.character(fill_main %||% "")[1L])) fill_main <- "#FFFFFF"
 
   ys0 <- numeric(n_box)
   ys1 <- numeric(n_box)
+  y_cursor <- y_top
   for (i in seq_len(n_box)) {
-    y1i <- y_top - (i - 1) * (box_h + gap)
+    y1i <- y_cursor
     y0i <- y1i - box_h
     ys0[i] <- y0i
     ys1[i] <- y1i
@@ -775,12 +1821,63 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
     if (!nzchar(step_lab)) step_lab <- as.character(rows$step[i])
     lab <- sprintf(
       "%s\nn = %s",
-      .attrition_wrap_label(step_lab, 36L),
+      step_lab,
       format(as.integer(rows$n[i]), big.mark = ",")
     )
     .attrition_grid_roundbox(x0, y0i, x1, y1i, fill_i, ff, lab, fontsize = 10.5)
+
+    if (has_mid && identical(i, mid_after)) {
+      # 基线后：高血压 / 无高血压分叉；续行从右臂往下
+      mf <- .attrition_draw_outcome_fork_boxes(
+        cx, y0i,
+        mid_fork$left_label, mid_fork$left_n,
+        mid_fork$right_label, mid_fork$right_n,
+        ff, y_floor = y_fork_top + 0.02
+      )
+      if (i < n_box) {
+        # 右臂 → 下一主框；Exclude 用「无病臂 n − 下一步 n」（勿用基线总 n）
+        y_gap_top <- mf$y_bottom - 0.01
+        y_next_top <- y_gap_top - gap
+        ymid <- (y_gap_top + y_next_top) / 2
+        .attrition_grid_arrow(mf$right_cx, mf$y_bottom - 0.002, cx, y_next_top + 0.006, ff)
+        drop_n <- as.integer(mid_fork$right_n) - as.integer(rows$n[i + 1L])
+        el <- if ("exclude_label" %in% names(rows)) {
+          as.character(rows$exclude_label[i + 1L])[1L]
+        } else {
+          NA_character_
+        }
+        sid <- if ("step_id" %in% names(rows)) {
+          as.character(rows$step_id[i + 1L])[1L]
+        } else {
+          NA_character_
+        }
+        show_exclude <- is.finite(drop_n) && drop_n > 0L
+        if (isTRUE(show_exclude)) {
+          if (is.na(el) || !nzchar(el)) el <- .attrition_exclude_reason(sid, rows$step[i + 1L])
+          if (is.na(el) || !nzchar(el)) el <- "Excluded"
+        el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
+        if (!nzchar(el)) el <- "Excluded"
+        el <- gsub("_", " ", el, fixed = TRUE)
+        ex_lab <- sprintf(
+            "Exclude: %s\n(n = %s)",
+            el,
+            format(as.integer(drop_n), big.mark = ",")
+          )
+          eh <- min(gap * 0.92, 0.075)
+          .attrition_grid_roundbox(
+            ex0, ymid - eh / 2, ex1, ymid + eh / 2,
+            "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain",
+            align = "left", reflow = TRUE
+          )
+          .attrition_grid_arrow(cx, ymid, ex0 - 0.006, ymid, ff, lty = 2)
+        }
+        y_cursor <- y_next_top
+      }
+      next
+    }
+
     if (i < n_box) {
-      ymid <- (y0i + (y0i - gap)) / 2
+      ymid <- y0i - gap / 2
       .attrition_grid_arrow(cx, y0i - 0.004, cx, y0i - gap + 0.006, ff)
       drop_n <- as.integer(rows$n[i]) - as.integer(rows$n[i + 1L])
       el <- NA_character_
@@ -791,8 +1888,9 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
       is_weight_step <- identical(sid, "after_survey_weight") ||
         grepl("survey weight", el %||% "", ignore.case = TRUE) ||
         grepl("Eligible survey-weighted", as.character(rows$step[i + 1L])[1L], ignore.case = TRUE)
-      # 调查权重步即使剔除 0 人也要画 Exclude 框（标明权重名与 n=0）
-      show_exclude <- is.finite(drop_n) && (drop_n > 0L || isTRUE(is_weight_step))
+      # 调查权重步 / 显式 exclude_label：即使剔除 0 人也画 Exclude 框（写清 n=0 与分项缺失）
+      has_el <- !is.na(el) && nzchar(trimws(el)) && !identical(toupper(trimws(el)), "NA")
+      show_exclude <- is.finite(drop_n) && (drop_n > 0L || isTRUE(is_weight_step) || isTRUE(has_el))
       if (isTRUE(show_exclude)) {
         # 每步写清「排除了什么」：优先 exclude_label → step_id 语义 → 步骤标签抽取
         if (is.na(el) || !nzchar(el)) el <- .attrition_exclude_reason(sid, rows$step[i + 1L])
@@ -805,63 +1903,46 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
         }
         el <- sub("^[Ee]xclude[d]?[: ]*", "", el)
         if (!nzchar(el)) el <- "Excluded"
-        # 两行横排：原因一行、人数一行；框宽约 0.42npc，单行 45+ 字会溢出
-        ex_lab <- sprintf(
-          "Exclude: %s\n(n = %s)",
-          .attrition_wrap_label(el, 30L),
-          format(max(0L, as.integer(drop_n)), big.mark = ",")
+        # 发表图面禁下划线（new_weight → new Weight）；编程列名不得上图
+        el <- gsub("_", " ", el, fixed = TRUE)
+        # 原因能一行就一行，放不下再换行；框内左对齐
+        # 分项已含 Var (n=…) 时，合计改写 total excluded，避免 “Weight (n=0) (n=0)” 粘连
+        n_txt <- format(max(0L, as.integer(drop_n)), big.mark = ",")
+        ex_lab <- if (grepl("\\(n\\s*=", el, ignore.case = TRUE, perl = TRUE)) {
+          sprintf("Exclude: %s\n(total excluded n = %s)", el, n_txt)
+        } else {
+          sprintf("Exclude: %s\n(n = %s)", el, n_txt)
+        }
+        # Exclude 框高不得超过 gap，否则会压进上下主框（多步 Fig1 P0）
+        eh <- min(
+          gap * 0.90,
+          if (nchar(el) > 56L) 0.095 else if (nchar(el) > 36L) 0.078 else 0.068
         )
-        eh <- min(gap * 0.92, 0.075)
+        eh <- max(0.048, eh)
         .attrition_grid_roundbox(
           ex0, ymid - eh / 2, ex1, ymid + eh / 2,
-          "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain"
+          "#f7f7f7", ff, ex_lab, fontsize = 8, fontface = "plain",
+          align = "left", reflow = TRUE
         )
         # 横向虚线箭头（对齐参考图）：从主列分叉水平指向 Exclude 框
         .attrition_grid_arrow(cx, ymid, ex0 - 0.006, ymid, ff, lty = 2)
       }
+      y_cursor <- y0i - gap
     }
   }
 
   if (has_fork) {
     last_y0 <- ys0[n_box]
-    oh <- 0.11
-    gapf <- 0.06
-    # 分叉双框必须完整落在画布内：旧版 ow=0.28 时 left_x0=cx-0.03-0.28<0，
-    # 粉色病例框左缘被裁切（用户反馈「最下面左面的粉色框没画全」）。
-    ow <- min(0.28, cx - gapf / 2 - 0.02)
-    left_x0 <- cx - gapf / 2 - ow
-    right_x0 <- cx + gapf / 2
-    y_out <- max(y_foot + 0.02, last_y0 - 0.08 - oh)
-    t_y <- y_out + oh + 0.025
-    grid::grid.lines(
-      x = grid::unit(c(cx, cx), "npc"),
-      y = grid::unit(c(last_y0, t_y), "npc"),
-      gp = grid::gpar(col = "#222222", lwd = 1.15)
-    )
-    grid::grid.lines(
-      x = grid::unit(c(left_x0 + ow / 2, right_x0 + ow / 2), "npc"),
-      y = grid::unit(c(t_y, t_y), "npc"),
-      gp = grid::gpar(col = "#222222", lwd = 1.15)
-    )
-    .attrition_grid_arrow(left_x0 + ow / 2, t_y, left_x0 + ow / 2, y_out + oh, ff)
-    .attrition_grid_arrow(right_x0 + ow / 2, t_y, right_x0 + ow / 2, y_out + oh, ff)
-    left_txt <- sprintf(
-      "%s\n(n = %s)",
-      .attrition_wrap_label(fork$left_label, 22L),
-      format(as.integer(fork$left_n), big.mark = ",")
-    )
-    right_txt <- sprintf(
-      "%s\n(n = %s)",
-      .attrition_wrap_label(fork$right_label, 22L),
-      format(as.integer(fork$right_n), big.mark = ",")
-    )
-    .attrition_grid_roundbox(
-      left_x0, y_out, left_x0 + ow, y_out + oh,
-      "#fff5f5", ff, left_txt, fontsize = 10
-    )
-    .attrition_grid_roundbox(
-      right_x0, y_out, right_x0 + ow, y_out + oh,
-      "#f3fff5", ff, right_txt, fontsize = 10
+    # 末主框底缘不得侵入分叉预留带；否则上移起点再画分叉
+    if (is.finite(last_y0) && last_y0 < y_fork_top + 0.01) {
+      last_y0 <- y_fork_top + 0.01
+    }
+    .attrition_draw_outcome_fork_boxes(
+      cx, last_y0,
+      fork$left_label, fork$left_n,
+      fork$right_label, fork$right_n,
+      ff, y_floor = y_foot + 0.015,
+      oh = min(0.11, max(0.085, y_fork_top * 0.45))
     )
   }
 
@@ -875,4 +1956,216 @@ attrition_draw_pdf <- function(rows, title, pdf_path, font_family = "Times New R
     )
   }
   invisible(TRUE)
+}
+
+#' 预后 Figure 1 的单库面板。
+#' 左列主流程居中、保留调用方换行；右侧排除框左对齐，能一行则一行，框高贴文字。
+#' 纳入框下分出两个结局框。panel 字段：letter, top, mid, inc, side1, side2, death, alive。
+attrition_draw_outcome_panel <- function(panel, family = "Times") {
+  panel <- as.list(panel)
+  ff <- as.character(family %||% "Times")[1L]
+  box <- function(x0, y0, x1, y1, lab, fs = 7.2, align = "centre", reflow = FALSE) {
+    grid::grid.roundrect(
+      x = grid::unit((x0 + x1) / 2, "npc"), y = grid::unit((y0 + y1) / 2, "npc"),
+      width = grid::unit(x1 - x0, "npc"), height = grid::unit(y1 - y0, "npc"),
+      r = grid::unit(0.02, "npc"),
+      gp = grid::gpar(fill = "white", col = "black", lwd = 0.8)
+    )
+    attrition_draw_box_text(
+      lab, x0, y0, x1, y1, fontsize = fs, family = ff, fontface = "plain",
+      pad_npc = 0.015, align = align, reflow = reflow
+    )
+  }
+  varrow <- function(x, y1, y0) {
+    grid::grid.lines(
+      x = grid::unit(c(x, x), "npc"), y = grid::unit(c(y1, y0), "npc"),
+      arrow = grid::arrow(length = grid::unit(0.09, "inches"), type = "closed"),
+      gp = grid::gpar(fill = "black", col = "black", lwd = 0.7)
+    )
+  }
+  harrow <- function(x0, x1, y) {
+    grid::grid.lines(
+      x = grid::unit(c(x0, x1), "npc"), y = grid::unit(c(y, y), "npc"),
+      arrow = grid::arrow(length = grid::unit(0.09, "inches"), type = "closed"),
+      gp = grid::gpar(fill = "black", col = "black", lwd = 0.7)
+    )
+  }
+  ## 与 pv2 单栏一致：主列/排除列整体水平居中，避免贴左
+  ml <- 0.14
+  mr <- 0.54
+  cx <- (ml + mr) / 2
+  side_x0 <- 0.60
+  side_x1 <- 0.94
+  fork_gap <- 0.04
+  fork_w <- (mr - ml - fork_gap) / 2
+  if (nzchar(as.character(panel$letter %||% "")[1L])) {
+    grid::grid.text(
+      as.character(panel$letter)[1L], x = ml - 0.06, y = 0.985, just = c("left", "top"),
+      gp = grid::gpar(fontsize = 11, fontface = "bold", fontfamily = ff)
+    )
+  }
+  .lab_nz <- function(lab) nzchar(trimws(as.character(lab %||% "")[1L]))
+  ## 排除 n=0 / 空文案：不画侧框
+  .side_keep <- function(lab) {
+    lab <- as.character(lab %||% "")[1L]
+    if (!nzchar(trimws(lab))) return(FALSE)
+    n <- .attrition_first_n(lab)
+    if (is.finite(n) && identical(as.integer(n), 0L)) return(FALSE)
+    TRUE
+  }
+  ## mid 与 inc 同 n 或 mid 空：只留纳入框，避免上下重复同人数框
+  mid_lab <- as.character(panel$mid %||% "")[1L]
+  inc_lab <- as.character(panel$inc %||% "")[1L]
+  mid_n <- .attrition_first_n(mid_lab)
+  inc_n <- .attrition_first_n(inc_lab)
+  same_n <- is.finite(mid_n) && is.finite(inc_n) && identical(mid_n, inc_n)
+  keep_mid <- .lab_nz(mid_lab) && !isTRUE(same_n)
+  keep_inc <- .lab_nz(inc_lab)
+  if (!keep_mid && keep_inc && isTRUE(same_n) && .lab_nz(mid_lab)) {
+    # 合并文案：纳入 + 暴露齐全（单框）
+    inc_lab <- sprintf(
+      "Included in final analysis\nComplete exposure with\n28-day vital status\n(n = %s)",
+      format(as.integer(inc_n), big.mark = ",")
+    )
+  }
+  # 主列 y：有 mid 时三框；无 mid 时 top→inc 两框拉高
+  y_top <- c(0.82, 0.955)
+  y_mid <- c(0.52, 0.67)
+  y_inc <- c(0.22, 0.35)
+  if (!keep_mid && keep_inc) {
+    y_inc <- c(0.42, 0.62)
+  }
+  box(ml, y_top[1], mr, y_top[2], panel$top, fs = 7.4)
+  if (keep_mid) box(ml, y_mid[1], mr, y_mid[2], mid_lab, fs = 7.2)
+  if (keep_inc) box(ml, y_inc[1], mr, y_inc[2], inc_lab, fs = 7.4)
+  box(ml, 0.02, ml + fork_w, 0.13, panel$death, fs = 6.8)
+  box(mr - fork_w, 0.02, mr, 0.13, panel$alive, fs = 6.8)
+  side_fs <- 6.5
+  side_h <- function(lab) {
+    attrition_label_height_npc(
+      lab, side_x1 - side_x0, fontsize = side_fs, family = ff, pad_npc = 0.012
+    )
+  }
+  keep1 <- .side_keep(panel$side1)
+  keep2 <- .side_keep(panel$side2) && keep_mid  # 无 mid 时 side2 无挂点
+  if (isTRUE(keep1)) {
+    y_side1 <- if (keep_mid) 0.81 else (y_top[1] + y_inc[2]) / 2
+    h1 <- side_h(panel$side1)
+    box(side_x0, y_side1 - h1 / 2, side_x1, y_side1 + h1 / 2, panel$side1,
+        fs = side_fs, align = "left", reflow = TRUE)
+    harrow(cx, side_x0, y_side1)
+  }
+  if (isTRUE(keep2)) {
+    h2 <- side_h(panel$side2)
+    box(side_x0, 0.51 - h2 / 2, side_x1, 0.51 + h2 / 2, panel$side2,
+        fs = side_fs, align = "left", reflow = TRUE)
+    harrow(cx, side_x0, 0.51)
+  }
+  if (keep_mid) {
+    varrow(cx, y_top[1], y_mid[2])
+    if (keep_inc) varrow(cx, y_mid[1], y_inc[2])
+  } else if (keep_inc) {
+    varrow(cx, y_top[1], y_inc[2])
+  }
+  fl <- ml + fork_w / 2
+  fr <- mr - fork_w / 2
+  y_fork_from <- if (keep_inc) y_inc[1] else if (keep_mid) y_mid[1] else y_top[1]
+  grid::grid.lines(
+    x = grid::unit(c(cx, cx), "npc"), y = grid::unit(c(y_fork_from, 0.165), "npc"),
+    gp = grid::gpar(col = "black", lwd = 0.7)
+  )
+  grid::grid.lines(
+    x = grid::unit(c(fl, fr), "npc"), y = grid::unit(c(0.165, 0.165), "npc"),
+    gp = grid::gpar(col = "black", lwd = 0.7)
+  )
+  varrow(fl, 0.165, 0.13)
+  varrow(fr, 0.165, 0.13)
+  invisible(panel)
+}
+
+.attrition_first_n <- function(txt) {
+  m <- regexpr("(?i)n\\s*=\\s*[0-9][0-9,]*", as.character(txt %||% "")[1L], perl = TRUE)
+  if (is.na(m) || m < 0) return(NA_integer_)
+  as.integer(gsub("[^0-9]", "", regmatches(as.character(txt)[1L], m)))
+}
+
+.attrition_step_label <- function(txt) {
+  txt <- gsub("\\s+", " ", as.character(txt %||% "")[1L])
+  txt <- sub("(?i)\\s*\\(n\\s*=\\s*[0-9,]+\\)\\s*$", "", txt, perl = TRUE)
+  trimws(txt)
+}
+
+#' 与预后纳排图同一套人数。逐步 n 递减，排除人数由相邻步相减得到。
+attrition_outcome_ledger <- function(panels) {
+  rows <- list()
+  for (p in panels) {
+    p <- as.list(p)
+    db <- trimws(sub("^[[:space:]]*[A-Za-z][[:space:]]+", "", as.character(p$letter %||% "")[1L]))
+    if (!nzchar(db)) db <- "Cohort"
+    death_n <- .attrition_first_n(p$death)
+    alive_n <- .attrition_first_n(p$alive)
+    push <- function(step, n) {
+      rows[[length(rows) + 1L]] <<- data.frame(
+        database = db, step = step, n = as.integer(n),
+        fork_left_label = .attrition_step_label(p$death),
+        fork_left_n = death_n,
+        fork_right_label = .attrition_step_label(p$alive),
+        fork_right_n = alive_n,
+        ledger_source = "outcome_figure",
+        stringsAsFactors = FALSE
+      )
+    }
+    push(.attrition_step_label(p$top), .attrition_first_n(p$top))
+    mid_n <- .attrition_first_n(p$mid)
+    inc_n <- .attrition_first_n(p$inc)
+    # mid/inc 同 n：只记纳入一步，避免底账重复
+    if (is.finite(mid_n) && is.finite(inc_n) && identical(mid_n, inc_n)) {
+      push(.attrition_step_label(p$inc), inc_n)
+    } else {
+      if (is.finite(mid_n)) push(.attrition_step_label(p$mid), mid_n)
+      left <- mid_n
+      blocks <- .attrition_logical_lines(p$side2)
+      for (b in blocks) {
+        ex <- .attrition_first_n(b)
+        if (!is.finite(ex) || !is.finite(left) || identical(as.integer(ex), 0L)) next
+        left <- left - ex
+        push(.attrition_step_label(b), left)
+      }
+      if (is.finite(inc_n) && (!is.finite(left) || inc_n != left)) {
+        push(.attrition_step_label(p$inc), inc_n)
+      }
+    }
+  }
+  if (!length(rows)) return(data.frame())
+  do.call(rbind, rows)
+}
+
+attrition_write_outcome_ledger <- function(panels, csv_path) {
+  dir.create(dirname(csv_path), recursive = TRUE, showWarnings = FALSE)
+  utils::write.csv(attrition_outcome_ledger(panels), csv_path, row.names = FALSE, fileEncoding = "UTF-8")
+  invisible(csv_path)
+}
+
+#' 多库并排的预后纳排图。每个 panel 用 attrition_draw_outcome_panel。
+#' csv_path 给定时，底账与图面人数同一来源，不再另写一套旧筛选。
+attrition_draw_outcome_figure <- function(pdf_path, panels, width = 15.6, height = 6.35,
+                                          family = "Times", csv_path = NULL) {
+  dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
+  ff <- as.character(family %||% "Times")[1L]
+  grDevices::cairo_pdf(pdf_path, width = width, height = height, family = ff)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  grid::grid.newpage()
+  n <- length(panels)
+  if (!n) return(invisible(pdf_path))
+  for (i in seq_len(n)) {
+    grid::pushViewport(grid::viewport(
+      x = (i - 0.5) / n, y = 0.5, width = 1 / n, height = 1
+    ))
+    attrition_draw_outcome_panel(panels[[i]], family = ff)
+    grid::popViewport()
+  }
+  if (nzchar(as.character(csv_path %||% "")[1L])) {
+    attrition_write_outcome_ledger(panels, csv_path)
+  }
+  invisible(pdf_path)
 }

@@ -183,6 +183,12 @@
     time = tr$.time, status = tr$.event,
     x = x_tr, stepno = best_step, penalty = penalty
   )
+  ## SHAP 对齐：记住 model.matrix 列名与因子水平（与 mboost 路径一致）
+  attr(final_fit, "mlsurv_design_cols") <- colnames(x_tr)
+  attr(final_fit, "mlsurv_train_levels") <- lapply(
+    tr[, setdiff(names(tr), c(".time", ".event")), drop = FALSE],
+    function(x) if (is.factor(x) || is.character(x)) levels(factor(as.character(x))) else NULL
+  )
   risk_tr <- as.numeric(stats::predict(final_fit, newdata = x_tr, type = "lp"))
   risk_te <- as.numeric(stats::predict(final_fit, newdata = x_te, type = "lp"))
 

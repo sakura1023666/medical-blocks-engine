@@ -58,8 +58,8 @@ if (file.exists(.note)) {
 .write_md(
   "Figure 2. Associations of continuous features",
   paste0(
-    "连续预指定特征与碎石成功的关联森林图（Model1/2/3 OR 与 95%CI）。\n\n",
-    "图上标注：各特征 OR(95%CI) 与点估计；参考线 OR = 1。"
+    "连续预指定特征与碎石成功的关联森林图（全分析集 N=273；每 1 个标准差；brglm2）。\n\n",
+    "图上标注：各特征 OR(95%CI)；参考线 OR = 1。数字与 Table S3 相同，不是 Fig5 的训练集临床单位 OR。"
   ),
   "- 是否拼图: 是（多特征面板）"
 )
@@ -81,15 +81,15 @@ if (file.exists(.note)) {
 .write_md(
   "Figure 5. Multivariate logistic regression",
   paste0(
-    "多因素 logistic 森林图（Chen 风格）：Variable | Event(%) | OR(95%CI) | 橙点黑 CI | P。\n\n",
-    "连续变量按临床单位缩放（Age/10、Diameter/0.5、Volume/5、Energy/0.05、Shots/50）。\n",
+    "多因素 logistic 森林图（训练集 n=190，成功 144，75.8%）。全队列 207/273 也是 75.8%，两处百分比相同但分母不同。\n\n",
+    "变量为 Age、Diameter、Energy、Shots（体积不进多因素）。OR 按临床单位，不是 Fig2 的每 1 个标准差。\n",
     "图上标注：各行 OR(95%CI)、P 值；参考线 OR = 1；超界 CI 以箭头提示。"
   )
 )
 .write_md(
   "Figure 6. Nomogram prediction model",
   paste0(
-    "碎石成功列线图（ridge λ.1se 系数，Chen 版式）。\n\n",
+    "碎石成功列线图（ridge λ.1se；Age、Diameter、Energy、Shots）。体积不在列线图轴上。\n\n",
     "图上标注：各预测因子轴与总分→风险轴对应关系。"
   )
 )
@@ -101,7 +101,7 @@ if (file.exists(.note)) {
 .write_md(
   "Figure 7. ROC and calibration",
   paste0(
-    "列线图区分度（ROC）与校准曲线（train / internal validation / bootstrap）。\n\n",
+    "列线图区分度（ROC）与校准曲线，仅训练与内验两列。不报告 bootstrap AUC。\n\n",
     "图上标注：", .auc_txt, "；校准图截距/斜率以图面为准。"
   ),
   "- 是否拼图: 是（多面板）"

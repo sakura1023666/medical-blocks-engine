@@ -51,6 +51,84 @@
   out
 }
 
+## 发表规范：Log-Loss / DeLong / NRI-IDI 走引擎 pub_format_*（禁止裸 0 / 0.000）
+.sm_format_logloss_df <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in names(out)) {
+    if (identical(cn, "Model")) next
+    if (exists("pub_format_prob_metric", mode = "function")) {
+      out[[cn]] <- pub_format_prob_metric(out[[cn]])
+    } else if (is.numeric(out[[cn]])) {
+      out[[cn]] <- formatC(as.numeric(out[[cn]]), format = "f", digits = 3L)
+    }
+  }
+  out
+}
+
+.sm_format_delong_df <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in names(out)) {
+    hl <- tolower(cn)
+    if (grepl("new model-baseline|baseline model name|^model$", hl)) next
+    if (grepl("^p value$|^p$", hl) || grepl("p-value|p value", hl)) {
+      out[[cn]] <- if (exists("pub_format_p_cell", mode = "function")) {
+        pub_format_p_cell(out[[cn]])
+      } else {
+        as.character(out[[cn]])
+      }
+      next
+    }
+    if (grepl("95%\\s*ci|\\bci\\b", hl)) {
+      out[[cn]] <- vapply(as.character(out[[cn]]), function(s) {
+        if (exists(".pub_format_ci_cell", mode = "function")) .pub_format_ci_cell(s) else s
+      }, character(1L))
+      next
+    }
+    if (grepl("auc|difference|z statistic|^z$", hl)) {
+      if (exists("pub_format_prob_metric", mode = "function") && grepl("auc|difference", hl)) {
+        out[[cn]] <- pub_format_prob_metric(out[[cn]])
+      } else if (exists("pub_format_est", mode = "function")) {
+        out[[cn]] <- pub_format_est(out[[cn]])
+      }
+    }
+  }
+  out
+}
+
+.sm_format_nri_idi_df <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  out <- as.data.frame(df, stringsAsFactors = FALSE)
+  for (cn in names(out)) {
+    hl <- tolower(cn)
+    if (grepl("model|baseline|new model", hl) && !grepl("^(nri|idi)", hl)) next
+    if (grepl("p value|p-value|^p$", hl)) {
+      x <- as.character(out[[cn]])
+      bad <- is.na(x) | !nzchar(trimws(x)) | toupper(trimws(x)) %in% c("NA", "NAN", "—", "-")
+      x2 <- x
+      if (exists("pub_format_p_cell", mode = "function")) {
+        x2[!bad] <- pub_format_p_cell(x[!bad])
+      }
+      x2[bad] <- "\u2014"
+      out[[cn]] <- x2
+      next
+    }
+    if (grepl("^(nri|idi)\\b", hl)) {
+      out[[cn]] <- if (exists("pub_format_prob_metric", mode = "function")) {
+        vapply(as.character(out[[cn]]), function(s) {
+          s0 <- trimws(s)
+          if (!nzchar(s0) || grepl("\\[", s0)) return(s0)
+          pub_format_prob_metric(s0)
+        }, character(1L))
+      } else {
+        as.character(out[[cn]])
+      }
+    }
+  }
+  out
+}
+
 .sm_package_for_tag <- function(tag) {
   tg <- tolower(trimws(as.character(tag)[1L]))
   m <- c(
@@ -89,7 +167,12 @@
     if (is.null(x)) next
     if (!is.data.frame(x) && !inherits(x, "tbl_df")) next
     df <- as.data.frame(x, stringsAsFactors = FALSE)
-    disp <- display_names[[tg]] %||% .sm_display_from_tag(tg)
+    ## [[tg]] 在 tg 不在 names 时会 subscript OOB；勿依赖 %||%（到不了）
+    disp <- if (!is.null(display_names) && tg %in% names(display_names)) {
+      as.character(display_names[[tg]])
+    } else {
+      .sm_display_from_tag(tg)
+    }
     ## 文献三列：Model | Package / function | Hyperparameter setting or tuning strategy
     hp_txt <- if ("Hyperparameter" %in% names(df)) {
       paste(as.character(df$Hyperparameter), collapse = "; ")
@@ -206,12 +289,17 @@
   ci_chr <- NA_character_
   ci <- suppressWarnings(as.numeric(rt$conf.int))
   if (length(ci) >= 2L && all(is.finite(ci))) {
-    ci_chr <- sprintf("%.3f ~ %.3f", ci[1L], ci[2L])
+    ci_chr <- if (exists("pub_format_est", mode = "function")) {
+      paste0(pub_format_est(ci[1L]), " ~ ", pub_format_est(ci[2L]))
+    } else {
+      sprintf("%.3f ~ %.3f", ci[1L], ci[2L])
+    }
   }
   zv <- suppressWarnings(as.numeric(rt$statistic))
   if (length(zv) != 1L) zv <- NA_real_
   pv <- suppressWarnings(as.numeric(rt$p.value))
   if (length(pv) != 1L) pv <- NA_real_
+  ## 写出前已由 .sm_format_delong_df / pub_normalize_pub_df 规范；此处保留数值供中间 CSV
   data.frame(
     `New model-Baseline model` = paste(name_new, "-", name_base),
     `New model` = a1,
@@ -400,6 +488,31 @@ block_Supplementary_ml <- function(ctx, ...) {
     if (is.null(hp_df) || !nrow(hp_df)) {
       cli::cli_alert_warning("block_Supplementary_ml: 未找到任何模型的 Hpbest 超参数，跳过超参数表。")
     } else {
+      ## 只保留报告性能集：config$ml_models$methods 已踢掉的模型（如 TabPFN）
+      ## 不得残留在超参表（AKI_TX BUN_Cr P0-4）
+      meth_keep <- tolower(trimws(as.character(cfg$ml_models$methods %||% character(0))))
+      meth_keep <- meth_keep[nzchar(meth_keep)]
+      if (length(meth_keep) && "Model" %in% names(hp_df)) {
+        ## methods 可含未训成的模型（如 adaboost/catboost）；[[tg]] 对缺失名会 OOB
+        keep_disp <- unique(vapply(meth_keep, function(tg) {
+          if (!is.null(display_names) && tg %in% names(display_names)) {
+            as.character(display_names[[tg]])
+          } else {
+            .sm_display_from_tag(tg)
+          }
+        }, character(1L)))
+        keep_disp <- keep_disp[nzchar(keep_disp)]
+        if (length(keep_disp)) {
+          before_n <- nrow(hp_df)
+          hp_df <- hp_df[as.character(hp_df$Model) %in% keep_disp, , drop = FALSE]
+          dropped <- before_n - nrow(hp_df)
+          if (dropped > 0L) {
+            cli::cli_alert_info(
+              "block_Supplementary_ml: 超参表已按 ml_models$methods 剔除 {dropped} 行（禁残留未报告模型）"
+            )
+          }
+        }
+      }
       if ("Model" %in% names(hp_df)) {
         hp_df <- hp_df[, c("Model", setdiff(names(hp_df), "Model")), drop = FALSE]
       }
@@ -432,15 +545,35 @@ block_Supplementary_ml <- function(ctx, ...) {
       y_te[!tv_te$ok] <- NA_real_
     }
 
+    .sm_resolve_pred_col <- function(df, group_label, preferred = NULL) {
+      if (exists(".pm_resolve_pred_col", mode = "function")) {
+        return(.pm_resolve_pred_col(df, group_label, preferred = preferred))
+      }
+      nms <- names(df)
+      g <- as.character(group_label)[1L]
+      if (!is.null(preferred) && preferred %in% nms) return(preferred)
+      cands <- unique(c(preferred, paste0(".pred_", g), paste0(".pred_", make.names(g))))
+      hit <- intersect(cands[nzchar(as.character(cands))], nms)
+      if (length(hit)) return(hit[[1L]])
+      pred_cols <- nms[grepl("^\\.pred_", nms)]
+      if (length(pred_cols)) {
+        j <- match(make.names(g), make.names(sub("^\\.pred_", "", pred_cols)))
+        if (!is.na(j)) return(pred_cols[[j]])
+      }
+      NULL
+    }
     pred_tr_list <- list()
     pred_te_list <- list()
     for (tg in tags_ok) {
       pr <- loaded[[tg]]$predtrain
       pe <- loaded[[tg]]$predtest
-      if (!pred_ana %in% names(pr) || !pred_ana %in% names(pe)) next
+      if (is.null(pr) || is.null(pe)) next
+      col_tr <- .sm_resolve_pred_col(pr, ana_group, preferred = pred_ana)
+      col_te <- .sm_resolve_pred_col(pe, ana_group, preferred = pred_ana)
+      if (is.null(col_tr) || is.null(col_te)) next
       nm <- display_names[tg]
-      pred_tr_list[[nm]] <- as.numeric(pr[[pred_ana]])
-      pred_te_list[[nm]] <- as.numeric(pe[[pred_ana]])
+      pred_tr_list[[nm]] <- as.numeric(pr[[col_tr]])
+      pred_te_list[[nm]] <- as.numeric(pe[[col_te]])
     }
     if (!length(pred_tr_list)) {
       stop("block_Supplementary_ml: 无法读取任何模型的预测概率列。", call. = FALSE)
@@ -464,7 +597,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         Log_Loss_Validation = unname(ll_te),
         stringsAsFactors = FALSE
       )
-      df_ll <- .sm_round_df_numeric(df_ll, tbl_digits)
+      df_ll <- .sm_format_logloss_df(df_ll)
       ll_pub <- pub_paths(
         ctx, tbl_dir, "supp_table",
         "Log-Loss (training and validation sets)",
@@ -480,7 +613,7 @@ block_Supplementary_ml <- function(ctx, ...) {
       d_tr <- .sm_run_delong_grid(y_tr, pred_tr_list, delong_m)
       d_te <- .sm_run_delong_grid(y_te, pred_te_list, delong_m)
       if (!is.null(d_tr) && ("delong" %in% methods || "s4" %in% methods)) {
-        d_tr <- .sm_round_df_numeric(d_tr, tbl_digits)
+        d_tr <- .sm_format_delong_df(d_tr)
         del_tr_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "DeLong tests (training set)",
@@ -490,7 +623,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         ctx <- save_result(ctx, "supplementary_ml_s4", d_tr, "Table_S4_delong_train.csv")
       }
       if (!is.null(d_te) && ("delong" %in% methods || "s5" %in% methods)) {
-        d_te <- .sm_round_df_numeric(d_te, tbl_digits)
+        d_te <- .sm_format_delong_df(d_te)
         del_va_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "DeLong tests (validation set)",
@@ -530,6 +663,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         nri_tr <- .sm_fill_nri_na_p(nri_tr)
         names(nri_tr)[names(nri_tr) == "P value_NRI"] <- "P value (NRI)"
         names(nri_tr)[names(nri_tr) == "P value_IDI"] <- "P value (IDI)"
+        nri_tr <- .sm_format_nri_idi_df(nri_tr)
         nri_tr_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "NRI and IDI (training set)",
@@ -542,6 +676,7 @@ block_Supplementary_ml <- function(ctx, ...) {
         nri_te <- .sm_fill_nri_na_p(nri_te)
         names(nri_te)[names(nri_te) == "P value_NRI"] <- "P value (NRI)"
         names(nri_te)[names(nri_te) == "P value_IDI"] <- "P value (IDI)"
+        nri_te <- .sm_format_nri_idi_df(nri_te)
         nri_va_pub <- pub_paths(
           ctx, tbl_dir, "supp_table",
           "NRI and IDI (validation set)",

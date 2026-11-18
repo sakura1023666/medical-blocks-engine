@@ -3,7 +3,8 @@ name: pipeline-foundation
 description: >-
   Medical Blocks「地基」架构：发病/预后两块地基；新套路只加法后缀。标准路径必须含
   PDF切块 → 对抗阅读(Q1–Q8) → 地基判定 → 门控 → 决策树确认 → batch → 发表收口
-  → 发表质控(pub-qc-after-project)。Use when the user says 地基, 套路, 新流水线,
+  → 发表质控(pub-qc-after-project)
+  → 中期 PDF（Aiya-NB004-midterm-report，Nature P0 清零后）。Use when the user says 地基, 套路, 新流水线,
   文献复现, 接套路, 提示词出流水线, paper-to-routine, 对抗阅读接套路, Q1–Q8,
   IPW/轨迹/竞争风险/TST 挂哪块地基, or asks whether a prompt covers the full path.
 ---
@@ -13,6 +14,7 @@ description: >-
 > 汇报口径：`docs/汇报_流水线地基与轨迹案例.md`  
 > 对抗阅读：`.cursor/skills/adversarial-lit-reading/SKILL.md`（**接套路前必跑，不可跳**）  
 > 发表质控：`.cursor/skills/pub-qc-after-project/SKILL.md`（**跑完立刻挂接，不可跳**）  
+> 中期报告：`.cursor/skills/Aiya-NB004-midterm-report/SKILL.md`（**质控 PASS/WARN 且 P0 清零后立刻出，不可跳**）  
 > 配套：`create-pipeline-config` · `run-batch-pipeline` · `review-raw-covariate-columns` ·  
 > `split-medical-block` · `feishu-result-sync` · `deploy-medical-blocks-host`
 
@@ -32,6 +34,7 @@ PDF 入库切块
   → --shared-only → workers
   → 发表收口
   → 发表质控（结构 + 交叉数字 + Agent 逻辑 → reports/pub_qc_*.md）
+  → 中期 PDF（每个【success】发表根一份；FAIL 或 P0 未清则不出）
 ```
 
 **两棵树不要混：**
@@ -73,6 +76,7 @@ PDF 入库切块
 
 - 默认至少跑 **Q4（变量/建模）+ Q5（假设/加权/缺失）+ Q8（可迁移到本研究）**；用户要求「完整」则 **Q1–Q8 全跑**。  
 - 每问：AI-A 建树 → **真实** GLM 攻击 → AI-A 修正 → Judge JSONL → `validate_jsonl.py`。  
+- 该 PDF 第一份修正决策树落盘后，跑一次 `export_paper_figures_docx.py`：先图后表，标题为 `Figure 1，中文图题`，补充图和补充表用 `--extra` 一并截入 `*_图表.docx`（同一 PDF 不重复出）。  
 - 禁止伪造 `B_*.md`；glm_call 非零即停。  
 - 可选：Block Extractor → `rounds/block_gap_*`（只登记缺失，不改旧 Blocks）。
 
@@ -104,7 +108,16 @@ PDF 入库切块
 - **只审 `【success】` 指标/单元**；跳过全部 `【failed】` 与裸名目录。  
 - Layer A 结构 → Layer B 交叉数字 → Layer C Agent 逻辑 → **Layer D `nature-statistics` + `nature-figure`（P0 必须修完）**。  
 - 落盘 `reports/pub_qc_YYYY-MM-DD.md` 与 `reports/nature_*_qc_*.md`，口头给出 **PASS / WARN / FAIL**。  
-- **未出质控报告、或 Nature P0 未清零前不得宣称项目完成。**
+- **未出质控报告、或 Nature P0 未清零前不得宣称项目完成，也不得出中期。**
+
+### Phase 7 — 中期报告（P0 清零后强制）
+
+严格按 `.cursor/skills/Aiya-NB004-midterm-report/SKILL.md`（去 AI 味用 `.cursor/skills/step05-Aiya-humanizer-zh/SKILL.md`）：
+
+- 仅当 Phase 6 总评为 **PASS 或 WARN** 且 Nature P0 已清（或报告写明用户接受残留）。
+- 项目目录 = 刚审完的每个 `【success】` 发表根或 `summary_results`（含 Tables + Figures）。用户 2026-10-12 授权：此目录已确认，不再二次询问。
+- 用户说「不要中期」则跳过并在回复里声明。
+- 产出为该目录下 `<客户老师>中期分析结果.pdf`；build 须打印出厂闸门通过。聊天里给出 PDF 路径。
 
 ---
 
@@ -135,7 +148,7 @@ PDF 入库切块
 
 完整可复制版：[prompt-template.md](prompt-template.md)（**已含对抗阅读硬段**）。
 
-短自检：若提示词里没有「PDF 切块 / 对抗阅读 Q1–Q8 / GLM 真实攻击 / 发表质控」，**不能**声称覆盖完整标准路径。
+短自检：若提示词里没有「PDF 切块 / 对抗阅读 Q1–Q8 / GLM 真实攻击 / 发表质控 / 中期 PDF」，**不能**声称覆盖完整标准路径。
 
 ---
 

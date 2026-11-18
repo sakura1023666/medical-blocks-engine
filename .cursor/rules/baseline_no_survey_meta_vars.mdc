@@ -1,0 +1,27 @@
+# 基线表禁调查元变量铁律（全项目）
+
+凡 **Table 1 / 不加权敏感性基线（S10 等）/ baseline_nhanes / baseline_binary**，表体变量必须是临床可解释的协变量 + 暴露；**禁止**把调查设计元数据当「基线特征」展示。
+
+## 铁律
+
+1. **禁止进表体**：`cycle` / `Cycle`、`new_Weight` / `new Weight`、任意 `WT*` 调查权重、`SDMVPSU` / `SDMVSTRA`、`Source_File`（及 `nhanes_survey_weight_source_cols` / `pipeline_nhanes_survey_design_exclude_cols` 名单）。
+2. **不加权敏感性与加权 Table1 变量集一致**：S10 不得比 Table1 多出 cycle / new Weight；引擎 `baseline_binary` 已强制自动剔除，config `exclude_vars` 须同步写上（模板已含）。
+3. **禁止**为「看起来信息更全」把周期或权重塞进 Table1/S10。
+4. 权重与周期只写在 Methods / Fig1 Exclude（展示名去下划线，如 `new Weight`），不进基线特征行。
+
+## 实现入口
+
+- `Blocks/04_baseline/01block_baseline_binary.R`（全项目自动剔除）
+- `Blocks/04_baseline/03block_baseline_nhanes.R`（加权 Table1）
+- 模板：`configs/templates/config_incidence_*` 的 `baseline_binary$exclude_vars`
+
+## 检查清单
+
+- [ ] 加权 Table1 无 cycle / new Weight / WT* / SDMV*
+- [ ] 不加权 S10 与 Table1 变量集一致（无多出行）
+- [ ] config `exclude_vars` 含 cycle + new_Weight（或接受引擎自动剔除）
+
+## 反例（禁止）
+
+- S10 在 CHD 后插入 cycle 四档 + new Weight，而 Table1 没有
+- 课题 config 故意把 `cycle` 放进 `include_vars` 绕过排除

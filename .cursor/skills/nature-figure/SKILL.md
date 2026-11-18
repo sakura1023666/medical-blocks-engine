@@ -9,6 +9,25 @@ description: >-
 
 # Nature Figure Making — Router
 
+## Medical Blocks 定稿栅格 DPI（本仓库强制）
+
+凡审 Medical Blocks / `01Block` 课题定稿 `Figures/png` 与 `Figures/tiff`：
+
+1. **嵌入 DPI 必须 ≥ 600**（全项目铁律；与期刊「≥300」底线无关，本仓库一律 600）。
+2. 每次 Nature 图面审（含 `pub-qc-after-project` Layer D）**必须**检查：优先 `pub_figure_formats_status(figures_dir)`，或用 PIL/`identify` 抽读元数据。
+3. `bad_dpi` 非空、缺 DPI 元数据、或读值为垃圾（如 1）→ **P0 / FIX BEFORE DELIVERY**；当场 `pub_figure_ensure_formats(..., config)` 重导后再复检。
+4. 引擎默认：`R/pub_figure_export.R` 与 `python/pub_figure_rasterize.py` 的 dpi 下限为 600。
+5. **交付漏检（与 nature-statistics 同清单，图面侧必做）**：`pdftotext` 核对 AUC/Youden 落在被引用的那张 PDF；横断面轴不得写 Incidence；多面板 RCS 的主叙述跟显著面板；引用图必须有 pdf；禁止 `.tif`（用 `.tiff`）；image_information stem 与 pdf 一一对应，无幽灵条目。分母对齐不能代替这些检查。
+5b. **NHANES 权重 / 中介图号（COPD MCMI 2026-11）**：Fig1 Exclude 若写 `new Weight from WTSAF2YR`（或 WTMEC），Methods 权重句必须同名同源，禁止 Methods 仍写 `WTMEC (or WTSAF)` 二义模板。中介路径图 `image_information` 引用的 Table S* 必须等于交付实体表号（associations/mediation 无错号双份）；path a 数字与中介表逐位一致。
+5c. **亚组森林 / RCS 竖线（COPD MCMI 2026-11）**：`pdftotext` 抽检任一行 OR CI 与 P——CI 下限>1 则 P 必须 <0.05（同源 Wald z）；图 md 必须写 Crude 或 Model 调整集。RCS 竖线若=未加权中位/~P50 knot，md+Methods 须写明，禁止与 Table1 加权中位静默混用。图面禁编程下划线（`new_Weight`→`new Weight`）。
+6. **Figure 1 / 纳排流程图排版硬检（强制；2026-11 UA_CR）**：凡交付含 Figure 1 Flowchart / CONSORT，**必须**打开 PDF 或高分辨率预览逐项看，不得只靠 `pdftotext` 或 N 对齐就 PASS。命中任一条 → **P0 / FIX BEFORE DELIVERY**，当场重导 `attrition_draw_pdf` 后再审：
+   - 主列纳入框与底部分叉（病例/对照或 Expired/Alive）**不得重叠**；末框文字不得被粉/绿分叉框遮挡或截断
+   - 右侧 Exclude 框不得压进上下主框；长文案须折行可读，禁止竖排糊成一团
+   - 箭头/连线完整：主列竖箭、Exclude 横虚线、分叉 T 形结构清晰
+   - 终步 n = Table1 / analytic N；分叉两臂 n 之和 = 终步 n
+   - 框内标签为展示名（无编程下划线）；Exclude 原因 = 真实剔除原因
+   - 默认无图底 Methods 长脚注
+
 ## Routing protocol
 
 For a new task, load the core and matching resources below. Reuse already loaded guidance on follow-ups; load more only when the task needs it.

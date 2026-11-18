@@ -1,5 +1,7 @@
 # 引擎决策树（一套路一份）
 
+放数据进来问「适合什么套路」时，先读 [`docs/套路推荐对照.md`](../docs/套路推荐对照.md)，按数据形态推荐 1 个主套路，再打开下表对应决策树。
+
 每个可跑套路保留 **1** 份标准决策树。程序员端口只拷该端口已挂套路对应文件。
 
 | 套路 / 流水线 | 标准决策树 |
@@ -10,7 +12,8 @@
 | CDC WONDER Dobbs | `decision_tree_cdc_wonder_dobbs.md` |
 | 因果森林轨迹 CHARLS | `decision_tree_cftraj_charls.md` |
 | 竞争风险（hooks 母版；CHF/卒中/AKI 等同入口） | `decision_tree_competing_risk_stroke.md` |
-| 复杂网络 CLHLS | `decision_tree_complex_network_clhls.md` |
+| 复杂网络 CLHLS（旧 GGM 粗链） | `decision_tree_complex_network_clhls.md` |
+| CLHLS 抑郁×焦虑症状网络（Chang 2025 全深度） | `decision_tree_clhls_symptom_network.md` |
 | 共病×孟德尔 | `decision_tree_crm_nhanes_mr.md` |
 | 交叉滞后衰弱 | `decision_tree_cross_lagged_frailty.md` |
 | 双变化分数 ELSA | `decision_tree_dual_change_score_elsa.md` |

@@ -1,0 +1,131 @@
+---
+description: NHANES/发病发表交付 P0 铁律（eGDR 2026-10 + cute_ran HHR 2026-11；防再被审出）
+alwaysApply: true
+---
+
+# NHANES / 发病发表 P0 铁律（eGDR 374 + cute_ran HHR 教训）
+
+凡 **NHANES 加权发病 / dual-batch 含 NHANES / 复合指标 logistic** 在质控、Methods 补写、表图返工时必须遵守。  
+踩坑：`06_Psoriasis/incidence_38341157`【success】eGDR；`22_depression/incidence_cute_ran`【success】HHR（2026-11-02 §8.5）。
+
+与 `pub-qc-after-project/checklist.md` **§B3**、`nature-statistics/.../common-failure-modes.md`「Medical Blocks 交付漏检」同步；未逐条过不得 PASS。
+
+## 1. 主表调整集唯一链（防 Diabetes 漂移）
+
+1. **交付根 Table 2 Model 2 脚注所列协变量 = 单元格实际拟合集**。禁止根表脚注删 Diabetes（或其它变量）却仍用含该变量的引擎 OR，或反过来。
+2. 对照：`NHANES/step*_logistic_quartile_nhanes_weighted` 的 Table 2 与根 `Tables/Table 2*` — **脚注与 Q4/连续 Model2 OR 字符串级一致**；不一致 → P0，外科回写或重导，禁止只改脚注。
+3. **中介 / RCS / 敏感性加权 logistic 脚注**的 Model 2 调整集必须与交付 Table 2 **同名同集**（用户书面要求某表另设除外，须脚注写明）。
+4. **亚组分层 ≠ 调整协变量**：Fig3 Diabetes 分层可以有；Yes 层 0 事件 → 图面 **NE**，禁止 md/正文抄 `0.00 (1e-07…)` 伪 CI。NE 图注一句事实句即可。
+
+## 2. 加权 vs 不加权两套切点（防 9.318 / 9.387）
+
+1. **主文 / Table 1 / Table 2 分位切点** = **调查加权**分位；Numbers_Master 只锁这一套。
+2. **Table S1（插补前后）、不加权基线、不加权 GLM 敏感性**若给出另一套中位数/切点 → 脚注必须写 **unweighted**，并写「不可与 Table 2 加权切点互换」。
+3. RCS 二分切点若贴近不加权中位数 → 脚注标明，勿暗示等于 Table 2 四分网格。
+4. 同一暴露 0% 缺失却「插补前后中位数不同」→ 先查是否加权口径不同，禁止臆造「重算了指标」。
+
+## 3. 中介总效应 ≠ Table 2（防硬拗 0.489 vs 0.528）
+
+1. 中介 **Total effect** 与 Table 2 Model 2 最高分位 OR **允许数值不同**（暴露编码、Q2/Q3 保留、有限样本 survey 估计等）。
+2. **禁止**无脚注假装一致；S12 / 路径图 md 必须写：同调整集（或写明不同）+ 总效应不必与 Table 2 逐字相同。
+3. **禁止**把中介 Total CI 写成「即 Table 2 Model 2」。路径实现写实：`svyglm` + PSU cluster bootstrap（B、seed）；勿写未使用的 `mediation` 包拟合叙事。
+4. Fig S* 路径数字须与 S12 对应行逐值一致（a/b/直接/比例）。
+
+## 4. Methods 必写实（防零文档 / 防「cycle scaling」空话）
+
+交付 `Methods_statistical_analysis.md`（或合并 Software 后的方法文）缺任一项 → **P0（轨道 B 可只改文案）**：
+
+| 项 | 最低内容 |
+|----|----------|
+| 复合指标公式 | 完整式 + 系数出处（如 eGDR SEARCH/Williams）；成人外推一句 |
+| 暴露定名 | 全套 Methods/表/图同一缩写（如 **HHR**）；禁止项目信息写 HRR、图表写 HHR |
+| MICE | method、m、maxit、seed、**结局是否入预测矩阵**、complete_action / 操作层 vs Rubin |
+| 调查权重 | **具体公式**（如 `new_Weight = WTMEC2YR / C`，写明 C=周期数、有无 4YR 行）；**禁止**只写 “with cycle scaling” |
+| Fig1 起点桥接 | 若起点 n ≠ 疾病定义可判池：Methods + Fig1 md 必须写差额原因（哪一周期/哪次 join） |
+| RCS | 结点数与分位（如 3 knots @ P10/P50/P90）、`ref.zero`、竖线=primary cutoff 规则（唯一 OR=1 / 多根取 peak）；S-XX 省略时仍须解释竖线或去线 |
+| 协变量路径 | S3→S4→S5→S7（或课题等价）；若 **S5 暴露不显著、缩减 Model2 显著** 须点名 + Limitations 承认筛选 |
+| ROC | 只报图上 AUC；**禁止** fig md / Methods 写惩罚回归·GBM「训练抬高、CV 掉下去所以不用」自曝句 |
+
+**H1 闭环铁律**：勾「Methods P0 已清」前必须 `rg` 现行 `Methods_statistical_analysis.md` 含上表关键句；**禁止** H1 全勾但 Methods 被重传短稿冲掉后仍宣称 PASS。
+
+## 5. 图 md 与图面（防陈旧抄录）
+
+1. `image_information` 图上标注 **必须与 PDF 图面一致**；图面 NE → md 写 NE，旧数值作废。
+2. 脚注声称 `weighted mean (SE) or median (IQR)` / `weighted count` 但表内全是 median、分类 n 相加=未加权 N → **P0**：改脚注为 `weighted median (IQR)` + `unweighted counts with weighted percentages`（零数值改动；引擎 `table1_baseline_xlsx_footnotes(weighted=TRUE)` 已对齐）。
+2b. **不加权敏感性分母**：S10/S11（或等价）N 必须 = 分析集（权重缺失/非正已剔除后）；禁止残留权重剔除前池（如 9,272 vs 8,732）。引擎：`pipeline_align_survey_analytic_rows`（baseline_binary / logistic_*_glm）。
+2b2. **S10 变量集 = Table1**：禁止 `cycle` / `new_Weight` / WT* / SDMV* 进 Table1 或不加权基线（全项目铁律 `baseline_no_survey_meta_vars`；引擎自动剔除）。
+2c. **亚组森林**：CI 与 P 同源（z-CI↔z-P）；图 md/Methods 写明 Crude 或调整集。
+2d. **RCS 结点**：Methods 写 knots 加权/未加权口径；竖线与 Table1 加权中位不同源须脚注/图注。
+2e. **现患 vs 发病**：横断面自报 ever-diagnosed → prevalence/cross-sectional；禁 Methods/versions 写 incidence。
+3. 表题写「participants with \<Disease\>」实为全队列 → 改题名（P1）。
+
+## 6. 主表去重 + 横断面脚注模板（cute_ran HHR 2026-11）
+
+1. **禁止交付根同时存在内容全等的 Table 2 与 Table 3**（仅表题编号不同也算）。交付前逐格比对；重复 → **删多余编号**，主文只留 Table 1–2（除非第三表确有不同分析）。
+2. 中期 PDF 连续编号（T1-N/T1-C/T2-N → 表1/2/3）与正文「表 2」叙事冲突时，**改叙述对齐连续号**，勿误留重复 xlsx「圆谎」。
+3. **横断面 / 无生存课题**：表脚注禁止残留 `Cox/`、`KM/RCS`；改为 `logistic` / `RCS plots`。中介比例均为正时，删 “negative proportion mediated…” 模板句。
+4. Path a 与 S8 β 标度不同时，脚注必须写清（如 path a=连续暴露单位、S8=per 1-SD），禁止两处都写 per 1-SD 却数值不可互推。
+5. `Methods_software_versions.txt` 与 Methods 软件表并集；无对应分析实体的 survival/cmprsk/glmnet 等 **不得**在正文/清单冒充本分析所用。
+
+## 7. MCMI / 空腹指标交付漏检（COPD×MCMI 2026-11；强制）
+
+踩坑：`55_COPD/incidence_38341157`【success】MCMI。未逐条过不得 PASS。
+
+### 7b. 三轮收口再踩（2026-11-16；强制防再犯）
+
+1. **禁止发病 config 挂空 `ml_batch`**：指标级 summary 只用 `pub$write_index_summary_results`；`incidence_single_is_ml_project` / `omit_figure_s2` / `purge_non_delivery_figures` **不得**仅凭 `write_index_summary_results` 判 ML。
+2. **`ml_finalize_index_summary_results` 清图必须传 config**：非 ML scheme **保留** Figure S1 箱线、S2 ROC、Figure 4 中介路径。
+3. **横断面 Table2 脚注禁止 `KM/`**：`mi_methods_footnote_lines(study_type="incidence")` + `.mi_scrub_incidence_survival_tokens`。
+4. **单库 A1 禁止 `-NHANES`**：finalize / remirror 后 `pub_sync_xlsx_a1_titles_to_filenames`；文件名与 A1 同号无库标签。
+5. **中介路径图 md 表号 = 实体 S9**（关联=S8）；禁止 md 写 S8 却指向中介数字。
+
+
+1. **权重一句一源**：Methods `survey_weight_formula` / §design **只能写本指标实际权重**（空腹血脂指标 = `new_Weight = WTSAF2YR / C`，写明 C）。**禁止** `WTMEC2YR (or WTSAF2YR…)` 二义模板与 Fig1「new Weight from WTSAF2YR」互斥。
+2. **MICE 结局入模写实**：须写 outcome **入 / 不入** predictor matrix（引擎默认：结局列 detach，不插补、不进 CART/PMM 预测矩阵）。禁止 “followed study imputation block defaults” 含糊句。
+3. **连续暴露尺度**：Table 2 / S7 final / 中介 Total continuous OR 必须标明 **per 1 unit / per SD / per IQR**；若 per unit 须给分布量级（median/IQR）。禁止只写 “continuous” 却让读者对 1.278 vs 1.302 无法裁决。
+4. **Model2 ∩ 中介候选**：若 M2 含 Platelet/LD/WBC 等亦出现在中介表 → 脚注或 Limitations **方案 A 写实**（部分反映共享实验室路径）或方案 B 重导无中介候选的 M2；禁止 silently。
+5. **S 表重号副本**：禁止同时存在「Table S7. Weighted associations…」与「Table S8. Weighted associations…」内容全等、仅 A1 错号；中介同理。实体收敛为清单角色各一件（associations=S8、mediation=S9 或课题编号规则）；Fig4 md 引用同号。
+6. **暴露成分与 Table1**：复合指标成分若因 `analysis_exclusion` 已硬删，Methods 须写「成分缺失即剔除 + 成分为何不在 Table1」；若作者补导成分行另案。禁止既无成分行又无说明。
+7. **不加权敏感性脚注**：S11（或等价 unweighted logistic）禁止残留 “survey-weighted svyglm”；须写 unweighted logistic / GLM。
+8. **多因素空 OR 行**：S5 等若 VIF 已剔变量仍留空 OR → 标 `NA (VIF-removed)` 或删行 + 脚注；禁止真空单元格交差。
+9. **问卷结局变量名链**：COPD 等须写 MCQ 变量名与任一阳性规则（如 MCQ160K OR MCQ160G），禁只写 “MCQ items (bronchitis/emphysema)”。
+10. **ROC 三件**：协变量集（须能对上 Model2 或明确另一集）、AUC CI 方法（DeLong/`pROC::ci.auc` 等）、in-sample 性质；Limitations 一句即可，禁算法自曝。
+11. **定义类出处**：课题自造复合指标须写操作性定义 + 近邻已发表指标（如 CMI）；**禁止** “previously described MCMI” 伪引用。
+12. **软件清单**：必用 `survey` / `forestploter` 须在列；未跑生存/竞争风险/LASSO 则不得留 survival/survminer/cmprsk/glmnet 冒充本分析所用。
+
+## Agent 检查清单（每次 NHANES 发病 QC）
+
+```
+[ ] 根 Table2 M2 脚注变量 = step 源表 = 中介/RCS/S8/S10 脚注（同集）
+[ ] 根 Table2 M2 OR 字符串 = step 源表（无「只改脚注」漂移）
+[ ] 主切点=加权；S1/S9/S10 若另一套已标 unweighted
+[ ] S12/S9 总效应与 Table2 关系已脚注；路径数=图
+[ ] Methods：公式、定名、MICE(含结局是否入模)、权重**公式（单源）**、Fig1 起点桥接、RCS knots/竖线、终模路径、无 ROC 自曝
+[ ] Methods 权重句与 Fig1 weight 源一致（禁 WTMEC/WTSAF 二义）
+[ ] 连续 OR 尺度已写（per unit/SD/IQR）；中介 Total ≠ T2 连续已说明
+[ ] 无 associations/mediation 重号副本；Fig 引用 = 实体表号
+[ ] Model2∩中介候选已 Limitations/脚注；S5 空 OR 已 NA/删行
+[ ] 问卷结局 MCQ 变量名链；自造指标无伪引用
+[ ] ROC：协变量集 + DeLong/方法 + in-sample
+[ ] 软件清单含 survey；无 survival/cmprsk/glmnet 等未用包冒充
+[ ] 无 Table2≡Table3 重复主表；横断面脚注无 Cox/KM；S11 非加权脚注无 survey-weighted
+[ ] H1 勾清后 Methods 文件仍含上述句（防重传冲掉）
+[ ] Fig md NE/数字 = pdftotext 图面；无伪 0.00 CI
+[ ] 描述脚注口径与单元格一致；表题=内容
+```
+
+## 反例（禁止）
+
+- 引擎 Model2 含 Diabetes，交付 Table2 脚注删掉且 OR 换成另一套，中介仍报旧总效应
+- 主文用 9.39 切点，敏感性不加权切点不披露，审稿当两套样本
+- 正文写中介总效应「与 Table 2 一致」但 0.489 ≠ 0.528
+- Methods 不写 m/seed；fig md 自曝过拟合试验
+- Fig3 Yes=NE，md 仍写 0.00 (4.57e-07–…)
+- Methods 只写 “cycle scaling”，无 `WTMEC2YR/C`
+- Methods 写 `WTMEC2YR (or WTSAF2YR…)` 而 Fig1 写 WTSAF2YR（COPD MCMI 2026-11）
+- Table 3-NHANES 与 Table 2 逐格相同仍交付；中期把副本标成「表3」
+- 横断面表脚注残留 Cox/KM；H1 已勾但重传后 Methods 又变短仍报 PASS
+- S5 全模型暴露 NS、缩减 Model2 显著，Methods 不提筛选
+- 同时留 S7+S8 两份 associations（仅内部标题错号）；Fig4 仍引 Table S8 而实体已是 S9
+- 连续 OR 不写 per unit，却用中介 Total 与 T2 连续差做文章不注脚
+- versions.txt 有 survival/cmprsk 却无 survey

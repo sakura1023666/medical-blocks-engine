@@ -1,0 +1,921 @@
+[ml-worker-env] INCIDENCE_BATCH_ROOT=/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single MEDICAL_BLOCKS_ROOT=/mnt/e/01block/01Block-new-Final study_root=/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single
+[composite_index_vars] 已加载：全量 101 个指标 / 双库安全子集 65 个 / 轨迹APRI子集 6 个
+
+── Worker: HHR → [HHR], db=nhanes ──────────────────────────────────────────────
+
+── [HHR] ML 定向重跑: from=ml_assoc_bundle to=- blocks= ────────────────────────
+ℹ [HHR/NHANES] 定向续跑 from=ml_assoc_bundle
+
+── Pipeline: ml_dual_batch_primary_nhanes ──────────────────────────────────────
+ℹ 检查点: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/checkpoints/by_index/HHR/NHANES'（关闭: pipeline$checkpoint$enable = FALSE）
+ℹ 续跑: 从 ml_assoc_bundle 之后继续
+ℹ Blocks (27): ml_id_deduplicate → data_clean → column_mapping → dual_db_column_harmonize → index → analysis_exclusion → train_validation → imputation → cutoff → obj → baseline_nhanes → univariate_nhanes → multicollinearity_nhanes_screen → multivariate_nhanes → multivariate_covariate_resolve → multicollinearity_nhanes_final → ml_feature_selection_bundle → ml_assoc_covariate_resolve → ml_assoc_bundle → ml_models_bundle → performance_ml → supplementary_ml → shap → shiny_ml_app → subgroup_incidence → subgroup_prognosis → attrition_flowchart
+ℹ Output: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES'
+✔ 已恢复检查点: step19_ml_assoc_bundle
+── Block: ml_models_bundle ─────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step26_ml_models_bundle'
+── Block: ml_dt ────────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step27_ml_dt'
+
+── ml_dt: 训练 DT；折数=5；种子=42 ──
+
+✔ DT 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step27_ml_dt/Models/evalresult_dt.RData'
+✔ ml_dt 完成。
+✔ Block 'ml_dt' done in 3.1s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_rf ────────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step28_ml_rf'
+
+── ml_rf: 训练 RF；折数=5；种子=42 ──
+
+✔ RF 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step28_ml_rf/Models/evalresult_rf.RData'
+✔ ml_rf 完成。
+✔ Block 'ml_rf' done in 32.2s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_xgboost ───────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step29_ml_xgboost'
+
+── ml_xgboost: 训练 XGBOOST；折数=5；种子=42 ──
+
+✔ XGBOOST 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step29_ml_xgboost/Models/evalresult_xgboost.RData'
+✔ ml_xgboost 完成。
+✔ Block 'ml_xgboost' done in 11s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_enet ──────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step30_ml_enet'
+
+── ml_enet: 训练 ENET；折数=5；种子=42 ──
+
+✔ ENET 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step30_ml_enet/Models/evalresult_enet.RData'
+✔ ml_enet 完成。
+✔ Block 'ml_enet' done in 1.2s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_rsvm ──────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step31_ml_rsvm'
+
+── ml_rsvm: 训练 RSVM；折数=5；种子=42 ──
+
+maximum number of iterations reached 9.867554e-05 9.843555e-05maximum number of iterations reached 0.0004718474 0.0004667583maximum number of iterations reached 0.000363409 0.0003604287maximum number of iterations reached 9.034529e-05 9.00721e-05maximum number of iterations reached 0.0001611948 0.0001603589✔ RSVM 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step31_ml_rsvm/Models/evalresult_rsvm.RData'
+✔ ml_rsvm 完成。
+✔ Block 'ml_rsvm' done in 10.7s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_logistic ──────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step32_ml_logistic'
+
+── ml_logistic: 训练 LOGISTIC；折数=5；种子=42 ──
+
+✔ LOGISTIC 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step32_ml_logistic/Models/evalresult_logistic.RData'
+✔ ml_logistic 完成。
+✔ Block 'ml_logistic' done in 0.7s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_lightgbm ──────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step33_ml_lightgbm'
+
+── ml_lightgbm: 训练 LIGHTGBM；折数=5；种子=42 ──
+
+✔ LIGHTGBM 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step33_ml_lightgbm/Models/evalresult_lightgbm.RData'
+✔ ml_lightgbm 完成。
+✔ Block 'ml_lightgbm' done in 74.1s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_knn ───────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step34_ml_knn'
+
+── ml_knn: 训练 KNN；折数=5；种子=42 ──
+
+✔ KNN 结果已保存: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step34_ml_knn/Models/evalresult_knn.RData'
+✔ ml_knn 完成。
+✔ Block 'ml_knn' done in 4.2s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_adaboost ──────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step35_ml_adaboost'
+ℹ ml_adaboost: 训练集 n=3074 > max_train_n=349，跳过。
+✔ Block 'ml_adaboost' done in 0.1s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_catboost ──────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step36_ml_catboost'
+
+── ml_catboost: 训练 CATBOOST；折数=5；种子=42 ──
+
+✖ CATBOOST 失败: CatBoost 需要 bonsai + catboost 包。
+✔ Block 'ml_catboost' done in 0.2s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_tabpfn ────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step37_ml_tabpfn'
+
+── ml_tabpfn: TabPFN reticulate → '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step37_ml_tabpfn/Models/TabPFN_reticulate_export.xlsx' ──
+
+✖ TabPFN(reticulate) 失败: TabPFN reticulate 模式需要安装 R 包 reticulate。
+ℹ TabPFN 错误详情已写: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step37_ml_tabpfn/Models/tabpfn_reticulate_error.txt'
+✔ Block 'ml_tabpfn' done in 0.6s
+────────────────────────────────────────────────────────────────────────────────
+── Block: ml_aggregate ─────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step38_ml_aggregate'
+ℹ Queued table task: 'Table ML ModelPerformance.xlsx'
+✔ Saved: 'ml_eval_all.csv'
+✔ ml_aggregate: 汇总 224 行性能指标。
+✔ Excel table saved (SCI 三线表): 'Table ML ModelPerformance.xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table ML ModelPerformance.tex'
+✔ Block 'ml_aggregate' done in 0.7s
+────────────────────────────────────────────────────────────────────────────────
+✔ Block 'ml_models_bundle' done in 139.1s
+────────────────────────────────────────────────────────────────────────────────
+ℹ No queued tables to render.
+ℹ Checkpoint saved: 'step20_ml_models_bundle.rds'
+── Block: performance_ml ───────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step39_performance_ml'
+ℹ Queued figure task: 'Figure S. ML performance parallel train.pdf'
+ℹ Queued figure task: 'Figure S. ML performance parallel validation.pdf'
+ℹ Queued table task: 'Table 3. ML performance wide training.xlsx'
+ℹ Queued table task: 'Table 4. ML performance wide validation.xlsx'
+✔ Excel table saved (SCI 三线表): 'Table 3. ML performance wide training.xlsx'
+ℹ Mirrored to root: 'Tables/Table 3. ML performance wide training.xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table 3. ML performance wide training.tex'
+✔ Excel table saved (SCI 三线表): 'Table 4. ML performance wide validation.xlsx'
+ℹ Mirrored to root: 'Tables/Table 4. ML performance wide validation.xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table 4. ML performance wide validation.tex'
+ℹ Queued figure task: 'Figure S.ML internal validation ROC Sens Spec boxplot.pdf'
+ℹ Queued figure task: 'Figure S. ML performance ROC train.pdf'
+ℹ Queued figure task: 'Figure S. ML performance ROC validation.pdf'
+ℹ 概率校准（platt）：在训练集上拟合，应用于训练/验证集...
+✔ 概率校准完成（platt）。
+ℹ DCA 阈值范围: 0 ~ 50%（自动检测）
+ℹ calibration points: models=8, meanpred=[0.1, 82.5], meanobs=[1.5, 80.7]
+ℹ Queued figure task: 'Figure S. ML performance calibration train.pdf'
+ℹ calibration points: models=8, meanpred=[8.2, 84.7], meanobs=[1.5, 80.7]
+ℹ Queued figure task: 'Figure S. ML performance calibration train calibrated.pdf'
+Assuming '1' is [Event] and '0' is [non-Event]
+ℹ Queued figure task: 'Figure S. ML performance DCA train.pdf'
+Assuming '1' is [Event] and '0' is [non-Event]
+ℹ calibration points: models=8, meanpred=[0, 82.7], meanobs=[7.6, 69.2]
+ℹ Queued figure task: 'Figure S. ML performance calibration validation.pdf'
+ℹ calibration points: models=8, meanpred=[6, 84.2], meanobs=[7.6, 69.2]
+ℹ Queued figure task: 'Figure S. ML performance calibration validation calibrated.pdf'
+Assuming '1' is [Event] and '0' is [non-Event]
+ℹ Queued figure task: 'Figure S. ML performance DCA validation.pdf'
+Assuming '1' is [Event] and '0' is [non-Event]
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Coordinate system already present.
+ℹ Adding new coordinate system, which will replace the existing one.
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_stringMetric, as.graphicsAnnot(x$label)) :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+Warning in grid.Call(C_textBounds, as.graphicsAnnot(x$label), x$x, x$y,  :
+  font family 'Times New Roman' not found in PostScript font database
+ℹ Queued figure task: 'Figure 3. ML performance combined 2x4.pdf'
+ℹ 字体 'Times' 在当前 PDF 设备不可用，已使用 'Times New Roman'（Times 系，接近新罗马）。
+✔ Figure saved: 'Figure S. ML performance parallel train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance parallel train.pdf'
+✔ Figure saved: 'Figure S. ML performance parallel validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance parallel validation.pdf'
+✔ Figure saved: 'Figure S.ML internal validation ROC Sens Spec boxplot.pdf'
+ℹ Mirrored to root: 'Figures/Figure S.ML internal validation ROC Sens Spec boxplot.pdf'
+✔ Figure saved: 'Figure S. ML performance ROC train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance ROC train.pdf'
+✔ Figure saved: 'Figure S. ML performance ROC validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance ROC validation.pdf'
+✔ Figure saved: 'Figure S. ML performance calibration train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration train.pdf'
+✔ Figure saved: 'Figure S. ML performance calibration train calibrated.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration train calibrated.pdf'
+✔ Figure saved: 'Figure S. ML performance DCA train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance DCA train.pdf'
+✔ Figure saved: 'Figure S. ML performance calibration validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration validation.pdf'
+✔ Figure saved: 'Figure S. ML performance calibration validation calibrated.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration validation calibrated.pdf'
+✔ Figure saved: 'Figure S. ML performance DCA validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance DCA validation.pdf'
+✔ Figure saved: 'Figure 3. ML performance combined 2x4.pdf'
+ℹ Mirrored to root: 'Figures/Figure 3. ML performance combined 2x4.pdf'
+ℹ No queued tables to render.
+✔ block_performance_ml 完成（study_type=incidence）。
+ℹ Mirrored to root: 'Tables/Table 3. ML performance wide training.xlsx'
+ℹ Mirrored to root: 'Tables/Table 4. ML performance wide validation.xlsx'
+ℹ Mirrored to root: 'Figures/Figure 3. ML performance combined 2x4.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration train calibrated.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration validation calibrated.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance calibration validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance DCA train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance DCA validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance parallel train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance parallel validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance ROC train.pdf'
+ℹ Mirrored to root: 'Figures/Figure S. ML performance ROC validation.pdf'
+ℹ Mirrored to root: 'Figures/Figure S.ML internal validation ROC Sens Spec boxplot.pdf'
+✔ Block 'performance_ml' done in 15.7s
+────────────────────────────────────────────────────────────────────────────────
+ℹ No queued tables to render.
+ℹ No queued figures to render.
+ℹ Checkpoint saved: 'step21_performance_ml.rds'
+── Block: supplementary_ml ─────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step40_supplementary_ml'
+ℹ Queued table task: 'Table S8. Hyperparameters for machine learning models.xlsx'
+✔ Saved: 'Table_S2_hyperparameters.csv'
+✔ block_Supplementary_ml: 超参数表已汇总 8 个模型。
+ℹ Queued table task: 'Table S9. Log-Loss.xlsx'
+✔ Saved: 'Table_S3_logloss.csv'
+ℹ Queued table task: 'Table S10. DeLong tests (training set).xlsx'
+✔ Saved: 'Table_S4_delong_train.csv'
+ℹ Queued table task: 'Table S11. DeLong tests (validation set).xlsx'
+✔ Saved: 'Table_S5_delong_validation.csv'
+ℹ Queued table task: 'Table S12. NRI and IDI (training set).xlsx'
+✔ Saved: 'Table_S6_nri_idi_train.csv'
+ℹ Queued table task: 'Table S13. NRI and IDI (validation set).xlsx'
+✔ Saved: 'Table_S7_nri_idi_validation.csv'
+✔ Excel table saved (SCI 三线表): 'Table S8. Hyperparameters for machine learning models.xlsx'
+ℹ Mirrored to root: 'Tables/Table S8. Hyperparameters for machine learning models.xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S8. Hyperparameters for machine learning models.tex'
+✔ Excel table saved (SCI 三线表): 'Table S9. Log-Loss.xlsx'
+ℹ Mirrored to root: 'Tables/Table S9. Log-Loss.xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S9. Log-Loss.tex'
+✔ Excel table saved (SCI 三线表): 'Table S10. DeLong tests (training set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S10. DeLong tests (training set).xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S10. DeLong tests (training set).tex'
+✔ Excel table saved (SCI 三线表): 'Table S11. DeLong tests (validation set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S11. DeLong tests (validation set).xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S11. DeLong tests (validation set).tex'
+✔ Excel table saved (SCI 三线表): 'Table S12. NRI and IDI (training set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S12. NRI and IDI (training set).xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S12. NRI and IDI (training set).tex'
+✔ Excel table saved (SCI 三线表): 'Table S13. NRI and IDI (validation set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S13. NRI and IDI (validation set).xlsx'
+✔ LaTeX table saved (booktabs + longtable): 'Table S13. NRI and IDI (validation set).tex'
+✔ block_Supplementary_ml 完成（methods: hyperparameters, logloss, delong, nri_idi)。
+ℹ Mirrored to root: 'Tables/Table S10. DeLong tests (training set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S11. DeLong tests (validation set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S12. NRI and IDI (training set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S13. NRI and IDI (validation set).xlsx'
+ℹ Mirrored to root: 'Tables/Table S8. Hyperparameters for machine learning models.xlsx'
+ℹ Mirrored to root: 'Tables/Table S9. Log-Loss.xlsx'
+✔ Block 'supplementary_ml' done in 4.1s
+────────────────────────────────────────────────────────────────────────────────
+ℹ Checkpoint saved: 'step22_supplementary_ml.rds'
+── Block: shap ─────────────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step41_shap'
+ℹ block_shap: 验证库对齐主库 SHAP 图特征 n=7（来自 shap_plot_features_primary.rds）
+ℹ block_shap: ML 特征 7 个 → 烘焙列 10 个（HHR, Age, Monocyte, Gender_Male, Education_Higher.education, Diabetes_Yes, Race_Non.Hispanic.Black, Race_Non.Hispanic.White, ...）
+ℹ block_shap [logistic]: 方法=linear_coef
+ℹ block_shap: 韦恩 SHAP 已聚合为 ML 最终特征 n=7（分类 dummy 列 SHAP 求和）
+ℹ block_shap: 韦恩对齐 SHAP 图列 n=7（ML 特征 7 个）: HHR, Age, Monocyte, Gender, Education, Diabetes, Race
+Scale for colour is already present.
+Adding another scale for colour, which will replace the existing scale.
+ℹ Note: SHAP explains the fitted Group classifier (same as ml_models). Filename tag "incidence" reflects config$project$study_type only.
+ℹ Queued figure task: 'Figure 4. SHAP — Logistic.pdf'
+ℹ 字体 'Times' 在当前 PDF 设备不可用，已使用 'Times New Roman'（Times 系，接近新罗马）。
+✔ Figure saved: 'Figure 4. SHAP — Logistic.pdf'
+ℹ Mirrored to root: 'Figures/Figure 4. SHAP — Logistic.pdf'
+ℹ block_shap: 已导出主库 SHAP 图特征（n=7）→ 'shap_plot_features_primary.rds'
+✔ block_shap 完成（模型=logistic，method=linear_coef_venn_collapse，study_type=incidence，explain_on=train）
+ℹ Mirrored to root: 'Figures/Figure 4. SHAP — Logistic.pdf'
+✔ Block 'shap' done in 5.8s
+────────────────────────────────────────────────────────────────────────────────
+ℹ No queued figures to render.
+ℹ Checkpoint saved: 'step23_shap.rds'
+── Block: shiny_ml_app ─────────────────────────────────────────────────────────
+ℹ Block output directory: '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step42_shiny_ml_app'
+Warning in readChar(con, 5L, useBytes = TRUE) :
+  cannot open compressed file '/mnt/g/02block_result/15_hearing_loss/ml_hhr_charls_single/by_index/【success】HHR/NHANES/step42_shiny_ml_app/Data/df_train_RData.RData', probable reason 'No such file or directory'
+✖ [HHR] ML 定向重跑错误: cannot open the connection

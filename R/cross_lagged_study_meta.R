@@ -30,7 +30,9 @@ cross_lagged_read_panel_assigns <- function(study_root) {
     grouping = grp,
     dbs = dbs,
     exposure_label = as.character(e$.circadian_exposure_label %||% idx)[1L],
+    mediator_var = as.character(e$.circadian_mediator_var %||% "FI")[1L],
     mediator_label = as.character(e$.circadian_mediator_label %||% "Frailty Index")[1L],
+    mediator_transform = as.character(e$.circadian_mediator_transform %||% "")[1L],
     outcome_label = as.character(e$.circadian_outcome_label %||% "Circadian disorder")[1L],
     change_index_stem = if (identical(idx, "Leisure_score")) idx else "FI",
     change_index_display = if (identical(idx, "Leisure_score")) {
@@ -63,8 +65,19 @@ cross_lagged_study_is_dementia <- function(study_root) {
 }
 
 cross_lagged_discover_phase1_dbs <- function(study_root) {
-  dn <- list.dirs(study_root, recursive = FALSE, full.names = FALSE)
-  xs <- dn[grepl("^phase1_", dn) & !grepl("Pooled", dn, ignore.case = TRUE)]
+  dn <- list.dirs(study_root, recursive = FALSE, full.names = TRUE)
+  bn <- basename(dn)
+  keep <- grepl("^phase1_", bn) & !grepl("Pooled", bn, ignore.case = TRUE)
+  dn <- dn[keep]
+  # 空壳目录（仅有空 Tables/Figures）不算有效 phase1，避免误开 NHANES 外验
+  ok <- vapply(dn, function(p) {
+    has_ck <- dir.exists(file.path(p, "checkpoints")) &&
+      length(list.files(file.path(p, "checkpoints"), pattern = "\\.rds$")) > 0L
+    has_d01 <- file.exists(file.path(p, "D01_AfterMI_Data.RData"))
+    has_tab <- length(list.files(file.path(p, "Tables"), pattern = "\\.xlsx$", recursive = TRUE)) > 0L
+    isTRUE(has_ck || has_d01 || has_tab)
+  }, logical(1))
+  xs <- basename(dn[ok])
   xs <- sub("^phase1_", "", xs)
   xs <- sub("_allages$", "", xs)
   unique(xs[nzchar(xs)])
@@ -83,6 +96,22 @@ cross_lagged_study_is_suicide_cssrs <- function(study_root) {
     file.exists(file.path(sr, "config_suicide_clpm.R"))
 }
 
+#' 抑郁人群 × 高血压结局 × 虚弱交叉滞后
+cross_lagged_study_is_depression_htn_frailty <- function(study_root) {
+  sr <- as.character(study_root)[1L]
+  grepl("22_depression|depression_htn|depression_cross-laged", sr, ignore.case = TRUE) ||
+    file.exists(file.path(sr, "README_DEPRESSION_HTN_FRAILTY.txt")) ||
+    file.exists(file.path(sr, "data/harmonized/D04_CHARLS_depression_htn_baseline.RData"))
+}
+
+#' AIP × FI × 肌少症（HRS+SHARE 同波横断）
+cross_lagged_study_is_aip_sarcopenia <- function(study_root) {
+  sr <- as.character(study_root)[1L]
+  grepl("54_Sarcopenia|aip_sarcopenia|AIP.*[Ss]arcopenia", sr) ||
+    file.exists(file.path(sr, "README_AIP_SARCOPENIA.txt")) ||
+    file.exists(file.path(sr, "data/harmonized/D04_HRS_aip_sarcopenia_baseline.RData"))
+}
+
 #' 交叉滞后课题元数据
 #'
 #' @return list: kind, cohorts_xs, cohorts_long, index_var, grouping, labels, ...
@@ -90,6 +119,105 @@ cross_lagged_study_meta <- function(study_root) {
   study_root <- as.character(study_root)[1L]
   xs_found <- tryCatch(cross_lagged_discover_phase1_dbs(study_root), error = function(e) character(0))
   long_found <- tryCatch(cross_lagged_discover_long_dbs(study_root), error = function(e) character(0))
+
+  # AIP×肌少症 须在 hip / depression 默认之前
+  if (isTRUE(cross_lagged_study_is_aip_sarcopenia(study_root))) {
+    # 交付：横断面 CHARLS+ELSA+HRS；纵向 change / CLPN 仅 CHARLS+ELSA（HRS 横断面）
+    # SHARE 不进汇总
+    pref_xs <- c("CHARLS", "ELSA", "HRS")
+    pref_long <- c("CHARLS", "ELSA")
+    xs <- if (length(xs_found)) {
+      hit <- intersect(pref_xs, xs_found)
+      if (length(hit)) hit else pref_xs
+    } else pref_xs
+    lg <- if (length(long_found)) {
+      hit <- intersect(pref_long, long_found)
+      if (length(hit)) hit else pref_long
+    } else pref_long
+    return(list(
+      kind = "aip_sarcopenia",
+      disease = "Sarcopenia",
+      disease_code = "54",
+      analysis_group = "Sarcopenia",
+      reference_group = "No_Sarcopenia",
+      index_var = "AIP_FI",
+      index_display = "AIP × FI",
+      disease_display = "Sarcopenia",
+      project_prefix = "AIP_FI_Sarcopenia_sens_",
+      # 主文 Table2 交付为 quintile；敏感性 logistic 跟主文
+      grouping = "quintile",
+      grouping_labels = c("Q1", "Q2", "Q3", "Q4", "Q5"),
+      tertile_right = TRUE,
+      fi_t1 = "T1_AIP_FI",
+      fi_t2 = "T2_AIP_FI",
+      change_index_stem = "AIP_FI",
+      change_index_display = "AIP × FI",
+      table1_harmonize = TRUE,
+      cohorts_xs = xs,
+      cohorts_long = lg,
+      cohorts_covariate_lock = c("CHARLS", "ELSA", "HRS"),
+      cohorts_pooled = character(0),
+      # 中期 CHARLS Table2：M1=Age+Gender+Marital+Education；M2=+Hemoglobin
+      # Hemoglobin 缺测走 MICE m=5 + Rubin（不删人）
+      model1_locked = c("Age", "Gender", "Marital_Status", "Education"),
+      model2_locked = c("Age", "Gender", "Marital_Status", "Education", "Hemoglobin"),
+      covariate_lock_source = "midterm_charls_table2",
+      covariate_lock_note = paste(
+        "中期 CHARLS Model1=Age+Gender+Marital_Status+Education;",
+        "Model2=+Hemoglobin；横断面三库，纵向 CHARLS+ELSA。"
+      ),
+      labels = list(
+        exposure_label = "AIP × FI",
+        mediator_label = "Frailty Index",
+        outcome_label = "Sarcopenia"
+      )
+    ))
+  }
+
+  # depression×HTN×FI 须在 hip 默认之前
+  if (isTRUE(cross_lagged_study_is_depression_htn_frailty(study_root))) {
+    pref_xs <- c("CHARLS", "ELSA", "HRS")
+    xs <- if (length(xs_found)) {
+      hit <- intersect(pref_xs, xs_found)
+      if (length(hit)) hit else pref_xs
+    } else pref_xs
+    lg <- if (length(long_found)) intersect(pref_xs, long_found) else xs
+    # CHARLS 本课题不做纵向（见 LONGITUDINAL_NO_CHARLS.txt / 交付约定）
+    if (file.exists(file.path(study_root, "LONGITUDINAL_NO_CHARLS.txt")) ||
+        file.exists(file.path(study_root, "LONGITUDINAL_NO_CHARLS"))) {
+      lg <- setdiff(lg, "CHARLS")
+    } else {
+      # 即使残留 phase3_long_CHARLS，抑郁×HTN 默认纵向仅 ELSA+HRS
+      lg <- intersect(lg, c("ELSA", "HRS"))
+    }
+    return(list(
+      kind = "depression_htn_frailty",
+      disease = "Hypertension",
+      disease_code = "22",
+      analysis_group = "Hypertension",
+      reference_group = "No_Hypertension",
+      index_var = "FI",
+      index_display = "FI",
+      disease_display = "Hypertension",
+      project_prefix = "Depression_HTN_Frailty_sens_",
+      # 主文分位跟 logistic 闸门 4→3→2→5：本课题 CHARLS/ELSA/HRS/Pooled 均为 extend_quartile
+      grouping = "quartile",
+      grouping_labels = c("Q1", "Q2", "Q3", "Q4"),
+      tertile_right = TRUE,
+      fi_t1 = "T1_FI",
+      fi_t2 = "T2_FI",
+      change_index_stem = "FI",
+      change_index_display = "FI",
+      table1_harmonize = TRUE,
+      cohorts_xs = xs,
+      cohorts_long = lg,
+      labels = list(
+        exposure_label = "Frailty Index",
+        mediator_label = "Depressive symptom score",
+        outcome_label = "Hypertension"
+      )
+    ))
+  }
 
   # suicide_cssrs 必须在 hip 默认之前（亦先于 dementia/circadian）
   if (isTRUE(cross_lagged_study_is_suicide_cssrs(study_root))) {
@@ -170,8 +298,17 @@ cross_lagged_study_meta <- function(study_root) {
       grouping = grp,
       grouping_labels = grp_labels,
       tertile_right = TRUE,
-      fi_t1 = "T1_FI",
-      fi_t2 = "T2_FI",
+      # Leisure 暴露用 T1/T2_Leisure_score；ePWV 等仍用 FI 轨迹列
+      fi_t1 = if (identical(as.character(.pa$index_var %||% "")[1L], "Leisure_score")) {
+        "T1_Leisure_score"
+      } else {
+        "T1_FI"
+      },
+      fi_t2 = if (identical(as.character(.pa$index_var %||% "")[1L], "Leisure_score")) {
+        "T2_Leisure_score"
+      } else {
+        "T2_FI"
+      },
       change_index_stem = as.character(.pa$change_index_stem %||% "FI")[1L],
       change_index_display = as.character(.pa$change_index_display %||% "FI")[1L],
       table1_harmonize = FALSE,
@@ -235,6 +372,21 @@ cross_lagged_phase1_dir <- function(study_root, db) {
   if (dir.exists(d1)) d1 else d2
 }
 
+#' Pooled / 模板用的 phase1 config：优先 CHARLS，否则 meta$cohorts_xs 首个存在的
+cross_lagged_phase1_template_config <- function(study_root, meta = NULL) {
+  study_root <- as.character(study_root)[1L]
+  pref <- c("CHARLS", "ELSA", "HRS", "SHARE", "NHANES", "CLHLS")
+  if (!is.null(meta) && length(meta$cohorts_xs)) {
+    pref <- unique(c(as.character(meta$cohorts_xs), pref))
+  }
+  for (db in pref) {
+    f <- file.path(study_root, paste0("config_phase1_", db, ".R"))
+    if (file.exists(f)) return(f)
+  }
+  stop("cross_lagged_phase1_template_config: 无可用 config_phase1_*.R in ", study_root,
+       call. = FALSE)
+}
+
 #' Fig3 亚组锁定：同课题三库同一变量集、同一水平名；不含 Pooled
 cross_lagged_fig3_lock <- function(meta) {
   meta <- meta %||% list()
@@ -264,9 +416,9 @@ cross_lagged_fig3_lock <- function(meta) {
       level_order = list(
         Age_Group = c("< 65", "\u2265 65"),
         Gender = c("Female", "Male"),
-        Education = c("Below High school", "Above High school"),
+        Education = c("Below High school", "High school and above"),
         Marital_Status = c("Unmarried", "Married"),
-        Smoking = c("Never", "Current"),
+        Smoking = c("Never", "Former", "Current"),
         Hypertension = c("No", "Yes"),
         Diabetes = c("No", "Yes")
       ),
@@ -275,24 +427,48 @@ cross_lagged_fig3_lock <- function(meta) {
         if (isTRUE(include_age)) "Age_Group 65y (Leisure exposure);" else "Age omitted (ePWV component);",
         "Cancer omitted (NHANES has no column);",
         "NHANES Education/Smoking attached from D04 by ID;",
-        "Former smokers set to missing so Smoking is Never/Current like CHARLS/ELSA"
+        "Smoking = Never/Former/Current (CHARLS+ELSA both have Former; keep 3 levels);",
+        "Education: Above High school merged into High school and above"
       )
     ))
   }
-  t2dm <- if (identical(kind, "dementia")) "Diabetes" else "T2DM"
+  # 痴呆/抑郁×高血压/AIP×肌少症基线表用 Diabetes；髋部等用 T2DM
+  t2dm <- if (identical(kind, "dementia") || identical(kind, "depression_htn_frailty") ||
+               identical(kind, "aip_sarcopenia")) {
+    "Diabetes"
+  } else {
+    "T2DM"
+  }
+  # 抑郁×高血压课题：高血压是结局，禁止进亚组分层
+  # AIP×肌少症：身高体重进 SMI，亚组不用体测；结局相关不分层
+  base_vars <- c(
+    "Age_Group", "Gender", "Education", "Marital_Status", "Smoking",
+    "Alcohol_drinking", "Hypertension", t2dm, "Cancer"
+  )
+  if (identical(kind, "depression_htn_frailty")) {
+    base_vars <- setdiff(base_vars, "Hypertension")
+  }
+  if (identical(kind, "aip_sarcopenia")) {
+    # SHARE 吸烟几乎全缺，亚组不锁 Smoking
+    base_vars <- intersect(base_vars, c(
+      "Age_Group", "Gender", "Education", "Marital_Status",
+      "Alcohol_drinking", "Hypertension", "Diabetes", "Cancer"
+    ))
+  }
   list(
-    vars = c(
-      "Age_Group", "Gender", "Education", "Marital_Status", "Smoking",
-      "Alcohol_drinking", "Hypertension", t2dm, "Cancer"
-    ),
-    age_cutoff = 70L,
+    vars = base_vars,
+    age_cutoff = if (identical(kind, "depression_htn_frailty") || identical(kind, "aip_sarcopenia")) 65L else 70L,
     use_age_group = TRUE,
     index_var = as.character(meta$index_var %||% "FI")[1L],
     analysis_group = as.character(meta$analysis_group %||% "Hip_Fracture")[1L],
     reference_group = as.character(meta$reference_group %||% "No_Fracture")[1L],
     outcome_column = "Disease_Group",
     level_order = list(
-      Age_Group = c("< 70", "\u2265 70"),
+      Age_Group = if (identical(kind, "depression_htn_frailty")) {
+        c("< 65", "\u2265 65")
+      } else {
+        c("< 70", "\u2265 70")
+      },
       Gender = c("Female", "Male"),
       Education = c("Below High school", "Above High school"),
       Marital_Status = c("Unmarried", "Married"),
@@ -303,7 +479,11 @@ cross_lagged_fig3_lock <- function(meta) {
       Diabetes = c("No", "Yes"),
       Cancer = c("No", "Yes")
     ),
-    note = "no Pooled; Age_Group 70y; three single cohorts only"
+    note = if (identical(kind, "depression_htn_frailty")) {
+      "depression pop; HTN=outcome excluded from subgroups; Age_Group 65y"
+    } else {
+      "no Pooled; Age_Group 70y; three single cohorts only"
+    }
   )
 }
 
@@ -320,12 +500,44 @@ cross_lagged_find_baseline_rdata <- function(study_root, db) {
   if (!length(hit)) NA_character_ else hit[[1L]]
 }
 
+#' Education 两档并档：Above/College → High school and above；Below 同义归并
+#'
+#' 作用于 `Education` / `T1_Education` / `T2_Education`（及同名单列）。
+#' 昼夜 Leisure 交付：RCS / 中介 / change / 亚组共用，禁止各 phase 再写一套 gsub。
+cross_lagged_harmonize_education <- function(data) {
+  if (is.null(data) || !is.data.frame(data) || !nrow(data)) return(data)
+  cols <- unique(c(
+    intersect(c("Education", "T1_Education", "T2_Education"), names(data)),
+    grep("(^|[._])Education$", names(data), value = TRUE)
+  ))
+  if (!length(cols)) return(data)
+  for (vn in cols) {
+    x <- trimws(as.character(data[[vn]]))
+    x[x %in% c(
+      "Higher education", "College and above", "College", "Above High school",
+      "High school and above", "High school or above", "High School and above"
+    )] <- "High school and above"
+    x[x %in% c("Non-higher education", "Less than high school", "Below High school")] <-
+      "Below High school"
+    x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
+    data[[vn]] <- factor(x, levels = c("Below High school", "High school and above"))
+  }
+  data
+}
+
 #' 从课题基线表按 ID 补回亚组列，并统一 Education / Smoking 水平名
 cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
   data <- as.data.frame(data)
   vars <- as.character(lock$vars %||% character(0))
   if ("Smoking" %in% vars && !"Smoking" %in% names(data) && "Smoke" %in% names(data)) {
     data$Smoking <- data$Smoke
+  }
+  # Diabetes / T2DM 互为别名（抑郁/痴呆基线常用 Diabetes）
+  if ("T2DM" %in% vars && !"T2DM" %in% names(data) && "Diabetes" %in% names(data)) {
+    data$T2DM <- data$Diabetes
+  }
+  if ("Diabetes" %in% vars && !"Diabetes" %in% names(data) && "T2DM" %in% names(data)) {
+    data$Diabetes <- data$T2DM
   }
   need <- setdiff(vars, names(data))
   src_path <- cross_lagged_find_baseline_rdata(study_root, db)
@@ -351,23 +563,19 @@ cross_lagged_attach_harmonize_fig3 <- function(data, study_root, db, lock) {
       }
     }
   }
-  if ("Education" %in% names(data)) {
-    x <- trimws(as.character(data$Education))
-    x[x %in% c("Higher education", "College and above", "College", "Above High school")] <-
-      "Above High school"
-    x[x %in% c("Non-higher education", "Less than high school", "Below High school")] <-
-      "Below High school"
-    x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
-    data$Education <- factor(x, levels = c("Below High school", "Above High school"))
-  }
+  data <- cross_lagged_harmonize_education(data)
   if ("Smoking" %in% names(data)) {
     x <- trimws(as.character(data$Smoking))
-    # 与 CHARLS/ELSA 二元 Never/Current 对齐：Former 不并入任一侧，记为缺失
-    x[x %in% c("Former", "Ever", "Past", "Ex-smoker", "Ex smoker")] <- NA_character_
+    # 三档：Never / Former / Current（Former 同义归 Former，不并入 Never/Current）
+    x[x %in% c("Former", "Ever", "Past", "Ex-smoker", "Ex smoker", "Ex-Smoker")] <-
+      "Former"
     x[x %in% c("No")] <- "Never"
     x[x %in% c("Yes")] <- "Current"
     x[!nzchar(x) | x %in% c("NA", "NaN")] <- NA_character_
-    data$Smoking <- factor(x, levels = c("Never", "Current"))
+    smoke_lev <- as.character((lock$level_order %||% list())$Smoking %||%
+      c("Never", "Former", "Current"))
+    if (!length(smoke_lev)) smoke_lev <- c("Never", "Former", "Current")
+    data$Smoking <- factor(x, levels = smoke_lev)
   }
   for (vn in intersect(
     c("Alcohol_drinking", "Hypertension", "Diabetes", "T2DM", "Cancer",

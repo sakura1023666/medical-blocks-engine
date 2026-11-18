@@ -91,6 +91,7 @@ config <- list(
     max_iter              = 5L,
     seed                  = 1234L,
     complete_action       = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig    = TRUE,
     export_table_s1       = TRUE
   ),
@@ -270,7 +271,7 @@ config <- list(
     sig_cutoff = 0.05, strata = "Disease_Group",
     include_vars = NULL,
     exclude_vars = c(
-      "SEQN", "subject_id", "new_Weight",
+      "SEQN", "subject_id", "cycle", "Cycle", "new_Weight",
       "WTINT2YR", "WTMEC2YR", "WTMEC4YR",
       "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"
     ),

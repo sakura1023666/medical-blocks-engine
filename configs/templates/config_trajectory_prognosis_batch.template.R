@@ -78,7 +78,8 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.3,
     method = "cart", m = 5L, max_iter = 5L, seed = 1234L,
-    complete_action = 1L, export_missing_fig = TRUE, export_table_s1 = TRUE,
+    complete_action = 1L,
+    rubin_pool            = TRUE, export_missing_fig = TRUE, export_table_s1 = TRUE,
     exclude_from_mice_cols = character(0),
     table_s1_exclude_vars = character(0)
   ),

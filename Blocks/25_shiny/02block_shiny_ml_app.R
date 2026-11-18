@@ -14,7 +14,12 @@
 #    export_app = TRUE, risk_high_pct = 70, risk_low_pct = 30,
 #    app_subdir = "ShinyApp", run_interactive = FALSE,
 #    # 预后/Cox：默认 surv_prognostic（对齐 https://webcalcula.shinyapps.io/RSF-model_pro/）
-#    ui_style = "surv_prognostic"
+#    ui_style = "surv_prognostic",
+#    # UI 展示结局（可与训练集 Group 因子水平不同，如 Group=AKI_TX 实为死亡）
+#    outcome_display = NULL,   # → shiny_staging$disease_lbl / 文案里的结局名
+#    app_title = NULL,         # titlePanel；缺省 "Predicting <outcome_display>"
+#    cohort_note = NULL,       # Note a 追加：背景队列（如 AKI on HD）≠ 预测结局
+#    pred_col = NULL           # 显式 .pred_*；缺省从 Group 正类水平解析
 #  ),
 #  未设 shiny_ml_app 时回退 config$shiny 同名键
 ###############################################################################
@@ -254,6 +259,42 @@
     return(df)
   }
   df
+}
+
+## UI 展示结局名（可与模型 Group 因子水平脱钩）
+.sma_resolve_outcome_display <- function(cfg, sma_cfg) {
+  as.character(
+    sma_cfg$outcome_display %||%
+      sma_cfg$disease_lbl %||%
+      cfg$project$disease %||%
+      cfg$project$analysis_group %||%
+      "Outcome"
+  )[1L]
+}
+
+## tidymodels 概率列必须对齐训练时 Group 正类水平（如 .pred_AKI_TX）
+.sma_resolve_pred_col <- function(sma_cfg, disease_lbl, df_train = NULL) {
+  pc <- as.character(sma_cfg$pred_col %||% "")[1L]
+  if (nzchar(pc)) {
+    if (!startsWith(pc, ".pred_")) pc <- paste0(".pred_", make.names(pc))
+    return(pc)
+  }
+  if (!is.null(df_train) && "Group" %in% names(df_train)) {
+    lv <- levels(factor(df_train$Group))
+    lv <- lv[nzchar(lv)]
+    prefer <- c(
+      "Non-survivor", "Dead", "Death", "Yes", "1", "Event",
+      as.character(disease_lbl)[1L]
+    )
+    hit <- intersect(prefer, lv)
+    if (length(hit)) return(paste0(".pred_", make.names(hit[[1L]])))
+    neg <- grepl("^(No\\s|Survivor|Alive|Control|0$|Negative)", lv, ignore.case = TRUE)
+    pos <- lv[!neg]
+    if (length(pos) == 1L) return(paste0(".pred_", make.names(pos)))
+    if (length(lv) >= 2L) return(paste0(".pred_", make.names(lv[[length(lv)]])))
+    if (length(lv) == 1L) return(paste0(".pred_", make.names(lv)))
+  }
+  paste0(".pred_", make.names(as.character(disease_lbl)[1L]))
 }
 
 .sma_resolve_model2_factors <- function(ctx) {
@@ -519,6 +560,17 @@
   df_assign <- .sma_generate_df_assign_lines(meta$cov_names)
   note_b <- meta$note_covariates_text
   disease <- meta$disease_lbl
+  app_title <- as.character(
+    meta$app_title %||% paste0("Predicting ", disease)
+  )[1L]
+  cohort_note <- as.character(meta$cohort_note %||% "")[1L]
+  note_a <- paste0(
+    "a. This website aims to develop and validate a model using machine learning algorithms to predict the risk of ",
+    disease
+  )
+  if (nzchar(cohort_note)) {
+    note_a <- paste0(note_a, ". ", cohort_note)
+  }
   pred_col <- meta$pred_col
   risk_hi <- meta$risk_high
   risk_lo <- meta$risk_low
@@ -534,7 +586,7 @@
     paste0("Index <- ", .sma_r_literal(meta$Index_vars)),
     "",
     "library(tidymodels)",
-    "library(tidyverse)",
+    # tidyverse meta-package often absent on shinyapps; dplyr/tidyr already covered
     "library(tidyr)",
     "library(dplyr)",
     "",
@@ -586,24 +638,21 @@
     "      .shiny-output-error { visibility: visible; color: #b00020; }",
     "    \"))",
     "  ),",
-    paste0("  titlePanel(", .sma_r_string(paste0("Predicting ", disease)), "),"),
+    paste0("  titlePanel(", .sma_r_string(app_title), "),"),
     "  sidebarLayout(",
     "    sidebarPanel(",
     sidebar_ui,
     "      actionButton(\"submitBtn\", \"Submit\", icon = icon(\"play\"), class = \"btn-primary\")",
     "    ),",
     "    mainPanel(",
-    paste0("      h3(", .sma_r_string(paste0("Predicting ", disease, " outcomes:")), "),"),
+    paste0("      h3(", .sma_r_string(paste0("Predicted risk of ", disease, ":")), "),"),
     "      div(class = \"blue-text\", textOutput(\"result\")),",
     "      div(class = \"note\",",
     "        p(\"Note:\"),",
-    paste0("        p(", .sma_r_string(paste0(
-      "a. This website aims to develop and validate a model using machine learning algorithms to predict the risk of ",
-      disease
-    )), "),"),
+    paste0("        p(", .sma_r_string(note_a), "),"),
     paste0("        p(", .sma_r_string(paste0(
       "b. By simply inputting the information: ", note_b,
-      ", it is possible to predict the risk of ", disease
+      ", it is possible to estimate the risk of ", disease
     )), "),"),
     "      )",
     "    )",
@@ -629,7 +678,7 @@
     "    }",
     "    output$result <- renderText({",
     paste0("      paste0(\"This patient is at \", risk_level, \" of ", disease, "! \\n\","),
-    paste0("             \"The probability of ", disease, " is: \", predicted_probability, \"%\")"),
+    paste0("             \"The estimated probability of ", disease, " is: \", predicted_probability, \"%\")"),
     "    })",
     "    }, error = function(e) {",
     "      output$result <- renderText({ paste0(\"Prediction error: \", conditionMessage(e)) })",
@@ -667,11 +716,15 @@ block_shiny_ml_app <- function(ctx, ...) {
   Index_vars <- .sma_resolve_index_vars(cfg, sma_cfg)
   ml_tag <- .sma_resolve_ml_tag(ctx, sma_cfg)
 
-  disease_lbl <- cfg$project$disease %||% cfg$project$analysis_group %||% "Outcome"
-  disease_lbl <- as.character(disease_lbl)[1L]
-  pred_col <- paste0(".pred_", make.names(disease_lbl))
+  ## UI 展示结局；pred_col 另从 Group 正类 / 显式配置解析（可与展示名不同）
+  disease_lbl <- .sma_resolve_outcome_display(cfg, sma_cfg)
+  pred_col <- NULL  # 待读入 df_train 后再定
   risk_high <- as.numeric(sma_cfg$risk_high_pct %||% 70)[1L]
   risk_low  <- as.numeric(sma_cfg$risk_low_pct %||% 30)[1L]
+  app_title <- as.character(
+    sma_cfg$app_title %||% paste0("Predicting ", disease_lbl)
+  )[1L]
+  cohort_note <- as.character(sma_cfg$cohort_note %||% "")[1L]
   app_subdir <- as.character(
     sma_cfg$app_subdir_ml %||% sma_cfg$app_subdir %||% "ShinyApp"
   )[1L]
@@ -740,6 +793,7 @@ block_shiny_ml_app <- function(ctx, ...) {
   }
   df_train <- e_tr$df_train
   df_train <- .sma_ensure_group_column(df_train, cfg)
+  pred_col <- .sma_resolve_pred_col(sma_cfg, disease_lbl, df_train)
 
   miss <- setdiff(Final_Features, names(df_train))
   if (length(miss)) {
@@ -830,6 +884,8 @@ block_shiny_ml_app <- function(ctx, ...) {
     Index = Index_vars,
     Index_vars = Index_vars,
     disease_lbl = disease_lbl,
+    app_title = app_title,
+    cohort_note = cohort_note,
     Final_Features = Final_Features,
     model_features = model_features,
     cov_names = Final_Features,
@@ -873,6 +929,8 @@ block_shiny_ml_app <- function(ctx, ...) {
   meta <- list(
     Index_vars = Index_vars,
     disease_lbl = disease_lbl,
+    app_title = app_title,
+    cohort_note = cohort_note,
     cov_names = Final_Features,
     defaults = defaults,
     pred_col = pred_col,

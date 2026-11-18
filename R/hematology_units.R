@@ -46,6 +46,8 @@ is_hematology_platelet_name <- function(var_name) {
   nm <- as.character(var_name)[1L]
   # 体积/形态学列不是计数，勿按 Platelet_Count 规则缩放
   if (grepl("volume|mpv|width|distribution", nm, ignore.case = TRUE)) return(FALSE)
+  # 纵向派生（FR/CV/first/mean）是比值或汇总，不是血小板计数
+  if (grepl("_(FR|CV|first|mean)$", nm, ignore.case = TRUE)) return(FALSE)
   tolower(nm) %in% tolower(hematology_platelet_col_names()) ||
     grepl("platelet", nm, ignore.case = TRUE)
 }

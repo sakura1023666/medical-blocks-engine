@@ -118,3 +118,169 @@ pub_xlsx_verify <- function(path) {
   list(readable = identical(as.integer(bad), 0L), corrupt_cells = bad,
        styles = nst, rows = nrow(d))
 }
+
+#' 以文件名为准，把 xlsx A1 / sharedStrings 表内标题同步到 stem（数值零改动）
+#'
+#' 修复「文件名 Table S2、内题 Table S5」类错位（ML 补充表常见）。
+#' 优先走 python/pub_sync_xlsx_a1_to_filename.py（sharedStrings 外科替换）。
+pub_sync_xlsx_a1_titles_to_filenames <- function(tab_dir, recursive = FALSE) {
+  tab_dir <- as.character(tab_dir %||% "")[1L]
+  if (!nzchar(tab_dir) || !dir.exists(tab_dir)) {
+    return(invisible(list(n = 0L, files = character(0))))
+  }
+  files <- list.files(
+    tab_dir, pattern = "\\.xlsx$", full.names = TRUE,
+    ignore.case = TRUE, recursive = isTRUE(recursive)
+  )
+  files <- files[!grepl("/~\\$", basename(files))]
+  if (!length(files)) {
+    return(invisible(list(n = 0L, files = character(0))))
+  }
+  eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (!nzchar(eng)) eng <- getwd()
+  py_script <- file.path(eng, "python", "pub_sync_xlsx_a1_to_filename.py")
+  py <- if (nzchar(Sys.which("python3"))) {
+    Sys.which("python3")
+  } else if (nzchar(Sys.which("python"))) {
+    Sys.which("python")
+  } else {
+    ""
+  }
+  done <- character(0)
+  if (nzchar(py) && file.exists(py_script)) {
+    ## 文件名含括号/空格：逐文件调用，避免 system2 在 sh 下拆坏 argv
+    st <- character(0)
+    for (f in files) {
+      one <- tryCatch(
+        system2(
+          py,
+          args = c(shQuote(py_script), shQuote(normalizePath(f, winslash = "/", mustWork = TRUE))),
+          stdout = TRUE,
+          stderr = TRUE
+        ),
+        error = function(e) paste0(basename(f), ": error")
+      )
+      st <- c(st, one)
+    }
+    done <- character(0)
+    for (line in st %||% character(0)) {
+      if (grepl(": (set ->|already)", line)) {
+        bn <- sub(":.*$", "", line)
+        fp <- files[basename(files) == bn]
+        if (length(fp)) done <- c(done, fp[[1L]])
+      }
+    }
+    done <- unique(done)
+  }
+  ## 回退：openxlsx 写 A1。SMB/坏 sharedStrings 上 getCellInfo 可硬崩进程，
+  ## 默认跳过 openxlsx（可用 MEDICAL_BLOCKS_ALLOW_OPENXLSX_TITLE_SYNC=1 打开）。
+  left <- setdiff(files, done)
+  allow_ox <- identical(Sys.getenv("MEDICAL_BLOCKS_ALLOW_OPENXLSX_TITLE_SYNC", ""), "1")
+  if (isTRUE(allow_ox) && length(left)) {
+    for (f in left) {
+      new_title <- tools::file_path_sans_ext(basename(f))
+      ok <- tryCatch({
+        if (!requireNamespace("openxlsx", quietly = TRUE)) return(FALSE)
+        withCallingHandlers({
+          cur <- as.character(
+            openxlsx::read.xlsx(f, colNames = FALSE, rows = 1L, cols = 1L)[1, 1]
+          )
+          if (identical(trimws(cur %||% ""), new_title)) return(TRUE)
+          if (exists("pub_xlsx_edit_cells", mode = "function")) {
+            pub_xlsx_edit_cells(f, data.frame(row = 1L, col = 1L, value = new_title))
+            TRUE
+          } else {
+            wb <- openxlsx::loadWorkbook(f)
+            sh <- openxlsx::sheets(wb)[1L]
+            openxlsx::writeData(wb, sh, new_title, startCol = 1L, startRow = 1L, colNames = FALSE)
+            openxlsx::saveWorkbook(wb, f, overwrite = TRUE)
+            TRUE
+          }
+        }, warning = function(w) invokeRestart("muffleWarning"))
+      }, error = function(e) FALSE)
+      if (isTRUE(ok)) done <- c(done, f)
+    }
+  } else if (length(left) && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "跳过 openxlsx 表题回退 {length(left)} 个（防 SMB getCellInfo 崩进程）"
+    )
+  }
+  if (requireNamespace("cli", quietly = TRUE) && length(done)) {
+    cli::cli_alert_success(
+      "表内标题已与文件名对齐: {length(done)}/{length(files)} @ {tab_dir}"
+    )
+  }
+  invisible(list(n = length(done), files = done))
+}
+
+#' 外科式：把已导出 xlsx 展示层 `_` 换成空格（保样式；不整表重写）
+#'
+#' 用于 Layer A3 命中后的返工，以及 finalize 收口兜底。
+#' 仅改 sharedStrings / 单元格字符串；数值不动。
+pub_xlsx_scrub_underscores <- function(path, root = NULL) {
+  path <- as.character(path %||% "")[1L]
+  if (!nzchar(path) || !file.exists(path)) {
+    stop("pub_xlsx_scrub_underscores: 文件不存在: ", path, call. = FALSE)
+  }
+  pub_xlsx_strip(path, root = root)
+  if (!requireNamespace("openxlsx", quietly = TRUE)) {
+    stop("需要 openxlsx", call. = FALSE)
+  }
+  wb <- openxlsx::loadWorkbook(path)
+  n_edit <- 0L
+  for (sh in openxlsx::sheets(wb)) {
+    d <- tryCatch(
+      openxlsx::read.xlsx(path, sheet = sh, colNames = FALSE),
+      error = function(e) NULL
+    )
+    if (is.null(d) || !nrow(d) || !ncol(d)) next
+    for (i in seq_len(nrow(d))) {
+      for (j in seq_len(ncol(d))) {
+        v <- d[i, j]
+        if (is.na(v)) next
+        if (!is.character(v) && !is.factor(v)) next
+        s0 <- as.character(v)
+        if (!grepl("_", s0, fixed = TRUE)) next
+        s1 <- gsub("_", " ", s0, fixed = TRUE)
+        if (identical(s0, s1)) next
+        openxlsx::writeData(
+          wb, sh, s1,
+          startCol = j, startRow = i, colNames = FALSE
+        )
+        n_edit <- n_edit + 1L
+      }
+    }
+  }
+  if (n_edit > 0L) {
+    openxlsx::saveWorkbook(wb, path, overwrite = TRUE)
+    pub_xlsx_strip(path, root = root)
+  }
+  v <- pub_xlsx_verify(path)
+  if (!isTRUE(v$readable) || !identical(as.integer(v$corrupt_cells), 0L)) {
+    stop(
+      "pub_xlsx_scrub_underscores: 校验失败 ", path,
+      " corrupt=", v$corrupt_cells %||% NA, call. = FALSE
+    )
+  }
+  invisible(list(path = path, n_edit = n_edit, verify = v))
+}
+
+#' 批量 scrub 目录内全部 xlsx 展示下划线
+pub_xlsx_scrub_underscores_dir <- function(tab_dir, root = NULL) {
+  tab_dir <- as.character(tab_dir %||% "")[1L]
+  if (!nzchar(tab_dir) || !dir.exists(tab_dir)) {
+    return(invisible(list(n = 0L, files = character(0))))
+  }
+  files <- list.files(
+    tab_dir, pattern = "\\.xlsx$", full.names = TRUE, ignore.case = TRUE
+  )
+  files <- files[!grepl("/~\\$", basename(files))]
+  out <- list()
+  for (f in files) {
+    out[[basename(f)]] <- tryCatch(
+      pub_xlsx_scrub_underscores(f, root = root),
+      error = function(e) list(path = f, error = e$message)
+    )
+  }
+  invisible(list(n = length(files), results = out))
+}

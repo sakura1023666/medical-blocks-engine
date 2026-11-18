@@ -35,6 +35,7 @@ study_root <- Sys.getenv(
 )
 no_sync <- FALSE
 skip_boot <- FALSE
+skip_network <- FALSE
 boot_edge_n <- NA_integer_
 boot_case_n <- NA_integer_
 i <- 1L
@@ -49,6 +50,10 @@ while (i <= length(args)) {
     no_sync <- TRUE; i <- i + 1L
   } else if (args[[i]] %in% c("--skip-boot", "--no-boot")) {
     skip_boot <- TRUE; i <- i + 1L
+  } else if (args[[i]] %in% c("--skip-network", "--no-network", "--skip-clpn")) {
+    skip_network <- TRUE
+    skip_boot <- TRUE
+    i <- i + 1L
   } else if (args[[i]] == "--boot-edge" && i < length(args)) {
     boot_edge_n <- as.integer(args[[i + 1L]]); i <- i + 2L
   } else if (args[[i]] == "--boot-case" && i < length(args)) {
@@ -68,6 +73,11 @@ source(file.path(root, "R/cross_lagged_study_meta.R"))
 source(file.path(root, "R/cross_lagged_fi_item_labels.R"))
 source(file.path(root, "R/clpn_node_label_db.R"))
 source(file.path(root, "R/clpn_network_plot.R"))
+.plot_ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Times"
+}
 register_block <- function(...) invisible(NULL)
 if (file.exists(file.path(root, "Blocks/54_cross_lagged_full/17block_cross_lagged_network.R"))) {
   source(file.path(root, "Blocks/54_cross_lagged_full/17block_cross_lagged_network.R"), local = FALSE)
@@ -80,16 +90,30 @@ options(warn = 1, cli.hyperlink = FALSE)
 
 .panel_f <- file.path(study_root, "config_long_panel.R")
 .meta <- tryCatch(cross_lagged_study_meta(study_root), error = function(e) NULL)
+# 仅认真正赋值；注释里的字样不得误判为昼夜
 .is_circadian <- isTRUE(.meta$kind == "circadian") || (
   file.exists(.panel_f) &&
-    any(grepl("circadian_index_var|ePWV", readLines(.panel_f, warn = FALSE)))
+    any(grepl("^\\s*\\.circadian_index_var\\s*<-", readLines(.panel_f, warn = FALSE)))
 )
+.is_dep_htn <- isTRUE(.meta$kind == "depression_htn_frailty")
 if (file.exists(.panel_f)) {
   data_root <- file.path(study_root, "data")
   source(.panel_f, local = FALSE)
 }
-.ev_lab <- if (.is_circadian) "Circadian disorder" else "Hip fracture"
-.ref_lab <- if (.is_circadian) "No disorder" else "No fracture"
+.ev_lab <- if (.is_circadian) {
+  "Circadian disorder"
+} else if (.is_dep_htn) {
+  "Hypertension"
+} else {
+  "Hip fracture"
+}
+.ref_lab <- if (.is_circadian) {
+  "No disorder"
+} else if (.is_dep_htn) {
+  "No hypertension"
+} else {
+  "No fracture"
+}
 .fig4_title <- if (.is_circadian) "CLPN network of circadian conditions.pdf" else
   "CLPN network of frailty index items.pdf"
 .index_var <- if (!is.null(.meta$index_var)) as.character(.meta$index_var)[1L] else
@@ -108,9 +132,11 @@ if (file.exists(.panel_f)) {
 .std_disease <- function(x) {
   x <- as.character(x)
   ifelse(is.na(x), NA_character_,
-         ifelse(x %in% c("1", "Hip_Fracture", "Patellar_Fracture", "Fracture", "Yes", "Circadian_Disorder"),
+         ifelse(x %in% c("1", "Hip_Fracture", "Patellar_Fracture", "Fracture", "Yes",
+                         "Circadian_Disorder", "Hypertension"),
                 .ev_lab,
-                ifelse(x %in% c("0", "No_Fracture", "No fracture", "Normal", "No", "No_Disorder"),
+                ifelse(x %in% c("0", "No_Fracture", "No fracture", "Normal", "No",
+                                "No_Disorder", "No_Hypertension"),
                        .ref_lab, x)))
 }
 
@@ -287,22 +313,34 @@ if (file.exists(.panel_f)) {
     ) +
     scale_y_continuous(limits = ylim, expand = expansion(mult = c(0, 0.02))) +
     labs(x = xlab, y = ylab, title = title) +
-    theme_classic(base_size = 13) +
+    theme_classic(base_size = 13, base_family = .plot_ff) +
     theme(
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-      axis.title = element_text(face = "bold"),
-      axis.text = element_text(colour = "black"),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14, family = .plot_ff),
+      axis.title = element_text(face = "bold", family = .plot_ff),
+      axis.text = element_text(colour = "black", family = .plot_ff),
       legend.position = "bottom",
       legend.direction = "horizontal",
-      legend.text = element_text(size = 11),
+      legend.text = element_text(size = 11, family = .plot_ff),
       legend.key.size = grid::unit(0.45, "cm"),
       panel.grid = element_blank()
     ) +
     guides(fill = guide_legend(nrow = 1, byrow = TRUE))
 
   dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
-  dev <- if (isTRUE(capabilities("cairo"))) grDevices::cairo_pdf else "pdf"
-  ggsave(outfile, p, width = width, height = height, device = dev)
+  .ggsave_times <- function(path, plot, width, height) {
+    if (exists("pipeline_pdf_device", mode = "function")) {
+      pipeline_pdf_device(path, width = width, height = height, family = .plot_ff)
+      print(plot)
+      grDevices::dev.off()
+    } else if (isTRUE(capabilities("cairo"))) {
+      grDevices::cairo_pdf(path, width = width, height = height, family = .plot_ff)
+      print(plot)
+      grDevices::dev.off()
+    } else {
+      ggsave(path, plot, width = width, height = height, device = "pdf")
+    }
+  }
+  .ggsave_times(outfile, p, width = width, height = height)
   invisible(list(plot = p, summary = sumd, p = ptab, path = outfile))
 }
 
@@ -423,8 +461,16 @@ pool <- do.call(rbind, lapply(all_long, function(d) {
   .person_baseline_ever(d)
 }))
 rownames(pool) <- NULL
+.norm_country <- function(x) {
+  x <- as.character(x)
+  x[x %in% c("UK", "United Kingdom", "England", "Britain")] <- "United Kingdom"
+  x[x %in% c("America", "USA", "US", "United States", "United States of America")] <-
+    "United States of America"
+  x[x %in% c("China", "PRC")] <- "China"
+  x
+}
 pool$Country <- factor(
-  as.character(pool$Country),
+  .norm_country(pool$Country),
   levels = c("United States of America", "China", "United Kingdom")
 )
 pool$Disease <- factor(pool$Disease, levels = c(.ref_lab, .ev_lab))
@@ -513,22 +559,31 @@ p5 <- ggplot(sumc, aes(x = Country, y = mean, fill = fill_id)) +
   scale_y_continuous(limits = c(0, y5), expand = expansion(mult = c(0, 0.02))) +
   labs(x = NULL, y = .index_ylab,
        title = sprintf("Mean %s by country (baseline / cross-section)", .index_ylab)) +
-  theme_classic(base_size = 13) +
+  theme_classic(base_size = 13, base_family = .plot_ff) +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    axis.title = element_text(face = "bold"),
-    axis.text = element_text(colour = "black"),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14, family = .plot_ff),
+    axis.title = element_text(face = "bold", family = .plot_ff),
+    axis.text = element_text(colour = "black", family = .plot_ff),
     legend.position = "bottom",
     legend.direction = "horizontal",
-    legend.text = element_text(size = 9.5),
+    legend.text = element_text(size = 9.5, family = .plot_ff),
     legend.key.size = grid::unit(0.4, "cm"),
     panel.grid = element_blank()
   ) +
   guides(fill = guide_legend(nrow = 2, byrow = TRUE))
 
 out5 <- file.path(fig_out, .s5_name())
-ggsave(out5, p5, width = 8.5, height = 6.0,
-       device = if (isTRUE(capabilities("cairo"))) grDevices::cairo_pdf else "pdf")
+if (exists("pipeline_pdf_device", mode = "function")) {
+  pipeline_pdf_device(out5, width = 8.5, height = 6.0, family = .plot_ff)
+  print(p5)
+  grDevices::dev.off()
+} else if (isTRUE(capabilities("cairo"))) {
+  grDevices::cairo_pdf(out5, width = 8.5, height = 6.0, family = .plot_ff)
+  print(p5)
+  grDevices::dev.off()
+} else {
+  ggsave(out5, p5, width = 8.5, height = 6.0, device = "pdf")
+}
 utils::write.csv(
   merge(as.data.frame(sumc), ptab_c[, c("Country", "p", "stars")], by = "Country", all.x = TRUE),
   file.path(tab_out, paste0("FigureS5_mean_", .index_file, "_by_country.csv")),
@@ -543,6 +598,9 @@ cli::cli_alert_success("S5: {out5}")
 # =====================================================================
 # Figure 4: CLPN network（qgraph，短码 + 图例真名；映射库 configs/clpn_node_label_db.csv）
 # =====================================================================
+if (isTRUE(skip_network)) {
+  cli::cli_alert_info("跳过 Figure 4 / Table S8 / CLPN bootstrap（--skip-network）")
+} else {
 cli::cli_h1("Figure 4 — CLPN network (real adjacency)")
 
 .fi_group_of <- function(stem) {
@@ -584,7 +642,12 @@ for (db in cohorts) {
   ctx <- list(
     data = list(longitudinal_wide = w, longitudinal_wide_clpn = NULL),
     config = list(
-      project = list(database = db, output_dir = out_dir),
+      project = list(
+        database = db,
+        output_dir = out_dir,
+        analysis_group = .ev_lab,
+        disease = .ev_lab
+      ),
       cross_lagged_network = if (isTRUE(.is_circadian)) {
         list(
           node_stems = c(paste0("condition", 1:7), "ePWV"),
@@ -598,7 +661,9 @@ for (db in cohorts) {
         list(
           fi_items_only = TRUE,
           include_outcome = TRUE,
-          include_lipids = TRUE,
+          include_lipids = FALSE,
+          exclude_outcome_overlap = TRUE,
+          disease_display = .ev_lab,
           max_nodes = 40L
         )
       }
@@ -628,7 +693,8 @@ for (db in cohorts) {
   utils::write.csv(inv, inv_path, row.names = FALSE)
 
   out4 <- file.path(fig_out, paste0("Figure 4-", db, ". ", .fig4_title))
-  .plot_clpn_pub(adj, stems, out4, title = paste0("(", LETTERS[match(db, cohorts)], ") ", db))
+  # 分库面板不写 (A)/(B) 标题：拼图 compose 会再加 A. CHARLS，否则标题写两遍
+  .plot_clpn_pub(adj, stems, out4, title = "")
   file.copy(out4, file.path(out_dir, "Figures", "Fig4_CLPN_network_pub.pdf"), overwrite = TRUE)
   file.copy(out4, file.path(out_dir, "Figures", "Fig_CLPN_network.pdf"), overwrite = TRUE)
   cli::cli_alert_success(
@@ -652,13 +718,21 @@ for (db in cohorts) {
       ctx <- block_cross_lagged_network_bootstrap(ctx)
       s1 <- ctx$results$cross_lagged_network_bootstrap$figure_s1
       s2 <- ctx$results$cross_lagged_network_bootstrap$figure_s2
+      .cl_safe_cp <- function(src, dest) {
+        if (is.null(src) || !file.exists(src)) return(invisible(FALSE))
+        dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+        sn <- normalizePath(src, winslash = "/", mustWork = TRUE)
+        dn <- normalizePath(dest, winslash = "/", mustWork = FALSE)
+        if (identical(sn, dn)) return(invisible(TRUE))
+        file.copy(src, dest, overwrite = TRUE)
+      }
       if (!is.null(s1) && file.exists(s1)) {
-        file.copy(s1, file.path(fig_out, basename(s1)), overwrite = TRUE)
-        file.copy(s1, file.path(out_dir, "Figures", basename(s1)), overwrite = TRUE)
+        .cl_safe_cp(s1, file.path(fig_out, basename(s1)))
+        .cl_safe_cp(s1, file.path(out_dir, "Figures", basename(s1)))
       }
       if (!is.null(s2) && file.exists(s2)) {
-        file.copy(s2, file.path(fig_out, basename(s2)), overwrite = TRUE)
-        file.copy(s2, file.path(out_dir, "Figures", basename(s2)), overwrite = TRUE)
+        .cl_safe_cp(s2, file.path(fig_out, basename(s2)))
+        .cl_safe_cp(s2, file.path(out_dir, "Figures", basename(s2)))
       }
       # 同步 bootstrap 表
       for (bn in c(
@@ -676,6 +750,7 @@ for (db in cohorts) {
     cli::cli_alert_info("跳过 CLPN bootstrap（--skip-boot）")
   }
 }
+} # end !skip_network (Fig4 / S1 / S2)
 
 # FI 构造核对表（为何均值不同、节点数如何）
 .fi_src <- c(
@@ -727,7 +802,11 @@ if (nzchar(gdest) && dir.exists(gdest)) {
   # also S8 into G phase3 tables if present
   for (db in cohorts) {
     s8e <- file.path(study_root, paste0("phase3_long_", db), "Tables",
-                     paste0("Table S8-", db, ". CLPN adjacency.csv"))
+                     paste0("Table S8-", db, ". CLPN adjacency.xlsx"))
+    if (!file.exists(s8e)) {
+      s8e <- file.path(study_root, paste0("phase3_long_", db), "Tables",
+                       paste0("Table S8-", db, ". CLPN adjacency.csv"))
+    }
     if (file.exists(s8e)) {
       dir.create(file.path(gdest, paste0("phase3_long_", db), "Tables"),
                  recursive = TRUE, showWarnings = FALSE)

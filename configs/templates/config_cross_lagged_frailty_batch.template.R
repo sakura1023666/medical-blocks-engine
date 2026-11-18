@@ -84,6 +84,7 @@ config <- list(
   imputation = list(
     missing_col_threshold = 0.2, method = "cart", m = 5L, max_iter = 5L,
     seed = 1234L, complete_action = 1L
+    rubin_pool            = TRUE,
   ),
   # trim_index_extreme：本套路不修剪 FI 极端值（不挂该 block）
   baseline_binary = list(

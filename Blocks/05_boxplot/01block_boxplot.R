@@ -67,6 +67,10 @@ block_boxplot <- function(ctx, group_var = NULL, response_vars = NULL, ...) {
   analysis_grp  <- pipeline_outcome_case_label(cfg)
   reference_grp <- pipeline_outcome_reference_label(cfg)
 
+  if (isFALSE(bx$enable %||% TRUE)) {
+    cli::cli_alert_info("config$boxplot$enable = FALSE，跳过 boxplot。")
+    return(ctx)
+  }
   study_type <- tolower(trimws(as.character(prj$study_type %||% "incidence")))
   if (study_type %in% c("incidence", "prediction")) {
     group_var <- group_var %||% bx$group_var %||% bl$strata %||% oc

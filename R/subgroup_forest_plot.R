@@ -329,13 +329,17 @@ subgroup_merge_levels_into_variable <- function(plot_df) {
 #' 且只用两端子集（与主文分母脱节）。新铁律：亚组 = 全人群 + 主文同分位。
 subgroup_resolve_main_scheme <- function(ctx, cfg, default = "quartile") {
   r <- ctx$results %||% list()
-  for (k in c("logistic_grouping_scheme", "nhanes_logistic_selected_scheme",
+  # 引擎分位级联锁定优先（quartile→tertile→binary）
+  for (k in c("quantile_scheme_selected", "cox_grouping_scheme", "cox_selected_scheme",
+              "logistic_grouping_scheme", "nhanes_logistic_selected_scheme",
               "nhanes_logistic_grouping_scheme", "dual_db_logistic_unified_scheme",
-              "dual_db_cox_unified_scheme", "cox_grouping_scheme",
-              "cox_selected_scheme")) {
+              "dual_db_cox_unified_scheme")) {
     v <- tolower(trimws(as.character(r[[k]] %||% "")[1L]))
     if (v %in% c("quartile", "tertile", "binary")) return(v)
   }
+  qcfg <- (cfg %||% list())$quantile_scheme_cascade %||% list()
+  fs <- tolower(trimws(as.character(qcfg$force_scheme %||% "")[1L]))
+  if (fs %in% c("quartile", "tertile", "binary")) return(fs)
   for (nm in c("logistic_tertile_glm", "cox_tertile")) {
     blk <- cfg[[nm]]
     if (!is.null(blk) && isTRUE(blk$enable %||% FALSE)) return("tertile")
@@ -562,18 +566,24 @@ subgroup_prepare_forest_plot_df <- function(res, effect_sym = "OR") {
   for (cn in c("Point Estimate", "Lower", "Upper")) {
     plot_df[[cn]] <- suppressWarnings(as.numeric(as.character(plot_df[[cn]])))
   }
-  # 仅隐藏非有限 / ≤0 / 完全分离量级的荒谬值；大但有限的 OR/HR 必须保留可画
+  # 仅隐藏非有限 / ≤0 / 近零分离 / 完全分离量级的荒谬值；大但有限的 OR/HR 必须保留可画
   # （旧阈值 Point>50 / Upper>100 会把 TyG_* 等强关联亚组点全部抹掉，图看起来“空”）
+  # 近零：层内最高分位 0 事件时 exp(est) 塌成 ~0，格式化成 0.00 (0.00-0.00) → NE
   hide_est_gt <- suppressWarnings(as.numeric(getOption("subgroup.forest_hide_est_gt", 500))[1L])
   hide_upper_gt <- suppressWarnings(as.numeric(getOption("subgroup.forest_hide_upper_gt", 1000))[1L])
+  # 默认 0.01：与 %.2f 展示对齐，避免图上残留 0.00 (0.00-0.xx)
+  hide_est_lt <- suppressWarnings(as.numeric(getOption("subgroup.forest_hide_est_lt", 0.01))[1L])
   if (!is.finite(hide_est_gt) || hide_est_gt < 50) hide_est_gt <- 500
   if (!is.finite(hide_upper_gt) || hide_upper_gt < 100) hide_upper_gt <- 1000
+  if (!is.finite(hide_est_lt) || hide_est_lt <= 0) hide_est_lt <- 0.01
   bad_est <- !is.finite(plot_df$"Point Estimate") |
     !is.finite(plot_df$Lower) |
     !is.finite(plot_df$Upper) |
     plot_df$"Point Estimate" <= 0 |
     plot_df$Lower <= 0 |
     plot_df$Upper <= 0 |
+    plot_df$"Point Estimate" < hide_est_lt |
+    plot_df$Upper < hide_est_lt |
     plot_df$"Point Estimate" > hide_est_gt |
     plot_df$Upper > hide_upper_gt
   # 标题行本身无点估计，不计入「隐藏」告警
@@ -588,17 +598,21 @@ subgroup_prepare_forest_plot_df <- function(res, effect_sym = "OR") {
     ifelse(
       bad_est,
       "NE",
-      sprintf("%.2f (%.2f-%.2f)", plot_df$"Point Estimate", plot_df$Lower, plot_df$Upper)
+      ## 发表口径：效应量/CI 固定 3 位（与 pub_digits$est 一致）
+      sprintf("%.3f (%.3f-%.3f)", plot_df$"Point Estimate", plot_df$Lower, plot_df$Upper)
     )
   )
   if (any(bad_est, na.rm = TRUE)) {
     n_bad <- sum(bad_est, na.rm = TRUE)
     cli::cli_alert_info(
-      "Subgroup forest: {n_bad} 行效应量不可估/荒谬（est>{hide_est_gt} 或 Upper>{hide_upper_gt}/Inf）→ 表列显示 NE，不画点"
+      "Subgroup forest: {n_bad} 行效应量不可估/荒谬（est<{hide_est_lt} 或 est>{hide_est_gt} 或 Upper>{hide_upper_gt}/Inf）→ 表列显示 NE，不画点"
     )
     plot_df$"Point Estimate"[bad_est] <- NA_real_
     plot_df$Lower[bad_est] <- NA_real_
     plot_df$Upper[bad_est] <- NA_real_
+    if ("P value" %in% names(plot_df)) {
+      plot_df$`P value`[bad_est] <- "NE"
+    }
   }
   # 标题行不应显示效应量（经典森林图仅保留 P for interaction）
   if (any(is_header)) {
@@ -764,6 +778,23 @@ subgroup_build_one_forest <- function(plot_df, final_subgroup_vars, sub_cfg,
       names(disp)[names(disp) == from] <- to
     }
   }
+  ## N 列千分位（与 pub_format_int / 表内人数口径一致）
+  if ("N" %in% names(disp)) {
+    nn <- disp$N
+    disp$N <- vapply(seq_along(nn), function(i) {
+      x <- nn[[i]]
+      if (is.null(x) || length(x) == 0L) return(" ")
+      if (is.character(x) && !nzchar(trimws(x))) return(" ")
+      if (is.character(x) && grepl(",", x, fixed = TRUE)) return(as.character(x))
+      xv <- suppressWarnings(as.numeric(x))
+      if (!is.finite(xv)) return(as.character(x))
+      if (exists("pub_format_int", mode = "function")) {
+        pub_format_int(as.integer(round(xv)))
+      } else {
+        format(as.integer(round(xv)), big.mark = ",", scientific = FALSE)
+      }
+    }, character(1L))
+  }
   if (!" " %in% names(disp)) {
     disp$` ` <- NA_character_
   }
@@ -799,6 +830,20 @@ subgroup_build_one_forest <- function(plot_df, final_subgroup_vars, sub_cfg,
     .col_or_blank("P value"),
     .col_or_blank("P for interaction")
   ))
+  ## 强制 P / P-int 为三位小数字符串（禁止图面 0.5 / 0.06 这种去尾随 0）
+  for (pc in c("P value", "P for interaction")) {
+    if (!pc %in% names(disp)) next
+    disp[[pc]] <- vapply(seq_len(nrow(disp)), function(i) {
+      raw <- disp[[pc]][[i]]
+      if (is.null(raw) || length(raw) < 1L) return(" ")
+      s <- trimws(as.character(raw)[1L])
+      if (!nzchar(s) || toupper(s) %in% c("NA", "NE", "NAN", "-")) return(if (toupper(s) == "NE") "NE" else " ")
+      if (grepl("^[<>]", s)) return(s)
+      xv <- suppressWarnings(as.numeric(gsub("[^0-9.eE+-]", "", s)))
+      if (!is.finite(xv)) return(s)
+      subgroup_format_p(xv)
+    }, character(1L))
+  }
   ci_col_idx <- which(forest_col_names == " ")[[1L]]
 
   if (x_trans %in% c("log", "log2", "log10")) {

@@ -73,95 +73,10 @@ if (!dir.exists(index_root)) stop("找不到指标目录: ", ix, call. = FALSE)
 db_seq <- c("nhanes", "mimic")
 db_names <- vapply(db_seq, function(db) dual_db_slot_path_name(config, db), character(1L))
 
-.prognosis_figure_role <- function(bn) {
-  bn <- as.character(bn)[1L]
-  if (grepl("Missing\\s*Value\\s*Overview", bn, ignore.case = TRUE)) return("drop")
-  if (grepl("Flowchart|Inclusion exclusion", bn, ignore.case = TRUE)) return("fig1")
-  if (grepl("RCS Analysis|RCS of|Restricted Cubic", bn, ignore.case = TRUE)) return("fig2_rcs")
-  if (grepl("Kaplan", bn, ignore.case = TRUE)) return("fig3_km")
-  if (grepl("Subgroup Forest", bn, ignore.case = TRUE)) return("fig4_subgroup")
-  if (grepl("Cutoff Point|maxstat", bn, ignore.case = TRUE)) return("s1_cutoff")
-  if (grepl("Boxplot", bn, ignore.case = TRUE)) return("s2_boxplot")
-  if (grepl("Mediation|mediator|path diagram", bn, ignore.case = TRUE)) return("s3_mediation")
-  if (grepl("\\bROC\\b", bn, ignore.case = TRUE)) return("s4_roc")
-  "drop"
-}
-
-.extract_fig_db <- function(bn, db_names) {
-  for (db in db_names) {
-    if (grepl(paste0("-", db, "\\."), bn, fixed = FALSE)) return(db)
-  }
-  NA_character_
-}
-
-.prognosis_figure_target <- function(role, src_bn, db = NA_character_) {
-  db_sfx <- if (!is.na(db) && nzchar(db)) paste0("-", db) else ""
-  cap <- sub("^Figure (?:S)?[0-9]+(?:-[A-Za-z0-9_]+)?\\. ", "", src_bn, perl = TRUE)
-  cap <- sub("\\.pdf$", "", cap, ignore.case = TRUE)
-  switch(role,
-    fig1 = if (grepl("Inclusion exclusion", cap, ignore.case = TRUE)) {
-      sprintf("Figure 1%s. Inclusion exclusion flowchart.pdf", db_sfx)
-    } else {
-      sprintf("Figure 1%s. %s.pdf", db_sfx, cap)
-    },
-    fig2_rcs = sprintf("Figure 2%s. %s.pdf", db_sfx, cap),
-    fig3_km = sprintf("Figure 3%s. %s.pdf", db_sfx, cap),
-    fig4_subgroup = sprintf("Figure 4%s. %s.pdf", db_sfx, cap),
-    s1_cutoff = sprintf("Figure S1%s. %s.pdf", db_sfx, cap),
-    s2_boxplot = sprintf("Figure S2%s. %s.pdf", db_sfx, cap),
-    s3_mediation = sprintf("Figure S3%s. %s.pdf", db_sfx, cap),
-    s4_roc = sprintf("Figure S4%s. %s.pdf", db_sfx, cap),
-    NULL
-  )
-}
-
+# 图角色去重统一走引擎（含 jin_index_sofa：Fig1=RCS / Fig2=Nomogram）
+source(file.path(root, "R/jin_index_sofa_pub.R"), local = FALSE)
 dedupe_prognosis_figures_dir <- function(figures_dir, db_names, label = "") {
-  if (!dir.exists(figures_dir)) return(invisible(0L))
-  files <- list.files(figures_dir, pattern = "\\.pdf$", full.names = TRUE, ignore.case = TRUE)
-  if (!length(files)) return(invisible(0L))
-  fi <- file.info(files)
-  ord <- order(fi$mtime, decreasing = TRUE, na.last = TRUE)
-  files <- files[ord]
-  keep <- list()
-  n_drop <- 0L
-  for (f in files) {
-    bn <- basename(f)
-    role <- .prognosis_figure_role(bn)
-    if (identical(role, "drop")) {
-      unlink(f); n_drop <- n_drop + 1L; next
-    }
-    db <- .extract_fig_db(bn, db_names)
-    if (is.na(db) && nzchar(label)) db <- label
-    key <- paste(role, db %||% "", sep = "\x01")
-    if (key %in% names(keep)) {
-      unlink(f); n_drop <- n_drop + 1L; next
-    }
-    keep[[key]] <- f
-  }
-  n_ren <- 0L
-  for (key in names(keep)) {
-    parts <- strsplit(key, "\x01", fixed = TRUE)[[1L]]
-    role <- parts[[1L]]
-    db <- if (length(parts) >= 2L && nzchar(parts[[2L]])) parts[[2L]] else NA_character_
-    src <- keep[[key]]
-    tgt_bn <- .prognosis_figure_target(role, basename(src), db)
-    if (is.null(tgt_bn)) next
-    tgt <- file.path(figures_dir, tgt_bn)
-    if (!identical(normalizePath(src, winslash = "/", mustWork = FALSE),
-                   normalizePath(tgt, winslash = "/", mustWork = FALSE))) {
-      if (file.exists(tgt)) unlink(tgt)
-      ok <- file.rename(src, tgt)
-      if (!isTRUE(ok)) file.copy(src, tgt, overwrite = TRUE)
-      if (!identical(src, tgt) && file.exists(src)) unlink(src)
-      n_ren <- n_ren + 1L
-    }
-  }
-  if (n_drop > 0L || n_ren > 0L) {
-    cli::cli_alert_info(
-      "[{label}] 图去重: 删 {n_drop}，重命名 {n_ren}: {.file {basename(figures_dir)}}"
-    )
-  }
-  invisible(n_drop)
+  invisible(incidence_batch_dedupe_prognosis_figures_dir(figures_dir, config))
 }
 
 cli::cli_h1("整理指标发表输出: {ix}")
@@ -201,6 +116,11 @@ for (td in table_targets) {
   incidence_batch_realign_dual_supp_tables(td, config)
   incidence_batch_compact_supp_s_numbers(td, config)
   incidence_batch_shorten_pub_table_names(td, config)
+  if (exists("jin_index_sofa_is_pub_scheme", mode = "function") &&
+      isTRUE(jin_index_sofa_is_pub_scheme(config)) &&
+      exists("jin_index_sofa_curate_tables_dir", mode = "function")) {
+    jin_index_sofa_curate_tables_dir(td, index_lab = ix)
+  }
 }
 
 # 5) mirror 汇总 + 双库拼图 + 图表整理（必须用实际 tagged 目录，非裸 ix 名）

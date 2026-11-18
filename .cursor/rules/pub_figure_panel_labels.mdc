@@ -1,0 +1,36 @@
+# 发表拼图外标与子图标题铁律（全项目）
+
+凡 **双库 / 三库 / 四库** 拼图（Fig1 纳排、Fig2 RCS、Fig3 亚组等）及 RCS 子面板必须遵守。沉淀自髋部交叉滞后 Fig1–3（2026-11）。
+
+## 铁律
+
+1. **纳排面板内不印 Figure 1 小标题**：`attrition_draw_pdf(..., title="")` 为默认；禁止面板内写 `Figure 1. ELSA — Inclusion / Exclusion` 或 `Figure 1. Inclusion exclusion flowchart (CHARLS)`。库名只出现在**拼图外标**。
+2. **拼图外标仅库名**：`dual_db$combine_figures$label_format` 默认 `"{db}"`（如 `CHARLS` / `NHANES` / `Pooled`）。**禁止**默认 `A. {db}` / `A. CHARLS`。课题若显式要字母可配回 `A. {db}`。
+3. **RCS 子图标题无字母前缀**：写 `Crude Model` / `Model 1` / `Model 2`（及 Model 3），**禁止** `A.Crude` / `B.Model 1` / `C.Model 2`。
+4. **亚组 ≥4 面板用 2×2**：`layout` 取 `side`（或 `grid`）；compose 在 N=4 时自动上下各二。**禁止**把四库亚组竖拼成一条超长图。RCS 多库仍默认 `stack`（每库已是三模型横条）。
+5. **一次性 remirror/hotfix 用完归档**；可复用逻辑必须回写 `R/dual_db_combine_figures.R`、`Blocks/15_rcs/*`、`Blocks/00_attrition`、`R/attrition_log.R`、`R/cross_lagged_fig1_pub.R`。
+
+## 实现入口
+
+| 能力 | 入口 |
+|---|---|
+| 外标格式 / 布局角色 | `R/dual_db_combine_figures.R` → `.dual_db_combine_cfg` / `.dual_db_panel_label` / `.dual_db_layout_for_key` |
+| N 面板 compose | `.dual_db_compose_n_pdf_vector`（side+N=4 → grid） |
+| 双库 Fig1 | `attrition_draw_dual_panel_pdf`（空 title + 库名外标） |
+| 单库 Fig1 block | `Blocks/00_attrition/01block_attrition_flowchart.R`（默认空 title） |
+| 交叉滞后 Fig1 | `14block_cross_lagged_long_prepare.R` / `cross_lagged_xs_flowchart.R` / `cross_lagged_remosaic_fig1` |
+| RCS 标题 | `Blocks/15_rcs/02block_rcs_incidence.R`、`03block_rcs_nhanes.R`、`04block_rcs_iptw_weighted.R` |
+
+## 检查清单
+
+- [ ] 拼图 PDF 外标无 `A.`/`B.`（除非课题显式 `label_format="A. {db}"`）
+- [ ] Fig1 面板内无 `Inclusion / Exclusion` 大标题
+- [ ] RCS 图面为 `Crude Model` / `Model 1` / `Model 2`，无 `A.Crude`
+- [ ] 四库亚组为 2×2，非一条竖条
+
+## 反例（禁止）
+
+- 面板内 `Figure 1. ELSA — Inclusion / Exclusion` + 外标再写 `A. ELSA`
+- RCS 子图 `A.Crude Model` 与拼图外标 `A. CHARLS` 双重字母
+- 四库森林 `layout="stack"` 交付超长 Fig3
+- 在课题 `scripts/` 堆 remosaic hotfix 当长期方案，不改引擎默认

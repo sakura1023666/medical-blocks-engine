@@ -1,0 +1,35 @@
+# 发表表三线表强制闸门（全项目）
+
+凡客户可见交付 `Tables/*.xlsx`（发病 / 预后 / ML / 轨迹 / IPW / dbpool 等所有套路）必须为 **SCI 三线表**：顶线（粗）+ 栏目线（细）+ 底线（粗，**必须落在最后一个数据行**，脚注在底线下方）、**无竖线**、**关网格线**。
+
+## 铁律
+
+1. **写出层**：发表表只走 `export_sci_table` → `sci_xlsx_single_header_booktabs` / `.sci_xlsx_double_header_booktabs`（`R/utils.R`），默认已是 booktabs 三线。**禁止**裸 `write.xlsx` / 自建 workbook 当交付表。
+2. **底线对齐最后数据行**：历史课题（openpyxl 往返 / 手写样式 / 脏值兜底）常把底线画早一行，最后一个数据行（如分类变量的 `No` 水平行）落到底线以下。收口闸门负责纠正。
+3. **收口强制闸门（引擎）**：`pub_delivery_scrub_display()`（`R/pub_delivery_prune.R`）在 display scrub 后必跑 `python/pub_xlsx_enforce_three_line.py --dir Tables/`：
+   - 识别表头行 = 首个 ≥2 非空单元格行；表体末行 = 脚注块（首个单格长文本 ≥50 字符或 ≥15 字符且句读结尾）之前；
+   - 清空全部旧边框后重画三线 + `showGridLines=False`；
+   - **只动边框/视图层，单元格值零改动；幂等**；openpyxl 往返后自动 `xlsx_strip.py`。
+   - 单跑：`Rscript run/pub/finalize_delivery_root.R --dir …/summary_results`（内含本闸门）。
+4. **Block 级挂点**：`tj_pub_export`（`Blocks/82_trajectory_incidence_joint/06block_tj_pub_export.R`）收尾已显式 source `R/pub_delivery_prune.R` 并调 `pub_delivery_scrub_display(DR, root=root)`。新套路收口若未走 `finalize_delivery_root.R`，同样必须调 `pub_delivery_scrub_display`。
+5. **手工返工已交付表**：改完值后必须再跑一次 `python3 python/pub_xlsx_enforce_three_line.py <file>.xlsx`，再 `pub_xlsx_verify`（readable=TRUE, corrupt=0）。
+
+## 检查清单
+
+- [ ] 每张交付 xlsx：顶线仅 1 行、栏目线在表头下、底线在**最后一个数据行**（底线下方只允许单格脚注/空行）
+- [ ] 全表无任何 left/right 边框；`showGridLines=False`
+- [ ] openxlsx 复读 readable 且 corrupt_cells=0；字体仍 Times New Roman
+- [ ] 收口日志出现「三线表强制闸门: N 张 xlsx 已对齐 booktabs 三线」
+
+## 反例（禁止）
+
+- 底线停在倒数第二行数据（分类变量 `Yes/No` 的 `No` 行悬在底线之下）
+- 脚注块上方/内部再出现横线（脚注区被画线 = 非三线表）
+- Excel 打开满屏灰色网格线未关
+- 为改一个单元格整表 `write.xlsx` 重写丢三线样式（见 `pub_table_xlsx_surgical_firth_jlcm`）
+
+## 实现入口
+
+- 闸门：`python/pub_xlsx_enforce_three_line.py`（find_layout 边界启发式 + Border 重画）
+- 挂点：`R/pub_delivery_prune.R` → `pub_delivery_scrub_display`；`Blocks/82_trajectory_incidence_joint/06block_tj_pub_export.R`
+- 写出：`R/utils.R` → `.sci_xlsx_write_three_line_workbook`

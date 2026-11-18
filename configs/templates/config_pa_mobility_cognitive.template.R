@@ -26,7 +26,7 @@ config <- list(
     mirror_pub_outputs_to_root = TRUE,
     root = normalizePath(getwd(), winslash = "/")
   ),
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
   pamob = list(
     data_root = .pamob_data_root,
     baseline_wave = 2011L,

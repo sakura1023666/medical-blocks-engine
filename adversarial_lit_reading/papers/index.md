@@ -4,5 +4,4 @@
 
 | paper_id | 标题 | 作者 | 年份 | chunk 文件 |
 |---|---|---|---|---|
-| paper_023 | 单数据库短时间transformer | Qin Zhong PhD |  | chunks/paper_023_transformer.md |
-| paper_024 | Nomogram clinical prediction (DOI 10.1177/13872877261424471) |  |  | chunks/paper_024_nomogram_alz_13872877261424471.md |
+| paper_013 | fcimb - 16 - 1871653_COPD | fcimb |  | chunks/paper_013_fcimb_16_1871653_copd.md |

@@ -37,7 +37,7 @@
 }
 
 .lqq09_svyglm_fit <- function(design, formula_str) {
-  tryCatch(survey::svyglm(stats::as.formula(formula_str), design = design, family = stats::quasibinomial()), error = function(e) NULL)
+  .lnw00_svyglm_fit(design, formula_str)
 }
 
 .lqq09_group_pct <- function(design, level) {
@@ -169,13 +169,15 @@
       cfg$project$disease, " (NHANES quartile, svyglm", caption_suffix, ")"
     )
   }
-  footnotes <- .lnw00_table_footnotes(M1 %||% character(0), M2 %||% character(0), M3, m3_significant)
+  footnotes <- .lnw00_table_footnotes(M1 %||% character(0), M2 %||% character(0), M3, m3_significant, ctx = ctx)
   .lnw00_export_table2(ctx, cfg, bl_cfg, rt, cap, as_main = as_main, table_footnotes = footnotes,
                        family = if (is_rcs) "rcs" else "quartile")
 }
 
 block_logistic_quartile_nhanes_weighted <- function(ctx, ...) {
   options(survey.lonely.psu = "adjust")
+  .lnw00_set_mi_ctx(ctx)
+  on.exit(.lnw00_clear_mi_ctx(), add = TRUE)
   cfg <- ctx$config
   bl_cfg <- cfg$logistic_quartile_nhanes_weighted %||% list()
   block_name <- ctx$current_block %||% "logistic_quartile_nhanes_weighted"
@@ -215,19 +217,19 @@ block_logistic_quartile_nhanes_weighted <- function(ctx, ...) {
     }
     require_nl <- isTRUE(bl_cfg$require_nonlinear_sig %||% TRUE)
     if (isTRUE((cfg$dual_db %||% list())$enable) &&
-        !isFALSE(bl_cfg$dual_db_export_even_if_linear %||% TRUE)) {
+        isTRUE(bl_cfg$dual_db_export_even_if_linear %||% FALSE)) {
       require_nl <- FALSE
     }
     if (isTRUE(require_nl) && is.finite(p_nl_rcs) && p_nl_rcs >= 0.05) {
       ctx$results$logistic_rcs_ns_skipped <- TRUE
       cli::cli_alert_warning(
-        "logistic_quartile_nhanes_weighted_rcs: RCS 非线性 P={round(p_nl_rcs,3)} >= 0.05，按规则不导出 Table S8（RCS cutoff 分组 Logistic）。"
+        "logistic_quartile_nhanes_weighted_rcs: RCS 非线性 P={round(p_nl_rcs,3)} >= 0.05，按规则不导出 Table S-XX（RCS cutoff 分组 Logistic）。"
       )
       return(ctx)
     }
     if (!isTRUE(require_nl) && is.finite(p_nl_rcs) && p_nl_rcs >= 0.05) {
       cli::cli_alert_info(
-        "logistic_quartile_nhanes_weighted_rcs: 双库对齐仍导出 RCS cutoff 表（非线性 P={round(p_nl_rcs, 3)}）"
+        "logistic_quartile_nhanes_weighted_rcs: dual_db_export_even_if_linear=TRUE，仍导出 RCS cutoff 表（非线性 P={round(p_nl_rcs, 3)}）"
       )
     }
   }

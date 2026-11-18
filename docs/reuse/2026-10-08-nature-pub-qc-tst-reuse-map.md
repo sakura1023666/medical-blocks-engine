@@ -46,6 +46,19 @@
 
 新 TST 课题：改 `--project-root` 复用；勿在 `02block_result` 下另存一份引擎脚本。
 
+
+### A5 交付白名单收口（2026-10-22）
+
+| 路径 | 作用 |
+|------|------|
+| `run/pub/finalize_delivery_root.R --study-type tst` | Methods md + 软件版本 + 四目录 + prune |
+| `R/pub_tst_methods.R` | TST Methods 模板句 |
+| `R/pub_delivery_prune.R` | 交付根只留 Figures/Tables/Methods_*/中期 PDF |
+| `Blocks/71_.../12block_tst_summary_results.R` | summary 后自动 finalize_delivery |
+| `R/pub_xlsx_tools/xlsx_strip.py` | 修复空 workbookView（openpyxl） |
+
+客户可见 `summary_results` 禁止残留 H1、by_landmark、README、reports。
+
 ### A4 计划文档（查阅，非运行时）
 
 | 路径 | 作用 |
@@ -97,3 +110,11 @@ rm -rf /tmp/nature-skills-staging /tmp/nature-skills-deferred.txt /tmp/ns.zip
 ```
 
 不影响引擎与课题结果。
+
+### A4 NHANES/发病 P0 门控（2026-10-26 eGDR）
+
+| 路径 | 作用 |
+|------|------|
+| `.cursor/rules/pub_nhanes_incidence_p0_gate.mdc` | alwaysApply：加权切点、Table2↔step、中介≠主表、Methods、NE md |
+| `pub-qc-after-project/checklist.md` §B3 | 质控打勾清单 |
+| `nature-statistics/.../common-failure-modes.md` | Layer D 漏检行 |

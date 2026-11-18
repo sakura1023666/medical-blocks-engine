@@ -1,0 +1,3 @@
+# Wang-style TCF publication rebuild helpers (figures / tables compute).
+# Import bootstrap constants via: from ml_tcf.pub.bootstrap import ...
+# Or run scripts as: python python/ml_tcf/pub/rebuild_wang2025_figures.py

@@ -511,7 +511,8 @@
 }
 
 .mllgb09_run_lightgbm <- function(traindata2, testdata2, folds, seed,
-                              pred_ref_col, pred_ana_col, ref_g, ana_g) {
+                              pred_ref_col, pred_ana_col, ref_g, ana_g,
+                              bl_cfg = list()) {
   if (!requireNamespace("bonsai", quietly = TRUE) || !requireNamespace("lightgbm", quietly = TRUE)) {
     stop("LightGBM 需要 bonsai + lightgbm 包。", call. = FALSE)
   }
@@ -531,16 +532,24 @@
   n_pred <- max(1L, ncol(traindata2) - 1L)
   mtry_hi <- max(1L, min(8L, n_pred))
   mtry_lo <- max(1L, min(2L, mtry_hi))
+  td <- as.integer(bl_cfg$tree_depth_range %||% c(1L, 3L)); if (length(td) < 2L) td <- c(1L, 3L)
+  tr <- as.integer(bl_cfg$trees_range %||% c(100L, 500L)); if (length(tr) < 2L) tr <- c(100L, 500L)
+  lr <- as.numeric(bl_cfg$learn_rate_range %||% c(-3, -1)); if (length(lr) < 2L) lr <- c(-3, -1)
+  mn <- as.integer(bl_cfg$min_n_range %||% c(5L, 10L)); if (length(mn) < 2L) mn <- c(5L, 10L)
+  lred <- as.numeric(bl_cfg$loss_reduction_range %||% c(-3, 0)); if (length(lred) < 2L) lred <- c(-3, 0)
+  grid_size <- as.integer(bl_cfg$grid_size %||% 5L)[1L]
+  if (!is.finite(grid_size) || grid_size < 2L) grid_size <- 5L
   hpset_lgbm <- dials::parameters(
-    dials::tree_depth(range = c(1, 3)), dials::trees(range = c(100, 500)),
-    dials::learn_rate(range = c(-3, -1)), dials::mtry(range = c(mtry_lo, mtry_hi)),
-    dials::min_n(range = c(5, 10)), dials::loss_reduction(range = c(-3, 0))
+    dials::tree_depth(range = c(td[[1L]], td[[2L]])), dials::trees(range = c(tr[[1L]], tr[[2L]])),
+    dials::learn_rate(range = c(lr[[1L]], lr[[2L]])), dials::mtry(range = c(mtry_lo, mtry_hi)),
+    dials::min_n(range = c(mn[[1L]], mn[[2L]])), dials::loss_reduction(range = c(lred[[1L]], lred[[2L]]))
   )
   set.seed(seed)
-  hpgrid_lgbm <- dials::grid_random(hpset_lgbm, size = 5)
+  hpgrid_lgbm <- dials::grid_random(hpset_lgbm, size = grid_size)
   if ("mtry" %in% names(hpgrid_lgbm)) {
     hpgrid_lgbm$mtry <- pmax(1L, pmin(as.integer(hpgrid_lgbm$mtry), n_pred))
   }
+  cli::cli_alert_info("ml_lightgbm 调参网格: size={grid_size}; tree_depth=[{td[[1]]},{td[[2]]}]; trees=[{tr[[1]]},{tr[[2]]}]")
 
   set.seed(seed)
   tune_lgbm <- wk_lgbm %>%
@@ -623,7 +632,8 @@ block_ml_lightgbm <- function(ctx, ...) {
       pred_ref_col = prep$pred_ref_col,
       pred_ana_col = prep$pred_ana_col,
       ref_g = prep$ref_group,
-      ana_g = prep$ana_group
+      ana_g = prep$ana_group,
+      bl_cfg = bl_cfg
     ),
     error = function(e) {
       cli::cli_alert_danger("{toupper(tag)} 失败: {e$message}")
@@ -637,6 +647,7 @@ block_ml_lightgbm <- function(ctx, ...) {
   ctx$results$ml_models[[tag]] <- saved$model
   ctx$results$ml_predictions_all[[tag]] <- saved$preds
   ctx$results$ml_eval_by_model[[tag]] <- saved$eval
+  ctx <- .ml_register_model_probs(ctx, tag, preds_df = saved$preds)
   cli::cli_alert_success("ml_lightgbm 完成。")
   ctx
 }

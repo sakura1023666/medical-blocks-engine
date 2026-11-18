@@ -342,7 +342,9 @@
                                          overall_lab = "Overall",
                                          smd_uw_lab = "SMD Unweighted",
                                          smd_wt_lab = "SMD Weighted") {
-  # Jin 同构：Characteristic | Overall | G1 | G2 | P | SMD Unweighted | SMD Weighted
+  # Jin 同构 7 列（无 Level、无表身 n 行）：
+  # Characteristic | Overall | G1 | G2 | P | SMD Unweighted | SMD Weighted
+  # 分类水平缩进写入 Characteristic（与原文 Age / 20–40 一致）
   as_df <- function(m) {
     d <- as.data.frame(m, stringsAsFactors = FALSE)
     d$.row <- rownames(m)
@@ -365,9 +367,14 @@
     character(0)
   }
 
+  ch0 <- as.character(uw$.row)
+  lv0 <- if (!is.na(lvl_col)) as.character(uw[[lvl_col]]) else rep("", nrow(uw))
+  ch0[is.na(ch0)] <- ""
+  lv0[is.na(lv0)] <- ""
+
   out <- data.frame(
-    Characteristic = uw$.row,
-    Level = if (!is.na(lvl_col)) as.character(uw[[lvl_col]]) else "",
+    Characteristic = ch0,
+    Level = lv0,
     Overall = if (!is.na(ov_col)) as.character(uw[[ov_col]]) else "",
     Group1 = if (!is.na(g1_col)) as.character(uw[[g1_col]]) else "",
     Group2 = if (!is.na(g2_col)) as.character(uw[[g2_col]]) else "",
@@ -377,6 +384,53 @@
     stringsAsFactors = FALSE
   )
   out$SMD_Weighted[is.na(out$SMD_Weighted)] <- ""
+
+  # 去掉 tableone 的 n 行（N 只写在列头 Overall/组名里）
+  is_n <- tolower(trimws(out$Characteristic)) %in% c("n", "n (%)") &
+    !nzchar(trimws(out$Level))
+  out <- out[!is_n, , drop = FALSE]
+
+  # 水平缩进并入 Characteristic；去掉独立 Level 列
+  ch <- trimws(out$Characteristic)
+  lv <- trimws(out$Level)
+  # 有变量名+水平：先输出变量名行（P/SMD 留此行），再把该行改成缩进水平并复制 P/SMD 清空到水平行
+  # 简化对齐 Jin：变量名单独成行（计数留空），随后缩进水平行带 No.(%)
+  new_rows <- list()
+  i <- 1L
+  while (i <= nrow(out)) {
+    chi <- ch[[i]]
+    lvi <- lv[[i]]
+    if (nzchar(chi) && nzchar(lvi)) {
+      # 变量标题行：P/SMD 放这里，三组计数留空
+      hdr <- out[i, , drop = FALSE]
+      hdr$Characteristic <- chi
+      hdr$Overall <- ""
+      hdr$Group1 <- ""
+      hdr$Group2 <- ""
+      new_rows[[length(new_rows) + 1L]] <- hdr
+      # 当前水平行
+      lev <- out[i, , drop = FALSE]
+      lev$Characteristic <- paste0("  ", lvi)
+      lev$P <- ""
+      lev$SMD_Unweighted <- ""
+      lev$SMD_Weighted <- ""
+      new_rows[[length(new_rows) + 1L]] <- lev
+    } else if (!nzchar(chi) && nzchar(lvi)) {
+      lev <- out[i, , drop = FALSE]
+      lev$Characteristic <- paste0("  ", lvi)
+      new_rows[[length(new_rows) + 1L]] <- lev
+    } else {
+      # 连续变量等
+      row <- out[i, , drop = FALSE]
+      row$Characteristic <- chi
+      new_rows[[length(new_rows) + 1L]] <- row
+    }
+    i <- i + 1L
+  }
+  out <- do.call(rbind, new_rows)
+  rownames(out) <- NULL
+  out$Level <- NULL
+
   for (col in c("Overall", "Group1", "Group2")) {
     out[[col]] <- ifelse(
       grepl("\\(.*\\)", out[[col]]) & !grepl("mean", out[[col]], ignore.case = TRUE),
@@ -384,8 +438,12 @@
       out[[col]]
     )
   }
+  # 分类格子：Jin 为 "894 (26.7)"，不写 % 符号（表头已是 No. (%)）
+  for (col in c("Overall", "Group1", "Group2")) {
+    out[[col]] <- gsub("\\(([0-9.]+)%\\)", "(\\1)", out[[col]], perl = TRUE)
+  }
   names(out) <- c(
-    "Characteristic", "Level", overall_lab, g1_lab, g2_lab, "P",
+    "Characteristic", overall_lab, g1_lab, g2_lab, "P",
     smd_uw_lab, smd_wt_lab
   )
   out
@@ -939,19 +997,19 @@ block_iptw_balance <- function(ctx, ...) {
 
   h1 <- NULL
   h2 <- NULL
-  if (identical(table_style, "jin") && ncol(tab_wide) >= 8L) {
-    # 对齐 Jin Table 1 双行表头：
+  if (identical(table_style, "jin") && ncol(tab_wide) >= 7L) {
+    # 对齐 Jin Table 1 双行表头（无 Level、无表身 n）：
     # Characteristic | Overall(N) | G1(N) | G2(N) | P¹ | Standardized Mean Difference
-    #                  No.(%) spanning groups              Unweighted | Weighted²
+    #                | No.(%)     | No.(%)| No.(%)|    | Unweighted | Weighted²
     nm <- names(tab_wide)
     h1 <- c(
-      "Characteristic", "",
-      nm[3L], nm[4L], nm[5L],
+      "Characteristic",
+      nm[2L], nm[3L], nm[4L],
       "P\u00b9",
       "Standardized Mean Difference", "Standardized Mean Difference"
     )
     h2 <- c(
-      "", "Level",
+      "",
       "No. (%)", "No. (%)", "No. (%)",
       "",
       "Unweighted", "Weighted\u00b2"

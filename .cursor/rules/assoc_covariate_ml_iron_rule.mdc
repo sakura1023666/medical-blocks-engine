@@ -1,5 +1,5 @@
 ---
-description: Cox/Logistic 协变量铁律：Age 强制 Model1；Model2=UV显著且未进 ML
+description: Cox/Logistic 协变量铁律：Model1=Age+Gender；Model2=UV→VIF→MV→VIF final
 alwaysApply: true
 ---
 
@@ -7,45 +7,66 @@ alwaysApply: true
 
 所有含机器学习 + Cox/Logistic 关联表的课题必须遵守。**禁止写死** `model1_factors` / `model2_factors`（如 Age+GCS）绕过本规则。
 
-## 铁律
+## 铁律 A — 全局默认（2026-10-23）
 
-1. **Model 1**：`Age`（或课题配置的 `force_model1`）**强制纳入**；若 `demo_uv_to_model1=TRUE`，**单因素显著**的 `Gender/Sex/Height/Weight/BMI` 等人口学也进 Model1（即使用 LASSO 选了，仍可在 Model1 调整，与 Weight 同规则）。
-2. **Model 2**：Model 1 + **单因素显著（默认 `tb1`）且未进入最终 ML 特征**的变量（嵌套）。
-3. **排除**：暴露指标本身、已进 ML 的特征、结局/时间/ID、`exclude_extra` 黑名单。
-4. **顺序**：必须先特征选择，再解析协变量，再跑关联表：
-   `uni → VIF → ml_feature_selection_bundle → ml_assoc_covariate_resolve → ml_assoc_bundle → ML 训练…`
-5. **小样本**：可用 `max_model2_extra` 限制 Model2 额外变量个数；允许 `allow_m2_eq_m1 = TRUE`（无额外变量时 M2=M1）。
+1. **Model 1**：仅强制 **`Age` + `Gender`/`Sex`**（不论单因素是否显著）。**禁止**再用 `demo_uv_to_model1` 把 Weight/BMI/Height 塞进 Model1。
+2. **Model 2**：Model 1 + **单因素 → VIF screen → 多因素 → VIF final** 终末通过池中除 Age/Gender 外的全部变量（`vif_final_pass` / 终末 `Model2Factors`）。可含已进 ML 的特征；只排除暴露本身与结局/ID 等。
+3. **禁止**课题级「强制加入 / 强制删除」人体测量或血细胞去改 Model1/2（除暴露公式成分硬排除、疾病泄漏变量）。VIF>阈值 由引擎迭代剔除，勿手写 `exclude_vars = Weight`。
+4. **顺序**：`uni → VIF screen → multivariate → VIF final → … → ml_feature_selection_bundle → ml_assoc_covariate_resolve → ml_assoc_bundle → ML 训练…`
+5. **小样本**：可用 `max_model2_extra` 限制 Model2 额外变量个数；允许 `allow_m2_eq_m1 = TRUE`。
+
+## 铁律 B — 文献三层 `literature_m123`（opt-in，与 A 并存）
+
+对标文献 Table2「未调整 / Age+Sex / 临床∩UV∩VIF」时开启，**不要**用全局 VIF 全池冒充文献 Model3。
+
+1. config：`assoc_covariate$scheme = "literature_m123"` + 必填 `clinical_covariates`。
+2. **Model 1（表）** = 未调整；**Model 2（表）** = Age + Sex；**Model 3（表）** = clinical ∩ UV ∩ VIF。
+3. **`model3_exclude`**（默认 `ml_assoc_default_model3_exclude()`）：APSIII/OASIS/SOFA/GCS/通气/CRRT 等严重度与器官支持**不得**进主文 Model3（防过度调整翻转 HR）；可进敏感性。
+4. Table2 / S4 / 联合敏感性 / Fig3 RCS / Fig6 森林必须同一套 Model3；Fig6 **优先 Model3**，层内不可估再回退 Age+Sex。
+5. 返工 CLI：`run/ml/rebuild_assoc_unified_model3.R`、`run/ml/redraw_assoc_figs.R`；复用地图 `docs/reuse/2026-10-26-ml-literature-m123-assoc-reuse-map.md`。
+6. AKI 文献片段：`configs/ml_literature_aki_dev_ext_assoc_overrides.R` → `ml_literature_aki_dev_ext_apply_assoc_overrides()`；换病种须裁剪 `clinical_covariates`，禁止照抄他病名单。
 
 ## 实现入口（必须挂上）
 
-- 规则函数：`R/ml_assoc_covariate_rule.R`（`ml_resolve_assoc_covariates` / `ml_apply_assoc_covariate_rule_to_ctx`）
+- 规则函数：`R/ml_assoc_covariate_rule.R`（`ml_resolve_assoc_covariates` / `ml_assoc_vif_final_vars` / `ml_resolve_assoc_covariates_literature_m123`）
 - Block：`ml_assoc_covariate_resolve`（`Blocks/24_ml_dual/07block_ml_assoc_covariate_resolve.R`）
-- 默认开启：`configs/ml_dual_shared_overrides.R` 的 `config$assoc_covariate`
-- 流水线尾：`ml_dual_primary_ml_tail_blocks()` 已含 resolve → assoc
+- 默认开启（铁律 A）：`configs/ml_dual_shared_overrides.R` 的 `config$assoc_covariate`
+- 文献三层（铁律 B）：`configs/ml_literature_aki_dev_ext_assoc_overrides.R`
 
 ```r
+# 铁律 A（全局默认）
 config$assoc_covariate <- list(
   enable = TRUE,
-  force_model1 = "Age",
-  demo_uv_to_model1 = TRUE,
-  demo_keywords = c("Gender", "Sex", "Height", "Weight", "BMI"),
-  uv_source = "tb1",
-  max_model2_extra = Inf,  # 小样本可 1～2
-  allow_m2_eq_m1 = TRUE
+  force_model1 = c("Age", "Gender"),
+  force_gender_in_model1 = TRUE,
+  demo_uv_to_model1 = FALSE,
+  model2_from_vif_final = TRUE,
+  allow_ml_features_in_model2 = TRUE,
+  allow_m2_eq_m1 = TRUE,
+  model2_exclude = character(0)
 )
+
+# 铁律 B（文献三层，opt-in）
+source("configs/ml_literature_aki_dev_ext_assoc_overrides.R")
+config <- ml_literature_aki_dev_ext_apply_assoc_overrides(config, clinical_covariates = ...)
 ```
+
+旧行为（仅当课题显式需要）：`model2_from_uv_not_in_ml = TRUE` 或 `demo_uv_to_model1 = TRUE`。
 
 ## 新课题检查清单
 
-- [ ] 未在 `cox_*` / `logistic_*` 写死与铁律冲突的 `model1_factors`/`model2_factors`
-- [ ] pipeline 含 `ml_assoc_covariate_resolve`，且位于 FS 之后、assoc 之前
-- [ ] 日志出现 `assoc 协变量铁律: Model1=force(Age); Model2=...`
-- [ ] Table 2/3 脚注 Model1=Age；Model2 不含最终 ML 特征
-- [ ] 全变量 / 手工 rebuild 表也调用 `ml_resolve_assoc_covariates()`，勿硬编码
+- [ ] 未写死与铁律冲突的 `model1_factors`/`model2_factors`
+- [ ] pipeline 含 `ml_assoc_covariate_resolve`，位于 FS 之后、assoc 之前
+- [ ] 默认套路：日志 `Model1=force(Age+Gender); Model2=Model1 + vif_final (...): …`（无 `demo-UV(Weight)`）
+- [ ] 文献三层：`scheme=literature_m123`；Model3 日志无严重度；Table2/S4/Fig6 同口径
+- [ ] Table 2 脚注与所选 scheme 一致；无 Weight/BMI 强塞（除非终末 VIF 池数据驱动保留）
+- [ ] `multicollinearity$exclude_vars` 无手写 Weight/BMI 强制踢除
 
 ## 反例（禁止）
 
-- 写死 `cox_tertile$model2_factors = c("Age", "GCS")`，不管 GCS 是否已进 ML、是否 UV 显著
-- assoc 跑在特征选择之前，导致「未进 ML」无法判定
-- Cox 把精简 Model2 写回全局 `Model2Factors`，污染后续 LASSO 候选池（FS bundle 会从 `vif_screen_pass` 恢复）
-- Age 因单因素不显著被踢出 Model1
+- `demo_keywords` 含 Weight，把肥胖相关变量强塞进含 WHtR 暴露的 Model1
+- Model2 用「UV 显著且未进 ML」绕过终末 VIF 池
+- 写死 `cox_*$model2_factors = c("Age", "GCS")`
+- Cox 把精简 Model2 写回全局 `Model2Factors`，污染后续 LASSO 候选池
+- 开了 `literature_m123` 却把 APSIII/SOFA/通气留在主文 Model3，或 Fig6 仍按旧 Model2 全图
+- 从 `_archive_oneoff/sar_crcv_*` / `/tmp` 复制 rebuild 脚本到下一课题

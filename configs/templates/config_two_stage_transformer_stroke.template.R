@@ -93,6 +93,7 @@ config <- list(
     seed = 1234L,
     fit_on = "train",
     complete_action = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig = FALSE,
     export_table_s1 = FALSE,
     pause_enable = FALSE

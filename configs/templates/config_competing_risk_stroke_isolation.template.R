@@ -104,6 +104,7 @@ config <- list(
     missing_col_threshold = 0.5,
     method = "cart", m = 5L, max_iter = 5L, seed = 1234L,
     complete_action = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig = TRUE,
     export_table_s1 = TRUE,
     force_keep_columns = .test_units,

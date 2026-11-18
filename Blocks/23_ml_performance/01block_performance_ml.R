@@ -67,18 +67,30 @@
   # train/test 常在特征选择或缺失补救后附加预测专用列，而这些列不一定回写
   # imputed。只要保留了拆分前的唯一行名，应优先用它恢复事件真值，不能因
   # 列集合不完全相同而误判为无法对齐。
+  #
+  # 踩坑（NPC OS ML, 2026-10）：train_validation 后 rownames 常被 reset 成
+  # "1".."n"。若仍用行名去 match imputed 的 "1".."N"，会把验证/训练真值
+  # 对到错误患者 → ROC 图 AUC≈0.42，与 Table 宽表（按预测表 Group）严重不符。
   rn_all <- rownames(d_tv)
   rn_part <- rownames(part)
-  if (!is.null(rn_all) && !is.null(rn_part) &&
-      !anyDuplicated(rn_all) && !anyDuplicated(rn_part) &&
-      all(rn_part %in% rn_all)) {
+  .pm_rn_is_sequential <- function(rn, n) {
+    !is.null(rn) && length(rn) == n && identical(as.character(rn), as.character(seq_len(n)))
+  }
+  use_rn <- !is.null(rn_all) && !is.null(rn_part) &&
+    !anyDuplicated(rn_all) && !anyDuplicated(rn_part) &&
+    all(rn_part %in% rn_all) &&
+    !.pm_rn_is_sequential(rn_part, nrow(part))
+  if (use_rn) {
     return(match(rn_part, rn_all))
   }
   cols <- names(part)
   if (!length(cols)) return(integer(0))
-  if (!all(cols %in% names(d_tv))) {
+  # 预测专用列可能只在 train/test：对齐时只用两侧共有列
+  cols <- intersect(cols, names(d_tv))
+  if (!length(cols)) {
     stop("block_performance_ml: train/test 列无法与 imputed 对齐。", call. = FALSE)
   }
+  # 去掉几乎必定被重置的行名噪声列；保留结局/时间以降低碰撞
   pc <- function(df, cn) {
     do.call(paste, c(lapply(cn, function(v) as.character(df[[v]])), list(sep = "\1")))
   }
@@ -127,6 +139,31 @@
     cv5_spec  = if (exists(e5s, envir = env, inherits = FALSE)) get(e5s, envir = env) else NULL,
     cv5_sens  = if (exists(e5n, envir = env, inherits = FALSE)) get(e5n, envir = env) else NULL
   )
+}
+
+## 结局标签含空格 / >= 时，tidymodels 概率列常是 ".pred_<原标签>"，
+## 而 ctx$results$ml_pred_ana_col 多为 ".pred_" + make.names(标签)（如 .pred_CKM.Stage....1）。
+## 对不上时 mats 为空再写 D → 「replacement has N rows, data has 0」。
+.pm_resolve_pred_col <- function(df, group_label, preferred = NULL) {
+  nms <- names(df)
+  g <- as.character(group_label)[1L]
+  if (!is.null(preferred) && nzchar(preferred) && preferred %in% nms) return(preferred)
+  cands <- unique(c(
+    preferred,
+    paste0(".pred_", g),
+    paste0(".pred_", make.names(g))
+  ))
+  cands <- cands[nzchar(as.character(cands %||% ""))]
+  hit <- intersect(cands, nms)
+  if (length(hit)) return(hit[[1L]])
+  pred_cols <- nms[grepl("^\\.pred_", nms)]
+  if (length(pred_cols)) {
+    target <- make.names(g)
+    stripped <- sub("^\\.pred_", "", pred_cols)
+    j <- match(target, make.names(stripped))
+    if (!is.na(j)) return(pred_cols[[j]])
+  }
+  NULL
 }
 
 .pm_default_colors <- function(n) {
@@ -180,10 +217,26 @@
   eval_df <- eval_df[as.character(eval_df$model) %in% display_order, , drop = FALSE]
   eval_df$model <- factor(as.character(eval_df$model), levels = display_order)
   eval_df <- eval_df[is.finite(eval_df$.estimate) & !is.na(eval_df$model), , drop = FALSE]
-  p <- ggplot2::ggplot(eval_df, ggplot2::aes(x = .data$.metric, y = .data$.estimate, color = .data$model)) +
+  # 横轴用可读名；图例统一 Model（忌 Model/model/Models 混用）
+  metric_lab <- c(
+    roc_auc = "ROC AUC", auc = "ROC AUC", c_index = "C-index",
+    kap = "Kappa", sens = "Sensitivity", spec = "Specificity",
+    accuracy = "Accuracy", f_meas = "F1", mcc = "MCC",
+    brier = "Brier", brier_score = "Brier"
+  )
+  eval_df$.metric_lab <- unname(metric_lab[tolower(as.character(eval_df$.metric))])
+  miss <- is.na(eval_df$.metric_lab) | !nzchar(eval_df$.metric_lab)
+  eval_df$.metric_lab[miss] <- as.character(eval_df$.metric[miss])
+  p <- ggplot2::ggplot(
+    eval_df,
+    ggplot2::aes(x = .data$.metric_lab, y = .data$.estimate, color = .data$model)
+  ) +
     ggplot2::geom_point() +
     ggplot2::geom_line(ggplot2::aes(group = .data$model)) +
-    ggplot2::scale_color_manual(values = stats::setNames(colors[seq_along(display_order)], display_order)) +
+    ggplot2::scale_color_manual(
+      name = "Model",
+      values = stats::setNames(colors[seq_along(display_order)], display_order)
+    ) +
     ggplot2::theme_bw(base_size = base_size, base_family = font_family) +
     .pm_theme_ml(font_family, base_size, legend_position = c(0.88, 0.05), legend_justification = c(1, 0)) +
     ggplot2::theme(
@@ -192,7 +245,7 @@
       legend.box = "vertical"
     ) +
     ggplot2::scale_x_discrete(name = "Model metric") +
-    ggplot2::labs(title = title, x = NULL, y = "Estimate")
+    ggplot2::labs(title = title, x = NULL, y = "Estimate", color = "Model")
   if (!is.null(y_limits) && length(y_limits) == 2L &&
       all(is.finite(as.numeric(y_limits)))) {
     p + ggplot2::coord_cartesian(ylim = as.numeric(y_limits), clip = "off")
@@ -262,7 +315,11 @@
     )
   dig <- as.integer(digits)[1L]
   if (!is.finite(dig) || dig < 0L) dig <- 3L
+  ## 走引擎 pub_format_prob_metric：固定三位；|x|<0.001 → <0.001（禁止 0.000）
   fmt_est <- function(x) {
+    if (exists("pub_format_prob_metric", mode = "function")) {
+      return(pub_format_prob_metric(x, digits = dig))
+    }
     x <- suppressWarnings(as.numeric(x))
     ifelse(is.finite(x), sprintf(paste0("%.", dig, "f"), x), NA_character_)
   }
@@ -411,6 +468,16 @@
   }
   idx <- .pm_match_rows(d_tv, part_df)
   if (anyNA(idx) || length(idx) != n) {
+    ## TCF/SMOTE 扩增后训练集含合成行，无法回对齐 imputed；若预测表已有 Group 则回退
+    if ("Group" %in% names(part_df)) {
+      cli::cli_alert_warning(
+        "block_performance_ml（预后）: 预测表与 imputed 行对齐失败（常见于 SMOTE）；回退用预测表 Group 作真值。"
+      )
+      y <- as.integer(
+        trimws(as.character(part_df$Group)) == trimws(as.character(ana_group)[1L])
+      )
+      return(list(truth01 = y, ok = !is.na(y)))
+    }
     stop(
       "block_performance_ml（预后）: 无法将预测表与 imputed 行对齐；请确认 train/test 与插补数据一致。",
       call. = FALSE
@@ -443,6 +510,8 @@
   }
   cls <- test_df$D
   resci <- data.frame()
+  ## 发表口径：AUC/CI 固定 3 位（禁 round(..., 4) 上图）
+  .fmt3 <- function(x) formatC(as.numeric(x), format = "f", digits = 3L)
   for (j in seq_along(display_order)) {
     nm <- display_order[j]
     if (!nm %in% names(test_df)) next
@@ -457,16 +526,19 @@
       resci,
       data.frame(
         algorithm = nm,
-        ROC = round(auc_v, 4),
-        Lower = round(lo, 4),
-        Upper = round(hi, 4),
+        ROC = .fmt3(auc_v),
+        Lower = .fmt3(lo),
+        Upper = .fmt3(hi),
         stringsAsFactors = FALSE
       )
     )
   }
   if (!nrow(resci)) return(NULL)
   resci <- resci[order(resci$algorithm), , drop = FALSE]
-  resci$AUC <- paste0(resci$algorithm, " AUC: ", resci$ROC, "(", resci$Lower, "-", resci$Upper, ")")
+  ## 紧凑三位：避免图例过长互相碰撞（空格+逗号会撑宽）
+  resci$AUC <- paste0(
+    resci$algorithm, " AUC: ", resci$ROC, "(", resci$Lower, "-", resci$Upper, ")"
+  )
   dfd <- test_df[, c("D", resci$algorithm), drop = FALSE]
   longtest <- dplyr::bind_rows(lapply(resci$algorithm, function(nm) {
     data.frame(
@@ -493,6 +565,7 @@
     ggplot2::scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), expand = c(0, 0)) +
     ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), expand = c(0, 0)) +
     ggplot2::scale_color_manual(
+      name = "Model",
       values = {
         cv <- colors[match(resci$algorithm, display_order)]
         na <- is.na(cv)
@@ -504,8 +577,20 @@
       }
     ) +
     ggplot2::xlab("") + ggplot2::ylab("") +
-    .pm_theme_ml(font_family, base_size, legend_position = c(0.7, 0.14), legend_justification = c(0.5, 0)) +
-    ggplot2::labs(title = title)
+    .pm_theme_ml(font_family, base_size, legend_position = c(0.72, 0.12), legend_justification = c(0.5, 0)) +
+    ggplot2::guides(
+      color = ggplot2::guide_legend(
+        title = "Model",
+        ncol = 1L, keyheight = grid::unit(0.28, "cm"),
+        override.aes = list(linewidth = 0.7)
+      )
+    ) +
+    ggplot2::theme(
+      legend.text = ggplot2::element_text(size = max(5.5, base_size - 3), family = font_family),
+      legend.key.height = grid::unit(0.28, "cm"),
+      legend.spacing.y = grid::unit(0.02, "cm")
+    ) +
+    ggplot2::labs(title = title, color = "Model")
   .pm_coord_clip_off(p)
 }
 
@@ -573,7 +658,7 @@
     ggplot2::geom_abline(intercept = 0, slope = 1, linetype = 2, color = "gray") +
     ggplot2::scale_y_continuous(breaks = seq(0, 100, 25)) +
     ggplot2::scale_x_continuous(breaks = seq(0, 100, 25)) +
-    ggplot2::scale_color_manual(values = cal_cols) +
+    ggplot2::scale_color_manual(name = "Model", values = cal_cols) +
     ggplot2::geom_point(size = 1.6) +
     ggplot2::geom_line(linewidth = 0.4) +
     ggplot2::coord_cartesian(xlim = c(0, 100), ylim = c(0, 100), expand = FALSE, clip = "off") +
@@ -833,10 +918,19 @@
   ]
   if (!nrow(tmp)) return(NULL)
   ulev <- unique(as.character(dca_obj$variable))
-  tmp$variable <- factor(tmp$variable, levels = ulev, ordered = TRUE)
-  comb_names <- c("all", "none", display_order)
+  # 发表口径：treat-all / treat-none（勿留 dcurves 原始 all/none）
+  .dca_lab <- function(v) {
+    v <- as.character(v)
+    v[v %in% c("all", "All")] <- "Treat-all"
+    v[v %in% c("none", "None")] <- "Treat-none"
+    v
+  }
+  tmp$variable <- .dca_lab(tmp$variable)
+  ulev <- .dca_lab(ulev)
+  tmp$variable <- factor(tmp$variable, levels = unique(ulev), ordered = TRUE)
+  comb_names <- c("Treat-all", "Treat-none", display_order)
   comb_cols <- c(
-    all = "#999999", none = "#666666",
+    `Treat-all` = "#999999", `Treat-none` = "#666666",
     stats::setNames(.pm_default_colors(length(display_order)), display_order)
   )
   # 自适应窄范围：默认允许轻微负值；若传入 y_min（如 0），强制以下限为准
@@ -870,12 +964,12 @@
   if (is.finite(ymin)) {
     tmp$net_benefit <- pmax(as.numeric(tmp$net_benefit), ymin)
   }
-  col_values <- unname(comb_cols[ulev])
+  col_values <- unname(comb_cols[as.character(ulev)])
   col_values[is.na(col_values)] <- grDevices::gray(0.5)
-  names(col_values) <- ulev
+  names(col_values) <- as.character(ulev)
   p <- ggplot2::ggplot(tmp, ggplot2::aes(x = .data$threshold, y = .data$net_benefit)) +
     ggplot2::geom_line(ggplot2::aes(color = .data$variable), linewidth = 1) +
-    ggplot2::scale_color_manual(name = "Models", values = col_values) +
+    ggplot2::scale_color_manual(name = "Model", values = col_values) +
     ggplot2::scale_x_continuous(
       limits = xlim,
       expand = ggplot2::expansion(mult = c(0.01, 0.02)),
@@ -1213,14 +1307,21 @@ block_performance_ml <- function(ctx, ...) {
       mats <- list()
       for (tg in tags_ok) {
         pr <- if (identical(split_name, "train")) loaded[[tg]]$predtrain else loaded[[tg]]$predtest
-        if (is.null(pr) || !pred_ana %in% names(pr)) next
+        if (is.null(pr)) next
+        col_use <- .pm_resolve_pred_col(pr, ana_group, preferred = pred_ana)
+        if (is.null(col_use)) {
+          cli::cli_alert_warning(
+            "block_performance_ml: 模型 {tg} 无可用概率列（期望 {pred_ana} / .pred_{ana_group}），已跳过。"
+          )
+          next
+        }
         if (nrow(pr) != n_ref) {
           cli::cli_alert_warning(
             "block_performance_ml: 模型 {tg} 预测行数 ({nrow(pr)}) 与 {split_name} ({n_ref}) 不一致（可能含 NA 行被丢弃），已跳过该模型的 ROC/DCA。"
           )
           next
         }
-        mats[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[pred_ana]])
+        mats[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[col_use]])
       }
       tv <- .pm_truth_vector(ctx, ref_part_df, prognosis, outcome_ml, ev_var, ana_group, ref_group)
       truth01 <- tv$truth01
@@ -1229,7 +1330,18 @@ block_performance_ml <- function(ctx, ...) {
         truth01 <- ifelse(ok, truth01, NA_real_)
       }
       D <- as.integer(if (prognosis) truth01 else as.integer(ref_part_df$Group == ana_group))
+      if (!length(mats)) {
+        cli::cli_alert_warning(
+          "block_performance_ml: {split_name} 无任何模型概率列可对齐（pred_ana={pred_ana}），跳过多模型 ROC。"
+        )
+        return(list(test_df = NULL))
+      }
       test_df <- as.data.frame(mats, check.names = FALSE)
+      if (nrow(test_df) == 0L) {
+        ## 防止空 mats/0 行 df 写入长度 n 的 D → replacement has n rows, data has 0
+        cli::cli_alert_warning("block_performance_ml: {split_name} 概率矩阵为空，跳过多模型 ROC。")
+        return(list(test_df = NULL))
+      }
       test_df$D <- D
       ok2 <- is.finite(test_df$D) & apply(test_df[, names(mats), drop = FALSE], 1L, function(r) all(is.finite(r)))
       test_df <- test_df[ok2, , drop = FALSE]
@@ -1278,8 +1390,11 @@ block_performance_ml <- function(ctx, ...) {
       for (tg in tags_ok) {
         pr <- if (identical(split_name, "train")) loaded[[tg]]$predtrain else loaded[[tg]]$predtest
         if (is.null(pr) || nrow(pr) != n0) next
-        wide[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[pred_ana]])
+        col_use <- .pm_resolve_pred_col(pr, ana_group, preferred = pred_ana)
+        if (is.null(col_use)) next
+        wide[[.pm_display_from_tag(tg)]] <- as.numeric(pr[[col_use]])
       }
+      if (ncol(wide) < 2L) return(NULL)
       wide <- wide[is.finite(wide$Outcome) & apply(wide[, -1, drop = FALSE], 1L, function(z) all(is.finite(z))), ]
       if (nrow(wide) < 15L) return(NULL)
       wide

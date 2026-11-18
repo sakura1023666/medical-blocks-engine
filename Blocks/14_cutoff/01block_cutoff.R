@@ -233,11 +233,33 @@ block_cutoff <- function(ctx, ...) {
   .cutoff_assign_groups <- function(x, n_groups, prefix) {
     xv <- as.numeric(x)
     u <- sort(unique(xv[is.finite(xv)]))
+    labs_pref <- paste0(prefix, seq_len(n_groups))
     if (length(u) < 2L) {
-      return(factor(rep(NA_character_, length(xv)), levels = paste0(prefix, seq_len(n_groups))))
+      return(factor(rep(NA_character_, length(xv)), levels = labs_pref))
     }
     if (length(u) <= n_groups) {
       return(factor(xv, levels = u, labels = paste0(prefix, seq_along(u))))
+    }
+    # 与 Table2 / pipeline_quantile_group_factor 对齐：左闭右开（right=FALSE）
+    # 旧 cut(..., right=TRUE 默认) 会把分位点本身划进低组，导致离散指标
+    # （如 LS7）Q4 事件被「吃进」Q3，亚组最高 vs 最低全空。
+    method <- if (identical(as.integer(n_groups)[1L], 4L)) {
+      "quartile"
+    } else if (identical(as.integer(n_groups)[1L], 3L)) {
+      "tertile"
+    } else {
+      NA_character_
+    }
+    if (!is.na(method) && exists("pipeline_quantile_group_factor", mode = "function")) {
+      g <- tryCatch(
+        pipeline_quantile_group_factor(xv, method = method),
+        error = function(e) NULL
+      )
+      if (!is.null(g) && nlevels(droplevels(g[!is.na(g)])) >= 2L) {
+        lv <- levels(g)
+        levels(g) <- paste0(prefix, seq_along(lv))
+        return(g)
+      }
     }
     probs <- seq(0, 1, length.out = n_groups + 1L)
     brks <- unique(as.numeric(stats::quantile(xv, probs, na.rm = TRUE)))
@@ -245,7 +267,7 @@ block_cutoff <- function(ctx, ...) {
       return(factor(xv, levels = u, labels = paste0(prefix, seq_along(u))))
     }
     labs <- paste0(prefix, seq_len(length(brks) - 1L))
-    cut(xv, breaks = brks, include.lowest = TRUE, labels = labs)
+    cut(xv, breaks = brks, include.lowest = TRUE, right = FALSE, labels = labs)
   }
 
   # ── Binary 分组（Convention A: equals → high）────────────────────────────

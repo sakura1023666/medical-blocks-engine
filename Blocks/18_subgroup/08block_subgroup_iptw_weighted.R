@@ -75,14 +75,23 @@
   rn <- rownames(coef_mat)
   hit <- grep(":", rn, fixed = TRUE)
   if (!length(hit)) return(NA_real_)
+  # glm: col4=Pr(>|t|)；coxph: col4=z、col5=Pr(>|z|) —— 禁止硬取第 4 列
+  p_col <- if ("Pr(>|z|)" %in% colnames(coef_mat)) {
+    "Pr(>|z|)"
+  } else if ("Pr(>|t|)" %in% colnames(coef_mat)) {
+    "Pr(>|t|)"
+  } else {
+    colnames(coef_mat)[ncol(coef_mat)]
+  }
   sub_hit <- hit[
     grepl(sub_var, rn[hit], fixed = TRUE) &
       grepl(exp_col, rn[hit], fixed = TRUE)
   ]
-  if (length(sub_hit)) return(coef_mat[sub_hit[1L], 4])
-  sub_hit <- hit[grepl(sub_var, rn[hit], fixed = TRUE)]
-  if (length(sub_hit)) return(coef_mat[sub_hit[1L], 4])
-  NA_real_
+  if (!length(sub_hit)) sub_hit <- hit[grepl(sub_var, rn[hit], fixed = TRUE)]
+  if (!length(sub_hit)) return(NA_real_)
+  pv <- suppressWarnings(as.numeric(coef_mat[sub_hit[1L], p_col]))
+  if (!is.finite(pv) || pv < 0 || pv > 1) return(NA_real_)
+  pv
 }
 
 .siw08_ensure_age_bmi <- function(design, sub_cfg) {
@@ -120,7 +129,10 @@
   do.call(stats::update, c(list(design), upd))
 }
 
-.siw08_one_subgroup <- function(sub_var, design, exp_col, high_level, min_n) {
+.siw08_one_subgroup <- function(sub_var, design, exp_col, high_level, min_n,
+                                effect = c("OR", "HR"),
+                                time_var = NULL, event_var = NULL) {
+  effect <- match.arg(effect)
   levs <- levels(factor(design$variables[[sub_var]]))
   sub_list <- lapply(levs, function(l) {
     sub_d <- tryCatch(
@@ -128,45 +140,98 @@
       error = function(e) NULL
     )
     if (is.null(sub_d) || nrow(sub_d$variables) < min_n) return(NULL)
-    fit <- tryCatch(
-      survey::svyglm(
-        stats::as.formula(paste0("Disease_Group ~ ", exp_col)),
-        design = sub_d,
-        family = stats::quasibinomial()
-      ),
-      error = function(e) NULL
-    )
-    if (is.null(fit)) return(NULL)
-    co <- summary(fit)$coefficients
-    tgt <- .siw08_match_exposure_coef(co, exp_col, high_level)
-    if (!length(tgt)) return(NULL)
-    est <- co[tgt, "Estimate"]
-    se <- co[tgt, "Std. Error"]
-    pv <- co[tgt, 4]
-    n_ev <- sum(sub_d$variables$Disease_Group == 1, na.rm = TRUE)
-    n_tot <- nrow(sub_d$variables)
-    data.frame(
-      Subgroup = sub_var,
-      Levels = l,
-      Events = paste0(n_ev, "/", n_tot),
-      OR = exp(est),
-      Lower = exp(est - 1.96 * se),
-      Upper = exp(est + 1.96 * se),
-      P.value = pv,
-      stringsAsFactors = FALSE
-    )
+
+    if (identical(effect, "HR")) {
+      if (!nzchar(time_var) || !nzchar(event_var) ||
+          !all(c(time_var, event_var) %in% names(sub_d$variables))) {
+        return(NULL)
+      }
+      form <- stats::as.formula(
+        paste0("survival::Surv(", time_var, ", ", event_var, ") ~ ", exp_col)
+      )
+      fit <- tryCatch(
+        survey::svycoxph(form, design = sub_d),
+        error = function(e) {
+          # 回退：design 权重 + robust coxph
+          w <- tryCatch(as.numeric(stats::weights(sub_d)), error = function(e2) NULL)
+          dd <- sub_d$variables
+          if (is.null(w) || length(w) != nrow(dd)) return(NULL)
+          survival::coxph(form, data = dd, weights = w, robust = TRUE)
+        }
+      )
+      if (is.null(fit)) return(NULL)
+      s <- summary(fit)
+      co <- s$coefficients
+      tgt <- .siw08_match_exposure_coef(co, exp_col, high_level)
+      if (!length(tgt)) tgt <- 1L
+      hr <- tryCatch(unname(s$conf.int[tgt, 1L]), error = function(e) exp(co[tgt, 1L]))
+      lo <- tryCatch(unname(s$conf.int[tgt, 3L]), error = function(e) NA_real_)
+      hi <- tryCatch(unname(s$conf.int[tgt, 4L]), error = function(e) NA_real_)
+      p_col <- if ("Pr(>|z|)" %in% colnames(co)) "Pr(>|z|)" else colnames(co)[ncol(co)]
+      pv <- unname(co[tgt, p_col])
+      n_ev <- sum(as.numeric(sub_d$variables[[event_var]]) > 0, na.rm = TRUE)
+      n_tot <- nrow(sub_d$variables)
+      data.frame(
+        Subgroup = sub_var, Levels = l, Events = paste0(n_ev, "/", n_tot),
+        OR = as.numeric(hr), Lower = as.numeric(lo), Upper = as.numeric(hi),
+        P.value = as.numeric(pv), stringsAsFactors = FALSE
+      )
+    } else {
+      fit <- tryCatch(
+        survey::svyglm(
+          stats::as.formula(paste0("Disease_Group ~ ", exp_col)),
+          design = sub_d,
+          family = stats::quasibinomial()
+        ),
+        error = function(e) NULL
+      )
+      if (is.null(fit)) return(NULL)
+      co <- summary(fit)$coefficients
+      tgt <- .siw08_match_exposure_coef(co, exp_col, high_level)
+      if (!length(tgt)) return(NULL)
+      est <- co[tgt, "Estimate"]
+      se <- co[tgt, "Std. Error"]
+      pv <- co[tgt, 4]
+      n_ev <- sum(sub_d$variables$Disease_Group == 1, na.rm = TRUE)
+      n_tot <- nrow(sub_d$variables)
+      data.frame(
+        Subgroup = sub_var,
+        Levels = l,
+        Events = paste0(n_ev, "/", n_tot),
+        OR = exp(est),
+        Lower = exp(est - 1.96 * se),
+        Upper = exp(est + 1.96 * se),
+        P.value = pv,
+        stringsAsFactors = FALSE
+      )
+    }
   })
   res_df <- do.call(rbind, Filter(Negate(is.null), sub_list))
   if (is.null(res_df) || !nrow(res_df)) return(NULL)
 
-  fit_i <- tryCatch(
-    survey::svyglm(
-      stats::as.formula(paste0("Disease_Group ~ ", exp_col, " * ", sub_var)),
-      design = design,
-      family = stats::quasibinomial()
-    ),
-    error = function(e) NULL
-  )
+  if (identical(effect, "HR")) {
+    form_i <- stats::as.formula(
+      paste0("survival::Surv(", time_var, ", ", event_var, ") ~ ", exp_col, " * ", sub_var)
+    )
+    fit_i <- tryCatch(
+      survey::svycoxph(form_i, design = design),
+      error = function(e) {
+        w <- tryCatch(as.numeric(stats::weights(design)), error = function(e2) NULL)
+        dd <- design$variables
+        if (is.null(w) || length(w) != nrow(dd)) return(NULL)
+        survival::coxph(form_i, data = dd, weights = w, robust = TRUE)
+      }
+    )
+  } else {
+    fit_i <- tryCatch(
+      survey::svyglm(
+        stats::as.formula(paste0("Disease_Group ~ ", exp_col, " * ", sub_var)),
+        design = design,
+        family = stats::quasibinomial()
+      ),
+      error = function(e) NULL
+    )
+  }
   res_df$P.inter <- if (!is.null(fit_i)) {
     .siw08_match_interaction_p(summary(fit_i)$coefficients, exp_col, sub_var)
   } else {
@@ -314,8 +379,11 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
   if (!exists("subgroup_build_variable_pool", mode = "function")) {
     suppressWarnings(source(file.path(getwd(), "R", "subgroup_vars.R"), local = FALSE))
   }
+  # 用合并后的 subgroup_iptw_weighted 覆盖，保证双库 required 名单一致
+  cfg_pool <- cfg
+  cfg_pool$subgroup <- sub_cfg
   pool_built <- subgroup_build_variable_pool(
-    ctx, design$variables, cfg, db_name = "mimic"
+    ctx, design$variables, cfg_pool, db_name = as.character(cfg$project$units %||% "main")[1L]
   )
   var_subgroups <- setdiff(pool_built$vars, forbid_extra)
   var_subgroups <- subgroup_vars_pass_min_n(
@@ -327,7 +395,31 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
     return(ctx)
   }
 
-  cli::cli_h2("subgroup_iptw_weighted: IPTW svyglm subgroup forest")
+  # 预后默认 HR（与 Sens Cox 同口径）；发病默认 OR；可用 effect_measure 覆盖
+  effect_default <- if (identical(study_type, "prognosis")) "HR" else "OR"
+  effect_meas <- toupper(as.character(bl_cfg$effect_measure %||% effect_default)[1L])
+  if (!effect_meas %in% c("OR", "HR")) effect_meas <- effect_default
+  time_var <- as.character(
+    bl_cfg$time_var %||% cfg$survival$time_var %||% cfg$ipw_alteplase$time_var %||%
+      cfg$ipw_diabetes$time_var %||% "surv_time_28d"
+  )[1L]
+  event_var <- as.character(
+    bl_cfg$event_var %||% cfg$survival$event_var %||% cfg$survival$status_var %||%
+      cfg$ipw_alteplase$event_var %||% cfg$ipw_diabetes$event_var %||% "surv_event_28d"
+  )[1L]
+  if (identical(effect_meas, "HR")) {
+    if (!requireNamespace("survival", quietly = TRUE)) {
+      stop("subgroup_iptw_weighted HR 模式需要 survival 包。", call. = FALSE)
+    }
+    if (!all(c(time_var, event_var) %in% names(design$variables))) {
+      stop(
+        "subgroup_iptw_weighted HR 模式需要时间/结局列: ", time_var, " / ", event_var,
+        call. = FALSE
+      )
+    }
+  }
+
+  cli::cli_h2("subgroup_iptw_weighted: IPTW subgroup forest ({effect_meas})")
   cli::cli_alert_info("Exposure={exp_col} ({low_level} ref vs {high_level})")
   cli::cli_alert_info("Subgroup vars: {paste(var_subgroups, collapse = ', ')}")
 
@@ -335,7 +427,10 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
   for (v in var_subgroups) {
     cli::cli_alert_info("Analyzing subgroup: {v}")
     r <- tryCatch(
-      .siw08_one_subgroup(v, design, exp_col, high_level, min_group_size),
+      .siw08_one_subgroup(
+        v, design, exp_col, high_level, min_group_size,
+        effect = effect_meas, time_var = time_var, event_var = event_var
+      ),
       error = function(e) {
         cli::cli_alert_warning("subgroup '{v}' failed: {e$message}")
         NULL
@@ -365,14 +460,44 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
 
   plot_df <- .siw08_build_forest_df(dt_raw)
   plot_df$` ` <- paste(rep(" ", 14), collapse = " ")
-  ci_lab <- "OR (95% CI)"
+  ci_lab <- if (identical(effect_meas, "HR")) "HR (95% CI)" else "OR (95% CI)"
+  # 准完全分离 / 数值崩溃：禁止图上出现 0.00 (0.00 to 0.00)
+  .siw08_or_degenerate <- function(or, lo, hi) {
+    !is.finite(or) || !is.finite(lo) || !is.finite(hi) ||
+      or <= 1e-6 || or >= 1e6 || lo <= 1e-6 || hi >= 1e6 ||
+      (is.finite(or) && or < 0.005 && is.finite(hi) && hi < 0.005)
+  }
+  deg <- vapply(seq_len(nrow(plot_df)), function(i) {
+    .siw08_or_degenerate(
+      plot_df$`Point Estimate`[i], plot_df$Lower[i], plot_df$Upper[i]
+    )
+  }, logical(1L))
+  if (any(deg, na.rm = TRUE)) {
+    plot_df$`Point Estimate`[deg] <- NA_real_
+    plot_df$Lower[deg] <- NA_real_
+    plot_df$Upper[deg] <- NA_real_
+    plot_df$Lower_plot[deg] <- NA_real_
+    plot_df$Upper_plot[deg] <- NA_real_
+    plot_df$`P value`[deg] <- "NE"
+  }
   plot_df[[ci_lab]] <- ifelse(
-    is.na(plot_df$`Point Estimate`), "",
+    is.na(plot_df$`Point Estimate`),
+    ifelse(
+      !nzchar(trimws(as.character(plot_df$Variable))) |
+        grepl("^\\s*$", plot_df$Variable) |
+        is.na(plot_df$Events) | !nzchar(as.character(plot_df$Events)),
+      "",
+      "NE"
+    ),
     sprintf(
       "%.2f (%.2f to %.2f)",
       plot_df$`Point Estimate`, plot_df$Lower, plot_df$Upper
     )
   )
+  # 标题行保持空 CI；水平行退化写 NE
+  hdr_like <- !nzchar(as.character(plot_df$Events))
+  plot_df[[ci_lab]][hdr_like] <- ""
+  plot_df$`P value`[hdr_like & plot_df$`P value` == "NE"] <- ""
 
   plot_ff <- plot_font_from_config(cfg)
   tm <- forest_theme(
@@ -444,11 +569,13 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
   fig_h <- max(10, nrow(plot_df) * 0.4 + 2)
   fig_dir <- ctx$output_dir_figures %||% file.path(ctx$output_dir, "Figures")
   if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
-  fig_caption <- paste0(
-    "Subgroup analysis of ", gsub("_", " ", index_var, fixed = TRUE),
-    " and ", gsub("_", " ", proj_cfg$disease %||% "outcome", fixed = TRUE),
-    " (IPTW-adjusted)"
-  )
+  fig_caption <- as.character(bl_cfg$figure_caption %||% "")[1L]
+  if (!nzchar(fig_caption)) {
+    exp_lab <- gsub("_", " ", as.character(exp_col %||% index_var)[1L], fixed = TRUE)
+    fig_caption <- paste0(
+      "Subgroup analysis of ", exp_lab, " (IPTW-adjusted)"
+    )
+  }
   fig_name <- if (!is.null(bl_cfg$figure_filename) && nzchar(bl_cfg$figure_filename)) {
     bl_cfg$figure_filename
   } else {
@@ -492,13 +619,14 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
     "Variable", "Events", "Point Estimate", "Lower", "Upper",
     "P value", "P for interaction"
   ), drop = FALSE]
-  names(tbl_export)[names(tbl_export) == "Point Estimate"] <- "OR"
-  if (all(c("OR", "Lower", "Upper") %in% names(tbl_export))) {
-    tbl_export[["OR (95% CI)"]] <- ifelse(
-      is.na(suppressWarnings(as.numeric(tbl_export$OR))), "",
+  names(tbl_export)[names(tbl_export) == "Point Estimate"] <- effect_meas
+  ci_col_name <- paste0(effect_meas, " (95% CI)")
+  if (all(c(effect_meas, "Lower", "Upper") %in% names(tbl_export))) {
+    tbl_export[[ci_col_name]] <- ifelse(
+      is.na(suppressWarnings(as.numeric(tbl_export[[effect_meas]]))), "",
       sprintf(
         "%s (%s\u2013%s)",
-        fmt_num(as.numeric(tbl_export$OR)),
+        fmt_num(as.numeric(tbl_export[[effect_meas]])),
         fmt_num(as.numeric(tbl_export$Lower)),
         fmt_num(as.numeric(tbl_export$Upper))
       )
@@ -507,11 +635,12 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
 
   tbl_dir <- ctx$output_dir_tables %||% file.path(ctx$output_dir, "Tables")
   if (!dir.exists(tbl_dir)) dir.create(tbl_dir, recursive = TRUE)
+  effect_note <- if (identical(effect_meas, "HR")) "HR, IPTW Cox" else "OR, incidence"
   tbl_pub <- pub_pair(
     ctx, tbl_dir, "main_table",
     title_caption = paste0(
       "IPTW Subgroup Analysis of ", index_var,
-      " on ", proj_cfg$disease %||% "Outcome", " (OR, incidence)"
+      " on ", proj_cfg$disease %||% "Outcome", " (", effect_note, ")"
     ),
     file_caption = paste0("IPTW Subgroup Analysis of ", index_var),
     ext = "xlsx"
@@ -526,12 +655,12 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
   ctx$results$subgroup_iptw_vars_used <- var_subgroups
   ctx$results$subgroup_iptw_exposure <- exp_col
   ctx$results$subgroup_iptw_exposure_levels <- exp_levs
-  ctx$results$subgroup_iptw_study_type <- "incidence"
-  ctx$results$subgroup_iptw_effect <- "OR"
+  ctx$results$subgroup_iptw_study_type <- study_type
+  ctx$results$subgroup_iptw_effect <- effect_meas
   ctx$results$subgroup_vars_used <- var_subgroups
 
   cli::cli_alert_success(
-    "subgroup_iptw_weighted 完成（{nrow(dt_raw)} 行 OR，{length(var_subgroups)} 个亚组变量）。"
+    "subgroup_iptw_weighted 完成（{nrow(dt_raw)} 行 {effect_meas}，{length(var_subgroups)} 个亚组变量）。"
   )
   ctx
 }
@@ -539,5 +668,5 @@ block_subgroup_iptw_weighted <- function(ctx, ...) {
 register_block(
   "subgroup_iptw_weighted",
   block_subgroup_iptw_weighted,
-  "MIMIC IPTW 亚组森林图：C01 svyglm OR + subgroup_incidence forestploter 格式"
+  "IPTW 亚组森林：发病 svyglm OR；预后默认 svycoxph HR"
 )

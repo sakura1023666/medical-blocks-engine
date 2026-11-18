@@ -1,0 +1,19 @@
+# 抑郁背景 × 交叉滞后 Fig1 复用铁律
+
+凡 **抑郁症状阳性为背景人群**、暴露 FI（或同类虚弱）、结局高血压的交叉滞后课题，以及需要「部分库仅基线、部分库纵向」的 Fig1，直接走引擎，禁止结果目录 hotfix。
+
+## 铁律
+
+1. **课题识别**：`README_DEPRESSION_HTN_FRAILTY.txt` 或路径含 `22_depression` / `depression_htn` → `cross_lagged_study_meta` 的 `kind=depression_htn_frailty`。
+2. **CHARLS（或约定 xs-only 库）不做纵向**：`LONGITUDINAL_NO_CHARLS.txt` 或 meta 默认 `cohorts_long = ELSA+HRS`；collect 不收 CHARLS 纵向 Fig1。
+3. **共同前段**：有 FI 的基线 → 排除 CES-D 阴性 → **抑郁阳性 = Table 1 Overall**。
+4. **xs-only Fig1**：`cross_lagged_draw_xs_fig1` → 止于抑郁阳性，**底部分叉** Hypertension / No Hypertension（不画「排除现患 → Disease-free」作终框）。
+5. **纵向 Fig1**：`14block_cross_lagged_long_prepare` 在 Disease-free 前 **prepend** 上述前段。
+6. **主文拼图唯一入口**：`R/cross_lagged_fig1_pub.R` / `run/cross_lagged/remosaic_fig1.R`；禁止 `/tmp` 或课题 `hotfix_remosaic_*.R`。
+7. **复用地图**：`docs/reuse/2026-10-22-depression-htn-fig1-reuse-map.md`。
+
+## 反例
+
+- 在 `summary_result/` 手写拼图脚本当长期方案  
+- CHARLS 误用 phase3_long 纳排当主文面板  
+- 抑郁背景课题 Fig1 不写 CES-D 排除、直接从全队列跳到 Disease-free  

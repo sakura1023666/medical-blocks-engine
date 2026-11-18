@@ -23,7 +23,8 @@ block_ml_models_bundle <- function(ctx, ...) {
     "ml_tabpfn", "ml_tabpfnv2", "ml_realtabpfn_2_5", "ml_tablcl_v2",
     "ml_rsf", "ml_xgbsurv",
     "ml_coxboost", "ml_gbmsurv", "ml_ridge_cox", "ml_enet_cox",
-    "ml_survivalsvm", "ml_mboost_cox"
+    "ml_survivalsvm", "ml_mboost_cox",
+    "ml_naive_bayes", "ml_gbdt"
   )
   tag_map <- stats::setNames(all_tags, sub("^ml_", "", all_tags))
   ## 别名：文献名 → tag
@@ -38,7 +39,11 @@ block_ml_models_bundle <- function(ctx, ...) {
     "ridge-cox" = "ridge_cox",
     "elasticnet-cox" = "enet_cox",
     "elastic_net_cox" = "enet_cox",
-    "mboost-cox" = "mboost_cox"
+    "mboost-cox" = "mboost_cox",
+    "nb" = "naive_bayes",
+    "naive-bayes" = "naive_bayes",
+    "gbdt" = "gbdt",
+    "gradient_boosting" = "gbdt"
   )
   if (is.null(use) || !length(use)) {
     use <- names(tag_map)

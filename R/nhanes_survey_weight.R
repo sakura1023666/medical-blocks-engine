@@ -141,3 +141,62 @@ compute_nhanes_new_weight <- function(
 
   df
 }
+
+#' Align a data.frame to the survey-weighted analytic set (positive weights / design IDs)
+#'
+#' Used by unweighted sensitivity (baseline_binary / logistic_*_glm) and ROC so N matches
+#' Table 1 / Figure 1 analytic sample after dropping missing/non-positive survey weights.
+#'
+#' @param data_imp analysis frame (usually imputed complete#1)
+#' @param ctx pipeline context (reads nhanes_design_* from ctx$results)
+#' @param cfg config list
+#' @param label log prefix
+#' @return possibly row-filtered data.frame
+pipeline_align_survey_analytic_rows <- function(data_imp, ctx = NULL, cfg = NULL, label = "align_survey") {
+  if (is.null(data_imp) || !is.data.frame(data_imp) || !nrow(data_imp)) return(data_imp)
+  cfg <- cfg %||% ((ctx$config) %||% list())
+  data_imp <- as.data.frame(data_imp)
+  n0 <- nrow(data_imp)
+  des <- NULL
+  if (!is.null(ctx) && !is.null(ctx$results)) {
+    for (nm in c(
+      "nhanes_design_quart", "nhanes_design_tert", "nhanes_design_binary",
+      "nhanes_design"
+    )) {
+      d_try <- ctx$results[[nm]]
+      if (!is.null(d_try) && !is.null(d_try$variables)) {
+        des <- d_try
+        break
+      }
+    }
+  }
+  id_col <- as.character((cfg$data %||% list())$id_column %||% "ID")[1L]
+  if (!is.null(des) && nzchar(id_col) &&
+      id_col %in% names(data_imp) && id_col %in% names(des$variables)) {
+    keep <- data_imp[[id_col]] %in% des$variables[[id_col]]
+    data_imp <- data_imp[keep, , drop = FALSE]
+  } else {
+    wt <- as.character(
+      (cfg$nhanes %||% list())$survey_weight %||% "new_Weight"
+    )[1L]
+    if (!nzchar(wt) || !wt %in% names(data_imp)) {
+      for (cand in c("new_Weight", "WTSAF2YR", "WTMEC2YR", "WTMEC4YR")) {
+        if (cand %in% names(data_imp)) {
+          wt <- cand
+          break
+        }
+      }
+    }
+    if (nzchar(wt) && wt %in% names(data_imp)) {
+      w <- suppressWarnings(as.numeric(data_imp[[wt]]))
+      keep <- is.finite(w) & w > 0
+      data_imp <- data_imp[keep, , drop = FALSE]
+    }
+  }
+  if (nrow(data_imp) < n0 && requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_info(
+      "{label}: 对齐调查加权分析集 {n0} → {nrow(data_imp)}（与 Table1 / svydesign 同口径）"
+    )
+  }
+  data_imp
+}

@@ -226,7 +226,7 @@ gallstone_nomogram_fit_or_row <- function(data, expose, outcome, covars = charac
   method <- "glm"
   if (requireNamespace("brglm2", quietly = TRUE)) {
     fit <- tryCatch(
-      stats::glm(fml, data = d, family = stats::binomial(), method = "brglmFit"),
+      stats::glm(fml, data = d, family = stats::binomial(), method = brglm2::brglmFit),
       error = function(e) NULL
     )
     if (!is.null(fit)) method <- "brglm2"
@@ -348,7 +348,7 @@ gallstone_draw_fig1_lit <- function(pdf_path,
   y2_bot <- y2_top - bh
 
   .box(x0, y1_bot, x1, y1_top,
-       sprintf("Total eligible gallstone lithotripsy records\nN = %s", fmt(n_total)), 11)
+       sprintf("Total eligible patients\nN = %s", fmt(n_total)), 11)
   .vline(cx, y1_bot - 0.002, y2_top + 0.002)
 
   # 右侧 Exclude（即使 n=0 也画，对齐文献）

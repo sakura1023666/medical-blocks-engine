@@ -69,7 +69,9 @@ config <- list(
     age_cutoff = 65L
   ),
   incidence_batch = list(
-    index_group = "all", db_mode = "nhanes", parallel_workers = NULL,
+    # 单库：文件名/表题不加 -库名（pub_config_is_single_db / pub_strip_db_tags_from_delivery）
+    index_group = "all", db_mode = "nhanes", single_db = TRUE,
+    parallel_workers = NULL,
     output_base = .batch_project_root
   ),
   subgroup = list(

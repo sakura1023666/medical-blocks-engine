@@ -85,6 +85,7 @@ config <- list(
     max_iter              = 5L,
     seed                  = 1234L,
     complete_action       = 1L,
+    rubin_pool            = TRUE,
     export_missing_fig    = TRUE,
     export_table_s1       = TRUE
   ),
@@ -231,7 +232,9 @@ config <- list(
     strata                = "Disease_Group",
     include_vars          = NULL,
     exclude_vars          = c(
-      "SEQN", "WTINT2YR", "WTMEC2YR", "SDMVPSU", "SDMVSTRA", "Source_File"
+      "SEQN", "cycle", "Cycle", "new_Weight",
+      "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTSAF2YR", "WTSAF4YR",
+      "SDMVPSU", "SDMVSTRA", "Source_File"
     ),
     pause_enable          = TRUE,
     pause_on_table1_fail  = TRUE,
@@ -286,7 +289,9 @@ config <- list(
   # 单库也默认开敏感性（缺省 enable→TRUE；显式 FALSE 才关）
   incidence_batch = list(
     output_base   = NULL,  # 运行时由课题根覆盖
+    # 单库：交付文件名/表题不加 -NHANES（pub_config_is_single_db）
     db_mode       = "nhanes_only",
+    single_db     = TRUE,
     sensitivity_suite = list(
       enable        = TRUE,
       age_cutoff    = 65L,

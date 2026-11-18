@@ -1,40 +1,381 @@
-# 发表收口后触发质控骨架（Phase 6）
-# 默认开启；config$pub$auto_qc = FALSE 或环境变量 MEDICAL_BLOCKS_AUTO_PUB_QC=0 可关
+###############################################################################
+#  pub_qc_after_finalize — 结构层发表 QC（全项目复用）
+#
+#  挂点：run_pipeline 收尾 / dual-batch finalize / CLI run/pub/run_pub_qc_after_project.R
+#  只做结构扫描 + 骨架报告；Nature Layer D 仍由 Agent 按 skills 填实并修 P0。
+###############################################################################
 
-pub_qc_run_after_project <- function(project_root, config = NULL) {
+.pub_qc_today <- function() format(Sys.Date(), "%Y-%m-%d")
+
+.pub_qc_find_figure_roots <- function(project_root) {
+  project_root <- as.character(project_root)[1L]
+  # 优先定稿发表根（summary_* / 课题根 Figures）；有定稿则不扫 by_unit 草稿
+  pub_cands <- c(
+    file.path(project_root, "summary_result", "Figures"),
+    file.path(project_root, "summary_results", "Figures"),
+    file.path(project_root, "Figures")
+  )
+  # 指标级 summary_results（ML/TCF 常见）
+  by_index <- file.path(project_root, "by_index")
+  if (dir.exists(by_index)) {
+    hits <- list.files(by_index, pattern = "^\u3010success\u3011", full.names = TRUE)
+    pub_cands <- c(
+      pub_cands,
+      file.path(hits, "summary_results", "Figures"),
+      file.path(hits, "summary_result", "Figures")
+    )
+  }
+  pub_hit <- unique(pub_cands[dir.exists(pub_cands)])
+  # 有 summary_* 定稿时只扫定稿 Figures，勿连带课题根草稿 Figures（平铺残留会假 FAIL）
+  summary_hit <- pub_hit[grepl(
+    paste0(
+      "(^|/)",
+      "(summary_results|summary_result)",
+      "(/|$)"
+    ),
+    pub_hit
+  )]
+  if (length(summary_hit)) return(unique(summary_hit))
+  # 仅当尚无 summary 定稿时，才扫课题根 / 【success】 草稿 Figures
+  has_summary <- length(pub_hit) > 0L
+  if (isTRUE(has_summary)) return(pub_hit)
+
+  cands <- pub_hit
+  if (dir.exists(by_index)) {
+    hits <- list.files(by_index, pattern = "^\u3010success\u3011", full.names = TRUE)
+    cands <- c(cands, file.path(hits, "Figures"))
+  }
+  by_unit <- file.path(project_root, "by_unit")
+  if (dir.exists(by_unit)) {
+    hits <- list.files(by_unit, pattern = "^\u3010success\u3011", full.names = TRUE)
+    cands <- c(cands, file.path(hits, "Figures"))
+  }
+  unique(cands[dir.exists(cands)])
+}
+
+.pub_qc_scan_figures <- function(figures_dir, config = list()) {
+  if (!exists("pub_figure_formats_status", mode = "function")) {
+    return(list(ok = NA, note = "pub_figure_export not loaded"))
+  }
+  pub_figure_formats_status(figures_dir, config = config %||% list())
+}
+
+#' 结构 QC：四目录 + DPI≥600；写 reports/pub_qc_*.md（已有正式报告不覆盖正文时可 append stub）
+#' @param project_root 课题根
+#' @param config 可选；`config$pub$auto_qc = FALSE` 跳过
+#' @param force 强制写出（忽略 auto_qc 关）
+#' @return list(ok, report_path, scans)
+pub_qc_run_after_project <- function(project_root, config = NULL, force = FALSE) {
   project_root <- as.character(project_root %||% "")[1L]
   if (!nzchar(project_root) || !dir.exists(project_root)) {
-    cli::cli_alert_warning("pub_qc_run_after_project: 无效 project_root")
-    return(invisible(FALSE))
+    return(invisible(list(ok = FALSE, reason = "missing_project")))
   }
-  cfg_pub <- if (is.list(config)) (config$pub %||% list()) else list()
-  env_flag <- Sys.getenv("MEDICAL_BLOCKS_AUTO_PUB_QC", unset = "1")
-  if (identical(as.character(cfg_pub$auto_qc %||% TRUE), "FALSE") ||
-      identical(tolower(env_flag), "0") || identical(tolower(env_flag), "false")) {
-    cli::cli_alert_info("pub_qc_run_after_project: 已跳过（auto_qc 关闭）")
-    return(invisible(FALSE))
+  if (identical(Sys.getenv("MEDICAL_BLOCKS_AUTO_PUB_QC", "1"), "0") && !isTRUE(force)) {
+    return(invisible(list(ok = NA, reason = "env_disabled")))
   }
+  pub_cfg <- if (is.list(config)) (config$pub %||% list()) else list()
+  if (isFALSE(pub_cfg$auto_qc) && !isTRUE(force)) {
+    return(invisible(list(ok = NA, reason = "config_disabled")))
+  }
+
+  # 确保能读 DPI
   eng <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
-  script <- c(
-    if (nzchar(eng)) file.path(eng, "run/pub/run_pub_qc_after_project.R") else character(0),
-    file.path(getwd(), "run/pub/run_pub_qc_after_project.R"),
-    "/mnt/e/01block/01Block-new-Final/run/pub/run_pub_qc_after_project.R",
-    "E:/01block/01Block-new-Final/run/pub/run_pub_qc_after_project.R"
-  )
-  script <- script[file.exists(script)]
-  if (!length(script)) {
-    cli::cli_alert_warning("找不到 run/pub/run_pub_qc_after_project.R")
-    return(invisible(FALSE))
-  }
-  cli::cli_alert_info("Phase 6 pub-qc: {project_root}")
-  st <- tryCatch(
-    system2("Rscript", c("--vanilla", script[[1L]], "--project", project_root),
-            stdout = TRUE, stderr = TRUE),
-    error = function(e) {
-      cli::cli_alert_warning("pub-qc 失败: {e$message}")
-      character(0)
+  if (!nzchar(eng)) {
+    for (cand in c("E:/01block/01Block-new-Final", "/mnt/e/01block/01Block-new-Final")) {
+      if (dir.exists(cand)) { eng <- cand; break }
     }
+  }
+  if (nzchar(eng) && !exists("pub_figure_formats_status", mode = "function")) {
+    try(source(file.path(eng, "R/pub_figure_export.R"), local = FALSE), silent = TRUE)
+  }
+  if (nzchar(eng) && !exists("pub_qc_scan_table_digits", mode = "function")) {
+    try(source(file.path(eng, "R/pub_qc_table_digits.R"), local = FALSE), silent = TRUE)
+  }
+  if (nzchar(eng) && !exists("pub_qc_scan_underscores", mode = "function")) {
+    try(source(file.path(eng, "R/pub_qc_underscore.R"), local = FALSE), silent = TRUE)
+  }
+  if (nzchar(eng) && !exists("pub_qc_scan_fonts", mode = "function")) {
+    try(source(file.path(eng, "R/pub_qc_fonts.R"), local = FALSE), silent = TRUE)
+  }
+
+  fig_roots <- .pub_qc_find_figure_roots(project_root)
+  # Layer D 机器半边：DPI<600 时从 PDF 重导，不整目录 purge。叙述仍由 Agent 填。
+  if (nzchar(eng)) {
+    scan_py <- file.path(eng, "python", "nature_two_aspect_scan.py")
+    if (file.exists(scan_py)) {
+      py <- Sys.which("python3")
+      if (!nzchar(py)) py <- Sys.which("python")
+      if (nzchar(py)) {
+        try(system2(py, c(scan_py, "--project", project_root, "--repair"),
+                    stdout = FALSE, stderr = FALSE), silent = TRUE)
+      }
+    }
+  }
+  scans <- lapply(fig_roots, function(d) {
+    st <- tryCatch(
+      .pub_qc_scan_figures(d, config = config %||% list()),
+      error = function(e) list(ok = FALSE, error = e$message)
+    )
+    list(dir = d, status = st)
+  })
+
+  n_fail <- sum(vapply(scans, function(x) {
+    st <- x$status
+    # 2026-11-02：默认不要求 png/tiff；仅当 status 声明 require_png/tiff 时计缺栅格为失败
+    raster_req <- isTRUE(st$require_png) || isTRUE(st$require_tiff)
+    isFALSE(st$ok) ||
+      length(st$flat_leftovers %||% character(0)) > 0 ||
+      length(st$bad_pdf_geometry %||% character(0)) > 0 ||
+      length(st$bad_pdf_raster %||% character(0)) > 0 ||
+      (raster_req && (
+        length(st$bad_dpi %||% character(0)) > 0 ||
+          length(st$stale_raster %||% character(0)) > 0 ||
+          length(st$missing_png %||% character(0)) > 0 ||
+          length(st$missing_tiff %||% character(0)) > 0
+      ))
+  }, logical(1)))
+
+  ## 数字格式门控（DeLong/NRI/AUC 裸 0 / 0.000 → 计 STRUCT_FAIL / P0）
+  digits_scan <- list(ok = TRUE, n_bad = 0L, hits = data.frame())
+  if (exists("pub_qc_scan_table_digits", mode = "function")) {
+    digits_scan <- tryCatch(
+      pub_qc_scan_table_digits(project_root),
+      error = function(e) list(ok = FALSE, n_bad = 1L, hits = data.frame(
+        path = NA_character_, file = "scan_error", bad = e$message,
+        stringsAsFactors = FALSE
+      ))
+    )
+  }
+  if (!isTRUE(digits_scan$ok)) n_fail <- n_fail + as.integer(digits_scan$n_bad %||% 1L)
+
+  ## 展示禁下划线（Tables xlsx + Figures/pdf + image_information）→ STRUCT_FAIL / P0
+  und_scan <- list(ok = TRUE, n_bad = 0L, hits = data.frame())
+  if (exists("pub_qc_scan_underscores", mode = "function")) {
+    und_scan <- tryCatch(
+      pub_qc_scan_underscores(project_root),
+      error = function(e) list(ok = FALSE, n_bad = 1L, hits = data.frame(
+        path = NA_character_, file = "scan_error", token = e$message, source = "error",
+        stringsAsFactors = FALSE
+      ))
+    )
+  }
+  if (!isTRUE(und_scan$ok)) n_fail <- n_fail + as.integer(und_scan$n_bad %||% 1L)
+
+  ## Times 系字体门控（Helvetica/Arial/sans → STRUCT_FAIL / P0）
+  font_scan <- list(ok = TRUE, n_bad = 0L, hits = data.frame())
+  if (exists("pub_qc_scan_fonts", mode = "function")) {
+    font_scan <- tryCatch(
+      pub_qc_scan_fonts(project_root),
+      error = function(e) list(ok = FALSE, n_bad = 1L, hits = data.frame(
+        file = "scan_error", font = e$message, source = "error",
+        stringsAsFactors = FALSE
+      ))
+    )
+  }
+  if (!isTRUE(font_scan$ok)) n_fail <- n_fail + as.integer(font_scan$n_bad %||% 1L)
+
+  reports <- file.path(project_root, "reports")
+  dir.create(reports, recursive = TRUE, showWarnings = FALSE)
+  day <- .pub_qc_today()
+  report_path <- file.path(reports, paste0("pub_qc_", day, ".md"))
+  nature_fig <- file.path(reports, paste0("nature_figure_qc_", day, ".md"))
+  nature_stat <- file.path(reports, paste0("nature_statistics_qc_", day, ".md"))
+
+  lines <- c(
+    "# 发表质控报告（结构 AUTO）",
+    "",
+    paste0("- 项目根：`", project_root, "`"),
+    paste0("- 日期：", day),
+    paste0("- 审阅结论：**", if (n_fail == 0L) "STRUCT_OK" else "STRUCT_FAIL", "**（仅 Layer A 结构；Nature Layer D 须 Agent 填实）"),
+    paste0("- Figures 根数：", length(fig_roots), "；结构失败：", n_fail),
+    paste0("- 表数字格式门控：", if (isTRUE(digits_scan$ok)) "PASS" else paste0("FAIL (n=", digits_scan$n_bad %||% "?", ")")),
+    paste0("- 展示禁下划线门控：", if (isTRUE(und_scan$ok)) "PASS" else paste0("FAIL (n=", und_scan$n_bad %||% "?", ")")),
+    paste0("- 发表字体 Times 门控：", if (isTRUE(font_scan$ok)) "PASS" else paste0("FAIL (n=", font_scan$n_bad %||% "?", ")")),
+    "",
+    "## Layer A — pdf + image_information（默认不要求 png/tiff）",
+    ""
   )
-  if (length(st)) cli::cli_alert_info("{paste(utils::tail(st, 3), collapse = ' | ')}")
-  invisible(TRUE)
+  for (sc in scans) {
+    st <- sc$status
+    bad <- length(st$bad_dpi %||% character(0))
+    lines <- c(
+      lines,
+      paste0("### `", sc$dir, "`"),
+      paste0("- ok=", st$ok %||% NA, "; stems=", length(st$stems %||% character(0)),
+             "; require_png=", isTRUE(st$require_png),
+             "; require_tiff=", isTRUE(st$require_tiff),
+             "; require_vector_pdf=", isTRUE(st$require_vector_pdf %||% TRUE),
+             "; bad_dpi=", bad,
+             "; stale_raster=", length(st$stale_raster %||% character(0)),
+             "; bad_pdf_geometry=", length(st$bad_pdf_geometry %||% character(0)),
+             "; bad_pdf_raster=", length(st$bad_pdf_raster %||% character(0)),
+             "; require_dpi=", st$require_dpi %||% 600L),
+      if (bad > 0L) paste0("- bad_dpi 样例：", paste(utils::head(st$bad_dpi, 5L), collapse = "; ")) else NULL,
+      if (length(st$stale_raster %||% character(0)) > 0L)
+        paste0("- stale_raster 样例：", paste(utils::head(st$stale_raster, 5L), collapse = "; "))
+      else NULL,
+      if (length(st$bad_pdf_raster %||% character(0)) > 0L)
+        paste0("- **bad_pdf_raster (P0 非矢量 PDF)**：",
+               paste(utils::head(st$bad_pdf_raster, 8L), collapse = "; "))
+      else NULL,
+      ""
+    )
+  }
+  lines <- c(
+    lines,
+    "## Layer A2 — 表数字格式（pub_digits）",
+    "",
+    "- 规则：`.cursor/rules/pub_digits_consistency.mdc`；实现：`R/pub_qc_table_digits.R`",
+    "- P/DeLong/NRI/IDI/AUC 禁止裸 `0` / `0.000`（须 `<0.001`）；超参表豁免",
+    ""
+  )
+  if (isTRUE(digits_scan$ok)) {
+    lines <- c(lines, "- 结论：**PASS**（未检出反规范整格）", "")
+  } else {
+    lines <- c(lines, "- 结论：**FAIL / P0**", "")
+    ht <- digits_scan$hits
+    if (is.data.frame(ht) && nrow(ht)) {
+      for (i in seq_len(min(30L, nrow(ht)))) {
+        lines <- c(lines, paste0("  - `", ht$file[i], "`: ", ht$bad[i]))
+      }
+    }
+    lines <- c(lines, "")
+  }
+
+  lines <- c(
+    lines,
+    "## Layer A3 — 展示禁下划线（pub_no_underscore_display）",
+    "",
+    "- 规则：`.cursor/rules/pub_no_underscore_display.mdc`；实现：`R/pub_qc_underscore.R`",
+    "- 扫描范围：交付 `Tables/*.xlsx`、`Figures/pdf/*.pdf`（pdftotext）、`Figures/image_information/*.md`",
+    "- 命中临床/编程展示名中的 `_` → **FAIL / P0**（须 `pipeline_display_label` / 重导图或外科 scrub）",
+    ""
+  )
+  if (isTRUE(und_scan$ok)) {
+    lines <- c(lines, "- 结论：**PASS**（未检出展示层下划线）", "")
+  } else {
+    lines <- c(lines, "- 结论：**FAIL / P0**", "")
+    ht <- und_scan$hits
+    if (is.data.frame(ht) && nrow(ht)) {
+      for (i in seq_len(min(40L, nrow(ht)))) {
+        lines <- c(
+          lines,
+          paste0("  - [`", ht$source[i], "`] `", ht$file[i], "`: `", ht$token[i], "`")
+        )
+      }
+      if (nrow(ht) > 40L) {
+        lines <- c(lines, paste0("  - … 另有 ", nrow(ht) - 40L, " 处"))
+      }
+    }
+    lines <- c(lines, "")
+  }
+
+  lines <- c(
+    lines,
+    "## Layer A4 — 发表字体 Times（pub_times_new_roman）",
+    "",
+    "- 规则：`.cursor/rules/pub_times_new_roman.mdc`；实现：`R/pub_qc_fonts.R`",
+    "- 扫描范围：交付 `Figures/pdf/*.pdf`（`pdffonts`）",
+    "- 允许：Times / TimesNewRoman / Liberation Serif / Nimbus Roman 等衬线",
+    "- 命中 Helvetica / Arial / Calibri / NimbusSans / sans → **FAIL / P0**（须 `pipeline_pdf_device` / cairo Times 重导）",
+    ""
+  )
+  if (isTRUE(font_scan$ok)) {
+    lines <- c(lines, "- 结论：**PASS**（未检出禁字体）", "")
+  } else {
+    lines <- c(lines, "- 结论：**FAIL / P0**", "")
+    ht <- font_scan$hits
+    if (is.data.frame(ht) && nrow(ht)) {
+      for (i in seq_len(min(40L, nrow(ht)))) {
+        lines <- c(
+          lines,
+          paste0("  - `", ht$file[i], "`: `", ht$font[i], "`")
+        )
+      }
+      if (nrow(ht) > 40L) {
+        lines <- c(lines, paste0("  - … 另有 ", nrow(ht) - 40L, " 处"))
+      }
+    }
+    lines <- c(lines, "")
+  }
+
+  lines <- c(
+    lines,
+    "## Layer D stubs",
+    "",
+    paste0("- 若尚无正式报告，请按 `.cursor/skills/pub-qc-after-project` 填实："),
+    paste0("  - `", basename(nature_fig), "`"),
+    paste0("  - `", basename(nature_stat), "`"),
+    "- **默认交付仅 PDF**：缺 png/tiff 不再算 P0；仅当 `config$pub_figures$export_png/tiff=TRUE` 时 DPI/stale_raster 才为 P0。",
+    "- **根目录平铺 Figure*.pdf 或 bad_pdf_geometry = P0**，当场 `pub_figure_ensure_formats`。",
+    "- **bad_pdf_raster = P0**：交付 `Figures/pdf` 不得是整页栅格「图片 PDF」；须真矢量。截图/Shiny 可用 `allow_raster_pdf_patterns` 白名单。禁止用 `pub_figure_rasterize_pdf_page` 覆盖交付矢量稿。",
+    "- **表数字格式 FAIL = P0**（裸 0/0.000）；修完再宣称 PASS。",
+    "- **展示下划线 FAIL = P0**（Tables/Figures/image_information）；修完再宣称 PASS。",
+    "- **发表字体 FAIL = P0**（Helvetica/Arial/sans）；须 Times 系重导。",
+    ""
+  )
+
+  # 不覆盖已有非 AUTO 正式报告
+  write_main <- TRUE
+  if (file.exists(report_path)) {
+    old <- paste(readLines(report_path, warn = FALSE, n = 5L), collapse = "\n")
+    if (!grepl("结构 AUTO|AUTO_STUB", old)) {
+      write_main <- FALSE
+      alt <- file.path(reports, paste0("pub_qc_", day, "_struct_auto.md"))
+      writeLines(lines, alt, useBytes = TRUE)
+      report_path <- alt
+    }
+  }
+  if (write_main) writeLines(lines, report_path, useBytes = TRUE)
+
+  .write_stub <- function(path, title) {
+    if (file.exists(path)) return(FALSE)
+    writeLines(c(
+      paste0("# ", title),
+      "",
+      "<!-- AUTO_STUB: Agent 须按 nature-* skill 填实；未填实不得宣称 PASS -->",
+      "",
+      paste0("- 项目：`", project_root, "`"),
+      paste0("- 日期：", day),
+      "- 结论：PENDING",
+      ""
+    ), path, useBytes = TRUE)
+    TRUE
+  }
+  .write_stub(nature_fig, "Nature Figure QC (AUTO_STUB)")
+  .write_stub(nature_stat, "Nature Statistics QC (AUTO_STUB)")
+
+  if (requireNamespace("cli", quietly = TRUE)) {
+    if (n_fail == 0L) {
+      cli::cli_alert_success("pub-qc 结构 OK -> {report_path}")
+    } else {
+      cli::cli_alert_danger("pub-qc 结构 FAIL (n={n_fail}) -> {report_path}")
+    }
+  }
+
+  # Phase 7 排队：结构通过后写下一批中期目录。叙述仍由 Agent 按
+  # Aiya-NB004-midterm-report 填写；此处只保证收口后队列存在，不在 R 里编造正文。
+  if (n_fail == 0L) {
+    qpath <- file.path(reports, "phase7_midterm_queue.txt")
+    qdirs <- unique(c(
+      fig_roots,
+      file.path(project_root, "summary_result"),
+      file.path(project_root, "summary_results"),
+      if (basename(project_root) %in% c("summary_result", "summary_results")) project_root else character(0)
+    ))
+    qdirs <- qdirs[dir.exists(qdirs)]
+    writeLines(c(
+      paste0("project=", project_root),
+      paste0("date=", day),
+      "note=Nature Layer D P0 must be cleared before build_report.py",
+      paste0("dir=", qdirs)
+    ), qpath, useBytes = TRUE)
+  }
+
+  invisible(list(
+    ok = n_fail == 0L,
+    report_path = report_path,
+    n_fail = n_fail,
+    scans = scans
+  ))
 }

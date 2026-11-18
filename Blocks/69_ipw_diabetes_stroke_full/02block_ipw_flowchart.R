@@ -157,7 +157,16 @@ block_ipw_diabetes_flowchart <- function(ctx, ...) {
   if (yvar %in% names(data)) keep_idx <- keep_idx & !is.na(data[[yvar]])
   if (exp_var %in% names(data)) keep_idx <- keep_idx & !is.na(data[[exp_var]])
   n_analytic <- sum(keep_idx)
-  .add("include", "Final analytic cohort with Diabetes_HbA1c defined", n_analytic)
+  # 标签跟暴露走：Alteplase 课题勿残留 Diabetes_HbA1c 文案
+  is_alteplase <- grepl("alteplase", exp_var, ignore.case = TRUE)
+  analytic_lbl <- if (is_alteplase) {
+    paste0("Final analytic cohort with ", exp_var, " defined")
+  } else if (identical(exp_var, "Diabetes_HbA1c")) {
+    "Final analytic cohort with Diabetes_HbA1c defined"
+  } else {
+    paste0("Final analytic cohort with ", exp_var, " defined")
+  }
+  .add("include", analytic_lbl, n_analytic)
 
   data_analytic <- data[keep_idx, , drop = FALSE]
   exp_tab <- if (exp_var %in% names(data_analytic)) {
@@ -168,15 +177,29 @@ block_ipw_diabetes_flowchart <- function(ctx, ...) {
   n_diabetic <- as.integer(exp_tab[["1"]] %||% exposure_snap$n_diabetes %||% 0L)
   n_nondiabetic <- as.integer(exp_tab[["0"]] %||% max(0L, n_analytic - n_diabetic))
 
+  if (is_alteplase) {
+    out_labels <- c(
+      paste0(exp_var, " = 1 (yes)"),
+      paste0(exp_var, " = 0 (no)")
+    )
+  } else if (identical(exp_var, "Diabetes_HbA1c")) {
+    out_labels <- c(
+      paste0(exp_var, " = 1 (diabetes, HbA1c \u2265 threshold)"),
+      paste0(exp_var, " = 0 (no diabetes)")
+    )
+  } else {
+    out_labels <- c(
+      paste0(exp_var, " = 1"),
+      paste0(exp_var, " = 0")
+    )
+  }
+
   counts <- rbind(
     steps[, c("step", "kind", "label", "n")],
     data.frame(
       step = nrow(steps) + 1:2,
       kind = "outcome",
-      label = c(
-        paste0(exp_var, " = 1 (diabetes, HbA1c \u2265 threshold)"),
-        paste0(exp_var, " = 0 (no diabetes)")
-      ),
+      label = out_labels,
       n = c(n_diabetic, n_nondiabetic),
       stringsAsFactors = FALSE
     )
@@ -195,8 +218,15 @@ block_ipw_diabetes_flowchart <- function(ctx, ...) {
   )
 
   db_lab <- as.character(cfg$project$database %||% "MIMIC")[1L]
+  default_cohort_tag <- if (is_alteplase) {
+    "IPW alteplase cohort"
+  } else if (identical(exp_var, "Diabetes_HbA1c")) {
+    "IPW diabetes cohort"
+  } else {
+    paste0("IPW ", exp_var, " cohort")
+  }
   fig_caption <- as.character(bl_cfg$figure_caption %||%
-    paste0("Flowchart of patient selection (", db_lab, ", IPW diabetes cohort)"))[1L]
+    paste0("Flowchart of patient selection (", db_lab, ", ", default_cohort_tag, ")"))[1L]
   fig_no <- suppressWarnings(as.integer(bl_cfg$figure_number %||% 1L))[1L]
 
   fig_path <- NULL

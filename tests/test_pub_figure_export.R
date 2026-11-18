@@ -183,6 +183,20 @@ chk <- system(
 )
 stopifnot(any(grepl("tiff_lzw|lzw", chk, ignore.case = TRUE)))
 
+# PNG pHYs 读回必须 ≥600（599.9988 会在文件属性里显示成 599）
+png_path <- file.path(fd, "png", "Figure 1. Flowchart.png")
+png_dpi <- system(
+  paste(
+    "python3 -c",
+    shQuote(sprintf(
+      "from PIL import Image; im=Image.open(%s); print(float(im.info.get('dpi')[0]))",
+      shQuote(png_path)
+    ))
+  ),
+  intern = TRUE
+)
+stopifnot(is.finite(as.numeric(png_dpi[[1L]])), as.numeric(png_dpi[[1L]]) >= 600)
+
 # LASSO A|B 横排必须是单页
 pdf_a <- file.path(fd, "S2A.pdf")
 pdf_b <- file.path(fd, "S2B.pdf")

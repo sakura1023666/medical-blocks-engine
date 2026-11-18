@@ -21,8 +21,23 @@
   ok <- is.finite(time) & is.finite(risk) & !is.na(event)
   if (sum(ok) < 20L || sum(event[ok] == 1L) < 5L) return(NA_real_)
   df <- data.frame(time = time[ok], event = as.integer(event[ok]), risk = risk[ok])
-  case <- df$event == 1L & df$time <= t_hor
-  ctrl <- df$time > t_hor
+  t_use <- as.numeric(t_hor)[1L]
+  case <- df$event == 1L & df$time <= t_use
+  ctrl <- df$time > t_use
+  ## 行政截尾到 horizon 时无人 time>t_hor → 回退到仍有对照的最大事件时点
+  if (sum(case) < 2L || sum(ctrl) < 2L) {
+    ev_t <- sort(unique(df$time[df$event == 1L & is.finite(df$time)]), decreasing = TRUE)
+    t_use <- NA_real_
+    for (tt in ev_t) {
+      if (sum(df$event == 1L & df$time <= tt) >= 2L && sum(df$time > tt) >= 2L) {
+        t_use <- tt
+        break
+      }
+    }
+    if (!is.finite(t_use)) return(NA_real_)
+    case <- df$event == 1L & df$time <= t_use
+    ctrl <- df$time > t_use
+  }
   if (sum(case) < 2L || sum(ctrl) < 2L) return(NA_real_)
   rc <- df$risk[case]; rt <- df$risk[ctrl]
   u <- sum(outer(rc, rt, `>`)) + 0.5 * sum(outer(rc, rt, `==`))
@@ -121,13 +136,18 @@
     as.numeric(stats::quantile(x, c(0.025, 0.975), names = FALSE, type = 7))
   }
   qa <- q("auc"); qc <- q("cindex"); qb <- q("brier")
+  ## Valid B：以 C-index 可估次数为准（TD-AUC 在行政截尾下可能全 NA，勿拖垮计数）
+  n_valid <- sum(is.finite(mat[, "cindex"]))
   data.frame(
     Dataset = label,
     Model = NA_character_,
-    `Time-Dependent AUC, 95% CI` = .mlboot_fmt_ci(pe["auc"], qa[1], qa[2], 3L),
+    `Time-Dependent AUC, 95% CI` = {
+      v <- .mlboot_fmt_ci(pe["auc"], qa[1], qa[2], 3L)
+      if (is.na(v) || !nzchar(as.character(v))) "NE" else v
+    },
     `C-Index, 95% CI` = .mlboot_fmt_ci(pe["cindex"], qc[1], qc[2], 3L),
-    `Brier Score, 95% CI` = .mlboot_fmt_ci(pe["brier"], qb[1], qb[2], 4L),
-    `Valid Bootstrap Iterations` = sum(stats::complete.cases(mat)),
+    `Brier Score, 95% CI` = .mlboot_fmt_ci(pe["brier"], qb[1], qb[2], 3L),
+    `Valid Bootstrap Iterations` = n_valid,
     check.names = FALSE,
     stringsAsFactors = FALSE
   )

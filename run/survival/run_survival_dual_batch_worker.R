@@ -457,6 +457,55 @@ for (db in actual_db_seq) {
     }
   }
 
+  ## Jin / 中介 / 诺模图：protect + mediators + candidate_features 必须从 shared 补回
+  ## （他指标列剔除或旧 slim ck 可能丢掉 TotalCo2 等，导致 Fig4 门控跳过）
+  {
+    ck_path <- file.path(per_index_ck, "index.rds")
+    need_keep <- unique(c(
+      as.character((config$analysis_exclusion %||% list())$protect_vars %||% character(0)),
+      as.character((config$mediation_prognosis %||% list())$mediators %||% character(0)),
+      as.character((config$mediation_prognosis %||% list())$best_mediator %||% character(0)),
+      as.character((config$logistic_nomogram %||% list())$candidate_features %||% character(0))
+    ))
+    need_keep <- need_keep[nzchar(need_keep)]
+    if (length(need_keep) && file.exists(ck_path) && dir.exists(shared_dir)) {
+      obj <- tryCatch(readRDS(ck_path), error = function(e) NULL)
+      s_obj <- tryCatch(readRDS(file.path(shared_dir, "index.rds")), error = function(e) NULL)
+      if (!is.null(obj) && !is.null(obj$ctx) && !is.null(s_obj) && !is.null(s_obj$ctx)) {
+        id_col <- as.character(
+          config$data$id_column %||% config$dual_db$primary$id_column %||% "ID"
+        )[1L]
+        n_restored <- 0L
+        for (slot in c("mapped", "cleaned", "raw", "imputed")) {
+          df <- obj$ctx$data[[slot]]
+          src <- s_obj$ctx$data[[slot]]
+          if (is.null(src) || !is.data.frame(src)) {
+            src <- s_obj$ctx$data$mapped %||% s_obj$ctx$data$cleaned
+          }
+          if (is.null(df) || !is.data.frame(df) || is.null(src) || !is.data.frame(src)) next
+          if (!id_col %in% names(df) || !id_col %in% names(src)) next
+          miss <- setdiff(need_keep, names(df))
+          miss <- intersect(miss, names(src))
+          if (!length(miss)) next
+          add <- src[, c(id_col, miss), drop = FALSE]
+          ## 防重复列名：先去旧再并
+          df2 <- merge(df, add, by = id_col, all.x = TRUE, sort = FALSE)
+          ## merge 可能打乱行序；按原 ID 序还原
+          ord <- match(df[[id_col]], df2[[id_col]])
+          if (anyNA(ord)) next
+          obj$ctx$data[[slot]] <- df2[ord, , drop = FALSE]
+          n_restored <- n_restored + length(miss)
+        }
+        if (n_restored > 0L) {
+          saveRDS(obj, ck_path)
+          cli::cli_alert_info(
+            "[{ix}/{toupper(db)}] 已从 shared 补回 protect/中介/诺模图列（累计 {n_restored} 次 slot×列）"
+          )
+        }
+      }
+    }
+  }
+
   ck_path <- file.path(per_index_ck, "index.rds")
   if (file.exists(ck_path)) {
     obj <- tryCatch(readRDS(ck_path), error = function(e) NULL)
@@ -582,8 +631,29 @@ tryCatch({
     }
   } else {
   cli::cli_h2("[{ix}] Phase 1 — 各库跑到 VIF_final")
+  ## 任一侧 Table 1 暴露 NS（BASELINE_INDEX_NS_STOP）→ 整指标失败，不跑对侧与后续 Phase
   for (db in actual_db_seq) {
-    result_ctx[[db]] <- .run_db_phase(db, "index", .vif_final_block())
+    result_ctx[[db]] <- tryCatch(
+      .run_db_phase(db, "index", .vif_final_block()),
+      error = function(e) {
+        msg <- conditionMessage(e)
+        db_lab <- if (exists("dual_db_slot_path_name", mode = "function")) {
+          dual_db_slot_path_name(config_ix, db)
+        } else {
+          toupper(db)
+        }
+        if (grepl("BASELINE_INDEX_NS_STOP", msg, fixed = TRUE)) {
+          stop(
+            sprintf(
+              "BASELINE_INDEX_NS_STOP [%s]: 任一侧 Table 1 暴露不显著即整指标失败，已中止对侧与后续 Phase。%s",
+              db_lab, msg
+            ),
+            call. = FALSE
+          )
+        }
+        stop(e)
+      }
+    )
   }
 
   if (identical(actual_db_mode, "both")) {
@@ -759,10 +829,16 @@ tryCatch({
 }, error = function(e) {
   msg <- conditionMessage(e)
   cli::cli_alert_danger("[{ix}] 错误: {msg}")
+  ## 先写 status，再 finalize：避免 finalize 挂死/崩掉导致父进程「无 _batch_status.json」
+  tryCatch(
+    .write_status("error", error_message = msg),
+    error = function(e2) {
+      cli::cli_alert_warning("[{ix}] 写 _batch_status.json 失败: {e2$message}")
+    }
+  )
   tryCatch(
     incidence_batch_finalize_index_outputs(root, config_ix, ix, actual_db_seq),
     error = function(e2) NULL
   )
-  .write_status("error", error_message = msg)
   quit(save = "no", status = 1)
 })

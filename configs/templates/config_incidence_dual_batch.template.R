@@ -62,7 +62,7 @@ config <- list(
 
   # ── 发表小数位（全项目统一；一般勿改。改后新跑表/图才生效，旧表不自动回刷）──
   # est=OR/HR；p=P 值；desc=均值/SD/%；cutoff=ROC/RCS 切点
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
 
   # ── 发病（index_var 由 batch runner patch）────────────────────────────────
   incidence = list(
@@ -226,6 +226,22 @@ config <- list(
     )
   ),
 
+  # ── 发表收口（cute_ran 2026-10 起：指标级 summary_results 为唯一交付面）──
+  # 路径：by_index/【success】<INDEX>/summary_results/
+  # 白名单：Figures / Tables / Methods md / 软件版本 txt / 中期 PDF
+  # 引擎默认写指标级；勿再堆课题根 summary_result(s) 双份
+  pub = list(
+    write_index_summary_results = TRUE,
+    index_summary_results_dir = "summary_results",
+    summary_dirname = "summary_results",
+    summary_result = FALSE,
+    tables_figures_only = FALSE,
+    auto_qc = TRUE,
+    include_sa_complete_case = TRUE,
+    # TRUE=完整病例 Model2 双库显著才优先晋升；失败则回退其它【success】SA_*
+    sa_complete_case_require_sig = TRUE
+  ),
+
   # ── 飞书结果管理表 ────────────────────────────────────────────────────────
   feishu = list(
     enable             = TRUE,
@@ -270,9 +286,7 @@ config <- list(
       "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"
     ),
     extra_index_exclude_vars = character(0),
-    index_component_overrides = list(
-      OAScore_z = c("Age", "HbA1c", "Total_Cholesterol")
-    ),
+    index_component_overrides = list(),
     base_subgroup_vars = c("Age", "Gender", "Race", "Smoking", "Hypertension", "Diabetes"),
 
     # ── 敏感性分析（主分析 success 后自动执行；亦可 --sensitivity-only 单独补跑）──
@@ -487,7 +501,9 @@ config <- list(
     dual_library_lm_screen = TRUE, lm_screen_alpha = 0.05,
     lm_screen_require_nonneg_beta = TRUE,
     fallback_single_library_model2 = TRUE, auto_covariate_search = FALSE,
-    # 与 CHARLS mediation_incidence 共用 .mi02_resolve_lab_indicator_pool
+    # 与 CHARLS mediation_incidence 共用 .mi02_resolve_lab_indicator_pool + 双库共享交集池
+    also_include_lm_sig_mediators = NULL,  # NULL=双库默认 TRUE
+    mediators_strict_only = FALSE,
     mediator_extra_vars = NULL,
     path_use_covariates = TRUE,
     mediation_path_alpha = 0.05, diagram_enable = TRUE, pause_enable = FALSE
@@ -515,7 +531,7 @@ config <- list(
     sig_cutoff = 0.05, strata = "Disease_Group",
     include_vars = NULL,
     exclude_vars = c(
-      "SEQN", "subject_id", "new_Weight",
+      "SEQN", "subject_id", "cycle", "Cycle", "new_Weight",
       "WTINT2YR", "WTMEC2YR", "WTMEC4YR",
       "WTSAF2YR", "WTSAF4YR", "SDMVPSU", "SDMVSTRA", "Source_File"
     ),
@@ -601,7 +617,13 @@ config <- list(
     bootstrap_iter = 100L, auto_covariate_search = FALSE,
     dual_library_lm_screen = TRUE,
     # S8 候选池由引擎 .mi02_resolve_lab_indicator_pool 决定（血检+mediator_extra_vars+best_mediator）
-    # lm_screen_exclude_vars 只作额外黑名单，不能再靠它从「全列」里抠实验室指标
+    # 双库再经 dual_db_lock_shared_lab_indicator_pool 取两侧可用列交集
+    # mediators=NULL → LM 显著集；若锁 mediators/best_mediator，双库默认 also_include_lm_sig_mediators
+    # mediators_strict_only=TRUE 才只跑预设名单
+    also_include_lm_sig_mediators = NULL,  # NULL=双库默认 TRUE
+    mediators_strict_only = FALSE,
+    # lm_screen_exclude_vars 只作额外黑名单，不能再靠它从「全列」里抠实验室指标；
+    # 勿把对侧仍有的血检（BUN/Creatinine 等）写成单库 asymmet ric 黑名单
     lab_indicator_vars = NULL,
     mediator_extra_vars = NULL,
     lm_screen_exclude_vars = c(

@@ -183,7 +183,8 @@ cross_lagged_read_mv_sig_lists <- function(study_root, cohorts) {
 cross_lagged_lock_mv_sig_intersect <- function(mv_list,
                                               drop_vars = c("FI", "Frailty", "ePWV", "Leisure_score",
                                                             "Country", "Cohort", "ID",
-                                                            "Disease_Group", "Disease"),
+                                                            "Disease_Group", "Disease",
+                                                            "(Intercept)", "Intercept"),
                                               index_var = "",
                                               demo_for_model1 = c("Age", "Gender", "Sex",
                                                                   "Education", "Marital_Status"),
@@ -222,7 +223,8 @@ cross_lagged_lock_mv_sig_intersect <- function(mv_list,
   )
 }
 
-#' 读取锁定协变量（按 meta$cohorts_covariate_lock；可选 meta$model1_locked 覆盖 Model1）
+#' 读取锁定协变量（按 meta$cohorts_covariate_lock；
+#' 可选 meta$model1_locked / model2_locked 覆盖；preset 时跳过 VIF 交集）
 cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
   if (is.null(meta)) {
     if (!exists("cross_lagged_study_meta", mode = "function"))
@@ -230,6 +232,35 @@ cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
     meta <- cross_lagged_study_meta(study_root)
   }
   cohorts <- cross_lagged_covariate_lock_cohorts(meta)
+  m1_override <- as.character(meta$model1_locked %||% character(0))
+  m1_override <- m1_override[nzchar(m1_override)]
+  m2_override <- as.character(meta$model2_locked %||% character(0))
+  m2_override <- m2_override[nzchar(m2_override)]
+
+  # 课题预设完整 Model1/2（如对齐中期报告）→ 不再走 VIF 交集
+  if (length(m2_override)) {
+    if (!length(m1_override)) {
+      m1_override <- intersect(
+        m2_override,
+        c("Age", "Gender", "Sex", "Education", "Marital_Status")
+      )
+      if (!length(m1_override) && "Age" %in% m2_override) m1_override <- "Age"
+    }
+    return(list(
+      model1 = unique(as.character(m1_override)),
+      model2 = unique(as.character(m2_override)),
+      source = as.character(meta$covariate_lock_source %||% "meta_preset")[1L],
+      intersect_final = character(0),
+      intersect_screen = unique(as.character(m2_override)),
+      empty = FALSE,
+      lock_cohorts = cohorts,
+      pooled_cohorts = cross_lagged_pooled_cohorts(meta),
+      validation_cohorts = cross_lagged_validation_cohorts(meta),
+      main_cohorts = cross_lagged_main_cohorts(meta),
+      note = as.character(meta$covariate_lock_note %||% "")[1L]
+    ))
+  }
+
   rule <- as.character(meta$covariate_lock_rule %||% "vif_screen")[1L]
   if (identical(rule, "mv_sig_intersect")) {
     mv_list <- cross_lagged_read_mv_sig_lists(study_root, cohorts)
@@ -239,6 +270,7 @@ cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
       lock_cohorts = cohorts,
       index_var = as.character(meta$index_var %||% "")[1L]
     )
+    if (length(m1_override)) lock$model1 <- unique(m1_override)
     lock$lock_cohorts <- cohorts
     lock$pooled_cohorts <- cross_lagged_pooled_cohorts(meta)
     lock$validation_cohorts <- cross_lagged_validation_cohorts(meta)
@@ -252,8 +284,6 @@ cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
     lock_cohorts = cohorts,
     force_elsa_hrs_common = FALSE
   )
-  m1_override <- as.character(meta$model1_locked %||% character(0))
-  m1_override <- m1_override[nzchar(m1_override)]
   if (length(m1_override)) lock$model1 <- unique(m1_override)
   lock$lock_cohorts <- cohorts
   lock$pooled_cohorts <- cross_lagged_pooled_cohorts(meta)
@@ -265,7 +295,8 @@ cross_lagged_resolve_covariate_lock <- function(study_root, meta = NULL) {
 #' 开发队列 Model2 锁定（默认三库；可传 lock_cohorts 仅 CHARLS+ELSA 等）
 cross_lagged_lock_covariates_across_dbs <- function(model2_final_list,
                                                    model2_screen_list = NULL,
-                                                   drop_vars = c("FI", "Frailty", "Country", "Cohort",
+                                                   drop_vars = c("FI", "Frailty", "AIP", "AIPFI_strict",
+                                                                "AIPFI_avail", "Country", "Cohort",
                                                                 "ID", "Disease_Group", "Disease"),
                                                    demo_for_model1 = c("Age", "Gender", "Sex",
                                                                       "Education", "Marital_Status"),

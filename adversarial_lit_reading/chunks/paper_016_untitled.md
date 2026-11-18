@@ -1,1917 +1,4587 @@
 # Page 1
 
-Wang et al. BMC Medicine          (2025) 23:555  
-https://doi.org/10.1186/s12916-025-04298-2
-RESEARCH
-Open Access
-© The Author(s) 2025. Open Access This article is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 
-International License, which permits any non-commercial use, sharing, distribution and reproduction in any medium or format, as long 
-as you give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons licence, and indicate if 
-you modified the licensed material. You do not have permission under this licence to share adapted material derived from this article or 
-parts of it. The images or other third party material in this article are included in the article’s Creative Commons licence, unless indicated 
-otherwise in a credit line to the material. If material is not included in the article’s Creative Commons licence and your intended use is not 
-permitted by statutory regulation or exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To 
-view a copy of this licence, visit http://creativecommons.org/licenses/by-nc-nd/4.0/.
-BMC Medicine
-Additive effects of depression 
-and abdominal obesity on cognitive function 
-in middle‑aged and older population: evidence 
-from multinational cohorts
-Ruiqi Wang1†, Yalin Chen1†, Kayla M. Teopiz2, Roger S. McIntyre3,4 and Bing Cao1,5* 
-Abstract 
-Background  This study aimed to investigate the joint trajectories of obesity/abdominal obesity and depression, 
-and their association with cognitive function among four nationally representative cohorts.
-Methods  We used data from four nationally representative cohorts (China, UK, USA, and Mexico) in adults 
-over the age of 45, which included a total of 114,633 participants. Kml3D clustering algorithm was conducted to iden-
-tify the potential joint trajectories of obesity/abdominal obesity and depression of homogeneous groups. Generalized 
-Estimating Equations (GEE) were performed to examine the joint trajectory of obesity/abdominal obesity and depres-
-sion in relation to cognitive function.
-Results  In all cohorts, the baseline “Comorbidity” (with both depression and obesity/abdominal obesity) exhib-
-ited significantly poorer performance on subsequent cognitive assessments compared to the “Neither condi-
-tion” group (neither depression nor obesity). Cluster analysis and GEE revealed that when Body Mass Index (BMI) 
-was used as an obesity indicator, individuals in the joint trajectory groups with depression trajectories (regardless 
-of obesity trajectories) across four cohorts exhibited poorer cognitive performance compared to the Normal weight 
-and No depressed group (CHARLS: β =  − 0.35, 95% CI − 0.42 to − 0.28; ELSA: β =  − 0.32, 95% CI − 0.44 to − 0.20; HRS: 
-β =  − 0.20, 95% CI − 0.27 to − 0.13, MHAS: β =  − 0.15, 95% CI − 0.19 to − 0.10; all P < 0.001). Conversely, associations 
-between the joint trajectory groups with obesity trajectories (regardless of depression trajectories) and cogni-
-tive function demonstrated significant heterogeneity across cohorts. Abdominal obesity measures indicated 
-that the abdominal obesity or higher waist-to-height ratio (WHtR) and Depression group significantly contributed 
-to cognitive decline compared to those in the No abdominal obesity and No depression group (CHARLS: β =  − 0.31, 
-95% CI − 0.39 to − 0.23; ELSA: β =  − 0.20, 95% CI 0.29 to − 0.12; HRS: β =  − 0.20, 95% CI − 0.27 to − 0.14, all P < 0.001).
-Conclusions  Abdominal obesity and depression exert independent additive and fluctuating effects on measures 
-of cognition in middle-aged and older persons. Strategies that broadly aim to decrease excess fat, notably abdominal 
-obesity, represent near-term interventions that may beneficially influence aspects of cognition in depression.
-Keywords  Trajectory, Obesity, Abdominal obesity, Depression, Cognitive function, Cohort study
-†Ruiqi Wang and Yalin Chen contributed equally to this work.
-*Correspondence:
-Bing Cao
-bingcao@swu.edu.cn
-Full list of author information is available at the end of the article
+original reports
+Absolute Improvements in Freedom From Distant
+Recurrence to Tailor Adjuvant Endocrine
+Therapies for Premenopausal Women: Results
+From TEXT and SOFT
+Olivia Pagani, MD1; Prudence A. Francis, MD2; Gini F. Fleming, MD3; Barbara A. Walley, MD4; Giuseppe Viale, MD5; Marco Colleoni, MD6;
+Istv´an L´ang, MD, PhD7; Henry L. G´omez, MD, PhD8; Carlo Tondini, MD9; Graziella Pinotti, MD10; Angelo Di Leo, MD, PhD11;
+Alan S. Coates, MD12; Aron Goldhirsch, MD6; Richard D. Gelber, PhD13; and Meredith M. Regan, ScD14 for the SOFT and TEXT
+Investigators and International Breast Cancer Study Group
+abstract
+PURPOSE The Tamoxifen and Exemestane Trial (TEXT)/Suppression of Ovarian Function Trial (SOFT) showed
+superior outcomes for premenopausal women with hormone receptor (HR)–positive breast cancer treated with
+adjuvant exemestane plus ovarian function suppression (OFS) or tamoxifen plus OFS versus tamoxifen alone.
+We previously reported the magnitude of absolute improvements in freedom from any recurrence across
+a continuous, composite measure of recurrence risk to tailor decision making. With longer follow-up, we now
+focus on distant recurrence.
+METHODS The TEXT/SOFT HR-positive/human epidermal growth factor receptor 2 (HER2)–negative analysis
+population included 4,891 women stratiﬁed by predetermined chemotherapy use. Kaplan-Meier estimates of
+8-year freedom from distant recurrence were analyzed using subpopulation treatment effect pattern plot
+(STEPP) methodology across subpopulations deﬁned by the continuous composite measure of recurrence risk.
+For each patient, the composite risk value was obtained from a Cox model that incorporated age; nodal status;
+tumor size; grade; and estrogen receptor, progesterone receptor, and Ki-67 labeling index expression levels.
+RESULTS The overall rate of 8-year freedom from distant recurrence was 91.1% and ranged from approximately
+100% to 63% across lowest to highest composite risks. TEXT patients who received chemotherapy had an
+average absolute improvement with exemestane plus OFS versus tamoxifen plus OFS of 5.1%, and STEPP
+analysis showed improvements from less than 1% to more than 15% from lowest to highest composite risks.
+SOFT patients who remained premenopausal after chemotherapy had an average 5.2% absolute improvement
+with exemestane plus OFS versus tamoxifen and reached 10% across composite risks; for tamoxifen plus OFS
+versus tamoxifen, the maximum improvement was approximately 3.5%. Women who did not receive che-
+motherapy had a more than 97% rate of 8-year freedom from distant recurrence, and improvements with
+exemestane plus OFS ranged from 1% to 4%.
+CONCLUSION Premenopausal women with HR-positive/HER2-negative breast cancer and high recurrence risk, as
+deﬁned by clinicopathologic characteristics, may experience a 10% to 15% absolute improvement in 8-year
+freedom from distant recurrence with exemestane plus OFS versus tamoxifen plus OFS or tamoxifen alone. The
+potential beneﬁt of escalating endocrine therapy versus tamoxifen alone is minimal for those at low recurrence risk.
+J Clin Oncol 38:1293-1303. © 2019 by American Society of Clinical Oncology
+Creative Commons Attribution Non-Commercial No Derivatives 4.0 License
+INTRODUCTION
+Adjuvant endocrine therapy recommendations for
+premenopausal women with hormone receptor (HR)–
+positive breast cancer have changed on the basis of the
+5-year results of the Tamoxifen and Exemestane Trial
+(TEXT) and the Suppression of Ovarian Function Trial
+(SOFT; ClinicalTrials.gov identiﬁers: NCT00066703 and
+NCT00066690, respectively).1,2 Tamoxifen alone re-
+mains the standard of care in women at low risk of
+relapse, as deﬁned by clinical and pathologic features,
+and by genomic parameters, when available. Ovarian
+function suppression (OFS) should be proposed to
+patients at higher risk for recurrence in addition to oral
+endocrine therapy with either tamoxifen or an aromatase
+inhibitor.3-6
+A secondary analysis of the women enrolled in TEXT
+and SOFT with HR-positive/human epidermal growth
+factor receptor 2 (HER2)–negative cancers estimated
+ASSOCIATED
+CONTENT
+See accompanying
+Oncology Grand
+Rounds on page 1258
+Appendix
+Author afﬁliations
+and support
+information (if
+applicable) appear
+at the end of this
+article.
+Accepted on August
+29, 2019 and
+published at
+ascopubs.org/journal/
+jco on October 16,
+2019: DOI https://doi.
+org/10.1200/JCO.18.
+01967
+Volume 38, Issue 12 1293
 
 # Page 2
 
-Page 2 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Graphical Abstract
-Background
-The widespread nature of depression and obesity car-
-ries considerable public health challenges [1, 2], par-
-ticularly among middle-aged and older adults [3]. 
-Recent US data show that 44.3% of adults aged 40–59 
-were classified as obese during 2017–2020, increas-
-ing to nearly 41.5% among those aged 60 and older [4]. 
-Similarly, a recent study found that 21.3% of adults aged 
-50 and above report depressive symptoms [5].
-Furthermore, both disorders co-occur within indi-
-viduals, with depression conferring a 37% increased 
-risk of obesity and obesity elevating depression risk by 
-40% [1], creating compound impairment in physical 
-and mental health. This interplay is mediated mainly 
-through shared genetic loci [6], neuroendocrine dys-
-function [notably the hypothalamic–pituitary–adrenal 
-(HPA) axis hyperactivity], metabolic disturbances, and 
-chronic inflammation [7]. These interconnected path-
-ways form a self-perpetuating vicious cycle that exac-
-erbates pathological progression in both conditions [8]. 
-Accumulating evidence suggested that the comorbidity 
-of obesity and depression may impair health outcomes 
-in middle-aged and older adults, including increased 
-risks of functional disability, cardiometabolic multi-
-morbidity, and cognitive decline [9–12]. These inter-
-connected health burdens underscore the urgent need 
-for integrated preventive and therapeutic strategies tar-
-geting this vulnerable demographic.
-Cognitive decline is a growing public-health concern. 
-Statistics show that approximately 5–8% of older adults 
-experience cognitive decline annually, which is consid-
-ered a precursor symptom of dementia [13]. Neurode-
-generative processes mediated by chronic inflammation 
-and metabolic disturbances, including cerebrovascular 
-pathology, are key contributors to this decline [14–16]. 
-Given the established mechanistic associations of obesity 
-and depression with chronic inflammation and metabolic 
-dysfunction [17], these conditions may synergistically 
-drive cognitive impairment progression.
-Extensive evidence indicates that depression links to 
-cognitive decline and is a prodrome to dementia [18–20]. 
-Depressive symptoms mediate cognitive impairment via 
-multiple pathways, including the aforementioned HPA 
-axis hyperactivation, inflammation, and hippocam-
-pal atrophy [21–23]. Chronic or recurrent depression 
-particularly impairs attention, executive function, and 
-episodic memory—specific domains critical for daily 
-functioning and predictive of dementia risk [24, 25]. 
-However, the association between obesity and cognitive 
-health in middle-aged and older adults remains unclear 
-[9]. Some studies suggest that obesity may have a protec-
-tive effect on cognitive decline [26, 27], supporting the
+absolute improvements in 5-year freedom from breast
+cancer (including invasive locoregional, distant, or con-
+tralateral breast cancer) according to recurrence risk de-
+ﬁned from clinicopathologic characteristics. The women at
+high recurrence risk experienced absolute improvements
+of 10% to 15% with exemestane plus OFS versus tamoxifen
+plus OFS and versus tamoxifen alone, and improvements
+were of at least 5% for women at intermediate risk.7 In
+contrast, improvement was minimal for women at lowest risk.
+Such estimates of the absolute magnitude of improvement
+can help clinicians to weigh beneﬁts against adverse effects
+in treatment decisions with individual patients.
+Recent updates of TEXT and SOFT after a median follow-up
+of 9 and 8 years, respectively, demonstrated signiﬁcant
+improvement in disease-free and overall survival with the
+addition of OFS to tamoxifen in the SOFT population.8 The
+combined analysis of TEXT and SOFT demonstrated sus-
+tained improvements with exemestane plus OFS versus
+tamoxifen plus OFS in disease-free survival, freedom from
+breast cancer, and freedom from distant recurrence but not
+from overall survival.8 Among the patients with HR-positive/
+HER2-negative tumors, the rate of freedom from distant
+recurrence was improved by 3.6% with the use of
+exemestane plus OFS versus tamoxifen and by 3.5% with
+exemestane plus OFS versus tamoxifen plus OFS.
+Distant recurrence in a premenopausal woman has per-
+sonal, economic, and social costs of greater impact than
+locoregional recurrence.9 Greater toxicity may be accept-
+able in prevention of distant recurrence, which generally
+portends premature death as a result of breast cancer. With
+extended follow-up, we are now able to reﬁne the esti-
+mates of absolute treatment effects in preventing distant
+recurrence across the spectrum of recurrence risk in
+the subgroup of women with HR-positive/HER2-negative
+cancers.
+METHODS
+Study Designs
+The designs and conduct of the trials have been described
+previously.1,2 In both trials, eligible premenopausal women
+had invasive early breast cancer assessed as 10% or
+greater estrogen receptor (ER)– and/or progesterone re-
+ceptor (PgR)–expressing cells by local determination. The
+ethics committee at each participating center approved the
+study protocols, and all patients provided written informed
+consent for trial participation and mandatory tissue col-
+lection for central pathology assessment. Central review of
+histopathologic features and expression of ER, PgR, HER2,
+and Ki-67 labeling index (Ki-67) was conducted for 84% of
+trial patients in the International Breast Cancer Study Group
+Central Pathology Ofﬁce.10
+In TEXT, all women received OFS by gonadotropin-
+releasing hormone agonist triptorelin from the start of ad-
+juvant therapy; after at least 6 months of triptorelin, patients
+could opt for bilateral oophorectomy or ovarian irradiation.
+Chemotherapy was optional and if administered, was
+started concurrently with triptorelin. Between November
+2003 and March 2011, 2,672 premenopausal women were
+randomly assigned to 5 years of exemestane plus OFS
+or tamoxifen plus OFS. Randomization was stratiﬁed ac-
+cording to intended use of adjuvant chemotherapy and
+lymph node status.
+SOFT was designed to determine the value of adding OFS to
+tamoxifen and the role of exemestane plus OFS in two
+cohorts of premenopausal women: those who remained
+premenopausal after completion of (neo)adjuvant che-
+motherapy and those for whom adjuvant tamoxifen without
+chemotherapy was considered suitable treatment. Be-
+tween December 2003 and January 2011, 3,066 women
+were randomly assigned to 5 years of exemestane plus OFS
+or tamoxifen plus OFS or tamoxifen alone. Randomization
+was stratiﬁed according to prior use of chemotherapy,
+lymph node status, and intended initial method of OFS (if
+randomly assigned to OFS).
+End Point and Statistical Considerations
+The analysis population was previously deﬁned and in-
+cluded 4,891 patients with tumors centrally assessed as
+HR positive/HER2 negative7 (Appendix Fig A1, online only).
+Distant recurrence–free interval (DRFI) was deﬁned as the
+duration of time from random assignment until ﬁrst ap-
+pearance of invasive breast cancer recurrence at a distant
+site; in the absence of a distant recurrence, DRFI was
+censored at date of last follow-up. The median follow-up
+was 9 years in TEXT and 8 years in SOFT.8
+While following the approach previously described,7 the
+composite measure of recurrence risk (hereafter referred to
+as composite risk) was determined for the entire HR-
+positive/HER2-negative analysis population by ﬁtting a Cox
+proportional hazards regression model for DRFI, stratiﬁed
+by cohort (deﬁned by trial and chemotherapy use) and
+treatment assignment. This use of a stratiﬁed model pro-
+vided the same risk scale for the two trials, which do not
+share a common control group. Prognostic factors included
+in the model and their groupings were speciﬁed a priori,
+and there was no intention to optimize the model on the
+basis of model selection procedures (Table 1; Appendix
+Table A1, online only). For tumor grade and ER and PgR
+expression, the centrally determined values were used
+when available, and locally determined values were used
+otherwise; Ki-67 expression was available only from central
+assessment. Unknown categories were used to avoid
+systematic exclusion of patients without centrally assessed
+tumor features. After estimating the model parameters, the
+composite risk value was calculated for each trial patient by
+summing the model parameter estimates corresponding to
+her observed values of clinicopathologic factors.
+Nonparametric sliding window subpopulation treatment
+effect pattern plot (STEPP) methodology11,12 was used to
+1294 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 3
 
-Page 3 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-concept of an “obesity paradox” [28], while others view 
-obesity as a risk factor for cognitive decline [27, 29, 30], 
-necessitating further investigation into their connec-
-tion. Of note, while Body Mass Index (BMI) is a widely 
-accepted indicator for defining obesity, cross-cultural 
-researches have uncovered heterogeneity in its correla-
-tion with cognitive deterioration [9, 31]. Importantly, as 
-a contributing factor to various chronic illnesses includ-
-ing type 2 diabetes, cardiovascular disease, and meta-
-bolic syndrome [32], abdominal obesity (AO)[33]) has 
-been demonstrated by numerous studies to have a robust 
-association with cognitive decline [34–37]. Additionally, 
-considering the comorbid mechanisms between obesity 
-and depression, the joint changes of both conditions over 
-time should not be overlooked.
-To overcome limitations of prior studies using a single 
-obesity indicator and elucidate mechanisms underly-
-ing cognitive decline, this study incorporates BMI and 
-(waist to height ratio) WHtR as predictive indicators in 
-middle-aged and older populations. While prior work 
-often has predominantly examined the effects of a sin-
-gle developmental trajectory of obesity or depression on 
-cognitive decline, it overlooked the combined effects of 
-their joint trajectories. Hence, we conducted a multina-
-tional cohort study to examine the association between 
-comorbid obesity-depression trajectories and cogni-
-tive decline. We hypothesize that individuals exhibiting 
-co-occurring trajectories of persistent obesity/AO and 
-persistent depression demonstrate significantly poorer 
-cognitive performance compared to those who remained 
-consistently non-obese and non-depressed throughout 
-the observation period. Findings aim to identify high-risk 
-populations and inform targeted interventions for age-
-related cognitive impairment.
-Methods
-Study population
-The multinational cohort employed in this survey design 
-comprised four prospective, nationally representative 
-longitudinal studies: the China Health and Retirement 
-Longitudinal Study (CHARLS, China), the English Lon-
-gitudinal Study of Ageing (ELSA, United Kingdom), the 
-Health and Retirement Study (HRS, United States), and 
-the Mexican Health and Aging Study (MHAS, Mexico). 
-All sample population was recruited as part of a strati-
-fied, multistage probability design, with longitudinal 
-follow-up administered by trained research teams. The 
-detailed introduction of each cohort could be found on 
-their websites [CHARLS: https://​charls.​pku.​edu.​cn/​gy/​
-gyxm.​htm [38]; ELSA: https://​ukdat​aserv​ice.​ac.​uk/​about/ 
-[39]; HRS: https://​hrs.​isr.​umich.​edu/​about? [40]; MHAS: 
-https://​www.​mhasw​eb.​org/​Home/​Index.​aspx [41]]. Rele-
-vant ethical review institutes granted our survey’s ethical 
-approval, and all participants signed informed consent 
-forms before the survey.
-According to the current research objectives, we ruled 
-out the impact of COVID-19 and selected the appropri-
-ate waves from the four cohorts. The included waves need 
-to include all the key variables of this study (e.g., BMI, 
-WHtR, depressive symptoms, cognitive function scores, 
-and covariates). Thus, 3 waves (wave1–3: 2011, 2013, and 
-2015) in CHARLS, 3 waves (wave3–5: 2012, 2015, and 
-2018) in MHAS, 4 waves (wave2,4,6,8: 2004, 2008, 2012, 
-and 2016) in ELSA, and 6 waves (wave8–13: 2006–2016) 
-in HRS (participants only received body measurements 
-in odd or even waves, so we merged the odd and even 
-waves into three waves: wave1, wave2, wave3:2006/2008, 
-2010/2012 and 2014/2016) were included in the cur-
-rent study. Our exclusion criteria were as follows: (1) 
-age < 45 years old; (2) participants with cognitive-related 
-disorders (see Additional file  1: Table S1)[42]; (3) cases 
-of missing, unclear responses, and rejections both in 
-baseline and follow-up surveys. Therefore, 114,633 par-
-ticipants from four countries were considered, and after 
-screening, a total of 36,718 participants remained. The 
-comprehensive screening flowchart of participants could 
-be seen in Additional file  1: Fig. S1, with an in-depth 
-description of each cohort’s selecting procedure available 
-in Additional file 1: Fig. S2.
-Obesity and abdominal obesity
-In the main analyses, obesity in middle-aged and older 
-adults was defined by Body Mass Index (BMI), and the 
-calculation of BMI was done by dividing a person’s 
-weight (in kilograms) by the square of their height (in 
-meters). It is worth noting that objectively measured 
-height, weight, and waist circumference (WC) were pro-
-vided only in CHARLS, ELSA, and HRS. MHAS only 
-included self-reported height and weight (no WC data 
-available). Furthermore, because the study population 
-comes from various continents and exhibits variations in 
-ethnicity, physique, culture, and public health priorities, 
-it is considered to adopt distinct body type classification 
-standards [43]. Our study referred to previous research, 
-stipulated the use of the Chinese criteria to classify 
-participants from CHARLS, and obesity is defined as 
-BMI ≥ 28 kg/cm2 [44]. For the population from ELSA, 
-HRS, and MHAS cohorts, the European and American 
-criteria were utilized for classification, and obesity is 
-defined as BMI ≥ 30 kg/cm2 [45] (cut-off values of BMI 
-under different standards were shown in Additional file 1: 
-Table S2) [44].
-Abdominal obesity was defined by waist-to-height ratio 
-(WHtR), which was calculated as WC divided by height 
-(both in centimeters). Considering it is probable that 
-middle-aged and older adults may have an overestimation
+investigate patterns in absolute treatment effects as mea-
+sured by Kaplan-Meier estimates of 8-year freedom
+from distant recurrence (y-axis) across the continuum of
+composite risk values (x-axis). The STEPP of the overall
+analysis population had a window size of 500 and was slid
+by 300 patient values to form each subpopulation. For
+TABLE 1. Clinicopathologic Characteristics of the HR-Positive/HER2-Negative Analysis Population of TEXT and SOFT
+Patients, %
+Model
+Characteristic
+TEXT
+Chemotherapy
+(n = 1,276)
+SOFT Prior
+Chemotherapy
+(n = 1,271)
+TEXT No
+Chemotherapy
+(n = 991)
+SOFT No
+Chemotherapy
+(n = 1,353)
+All
+Patients
+(N = 4,891)
+Parameter
+Estimate
+SE
+Hazard Ratio
+(95% CI)
+Age at random
+assignment,
+years
+, 35
+11.1
+18.3
+3.7
+1.5
+8.8
+0.77
+0.17
+2.2 (1.6 to 3.0)
+35-39
+17.3
+29.5
+11.4
+7.6
+16.6
+0.62
+0.15
+1.9 (1.4 to 2.5)
+40-44
+34.6
+32.0
+34.4
+27.3
+31.9
+0.17
+0.15
+1.2 (0.9 to 1.6)
+45-49
+31.6
+16.8
+38.8
+46.2
+33.2
+0 (ref)
+$ 50
+5.4
+3.5
+11.6
+17.4
+9.5
+0.06
+0.26
+1.1 (0.6 to 1.8)
+No. of positive
+nodes
+0
+31.4
+41.5
+78.3
+91.3
+60.1
+0 (ref)
+1-3
+44.0
+40.1
+21.5
+8.6
+28.6
+0.54
+0.13
+1.7 (1.3 to 2.2)
+$ 4
+24.6
+18.4
+0.2
+0.1
+11.3
+1.38
+0.14
+4.0 (3.0 to 5.2)
+Tumor size, cm
+Unknown
+1.6
+3.9
+0.3
+0.7
+1.7
+0.89
+0.26
+2.4 (1.5 to 4.0)
+# 2
+46.5
+49.6
+79.8
+85.9
+64.9
+0 (ref)
+. 2
+51.9
+46.5
+19.9
+13.5
+33.4
+0.58
+0.11
+1.8 (1.4 to 2.2)
+ER expression, %
+Unknown
+1.8
+1.3
+1.7
+1.0
+1.5
+20.20
+0.62
+0.8 (0.2 to 2.8)
+, 50
+5.1
+5.9
+2.0
+2.7
+4.0
+0.14
+0.18
+1.2 (0.8 to 1.7)
+$ 50
+93.1
+92.8
+96.3
+96.3
+94.5
+0 (ref)
+PgR expression, %
+Unknown
+2.0
+1.8
+1.9
+1.6
+1.8
+1.17
+0.53
+3.2 (1.1 to 9.1)
+, 20
+12.8
+18.3
+5.9
+4.1
+10.4
+0.44
+0.13
+1.6 (1.2 to 2.0)
+20-49
+10.4
+10.3
+7.1
+4.9
+8.2
+0.29
+0.15
+1.3 (1.0 to 1.8)
+$ 50
+74.8
+69.6
+85.2
+89.4
+79.6
+0 (ref)
+Tumor grade
+1
+12.9
+15.7
+25.4
+37.3
+22.9
+0 (ref)
+2
+56.8
+57.4
+59.2
+53.5
+56.5
+0.81
+0.23
+2.3 (1.4 to 3.5)
+3
+30.3
+27.0
+15.3
+9.2
+20.6
+0.78
+0.26
+2.2 (1.3 to 3.6)
+Ki-67 expression, %
+Unknown
+18.8
+20.9
+19.1
+20.0
+19.7
+20.08
+0.20
+0.9 (0.6 to 1.4)
+, 14
+15.6
+19.5
+27.1
+37.4
+25.0
+0 (ref)
+14-19
+23.0
+23.8
+26.4
+23.9
+24.2
+20.10
+0.20
+0.9 (0.6 to 1.3)
+20-25
+18.3
+17.0
+13.6
+11.2
+15.1
+0.26
+0.20
+1.3 (0.9 to 1.9)
+$ 26
+24.3
+18.7
+13.7
+7.5
+16.0
+0.49
+0.21
+1.6 (1.1 to 2.5)
+NOTE. Characteristics are overall and according to cohort deﬁned by trial and chemotherapy use, and parameter estimates of the Cox proportional hazards
+regression model deﬁne the composite measure of recurrence risk (n = 4,891). Values of grade and ER and PgR expression were centrally determined if
+available and locally determined otherwise; Ki-67 expression was available only by central determination.
+Abbreviations: ER, estrogen receptor; HER2, human epidermal growth factor receptor 2; HR, hormone receptor; Ki-67, labeling index Ki-67; PgR,
+progesterone receptor; ref, referent group; SOFT, Suppression of Ovarian Function Trial; TEXT, Tamoxifen and Exemestane Trial.
+Journal of Clinical Oncology
+1295
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 4
 
-Page 4 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-of abdominal obesity due to height loss [46]. The current 
-study defined 0.6 as the cut-off value of abdominal obe-
-sity [47].
-In addition, we opted to use the Weight-Adjusted Waist 
-Index (WWI) in the secondary analysis to reflect obesity 
-[48]. The WWI standardizes WC with weight, providing 
-a more accurate depiction of adiposity that is unrelated 
-to weight and partially circumvents the “obesity paradox” 
-associated with BMI [49]. It was calculated by dividing 
-WC (in centimeters) by the square root of weight (in kilo-
-grams) (√kg) [50].
-Depressive symptoms assessment
-In all four cohorts, depressive symptoms and depression 
-were evaluated by calculating the total scores of different 
-standardized scales and referring to the corresponding 
-cut-off values. Briefly, in CHARLS, depressive symptoms 
-were measured by the ten-item Center for Epidemiologic 
-Studies Depression Scale (CESD-10); in ELSA and HRS, 
-depressive symptoms were measured by the eight-item 
-version of the Center for Epidemiologic Studies Depres-
-sion Scale (CES-D); in MHAS, depressive symptoms 
-were measured by the nine-item scale modified from 
-the Center for Epidemiological Studies Depression scale 
-(CESD-9). Additional file 1: Table S3 [20, 51–55] provides 
-more information about each scale.
-Empirical classification (secondary analysis): depression 
-and obesity group
-In the baseline and outcome wave, participants’ depres-
-sion and obesity status were divided into four groups 
-based on previous research and empirical criteria: (1) 
-neither depression nor obesity (“Neither condition”); (2) 
-depression without obesity (“Depression alone”); (3) obe-
-sity without depression (“Obesity alone”); (4) with both 
-depression and obesity (“Comorbidity”) (3). Therefore, 
-the changes in the subjects’ depression-obesity status 
-can be further categorized into three groups over time: 
-(1) Stability; (2) Progression; (3) Regression. More details 
-about the grouping criteria are provided in the Addition-
-alfile 1: Fig. S3.
-Cognitive function assessment
-Cognitive function was assessed through face-to-face 
-self-questionnaire, evaluating the response and opera-
-tional performance of participants. Each cohort used 
-different questionnaires and measurement dimensions. 
-Briefly, in CHARLS, the cognitive function was assessed 
-by the Chinese version of the Mini-Mental State Exami-
-nation (MMSE); in ELSA, the cognitive function assess-
-ment was assessed by standardized episodic memory 
-and orientation tests; in HRS, the cognitive function 
-was assessed by the modified version of the Telephone 
-Interview for Cognitive Status (TICS); in MHAS, the 
-cognitive function was assessed by the Cross-Cultural 
-Cognitive Examination (CCCE). In all tests, a higher cog-
-nitive score indicated better cognitive performance. To 
-achieve comparability across different tests, we generated 
-the z-score of cognitive function for each cohort, refer-
-ring to previous research [20]. Details of cognitive assess-
-ments for each cohort and the method for calculating 
-z-score are provided in the Additional file 1: Table S4 and 
-Supplementary Methods1 [20, 42, 56–61].
-Covariates
-Covariate selection was guided by two criteria: (1) avail-
-ability of key demographic variables in the database, and 
-(2) prior empirical evidence from relevant studies [42, 
-62]. The following variables were ultimately incorpo-
-rated as potential confounding factors: age, gender, race, 
-marital status, education level, residential area, house-
-hold financial situation, five doctor-diagnosed health 
-problems (hypertension, diabetes, cancer, stroke and 
-arthritis), smoking and drinking status at baseline. The 
-definition of covariates is reported in the Additionalfile 1: 
-Supplementary Methods2.
-Statistical analysis
-All analyses were conducted based on complete data-
-sets with exclusion of missing data. In the main analy-
-ses, the baseline characteristics of the participants were 
-described as means ± standard deviations (SD) of con-
-tinuous variables and percentages (%) of categorical vari-
-ables. Differences in the characteristics were analyzed 
-using t-tests and chi-square tests. And to better present 
-the transition of depression-obesity status, we depicted 
-Sankey diagrams to visualize the proportion of partici-
-pants transitioning across different groups from baseline 
-to outcome wave.
-To identify the potential joint variable-trajectories of 
-obesity (indicator: BMI and WHtR) and depression of 
-homogeneous groups, the current study used Kml3D, 
-a partitioning clustering algorithm from the package 
-KmL3D [63], which is based on the k-means algorithm 
-[64]. Then, we thoroughly considered both Calinski & 
-Harabasz criterion (high value denoting good partition) 
-[65] and the interpretability of the results to decide the 
-final number of clusters for each cohort; meanwhile, we 
-named the trajectory groups for further analysis. Further 
-explanations on this methodology are provided in the 
-Additionalfile 1: Supplementary Methods3 [66, 67].
-Subsequently, 
-Generalized 
-Estimating 
-Equations 
-(GEE),which are an extension of generalized linear 
-models (GLM) and allow for the resolution of the issue 
-of the correlations between observations in longitu-
-dinal studies [68], were employed to evaluate baseline
+SOFT and TEXT, the size of windows were 420 and 300,
+respectively, and slid by 120 and 150 patient values, re-
+spectively. With this approach, most composite risk values
+are represented in more than one subpopulation.
+RESULTS
+Among the 4,891 patients in the HR-positive/HER2-
+negative analysis population, the clinicopathologic char-
+acteristics across the four trial cohorts reﬂected the selection
+of adjuvant chemotherapy use and whether OFS would be
+received by all patients (TEXT) or by random assignment
+(SOFT; Table 1; Appendix Table A1). Poor prognostic
+features were more frequent on average among the co-
+horts who received chemotherapy. The distribution of age
+(youngest among patients in SOFT who received che-
+motherapy before enrollment) reﬂected the SOFT eligi-
+bility criteria that patients remain premenopausal after
+chemotherapy.
+The relationship of each of the seven clinicopathologic
+characteristics individually with DRFI is shown in Figure 1.
+The estimated 8-year freedom from distant recurrence
+rates are shown for each characteristic by treatment group,
+along with the relative treatment effects, in Figure 2 and
+Appendix Figures A2 and A3 (online only) and listed in
+Appendix Tables A2-A6 (online only).
+The clinicopathologic characteristic with the greatest
+contribution to the multivariable model for the composite
+measure of recurrence risk, relative to the complementary
+reference category, was four or more positive nodes fol-
+lowed by tumor grade 2 or 3 and younger age (Table 1); one
+to three positive nodes, tumor size greater than 2 cm, PgR
+less than 20%, and Ki-67 of 26% or more contributed
+similarly. ER less than 50% had a very small contribution
+possibly because only 4% of patients had low ER ex-
+pression described.10 The distribution of resulting com-
+posite risks is illustrated for the overall population in
+Figure 3 and summarized by each characteristic subgroup
+in Appendix Table A7 (online only).
+Overall, for the 4,891 patients, 433 distant recurrences
+were reported, and the 8-year freedom from distant re-
+currence rate was 91.1% (95% CI, 90.2% to 92.0%).
+When the clinicopathologic features were integrated as
+a composite measure of recurrence risk (median, 1.42;
+interquartile range [IQR], 0.81-2.15), the 8-year freedom
+from distant recurrence rate varied markedly across patient
+populations, ranging from approximately 100% to 63%
+among patients in the subpopulations with lowest com-
+posite risks to highest composite risks, respectively (Fig 3).
+As expected, the majority of distant recurrences occurred
+among patients who received chemotherapy (Fig 4).
+Patients for Whom Chemotherapy Was Part of
+Adjuvant Therapy
+The patients who received chemotherapy, whether in TEXT
+or SOFT, had similar distributions of composite risk values
+(Figs 5A and 5B), with a median composite risk of 2.02
+(IQR, 1.43-2.71) and 2.00 (IQR, 1.42-2.68), respectively.
+TEXT patients who received chemotherapy after enrollment
+had an average 8-year freedom from distant recurrence
+rate of 87.5% (159 distant recurrences among 1,276
+patients after a median follow-up of 9 years). The average
+absolute improvement in freedom from distant recurrence
+with exemestane plus OFS versus tamoxifen plus OFS was
+5.1% (90.0% v 84.9%; Fig 4A). The STEPP analysis
+showed a distinct pattern of increasing magnitude of im-
+provement with exemestane plus OFS as composite risk
+increased and reached more than 15% in the sub-
+population with the highest composite risks (Fig 5A).
+Patients enrolled in SOFT who remained premenopausal
+after chemotherapy had an 8-year freedom from distant
+recurrence rate of 82.5% (216 distant recurrences among
+1,271 patients after a median follow-up of 8 years). The
+average absolute improvement with exemestane plus OFS
+versus tamoxifen was 5.2% (86.2% v 81.0%; Fig 4B). The
+STEPP analysis suggested that all patients across com-
+posite risks beneﬁted from exemestane plus OFS versus
+tamoxifen, with the maximum absolute improvement of
+approximately 10% (Fig 5B). The absolute improvement
+with tamoxifen plus OFS versus tamoxifen alone ranged from
+0 to at most approximately 3.5% for the subpopulations with
+the highest composite risks.
+Patients for Whom Endocrine Therapy Alone Was Planned
+as Adjuvant Therapy
+In contrast to the patients who received chemotherapy,
+those who received only adjuvant endocrine therapy had
+lower composite risks. In TEXT, the median composite risk
+was 1.13 (IQR, 0.72-1.56), and in SOFT, the median was
+0.81 (IQR, 0.17-1.27; Fig 5).
+Among the 991 patients in TEXT who did not receive
+chemotherapy, 35 experienced a distant recurrence after
+a median follow-up of 9 years, and the overall 8-year
+freedom from distant recurrence rate was 97.0%. The
+overall absolute improvement in 8-year freedom from
+distant recurrence with exemestane plus OFS versus ta-
+moxifen plus OFS was less than 1% (97.4% v 96.5%;
+Fig 4C). The STEPP analysis showed absolute improvement
+with exemestane plus OFS only in the subpopulations with
+the highest composite risks, for a maximum magnitude of
+improvement in the range of 2.5% to 4% (Fig 5C).
+The 1,353 patients in SOFT who did not receive chemo-
+therapy had the lowest composite risks, 23 patients ex-
+perienced a distant recurrence after a median follow-up of
+8 years. The overall 8-year freedom from distant recurrence
+rate was 98.5%, and for exemestane plus OFS, tamoxifen
+plus OFS, and tamoxifen, the rate was 99.3%, 98.3%,
+and 98.0%, respectively (Fig 4D). The absolute im-
+provement in 8-year freedom from distant recurrence with
+exemestane plus OFS versus tamoxifen ranged from
+approximately 1% to 2.5%, and the improvement with
+1296 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 5
 
-Page 5 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-depression-obesity status of participants and the joint 
-trajectory of the two in relation to cognitive function 
-(z-score). We set follow-up time as the timescale to cal-
-culate the β with corresponding 95% confidence intervals 
-(CI). GEE was repeated after stratifying by baseline main 
-characteristics.
-In subgroup analyses, we stratified populations based 
-on main demographic variables (e.g., age, sex, educa-
-tional attainment) to examine heterogeneous associations 
-between joint trajectories of BMI/WHtR and depressive 
-symptoms and cognitive function change across distinct 
-population subgroups. The interaction effects between 
-different subgroups and combined trajectory groups 
-were examined. In secondary analyses, we employed 
-various obesity indicators and different grouping strat-
-egies to redefine changes in depression-obesity status, 
-aiming to supplement the main results. (1) Considering 
-that KmL3D is a data-driven clustering algorithm and 
-might ignore practical experience standards, we classified 
-participants into stability groups, progression groups, 
-and regression groups based on a previous classification 
-method and empirical criteria, reflecting the transition 
-between obesity and depression at baseline and outcome 
-waves. We then repeated GEE to explore the association 
-between the transition groups and development of cogni-
-tive function in participants. (2) Used WWI as another 
-obesity indicator and generated joint trajectory groups. 
-Subsequently, replicated the statistics of the main results. 
-We also conducted several sensitivity analyses to test the 
-robustness of our findings: (1) Removed the underweight 
-population (BMI < 18.5) and the statistical approach was 
-consistent with previous work; (2) To ensure joint tra-
-jectories were robust, 20% of the participants were ran-
-domly excluded and repeated the KmL3D cluster analysis 
-[67].
-All analyses were conducted with R (version 4.3.1); spe-
-cifically, we used “kml3d”, “gee”, “geepack” and “ggplot2” 
-packages. Sankey diagrams and forest plots were plot-
-ted by [https://​www.​bioin​forma​tics.​com.​cn] and the 
-CNSknowall platform [https://​cnskn​owall.​com] respec-
-tively. All analyses employed stepwise adjustment for 
-confounding variables, with statistical significance 
-defined as two-tailed P-values < 0.05.
-Results
-Baseline characteristics of the study population
-A total of 36,718 individuals [8286 (22.6%) in CHARLS, 
-5225 (14.2%) in ELSA, 10,849 (29.5%) in HRS and 12,358 
-(33.7%) in MHAS] were included in the study popula-
-tion. The main baseline characteristic distributions of 
-participants and the demographic descriptions stratified 
-by depression status are presented in Fig. 1 and Table 1. 
-The mean follow-up duration across the four cohorts was 
-9 years, with cohort-specific durations as follows: 4 years 
-for CHARLS, 10 years for both ELSA and HRS, and 12 
-years for MHAS. Among the continuous variables, the 
-mean age of participants was 63.69 (SD 9.99) years. The 
-mean of BMI was 27.27 (SD 5.40) and the mean of WHtR 
-was 0.55 (SD 0.10). T-tests and chi-square tests showed 
-participants who had experienced depression tended to 
-have a higher BMI (all P < 0.05) and WHtR in ELSA and 
-HRS and lower baseline cognitive test score in all cohorts 
-(all P < 0.001). In all four studies, age, gender, education 
-status, marital status, hypertension, stroke, drinking 
-status, and smoking status had impacts on depressive 
-symptoms (all P < 0.05). Moreover, Additionalfile 1: Fig. 
-S4 and Fig.S5 shows basic characteristics of the dynamic 
-transition of depression-obesity status from baseline to 
-outcome wave. Overall, the proportion of participants in 
-all studies experiencing a state transition was relatively 
-small.
-Association between baseline depression‑obesity status 
-and changes in cognitive function
-No matter which obesity indicator was adopted, com-
-pared to participants in “Neither condition,” individu-
-als in “Depression alone” and “Comorbidity” at baseline 
-exhibited significantly poorer performance in subsequent 
-cognitive assessments (Fig. 2 and Additional File 1: Table 
-S5). This association persisted even after full adjustment 
-for all covariates, maintaining statistical significance 
-across analytical models (“Depression alone” of Fig. 2A—
-CHARLS: β =  − 0.30, 95% CI − 0.35 to − 0.25; ELSA: 
-β =  − 0.27, 95% CI − 0.40 to − 0.14; HRS: β =  − 0.17, 95% 
-CI − 0.26 to − 0.09; MHAS: β =  − 0.19, 95% CI − 0.23 
-to − 0.14; Fig.  2B: CHARLS: β =  − 0.29, 95% CI − 0.34 
-to − 0.23; ELSA: β =  − 0.24, 95% CI: − 0.37 to − 0.11; 
-HRS: β =  − 0.14, 95% CI − 0.23 to − 0.05; “Comorbidity” 
-of Fig. 2A: CHARLS: β =  − 0.25, 95% CI − 0.42 to − 0.08; 
-ELSA: β =  − 0.26, 95% CI − 0.41 to − 0.11; HRS: β =  − 0.18, 
-95% CI − 0.26 to − 0.10; MHAS: β =  − 0.07, 95% CI − 0.12 
-to − 0.01; Fig.  2B: CHARLS: β =  − 0.34, 95% CI − 0.45 
-to − 0.24; ELSA: β =  − 0.32, 95% CI − 0.48 to − 0.16; HRS: 
-β =  − 0.26, 95% CI − 0.34 to − 0.18, all P < 0.05). When 
-the obesity indicator was BMI, we observed individuals 
-in “Obesity alone” exhibited superior cognitive develop-
-ment in HRS and MHAS (HRS: β = 0.05, 95% CI 0.01 to 
-0.08; MHAS: β = 0.06, 95% CI 0.02 to 0.10, all P < 0.05), 
-whereas ELSA revealed an inverse pattern, with indi-
-viduals with obesity exhibiting comparatively impaired 
-cognitive outcomes (β =  − 0.10, 95% CI − 0.17 to − 0.02, 
-P = 0.012). When the obesity indicator was WHtR, “Obe-
-sity alone” participants demonstrated significantly poorer 
-cognitive performance compared to “Neither condi-
-tion” only in ELSA (β =  − 0.11, 95% CI − 0.18 to − 0.03, 
-P = 0.004).
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+82.7
+91.5
+97.8
+(90.3 to 92.6)
+DRs
+Patients
+1,120
+27
+2,765
+240
+1,006
+166
+(80.0 to 85.1)
+(96.6 to 98.6)
+8-Year % (95% CI)
+3
+2
+1
+Tumor grade
+Time Since Random Assignment (years)
+F
+Patients Free From 
+DR (%)
+E
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+79.5
+85.1
+93.4
+(80.9 to 88.3)
+DRs
+Patients
+3,892
+264
+400
+63
+509
+96
+(75.4 to 82.9)
+(92.5 to 94.2)
+8-Year % (95% CI)
+< 20
+20-49
+ 50
+PgR expression, 
+%
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+D
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+DRs
+Patients
+82.7 (76.2 to 87.5)
+196
+36
+91.5
+4,624
+390
+(90.6 to 92.4)
+8-Year % (95% CI)
+ 50
+ 50
+ER expression, 
+%
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+C
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+83.2
+95.5 (94.7 to 96.3)
+DRs
+Patients
+3,176
+145
+1,632
+270
+(81.2 to 85.0)
+8-Year % (95% CI)
+ 2
+ 2
+Tumor size, 
+cm
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+B
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+67.8
+89.5
+96.3
+(87.7 to 91.1)
+DRs
+Patients
+2,939
+114
+1,401
+151
+551
+168
+(63.4 to 71.8)
+(95.5 to 97.0)
+8-Year % (95% CI)
+≥ 4
+1-3
+0
+No. of positive
+lymph nodes
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+A
+Patients Free From 
+DR (%)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+DRs
+Patients
+8-Year % (95% CI)
+ 35
+35-39
+40-44
+45-49
+ 50
+Age at random
+assignment, 
+years
+96.7
+95.3
+92.1
+(94.0 to 96.3)
+1,560
+120
+1,626
+78
+463
+18
+(94.4 to 98.0)
+(90.5 to 93.4)
+84.2
+78.5
+(81.2 to 86.7)
+430
+88
+812
+129
+(74.0 to 82.3)
+Time Since Random Assignment (years)
+G
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+DRs
+Patients
+8-Year % (95% CI)
+ 26
+20-25
+14-19
+< 14
+Ki-67
+expression, 
+%
+96.1
+93.9
+(94.7 to 97.2)
+1,182
+75
+1,222
+49
+(92.3 to 95.2)
+87.3
+82.2
+(84.4 to 89.7)
+785
+137
+737
+91
+(79.2 to 84.9)
+FIG 1. Kaplan-Meier estimates of distant recurrence (DR)–free interval in the overall hormone receptor–positive/human epidermal
+growth factor receptor 2–negative analysis population according to seven clinicopathologic characteristics. (A) Age at random
+assignment, (B) number of positive lymph nodes, (C) tumor size, (D) estrogen receptor (ER) expression, (E) progesterone receptor
+(PgR) expression, (F) tumor grade, and (G) labeling index Ki-67 (Ki67) expression. Unknown values are omitted.
+Journal of Clinical Oncology
+1297
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 6
 
-Page 6 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Cluster analysis and joint trajectories of obesity 
-and depression
-In order to determine the appropriate number of poten-
-tial trajectories of BMI (kg/m2)/WHtR and depressive 
-symptoms groups, our study combined the iterative 
-results of KmL3D (the number of clusters was iteratively 
-increased from 2 to 20), cluster classification metrics, and 
-interpretability of the results [a reference group (Normal 
-weight/No abdominal obesity & No depression) should 
-be defined at least]. Therefore, we identified different 
-numbers of trajectories for different cohorts respectively 
-(Fig. 3, Additional file 1: Table S6 and S7). Furthermore, 
-after randomly excluding 20% of participants and repeat-
-ing the cluster analysis, no substantial differences were 
-found in the newly divided trajectory group (Additional-
-file 1: Fig. S6, Table S6 and S7).
-Association between joint trajectories and changes 
-in cognitive function
-Figure  4 and Additional file  1: Table S8–S9 summa-
-rize the association between joint trajectories (BMI/
-WHtR and depressive symptoms) and changes in cogni-
-tive function. In Fig.  4A (adjusted all covariates), com-
-pared to the reference group (Group1: Normal weight 
-and No depression), participants in the joint trajectory 
-groups with depression (regardless of obesity trajecto-
-ries) had poorer cognitive function [CHARLS (Group2: 
-Normal weight & Depression): β =  − 0.35, 95% CI − 0.42 
-to − 0.28; ELSA (Group2: Overweight & Depression): 
-β =  − 0.32, 95% CI − 0.44 to − 0.20; HRS (Group2: Over-
-weight & Depression): β =  − 0.20, 95% CI − 0.27 to − 0.13, 
-MHAS (Group3: Overweight & Depression): β =  − 0.15, 
-95% CI − 0.19 to − 0.10; all P < 0.001]. However, in other 
-trajectory groups, inconsistent results were observed 
-among the four studies. When compared with the refer-
-ence group, the significantly accelerated cognitive decline 
-was reported in Group 4 (Obesity and No depression) 
-of ELSA (β =  − 0.16, 95% CI − 0.26 to − 0.06, P = 0.002). 
-Additionally, the association between trajectory groups 
-characterized by overweight/obesity and better cogni-
-tive development was observed in HRS and MHAS [HRS 
-(Group3 and Group4: Obesity (I)/Obesity II) and No 
-depression): β = 0.06, 95% CI 0.02 to 0.11; β = 0.10, 95% 
-CI 0.04 to 0.16; MHAS (Group2: Overweight and No 
-depression): β = 0.09, 95% CI 0.04 to 0.13, all P < 0.05]; 
-however, this association was not observed in the 
-CHARLS.
-Figure  4B shows the relationship between the joint 
-trajectory (WHtR and depressive symptoms) and cog-
-nitive changes. In the fully adjusted model (adjusted all 
-Fig. 1  Main baseline characteristics of participants from four cohorts. Abbreviations: CHARLS, China Health and Retirement Longitudinal Study; 
-ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health and Retirement Study
+tamoxifen plus OFS versus tamoxifen was at most 1%
+(Fig 5D).
+DISCUSSION
+After 5 years of adjuvant endocrine therapy, breast cancer
+recurrences steadily occur up to 20 years. In an Early
+Breast Cancer Trialists’ Collaborative Group meta-analysis
+(62,923 patients disease free after 5 years of endocrine
+therapy), the risk of distant recurrence was strongly cor-
+related with stage (13% and 41% in T1N0 and T2N2
+disease, respectively) and tumor grade (10% and 17% for
+low-grade T1N0 and high-grade disease, respectively).13 In
+the absence of predictive biomarkers, standard clinico-
+pathologic characteristics continue to provide meaningful
+prognostic information about risk of distant recurrence and
+guide treatment decision making. We put these features
+together into a composite measure of recurrence risk,
+which allows clinicians to better understand and estimate
+the magnitude of beneﬁt of escalating adjuvant endocrine
+therapy in premenopausal women with HR-positive/HER2-
+negative breast cancer.
+The combined analysis of TEXT/SOFT, without regard to
+tumor HER2 status, showed an average 2.1% absolute
+improvement in freedom from distant recurrence at 8 years
+in premenopausal women treated with an aromatase in-
+hibitor versus tamoxifen with OFS.8 This beneﬁt is com-
+parable to that observed for postmenopausal women in the
+Early Breast Cancer Trialists’ Collaborative Group meta-
+analysis, wherein 5 years of aromatase inhibitors were
+associated with a 2% absolute 10-year reduction in distant
+recurrence compared with 5 years of tamoxifen (16.3% v
+14.3%, respectively).14
+We focused on the predominant subgroup with HR-
+positive/HER2-negative cancers. As previously highlighted,15
+SOFT/TEXT data suggest differential relative treatment ef-
+ﬁcacy by HER2 status and show lesser beneﬁt of aromatase
+inhibitors and greater beneﬁt from adding OFS to tamoxifen
+for HER2-positive than for HER2-negative cancers. Sec-
+ondary analyses from the Hormonal Adjuvant Treatment
+Bone Effects (HOBOE)16 and Adjuvant Lapatinib and/or
+Trastuzumab Treatment Optimization (ALTTO)17 trials were
+consistent with this observation. A closer analysis of the
+HER2-positive subgroup is planned.
+Among women with HR-positive/HER2-negative tumors
+who received chemotherapy (on average, a higher-risk
+group), an average 5% absolute improvement was
+8-Year Freedom From Distant Recurrence (95% CI)
+50
+60
+70
+80
+90
+100
+50
+60
+70
+80
+90
+100
+50
+60
+70
+80
+90
+100
+50
+60
+70
+80
+90
+100
+26
+20-25
+14-19
+< 14
+Ki-67 expression, %
+3
+2
+1
+Tumor grade
+< 20
+20-49
+50
+PgR expression, %
+< 50
+50
+ER expression, %
+> 2
+2
+Tumor size, cm
+≥ 4
+1-3
+0
+No. of positive nodes
+< 35
+35-39
+40-44
+45-49
+50
+Age at random assignment, years
+Characteristic
+SOFT No Chemotherapy
+TEXT No Chemotherapy
+SOFT Prior Chemotherapy
+TEXT Chemotherapy
+Overall
+TAM
+EXEM + OFS
+TAM + OFS
+FIG 2. Kaplan-Meier estimates of 8-year freedom from distant recurrence in seven clinicopathologic subgroups in the four patient cohorts deﬁned
+by trial and chemotherapy use according to treatment assignment. The values are listed in Appendix Tables A3 and A6. Unknown values are
+omitted. ER, estrogen receptor; EXEM, exemestane; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR, progesterone receptor;
+SOFT, Suppression of Ovarian Function Trial; TAM, tamoxifen; TEXT, Tamoxifen and Exemestane Trial.
+1298 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 7
 
-Page 7 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-Table 1  Baseline characteristics of participants from four cohorts according to depression status
-Variables
-Overall 
-(Mean ± 
-SD or
-events/n)
-China Health and Retirement Longitudinal 
-Study (CHARLS) 
-(n=8286)
-English Longitudinal Study of Ageing 
-(ELSA)
-(n=5225)
-Health and Retirement Study(HRS)
-(n=10849)
-Mexican Health and Aging Study (MHAS)
-(n=12358)
-No depression 
-(n=5504)
-Depression  
-(n=2782)
-p
-No depression 
-(n=4552)
-Depression 
-(n=673)
-p
-No depression 
-(n=9539)
-Depression 
-(n=1310)
-p
-No depression 
-(n=8591)
-Depression(n=3767)
-p
-Age (years)
-63.69 ± 9.99
-58.12 ± 8.97
-59.13 ± 8.97
-<0.001
-65.39 ± 8.92
-66.26 ± 9.78
-0.200
-66.98 ± 9.56
-65.83 ± 9.97
-<0.001
-63.28 ± 9.77
-64.53 ± 10.20
-<0.001
-BMI (kg/m2)*
-27.27 ± 5.40
-23.82 ± 3.71
-23.20 ± 3.71
-<0.001
-27.88 ± 4.75
-28.37 ± 5.31
-0.014
-29.21 ± 5.71
-30.52 ± 6.67
-<0.001
-27.81 ± 4.56
-27.50 ± 4.71
-0.004
-Underweight
-300/728
-260 (4.7)
-216 (7.8)
-<0.001
-27 (0.6)
-5 (0.7)
-0.041
-53 (0.6)
-10 (0.8)
-<0.001
-88 (1.0)
-69 (1.8)
-<0.001
-Normal weight
-2771/11579
-2811 (51.1)
-1544 (55.5)
-1237 (27.2)
-180 (26.7)
-2152 (22.6)
-257 (19.6)
-2608 (30.4)
-1180 (31.3)
-Overweight
-2838/13889
-1755 (31.9)
-745 (26.8)
-1993 (43.8)
-263 (39.1)
-3575 (37.5)
-416 (31.8)
-3728 (43.4)
-1414 (37.5)
-Obesity
-2233/9952
-678 (12.3)
-277 (10.0)
-1295 (28.4)
-225 (33.4)
-3579 (39.4)
-627 (47.9)
-2167 (25.2)
-1104 (29.3)
-Waist-to-height 
-ratio (WHtR)
-0.55 ± 0.10
-0.54 ± 0.06
-0.54 ± 0.66
-0.305
-0.58 ± 0.07
-0.59 ± 0.08
-<0.001
-0.60 ± 0.09
-0.63 ± 0.10
-<0.001
-NA
-NA
-NA
-No abdominal 
-obesity
-3182/15478
-4557 (82.8)
-2285 (82.1)
-0.455
-2966 (65.2)
-401 (59.6)
-0.005
-4773 (50.0)
-496 (37.9)
-<0.001
-NA
-NA
-NA
-Abdominal 
-obesity
-1583/8882
-947 (17.2)
-497 (17.9)
-1586 (34.8)
-272 (40.4)
-4766 (50.0)
-814 (62.1)
-Gender (%)
-Male
-2955/16614
-3099 (56.3)
-1215 (43.7)
-<0.001
-2247 (49.4)
-226 (33.6)
-<0.001
-4013 (42.1)
-363 (27.7)
-<0.001
-4300 (50.1)
-1151 (30.6)
-<0.001
-Female
-5577/20104
-2405 (43.7)
-1567 (56.3)
-2305 (50.6)
-447 (66.4)
-5526 (57.9)
-947 (72.3)
-4291 (49.9)
-2616 (69.4)
-Race (%)
-White
-1655/14125
-NA
-NA
-NA
-4511 (99.1)
-655 (97.3)
-<0.001
-7959 (83.4)
-1000 (76.3)
-<0.001
-NA
-NA
-NA
-Other
-328/1949
-41 (0.9)
-18 (2.7)
-1580 (16.6)
-310 (23.7)
-Education status 
-(%)
-Less than lower 
-secondary
-6796/21571
-4645 (84.4)
-2588 (93.0)
-<0.001
-1678 (36.9)
-333 (49.5)
-<0.001
-1502 (15.7)
-410 (31.3)
-<0.001
-6950 (80.9)
-3465 (92.0)
-<0.001
-Upper secondary 
-& vocational 
-training
-1395/11285
-734 (13.3)
-177 (6.4)
-2198 (48.3)
-284 (42.2)
-5708 (59.8)
-731 (55.8)
-1250 (14.6)
-203 (5.4)
-Tertiary
-341/3862
-125 (2.3)
-17 (0.6)
-676 (14.9)
-56 (8.3)
-2329 (24.4)
-169 (12.9)
-391 (4.6)
-99 (2.6)
-Residence (%)§
-Type A(Urban)
-5016/24405
-2331 (42.4)
-877 (31.50)
-<0.001
-4374 (96.1)
-632 (93.9)
-0.008
-6381 (66.9)
-912 (69.6)
-0.490
-6303 (73.4)
-2595 (68.9)
-<0.001
-Type B(Rural)
-3516/12313
-3173 (57.6)
-1905 (68.5)
-178 (3.9)
-41 (6.1)
-3158 (33.1)
-398 (30.4)
-2288 (26.6)
-1172 (31.1)
-Marital status (%)
-Living alone（No）
-2670/9025
-462 (8.4)
-419(15.1)
-<0.001
-1085 (23.8)
-293 (43.5)
-<0.001
-2658 (27.9)
-592 (45.2)
-<0.001
-2150 (25.0)
-1366 (36.3)
-<0.001
-Living 
-with partner(Yes)
-5862/27693
-5042 (91.6)
-2363 (84.9)
-3467 (76.2)
-380 (56.5)
-6881 (72.1)
-718 (54.8)
-6441 (75.0)
-2401 (63.7)
-Household eco-
-nomic situation 
-(%)✝
-Low tertile
-3633/12753
-1736 (31.5)
-1023 (36.8)
-<0.001
-1490 (32.7)
-251 (37.3)
-0.062
-2933 (30.7)
-684 (52.2)
-<0.001
-2961 (34.5)
-1675 (44.5)
-<0.001
-Medium tertile
-2678/11751
-1796 (32.6)
-972 (34.9)
-1530 (33.6)
-214 (31.8)
-3243 (34.0)
-378 (28.9)
-2504 (29.1)
-1114 (29.6)
-High tertile
-2221/12214
-1972 (35.8)
-787 (28.3)
-1532 (33.7)
-208 (30.9)
-3363 (35.3)
-248 (18.9)
-3126 (36.4)
-978 (26.0)
-Hypertension (%)
+achieved by escalating endocrine therapy to exemestane
+plus OFS in both TEXT and SOFT. In the STEPP analysis,
+the composite risk for a high-risk scenario (eg, 35 to
+39 years of age, grade 3, pT2pN1a, ER and PgR of 50% or
+greater, Ki-67 26% or greater; composite risk, 3.00; Ap-
+pendix Fig A4A, online only) was represented in sub-
+populations that had an absolute improvement greater
+than the average (range, 7% to 10%). The magnitude of
+B
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+EXEM + OFS
+TAM + OFS
+TAM
+–0.7
+5.2
+TAM + OFS
+(75.9 to 84.0)
+DRs
+Patients
+TAM
+EXEM + OFS
+432
+80
+423
+80
+416
+56
+81.0
+80.3
+86.2 (82.2 to 89.4)
+Difference at 8 
+Years v TAM, %
+(76.6 to 84.6)
+8-Year % 
+(95% CI)
+SOFT Prior Chemotherapy
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+A
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+EXEM + OFS
+TAM + OFS
+5.1
+TAM + OFS
+(81.6 to 87.6)
+DRs
+Patients
+EXEM + OFS
+632
+93
+644
+66
+84.9
+90.0 (87.2 to 92.2)
+Difference at
+8 Years, %
+8-Year % 
+(95% CI)
+TEXT Chemotherapy
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+C
+Time Since Random Assignment (years)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+EXEM + OFS
+TAM + OFS
+0.9
+TAM + OFS
+(94.2 to 97.9)
+DRs
+Patients
+EXEM + OFS
+498
+20
+493
+15
+96.5
+97.4(95.3 to 98.6)
+Difference at 
+8 Years, %
+8-Year % 
+(95% CI)
+TEXT No Chemotherapy
+Patients Free From 
+DR (%)
+D
+Time Since Random Assignment (years)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+99.3
+98.3
+98.0
+EXEM + OFS
+TAM + OFS
+TAM
+0.3
+1.3
+TAM + OFS
+(96.5 to 99.2)
+DRs
+Patients
+TAM
+EXEM + OFS
+450
+9
+449
+9
+454
+5
+(97.8 to 99.8)
+Difference at 8 
+Years v TAM, %
+(95.6 to 99.1)
+8-Year % 
+(95% CI)
+SOFT No Chemotherapy
+Patients Free From 
+DR (%)
+FIG 4. Kaplan-Meier estimates of distant recurrence (DR)–free interval in the four patient cohorts deﬁned by trial and
+chemotherapy use according to treatment assignment. (A) Tamoxifen and Exemestane Trial (TEXT) chemotherapy, (B)
+Suppression of Ovarian Function Trial (SOFT) prior chemotherapy, (C) TEXT no chemotherapy, and (D) SOFT no chemo-
+therapy. EXEM, exemestane; OFS, ovarian function suppression; TAM, tamoxifen.
+0.06 0.58
+1.21 1.69
+2.27
+2.94 3.40
+8-Year Freedom From
+Distant Recurrence (%)
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median)
+0
+20
+40
+60
+80
+100
+91.1
+A
+Composite Risk
+Patients (No.)
+0
+5
+4
+3
+1
+2
+0
+400
+300
+200
+100
+B
+FIG 3. (A) Subpopulation treatment effect pattern plot of 8-year freedom from distant recurrence according to median composite risk in subpopulations and
+(B) histogram of the composite risk distribution in the overall hormone receptor (HR)–positive/human epidermal growth factor receptor 2 (HER2)–negative
+analysis population. The horizontal lines above the histogram indicate the ranges of composite risks in subpopulations that are plotted at the subpopulation
+median value. The overall 8-year freedom from distant recurrence rate of 91.1% also is indicated on the y-axis. The overall median composite risk of 1.42 is
+indicated by the vertical dashed lines.
+Journal of Clinical Oncology
+1299
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 8
 
-Page 8 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Data are presented as means ± standard deviations or number (proportion %)P values were calculated using analysis of t-test and Cchi-square test for continuous and categorical variables, respectively*BMI: In CHARLS: 
-underweight (< 18.5 kg/cm2); normal weight (>= 18.5 kg/cm2 and < 22.9 kg/cm2); overweight (>= 23 kg/cm2 and < 28 kg/cm2); obesity (>= 28kg/cm2). In other databases, underweight (< 18.5 kg/cm2); normal weight 
-(>= 18.5 kg/cm2 and <25 kg/cm2); overweight (>= 25 kg/cm2 and < 30 kg/cm2); obesity (>=30 kg/cm2)§Residence: In CHARLS, HRS and MHAS, type A: Urban area; type B: Rural area. In ELSA, type A: UK; type B: Other 
-area✝Household economic situation: In CHARLS, ELSA and MHAS, Household economic situation was defined by total household per capita consumption. In HRS,Household economic situation was defined by total 
-household income
-Table 1  (continued)
-Variables
-Overall 
-(Mean ± 
-SD or
-events/n)
-China Health and Retirement Longitudinal 
-Study (CHARLS) 
-(n=8286)
-English Longitudinal Study of Ageing 
-(ELSA)
-(n=5225)
-Health and Retirement Study(HRS)
-(n=10849)
-Mexican Health and Aging Study (MHAS)
-(n=12358)
-No depression 
-(n=5504)
-Depression  
-(n=2782)
-p
-No depression 
-(n=4552)
-Depression 
-(n=673)
-p
-No depression 
-(n=9539)
-Depression 
-(n=1310)
-p
-No depression 
-(n=8591)
-Depression(n=3767)
-p
-No
-4317/20672
-4148 (75.4)
-2014 (72.4)
-0.003
-2791 (61.3)
-366 (54.4)
-<0.001
-4723 (49.5)
-544 (41.5)
-<0.001
-4693 (54.6)
-1393 (37.0)
-<0.001
-Yes
-4215/16046
-1356 (24.6)
-768 (27.6)
-1761 (38.7)
-307 (45.6)
-4816 (50.5)
-766 (58.5)
-3898 (45.4)
-2374 (63.0)
-Diabetes (%)
-No
-6758/31007
-5179 (94.1)
-2587 (93.0)
-0.050
-4233 (93.0)
-601 (89.3)
-<0.001
-8076 (84.7)
-955 (76.0)
-<0.001
-6761 (78.7)
-2615 (69.4)
-<0.001
-Yes
-1734/5671
-325 (5.9)
-195 (7.0)
-319 (7.0)
-72 (10.7)
-1463 (15.3)
-315 (24.0)
-1830 (21.3)
-1152 (30.3)
-Cancer (%)
-No
-8147/34546
-5457 (99.1)
-2756 (99.1)
-0.711
-4239 (93.1)
-619 (92.0)
-0.277
-8331 (87.3)
-1169 (89.2)
-0.051
-8372 (97.5)
-3603 (95.6)
-<0.001
-Yes
-385/2172
-47 (0.9)
-26 (0.9)
-313 (6.9)
-54 (8.0)
-1208 (12.7)
-141 (10.8)
-219 (2.5)
-164 (4.4)
-Stroke (%)
-No
-8137/35451
-5422 (98.5)
-2682 (96.4)
-<0.001
-4407 (96.8)
-637 (94.7)
-0.004
-9074 (95.1)
-1218 (93.0)
-0.001
-8411 (97.9)
-3600 (95.6)
-<0.001
-Yes
-395/1267
-82 (1.5)
-100 (3.6)
-145 (3.2)
-36 (5.3)
-465 (4.9)
-92 (7.0)
-180 (2.1)
-167 (4.4)
-Arthritis (%)
-No
-4800/23580
-4078 (74.1)
-1557 (56.0)
-<0.001
-3148 (69.2)
-328 (48.7)
-<0.001
-4515 (47.3)
-418 (31.9)
-<0.001
-7039 (81.9)
-2497 (66.3)
-<0.001
-Yes
-3732/13138
-1426 (25.9)
-1225 (44)
-1404 (30.8)
-345 (51.3)
-5024 (52.7)
-892 (68.1)
-1552 (18.1)
-1270 (33.7)
-Drinking status (%)
-None
-5660/19578
-3134 (56.9)
-1713 (61.6)
-<0.001
-389 (8.5)
-117 (17.4)
-<0.001
-4187 (43.9)
-741 (56.6)
-<0.001
-6208 (72.3)
-3089 (82.0)
-<0.001
-Yes
-2872/17140
-2370 (43.1)
-1069 (38.4)
-4163 (91.5)
-556 (82.6)
-5352 (56.1)
-569 (43.4)
-2383 (27.7)
-678 (18.0)
-Smoking status 
-(%)
-None
-4908/17718
-3042 (55.3)
-1698 (61.0)
-<0.001
-1727 (37.9)
-206 (30.6)
-<0.001
-4249 (44.5)
-537 (41.0)
-0.015
-5136 (59.8)
-2467 (65.5)
-<0.001
-Yes
-3624/18740
-2462 (44.7)
-1084 (39.0)
-2825 (62.1)
-467 (69.4)
-5290 (55.5)
-773 (59.0)
-3455 (40.2)
-1300 (34.5)
-Baseline cognitive
-test score
-NA
-16.65 ± 4.63
-14.33 ± 4.63
-<0.001
-14.25 ± 3.40
-13.42 ± 3.64
-<0.001
-15.92 ± 3.98
-14.29 ± 4.60
-<0.001
-53.22 ± 18.25
-46.71 ± 17.71
-<0.001
+improvement with exemestane plus OFS versus tamoxifen
+with or without OFS was larger in TEXT than in SOFT high-
+risk patients, but improvement was consistently observed in
+both cohorts. In contrast, in low-risk patients (Appendix Fig
+A4C) who did not receive chemotherapy, the 8-year free-
+dom from distant recurrence was improved on average by
+approximately 1% in patients who received exemestane
+plus OFS compared with tamoxifen alone or tamoxifen plus
+Composite Risk in 
+HR Positive/HER2 Negative 
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+3
+1
+2
+D
+EXEM + OFS
+TAM + OFS
+TAM
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+0.06 0.54 0.89 1.30
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT No Chemotherapy
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in 
+HR Positive/HER2 Negative
+C
+EXEM + OFS
+TAM + OFS
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT No Chemotherapy
+0.46
+1.07
+1.611.91
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in 
+HR Positive/HER2 Negative
+B
+EXEM + OFS
+TAM + OFS
+TAM
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+Median Composite Risk in
+HR-Positive/HER2-Negative Subpopulations 
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+Composite Risk in 
+HR Positive/HER2 Negative 
+A
+0.89
+1.421.79 2.27
+3.02 3.40
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT Chemotherapy
+EXEM + OFS
+TAM + OFS
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+FIG
+5. Subpopulation
+treatment effect pattern
+plots of 8-year freedom
+from distant recurrence
+according to median
+composite risk in sub-
+populations and histo-
+grams of the composite
+risk distributions for
+each of the four cohorts
+in the hormone receptor
+(HR)–positive/human epi-
+dermal growth factor re-
+ceptor 2 (HER2)–negative
+analysis population accord-
+ing to treatment assign-
+ment. (A) Tamoxifen and
+Exemestane Trial (TEXT)
+chemotherapy, (B) Sup-
+pression of Ovarian Func-
+tion Trial (SOFT) prior
+chemotherapy, (C) TEXT
+no chemotherapy, and
+(D)
+SOFT
+no
+chemo-
+therapy. The horizontal
+lines above each histo-
+gram indicate the ranges
+of
+composite
+risks
+in
+subpopulations that are
+plotted
+at
+the
+sub-
+population median com-
+posite risk value.
+The
+vertical dashed lines in-
+dicate the median com-
+posite risk of 1.42 in
+the overall HR-positive/
+HER2-negative
+analy-
+sis population. EXEM,
+exemestane; OFS, ovar-
+ian function suppression;
+TAM, tamoxifen.
+1300 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 9
 
-Page 9 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-covariates), compared to the reference group (Group1: 
-No abdominal obesity & No depression), participants 
-in “Abdominal obesity and Depression group” met with 
-more cognitive decline [ELSA (Group2: Abdominal obe-
-sity (I) and Depression): β =  − 0.20, 95% CI 0.29 to − 0.12; 
-HRS (Group2: Abdominal obesity (I) and Depression): 
-β =  − 0.20, 95% CI: − 0.27 to − 0.14, all P < 0.001]. In 
-CHARLS, although no “Abdominal obesity and Depres-
-sion” group was divided, the group containing depression 
-(Group 2: No abdominal obesity (II) and Depression) 
-also had poorer cognitive development than the refer-
-ence group (β =  − 0.31, 95% CI − 0.39 to − 0.23, P < 0.001); 
-meanwhile, participants in this group exhibited a higher 
-WHtR compared to those in the reference group (Addi-
-tionalfile 1: Table S9).
-Subgroup analysis
-We further stratified the population into different sub-
-groups according to main demographic variables (such 
-as age, gender, education status and so on) to assess the 
-heterogeneity of joint trajectories (BMI and Depressive 
-symptoms and WHtR and Depressive symptoms) on 
-changes in cognitive function (Additional file 2: Fig. S7–
-S8, and Table S10). The results were similar to the main 
-results but not consistent in four cohorts.
-Secondary and sensitivity analyses
-The current research further conducted two secondary 
-analyses to supplement the results. (1) We explored the 
-association between the transition in depression-obesity 
-status and development of cognitive function in partici-
-pants. The results indicated that compared to those who 
-maintained neither depression nor obesity, participants 
-in other transition groups may have had worse cognitive 
-function (Additional file 3: Table S11–S13 and Fig. S9). 
-(2) We included Weight-Adjusted Waist Index (WWI) 
-as another measure of obesity. It was observed that indi-
-viduals in the joint trajectory groups with higher WWI 
-and/or depression had poorer cognitive development 
-compared to the reference group (Low WWI and No 
-depression) (Additional file  3: Fig. S10 and Table S14–
-S15). We also conducted a sensitivity analysis (removed 
-566 underweight participants) and obtained results that 
-accorded closely with those of the main analyses (Addi-
-tional file 3: Fig. S11 andTable S16).
-Discussion
-Our analysis of longitudinal data from four multinational 
-cohorts examined the additive and synergistic effects of 
-depression and obesity/abdominal obesity (AO), and 
-their combination, on cognitive function in middle-aged 
-and older adults. Specifically, individuals in “Depression 
-Fig. 2  Associations between joint trajectories and changes in cognitive function A Association between baseline depression-obesity status 
-(Obesity indicator: BMI) and changes in cognitive function. B Association between baseline depression-obesity status (Obesity indicator: WHtR) 
-and changes in cognitive function. All models were adjusted for age, gender, education status, residence, marital status, household economic 
-situation, (race:only in the ELSA, and HRS), hypertension, diabetes, cancer, stroke, arthritis, drinking status, and smoking status. [Standardized β 
-are shown as centers of horizonal bar plots, with error bars representing 95% CI, *P < 0.05, **P < 0.01, ***P < 0.001]. Abbreviations: CHARLS, China 
-Health and Retirement Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health 
-and Retirement Study. Notes: In CHARLS, ELSA, and MHAS, household economic situation was defined by total household per capita consumption. 
-In HRS, household economic situation was defined by total household income
+OFS in both SOFT and TEXT. The STEPP analysis sug-
+gested that this low-risk scenario (eg, 40 to 44 years of age,
+grade 2, pT1pN0, ER and PgR of 50% or greater, Ki-67 of
+14% to 19%; composite risk, 0.89) was well characterized
+by the average improvement of approximately 1%. Most
+intermediate-risk patients in SOFT and TEXT received
+chemotherapy. In this patient scenario (eg, 40 to 44 years
+of age, grade 2, pT1pN1a, ER and PgR of 50% or greater,
+Ki-67 of 20% to 25%; composite risk, 1.78; Appendix Fig
+A4B), the absolute improvement with exemestane plus OFS
+was estimated to be less than the average improvement of
+5%. Of note, intermediate-risk patients in TEXT who did not
+receive chemotherapy were estimated to have an im-
+provement with exemestane plus OFS that exceeded 4%;
+these patients also achieved approximately 10% improve-
+ment in freedom from any breast cancer recurrence at
+5 years with exemestane plus OFS.7
+TEXT and SOFT results may encourage physicians to re-
+consider the indication for adjuvant chemotherapy in
+intermediate-risk premenopausal women with HR-positive/
+HER2-negative breast cancer. The patient selection for
+chemotherapy differed in SOFT and TEXT. The knowledge
+that all patients would receive OFS in TEXT, whereas OFS
+was administered by random assignment in SOFT, possibly
+prompted the prescription of chemotherapy for some SOFT
+patients. For instance, more patients younger than 40 years
+of age (47.8% and 28.4%) and with node-negative disease
+(41.5% and 31.4%) received chemotherapy in SOFT than
+in TEXT. This also can be inferred by the higher median
+composite risk in TEXT patients in the no-chemotherapy
+cohorts (eg, 21.5% of patients who received endocrine
+therapy alone in TEXT had one to three positive nodes;
+Fig 4) compared with 8.6% in SOFT. These different clinical
+characteristics of women who received adjuvant chemo-
+therapy in SOFT and TEXT might partly explain the slightly
+different absolute improvements. Premenopausal women
+represented approximately 30% of patients in the clinical
+trials that addressed the added beneﬁt of adjuvant che-
+motherapy over endocrine therapy18-20 in HR-positive/
+HER2-negative breast cancer. Tamoxifen was the standard
+of care in premenopausal women when these trials were
+designed and conducted, and the additional beneﬁt of
+adjuvant chemotherapy in this age-group cannot be ex-
+trapolated to women treated with combined endocrine
+therapy as in TEXT and SOFT. The Rx for Positive Node,
+Endocrine Responsive Breast Cancer (RxPONDER) trial
+(ClinicalTrials.gov identiﬁer: NCT01272037) enrolled pa-
+tients with one to three positive nodes between 2011 and
+2015 who may have received combined endocrine therapy
+and could provide additional insight for intermediate-risk
+patients.
+Several gene expression assays also have been developed
+for postmenopausal women21 to estimate better the risk of
+early (0 to 5 years) and late (5 to 10 years) distant
+recurrence22-24 of patients with HR-positive early breast
+cancer and tailor their adjuvant endocrine treatment. None
+of these tests was developed to select which endocrine
+therapy is more appropriate according to genomic risk. The
+prognostic information provided by these assays should not
+be interpreted automatically as a prediction of treatment
+beneﬁt.25 Although the risk of late distant recurrence is
+seemingly similar across age-groups,13 the different algo-
+rithms cannot be applied to premenopausal patients
+without further validation because most of the data derive
+from postmenopausal women.
+The 5% to 15% absolute improvement in freedom from
+distant recurrence from escalating endocrine therapy to
+tamoxifen plus OFS or exemestane plus OFS needs to be
+integrated in the clinical situation of each individual patient.
+The results in patients at higher risk of recurrence who
+received chemotherapy are of particular clinical relevance.
+A retrospective cohort study of 1,616 women showed that
+the median time to all-cause mortality was signiﬁcantly
+longer in women with locoregional recurrence than in those
+with distant metastases (6.4 v 3.4 years, respectively).26
+Moreover, the 10-year survival rate of 101 women with local
+recurrence was 56% compared with 9% in those with
+distant recurrence.27 In patients with HER2-negative disease
+who did not receive adjuvant chemotherapy, the majority with
+a lower risk of recurrence, after 8 to 9 years median follow-up
+in SOFT and TEXT, very few distant recurrences (23 and 35,
+respectively) occurred. In these patients, the beneﬁt of
+treatment escalation is derived largely from locoregional and
+contralateral breast cancer reduction.7 Given the impact on
+patients’ quality of life from escalating endocrine therapy,28
+clinicians need to weigh the risk of recurrence and the ex-
+pected absolute improvement in disease outcomes carefully
+against the added adverse effects.
+With all women beyond the 5-year treatment period, the
+toxicity proﬁles of exemestane plus OFS and tamoxifen plus
+OFS are similar to postmenopausal women, and no new
+toxicity signal has emerged.8 Nonadherence and early
+discontinuation of oral adjuvant endocrine therapy is fre-
+quent among young women29 and associated with reduced
+overall survival.30 In TEXT/SOFT, early discontinuation of all
+assigned endocrine therapy was approximately 20% in
+each treatment group, which is in line with published
+data.29 Several demographic and clinical characteristics
+can help physicians to identify patients at risk for non-
+persistence/adherence.31 By better quantifying treatment
+beneﬁts in the individual patient, our results may allow for
+a more-tailored risk/beneﬁt discussion and an increase in
+women’s motivation, particularly those at highest risk of
+distant recurrence, to follow treatment prescriptions.
+Given the potential for late recurrences of HR-positive
+breast cancer, conclusions about overall survival remain
+premature. In postmenopausal women, the beneﬁt of
+aromatase inhibitors versus tamoxifen on breast cancer
+mortality only emerged at 10 years14 (2.1% absolute gain,
+14.2% v 12.1%, respectively).
+Journal of Clinical Oncology
+1301
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 10
 
-Page 10 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Fig. 3  Joint trajectories of BMI (kg/m2)/WHtR and depressive symptoms in all waves. Abbreviations: CHARLS, China Health and Retirement 
-Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health and Retirement Study; 
-95% CI, 95% confidence interval. Notes: The different colored lines show the mean of BMI/WHtR and score of depressive symptoms in different 
-trajectory groups; (I) and (II) represent different degrees
+The current results add to our earlier study7 to assist
+physicians and patients with estimating the individual risk-
+based beneﬁt of escalating endocrine therapy. A recent
+survey showed that practicing US medical oncologists
+underestimated the absolute improvement in 5-year free-
+dom from breast cancer with the use of aromatase
+inhibitors plus OFS versus tamoxifen for high-risk patients
+(physician estimate, 5.9%) compared with our previous
+study ﬁndings of 10% to 15%.7,32 An online tool is in de-
+velopment to assist clinicians with using SOFT/TEXT in their
+daily practice risk/beneﬁt calculations in premenopausal
+women with HR-positive/HER2-negative breast cancer.
+AFFILIATIONS
+1Institute of Oncology of Southern Switzerland, Geneva University
+Hospitals, and Swiss Group for Clinical Cancer Research (SAKK), Lugano
+Viganello, Switzerland
+2Peter MacCallum Cancer Center, St Vincent’s Hospital, and University of
+Melbourne, Melbourne, Victoria, Australia
+3The University of Chicago Medical Center, Chicago, IL
+4University of Calgary and Canadian Cancer Trials Group, Calgary,
+Alberta, Canada
+5International Breast Cancer Study Group Central Pathology Center, IEO,
+European Institute of Oncology IRCCS, and University of Milan, Milan,
+Italy
+6IEO, European Institute of Oncology IRCCS and International Breast
+Cancer Study Group, Milan, Italy
+7National Institute of Oncology, Budapest, Hungary
+8Instituto Nacional de Enfermedades Neopl´asicas, Lima, Peru
+9Ospedale Papa Giovanni XXIII, Bergamo, Italy
+10ASST Settelaghi Ospedale di Circolo e Fondazione Macchi, Varese, Italy
+11Hospital of Prato-AUSL Toscana Centro and International Breast
+Cancer Study Group, Prato, Italy
+12International Breast Cancer Study Group and University of Sydney,
+New South Wales, Australia
+13International Breast Cancer Study Group Statistical Center, Dana-
+Farber Cancer Institute, Harvard Medical School, Harvard T.H. Chan
+School of Public Health, and Frontier Science and Technology Research
+Foundation, Boston, MA
+14International Breast Cancer Study Group Statistical Center, Dana-
+Farber Cancer Institute, Harvard Medical School, Boston, MA
+CORRESPONDING AUTHOR
+Meredith M. Regan, ScD, International Breast Cancer Study Group
+Statistical Center, Division of Biostatistics, Dana-Farber Cancer
+Institute, 450 Brookline Ave, Boston, MA 02215; e-mail: mregan@
+jimmy.harvard.edu.
+PRIOR PRESENTATION
+Presented at the 2018 Annual Meeting of the American Society of
+Clinical Oncology, Chicago, IL, June 1-5, 2018.
+SUPPORT
+Supported by Pﬁzer, the International Breast Cancer Study Group, the US
+National Cancer Institute, and the Breast Cancer Research Foundation
+(16-185, 17-187, and 18-003) for Tamoxifen and Exemestane Trial and
+Suppression of Ovarian Function Trial conduct. Pﬁzer and Ipsen provided
+the drug supply. Support for central pathology included Susan G. Komen
+for the Cure Promise Grant KG080081 and the Breast Cancer Research
+Foundation. Support for the coordinating group, International Breast
+Cancer Study Group, was from the US National Cancer Institute
+(CA075362), Frontier Science and Technology Research Foundation,
+Swiss Group for Clinical Cancer Research, Cancer Research Switzerland,
+Oncosuisse, Cancer League Switzerland, Foundation for Clinical Cancer
+Research of Eastern Switzerland. Support of cooperative groups was as
+follows: Breast Cancer Trials Australia & New Zealand (National Health
+and Medical Research Council grants 351161, 510788, and 1105058);
+Institute of Cancer Research Clinical Trials and Statistics Unit on behalf
+of the National Cancer Research Institute Breast Clinical Studies Group
+United Kingdom (Cancer Research UK grants CRUKE/03/022 and
+CRUKE/03/023 and grant A15955 National Institute for Health
+Research Royal Marsden/Institute of Cancer Research Biomedical
+Research Centre, National Institute for Health Research/Cambridge
+Biomedical Research Centre); Alliance for Clinical Trials in Oncology (US
+National Institutes of Health [NIH] grant CA180821); SWOG (US NIH
+grant CA32102); Eastern Cooperative Oncology Group-American College
+of Radiology Imaging Network Cancer Research Group (US NIH
+grants CA21115 and CA16116); NRG Oncology (US NIH grants
+U10CA180868, U10CA180822, and UG1CA189867); and Canadian
+Cancer Trials Group (US NIH grant CA077202 and Canadian Cancer
+Society Research Institute grants 015469 and 021039).
+CLINICAL TRIAL INFORMATION
+NCT00066690 and NCT00066703.
+AUTHORS’ DISCLOSURES OF POTENTIAL CONFLICTS OF
+INTEREST AND DATA AVAILABILITY STATEMENT
+Disclosures provided by the authors and data availability statement (if
+applicable) are available with this article at DOI https://doi.org/10.1200/
+JCO.18.01967.
+AUTHOR CONTRIBUTIONS
+Conception and design: Olivia Pagani, Prudence A. Francis, Gini F.
+Fleming, Barbara A. Walley, Giuseppe Viale, Alan S. Coates, Aron
+Goldhirsch, Richard D. Gelber, Meredith M. Regan
+Provision of study material or patients: Prudence A. Francis, Barbara A.
+Walley, Giuseppe Viale, Istv´an L´ang, Henry L. G´omez, Carlo Tondini,
+Graziella Pinotti
+Collection and assembly of data: Prudence A. Francis, Marco Colleoni,
+Istv´an L´ang, Henry L. G´omez, Carlo Tondini, Aron Goldhirsch, Meredith
+M. Regan
+Data analysis and interpretation: Olivia Pagani, Prudence A. Francis, Gini
+F. Fleming, Barbara A. Walley, Giuseppe Viale, Henry L. G´omez, Carlo
+Tondini, Graziella Pinotti, Angelo Di Leo, Aron Goldhirsch, Meredith M.
+Regan
+Manuscript writing: All authors
+Final approval of manuscript: All authors
+Accountable for all aspects of the work: All authors
+ACKNOWLEDGMENT
+We thank the patients, physicians, nurses, trial coordinators, and
+pathologists who participated in the TEXT and SOFT clinical trials. The
+trials were coordinated by the International Breast Cancer Study Group in
+collaboration with the Breast International Group and its cooperative
+groups and US National Cancer Institute National Clinical Trials Network
+cooperative groups. We thank Hui Huang for programming assistance
+with the online tool.
+1302 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 11
 
-Page 11 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-alone” or “Comorbidity” at baseline experienced acceler-
-ated cognitive decline compared to those with “Neither 
-condition,” using either BMI or WHtR. We also found the 
-impact of “Obesity alone” was heterogeneous. However, 
-when WHtR defined obesity, “Comorbidity” showed the 
-greatest variance to variance in cognitive development. In 
-cluster analysis, employing BMI to gauge obesity revealed 
-that the joint trajectory of depression and obesity had 
-heterogeneous effects on cognition decline. Nonetheless, 
-all cohorts demonstrated that the trajectory group with 
-depression had quicker cognitive deterioration than the 
-reference group. Notably, in examining AO, a key obesity 
-subtype, all three groups with measured waist circum-
-ference revealed that the “Higher WHtR/AO & Depres-
-sion” group significantly contributed to cognitive decline 
-relative to the reference group. The outcome was further 
-corroborated through the joint trajectory analysis of sec-
-ondary analysis employing WWI.
-Factors influencing the cognitive function of middle-
-aged and older adults have conducted numerous cross-
-cultural longitudinal studies on the relationship between 
-obesity and cognition, as well as depression and cogni-
-tion individually [9, 19, 20, 27, 28, 31]. However, consid-
-ering that obesity and depression may share common 
-pathological pathways [8], and serve as significant factors 
-affecting overall systemic metabolic disorders and qual-
-ity of life [69–74], exerting negative influences on higher-
-order functions of the brain. Therefore, results evaluating 
-only individual factors may be limited and biased, which 
-makes them difficult to interpret and validate [73].
-Replicated evidence indicates a negative relationship 
-exists between cognitive function and depressive disor-
-ders [11, 75–78]. Cognitive decline in middle- and older-
-aged adults with depression may be a consequence of 
-alteration in the structure and function of pathogenetic 
-mechanisms including neurotransmitters, vascular pro-
-cesses, neuroinflammation, and neural networks [79–83].
-The association between obesity and cognition is 
-inconsistent and heterogeneity [26, 27, 84]. Some stud-
-ies have indicated a negative correlation between obesity 
-and cognitive ability [27, 84]. In contrast, other research 
-has shown a positive correlation, implying that obesity 
-may exert a protective effect on cognitive development 
-in middle-aged and older adults. When employing BMI 
-as an indicator of obesity and comprehensively consid-
-ering the depressive symptoms of the participants, our 
-study also reached similar conclusions among the HRS 
-and MHAS populations. This could be explained by 
-the “obesity paradox,” which suggests that compared to 
-underweight individuals, body fat may have a protective 
-Fig. 4  Associations between joint trajectories and changes in cognitive function. A Associations between joint trajectories (BMI and score 
-of depressive symptoms) and changes in cognitive function. B Associations between joint trajectories (WHtR and score of depressive symptoms) 
-and changes in cognitive function. All models were adjusted for age, gender, education status, residence, marital status, household economic 
-situation, race (race:only in the ELSA and HRS), hypertension, diabetes, cancer, stroke, arthritis, drinking status, and smoking status [Standardized β 
-are shown as centers of horizonal bar plots, with error bars representing 95% CI, *P < 0.05, **P < 0.01, ***P < 0.001]. Abbreviations: CHARLS, China 
-Health and Retirement Longitudinal Study; ELSA, English Longitudinal Study of Ageing; MHAS, the Mexican Health and Aging Study; HRS, Health 
-and Retirement Study. Notes: In CHARLS, ELSA, and MHAS, household economic situation was defined by total household per capita consumption. 
-In HRS, household economic situation was defined by total household income. (I) and (II) represented different degrees
+REFERENCES
+1.
+Pagani O, Regan MM, Walley BA, et al: Adjuvant exemestane with ovarian suppression in premenopausal breast cancer. N Engl J Med 371:107-118, 2014
+2.
+Francis PA, Regan MM, Fleming GF, et al: Adjuvant ovarian suppression in premenopausal breast cancer. N Engl J Med 372:436-446, 2015
+3.
+Paluch-Shimon S, Pagani O, Partridge AH, et al: ESO-ESMO 3rd International Consensus Guidelines for Breast Cancer in Young Women (BCY3). Breast 35:
+203-217, 2017
+4.
+Curigliano G, Burstein HJ, Winer EP, et al: De-escalating and escalating treatments for early-stage breast cancer: The St. Gallen International Expert Consensus
+Conference on the Primary Therapy of Early Breast Cancer 2017. Ann Oncol 28:2153, 2018
+5.
+Burstein HJ, Lacchetti C, Anderson H, et al: Adjuvant endocrine therapy for women with hormone receptor-positive breast cancer: American Society of Clinical
+Oncology clinical practice guideline update on ovarian suppression. J Clin Oncol 34:1689-1701, 2016
+6.
+Senkus E, Kyriakides S, Ohno S, et al: Primary breast cancer: ESMO clinical practice guidelines for diagnosis, treatment and follow-up. Ann Oncol 26:v8-v30,
+2015
+7.
+Regan MM, Francis PA, Pagani O, et al: Absolute beneﬁt of adjuvant endocrine therapies for premenopausal women with hormone receptor-positive, human
+epidermal growth factor receptor 2-negative early breast cancer: TEXT and SOFT trials. J Clin Oncol 34:2221-2231, 2016
+8.
+Francis PA, Pagani O, Fleming GF, et al: Tailoring adjuvant endocrine therapy for premenopausal breast cancer. N Engl J Med 379:122-137, 2018
+9.
+Di Lascio S, Pagani O: Is it time to address survivorship in advanced breast cancer? A review article. Breast 31:167-172, 2017
+10.
+Regan MM, Pagani O, Francis PA, et al: Predictive value and clinical utility of centrally assessed ER, PgR, and Ki-67 to select adjuvant endocrine therapy for
+premenopausal women with hormone receptor-positive, HER2-negative early breast cancer: TEXT and SOFT trials. Breast Cancer Res Treat 154:275-286,
+2015
+11.
+Bonetti M, Gelber RD: Patterns of treatment effects in subsets of patients in clinical trials. Biostatistics 5:465-481, 2004
+12.
+Lazar AA, Cole BF, Bonetti M, et al: Evaluation of treatment-effect heterogeneity using biomarkers measured on a continuous scale: Subpopulation treatment
+effect pattern plot. J Clin Oncol 28:4539-4544, 2010
+13.
+Pan H, Gray R, Braybrooke J, et al: 20-Year risks of breast-cancer recurrence after stopping endocrine therapy at 5 years. N Engl J Med 377:1836-1846, 2017
+14.
+Early Breast Cancer Trialists’ Collaborative Group (EBCTCG): Aromatase inhibitors versus tamoxifen in early breast cancer: Patient-level meta-analysis of the
+randomised trials. Lancet 386:1341-1352, 2015
+15.
+Regan MM, Fleming GF, Walley B, et al: Adjuvant systemic treatment of premenopausal women with hormone receptor-positive early breast cancer: Lights and
+shadows. J Clin Oncol 37:862-866, 2019
+16.
+Perrone F, De Laurentiis M, De Placido S, et al: Adjuvant zoledronic acid and letrozole plus ovarian function suppression in premenopausal breast cancer:
+HOBOE phase 3 randomised trial. Eur J Cancer 118:178-186, 2019
+17.
+Lambertini M, Campbell C, Bines J, et al: Adjuvant anti-HER2 therapy, treatment-related amenorrhea, and survival in premenopausal HER2-positive early
+breast cancer patients. J Natl Cancer Inst 111:86-94, 2019
+18.
+Sparano JA, Gray RJ, Makower DF, et al: Prospective validation of a 21-gene expression assay in breast cancer. N Engl J Med 373:2005-2014, 2015
+19.
+Cardoso F, van’t Veer LJ, Bogaerts J, et al: 70-Gene signature as an aid to treatment decisions in early-stage breast cancer. N Engl J Med 375:717-729, 2016
+20.
+Sparano JA, Gray RJ, Makower DF, et al: Adjuvant chemotherapy guided by a 21-gene expression assay in breast cancer. N Engl J Med 379:111-121, 2018
+21.
+Harris LN, Ismaila N, McShane LM, et al: Use of biomarkers to guide decisions on adjuvant systemic therapy for women with early-stage invasive breast cancer:
+American Society of Clinical Oncology Clinical practice guideline. J Clin Oncol 34:1134-1150, 2016
+22.
+Sgroi DC, Sestak I, Cuzick J, et al: Prediction of late distant recurrence in patients with oestrogen-receptor-positive breast cancer: A prospective comparison of
+the breast-cancer index (BCI) assay, 21-gene recurrence score, and IHC4 in the TransATAC study population. Lancet Oncol 14:1067-1076, 2013
+23.
+Dowsett M, Sestak I, Lopez-Knowles E, et al: Comparison of PAM50 risk of recurrence score with oncotype DX and IHC4 for predicting risk of distant recurrence
+after endocrine therapy. J Clin Oncol 31:2783-2790, 2013
+24.
+Sestak I, Buus R, Cuzick J, et al: Comparison of the performance of 6 prognostic signatures for estrogen receptor-positive breast cancer: A secondary analysis of
+a randomized clinical trial. JAMA Oncol 4:545-553, 2018
+25.
+Cuzick J: Prognosis vs treatment interaction. JNCI Cancer Spectrum 2:pky006, 2018
+26.
+Lamerato L, Havstad S, Gandhi S, et al: Economic burden associated with breast cancer recurrence: Findings from a retrospective analysis of health system
+data. Cancer 106:1875-1882, 2006
+27.
+Lˆe MG, Arriagada R, Spielmann M, et al: Prognostic factors for death after an isolated local recurrence in patients with early-stage breast carcinoma. Cancer 94:
+2813-2820, 2002
+28.
+Rosenberg SM, Stanton AL, Petrie KJ, et al: Symptoms and symptom attribution among women on endocrine therapy for breast cancer. Oncologist 20:598-604,
+2015
+29.
+Murphy CC, Bartholomew LK, Carpentier MY, et al: Adherence to adjuvant hormonal therapy among breast cancer survivors in clinical practice: A systematic
+review. Breast Cancer Res Treat 134:459-478, 2012
+30.
+Hershman DL, Kushi LH, Shao T, et al: Early discontinuation and nonadherence to adjuvant hormonal therapy in a cohort of 8,769 early-stage breast cancer
+patients. J Clin Oncol 28:4120-4128, 2010
+31.
+Lambert LK, Balneaves LG, Howard AF, et al: Patient-reported factors associated with adherence to adjuvant endocrine therapy after breast cancer: An
+integrative review. Breast Cancer Res Treat 167:615-633, 2018
+32.
+Patel R, Maxwell S, Yan D, et al: Medical oncologists’ perception of antiestrogen therapy beneﬁt in premenopausal women with hormone receptor-positive early-
+stage breast cancer. Ann Oncol 29:772-773, 2018
+n n n
+Journal of Clinical Oncology
+1303
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 12
 
-Page 12 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-effect on specific health conditions, including cognitive 
-function [85]. This can be explained as higher body fat 
-may protect against frailty, or that people with obesity 
-may have higher energy reserves to buffer the effects of 
-age-related brain atrophy [26, 27]. Additionally, individu-
-als with overweight or obesity may also attempt to lose 
-weight by engaging in physical exercise, and appropri-
-ate physical activity has been shown to improve cogni-
-tive conditions [86, 87]. For underweight individuals, this 
-association may be linked to sarcopenia and malnutrition 
-[88]. Meanwhile, weight loss or localized adipose tissue 
-deficiency is due to reduced food intake and food attrac-
-tiveness [89]. Furthermore, recent research has high-
-lighted that the obesity paradox may be explained by the 
-interaction between obesity and other factors, such as 
-individual genetic, metabolic, and anthropometric fac-
-tors [90–92].
-Agreement exists that BMI is an imprecise estimate 
-of fat mass which may be a source of variance in the 
-reported studies [93]. Differences in body fat distribution 
-exhibit different patterns in relation to cognitive function 
-[94]. As a general measure of body weight, BMI fails to 
-reflect fat distribution. In contrast, the Waist-to-Height 
-Ratio (WHtR) captures central obesity and serves as a 
-surrogate marker for visceral fat accumulation. Visceral 
-fat is closely associated with insulin resistance, endothe-
-lial dysfunction, and elevated levels of pro-inflammatory 
-cytokines such as interleukin-6 (IL-6) and C-reactive 
-protein (CRP), all of which are considered key factors 
-in the pathogenesis of cognitive impairment and neu-
-rodegenerative diseases [95]. Additionally, the Weight-
-Adjusted Waist Index (WWI) provides an adiposity index 
-independent of total body weight. Studies have shown 
-that WWI correlates more strongly with cardiovascular 
-metabolic risk factors, oxidative stress, and inflammatory 
-markers than BMI. Therefore, it is imperative to further 
-investigate the relationship between obesity subtypes or 
-fat distribution and cognitive function. Based on this, 
-the present study also conducted a parallel analysis using 
-the WHtR as a measure of central obesity and obtained 
-relatively consistent results across multinational sam-
-ples. Previous research indicates that AO is a risk factor 
-for cognitive decline in later life [96]. This association 
-may be related to dietary habits, metabolic impairment, 
-lipid disorders and activities, etc. [97–99]. However, the 
-decline in the physical and mental functions of older 
-adults leads to lower levels of leisure activity [100], which 
-may promote the occurrence of AO and further impair 
-their cognitive functions, while there may be a mutually 
-reinforcing relationship between cognitive decline and 
-some of the aforementioned influencing factors. There-
-fore, the relationship between fat distribution/physique 
-and cognition requires further consideration of more 
-specific fields and possibly integrate multiple physiologi-
-cal indicators for exploration. This point has been par-
-tially reflected in this study.
-Overall, obesity and depression are two prevalent and 
-potentially interdependent metabolic disorders, imposing 
-a significant disease burden on the health and well-being 
-of the middle-aged and older population. This study com-
-prehensively examined the impact of the joint trajectories 
-of these two diseases on the cognitive development of the 
-research subjects and, to some extent, revealed the intri-
-cate connections between them and cognitive decline. 
-The comorbidity of obesity (obesity indicator: BMI) and 
-depression at baseline may have a synergistic negative 
-effect on cognitive function. When including the scale 
-of time, the conclusions drawn from different cohorts 
-were inconsistent. These differences may stem from the 
-influence of cultural differences, dietary habits, and the 
-geographical environment [101–103]. For instance, a 
-Mediterranean diet, rich in antioxidants and healthy fats, 
-has been associated with better cognitive function even 
-in people living with obesity, whereas high-fat, high-
-sugar diets common in Western countries may exacer-
-bate cognitive decline [101] Conversely, after conducting 
-a parallel analysis employing WHtR as an obesity indica-
-tor to reflect the accumulation of abdominal fat, we have 
-identified its potential negative impact on cognitive func-
-tion in combination with depression. This may be due to 
-two shared pathways.
-Firstly, both conditions elevate the body’s inflamma-
-tory levels. Depressed individuals have higher levels of 
-inflammatory markers in their blood, such as interleu-
-kin (IL)−1β and C-reactive protein (CRP) [104, 105]. 
-Concurrently, adipose tissue has been identified as a 
-major source of inflammatory molecules [106], and the 
-link between inflammatory cytokines and AO is closer 
-than that with BMI [107], suggesting that the accumu-
-lation of abdominal fat may predispose the body to a 
-pro-inflammatory state [108]. It is worth noting that cir-
-culating pro-inflammatory mediators are associated with 
-neurodegenerative diseases, and peripheral inflamma-
-tion has been shown to negatively impact the develop-
-ment of chronic brain inflammation [109]. These insights 
-imply that depression and AO may jointly contribute to 
-an increase in systemic inflammation, which could sub-
-sequently impair cognitive function in middle-aged and 
-older adults. Additionally, the combined effects of AO 
-and depression are manifested in the elevation of oxi-
-dative stress levels. Secondly, during the aging process, 
-the brain’s antioxidant defense system becomes increas-
-ingly imbalanced, leading to increased oxidative stress, 
-which is one of the primary causes of cognitive decline 
-[110]. It is widely accepted that abdominal fat is a seri-
-ous risk factor for the accumulation of visceral fat, which
+AUTHORS’ DISCLOSURES OF POTENTIAL CONFLICTS OF INTEREST
+Absolute Improvements in Freedom From Distant Recurrence to Tailor Adjuvant Endocrine Therapies for Premenopausal Women: Results From TEXT and SOFT
+The following represents disclosure information provided by authors of this manuscript. All relationships are considered compensated unless otherwise noted.
+Relationships are self-held unless noted. I = Immediate Family Member, Inst = My Institution. Relationships may not relate to the subject matter of this manuscript.
+For more information about ASCO’s conﬂict of interest policy, please refer to www.asco.org/rwc or ascopubs.org/journal/jco/site/ifc.
+Open Payments is a public database containing information reported by companies about payments made to US-licensed physicians (Open Payments).
+Prudence A. Francis
+Honoraria: AstraZeneca, Novartis
+Travel, Accommodations, Expenses: Pﬁzer
+Gini F. Fleming
+Honoraria: Curio Science
+Research Funding: Corcept Therapeutics (Inst), AbbVie (Inst), Genentech (Inst),
+Tesaro (Inst), Syndax (Inst), Forty Seven (Inst), Iovance Biotherapeutics (Inst),
+Syros Pharmaceuticals (Inst), Astex Pharmaceuticals (Inst), Merck (Inst), Sanoﬁ
+(Inst), Sermonix Pharmaceuticals (Inst), Compugen (Inst), Incyte (Inst), Leap
+Therapeutics (Inst), Hoffmann La Roche (Inst)
+Giuseppe Viale
+Honoraria: MSD Oncology, Pﬁzer
+Consulting or Advisory Role: Dako, Roche, Genentech, Astellas Pharma,
+Novartis, Bayer AG
+Speakers’ Bureau: Roche, Genentech
+Research Funding: Roche, Genentech, Ventana Medical Systems (Inst), Dako
+(Inst), Agilent Technologies (Inst)
+Travel, Accommodations, Expenses: Roche, Celgene
+Marco Colleoni
+Honoraria: Novartis
+Consulting or Advisory Role: Pierre Fabre, Pﬁzer, OBI Pharma, Puma
+Biotechnology, Celldex, AstraZeneca
+Carlo Tondini
+Consulting or Advisory Role: Myriad Genetics
+Speakers’ Bureau: Amgen
+Travel, Accommodations, Expenses: Roche, Genentech, Novartis, Celgene
+Angelo Di Leo
+Honoraria: Roche, Novartis, Pﬁzer, AstraZeneca, Eisai (I), Eli Lilly, Bayer AG,
+Celgene (I), Amgen
+Consulting or Advisory Role: Roche, Novartis, Pﬁzer, AstraZeneca, Eli Lilly,
+Celgene (I), Puma Biotechnology, Ipsen, Genentech, Amgen, Seattle Genetics,
+Genomic Health
+Research Funding: Novartis (Inst), Pﬁzer (Inst), Genomic Health (Inst)
+Travel, Accommodations, Expenses: Roche (I), Pﬁzer, Celgene, Eli Lilly
+Richard D. Gelber
+Research Funding: AstraZeneca (Inst), Novartis (Inst), Roche (Inst), Celgene
+(Inst), Merck (Inst), Pﬁzer (Inst), Ipsen (Inst), Ferring Pharmaceuticals (Inst)
+Meredith M. Regan
+Consulting or Advisory Role: Ipsen (Inst)
+Research Funding: Veridex (Inst), OncoGenex (Inst), Pﬁzer (Inst), Ipsen (Inst),
+Novartis (Inst), Merck (Inst), Ferring Pharmaceuticals (Inst), Celgene (Inst),
+AstraZeneca (Inst), Pierre Fabre (Inst), Bayer AG (Inst), Bristol-Myers Squibb
+(Inst), Roche (Inst), Astellas Pharma (Inst), Medivation (Inst), Janssen
+Pharmaceuticals (Inst), Millennium Pharmaceuticals (Inst), Sanoﬁ(Inst), Sotio
+(Inst), Dendreon (Inst), TerSera (Inst)
+Travel, Accommodations, Expenses: Bristol-Myers Squibb
+No other potential conﬂicts of interest were reported.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 13
 
-Page 13 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-promotes the release of pro-oxidants, pro-inflammatory 
-agents, and reactive oxygen species (ROS) [111, 112]. 
-Studies have also demonstrated that antioxidant defenses 
-are weakened in individuals with depression, thereby 
-increasing oxidative stress [113]. In summary, AO and 
-depression may jointly elevate oxidative stress levels 
-within the body, which can stimulate brain atrophy and 
-morphological changes within the brain that ultimately 
-result in cognitive decline [114].
-This study has several strengths. Firstly, analyzed mul-
-tinational cohorts and a large sample size improve the 
-generalizability of the results. Secondly, advanced and 
-appropriate analytical methods provide a more compre-
-hensive interpretation of the joint contributions of the 
-heterogeneous trajectories of obesity and depression 
-to cognitive function. Additionally, the current study 
-examined multiple obesity-related indicators, which will 
-more accurately assess the interrelationship between 
-obesity and health status comprehensively. Finally, we 
-confirmed the robustness of our findings through vari-
-ous sensitivity analyses. To sum up, our findings under-
-score the importance of early detection and management 
-of both depression and obesity as a potential strategy to 
-mitigate cognitive deterioration. Specifically, clinicians 
-should screen for depressive symptoms alongside obesity 
-assessments (e.g., using BMI or waist-to-height ratio) to 
-identify at-risk individuals early, allowing for timely inter-
-vention. Moreover, an integrated treatment approach can 
-be adopted for patients with obesity-depression comor-
-bidity. Combining pharmacotherapy for depression with 
-lifestyle modifications aimed at weight management and 
-improved physical activity can enhance both mental and 
-physical well-being, thereby potentially slowing cognitive 
-decline.
-Of note, there are several limitations to be acknowl-
-edged. Firstly, there is a potential self-reporting bias. 
-Height and weight data in the MHAS cohort were self-
-reported, potentially misclassifying obesity prevalence 
-and obscuring its relationship with cognitive decline, 
-as BMI accuracy remains unverified. Secondly, there 
-are variations in measurement dimensions of cognitive 
-function across different cohorts. Although the study 
-attempted to standardize scores from each cohort by 
-generating z-scores, it must be acknowledged that dis-
-parities in cognitive measurement instruments and their 
-respective sensitivities may introduce a degree of system-
-atic bias, potentially affecting outcome validity and gen-
-eralizability. Thirdly, there are unmeasured confounding 
-factors. Although the study adjusted for multiple con-
-founding factors, certain variables relevant to cognitive 
-function—such as dietary patterns [101], physical activ-
-ity levels [86], social support networks [115], and sleep 
-quality [116]—were not consistently available across the 
-included cohorts due to limitations in data collection or 
-heterogeneity in measurement methods. The absence of 
-these factors may have influenced the observed associa-
-tions. These constraints suggest that the findings should 
-be generalized with caution to populations with differing 
-sociodemographic characteristics, measurement infra-
-structures, or exposure to unmeasured confounders—
-particularly among groups who may experience difficulty 
-providing accurate and complete data. And to enhance 
-generalizability, future research must prioritize: [1] rep-
-lication in geographically and culturally diverse cohorts, 
-[2] integration of objectively measured variables (e.g., 
-accelerometer-derived physical activity, validated dietary 
-assessments), and [3] systematic inclusion of previously 
-unmeasured confounders. Such efforts are essential to 
-validate the observed associations across heterogeneous 
-populations and real-world clinical contexts.
-Conclusions
-Herein, we observed that the comorbidity of obesity 
-and depression independently and additively negatively 
-affected cognitive function in middle-aged and older 
-people. This advocates for clinical screening to prioritize 
-depression and abdominal obesity beyond BMI, thereby 
-enhancing early identification of high-risk populations. 
-Overall, the critical clinical importance of managing 
-abdominal fat accumulation and maintaining positive 
-emotions to prevent and mitigate cognitive deterioration 
-is emphasized. For comorbid cases, an innovative dual-
-pathway intervention could be considered: combining 
-antidepressant pharmacotherapy with lifestyle-based 
-weight management to simultaneously improve mental/
-physical health and preserve cognition.
-Abbreviations
-AO	
-Abdominal obesity
-BMI	
-Body Mass Index
-CCCE	
-Cross-Cultural Cognitive Examination
-CESD	
-Center for Epidemiologic Studies Depression Scale
-CESD-9	
-9-item version of the CESD (used in MHAS)
-CESD-10	
-10-item version of the CESD (used in CHARLS)
-CHARLS	
-China Health and Retirement Longitudinal Study
-CI	
-Confidence interval
-CRP	
-C-reactive protein
-ELSA	
-English Longitudinal Study of Ageing
-GEE	
-Generalized Estimating Equations
-GLM	
-Generalized linear model
-HPA	
-Hypothalamic-pituitary-adrenal (axis)
-HRS	
-Health and Retirement Study
-IL-6	
-Interleukin-6
-KMl3D	
-K-means longitudinal clustering in 3 dimensions
-MHAS	
-Mexican Health and Aging Study
-MMSE	
-Mini-Mental State Examination
-ROS	
-Reactive oxygen species
-SD	
-Standard deviation
-TICS	
-Telephone Interview for Cognitive Status
-WHtR	
-Waist-to-height ratio
-WHO	
-World Health Organization
-WWI	
-Weight-Adjusted Waist Index
-z-score	
-Standardized score
+APPENDIX
+Excluded
+ Submitted material; not HR positive
+Ineligible (locally determined HR negative)
+  Tumor HER2 positive by central or local determination
+(n = 816)
+(n = 64)
+(n = 5)
+(n = 747)
+TEXT and SOFT ITT
+(N = 5,707)
+TEXT and SOFT 
+HR-positive/HER2-negative
+analysis population
+(n = 4,891)
+SOFT no chemotherapy
+EXEM + OFS
+   TAM + OFS
+   TAM
+(n = 1,353)
+(n = 454)
+(n = 449)
+(n = 450)
+TEXT no chemotherapy
+EXEM + OFS
+TAM + OFS
+(n = 991)
+(n = 493)
+(n = 498)
+TEXT chemotherapy
+ EXEM + OFS
+TAM + OFS
+(n = 1,276)
+(n = 644)
+(n = 632)
+SOFT prior chemothearpy
+ EXEM + OFS
+  TAM + OFS
+ TAM
+(n = 1,271)
+(n = 416)
+(n = 423)
+(n = 432)
+FIG A1. Flow diagram of the 4,891 patients included in the Suppression of Ovarian Function Trial (SOFT) and the Tamoxifen and Exemestane Trial (TEXT)
+hormone receptor (HR)–positive/human epidermal growth factor receptor 2 (HER2)–negative analysis population. EXEM, exemastane; ITT, intent to treat;
+OFS, ovarian function suppression; TAM, tamoxifen.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 14
 
-Page 14 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-Supplementary Information
-The online version contains supplementary material available at https://​doi.​
-org/​10.​1186/​s12916-​025-​04298-2.
-Additional File 1
-Acknowledgements
-All authors thank the the GATEWAY TO GLOBAL AGING DATA for providing 
-the Harmonized Data. We also thank the original data collectors, depositors, 
-copyrightholders, and funders of China Health and Retirement LongitudinaS-
-tudy, English Longitudinal Study of Ageing, Health andRetirement Study, and 
-Mexican Health and Aging Study.
-Authors’ contributions
-RW, YC and BC contributed to the study design. RW analysed the data and RW, 
-YC and BC were involved in data interpretation. RW and YC drafted the first 
-version of the manuscript and prepared tables and figures. KMT, RSM, and BC 
-reviewed and revised the manuscript. All authors were involved in the writing 
-and critical revision of the manuscript. All authors have read and approved the 
-final manuscript.
-Funding
-This work was sponsored by the National Natural Science Foundation of China 
-(No. 32300926). The funding agents had no role in the design and conduct 
-of the study; collection, management, interpretation of the data; preparation, 
-review, or approval of the manuscript.
-Data availability
-The datasets analyzed during the current study are publicly available and can 
-be accessed as follows: CHARLS (China Health and Retirement Longitudinal 
-Study): https://​hrs.​isr.​umich.​edu/​about? ELSA (English Longitudinal Study 
-of Ageing): https://​ukdat​aserv​ice.​ac.​uk/​about/​HRS (Health and Retirement 
-Study): https://​charls.​pku.​edu.​cn/​gy/​gyxm.​htm MHAS (Mexican Health and 
-Aging Study): https://​www.​mhasw​eb.​org/​Home/​Index.​aspx All data are free to 
-access for bona fide research purposes upon registration with the respective 
-study platforms. No personally identifiable information was used. Analysis 
-scripts and processed data files can be requested from the corresponding 
-author.
-Declarations
-Ethics approval and consent to participate
-The China Health and Retirement Longitudinal Study (CHARLS) received 
-approval from the Ethical Review Committee of Peking University 
-(IRB00001052-11015). The English Longitudinal Study of Ageing (ELSA) 
-was approved by the London Multicentre Research Ethics Committee 
-(MREC/01/2/91). The Health and Retirement Study (HRS) was approved by 
-the Institutional Review Board at the University of Michigan and the National 
-Institute on Aging (HUM00061128) and the Mexican Health and Aging Study 
-(MHAS) is partly sponsored by the National Institutes of Health/National 
-Institute on Aging (NIH R01AG018016) in the United States and the Instituto 
-Nacional de Estadística y Geografía (INEGI) in Mexico. All respondents pro-
-vided written informed consent.
-Consent for publication
-Not applicable.
-Competing interests
-Dr. Roger S. McIntyre has received research grant support from CIHR/GACD/
-National Natural Science Foundation of China (NSFC) and the Milken Institute; 
-speaker/consultation fees from Lundbeck, Janssen, Alkermes, Neumora Thera-
-peutics, Boehringer Ingelheim, Sage, Biogen, Mitsubishi Tanabe, Purdue, Pfizer, 
-Otsuka, Takeda, Neurocrine, Neurawell, Sunovion, Bausch Health, Axsome, 
-Novo Nordisk, Kris, Sanofi, Eisai, Intra-Cellular, NewBridge Pharmaceuticals, 
-Viatris, Abbvie and Atai Life Sciences. Kayla M. Teopiz has received fees from 
-Braxia Scientific Corp.All other authors have no conflicts of interest to declare.
-Author details
-1 Key Laboratory of Cognition and Personality, Faculty of Psychology, Ministry 
-of Education, Southwest University, Chongqing 400715, People’s Republic 
-of China. 2 Brain and Cognition Discovery Foundation, Toronto, ON, Canada. 
-3 Department of Psychiatry, University of Toronto, Toronto, ON, Canada. 
-4 Department of Pharmacology and Toxicology, University of Toronto, Toronto, 
-ON, Canada. 5 National Demonstration Center for Experimental Psychology 
-Education, Southwest University, Chongqing 400715, People’s Republic 
-of China. 
-Received: 14 April 2025   Accepted: 24 July 2025
-References
-	
-1.	 Luppino FS, de Wit LM, Bouvy PF, Stijnen T, Cuijpers P, Penninx BW, et al. 
-Overweight, obesity, and depression: a systematic review and meta-
-analysis of longitudinal studies. Arch Gen Psychiatry. 2010;67(3):220–9.
-	
-2.	 McIntyre RS. The co-occurrence of depression and obesity: implications 
-for clinical practice and the discovery of targeted and precise mecha-
-nistically informed therapeutics. J Clin Psychiatry. 2024;85(2):55135.
-	
-3.	 Lin L, Bai S, Qin K, Wong CKH, Wu T, Chen D, et al. Comorbid depres-
-sion and obesity, and its transition on the risk of functional disability 
-among middle-aged and older Chinese: a cohort study. BMC Geriatr. 
-2022;22(1):275.
-	
-4.	 CDC. Obesity prevalence among adults in the United States, 2017-2020. 
-Centers for Disease Control and Prevention (CDC); 2023 [cited 2025 Jun 
-13]. Available from: https://​www.​cdc.​gov/​obesi​ty/​adult-​obesi​ty-​facts/​
-index.​html.
-	
-5.	 Christl J, Grumbach P, Jockwitz C, Wege N, Caspers S, Meisenzahl E. 
-Prevalence of depressive symptoms in people aged 50 years and older: 
-a retrospective cross-sectional study. J Affect Disord. 2025;373:353–63.
-	
-6.	 Zhang H, Zheng R, Yu B, Yu Y, Luo X, Yin S, et al. Dissecting shared 
-genetic architecture between depression and body mass index. BMC 
-Medicine. 2024;22(1):455.
-	
-7.	 Milaneschi Y, Simmons WK, van Rossum EFC, Penninx BWJH. Depression 
-and obesity: evidence of shared biological mechanisms. Mol Psychiatry. 
-2018;24(1):18–33.
-	
-8.	 Mannan M, Mamun A, Doi S, Clavarino A. Is there a bi-directional 
-relationship between depression and obesity among adult men and 
-women? Systematic review and bias-adjusted meta analysis. Asian J 
-Psychiatry. 2016;21:51–66.
-	
-9.	 Grapsa I, Mamalaki E, Ntanasi E, Kosmidis MH, Dardiotis E, Hadjigeorgiou 
-GM, et al. Longitudinal examination of body mass index and cognitive 
-function in older adults: the HELIAD study. Nutrients. 2023;15(7):1795.
-	 10.	 Muhammad T, Meher T. Association of late-life depression with cogni-
-tive impairment: evidence from a cross-sectional study among older 
-adults in India. BMC Geriatr. 2021;21(1):364.
-	 11.	 McIntyre RS, Cha DS, Soczynska JK, Woldeyohannes HO, Gallaugher LA, 
-Kudlow P, et al. Cognitive Deficits and functional outcomes in major 
-depressive disorder: determinants, substrates, and treatment interven-
-tions. Depress Anxiety. 2013;30(6):515–27.
-	 12.	 Lin L, Bai S, Qin K, Wong CKH, Wu T, Chen D, et al. Comorbid depres-
-sion and obesity, and its transition on the risk of functional disability 
-among middle-aged and older Chinese: a cohort study. BMC Geriatrics. 
-2022;22(1):275.
-	 13.	 Collyer TA, Murray AM, Woods RL, Storey E, Chong TTJ, Ryan J, et al. 
-Association of dual decline in cognition and gait speed with risk of 
-dementia in older adults. JAMA Network Open. 2022;5(5).
-	 14.	 Elías-López D, Vargas-Vázquez A, Mehta R, Cruz Bautista I, Del Razo 
-Olvera F, Gómez-Velasco D, et al. Natural course of metabolically 
-healthy phenotype and risk of developing Cardiometabolic diseases: a 
-three years follow-up study. BMC Endocr Disord. 2021;21(1):85.
-	 15.	 Ganguli M, Beer JC, Zmuda JM, Ryan CM, Sullivan KJ, Chang CCH, et al. 
-Aging, diabetes, obesity, and cognitive decline: a population-based 
-study. J Am Geriatr Soc. 2020;68(5):991–8.
-	 16.	 Miller AA, Spencer SJ. Obesity and neuroinflammation: a pathway to 
-cognitive impairment. Brain Behav Immun. 2014;42:10–21.
+8-Year Freedom From Distant Recurrence (95% CI)
+50
+55
+60
+65
+70
+75
+80
+85
+90
+95
+100
+50
+55
+60
+65
+70
+75
+80
+85
+90
+95
+100
+≥ 26
+20-25
+14-19
+< 14
+Ki-67 expression, %
+3
+2
+1
+Tumor grade
+< 20
+20-49
+≥ 50
+PgR expression, %
+< 50
+≥ 50
+ER expression, %
+> 2
+≤ 2
+Tumor size, cm
+≥ 4
+1-3
+0
+No. of positive nodes
+< 35
+35-39
+40-44
+45-49
+≥ 50
+Age at random assignment, years
+TAM
+EXEM + OFS
+TAM + OFS
+Characteristic
+SOFT
+TEXT
+FIG A2. Kaplan-Meier estimates of 8-year freedom from distant recurrence in seven clinicopathologic subgroups, according to treatment assignment,
+separately by trial. The plotted values are provided in Tables A2 and A5. Unknown values are omitted. ER, estrogen receptor; EXEM, exemestane; Ki-67,
+Ki-67 labeling index; PgR, progesterone receptor; OFS, ovarian function suppression; SOFT, Suppression of Ovarian Function Trial; TAM, tamoxifen;
+TEXT, Tamoxifen and Exemestane Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 15
 
-Page 15 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-	 17.	 Fu X, Wang Y, Zhao F, Cui R, Xie W, Liu Q, et al. Shared biological mecha-
-nisms of depression and obesity: focus on adipokines and lipokines. 
-Aging (Albany NY). 2023;15(12):5917.
-	 18.	 Kaup AR, Byers AL, Falvey C, Simonsick EM, Satterfield S, Ayonayon HN, 
-et al. Trajectories of depressive symptoms in older adults and risk of 
-dementia. JAMA Psychiatry. 2016;73(5):523–31.
-	 19.	 Yang X, Pan A, Gong J, Wen Y, Ye Y, Wu JHY, et al. Prospective associa-
-tions between depressive symptoms and cognitive functions in mid-
-dle-aged and elderly Chinese adults. J Affect Disord. 2020;263:692–7.
-	 20.	 Zhang B, Lin Y, Hu M, Sun Y, Xu M, Hao J, et al. Associations between tra-
-jectories of depressive symptoms and rate of cognitive decline among 
-Chinese middle-aged and older adults: an 8-year longitudinal study. J 
-Psychosom Res. 2022;160:110986.
-	 21.	 Keller J, Gomez R, Williams G, Lembke A, Lazzeroni L, Murphy GM, et al. 
-HPA axis in major depression: cortisol, clinical symptomatology and 
-genetic variation predict cognition. Mol Psychiatry. 2016;22(4):527–36.
-	 22.	 Frank P, Jokela M, Batty GD, Cadar D, Steptoe A, Kivimäki M. Association 
-between systemic inflammation and individual symptoms of depres-
-sion: a pooled analysis of 15 population-based cohort studies. Am J 
-Psychiatry. 2021;178(12):1107–18.
-	 23.	 Videbech P, Ravnkilde B. Hippocampal volume and depression: a meta-
-analysis of MRI studies. Am J Psychiatry. 2004;161(11):1957–66.
-	 24.	 Rock PL, Roiser JP, Riedel WJ, Blackwell AD. Cognitive impairment 
-in depression: a systematic review and meta-analysis. Psychol Med. 
-2013;44(10):2029–40.
-	 25.	 McDermott LM, Ebmeier KP. A meta-analysis of depression severity and 
-cognitive function. J Affect Disord. 2009;119(1–3):1–8.
-	 26.	 Albanese E, Launer LJ, Egger M, Prince MJ, Giannakopoulos P, Wolters 
-FJ, et al. Body mass index in midlife and dementia: systematic review 
-and meta-regression analysis of 589,649 men and women followed in 
-longitudinal studies. Alzheimer’s & Dementia: Diagnosis, Assessment & 
-Disease Monitoring. 2017;8(1):165–78.
-	 27.	 Pedditizi E, Peters R, Beckett N. The risk of overweight/obesity in mid-life 
-and late life for the development of dementia: a systematic review and 
-meta-analysis of longitudinal studies. Age Ageing. 2016;45(1):14–21.
-	 28.	 Kim G, Choi S, Lyu J. Body mass index and trajectories of cogni-
-tive decline among older Korean adults. Aging Ment Health. 
-2019;24(5):758–64.
-	 29.	 McIntyre RS, Rong C, Mansur RB, Brietzke E. Does obesity and diabetes 
-mellitus metastasize to the brain? “Metaboptosis” and implications for 
-drug discovery and development. CNS Spectr. 2019;24(5):467–9.
-	 30.	 Norton S, Matthews FE, Barnes DE, Yaffe K, Brayne C. Potential for 
-primary prevention of Alzheimer’s disease: an analysis of population-
-based data. Lancet Neurol. 2014;13(8):788–94.
-	 31.	 Liang F, Fu J, Moore JB, Zhang X, Xu Y, Qiu N, et al. Body mass index, 
-waist circumference, and cognitive decline among Chinese older 
-adults: a nationwide retrospective cohort study. Front Aging Neurosci. 
-2022;14: 737532.
-	 32.	 Tang X, Zhao W, Lu M, Zhang X, Zhang P, Xin Z, et al. Relationship 
-between central obesity and the incidence of cognitive impairment 
-and dementia from cohort studies involving 5,060,687 participants. 
-Neurosci Biobehav Rev. 2021;130:301–13.
-	 33.	 Tang H, Li Q, Du C. The association between waist-to-height ratio and 
-cognitive function in older adults. Nutr Neurosci. 2024;27(12):1405–12.
-	 34.	 Wang S-H, Su M-H, Chen C-Y, Lin Y-F, Feng Y-CA, Hsiao P-C, et al. 
-Causality of abdominal obesity on cognition: a trans-ethnic Mendelian 
-randomization study. Int J Obes. 2022;46(8):1487–92.
-	 35.	 Ren Z, Li Y, Li X, Shi H, Zhao H, He M, et al. Associations of body mass 
-index, waist circumference and waist-to-height ratio with cognitive 
-impairment among Chinese older adults: based on the CLHLS. J Affect 
-Disord. 2021;295:463–70.
-	 36.	 Dye L, Boyle NB, Champ C, Lawton C. The relationship between obesity 
-and cognitive health and decline. Proc Nutr Soc. 2017;76(4):443–54.
-	 37.	 Li J, Sun J, Zhang Y, Zhang B, Zhou L. Association between weight-
-adjusted-waist index and cognitive decline in US elderly participants. 
-Front Nutr. 2024;11:1390282.
-	 38.	 Team CR. China Health and Retirement Longitudinal Study (CHARLS). 
-Peking University; 2015 [cited 2024 Jul 2]. Available from: https://​charls.​
-pku.​edu.​cn/​gy/​gyxm.​htm.
-	 39.	 Banks J, Batty, G. D., Breedvelt, J., Coughlin, K., Crawford, R., Marmot, 
-M., Nazroo, J., Oldfield, Z., Steel, N., Steptoe, A., Wood, M., Zaninotto, P. 
-English Longitudinal Study of Ageing: Waves 0–10, 1998–2023: UK Data 
-Service; 2024 Available from: https://​ukdat​aserv​ice.​ac.​uk/​about/.
-	 40.	 Health and Retirement Study pud. Health and Retirement Study, public 
-use dataset. University of Michigan; 2016 [cited 2024 Jul 3]. Available 
-from: https://​hrs.​isr.​umich.​edu/​about.
-	 41.	 (MHAS) MHaAS. Mexican Health and Aging Study (MHAS). University of 
-Texas Medical Branch & INEGI; 2018 [cited 2024 Jul 4]. Available from: 
-https://​www.​mhasw​eb.​org/​Home/​Index.​aspx.
-	 42.	 Xu T, Ye X, Lu X, Lan G, Xie M, Huang Z, et al. Association between solid 
-cooking fuel and cognitive decline: three nationwide cohort studies in 
-middle-aged and older population. Environ Int. 2023;173: 107803.
-	 43.	 Tan K. Appropriate body-mass index for Asian populations and 
-its implications for policy and intervention strategies. The lancet. 
-2004;363(9403):157–63.
-	 44.	 Talaei M, Feng L, Barrenetxea J, Yuan J-M, Pan A, Koh W-P. Adiposity, 
-weight change, and risk of cognitive impairment: the Singapore Chi-
-nese Health Study. J Alzheimers Dis. 2020;74(1):319–29.
-	 45.	 Consultation W. Obesity: preventing and managing the global epi-
-demic. World Health Organ Tech Rep Ser. 2000;894:1–253.
-	 46.	 Chan V, Cao L, Wong MMH, Lo K, Tam W. Diagnostic accuracy of waist-
-to-height ratio, waist circumference, and body mass index in identifying 
-metabolic syndrome and its components in older adults: a systematic 
-review and meta-analysis. Curr Dev Nutr. 2024;8(1):102061.
-	 47.	 Konig HH, Lehnert T, Brenner H, Schottker B, Quinzler R, Haefeli WE, et al. 
-Health service use and costs associated with excess weight in older 
-adults in Germany. Age Ageing. 2015;44(4):616–23.
-	 48.	 Ye J, Hu Y, Chen X, Yin Z, Yuan X, Huang L, et al. Association between the 
-weight-adjusted waist index and stroke: a cross-sectional study. BMC 
-Public Health. 2023;23(1):1689.
-	 49.	 Liu H, Zhi J, Zhang C, Huang S, Ma Y, Luo D, et al. Association between 
-weight-adjusted waist index and depressive symptoms: a nationally 
-representative cross-sectional study from NHANES 2005 to 2018. J 
-Affect Disord. 2024;350:49–57.
-	 50.	 Park Y, Kim NH, Kwon TY, Kim SG. A novel adiposity index as an inte-
-grated predictor of cardiometabolic disease morbidity and mortality. 
-Scientific Reports. 2018;8(1):16753.
-	 51.	 Andresen EM, Malmgren JA, Carter WB, Patrick DL. Screening for 
-depression in well older adults: evaluation of. Prev Med. 1994;10:77–84.
-	 52.	 Steffick D. Documentation of affective functioning measures in the 
-Health and Retirement Study. 2000. Available from: https://​hrs.​isr.​umich.​
-edu/​docum​entat​ion/​affec​tive-​funct​ioning.
-	 53.	 Poole L, Jackowska M. The epidemiology of depressive symptoms and 
-poor sleep: findings from the English longitudinal study of ageing 
-(ELSA). Int J Behav Med. 2018;25(2):151–61.
-	 54.	 García-Pérez A, Pineda AEG-A, Sandoval-Bonilla BA, Cruz-Hervert LP. 
-Prevalence and factors associated with depressive symptoms in rural 
-and urban Mexican older adults: evidence from the Mexican Health 
-and Aging Study 2018. salud pública de méxico. 2022;64(4):367–76.
-	 55.	 Cruz-Cruz C, Zamora-Macorra M, Astudillo-García CI, Guerra G. Intersec-
-tionality and depression symptoms in Mexican adults aged≥ 50, MHAS 
-2001 and 2012. salud pública de méxico. 2023;65(5):475–84.
-	 56.	 Palta P, Carlson MC, Crum RM, Colantuoni E, Sharrett AR, Yasar S, 
-et al. Diabetes and cognitive decline in older adults: the ginkgo 
-evaluation of memory study. The Journals of Gerontology: Series A. 
-2018;73(1):123–30.
-	 57.	 Weir D, Faul J, Langa K. Proxy interviews and bias in the distribution 
-of cognitive abilities due to non-response in longitudinal studies: a 
-comparison of HRS and ELSA. Longitudinal and life course studies. 
-2011;2(2):170.
-	 58.	 Langa KM, Llewellyn DJ, Lang IA, Weir DR, Wallace RB, Kabeto MU, 
-et al. Cognitive health among older adults in the United States and in 
-England. BMC Geriatr. 2009;9(1):23.
-	 59.	 Li C, Zhu Y, Ma Y, Hua R, Zhong B, Xie W. Association of cumulative 
-blood pressure with cognitive decline, dementia, and mortality. J Am 
-Coll Cardiol. 2022;79(14):1321–35.
-	 60.	 Barragán-García M, Ramírez-Aldana R, López-Ortega M, Sánchez-
-García S, García-Peña C. Widowhood status and cognitive function in 
-community-dwelling older adults from the Mexican Health and Aging 
-Study (MHAS). J Popul Ageing. 2022;15(3):605–22.
-	 61.	 Zheng F, Yan L, Zhong B, Yang Z, Xie W. Progression of cognitive decline 
-before and after incident stroke. Neurology. 2019;93(1):e20–8.
+Subgroup
+EXEM + OFS
+TAM + OFS
+Hazard Ratio
+ 95% CI
+Events
+Patients
+DRFI Subgroups for TEXT HR Positive/HER2 Negative 
+0.25
+0.5
+0.69
+1
+1.5
+2
+Favors EXEM + OFS
+Favors TAM + OFS
+DRFI
+TEXT HR positive/HER2 negative 81
+1,137
+113
+1,130
+0.69
+  0.52 to 0.92
+Age at randomization, years
+< 35
+20
+94
+20
+84
+0.87
+  0.47 to 1.61
+35-39
+18
+176
+30
+158
+40-44
+23
+392
+35
+391
+45-49
+16
+373
+24
+415
+4
+102
+4
+82
+No. of nodes positive
+16
+0
+592
+31
+585
+1-3
+27
+379
+39
+395
+≥ 4
+38
+166
+43
+150
+Tumor size, cm
+≤ 2
+25
+686
+38
+698
+> 2
+55
+438
+74
+421
+Unknown
+1
+13
+1
+11
+ER expression, %
+< 50
+6
+46
+8
+39
+≥ 50
+74
+1,072
+104
+1,070
+Unknown
+1
+19
+1
+21
+PgR expression, %
+< 20
+18
+114
+25
+107
+20-49 
+10
+106
+20
+97
+≥ 50 
+51
+894
+67
+904
+Unknown
+2
+23
+1
+22
+Tumor grade
+5
+1
+204
+3
+213
+37
+2
+659
+61
+653
+39
+3
+274
+49
+264
+Ki-67 expression, %
+< 14
+6
+211
+4
+257
+14-19
+13
+281
+17
+274
+20-25
+16
+189
+32
+180
+≥ 26
+29
+227
+42
+219
+Unknown
+17
+229
+18
+200
+0.49        0.27 to 0.87
+ 0.67       0.39 to 1.13
+ 0.72       0.38 to 1.35
+ 0.70       0.17 to 2.79
+ 0.50       0.28 to 0.92
+ 0.70       0.43 to 1.14
+ 0.75       0.49 to 1.17
+ 0.67       0.41 to 1.12
+ 0.67       0.47 to 0.94
+ 0.66       0.23 to 1.91
+ 0.68       0.51 to 0.92
+ 0.64       0.35 to 1.18
+ 0.39       0.18 to 0.84
+ 0.76       0.52 to 1.09
+ 1.92       0.46 to 8.05
+ 0.57       0.38 to 0.85
+ 0.73       0.48 to 1.11
+ 1.82       0.51 to 6.47
+ 0.77       0.37 to 1.58
+ 0.48       0.26 to 0.87
+ 0.55       0.34 to 0.89
+ 0.83       0.43 to 1.61
+Events
+Patients
+A
+≥ 50
+FIG A3. Estimated relative treatment effects on distance recurrence–free interval (DRFI) overall and according to seven clinicopathologic subgroups
+for the hormone receptor (HR)–positive/human epidermal growth factor receptor (HER2)–negative analysis population. The hazard ratios were
+estimated from Cox proportional hazards models stratiﬁed by cohort. Estimates not provided for unknown groups of , 50 patients. Estimates in
+subgroups having few events should be interpreted with caution. (A) The Tamoxifen and Exemestane Trial (TEXT) cohorts comparing exemestane
+(EXE) 1 ovarian function suppression (OFS) versus tamoxifen (TAM) 1 OFS. (B) Combined TEXT and Suppression of Ovarian Function Trial (SOFT)
+cohorts comparing EXE 1 OFS versus TAM 1 OFS. (C) SOFT cohorts comparing EXE 1 OFS versus TAM. (D) SOFT cohorts comparing TAM 1 OFS
+versus TAM. ER, estrogen receptor; Ki-67, Ki67 labeling index; PgR, progesterone receptor.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 16
 
-Page 16 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	 62.	 He D, Wang Z, Li J, Yu K, He Y, He X, et al. Changes in frailty and incident 
-cardiovascular disease in three prospective cohorts. Eur Heart J. 
-2024;45(12):1058–68.
-	 63.	 Genolini C. kml3d: K-Means for Joint Longitudinal Data (p. 2.4.6.1) [Data-
-set]. 2010 [cited 2024 Sep 10]. Available from: https://​cran.r-​proje​ct.​org/​
-web/​packa​ges/​kml3d/​index.​html.
-	 64.	 Hartigan JA, Wong MA. Algorithm AS 136: A k-means clustering algo-
-rithm. J Roy Stat Soc: Ser C (Appl Stat). 1979;28(1):100–8.
-	 65.	 Genolini C, Alacoque X, Sentenac M, Arnaud C. kml and kml3d: R pack-
-ages to cluster longitudinal data. J Stat Softw. 2015;65:1–34.
-	 66.	 Genolini C, Pingault J-B, Driss T, Côté S, Tremblay RE, Vitaro F, et al. 
-KmL3D: a non-parametric algorithm for clustering joint trajectories. 
-Comput Methods Programs Biomed. 2013;109(1):104–11.
-	 67.	 Farrahi V, Rostami M, Dumuid D, Chastin SF, Niemelä M, Korpelainen R, 
-et al. Joint profiles of sedentary time and physical activity in adults and 
-their associations with cardiometabolic health. Med Sci Sports Exerc. 
-2022;54(12):2118.
-	 68.	 Ziegler A, Vens M. Generalized estimating equations. Methods Inf Med. 
-2010;49(05):421–5.
-	 69.	 Graham EA, Deschênes SS, Khalil MN, Danna S, Filion KB, Schmitz N. 
-Measures of depression and risk of type 2 diabetes: a systematic review 
-and meta-analysis. J Affect Disord. 2020;265:224–32.
-	 70.	 Jawad MY, Meshkat S, Tabassum A, McKenzie A, Di Vincenzo JD, Guo 
-Z, et al. The bidirectional association of nonalcoholic fatty liver disease 
-with depression, bipolar disorder, and schizophrenia. CNS Spectr. 
-2022;28(5):541–60.
-	 71.	 Luo H, Li J, Zhang Q, Cao P, Ren X, Fang A, et al. Obesity and the onset of 
-depressive symptoms among middle-aged and older adults in China: 
-evidence from the CHARLS. BMC Public Health. 2018;18(1):909.
-	 72.	 McGrowder DA, Fang T, Zhang Q, Wang Z, Liu J-P. Bidirectional associa-
-tion between depression and diabetic nephropathy by meta-analysis. 
-Plos One. 2022;17(12):e0278489.
-	 73.	 Pu F, Lin J, Wei Y, Li J, Liao X, Shi L, et al. Association of dietary behavior 
-patterns of middle-aged and older adults with their obesity metabolic 
-phenotype: a cross-sectional study. BMC Public Health. 2024;24(1):2311.
-	 74.	 Zhao Q, Tan X, Su Z, Manzi HP, Su L, Tang Z, et al. The relationship 
-between the Dietary Inflammatory Index (DII) and Metabolic Syndrome 
-(MetS) in middle-aged and elderly individuals in the United States. 
-Nutrients. 2023;15(8):1857.
-	 75.	 Hemphill L, Valenzuela Y, Luna K, Szymkowicz SM, Jones JD. Synergistic 
-associations of depressive symptoms and aging on cognitive decline in 
-early Parkinson’s disease. Clin Park Relat Disord. 2023;8:100192.
-	 76.	 Yuan J, Wang Y, Liu Z. Temporal relationship between depression and 
-cognitive decline in the elderly: a two-wave cross-lagged study in a 
-Chinese sample. Aging Ment Health. 2023;27(11):2179–86.
-	 77.	 Zheng F, Zhong B, Song X, Xie W. Persistent depressive symptoms and 
-cognitive decline in older adults. Br J Psychiatry. 2018;213(5):638–44.
-	 78.	 Federman AD, Becker J, Carnavali F, Rivera Mindt M, Cho D, Pandey 
-G, et al. Relationship between cognitive impairment and depression 
-among middle aged and older adults in primary care. Gerontol Geriatr 
-Med. 2024;10:23337214231214216.
-	 79.	 Manning KJ, Steffens DC. Systems Neuroscience in Late-Life Depres-
-sion. Systems Neuroscience in Depression2016. p. 325–40.
-	 80.	 Rieck JR, Baracchini G, Nichol D, Abdi H, Grady CL. Reconfiguration and 
-dedifferentiation of functional networks during cognitive control across 
-the adult lifespan. Neurobiol Aging. 2021;106:80–94.
-	 81.	 Staffaroni AM, Brown JA, Casaletto KB, Elahi FM, Deng J, Neuhaus J, 
-et al. The longitudinal trajectory of default mode network connectiv-
-ity in healthy older adults varies as a function of age and is associated 
-with changes in episodic memory and processing speed. J Neurosci. 
-2018;38(11):2809–17.
-	 82.	 Jellinger KA. Pathomechanisms of Vascular Depression in Older Adults. 
-Int J Mol Sci. 2021;23(1):308.
-	 83.	 Straka K, Tran M-L, Millwood S, Swanson J, Kuhlman KR. Aging as a 
-context for the role of inflammation in depressive symptoms. Front 
-Psychiatry. 2021;11.
-	 84.	 Mina T, Yew YW, Ng HK, Sadhu N, Wansaicheong G, Dalan R, et al. Adi-
-posity impacts cognitive function in Asian populations: an epidemio-
-logical and Mendelian Randomization study. Lancet Reg Health West 
-Pac. 2023;33:100710.
-	 85.	 Liu CR, Wong PY, Chung YL, Chow SKH, Cheung WH, Law SW, et al. 
-Deciphering the “obesity paradox” in the elderly: a systematic review 
-and meta-analysis of sarcopenic obesity. Obes Rev. 2023. https://​doi.​
-org/​10.​1111/​obr.​13534.
-	 86.	 Iso-Markku P, Kujala UM, Knittle K, Polet J, Vuoksimaa E, Waller K. Physical 
-activity as a protective factor for dementia and Alzheimer’s disease: 
-systematic review, meta-analysis and quality assessment of cohort and 
-case–control studies. Br J Sports Med. 2022;56(12):701–9.
-	 87.	 Rodriguez-Ayllon M, Solis-Urra P, Arroyo-Ávila C, Álvarez-Ortega M, 
-Molina-García P, Molina-Hidalgo C, et al. Physical activity and amyloid 
-beta in middle-aged and older adults: a systematic review and meta-
-analysis. J Sport Health Sci. 2024;13(2):133–44.
-	 88.	 Coin A, Veronese N, De Rui M, Mosele M, Bolzetta F, Girardi A, et al. Nutri-
-tional predictors of cognitive impairment severity in demented elderly 
-patients: the key role of BMI. J Nutr Health Aging. 2012;16(6):553–6.
-	 89.	 Hegele RA, Joy TR, Al-Attar SA, Rutt BK. Thematic review series: 
-adipocyte Biology. Lipodystrophies: windows on adipose biology and 
-metabolism. Journal of Lipid Research. 2007;48(7):1433–44.
-	 90.	 Shinohara M, Gheni G, Hitomi J, Bu G, Sato N. APOE genotypes modify 
-the obesity paradox in dementia. J Neurol Neurosurg Psychiatry. 
-2023;94(9):670–80.
-	 91.	 Zhang J, Na X, Li Z, Ji JS, Li G, Yang H, et al. Sarcopenic obesity is 
-part of obesity paradox in dementia development: evidence from a 
-population-based cohort study. BMC Med. 2024;22(1):133.
-	 92.	 Zhang F, Ning Z, Wang C. Body roundness index and cognitive func-
-tion in older adults: a nationwide perspective. Front Aging Neurosci. 
-2024;16:1466464.
-	 93.	 Liang Z, Jin W, Huang L, Chen H. Body mass index, waist circumfer-
-ence, hip circumference, abdominal volume index, and cognitive 
-function in older Chinese people: a nationwide study. BMC Geriatrics. 
-2024;24(1):925.
-	 94.	 Forte R, Pesce C, de Vito G, Boreham CAG. The body fat-cognition 
-relationship in healthy older individuals: does gynoid vs android distri-
-bution matter? J Nutr Health Aging. 2017;21(3):284–92.
-	 95.	 Liu X, Chen X, Hou L, Xia X, Hu F, Luo S, et al. Associations of body mass 
-index, visceral fat area, waist circumference, and waist-to-hip ratio with 
-cognitive function in western China: results from WCHAT study. J Nutr 
-Health Aging. 2021;25(7):903–8.
-	 96.	 Xu S, Wen S, Yang Y, He J, Yang H, Qu Y, et al. Association between body 
-composition patterns, cardiovascular disease, and risk of neurodegen-
-erative disease in the UK Biobank. Neurology. 2024;103(4):e209659.
-	 97.	 Chu C-Q, Yu L-l, Qi G-y, Mi Y-S, Wu W-Q, Lee Y-k, et al. Can dietary pat-
-terns prevent cognitive impairment and reduce Alzheimer’s disease 
-risk: exploring the underlying mechanisms of effects. Neurosci Biobe-
-hav Rev. 2022;135:104556.
-	 98.	 Wei K, Yang J, Lin S, Mei Y, An N, Cao X, et al. Dietary habits modify 
-the association of physical exercise with cognitive impairment in 
-community-dwelling older adults. J Clin Med. 2022;11(17):512.
-	 99.	 Witczak-Sawczuk K, Ostrowska L, Cwalina U, Leszczyńska J, Jastrzębska-
-Mierzyńska M, Hładuński MK. Estimation of the impact of abdominal 
-adipose tissue (subcutaneous and visceral) on the occurrence of car-
-bohydrate and lipid metabolism disorders in patients with obesity—a 
-pilot study. Nutrients. 2024;16(9):1301.
-	100.	 Zhu C-e, Zhou L, Zhang X. Effects of leisure activities on the cognitive 
-ability of older adults: a latent variable growth model analysis. Front 
-Psychol. 2022;13:838878
-	101.	 Scarmeas N, Stern Y, Mayeux R, Luchsinger JA. Mediterranean 
-diet, Alzheimer disease, and vascular mediation. Arch Neurol. 
-2006;63(12):1709–17.
-	102.	 Zhao Y-L, Qu Y, Ou Y-N, Zhang Y-R, Tan L, Yu J-T. Environmental factors 
-and risks of cognitive impairment and dementia: a systematic review 
-and meta-analysis. Ageing Res Rev. 2021;72: 101504.
-	103.	 Lavallee KL, Zhang XC, Schneider S, Margraf J. Obesity and mental 
-health: a longitudinal, cross-cultural examination in Germany and 
-China. Front Psychol. 2021;12:712567.
-	104.	 Johnston JN, Greenwald MS, Henter ID, Kraus C, Mkrtchian A, Clark NG, 
-et al. Inflammation, stress and depression: an exploration of ketamine’s 
-therapeutic profile. Drug Discov Today. 2023;28(4):103518.
-	105.	 Majd M, Saunders EFH, Engeland CG. Inflammation and the dimensions 
-of depression: a review. Front Neuroendocrinol. 2020;56:100800.
+DRFI Subgroups for Combined SOFT + TEXT HR Positive/HER2 Negative
+0.25
+0.5 0.69
+1
+2
+4
+Favors EXEM + OFS
+Favors TAM + OFS
+DRFI
+HR positive/HER2 negative
+142
+2,007
+202
+2,002
+0.69
+ 0.55 to 0.85
+Age at randomization, years
+< 35
+31
+183
+37
+166
+35-39
+43
+333
+56
+312
+40-44
+38
+633
+58
+659
+45-49
+25
+654
+43
+692
+≥ 50
+5
+204
+8
+173
+No. of nodes positive
+32
+0
+1,192
+56
+1,165
+1-3
+44
+575
+73
+606
+≥ 4
+66
+240
+73
+231
+Tumor size, cm
+≤ 2
+47
+1,297
+60
+1,277
+> 2
+91
+682
+134
+691
+Unknown
+4
+28
+8
+34
+ER expression, %
+< 50
+13
+88
+12
+71
+≥ 50
+127
+1,889
+186
+1,896
+Unknown
+2
+30
+4
+35
+PgR expression, %
+< 20
+32
+222
+42
+190
+20-49 
+18
+171
+33
+165
+≥ 50
+88
+1,575
+123
+1,610
+Unknown
+4
+39
+4
+37
+Tumor grade
+7
+1
+435
+9
+445
+77
+2
+1,154
+114
+1,137
+58
+3
+418
+79
+420
+Ki-67 expression, %
+< 14
+16
+478
+17
+508
+14-19
+27
+494
+32
+476
+20-25
+27
+299
+50
+308
+≥ 26
+45
+337
+69
+333
+Unknown
+27
+399
+34
+377
+0.72             0.45 to 1.16
+0.66             0.44 to 0.99
+0.69             0.46 to 1.04
+0.62             0.38 to 1.02
+0.46             0.15 to 1.41
+0.55             0.36 to 0.85
+0.60             0.42 to 0.88
+0.89             0.64 to 1.25
+0.78             0.53 to 1.14
+0.65             0.50 to 0.84
+0.54             0.16 to 1.79
+0.91             0.41 to 1.99
+0.67             0.54 to 0.84
+0.58             0.11 to 3.19
+0.59             0.37 to 0.94
+0.43             0.24 to 0.76
+0.75             0.57 to 0.98
+1.06             0.26 to 4.23
+0.81             0.30 to 2.17
+0.65             0.48 to 0.86
+0.72             0.51 to 1.01
+0.99             0.50 to 1.96
+0.85             0.51 to 1.41
+0.55             0.35 to 0.88
+0.59             0.40 to 0.86
+0.72             0.44 to 1.20
+Subgroup
+Hazard Ratio
+ 95% CI
+B
+EXEM + OFS
+TAM + OFS
+Events
+Patients
+Events
+Patients
+FIG A3. (Continued).
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 17
 
-Page 17 of 17
-Wang et al. BMC Medicine          (2025) 23:555 
-	
-	106.	 Unamuno X, Gómez-Ambrosi J, Rodríguez A, Becerril S, Frühbeck G, 
-Catalán V. Adipokine dysregulation and adipose tissue inflammation in 
-human obesity. Eur J Clin Invest.  2018;48(9):e12997.
-	107.	 Pou KM, Massaro JM, Hoffmann U, Vasan RS, Maurovich-Horvat P, Larson 
-MG, et al. Visceral and subcutaneous adipose tissue volumes are cross-
-sectionally related to markers of inflammation and oxidative stress. 
-Circulation. 2007;116(11):1234–41.
-	108.	 Lin W-T, Kao Y-H, Li MS, Luo T, Lin H-Y, Lee C-H, et al. Sugar-sweetened 
-beverages intake, abdominal obesity, and inflammation among US 
-adults without and with prediabetes—an NHANES Study. Int J Environ 
-Res Public Health.  2022;20(1):681.
-	109.	 Gonzales MM, Garbarino VR, Pollet E, Palavicini JP, Kellogg DL, Kraig 
-E, et al. Biological aging processes underlying cognitive decline and 
-neurodegenerative disease. J Clin Invest. 2022;132(10):e158453.
-	110.	 Mulè S, Ferrari S, Rosso G, Galla R, Battaglia S, Curti V, et al. The com-
-bined effect of green tea, saffron, resveratrol, and citicoline against 
-neurodegeneration induced by oxidative stress in an in vitro model of 
-cognitive decline. Oxid Med Cell Longev. 2024;2024(1):7465045.
-	111.	 Oyerinde AS, Selvaraju V, Babu JR, Geetha T. Potential role of oxidative 
-stress in the production of volatile organic compounds in obesity. 
-Antioxidants. 2023;12(1):129.
-	112.	 Yeo J, Hwang IC, Ahn HY. Association between oxidative balance 
-score and neck circumference in Korean adults. Obes Res Clin Pract. 
-2022;16(4):343–5.
-	113.	 Sipahi H, Mat AF, Özhan Y, Aydin A. The interrelation between oxidative 
-stress, depression and inflammation through the kynurenine pathway. 
-Curr Top Med Chem. 2023;23(6):415–25.
-	114.	 Naomi R, Teoh SH, Embong H, Balan SS, Othman F, Bahari H, et al. 
-The role of oxidative stress and inflammation in obesity and its 
-impact on cognitive impairments—a narrative review. Antioxidants. 
-2023;12(5):1071.
-	115.	 Kelly ME, Duff H, Kelly S, McHugh Power JE, Brennan S, Lawlor BA, et al. 
-The impact of social activities, social networks, social support and social 
-relationships on the cognitive functioning of healthy older adults: a 
-systematic review. Sys Rev. 2017;6(1):259.
-	116.	 Ma Y, Liang L, Zheng F, Shi L, Zhong B, Xie W. Association between 
-sleep duration and cognitive decline. JAMA Network Open. 
-2020;3(9):e2013573.
-Publisher’s Note
-Springer Nature remains neutral with regard to jurisdictional claims in pub-
-lished maps and institutional affiliations.
+Subgroup
+Hazard Ratio
+95% CI
+DRFI Subgroups for SOFT HR Positive/HER2 Negative
+0.25
+0.5 0.68
+1
+2
+4
+Favors EXEM + OFS
+Favors TAM
+DRFI
+SOFT HR positive/HER2 negative 61
+870
+89
+882
+Age at randomization, years
+< 35
+11
+89
+20
+81
+35-39
+25
+157
+30
+167
+40-44
+15
+241
+24
+268
+45-49
+9
+281
+10
+280
+≥ 50
+1
+102
+5
+86
+No. of nodes positive
+16
+0
+600
+26
+582
+1-3
+17
+196
+34
+220
+≥ 4
+28
+74
+29
+80
+Tumor size, cm
+≤ 2
+22
+611
+38
+602
+> 2
+36
+244
+45
+259
+Unknown
+3
+15
+6
+21
+ER expression, %
+< 50
+7
+42
+11
+37
+≥ 50
+53
+817
+77
+839
+Unknown
+1
+11
+1
+6
+PgR expression, %
+< 20
+14
+108
+22
+97
+20-49 
+8
+65
+12
+64
+≥ 50
+37
+681
+53
+707
+Unknown
+2
+16
+2
+14
+Tumor grade
+2
+1
+231
+11
+240
+40
+2
+495
+49
+474
+19
+3
+144
+29
+168
+Ki-67 expression, %
+< 14
+10
+267
+16
+236
+14-19
+14
+213
+16
+212
+20-25
+11
+110
+14
+130
+≥ 26
+16
+110
+23
+115
+Unknown
+10
+170
+20
+189
+0.68                0.49 to 0.95
+0.45                 0.22 to 0.94
+0.79                 0.46 to 1.34
+0.74                 0.39 to 1.41
+0.87                 0.35 to 2.14
+0.18                 0.02 to 1.56
+0.58                 0.31 to 1.08
+0.54                 0.30 to 0.97
+0.95                 0.56 to 1.59
+0.56                 0.33 to 0.94
+0.84                 0.54 to 1.30
+0.46                 0.12 to 1.84
+0.43                 0.17 to 1.11
+0.70                 0.49 to 0.99
+0.50                 0.26 to 0.99
+0.58                 0.24 to 1.43
+0.74                 0.49 to 1.13
+0.19                 0.04 to 0.87
+0.77                 0.50 to 1.16
+0.71                 0.40 to 1.27
+0.52                 0.24 to 1.15
+0.89                 0.43 to 1.82
+0.80                 0.36 to 1.76
+0.76                 0.40 to 1.44
+0.54                 0.25 to 1.14
+C
+EXEM + OFS
+TAM
+Events
+Patients
+Events
+Patients
+FIG A3. (Continued).
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 18
+
+Subgroup
+Hazard Ratio
+95% CI
+DRFI Subgroups for SOFT HR Positive/HER2 Negative
+0.25
+0.5
+1
+2
+4
+Favors TAM + OFS
+Favors TAM
+DRFI
+SOFT HR positive/HER2 negative 89
+872
+89
+882
+Age at randomization, years
+< 35
+17
+82
+20
+81
+35-39
+26
+154
+30
+167
+40-44
+23
+268
+24
+268
+45-49
+19
+277
+10
+280
+≥ 50
+4
+91
+5
+86
+No. of nodes positive
+25
+0
+580
+26
+582
+1-3
+34
+211
+34
+220
+≥ 4
+30
+81
+29
+80
+Tumor size, cm
+≤ 2
+22
+579
+38
+602
+> 2
+60
+270
+45
+259
+Unknown
+7
+23
+6
+21
+ER expression, %
+< 50
+4
+32
+11
+37
+≥ 50
+82
+826
+77
+839
+Unknown
+3
+14
+1
+6
+PgR expression, %
+< 20
+17
+83
+22
+97
+20-49
+13
+68
+12
+64
+≥ 50
+56
+706
+53
+707
+Unknown
+3
+15
+2
+14
+Tumor grade
+6
+1
+232
+11
+240
+5
+2
+3
+484
+49
+474
+30
+3
+156
+29
+168
+Ki-67 expression, %
+< 14
+13
+251
+16
+236
+14-19
+15
+202
+16
+212
+20-25
+18
+128
+14
+130
+≥ 26
+27
+114
+23
+115
+Unknown
+16
+177
+20
+189
+1.00           0.74 to 1.34
+0.81          0.42 to 1.54 
+0.89          0.53 to 1.51 
+0.99          0.56 to 1.76 
+1.71           0.80 to 3.68
+0.91          0.24 to 3.39
+0.96          0.55 to 1.66
+1.08           0.67 to 1.73
+0.84          0.50 to 1.39
+0.59          0.35 to 0.99
+1.33           0.91 to 1.96
+0.83          0.28 to 2.47 
+0.30          0.10 to 0.95
+1.07           0.79 to 1.47
+0.88          0.47 to 1.66 
+1.24           0.57 to 2.72
+1.00           0.69 to 1.46
+0.62           0.23 to 1.68
+1.02           0.69 to 1.51
+1.04           0.62 to 1.73
+0.74           0.36 to 1.54
+0.96           0.47 to 1.94
+1.18           0.59 to 2.37
+1.18           0.68 to 2.07
+0.90           0.46 to 1.73
+D
+TAM + OFS
+TAM
+Events Patients
+Events Patients
+FIG A3. (Continued).
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 19
+
+0.89
+1.42 1.79 2.27
+3.02 3.40
+8-Year Freedom From
+Distant Recurrence (%)
+A
+TEXT Chemotherapy
+EXEM + OFS
+TAM + OFS
+0
+20
+40
+60
+80
+100
+Composite Risk in HR-Positive/HER2-Negative
+Subpopulations (median) 
+0.06 0.54 0.89 1.30
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TAM
+SOFT No Chemotherapy
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TEXT No Chemotherapy
+0.46
+1.07
+1.611.91
+0
+20
+40
+60
+80
+100
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+EXEM + OFS
+TAM + OFS
+TAM
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+Patients (No.)
+0
+5
+4
+3
+1
+2
+0
+100
+50
+Composite Risk in 
+HR Positive/HER2 Negative
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+4
+3
+1
+2
+0
+5
+4
+3
+1
+2
+ Patients (No.)
+0
+100
+50
+Composite Risk, 3.0
+FIG A4. Subpopulation treatment effect pattern plots (STEPP) of 8-year freedom from distant recurrence (y-axis) according to median composite risk in
+subpopulations (x-axis) and histograms of the composite risk distributions for each of (continued on following page)the four cohorts in the hormone receptor
+(HR)–positive/human epidermal growth factor receptor 2 (HER2)–negative analysis population according to treatment assignment. The horizontal lines above
+each histogram indicate the ranges of composite risks in subpopulations that are plotted at the subpopulation median composite risk value in each
+corresponding STEPP. The red vertical line on the histograms indicates the selected composite risk, and intersects one or more subpopulations in which the
+composite risk value is represented. The dark orange circles on the STEPPs indicate the corresponding subpopulations in which the selected composite risk is
+represented. The black vertical dashed lines indicate the median composite risk of 1.42 in the overall HR-positive/HER2-negative analysis population. Three
+scenarios are presented: (A) A high-risk scenario (composite risk 5 3.00; 35-39 years of age, pT2pN1a, grade 3, estrogen receptor [ER] $ 50%, progesterone
+receptor [PgR] $ 50% and Ki-67 labeling index [Ki-67] $ 26%). In this scenario, there are no circles on the Tamoxifen and Exemestane Trial (TEXT) no
+chemotherapy and Suppression of Ovarian Function Trial (SOFT) no chemotherapy STEPPs because there were too few patients with the same or similar
+composite risk values.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 20
+
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TAM
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+EXEM + OFS
+TAM + OFS
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT No Chemotherapy
+0.46
+1.07
+1.61 1.91
+SOFT No Chemotherapy
+Composite Risk in HR-Positive/HER2-Negative
+Subpopulations (median) 
+EXEM + OFS
+TAM + OFS
+TAM
+0.06 0.54 0.89 1.30
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+B
+0.89
+1.42 1.79
+2.27
+3.02 3.40
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TEXT Chemotherapy
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in 
+HR Positive/HER2 Negative 
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+4
+3
+1
+2
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+Composite Risk, 1.78
+FIG A4. (Continued). (B) An intermediate-risk scenario (composite risk 5 1.78; 40-44 years of age, pT1pN1a, grade 2, ER $ 50%, PgR
+$ 50%, and Ki-67 20-25%).
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 21
+
+0.89
+1.42 1.79
+2.27
+3.02 3.40
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT Chemotherapy
+EXEM + OFS
+TAM + OFS
+0
+5
+4
+3
+1
+2
+Patients (No.) 
+0
+100
+50
+Composite Risk, 0.89
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+EXEM + OFS
+TAM + OFS
+TAM
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+0.06
+0.54 0.89 1.30
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT No Chemotherapy
+EXEM + OFS
+TAM + OFS
+TAM
+Composite Risk in HR Positive/HER2 Negative
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+4
+3
+1
+2
+0
+20
+40
+60
+80
+100
+8-YearFreedom From
+Distant Recurrence (%) 
+TEXT No Chemotherapy
+0.46
+1.07
+1.611.91
+EXEM + OFS
+TAM + OFS
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+C
+FIG A4. (Continued). (C) A low-risk scenario (composite risk 5 0.89; 40-44 years of age, pT1pN0, grade 2, ER $ 50%, PgR $ 50%, and Ki-67 14-19%).
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 22
+
+TABLE A1. Clinicopathologic Characteristics of the HR-Positive/HER2-Negative Analysis Population of TEXT and SOFT Overall and According to
+Cohort Deﬁned by Trial and Chemotherapy Use
+TEXT
+Chemotherapy
+SOFT Prior
+Chemotherapy
+TEXT No
+Chemotherapy
+SOFT No
+Chemotherapy
+All Patients
+Characteristic
+No.
+%
+No.
+%
+No.
+%
+No.
+%
+No.
+%
+No. of patients
+1,276
+100
+1,271
+100
+991
+100
+1,353
+100
+4,891
+100
+Age at random assignment, years
+, 35
+141
+11.1
+232
+18.3
+37
+3.7
+20
+1.5
+430
+8.8
+35-39
+221
+17.3
+375
+29.5
+113
+11.4
+103
+7.6
+812
+16.6
+40-44
+442
+34.6
+407
+32.0
+341
+34.4
+370
+27.3
+1,560
+31.9
+45-49
+403
+31.6
+213
+16.8
+385
+38.8
+625
+46.2
+1,626
+33.2
+$ 50
+69
+5.4
+44
+3.5
+115
+11.6
+235
+17.4
+463
+9.5
+No. of positive nodes
+0
+401
+31.4
+527
+41.5
+776
+78.3
+1,235
+91.3
+2,939
+60.1
+1-3
+561
+44.0
+510
+40.1
+213
+21.5
+117
+8.6
+1,401
+28.6
+$ 4
+314
+24.6
+234
+18.4
+2
+0.2
+1
+0.1
+551
+11.3
+Tumor size, cm
+Unknown
+21
+1.6
+50
+3.9
+3
+0.3
+9
+0.7
+83
+1.7
+# 2
+593
+46.5
+630
+49.6
+791
+79.8
+1,162
+85.9
+3,176
+64.9
+. 2
+662
+51.9
+591
+46.5
+197
+19.9
+182
+13.5
+1,632
+33.4
+ER expression, %
+Unknown
+23
+1.8
+17
+1.3
+17
+1.7
+14
+1.0
+71
+1.5
+, 50
+65
+5.1
+75
+5.9
+20
+2.0
+36
+2.7
+196
+4.0
+$ 50
+1,188
+93.1
+1,179
+92.8
+954
+96.3
+1,303
+96.3
+4,624
+94.5
+PgR expression, %
+Unknown
+26
+2.0
+23
+1.8
+19
+1.9
+22
+1.6
+90
+1.8
+, 20
+163
+12.8
+233
+18.3
+58
+5.9
+55
+4.1
+509
+10.4
+20-49
+133
+10.4
+131
+10.3
+70
+7.1
+66
+4.9
+400
+8.2
+$ 50
+954
+74.8
+884
+69.6
+844
+85.2
+1,210
+89.4
+3,892
+79.6
+Tumor grade
+1
+165
+12.9
+199
+15.7
+252
+25.4
+504
+37.3
+1,120
+22.9
+2
+725
+56.8
+729
+57.4
+587
+59.2
+724
+53.5
+2,765
+56.5
+3
+386
+30.3
+343
+27.0
+152
+15.3
+125
+9.2
+1,006
+20.6
+Ki-67 expression, %
+Unknown
+240
+18.8
+266
+20.9
+189
+19.1
+270
+20.0
+965
+19.7
+, 14
+199
+15.6
+248
+19.5
+269
+27.1
+506
+37.4
+1,222
+25.0
+14-19
+293
+23.0
+303
+23.8
+262
+26.4
+324
+23.9
+1,182
+24.2
+20-25
+234
+18.3
+216
+17.0
+135
+13.6
+152
+11.2
+737
+15.1
+$ 26
+310
+24.3
+238
+18.7
+136
+13.7
+101
+7.5
+785
+16.0
+Abbreviations: ER, estrogen receptor; HER2, human epidermal growth factor receptor 2; HR, hormone receptor; Ki-67, Ki-67 labeling index;
+PgR, progesterone receptor; SOFT, Suppression of Ovarian Function Trial; TEXT, Tamoxifen and Exemestane Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 23
+
+TABLE A2. TEXT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Treatment Assignment
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+All patients
+2,267
+194
+93.2 (91.5 to 94.6)
+90.1 (88.0 to 91.8)
+Age at random assignment, years
+, 35
+178
+40
+77.5 (66.6 to 85.3)
+75.5 (63.8 to 83.8)
+35-39
+334
+48
+91.7 (86.1 to 95.1)
+82.8 (75.5 to 88.1)
+40-44
+783
+58
+93.5 (90.3 to 95.7)
+90.8 (87.2 to 93.4)
+45-49
+788
+40
+96.1 (93.4 to 97.7)
+93.8 (90.7 to 95.9)
+$ 50
+184
+8
+98.0 (92.2 to 99.5)
+96.1 (88.2 to 98.7)
+No. of positive nodes
+0
+1,177
+47
+98.0 (96.3 to 98.9)
+94.9 (92.5 to 96.5)
+1-3
+774
+66
+93.7 (90.6 to 95.8)
+90.6 (87.0 to 93.2)
+$ 4
+316
+81
+75.7 (67.8 to 81.9)
+70.2 (61.5 to 77.3)
+Tumor size, cm
+# 2
+1,384
+63
+96.9 (95.1 to 98.1)
+94.9 (92.8 to 96.4)
+. 2
+859
+129
+87.6 (83.9 to 90.5)
+82.0 (77.7 to 85.5)
+Unknown
+24
+2
+ER expression, %
+, 50
+85
+14
+87.5 (72.4 to 94.7)
+80.3 (63.0 to 90.1)
+$ 50
+2,142
+178
+93.5 (91.7 to 94.9)
+90.3 (88.2 to 92.1)
+Unknown
+40
+2
+PgR expression, %
+, 20
+221
+43
+82.1 (72.9 to 88.4)
+75.5 (65.6 to 82.9)
+20-49
+203
+30
+90.7 (82.8 to 95.0)
+80.9 (70.9 to 87.7)
+$ 50
+1,798
+118
+95.1 (93.3 to 96.4)
+92.8 (90.7 to 94.4)
+Unknown
+45
+3
+Tumor grade
+1
+417
+8
+97.8 (94.1 to 99.2)
+99.0 (95.9 to 99.7)
+2
+1,312
+98
+94.9 (92.7 to 96.5)
+91.2 (88.6 to 93.3)
+3
+538
+88
+85.7 (80.6 to 89.6)
+79.7 (73.7 to 84.4)
+Ki-67 expression, %
+, 14
+468
+10
+97.1 (93.0 to 98.8)
+98.6 (95.6 to 99.5)
+14-19
+555
+30
+95.9 (92.4 to 97.8)
+94.2 (90.3 to 96.5)
+20-25
+369
+48
+91.3 (85.6 to 94.8)
+83.2 (76.3 to 88.2)
+$ 26
+446
+71
+88.3 (83.1 to 92.0)
+78.7 (72.0 to 84.0)
+Unknown
+429
+35
+93.1 (88.5 to 95.9)
+91.7 (86.6 to 94.9)
+NOTE. Estimates not provided for unknown groups of , 50 patients. Estimates in subgroups that had few events should be interpreted with
+caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; TEXT, Tamoxifen and Exemestane Trial.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 24
+
+TABLE A3. TEXT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Chemotherapy Use and
+Treatment Assignment
+Chemotherapy
+No Chemotherapy
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+Patients
+DRs
+8-Year % (95% CI)
+All patients
+1,276
+159
+90.0 (87.2 to 92.2)
+84.9 (81.6 to 87.6)
+991
+35
+97.0 (95.5 to 97.9)
+Age at random assignment, years
+, 35
+141
+36
+73.9 (61.2 to 83.0)
+73.2 (59.4 to 82.9)
+37
+4
+87.5 (69.7 to 95.2)
+35-39
+221
+37
+89.0 (81.3 to 93.6)
+78.7 (68.6 to 85.9)
+113
+11
+93.3 (86.5 to 96.8)
+40-44
+442
+49
+90.3 (84.9 to 93.8)
+85.6 (79.9 to 89.8)
+341
+9
+97.8 (95.3 to 98.9)
+45-49
+403
+31
+95.0 (90.6 to 97.4)
+89.7 (84.3 to 93.4)
+385
+9
+97.6 (95.0 to 98.9)
+$ 50
+69
+6
+97.6 (83.9 to 99.7)
+88.7 (69.0 to 96.2)
+115
+2
+99.1 (93.7 to 99.9)
+No. of positive nodes
+0
+401
+20
+98.4 (95.0 to 99.5)
+92.9 (87.8 to 95.9)
+776
+27
+96.8 (95.1 to 97.9)
+1-3
+561
+58
+92.8 (88.8 to 95.4)
+87.2 (82.4 to 90.7)
+213
+8
+97.5 (93.9 to 98.9)
+$ 4
+314
+81
+75.7 (67.8 to 81.9)
+70.2 (61.5 to 77.3)
+2
+0
+Tumor size, cm
+# 2
+593
+38
+95.6 (92.2 to 97.6)
+92.6 (88.5 to 95.2)
+791
+25
+97.2 (95.6 to 98.3)
+. 2
+662
+119
+85.3 (80.8 to 88.8)
+77.7 (72.5 to 82.1)
+197
+10
+95.7 (91.6 to 97.8)
+Unknown
+21
+2
+3
+0
+—
+ER expression, %
+, 50
+65
+13
+83.7 (65.1 to 92.9)
+74.5 (53.8 to 87.0)
+20
+1
+$ 50
+1,188
+144
+90.4 (87.6 to 92.7)
+85.3 (82.0 to 88.1)
+954
+34
+96.8 (95.3 to 97.8)
+Unknown
+23
+2
+17
+1
+—
+PgR expression, %
+, 20
+163
+36
+79.6 (68.7 to 87.0)
+72.5 (60.2 to 81.6)
+58
+7
+85.8 (72.1 to 93.1)
+20-49
+133
+25
+87.6 (76.6 to 93.6)
+75.0 (61.2 to 84.5)
+70
+5
+94.1 (85.0 to 97.7)
+$ 50
+954
+95
+92.6 (89.7 to 94.8)
+88.0 (84.5 to 90.8)
+844
+23
+97.9 (96.5 to 98.7)
+Unknown
+26
+3
+19
+0
+—
+Tumor grade
+1
+165
+6
+93.6 (83.8 to 97.6)
+98.7 (91.2 to 99.8)
+252
+2
+99.6 (97.0 to 99.9)
+2
+725
+81
+92.7 (89.2 to 95.0)
+85.4 (80.9 to 88.9)
+587
+17
+97.9 (96.1 to 98.9)
+3
+386
+72
+83.7 (77.3 to 88.4)
+77.2 (69.8 to 83.0)
+152
+16
+88.4 (81.3 to 92.9)
+Ki-67 expression, %
+, 14
+199
+8
+94.6 (86.2 to 98.0)
+97.9 (92.0 to 99.5)
+269
+2
+98.9 (95.7 to 99.7)
+14-19
+293
+26
+92.3 (86.1 to 95.8)
+89.9 (83.3 to 94.1)
+262
+4
+99.6 (97.2 to 99.9)
+20-25
+234
+41
+90.1 (82.2 to 94.6)
+76.5 (67.1 to 83.6)
+135
+7
+94.5 (88.1 to 97.6)
+$ 26
+310
+58
+86.0 (79.4 to 90.5)
+74.9 (66.1 to 81.6)
+136
+13
+90.0 (82.8 to 94.2)
+Unknown
+240
+26
+90.0 (82.6 to 94.3)
+86.9 (78.5 to 92.2)
+189
+9
+97.1 (93.3 to 98.8)
+NOTE. Estimates provided for treatment groups combined in the no-chemotherapy cohort because of a small number of events and were not
+reported when # 20 patients. Estimates not provided for unknown groups of , 50 patients overall. Estimates in subgroups that had few events
+should be interpreted with caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; TEXT, Tamoxifen and Exemestane Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 25
+
+TABLE A4. Combined SOFT and TEXT Cohorts Treated With Ovarian Suppression: Kaplan-Meier Estimates of 8-Year Freedom From DR in
+Clinicopathologic Subgroups According to Treatment Assignment
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+All patients
+4,009
+344
+93.1 (91.8 to 94.2)
+89.8 (88.3 to 91.1)
+Age at random assignment, years
+, 35
+349
+68
+82.3 (75.5 to 87.4)
+76.2 (68.4 to 82.4)
+35-39
+645
+99
+87.7 (83.3 to 91.0)
+82.7 (77.6 to 86.7)
+40-44
+1,292
+96
+93.6 (91.2 to 95.4)
+90.8 (88.2 to 92.9)
+45-49
+1,346
+68
+96.6 (94.7 to 97.8)
+93.8 (91.5 to 95.5)
+$ 50
+377
+13
+98.5 (95.3 to 99.5)
+95.3 (90.2 to 97.7)
+No. of positive nodes
+0
+2,357
+88
+97.9 (96.8 to 98.7)
+95.2 (93.7 to 96.4)
+1-3
+1,181
+117
+92.6 (90.0 to 94.6)
+88.0 (84.9 to 90.4)
+$ 4
+471
+139
+70.9 (64.2 to 76.6)
+67.7 (60.8 to 73.7)
+Tumor size, cm
+# 2
+2,574
+107
+96.7 (95.4 to 97.6)
+95.3 (93.9 to 96.4)
+. 2
+1,373
+225
+86.7 (83.7 to 89.1)
+80.4 (77.0 to 83.3)
+Unknown
+62
+12
+88.4 (68.2 to 96.1)
+75.3 (56.6 to 86.8)
+ER expression, %
+, 50
+159
+25
+87.3 (77.5 to 93.0)
+83.3 (71.9 to 90.4)
+$ 50
+3,785
+313
+93.4 (92.1 to 94.5)
+90.1 (88.6 to 91.4)
+Unknown
+65
+6
+91.1 (68.8 to 97.7)
+86.7 (68.2 to 94.8)
+PgR expression, %
+, 20
+412
+74
+83.7 (77.6 to 88.2)
+76.2 (69.0 to 82.0)
+20-49
+336
+51
+91.0 (85.3 to 94.6)
+80.3 (72.9 to 85.8)
+$ 50
+3,185
+211
+94.8 (93.5 to 95.9)
+92.5 (91.0 to 93.7)
+Unknown
+76
+8
+86.8 (68.4 to 94.8)
+87.3 (69.4 to 95.0)
+Tumor grade
+1
+880
+16
+98.4 (96.3 to 99.3)
+98.2 (96.3 to 99.2)
+2
+2,291
+191
+93.7 (92.0 to 95.1)
+90.0 (88.0 to 91.7)
+3
+838
+137
+86.0 (82.0 to 89.1)
+80.5 (76.0 to 84.2)
+Ki-67 expression, %
+, 14
+986
+33
+96.6 (94.2 to 98.0)
+97.0 (94.8 to 98.2)
+14-19
+970
+59
+95.0 (92.5 to 96.7)
+93.2 (90.4 to 95.3)
+20-25
+607
+77
+90.6 (86.4 to 93.6)
+83.9 (78.9 to 87.9)
+$ 26
+670
+114
+87.1 (82.9 to 90.4)
+78.2 (73.0 to 82.5)
+Unknown
+776
+61
+93.6 (90.4 to 95.8)
+90.9 (87.3 to 93.5)
+NOTE. Estimates not provided for unknown groups of , 50 patients. Estimates in subgroups that had few events should be interpreted with
+caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; SOFT, Suppression of Ovarian Function Trial; TEXT, Tamoxifen and Exemestane Trial.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 26
+
+TABLE A5. SOFT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Treatment Assignment
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+Tamoxifen,
+8-Year % (95% CI)
+All patients
+2,624
+239
+93.0 (90.9 to 94.6)
+89.5 (87.2 to 91.5)
+89.7 (87.3 to 91.7)
+Age at random assignment, years
+, 35
+252
+48
+87.2 (78.0 to 92.7)
+77.4 (66.0 to 85.3)
+74.5 (62.5 to 83.1)
+35-39
+478
+81
+83.1 (75.5 to 88.6)
+82.6 (74.7 to 88.2)
+79.7 (71.4 to 85.8)
+40-44
+777
+62
+93.9 (89.7 to 96.4)
+91.0 (86.7 to 93.9)
+91.8 (87.4 to 94.6)
+45-49
+838
+38
+97.2 (94.2 to 98.7)
+93.8 (90.0 to 96.2)
+95.9 (92.3 to 97.8)
+$ 50
+279
+10
+99.0 (92.9 to 99.9)
+94.6 (86.1 to 98.0)
+95.2 (87.7 to 98.2)
+No. of positive nodes
+0
+1,762
+67
+97.9 (96.1 to 98.8)
+95.6 (93.4 to 97.1)
+95.3 (92.8 to 96.9)
+1-3
+627
+85
+90.6 (85.3 to 94.1)
+83.0 (76.8 to 87.7)
+85.5 (79.7 to 89.7)
+$ 4
+235
+87
+60.3 (47.3 to 71.0)
+63.5 (51.5 to 73.2)
+59.0 (46.0 to 69.8)
+Tumor size, cm
+# 2
+1,792
+82
+96.4 (94.5 to 97.7)
+95.9 (93.6 to 97.3)
+93.6 (91.0 to 95.5)
+. 2
+773
+141
+84.9 (79.3 to 89.1)
+77.9 (72.2 to 82.6)
+81.7 (75.9 to 86.2)
+Unknown
+59
+16
+85.1 (52.3 to 96.1)
+69.6 (46.6 to 84.2)
+73.9 (48.2 to 88.2)
+ER expression, %
+, 50
+111
+22
+87.0 (71.2 to 94.4)
+86.7 (68.3 to 94.8)
+70.1 (51.0 to 82.8)
+$ 50
+2,482
+212
+93.3 (91.2 to 94.9)
+89.9 (87.5 to 91.9)
+90.6 (88.2 to 92.5)
+Unknown
+31
+5
+PgR expression, %
+, 20
+288
+53
+85.6 (76.9 to 91.3)
+77.2 (65.4 to 85.5)
+76.5 (66.2 to 84.1)
+20-49
+197
+33
+91.6 (81.0 to 96.5)
+79.7 (67.6 to 87.7)
+81.4 (68.8 to 89.3)
+$ 50
+2,094
+146
+94.4 (92.2 to 96.0)
+92.2 (89.8 to 94.1)
+92.3 (89.7 to 94.2)
+Unknown
+45
+7
+Tumor grade
+1
+703
+19
+98.9 (95.7 to 99.7)
+97.6 (94.2 to 99.0)
+95.9 (91.7 to 98.0)
+2
+1,453
+142
+92.1 (89.1 to 94.3)
+88.4 (85.0 to 91.1)
+90.0 (86.6 to 92.5)
+3
+468
+78
+86.6 (79.6 to 91.4)
+81.9 (74.7 to 87.2)
+79.9 (72.1 to 85.7)
+Ki-67 expression, %
+, 14
+754
+39
+96.2 (92.4 to 98.1)
+95.4 (91.5 to 97.5)
+93.0 (88.0 to 96.0)
+14-19
+627
+45
+94.0 (89.7 to 96.6)
+92.2 (87.3 to 95.2)
+93.0 (88.0 to 95.9)
+20-25
+368
+43
+89.5 (81.8 to 94.0)
+84.8 (76.3 to 90.4)
+87.6 (79.8 to 92.6)
+$ 26
+339
+66
+84.7 (76.2 to 90.4)
+77.2 (68.1 to 84.0)
+79.2 (70.0 to 85.8)
+Unknown
+536
+81
+94.4 (89.0 to 97.2)
+90.0 (84.1 to 93.7)
+89.8 (84.3 to 93.5)
+NOTE. Estimates not provided for unknown groups of , 50 patients. Estimates in subgroups that had few events should be interpreted with
+caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; SOFT, Suppression of Ovarian Function Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 27
+
+TABLE A6. SOFT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Chemotherapy Use and Treatment
+Assignment
+Prior Chemotherapy
+No Chemotherapy
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+Tamoxifen,
+8-Year % (95% CI) Patients DRs 8-Year % (95% CI)
+All patients
+1,271
+216
+86.2 (82.2 to 89.4)
+80.3 (75.9 to 84.0)
+81.0 (76.6 to 84.6)
+1,353
+23
+98.5 (97.6 to 99.1)
+Age at random assignment, years
+, 35
+232
+48
+86.0 (76.2 to 92.0)
+75.3 (63.2 to 83.9)
+72.9 (60.4 to 82.0)
+20
+0
+35-39
+375
+79
+79.7 (70.8 to 86.2)
+77.4 (67.7 to 84.5)
+75.9 (66.2 to 83.2)
+103
+2
+96.6 (85.5 to 99.2)
+40-44
+407
+53
+90.0 (82.6 to 94.4)
+83.5 (76.1 to 88.9)
+88.1 (81.2 to 92.5)
+370
+9
+97.8 (95.3 to 99.0)
+45-49
+213
+29
+90.1 (79.2 to 95.5)
+82.0 (70.9 to 89.2)
+84.1 (70.8 to 91.7)
+625
+9
+99.2 (98.0 to 99.7)
+$ 50
+44
+7
+93.3 (61.3 to 99.0)
+87.5 (38.7 to 98.1)
+77.0 (49.7 to 90.7)
+235
+3
+98.5 (95.4 to 99.5)
+No. of positive nodes
+0
+527
+47
+94.2 (89.0 to 97.0)
+89.1 (82.8 to 93.1)
+88.2 (81.3 to 92.6)
+1,235
+20
+98.7 (97.8 to 99.2)
+1-3
+510
+82
+89.2 (83.0 to 93.3)
+79.7 (72.3 to 85.3)
+83.4 (76.8 to 88.2)
+117
+3
+96.0 (87.0 to 98.8)
+$ 4
+234
+87
+60.3 (47.3 to 71.0)
+63.5 (51.5 to 73.2)
+58.3 (45.2 to 69.3)
+1
+0
+Tumor size, cm
+# 2
+630
+70
+90.5 (85.5 to 93.9)
+90.4 (84.8 to 94.0)
+84.1 (77.7 to 88.8)
+1,162
+12
+99.1 (98.2 to 99.5)
+. 2
+591
+130
+81.6 (74.7 to 86.8)
+71.6 (64.4 to 77.6)
+79.0 (72.3 to 84.2)
+182
+11
+94.7 (89.3 to 97.4)
+Unknown
+50
+16
+83.3 (48.2 to 95.6)
+66.7 (42.5 to 82.5)
+64.6 (34.7 to 83.5)
+9
+0
+—
+ER expression, %
+, 50
+75
+20
+80.9 (59.4 to 91.7)
+81.0 (56.7 to 92.4)
+61.3 (36.4 to 78.9)
+36
+2
+94.4 (79.6 to 98.6)
+$ 50
+1,179
+191
+86.7 (82.6 to 89.9)
+80.7 (76.1 to 84.5)
+82.1 (77.6 to 85.8)
+1,303
+21
+98.6 (97.7 to 99.2)
+Unknown
+17
+5
+14
+0
+—
+PgR expression, %
+, 20
+233
+52
+82.9 (72.7 to 89.5)
+70.5 (56.1 to 81.0)
+72.1 (60.0 to 81.1)
+55
+1
+98.1 (87.6 to 99.7)
+20-49
+131
+32
+90.6 (76.8 to 96.4)
+64.4 (46.5 to 77.6)
+73.5 (57.2 to 84.5)
+66
+1
+98.4 (89.4 to 99.8)
+$ 50
+884
+125
+87.0 (82.1 to 90.7)
+84.9 (80.1 to 88.6)
+84.4 (79.2 to 88.4)
+1,210
+21
+98.5 (97.5 to 99.1)
+Unknown
+23
+7
+22
+0
+—
+Tumor grade
+1
+199
+15
+96.4 (85.9 to 99.1)
+92.3 (80.8 to 97.1)
+90.3 (79.5 to 95.5)
+504
+4
+99.2 (97.4 to 99.8)
+2
+729
+127
+85.1 (79.5 to 89.2)
+78.9 (72.8 to 83.8)
+82.4 (76.4 to 86.9)
+724
+15
+98.3 (96.8 to 99.0)
+3
+343
+74
+82.5 (73.3 to 88.8)
+77.4 (68.3 to 84.1)
+72.8 (63.0 to 80.5)
+125
+4
+97.5 (92.5 to 99.2)
+Ki-67 expression, %
+, 14
+248
+33
+88.5 (77.8 to 94.3)
+86.5 (75.6 to 92.8)
+81.8 (69.7 to 89.4)
+506
+6
+99.4 (97.5 to 99.9)
+14-19
+303
+40
+87.6 (79.2 to 92.8)
+85.3 (76.4 to 91.0)
+88.7 (79.9 to 93.8)
+324
+5
+98.5 (95.8 to 99.5)
+20-25
+216
+38
+85.8 (74.4 to 92.3)
+76.4 (63.8 to 85.0)
+80.6 (67.8 to 88.7)
+152
+5
+96.5 (91.8 to 98.5)
+$ 26
+238
+61
+78.6 (66.9 to 86.6)
+72.1 (60.7 to 80.7)
+71.4 (59.6 to 80.2)
+101
+5
+96.0 (89.6 to 98.5)
+Unknown
+266
+44
+88.8 (78.6 to 94.3)
+80.3 (69.4 to 87.6)
+81.0 (71.1 to 87.7)
+270
+2
+99.1 (96.4 to 99.8)
+NOTE. Estimates provided for treatment groups combined in the no-chemotherapy cohort because of the small number of events and not provided when
+# 20 patients. Estimates not provided for unknown groups of , 50 patients overall (chemotherapy and no-chemotherapy combined). Estimates in subgroups
+that had a few events should be interpreted with caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR, progesterone receptor;
+SOFT, Suppression of Ovarian Function Trial.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 28
+
+TABLE A7. Distribution of the Composite Measures of Recurrence Risk in Clinicopathologic Subgroups
+Composite Risk
+Measure
+Patients
+DRs
+Median
+Quartile 1
+Quartile 3
+Minimum
+Maximum
+All HR-positive/HER2-negative
+4,891
+433
+1.42
+0.81
+2.16
+–0.28
+4.60
+Age at random assignment, years
+, 35
+430
+88
+2.49
+1.95
+3.16
+0.67
+4.59
+35-39
+812
+129
+2.01
+1.49
+2.80
+0.52
+4.60
+40-44
+1,560
+120
+1.44
+0.89
+2.02
+0.07
+3.84
+45-49
+1,626
+78
+1.07
+0.72
+1.65
+20.28
+4.01
+$ 50
+463
+18
+0.79
+0.50
+1.36
+20.04
+3.87
+No. of positive nodes
+0
+2,939
+114
+0.98
+0.72
+1.47
+20.28
+3.26
+1-3
+1,401
+151
+1.91
+1.42
+2.43
+0.44
+3.91
+$ 4
+551
+168
+3.18
+2.71
+3.59
+1.30
+4.60
+Tumor size, cm
+Unknown
+83
+18
+2.49
+2.13
+3.15
+0.89
+4.60
+# 2
+3,176
+145
+1.07
+0.72
+1.59
+20.28
+4.01
+. 2
+1,632
+270
+2.27
+1.73
+2.92
+0.48
+4.59
+ER expression, %
+Unknown
+71
+7
+1.85
+1.61
+2.42
+20.28
+4.60
+, 50
+196
+36
+2.10
+1.32
+2.96
+0.06
+4.59
+$ 50
+4,624
+390
+1.39
+0.77
+2.09
+20.10
+4.44
+PgR expression, %
+Unknown
+90
+10
+2.14
+1.67
+2.63
+0.90
+4.60
+, 20
+509
+96
+2.37
+1.79
+3.03
+0.36
+4.59
+20-49
+400
+63
+2.14
+1.40
+2.90
+0.21
+4.32
+$ 50
+3,892
+264
+1.29
+0.73
+1.89
+20.28
+4.03
+Tumor grade
+1
+1,120
+27
+0.35
+0.06
+0.75
+20.28
+2.94
+2
+2,765
+240
+1.46
+0.98
+2.10
+0.72
+4.60
+3
+1,006
+166
+2.29
+1.75
+2.98
+0.69
+4.59
+Ki-67 expression, %
+Unknown
+965
+81
+1.41
+0.79
+2.11
+20.28
+4.60
+, 14
+1,222
+49
+0.75
+0.17
+1.39
+0.00
+3.82
+14-19
+1,182
+75
+1.29
+0.77
+1.87
+20.10
+3.85
+20-25
+737
+91
+1.79
+1.24
+2.42
+0.26
+4.39
+$ 26
+785
+137
+2.36
+1.87
+3.00
+0.49
+4.59
+NOTE. Values of grade, ER, and PgR expression were centrally determined if available and locally determined otherwise; Ki-67 expression was
+available only by central determination.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; HER2, human epidermal growth factor receptor 2; HR, hormone receptor;
+Ki-67, Ki-67 labeling index; PgR, progesterone receptor.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al

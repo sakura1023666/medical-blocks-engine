@@ -1,991 +1,4587 @@
 # Page 1
 
-1
-© The Author(s) 2024. Published by Oxford University Press. 
-This is an Open Access article distributed under the terms of the Creative Commons Attribution License (https://creativecommons.org/licenses/by/4.0/), which permits 
-unrestricted reuse, distribution, and reproduction in any medium, provided the original work is properly cited. 
-Burns & Trauma, 2024, 12, tkae016
-https://doi.org/10.1093/burnst/tkae016
-Research Article
-Research Article 
-Serial platelet count as a dynamic prediction 
-marker of hospital mortality among septic 
-patients 
-Qian Ye1,†, Xuan Wang1,†, Xiaoshuang Xu1,†, Jiajin Chen1 , 
-David C. Christiani2,3 , Feng Chen1,4,5 , Ruyang Zhang1,* and 
-Yongyue Wei 
-1,6,* 
-1Department of Biostatistics, School of Public Health, Nanjing Medical University, 101 Longmian Avenue, Nanjing, 
-Jiangsu 211166, China, 2Department of Environmental Health, Harvard T.H. Chan School of Public Health, Harvard 
-University, 655 Huntington Avenue, Boston, MA 02115, USA, 3Pulmonary and Critical Care Division, Massachusetts 
-General Hospital, Department of Medicine, Harvard Medical School, 55 Fruit Street, Boston, MA 02114, USA, 4Jiangsu 
-Key Lab of Cancer Biomarkers, Prevention and Treatment, Jiangsu Collaborative Innovation Center for Cancer 
-Personalized Medicine, Nanjing Medical University, 101 Longmian Avenue, Nanjing, Jiangsu 211166, China, 5China 
-International Cooperation Center of Environment and Human Health, Nanjing Medical University, 101 Longmian 
-Avenue, Nanjing, Jiangsu 211166, China and 6Center for Public Health and Epidemic Preparedness & Response, 
-Peking University, Key Laboratory of Epidemiology of Major Diseases (Peking University), Ministry of Education, 38 
-Xueyuan Road, Haidian District, Beijing 100191, China 
-*Correspondence. Yongyue Wei, Email: ywei@pku.edu.cn; Ruyang Zhang, Email: zhangruyang@njmu.edu.cn 
-†Q.Y, X.W. and X.X. contributed equally to this work. 
-Received 31 October 2023; Revised 4 February 2024; Accepted 14 March 2024 
-Abstract 
-Background: Platelets play a critical role in hemostasis and inﬂammatory diseases. Low platelet 
-count and activity have been reported to be associated with unfavorable prognosis. This study 
-aims to explore the relationship between dynamics in platelet count and in-hospital morality among 
-septic patients and to provide real-time updates on mortality risk to achieve dynamic prediction. 
-Methods: We conducted a multi-cohort, retrospective, observational study that encompasses 
-data on septic patients in the eICU Collaborative Research Database (eICU-CRD) and the Medical 
-Information Mart for Intensive Care IV (MIMIC-IV) database. The joint latent class model (JLCM) 
-was utilized to identify heterogenous platelet count trajectories over time among septic patients. 
-We assessed the association between different trajectory patterns and 28-day in-hospital mortality 
-using a piecewise Cox hazard model within each trajectory. We evaluated the performance of 
-our dynamic prediction model through area under the receiver operating characteristic curve, 
-concordance index (C-index), accuracy, sensitivity, and speciﬁcity calculated at predeﬁned time 
-points. 
-Results: Four subgroups of platelet count trajectories were identiﬁed that correspond to distinct 
-in-hospital mortality risk. Including platelet count did not signiﬁcantly enhance prediction accuracy 
-at early stages (day 1 C-indexDynamic vs C-indexWeibull: 0.713 vs 0.714). However, our model showed 
-superior performance to the static survival model over time (day 14 C-indexDynamic vs C-indexWeibull: 
-0.644 vs 0.617).
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+original reports
+Absolute Improvements in Freedom From Distant
+Recurrence to Tailor Adjuvant Endocrine
+Therapies for Premenopausal Women: Results
+From TEXT and SOFT
+Olivia Pagani, MD1; Prudence A. Francis, MD2; Gini F. Fleming, MD3; Barbara A. Walley, MD4; Giuseppe Viale, MD5; Marco Colleoni, MD6;
+Istv´an L´ang, MD, PhD7; Henry L. G´omez, MD, PhD8; Carlo Tondini, MD9; Graziella Pinotti, MD10; Angelo Di Leo, MD, PhD11;
+Alan S. Coates, MD12; Aron Goldhirsch, MD6; Richard D. Gelber, PhD13; and Meredith M. Regan, ScD14 for the SOFT and TEXT
+Investigators and International Breast Cancer Study Group
+abstract
+PURPOSE The Tamoxifen and Exemestane Trial (TEXT)/Suppression of Ovarian Function Trial (SOFT) showed
+superior outcomes for premenopausal women with hormone receptor (HR)–positive breast cancer treated with
+adjuvant exemestane plus ovarian function suppression (OFS) or tamoxifen plus OFS versus tamoxifen alone.
+We previously reported the magnitude of absolute improvements in freedom from any recurrence across
+a continuous, composite measure of recurrence risk to tailor decision making. With longer follow-up, we now
+focus on distant recurrence.
+METHODS The TEXT/SOFT HR-positive/human epidermal growth factor receptor 2 (HER2)–negative analysis
+population included 4,891 women stratiﬁed by predetermined chemotherapy use. Kaplan-Meier estimates of
+8-year freedom from distant recurrence were analyzed using subpopulation treatment effect pattern plot
+(STEPP) methodology across subpopulations deﬁned by the continuous composite measure of recurrence risk.
+For each patient, the composite risk value was obtained from a Cox model that incorporated age; nodal status;
+tumor size; grade; and estrogen receptor, progesterone receptor, and Ki-67 labeling index expression levels.
+RESULTS The overall rate of 8-year freedom from distant recurrence was 91.1% and ranged from approximately
+100% to 63% across lowest to highest composite risks. TEXT patients who received chemotherapy had an
+average absolute improvement with exemestane plus OFS versus tamoxifen plus OFS of 5.1%, and STEPP
+analysis showed improvements from less than 1% to more than 15% from lowest to highest composite risks.
+SOFT patients who remained premenopausal after chemotherapy had an average 5.2% absolute improvement
+with exemestane plus OFS versus tamoxifen and reached 10% across composite risks; for tamoxifen plus OFS
+versus tamoxifen, the maximum improvement was approximately 3.5%. Women who did not receive che-
+motherapy had a more than 97% rate of 8-year freedom from distant recurrence, and improvements with
+exemestane plus OFS ranged from 1% to 4%.
+CONCLUSION Premenopausal women with HR-positive/HER2-negative breast cancer and high recurrence risk, as
+deﬁned by clinicopathologic characteristics, may experience a 10% to 15% absolute improvement in 8-year
+freedom from distant recurrence with exemestane plus OFS versus tamoxifen plus OFS or tamoxifen alone. The
+potential beneﬁt of escalating endocrine therapy versus tamoxifen alone is minimal for those at low recurrence risk.
+J Clin Oncol 38:1293-1303. © 2019 by American Society of Clinical Oncology
+Creative Commons Attribution Non-Commercial No Derivatives 4.0 License
+INTRODUCTION
+Adjuvant endocrine therapy recommendations for
+premenopausal women with hormone receptor (HR)–
+positive breast cancer have changed on the basis of the
+5-year results of the Tamoxifen and Exemestane Trial
+(TEXT) and the Suppression of Ovarian Function Trial
+(SOFT; ClinicalTrials.gov identiﬁers: NCT00066703 and
+NCT00066690, respectively).1,2 Tamoxifen alone re-
+mains the standard of care in women at low risk of
+relapse, as deﬁned by clinical and pathologic features,
+and by genomic parameters, when available. Ovarian
+function suppression (OFS) should be proposed to
+patients at higher risk for recurrence in addition to oral
+endocrine therapy with either tamoxifen or an aromatase
+inhibitor.3-6
+A secondary analysis of the women enrolled in TEXT
+and SOFT with HR-positive/human epidermal growth
+factor receptor 2 (HER2)–negative cancers estimated
+ASSOCIATED
+CONTENT
+See accompanying
+Oncology Grand
+Rounds on page 1258
+Appendix
+Author afﬁliations
+and support
+information (if
+applicable) appear
+at the end of this
+article.
+Accepted on August
+29, 2019 and
+published at
+ascopubs.org/journal/
+jco on October 16,
+2019: DOI https://doi.
+org/10.1200/JCO.18.
+01967
+Volume 38, Issue 12 1293
 
 # Page 2
 
-2
-Burns & Trauma, 2024, Vol. 12, tkae016
-Conclusions: For septic patients in an intensive care unit, the rapid decline in platelet counts is a 
-critical prognostic factor, and serial platelet measures are associated with prognosis.
-Key words: Sepsis, Platelet count trajectory, Joint latent class model, Dynamic prediction, Intensive care medicine 
-Highlights 
-• Intensive care unit septic patients exhibit significant heterogeneity in platelet count trajectories, with distinct subgroups 
-showing significant stratification in mortality risk. 
-• For intensive care unit patients with septic shock, rapid decline in platelet count in the early stages and persistent 
-thrombocytopenia are important prognostic factors. 
-• Real-time updates of risk based on repeated platelet count measurements may enhance further the predictive capability of the 
-model. 
-Background 
-Sepsis is a life-threatening condition caused by dysregulated 
-host response to infection, leading to systemic inflammation, 
-tissue damage and organ failure. It is also one of the leading 
-causes of intensive care unit (ICU) admission and mortality 
-[1]. Platelets play a critical role in clotting, inflammation and 
-immune responses, all of which are linked to the occurrence, 
-development and prognosis of sepsis [2–4]. 
-Previous studies showed that decreasing platelet count 
-during ICU stay was related to higher risk of mortality in 
-septic patients [5–7],and the association between dynamic 
-trajectory patterns of platelet count after ICU admission and 
-mortality has been studied extensively [8–11]. Septic patients 
-often exhibit abnormal activation and over-consumption 
-of platelets, which subsequently lead to thrombocytopenia, 
-thereby increasing bleeding risk [12]. Results from multiple 
-studies have described the prognostic value of early changes 
-in platelet count in septic patients [11, 13]. However, the 
-relationship between trajectories of repeated measures of 
-platelet count collected from daily clinical practice and the 
-prognosis of septic patients is not yet clear. 
-The aim of this study is to identify heterogenous platelet 
-count trajectories by leveraging the public electronic health 
-record using the joint latent class model (JLCM), which 
-integrates a latent class mixed model with a survival model, 
-and to explore the relationship between platelet dynamics and 
-an unfavorable prognosis. 
-Methods 
-Study design and populations 
-This study is a multi-cohort, retrospective, observational 
-study based on data from the eICU Collaborative Research 
-Database (eICU-CRD) v2.0 and the Medical Information 
-Mart for Intensive Care IV (MIMIC-IV) v2.0 database 
-available at PhysioNet (certification number: 49953233). We 
-extracted patients diagnosed with sepsis 24 hours prior to 
-or 48 hours after ICU admission, consistent with a previous 
-study [11], patients were excluded if they met any of the 
-following criteria: (1) repeated ICU admissions; (2) age 
-<18 years; (3) length of ICU stay <24 h; (4) missing baseline 
-platelet count; and (5) platelet count measurements <2 times 
-within 28 days of ICU admission. Ultimately, a total of 11,016 
-ICU septic patients from eICU-CRD and 7,796 from MIMIC-
-IV were included in our analysis. Patients from eICU-CRD 
-were included as the discovery set while septic patients from 
-MIMIC-IV were included in the validation set. 
-Laboratory measurements and clinical characteristics 
-Longitudinal platelet counts measured continuously over a 
-28 day period after ICU admission were collected from both 
-databases. We extracted variables including demographic 
-information, laboratory tests, vital signs, comorbidities and 
-interventions during ICU stay. 
-Outcomes 
-The outcome is survival status and corresponding survival 
-time within 28days of hospital stay. Survival time was defined 
-as the time from ICU admission to either death or loss 
-to follow-up at the end of the study, whichever occurred 
-first. Patients who were discharged from the hospital within 
-28 days or who remained alive after 28 days were considered 
-censored. 
-Statistical analysis 
-Step 1: identification of subpopulations JLCM was used for 
-identifying subpopulations with heterogenous platelet tra-
-jectories in eICU-CRD. For the longitudinal model, a latent 
-class mixed model was fitted. We used a parametric sur-
-vival model with the baseline hazard function following a 
-class-specific Weibull distribution. Baseline platelets, acute 
-physiology score III (APS III) and the Charlson comorbidity 
-index (CCI) were included as covariates. The optimal number 
-of classes was determined by Akaike information criterion 
-(AIC), Bayesian information criteria (BIC), sample-adjusted 
-BIC (SABIC) and entropy [14]. The R package lcmm (version 
-2.0.2) was used for modeling. 
-Step 2: trajectories visualization We compared the labora-
-tory measurements and clinical characteristics in four classes. 
-Corresponding trajectory patterns along with Kaplan-Meier
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+absolute improvements in 5-year freedom from breast
+cancer (including invasive locoregional, distant, or con-
+tralateral breast cancer) according to recurrence risk de-
+ﬁned from clinicopathologic characteristics. The women at
+high recurrence risk experienced absolute improvements
+of 10% to 15% with exemestane plus OFS versus tamoxifen
+plus OFS and versus tamoxifen alone, and improvements
+were of at least 5% for women at intermediate risk.7 In
+contrast, improvement was minimal for women at lowest risk.
+Such estimates of the absolute magnitude of improvement
+can help clinicians to weigh beneﬁts against adverse effects
+in treatment decisions with individual patients.
+Recent updates of TEXT and SOFT after a median follow-up
+of 9 and 8 years, respectively, demonstrated signiﬁcant
+improvement in disease-free and overall survival with the
+addition of OFS to tamoxifen in the SOFT population.8 The
+combined analysis of TEXT and SOFT demonstrated sus-
+tained improvements with exemestane plus OFS versus
+tamoxifen plus OFS in disease-free survival, freedom from
+breast cancer, and freedom from distant recurrence but not
+from overall survival.8 Among the patients with HR-positive/
+HER2-negative tumors, the rate of freedom from distant
+recurrence was improved by 3.6% with the use of
+exemestane plus OFS versus tamoxifen and by 3.5% with
+exemestane plus OFS versus tamoxifen plus OFS.
+Distant recurrence in a premenopausal woman has per-
+sonal, economic, and social costs of greater impact than
+locoregional recurrence.9 Greater toxicity may be accept-
+able in prevention of distant recurrence, which generally
+portends premature death as a result of breast cancer. With
+extended follow-up, we are now able to reﬁne the esti-
+mates of absolute treatment effects in preventing distant
+recurrence across the spectrum of recurrence risk in
+the subgroup of women with HR-positive/HER2-negative
+cancers.
+METHODS
+Study Designs
+The designs and conduct of the trials have been described
+previously.1,2 In both trials, eligible premenopausal women
+had invasive early breast cancer assessed as 10% or
+greater estrogen receptor (ER)– and/or progesterone re-
+ceptor (PgR)–expressing cells by local determination. The
+ethics committee at each participating center approved the
+study protocols, and all patients provided written informed
+consent for trial participation and mandatory tissue col-
+lection for central pathology assessment. Central review of
+histopathologic features and expression of ER, PgR, HER2,
+and Ki-67 labeling index (Ki-67) was conducted for 84% of
+trial patients in the International Breast Cancer Study Group
+Central Pathology Ofﬁce.10
+In TEXT, all women received OFS by gonadotropin-
+releasing hormone agonist triptorelin from the start of ad-
+juvant therapy; after at least 6 months of triptorelin, patients
+could opt for bilateral oophorectomy or ovarian irradiation.
+Chemotherapy was optional and if administered, was
+started concurrently with triptorelin. Between November
+2003 and March 2011, 2,672 premenopausal women were
+randomly assigned to 5 years of exemestane plus OFS
+or tamoxifen plus OFS. Randomization was stratiﬁed ac-
+cording to intended use of adjuvant chemotherapy and
+lymph node status.
+SOFT was designed to determine the value of adding OFS to
+tamoxifen and the role of exemestane plus OFS in two
+cohorts of premenopausal women: those who remained
+premenopausal after completion of (neo)adjuvant che-
+motherapy and those for whom adjuvant tamoxifen without
+chemotherapy was considered suitable treatment. Be-
+tween December 2003 and January 2011, 3,066 women
+were randomly assigned to 5 years of exemestane plus OFS
+or tamoxifen plus OFS or tamoxifen alone. Randomization
+was stratiﬁed according to prior use of chemotherapy,
+lymph node status, and intended initial method of OFS (if
+randomly assigned to OFS).
+End Point and Statistical Considerations
+The analysis population was previously deﬁned and in-
+cluded 4,891 patients with tumors centrally assessed as
+HR positive/HER2 negative7 (Appendix Fig A1, online only).
+Distant recurrence–free interval (DRFI) was deﬁned as the
+duration of time from random assignment until ﬁrst ap-
+pearance of invasive breast cancer recurrence at a distant
+site; in the absence of a distant recurrence, DRFI was
+censored at date of last follow-up. The median follow-up
+was 9 years in TEXT and 8 years in SOFT.8
+While following the approach previously described,7 the
+composite measure of recurrence risk (hereafter referred to
+as composite risk) was determined for the entire HR-
+positive/HER2-negative analysis population by ﬁtting a Cox
+proportional hazards regression model for DRFI, stratiﬁed
+by cohort (deﬁned by trial and chemotherapy use) and
+treatment assignment. This use of a stratiﬁed model pro-
+vided the same risk scale for the two trials, which do not
+share a common control group. Prognostic factors included
+in the model and their groupings were speciﬁed a priori,
+and there was no intention to optimize the model on the
+basis of model selection procedures (Table 1; Appendix
+Table A1, online only). For tumor grade and ER and PgR
+expression, the centrally determined values were used
+when available, and locally determined values were used
+otherwise; Ki-67 expression was available only from central
+assessment. Unknown categories were used to avoid
+systematic exclusion of patients without centrally assessed
+tumor features. After estimating the model parameters, the
+composite risk value was calculated for each trial patient by
+summing the model parameter estimates corresponding to
+her observed values of clinicopathologic factors.
+Nonparametric sliding window subpopulation treatment
+effect pattern plot (STEPP) methodology11,12 was used to
+1294 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 3
 
-Burns & Trauma, 2024, Vol. 12, tkae016
+investigate patterns in absolute treatment effects as mea-
+sured by Kaplan-Meier estimates of 8-year freedom
+from distant recurrence (y-axis) across the continuum of
+composite risk values (x-axis). The STEPP of the overall
+analysis population had a window size of 500 and was slid
+by 300 patient values to form each subpopulation. For
+TABLE 1. Clinicopathologic Characteristics of the HR-Positive/HER2-Negative Analysis Population of TEXT and SOFT
+Patients, %
+Model
+Characteristic
+TEXT
+Chemotherapy
+(n = 1,276)
+SOFT Prior
+Chemotherapy
+(n = 1,271)
+TEXT No
+Chemotherapy
+(n = 991)
+SOFT No
+Chemotherapy
+(n = 1,353)
+All
+Patients
+(N = 4,891)
+Parameter
+Estimate
+SE
+Hazard Ratio
+(95% CI)
+Age at random
+assignment,
+years
+, 35
+11.1
+18.3
+3.7
+1.5
+8.8
+0.77
+0.17
+2.2 (1.6 to 3.0)
+35-39
+17.3
+29.5
+11.4
+7.6
+16.6
+0.62
+0.15
+1.9 (1.4 to 2.5)
+40-44
+34.6
+32.0
+34.4
+27.3
+31.9
+0.17
+0.15
+1.2 (0.9 to 1.6)
+45-49
+31.6
+16.8
+38.8
+46.2
+33.2
+0 (ref)
+$ 50
+5.4
+3.5
+11.6
+17.4
+9.5
+0.06
+0.26
+1.1 (0.6 to 1.8)
+No. of positive
+nodes
+0
+31.4
+41.5
+78.3
+91.3
+60.1
+0 (ref)
+1-3
+44.0
+40.1
+21.5
+8.6
+28.6
+0.54
+0.13
+1.7 (1.3 to 2.2)
+$ 4
+24.6
+18.4
+0.2
+0.1
+11.3
+1.38
+0.14
+4.0 (3.0 to 5.2)
+Tumor size, cm
+Unknown
+1.6
+3.9
+0.3
+0.7
+1.7
+0.89
+0.26
+2.4 (1.5 to 4.0)
+# 2
+46.5
+49.6
+79.8
+85.9
+64.9
+0 (ref)
+. 2
+51.9
+46.5
+19.9
+13.5
+33.4
+0.58
+0.11
+1.8 (1.4 to 2.2)
+ER expression, %
+Unknown
+1.8
+1.3
+1.7
+1.0
+1.5
+20.20
+0.62
+0.8 (0.2 to 2.8)
+, 50
+5.1
+5.9
+2.0
+2.7
+4.0
+0.14
+0.18
+1.2 (0.8 to 1.7)
+$ 50
+93.1
+92.8
+96.3
+96.3
+94.5
+0 (ref)
+PgR expression, %
+Unknown
+2.0
+1.8
+1.9
+1.6
+1.8
+1.17
+0.53
+3.2 (1.1 to 9.1)
+, 20
+12.8
+18.3
+5.9
+4.1
+10.4
+0.44
+0.13
+1.6 (1.2 to 2.0)
+20-49
+10.4
+10.3
+7.1
+4.9
+8.2
+0.29
+0.15
+1.3 (1.0 to 1.8)
+$ 50
+74.8
+69.6
+85.2
+89.4
+79.6
+0 (ref)
+Tumor grade
+1
+12.9
+15.7
+25.4
+37.3
+22.9
+0 (ref)
+2
+56.8
+57.4
+59.2
+53.5
+56.5
+0.81
+0.23
+2.3 (1.4 to 3.5)
 3
-(KM) curves were given. Furthermore, we estimated the time-
-dependent hazard ratio (HR) using a piecewise Cox regres-
-sion model; the cut point for generating time interval was 
-determined by searching for the highest log-likelihood value 
-[15, 16]. 
-Step 3: model evaluation and comparison JLCM can estimate 
-survival probability dynamically at given days of follow-up 
-(landmark time) till any time point after that, so the model 
-could be used for dynamic prediction. We compared our 
-model developed from step 1 with a Weibull survival model 
-using the same set of covariates, including APS III, CCI and 
-baseline platelet count. Each day between the first day of ICU 
-admission till day 14 was defined as a landmark time point. 
-Predicted probability from landmark time till day 28 among 
-patients still alive at the landmark time were derived from 
-both models. Patients who experienced the outcome before 
-the landmark time were excluded from the analysis of that 
-particular landmark time [17]. 
-We used time-dependent area under receiver operating 
-characteristic curve (AUC), concordance index (C-index), 
-accuracy, sensitivity and specificity at different landmark 
-times to evaluate the performance of the dynamic prediction 
-model. The 95% confidence intervals (CI) for AUCs and 
-C-indices were obtained using 2000 times bootstrap, and 
-the comparison was performed using permutation tests by 
-shuffling 2000 times at each landmark time. 
-Step 4: individual prediction For individual dynamic predic-
-tion, the model was applied in two patients. Also, we com-
-pared the Weibull survival model with our model under the 
-setting of individual prediction. For continuous variables, the 
-Kolmogorov-Smirnov test was used to test normality. Nor-
-mally distributed continuous variables were represented with 
-mean and standard deviation (SD). Group comparisons were 
-conducted using t-test or analysis of variance. For data that 
-followed a non-normal distribution, median and interquar-
-tile range were used; Mann-Whitney test and the Kruskal-
-Wallis test were applied for group comparisons according 
-to the number of groups. A two-tailed P value < 0.05 was 
-considered statistically significant. Data was extracted using 
-PostgreSQL 14 and all statistical analyses were performed 
-using R (version 4.1.2). Detailed descriptions of statistical 
-methods are provided in the supplementary methods file (see 
-online supplementary material). 
-Results 
-Baseline characteristics of study populations 
-We analyzed a total of 11,016 septic patients from the eICU-
-CRD, 19.4% (2,138 patients) of the patients died before 
-hospital discharge. For MIMIC-IV, 7796 patients passed the 
-exclusion criteria and 19.3% (1,507 patients) died during 
-hospital stay. Figure 1 illustrates the patient exclusion pro-
-cess, while Table 1 summarizes the baseline characteristics 
-Figure 1. Flowchart illustrating the process of patient selection. eICU-CRD eICU Collaborative Research Database, MIMIC-IV Medical Information Mart for Intensive 
-Care IV 
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+30.3
+27.0
+15.3
+9.2
+20.6
+0.78
+0.26
+2.2 (1.3 to 3.6)
+Ki-67 expression, %
+Unknown
+18.8
+20.9
+19.1
+20.0
+19.7
+20.08
+0.20
+0.9 (0.6 to 1.4)
+, 14
+15.6
+19.5
+27.1
+37.4
+25.0
+0 (ref)
+14-19
+23.0
+23.8
+26.4
+23.9
+24.2
+20.10
+0.20
+0.9 (0.6 to 1.3)
+20-25
+18.3
+17.0
+13.6
+11.2
+15.1
+0.26
+0.20
+1.3 (0.9 to 1.9)
+$ 26
+24.3
+18.7
+13.7
+7.5
+16.0
+0.49
+0.21
+1.6 (1.1 to 2.5)
+NOTE. Characteristics are overall and according to cohort deﬁned by trial and chemotherapy use, and parameter estimates of the Cox proportional hazards
+regression model deﬁne the composite measure of recurrence risk (n = 4,891). Values of grade and ER and PgR expression were centrally determined if
+available and locally determined otherwise; Ki-67 expression was available only by central determination.
+Abbreviations: ER, estrogen receptor; HER2, human epidermal growth factor receptor 2; HR, hormone receptor; Ki-67, labeling index Ki-67; PgR,
+progesterone receptor; ref, referent group; SOFT, Suppression of Ovarian Function Trial; TEXT, Tamoxifen and Exemestane Trial.
+Journal of Clinical Oncology
+1295
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 4
 
-4
-Burns & Trauma, 2024, Vol. 12, tkae016
-Table 1. Clinical baseline characteristics of patients in eICU-CRD and MIMIC-IV database 
-eICU-CRD v2.0 
-(N = 11 016) 
-MIMIC-IV v2.0 
-(N = 7796) 
-Basic characteristics 
-Age (years), median [IQR]
-68.00 [57.00, 79.00]
-68.24 [56.55, 79.56] 
-Gender, n (%) 
-Female
-5271 (47.9)
-3419 (43.9) 
-Male
-5744 (52.1)
-4377 (56.1) 
-Missing value
-1
-0 
-Ethnicity, n (%) 
-Asian
-177 (1.6)
-260 (3.3) 
-Black/African American
-1094 (10.0)
-794 (10.2) 
-Caucasian
-8660 (79.0)
-5199 (66.7) 
-Hispanic/Latino
-454 (4.1)
-290 (3.7) 
-Native American
-86 (0.8)
-31 (0.4) 
-Other/Unknown
-485 (4.4)
-1222 (15.7) 
-Missing value
-60
-0 
-Admission unit type, n (%) 
-Medical intensive care unit (MICU)
-1377 (12.5)
-2373 (30.4) 
-Surgical intensive care unit (SICU)
-7706 (70.0)
-4118 (52.8) 
-Cardiac related Intensive Care Unit
-1682 (15.3)
-1164 (14.9) 
-Neuro-related intensive care unit
-251 (2.3)
-141 (1.8) 
-BMI (kg/m2), median [IQR]
-27.26 [22.96, 33.32]
-28.06 [24.07, 33.35] 
-Illness severity 
-APS-III, median [IQR]
-58.00 [44.00, 76.00]
-58.00 [44.00, 79.00] 
-SOFA, median [IQR]
-6.00 [4.00, 8.00]
-7.00 [4.00, 10.00] 
-Laboratory 
-Platelet count(×109/L), median [IQR]
-167.00 [111.00, 234.25]
-162.00 [103.00, 235.00] 
-INR, median [IQR]
-1.30 [1.12, 1.70]
-1.30 [1.10, 1.60] 
-Calcium (mg/dL), median [IQR]
-7.70 [7.20, 8.30]
-7.70 [7.20, 8.30] 
-BUN (mg/dL), median [IQR]
-27.00 [17.00, 44.00]
-23.00 [14.00, 39.00] 
-Blood gas 
-PaO2 (mmHg), median [IQR]
-80.00 [64.57, 106.00]
-57.00 [39.00, 86.00] 
-PaCO2 (mmHg), median [IQR]
-35.00 [29.00, 41.40]
-35.00 [30.00, 41.00] 
-pH, median [IQR]
-7.32 [7.23, 7.39]
-7.31 [7.23, 7.38] 
-Base excess (mEq/L), median [IQR]
-−4.10 [−9.10, 0.90]
-−4.00 [−8.00, 0.00] 
-Vital signs 
-Heart rate (/min), median [IQR]
-77.00 [66.00, 89.00]
-75.00 [64.00, 86.00] 
-Respiratory rate (/min), median [IQR]
-14.00 [11.00, 17.00]
-13.00 [11.00, 16.00] 
-Temperature (◦C), median [IQR]
-36.40 [36.00, 36.70]
-36.44 [36.06, 36.69] 
-SBP (mmHg), median [IQR]
-83.00 [74.00, 95.00]
-85.00 [77.00, 94.00] 
-DBP (mmHg), median [IQR]
-44.00 [36.00, 51.00]
-43.00 [37.00, 50.00] 
-Chronic conditions 
-Charlson comorbidity score, median [IQR]
-5.00 [3.00, 7.00]
-6.00 [4.00, 8.00] 
-Chronic pulmonary disease, n (%) 
-No
-8727 (79.2)
-5689 (73.0) 
-Yes
-2289 (20.8)
-2107 (27.0) 
-Diabetes, n (%) 
-No
-7297 (66.2)
-6969 (89.4) 
-Yes
-3719 (33.8)
-827 (10.6) 
-Chronic renal disease, n (%) 
-No
-8519 (77.3)
-5833 (74.8) 
-Yes
-2497 (22.7)
-1963 (25.2) 
-Malignant cancer, n (%) 
-No
-8992 (81.6)
-6392 (82.0) 
-Yes
-2024 (18.4)
-1404 (18.0) 
-Intervention during ICU 
-Dialysis, n (%) 
-No
-10 509 (95.4)
-7184 (92.1) 
-Yes
-507 (4.6)
-612 (7.9) 
-(Continued) 
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+SOFT and TEXT, the size of windows were 420 and 300,
+respectively, and slid by 120 and 150 patient values, re-
+spectively. With this approach, most composite risk values
+are represented in more than one subpopulation.
+RESULTS
+Among the 4,891 patients in the HR-positive/HER2-
+negative analysis population, the clinicopathologic char-
+acteristics across the four trial cohorts reﬂected the selection
+of adjuvant chemotherapy use and whether OFS would be
+received by all patients (TEXT) or by random assignment
+(SOFT; Table 1; Appendix Table A1). Poor prognostic
+features were more frequent on average among the co-
+horts who received chemotherapy. The distribution of age
+(youngest among patients in SOFT who received che-
+motherapy before enrollment) reﬂected the SOFT eligi-
+bility criteria that patients remain premenopausal after
+chemotherapy.
+The relationship of each of the seven clinicopathologic
+characteristics individually with DRFI is shown in Figure 1.
+The estimated 8-year freedom from distant recurrence
+rates are shown for each characteristic by treatment group,
+along with the relative treatment effects, in Figure 2 and
+Appendix Figures A2 and A3 (online only) and listed in
+Appendix Tables A2-A6 (online only).
+The clinicopathologic characteristic with the greatest
+contribution to the multivariable model for the composite
+measure of recurrence risk, relative to the complementary
+reference category, was four or more positive nodes fol-
+lowed by tumor grade 2 or 3 and younger age (Table 1); one
+to three positive nodes, tumor size greater than 2 cm, PgR
+less than 20%, and Ki-67 of 26% or more contributed
+similarly. ER less than 50% had a very small contribution
+possibly because only 4% of patients had low ER ex-
+pression described.10 The distribution of resulting com-
+posite risks is illustrated for the overall population in
+Figure 3 and summarized by each characteristic subgroup
+in Appendix Table A7 (online only).
+Overall, for the 4,891 patients, 433 distant recurrences
+were reported, and the 8-year freedom from distant re-
+currence rate was 91.1% (95% CI, 90.2% to 92.0%).
+When the clinicopathologic features were integrated as
+a composite measure of recurrence risk (median, 1.42;
+interquartile range [IQR], 0.81-2.15), the 8-year freedom
+from distant recurrence rate varied markedly across patient
+populations, ranging from approximately 100% to 63%
+among patients in the subpopulations with lowest com-
+posite risks to highest composite risks, respectively (Fig 3).
+As expected, the majority of distant recurrences occurred
+among patients who received chemotherapy (Fig 4).
+Patients for Whom Chemotherapy Was Part of
+Adjuvant Therapy
+The patients who received chemotherapy, whether in TEXT
+or SOFT, had similar distributions of composite risk values
+(Figs 5A and 5B), with a median composite risk of 2.02
+(IQR, 1.43-2.71) and 2.00 (IQR, 1.42-2.68), respectively.
+TEXT patients who received chemotherapy after enrollment
+had an average 8-year freedom from distant recurrence
+rate of 87.5% (159 distant recurrences among 1,276
+patients after a median follow-up of 9 years). The average
+absolute improvement in freedom from distant recurrence
+with exemestane plus OFS versus tamoxifen plus OFS was
+5.1% (90.0% v 84.9%; Fig 4A). The STEPP analysis
+showed a distinct pattern of increasing magnitude of im-
+provement with exemestane plus OFS as composite risk
+increased and reached more than 15% in the sub-
+population with the highest composite risks (Fig 5A).
+Patients enrolled in SOFT who remained premenopausal
+after chemotherapy had an 8-year freedom from distant
+recurrence rate of 82.5% (216 distant recurrences among
+1,271 patients after a median follow-up of 8 years). The
+average absolute improvement with exemestane plus OFS
+versus tamoxifen was 5.2% (86.2% v 81.0%; Fig 4B). The
+STEPP analysis suggested that all patients across com-
+posite risks beneﬁted from exemestane plus OFS versus
+tamoxifen, with the maximum absolute improvement of
+approximately 10% (Fig 5B). The absolute improvement
+with tamoxifen plus OFS versus tamoxifen alone ranged from
+0 to at most approximately 3.5% for the subpopulations with
+the highest composite risks.
+Patients for Whom Endocrine Therapy Alone Was Planned
+as Adjuvant Therapy
+In contrast to the patients who received chemotherapy,
+those who received only adjuvant endocrine therapy had
+lower composite risks. In TEXT, the median composite risk
+was 1.13 (IQR, 0.72-1.56), and in SOFT, the median was
+0.81 (IQR, 0.17-1.27; Fig 5).
+Among the 991 patients in TEXT who did not receive
+chemotherapy, 35 experienced a distant recurrence after
+a median follow-up of 9 years, and the overall 8-year
+freedom from distant recurrence rate was 97.0%. The
+overall absolute improvement in 8-year freedom from
+distant recurrence with exemestane plus OFS versus ta-
+moxifen plus OFS was less than 1% (97.4% v 96.5%;
+Fig 4C). The STEPP analysis showed absolute improvement
+with exemestane plus OFS only in the subpopulations with
+the highest composite risks, for a maximum magnitude of
+improvement in the range of 2.5% to 4% (Fig 5C).
+The 1,353 patients in SOFT who did not receive chemo-
+therapy had the lowest composite risks, 23 patients ex-
+perienced a distant recurrence after a median follow-up of
+8 years. The overall 8-year freedom from distant recurrence
+rate was 98.5%, and for exemestane plus OFS, tamoxifen
+plus OFS, and tamoxifen, the rate was 99.3%, 98.3%,
+and 98.0%, respectively (Fig 4D). The absolute im-
+provement in 8-year freedom from distant recurrence with
+exemestane plus OFS versus tamoxifen ranged from
+approximately 1% to 2.5%, and the improvement with
+1296 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 5
 
-Burns & Trauma, 2024, Vol. 12, tkae016
-5
-Table 1. Continued 
-eICU-CRD v2.0 
-(N = 11 016) 
-MIMIC-IV v2.0 
-(N = 7796) 
-Invasive mechanical ventilation, n (%) 
-No
-6928 (62.9)
-4067 (52.2) 
-Yes
-4088 (37.1)
-3729 (47.8) 
-Vasopressors, n (%) 
-No
-6581 (59.7)
-6299 (80.8) 
-Yes
-4435 (40.3)
-1497 (19.2) 
-Antiplatelet drugs, n (%) 
-No
-9112 (82.7)
-6754 (86.6) 
-Yes
-1904 (17.3)
-1042 (13.4) 
-Clinical outcomes 
-ICU length of stay (days), median [IQR]
-3.34 [2.10, 5.95]
-3.59 [2.04, 7.51] 
-Hospital length of stay (days), median [IQR]
-8.24 [5.12, 13.92]
-11.17 [6.37, 20.28] 
-Clinical outcome, n (%) 
-Discharged alive or censored at 28-day
-8878 (80.6)
-6289 (80.7) 
-Non-survivors
-2138 (19.4)
-1507 (19.3) 
-BMI Body Mass Index, INR International Normalized Ratio, BUN Blood Urea Nitrogen, SBP Systolic Blood Pressure, DBP Diastolic Blood Pressure, eICU-CRD 
-eICU Collaborative Research Database 
-Table 2. Metrics for determining the optimal number of classes 
-No. of 
-classes 
-Log 
-likelihood 
-AIC
-BIC
-SABIC
-Entropy
-Proportion of people (%) 
-Class 1 
-Class 2 
-Class 3 
-Class 4 
-Class 5 
-Class 6 
 1
-−368180.9 
-736387.7
-736482.7
-736441.4
-1.000000
-100.00 
-2
-−361110.7 
-722261.5
-722407.6
-722344.0
-0.288320
-41.30
-58.70 
-3
-−357940.8 
-715935.5
-716132.8
-716047.0
-0.419255
-9.69
-81.27
-9.03 
-4
-−356005.9 
-712079.8
-712328.3
-712220.2
-0.500194
-6.83
-79.44
-4.52
-9.21 
-5
-−354668.9 
-709419.7
-709719.3
-709589.0
-0.477130
-4.08
-4.31
-21.97
-4.12
-65.51 
+0
 6
-−353406.6 
-706909.2
-707259.9
-707107.4
-0.406051
-4.14
-19.25
-42.12
-4.31
-26.19
-3.99 
-AIC akaike information criterion, BIC bayesian information criteria, SABIC sample-adjusted information criteria 
-of patients in two datasets; additional clinical character-
-istics are provided in Table S1 (see online supplementary 
-material). 
-Identiﬁcation of subpopulations using the JLCM 
-The metrics of the goodness-of-fit model is shown in Table 2 
-and includes the maximum log-likelihood, AIC, SABIC and 
-entropy for JLCMs, while the optimal number of classes were 
-prespecified from 1 to 6. We observed a consistent decrease 
-in maximum log-likelihood, AIC and SABIC as the number of 
-classes increased. A class of four exhibited the highest entropy, 
-so was considered the best-fitted model, which has maximum 
-log-likelihood of −356,005.9, AIC of 712,079.8 and SABIC 
-of 712,220.2. The average posterior probability of each class 
-is presented in Table S2 (see online supplementary material) 
-and the posterior probabilities above a threshold (%) of each 
-class are presented in Table S3 (see online supplementary 
-material). 
-The trajectories are presented in Figure 2a, c. Class 1 is 
-an inverted U shape, while class 2 shows a slight increase. 
-Class 3 exhibited an initial decrease followed by an increase, 
-eventually leveling off. Class 4 showed a rapid decline from a 
-high baseline level and then stabilized at a relatively low level. 
-We labeled the trajectories as follows: class 1 (inverted-U; 
-n = 752; 6.83%), class 2 (slight-increase; n = 8,751; 79.44%), 
-class 3 (decrease-increase-intermediate; n = 498; 4.52%) and 
-class 4 (decrease-low; n = 1015; 9.21%). The average poste-
-rior probabilities for the four trajectory groups in eICU-CRD 
-were 0.807 for class 1, 0.689 for class 2, 0.825 for class 3 and 
-0.797 for class 4 (Table S2, see online supplementary mate-
-rial). Similarly, Tables S4 and S5 (see online supplementary 
-material) provide information on the average posterior prob-
-abilities and posterior probabilities above a threshold in the 
-MIMIC-IV. 
-We also present the changes in platelet measurements 
-across four classes over different time periods, as well as 
-predicted survival probabilities based on these measurements. 
-We adjusted baseline APS III and CCI for the four groups to 
-ensure consistency. We found that as more platelet measure-
-ments were included in the model, the predicted probabilities 
-for the four classes began to diverge. After ∼1 week of platelet 
-measurements, the predicted survival probability curves for
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+82.7
+91.5
+97.8
+(90.3 to 92.6)
+DRs
+Patients
+1,120
+27
+2,765
+240
+1,006
+166
+(80.0 to 85.1)
+(96.6 to 98.6)
+8-Year % (95% CI)
+3
+2
+1
+Tumor grade
+Time Since Random Assignment (years)
+F
+Patients Free From 
+DR (%)
+E
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+79.5
+85.1
+93.4
+(80.9 to 88.3)
+DRs
+Patients
+3,892
+264
+400
+63
+509
+96
+(75.4 to 82.9)
+(92.5 to 94.2)
+8-Year % (95% CI)
+< 20
+20-49
+ 50
+PgR expression, 
+%
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+D
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+DRs
+Patients
+82.7 (76.2 to 87.5)
+196
+36
+91.5
+4,624
+390
+(90.6 to 92.4)
+8-Year % (95% CI)
+ 50
+ 50
+ER expression, 
+%
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+C
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+83.2
+95.5 (94.7 to 96.3)
+DRs
+Patients
+3,176
+145
+1,632
+270
+(81.2 to 85.0)
+8-Year % (95% CI)
+ 2
+ 2
+Tumor size, 
+cm
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+B
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+67.8
+89.5
+96.3
+(87.7 to 91.1)
+DRs
+Patients
+2,939
+114
+1,401
+151
+551
+168
+(63.4 to 71.8)
+(95.5 to 97.0)
+8-Year % (95% CI)
+≥ 4
+1-3
+0
+No. of positive
+lymph nodes
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+A
+Patients Free From 
+DR (%)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+DRs
+Patients
+8-Year % (95% CI)
+ 35
+35-39
+40-44
+45-49
+ 50
+Age at random
+assignment, 
+years
+96.7
+95.3
+92.1
+(94.0 to 96.3)
+1,560
+120
+1,626
+78
+463
+18
+(94.4 to 98.0)
+(90.5 to 93.4)
+84.2
+78.5
+(81.2 to 86.7)
+430
+88
+812
+129
+(74.0 to 82.3)
+Time Since Random Assignment (years)
+G
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+DRs
+Patients
+8-Year % (95% CI)
+ 26
+20-25
+14-19
+< 14
+Ki-67
+expression, 
+%
+96.1
+93.9
+(94.7 to 97.2)
+1,182
+75
+1,222
+49
+(92.3 to 95.2)
+87.3
+82.2
+(84.4 to 89.7)
+785
+137
+737
+91
+(79.2 to 84.9)
+FIG 1. Kaplan-Meier estimates of distant recurrence (DR)–free interval in the overall hormone receptor–positive/human epidermal
+growth factor receptor 2–negative analysis population according to seven clinicopathologic characteristics. (A) Age at random
+assignment, (B) number of positive lymph nodes, (C) tumor size, (D) estrogen receptor (ER) expression, (E) progesterone receptor
+(PgR) expression, (F) tumor grade, and (G) labeling index Ki-67 (Ki67) expression. Unknown values are omitted.
+Journal of Clinical Oncology
+1297
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 6
 
-6
-Burns & Trauma, 2024, Vol. 12, tkae016
-Figure 2. Trajectory plots and Kaplan–Meier survival curves of patients with four dynamic platelet count trajectory patterns. (a, b) Trajectory plots of platelet 
-count changes within the ﬁrst 28 days after ICU admission in the eICU-CRD database, along with their corresponding survival curves. (c, d) Trajectory plots of 
-platelet count changes within the ﬁrst 28 days after ICU admission in the MIMIC-IV database, along with their corresponding survival curves. eICU-CRD eICU 
-Collaborative Research Database 
-the four classes were consistent with the actual survival curves 
-( Figure 3). 
-Time-dependent HR from piecewise Cox model 
-The KM curve shows different mortality risk among the four 
-classes in both the eICU-CRD and MIMIC-IV (Figure S1a, 
-b, see online supplementary material). Crossing survival 
-curves indicate potential violation of the proportional 
-hazards (P < 0.001). We utilized a piecewise Cox regression 
-to account for time-varying coefficients. We compared the 
-models with different cut points for time splitting, then 
-we selected the model with the highest log-likelihood and 
-determined the optimal cut point of day 3 (Figure S2, see 
-online supplementary material). 
-The results from the piecewise Cox model showed that 
-class 3 had the highest HR of 13.86 (95% CI: 7.42–25.92) for
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+tamoxifen plus OFS versus tamoxifen was at most 1%
+(Fig 5D).
+DISCUSSION
+After 5 years of adjuvant endocrine therapy, breast cancer
+recurrences steadily occur up to 20 years. In an Early
+Breast Cancer Trialists’ Collaborative Group meta-analysis
+(62,923 patients disease free after 5 years of endocrine
+therapy), the risk of distant recurrence was strongly cor-
+related with stage (13% and 41% in T1N0 and T2N2
+disease, respectively) and tumor grade (10% and 17% for
+low-grade T1N0 and high-grade disease, respectively).13 In
+the absence of predictive biomarkers, standard clinico-
+pathologic characteristics continue to provide meaningful
+prognostic information about risk of distant recurrence and
+guide treatment decision making. We put these features
+together into a composite measure of recurrence risk,
+which allows clinicians to better understand and estimate
+the magnitude of beneﬁt of escalating adjuvant endocrine
+therapy in premenopausal women with HR-positive/HER2-
+negative breast cancer.
+The combined analysis of TEXT/SOFT, without regard to
+tumor HER2 status, showed an average 2.1% absolute
+improvement in freedom from distant recurrence at 8 years
+in premenopausal women treated with an aromatase in-
+hibitor versus tamoxifen with OFS.8 This beneﬁt is com-
+parable to that observed for postmenopausal women in the
+Early Breast Cancer Trialists’ Collaborative Group meta-
+analysis, wherein 5 years of aromatase inhibitors were
+associated with a 2% absolute 10-year reduction in distant
+recurrence compared with 5 years of tamoxifen (16.3% v
+14.3%, respectively).14
+We focused on the predominant subgroup with HR-
+positive/HER2-negative cancers. As previously highlighted,15
+SOFT/TEXT data suggest differential relative treatment ef-
+ﬁcacy by HER2 status and show lesser beneﬁt of aromatase
+inhibitors and greater beneﬁt from adding OFS to tamoxifen
+for HER2-positive than for HER2-negative cancers. Sec-
+ondary analyses from the Hormonal Adjuvant Treatment
+Bone Effects (HOBOE)16 and Adjuvant Lapatinib and/or
+Trastuzumab Treatment Optimization (ALTTO)17 trials were
+consistent with this observation. A closer analysis of the
+HER2-positive subgroup is planned.
+Among women with HR-positive/HER2-negative tumors
+who received chemotherapy (on average, a higher-risk
+group), an average 5% absolute improvement was
+8-Year Freedom From Distant Recurrence (95% CI)
+50
+60
+70
+80
+90
+100
+50
+60
+70
+80
+90
+100
+50
+60
+70
+80
+90
+100
+50
+60
+70
+80
+90
+100
+26
+20-25
+14-19
+< 14
+Ki-67 expression, %
+3
+2
+1
+Tumor grade
+< 20
+20-49
+50
+PgR expression, %
+< 50
+50
+ER expression, %
+> 2
+2
+Tumor size, cm
+≥ 4
+1-3
+0
+No. of positive nodes
+< 35
+35-39
+40-44
+45-49
+50
+Age at random assignment, years
+Characteristic
+SOFT No Chemotherapy
+TEXT No Chemotherapy
+SOFT Prior Chemotherapy
+TEXT Chemotherapy
+Overall
+TAM
+EXEM + OFS
+TAM + OFS
+FIG 2. Kaplan-Meier estimates of 8-year freedom from distant recurrence in seven clinicopathologic subgroups in the four patient cohorts deﬁned
+by trial and chemotherapy use according to treatment assignment. The values are listed in Appendix Tables A3 and A6. Unknown values are
+omitted. ER, estrogen receptor; EXEM, exemestane; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR, progesterone receptor;
+SOFT, Suppression of Ovarian Function Trial; TAM, tamoxifen; TEXT, Tamoxifen and Exemestane Trial.
+1298 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 7
 
-Burns & Trauma, 2024, Vol. 12, tkae016
+achieved by escalating endocrine therapy to exemestane
+plus OFS in both TEXT and SOFT. In the STEPP analysis,
+the composite risk for a high-risk scenario (eg, 35 to
+39 years of age, grade 3, pT2pN1a, ER and PgR of 50% or
+greater, Ki-67 26% or greater; composite risk, 3.00; Ap-
+pendix Fig A4A, online only) was represented in sub-
+populations that had an absolute improvement greater
+than the average (range, 7% to 10%). The magnitude of
+B
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
 7
-Figure 3. Mean platelet count and predicted survival probability over time for four classes in eICU-CRD. (a) Platelet measurements in the ﬁrst 1 day and 
-predicted survival probability in the next 27 days; (b) platelet measurements in the ﬁrst 2 days and predicted survival probability in the next 26 days; (c) platelet 
-measurements in the ﬁrst 3 days and predicted survival probability in the next 25 days; (d) platelet measurements in the ﬁrst 4 days and predicted survival 
-probability in the next 24 days; (e) platelet measurements in the ﬁrst 7 days and predicted survival probability in the next 21 days; and (f) platelet measurements 
-in the ﬁrst 10 days and predicted survival probability in the next 18 days 
-Table 3. Time-dependent HR for four classes in the eICU-CRD and MIMIC-IV databases 
-HR (95% CI) 
-Time points (day)
-(0, 3]
-(3, 28] 
-eICU-CRD
-Class 2 (slight-increase)
-3.90 (2.14, 7.09)
-2.32 (1.80, 2.99) 
-Class 3 (decrease-increase-intermediate)
-13.86 (7.42, 25.92)
-2.95 (2.16, 4.03) 
-Class 4 (decrease-low)
-2.84 (1.46, 5.51)
-6.09 (4.68, 7.92) 
-MIMIC-IV
-Class 2 (slight-increase)
-4.43 (2.36, 8.32)
-3.10 (2.39, 4.03) 
-Class 3 (decrease-increase-intermediate)
-12.25 (6.17, 24.34)
-4.01 (2.87, 5.60) 
-Class 4 (decrease-low)
-2.83 (1.29, 6.17)
-7.84 (5.91, 10.40) 
-HR Hazard ratio, CI confidence interval, eICU-CRD eICU Collaborative Research Database, MIMIC-IV Medical Information Mart for Intensive Care IV 
-the first 3 days. From day 3 to day 28, class 4 had the highest 
-risk (HR: 6.09, 95% CI: 4.68–7.92) compared to the other 
-three classes ( Table 3). This result was consistent with that 
-from the landmark KM curves (Figure 2a). Patients from class 
-3 experienced a sharp decline in platelet count in the first 3 
-days of ICU admission. Patients with a lower baseline platelet
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+EXEM + OFS
+TAM + OFS
+TAM
+–0.7
+5.2
+TAM + OFS
+(75.9 to 84.0)
+DRs
+Patients
+TAM
+EXEM + OFS
+432
+80
+423
+80
+416
+56
+81.0
+80.3
+86.2 (82.2 to 89.4)
+Difference at 8 
+Years v TAM, %
+(76.6 to 84.6)
+8-Year % 
+(95% CI)
+SOFT Prior Chemotherapy
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+A
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+EXEM + OFS
+TAM + OFS
+5.1
+TAM + OFS
+(81.6 to 87.6)
+DRs
+Patients
+EXEM + OFS
+632
+93
+644
+66
+84.9
+90.0 (87.2 to 92.2)
+Difference at
+8 Years, %
+8-Year % 
+(95% CI)
+TEXT Chemotherapy
+Patients Free From 
+DR (%)
+Time Since Random Assignment (years)
+C
+Time Since Random Assignment (years)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+EXEM + OFS
+TAM + OFS
+0.9
+TAM + OFS
+(94.2 to 97.9)
+DRs
+Patients
+EXEM + OFS
+498
+20
+493
+15
+96.5
+97.4(95.3 to 98.6)
+Difference at 
+8 Years, %
+8-Year % 
+(95% CI)
+TEXT No Chemotherapy
+Patients Free From 
+DR (%)
+D
+Time Since Random Assignment (years)
+1
+0
+6
+5
+4
+3
+2
+20
+100
+80
+60
+40
+9
+8
+7
+99.3
+98.3
+98.0
+EXEM + OFS
+TAM + OFS
+TAM
+0.3
+1.3
+TAM + OFS
+(96.5 to 99.2)
+DRs
+Patients
+TAM
+EXEM + OFS
+450
+9
+449
+9
+454
+5
+(97.8 to 99.8)
+Difference at 8 
+Years v TAM, %
+(95.6 to 99.1)
+8-Year % 
+(95% CI)
+SOFT No Chemotherapy
+Patients Free From 
+DR (%)
+FIG 4. Kaplan-Meier estimates of distant recurrence (DR)–free interval in the four patient cohorts deﬁned by trial and
+chemotherapy use according to treatment assignment. (A) Tamoxifen and Exemestane Trial (TEXT) chemotherapy, (B)
+Suppression of Ovarian Function Trial (SOFT) prior chemotherapy, (C) TEXT no chemotherapy, and (D) SOFT no chemo-
+therapy. EXEM, exemestane; OFS, ovarian function suppression; TAM, tamoxifen.
+0.06 0.58
+1.21 1.69
+2.27
+2.94 3.40
+8-Year Freedom From
+Distant Recurrence (%)
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median)
+0
+20
+40
+60
+80
+100
+91.1
+A
+Composite Risk
+Patients (No.)
+0
+5
+4
+3
+1
+2
+0
+400
+300
+200
+100
+B
+FIG 3. (A) Subpopulation treatment effect pattern plot of 8-year freedom from distant recurrence according to median composite risk in subpopulations and
+(B) histogram of the composite risk distribution in the overall hormone receptor (HR)–positive/human epidermal growth factor receptor 2 (HER2)–negative
+analysis population. The horizontal lines above the histogram indicate the ranges of composite risks in subpopulations that are plotted at the subpopulation
+median value. The overall 8-year freedom from distant recurrence rate of 91.1% also is indicated on the y-axis. The overall median composite risk of 1.42 is
+indicated by the vertical dashed lines.
+Journal of Clinical Oncology
+1299
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 8
 
-8
-Burns & Trauma, 2024, Vol. 12, tkae016
-Figure 4. Individual prediction of two selected patients from the MIMIC-IV dataset. On the left is case 1, who stayed alive within 28 days after ICU admission, 
-while on the right is case 2, who experienced death on day 18 of ICU stay. Individual predictions were updated every 3 days from 48 h after ICU admission to 
-day 11. The x-axis represents the time since ICU admission, with platelet measurements on the left and model-predicted survival probabilities on the right. The 
-vertical black dashed line indicates the prediction time, and the vertical black solid line represents the time of death 
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+improvement with exemestane plus OFS versus tamoxifen
+with or without OFS was larger in TEXT than in SOFT high-
+risk patients, but improvement was consistently observed in
+both cohorts. In contrast, in low-risk patients (Appendix Fig
+A4C) who did not receive chemotherapy, the 8-year free-
+dom from distant recurrence was improved on average by
+approximately 1% in patients who received exemestane
+plus OFS compared with tamoxifen alone or tamoxifen plus
+Composite Risk in 
+HR Positive/HER2 Negative 
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+3
+1
+2
+D
+EXEM + OFS
+TAM + OFS
+TAM
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+0.06 0.54 0.89 1.30
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT No Chemotherapy
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in 
+HR Positive/HER2 Negative
+C
+EXEM + OFS
+TAM + OFS
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT No Chemotherapy
+0.46
+1.07
+1.611.91
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in 
+HR Positive/HER2 Negative
+B
+EXEM + OFS
+TAM + OFS
+TAM
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+Median Composite Risk in
+HR-Positive/HER2-Negative Subpopulations 
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+Composite Risk in 
+HR Positive/HER2 Negative 
+A
+0.89
+1.421.79 2.27
+3.02 3.40
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT Chemotherapy
+EXEM + OFS
+TAM + OFS
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+FIG
+5. Subpopulation
+treatment effect pattern
+plots of 8-year freedom
+from distant recurrence
+according to median
+composite risk in sub-
+populations and histo-
+grams of the composite
+risk distributions for
+each of the four cohorts
+in the hormone receptor
+(HR)–positive/human epi-
+dermal growth factor re-
+ceptor 2 (HER2)–negative
+analysis population accord-
+ing to treatment assign-
+ment. (A) Tamoxifen and
+Exemestane Trial (TEXT)
+chemotherapy, (B) Sup-
+pression of Ovarian Func-
+tion Trial (SOFT) prior
+chemotherapy, (C) TEXT
+no chemotherapy, and
+(D)
+SOFT
+no
+chemo-
+therapy. The horizontal
+lines above each histo-
+gram indicate the ranges
+of
+composite
+risks
+in
+subpopulations that are
+plotted
+at
+the
+sub-
+population median com-
+posite risk value.
+The
+vertical dashed lines in-
+dicate the median com-
+posite risk of 1.42 in
+the overall HR-positive/
+HER2-negative
+analy-
+sis population. EXEM,
+exemestane; OFS, ovar-
+ian function suppression;
+TAM, tamoxifen.
+1300 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 9
 
-Burns & Trauma, 2024, Vol. 12, tkae016
-9
-count from this class quickly fell below the normal range. 
-From day 3 onwards, the platelet count in class 3 patients 
-started to rise and remained stable above 150 × 109 /l, whereas 
-the platelet count in class 4 remained stable at a lower level, 
-slightly below 150 × 109 /l. Similar results were observed in 
-the validation set (Figure 2c). 
-Clinical characteristics of the four classes 
-A comparison of baseline characteristics among the four 
-latent classes in two datasets is presented in Tables S6 and 
-S7 (see online supplementary material). In the piecewise Cox 
-model, we found that class 3 and class 4 had the highest risks 
-in both early and later stages. It is noteworthy that although 
-both groups of patients showed a decreasing trend in platelet 
-count after ICU admission, the magnitude of decline dif-
-fered. We compared the time of onset of thrombocytopenia 
-and severe thrombocytopenia between two groups after ICU 
-admission and found that class 4 patients experienced the 
-aforementioned conditions later than patients from class 3, 
-along with a higher risk of mortality after day 3. 
-Subgroup analysis 
-We conducted a series of analyses stratified by demographics, 
-life support and comorbidities. In both databases, association 
-between trajectory classes and 28-day mortality in septic 
-patients were validated across various strata Figures S3 and 
-S4, see online supplementary material). In the discovery set, 
-we observed a significant interaction between classes and 
-platelet transfusion, with PInteraction = 0.035 for class 3 and 
-PInteraction = 0.001 for class 4. In the validation set, this inter-
-action was observed only in class 2, with PInteraction = 0.013. 
-Model evaluation and comparison 
-In the training set, the dynamic prediction model achieved 
-a C-index of 0.713 (95% CI: 0.702–0.725) at the landmark 
-time of day 1, while the Weibull model yielded a C-index of 
-0.714 (95% CI: 0.702–0.726). External validation of both 
-models showed similar results, the dynamic prediction model 
-achieved a C-index of 0.739 (95% CI: 0.726–0.751) at day 1 
-with the Weibull model having a C-index of 0.741 (95% CI: 
-0.727–0.754). 
-Both models had C-index values around 0.70 and time-
-dependent AUC values around 0.60 across the 14 landmark 
-time points. However, as the landmark time increased, there 
-was a gradual decline in these values. Notably, the dynamic 
-prediction model showed a slower decline in AUC values and 
-C-index values over time compared to the Weibull model. 
-This result suggests that when there is a time lag between 
-the start of prediction and the time of variable measurement 
-(e.g. baseline), the dynamic prediction model outperformed 
-the Weibull model in terms of discrimination (Figures S5 and 
-S6, see online supplementary material). 
-We calculated other model performance metrics, including 
-accuracy, sensitivity and specificity for both models at the 14 
-landmark time points. The results showed that the dynamic 
-prediction model has better accuracy and specificity (Figure 
-S7–S9, see online supplementary material). 
-Individual dynamic prediction 
-We extracted two patients selected from MIMIC-IV and 
-assessed the performance of individual survival probability 
-predictions of both the dynamic prediction model and the 
-Weibull survival model. The probability of survival was com-
-puted every 3 days from 48 h to 14 days after ICU admission 
-(Figure 4). Case 1 is a 55-year-old male who spent 28 days in 
-the ICU without experiencing death. He had an APS III of 160 
-and a CCI of 3 upon admission, with a baseline platelet count 
-of 136 × 109 /l. His platelet count was relatively stable in the 
-first 48 h and started to rise sharply afterwards. Both models 
-returned low 28-day survival probabilities for this patient at 
-48 h due to his high baseline APS III. However, after including 
-more measures of platelets, the dynamic prediction model was 
-able to increase the survival probability. 
-Case 2 is a 66-year-old female who died 18 days after ICU 
-admission. She had an APS III score of 86, a CCI of 13 and 
-a baseline platelet count of 132 × 109 /l. Her platelet trajec-
-tory fluctuated within the first 48 h and steadily declined 
-afterwards, stabilizing at a low level around day 8. Both 
-models returned a low probability of 28-day survival at 
-the 48 h landmark time because of high baseline CCI. The 
-dynamic prediction model takes longitudinal platelet counts 
-into account, therefore providing a more accurate prediction 
-than the Weibull model. 
-Sensitivity analysis 
-Due to limited data on blood culture in the eICU-CRD, we are 
-not able to extract patients strictly following Sepsis-3 [18]. 
-To ensure consistency in patient selection criteria between 
-the two databases, we used the same International Classifi-
-cation of Diseases (ICD) codes for data extraction from both 
-datasets. We also extracted a population from the MIMIC-IV 
-database that adhered to Sepsis-3 for sensitivity analysis and 
-results remained similar (Tables S8 and S9, Figure S10–S12, 
-see online supplementary material). 
-Discussion 
-According to our knowledge, this study is the first to identify 
-heterogenous platelet count trajectories in septic patients and 
-explore the relationship between dynamics in platelet count 
-and in-hospital mortality risk. Additionally, we developed a 
-dynamic prediction model that updates individual survival 
-probability in a real-time manner based on repeated platelet 
-count. Our findings suggest that the dynamic prediction 
-model could capture changes in biomarkers and provide 
-a more accurate prognostic prediction compared to solely 
-considering platelet count at a specific time point. 
-In this study, we confirmed that the rapid decline of 
-platelet count in the early stage and persistent thrombo-
-cytopenia of ICU septic patients are significant prognostic 
-factors [6, 9, 10, 19–23], while septic patients in ICU with
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+OFS in both SOFT and TEXT. The STEPP analysis sug-
+gested that this low-risk scenario (eg, 40 to 44 years of age,
+grade 2, pT1pN0, ER and PgR of 50% or greater, Ki-67 of
+14% to 19%; composite risk, 0.89) was well characterized
+by the average improvement of approximately 1%. Most
+intermediate-risk patients in SOFT and TEXT received
+chemotherapy. In this patient scenario (eg, 40 to 44 years
+of age, grade 2, pT1pN1a, ER and PgR of 50% or greater,
+Ki-67 of 20% to 25%; composite risk, 1.78; Appendix Fig
+A4B), the absolute improvement with exemestane plus OFS
+was estimated to be less than the average improvement of
+5%. Of note, intermediate-risk patients in TEXT who did not
+receive chemotherapy were estimated to have an im-
+provement with exemestane plus OFS that exceeded 4%;
+these patients also achieved approximately 10% improve-
+ment in freedom from any breast cancer recurrence at
+5 years with exemestane plus OFS.7
+TEXT and SOFT results may encourage physicians to re-
+consider the indication for adjuvant chemotherapy in
+intermediate-risk premenopausal women with HR-positive/
+HER2-negative breast cancer. The patient selection for
+chemotherapy differed in SOFT and TEXT. The knowledge
+that all patients would receive OFS in TEXT, whereas OFS
+was administered by random assignment in SOFT, possibly
+prompted the prescription of chemotherapy for some SOFT
+patients. For instance, more patients younger than 40 years
+of age (47.8% and 28.4%) and with node-negative disease
+(41.5% and 31.4%) received chemotherapy in SOFT than
+in TEXT. This also can be inferred by the higher median
+composite risk in TEXT patients in the no-chemotherapy
+cohorts (eg, 21.5% of patients who received endocrine
+therapy alone in TEXT had one to three positive nodes;
+Fig 4) compared with 8.6% in SOFT. These different clinical
+characteristics of women who received adjuvant chemo-
+therapy in SOFT and TEXT might partly explain the slightly
+different absolute improvements. Premenopausal women
+represented approximately 30% of patients in the clinical
+trials that addressed the added beneﬁt of adjuvant che-
+motherapy over endocrine therapy18-20 in HR-positive/
+HER2-negative breast cancer. Tamoxifen was the standard
+of care in premenopausal women when these trials were
+designed and conducted, and the additional beneﬁt of
+adjuvant chemotherapy in this age-group cannot be ex-
+trapolated to women treated with combined endocrine
+therapy as in TEXT and SOFT. The Rx for Positive Node,
+Endocrine Responsive Breast Cancer (RxPONDER) trial
+(ClinicalTrials.gov identiﬁer: NCT01272037) enrolled pa-
+tients with one to three positive nodes between 2011 and
+2015 who may have received combined endocrine therapy
+and could provide additional insight for intermediate-risk
+patients.
+Several gene expression assays also have been developed
+for postmenopausal women21 to estimate better the risk of
+early (0 to 5 years) and late (5 to 10 years) distant
+recurrence22-24 of patients with HR-positive early breast
+cancer and tailor their adjuvant endocrine treatment. None
+of these tests was developed to select which endocrine
+therapy is more appropriate according to genomic risk. The
+prognostic information provided by these assays should not
+be interpreted automatically as a prediction of treatment
+beneﬁt.25 Although the risk of late distant recurrence is
+seemingly similar across age-groups,13 the different algo-
+rithms cannot be applied to premenopausal patients
+without further validation because most of the data derive
+from postmenopausal women.
+The 5% to 15% absolute improvement in freedom from
+distant recurrence from escalating endocrine therapy to
+tamoxifen plus OFS or exemestane plus OFS needs to be
+integrated in the clinical situation of each individual patient.
+The results in patients at higher risk of recurrence who
+received chemotherapy are of particular clinical relevance.
+A retrospective cohort study of 1,616 women showed that
+the median time to all-cause mortality was signiﬁcantly
+longer in women with locoregional recurrence than in those
+with distant metastases (6.4 v 3.4 years, respectively).26
+Moreover, the 10-year survival rate of 101 women with local
+recurrence was 56% compared with 9% in those with
+distant recurrence.27 In patients with HER2-negative disease
+who did not receive adjuvant chemotherapy, the majority with
+a lower risk of recurrence, after 8 to 9 years median follow-up
+in SOFT and TEXT, very few distant recurrences (23 and 35,
+respectively) occurred. In these patients, the beneﬁt of
+treatment escalation is derived largely from locoregional and
+contralateral breast cancer reduction.7 Given the impact on
+patients’ quality of life from escalating endocrine therapy,28
+clinicians need to weigh the risk of recurrence and the ex-
+pected absolute improvement in disease outcomes carefully
+against the added adverse effects.
+With all women beyond the 5-year treatment period, the
+toxicity proﬁles of exemestane plus OFS and tamoxifen plus
+OFS are similar to postmenopausal women, and no new
+toxicity signal has emerged.8 Nonadherence and early
+discontinuation of oral adjuvant endocrine therapy is fre-
+quent among young women29 and associated with reduced
+overall survival.30 In TEXT/SOFT, early discontinuation of all
+assigned endocrine therapy was approximately 20% in
+each treatment group, which is in line with published
+data.29 Several demographic and clinical characteristics
+can help physicians to identify patients at risk for non-
+persistence/adherence.31 By better quantifying treatment
+beneﬁts in the individual patient, our results may allow for
+a more-tailored risk/beneﬁt discussion and an increase in
+women’s motivation, particularly those at highest risk of
+distant recurrence, to follow treatment prescriptions.
+Given the potential for late recurrences of HR-positive
+breast cancer, conclusions about overall survival remain
+premature. In postmenopausal women, the beneﬁt of
+aromatase inhibitors versus tamoxifen on breast cancer
+mortality only emerged at 10 years14 (2.1% absolute gain,
+14.2% v 12.1%, respectively).
+Journal of Clinical Oncology
+1301
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 10
 
-10
-Burns & Trauma, 2024, Vol. 12, tkae016
-increasing platelet count experience more favorable outcomes 
-[11, 24, 25]. 
-Our results are consistent with previous studies that indi-
-cate that platelet count reaches a nadir between day 3 and day 
-4 [9–11, 21, 26] and longer duration of thrombocytopenia 
-is related to a higher mortality rate [9]. In a multi-cohort 
-study involving a mixed ICU population, Chen et al. found 
-that the platelet changes in the first 4 days of ICU stay 
-could be classified into three patterns [11]. Among the three 
-trajectory patterns, a decreasing pattern was associated with 
-a higher risk of mortality, while ICU patients with an increase 
-in platelet count had better clinical outcomes. Causes of 
-thrombocytopenia in septic patients vary from decreased pro-
-duction to drug-induced deficiencies [27]. We observed sim-
-ilar characteristics of different classes across two databases. 
-Patients from class 3 had the highest APS III score at baseline, 
-and more patients received invasive mechanical ventilation, 
-vasoactive drugs and blood cells transfusion compared to 
-patients from class 4; however, mortality risk leveled off at 
-a moderate level due to a fast recovery of platelet count. 
-Use of vasopressors and invasive mechanical ventilation have 
-been reported to be associated with higher ICU mortality 
-[28, 29]. However, patients from class 3 responded better 
-to life support than patients from class 4 and experienced 
-fewer days with thrombocytopenia. After 4 days in the ICU, 
-platelet count started to increase in patients in class 3, while 
-most patients in class 4 maintained low platelet count and 
-showed a slow increase thereafter. Notably, the proportion of 
-patients with malignant cancer is the highest in class 4, which 
-encompasses 19.8% of patients in eICU-CRD and 20.8% 
-in MIMIC-IV. Therefore, we speculated on the possibility of 
-drug-induced thrombocytopenia. Chemotherapy with bone 
-marrow inhibition is the most common reason for developing 
-thrombocytopenia in cancer patients [30]. The identification 
-of this subgroup holds significant implications for physicians, 
-offering valuable insights into the underlying causes of throm-
-bocytopenia. 
-We also observed that class 4 has more patients treated 
-with glucocorticoids. This may because of the multiple puta-
-tive benefits of glucocorticoids, e.g. there may be modulation 
-of an excess inflammatory response and regulation of adap-
-tive immunity [31]. However, a recent meta-analysis showed 
-that administration of glucocorticoids did not affect mortality 
-in septic patients. Hence, the question of using glucocorti-
-coids in a specific subgroup of patients with sepsis remains 
-open [32]. 
-In summary, multiple studies have reported the prognostic 
-value of platelet count [11, 21]. Our proposed JLCM inte-
-grates longitudinal data and survival data by shared latent 
-class, and has the advantage of providing more accurate 
-prediction, especially when the density of the biomarkers is 
-relatively high. Additionally, the JLCM may provide real-
-time updates of risk probability and thus facilitate preci-
-sion medicine. Our study provides more evidence of how 
-platelet-count trajectories affect mortality risk, wherein joint 
-modeling is a promising strategy to reveal the potential het-
-erogeneity of septic patients. 
-We recognize certain limitations in our study. Firstly, this 
-approach often excludes patients who die early after ICU 
-admission and requires a large number of repeated mea-
-surements. The characteristics of septic patients differ signif-
-icantly between the two databases. However, the relatively 
-consistent results from our study further indicate the robust-
-ness and the generalizability of the findings. 
-Secondly, the potential etiology of the platelet count in 
-septic patients was not examined by considering all clinical 
-practices during hospital stay, as it involves multiple complex 
-factors [10, 26, 33]. Therefore, we cannot infer the underlying 
-pathological mechanisms that contribute to the increased 
-mortality rate in patients with a significant decrease in platelet 
-count. Furthermore, our model exhibited a minor dispar-
-ity in the early predicted survival decline trend within the 
-four potential classes of septic patients, since in cases where 
-there are fewer early platelet measurements or less obvious 
-trends, JLCM may fail to accurately classify these patients 
-and obtain the correct risk function. As an observational 
-study, whether the decrease in platelet count is a cause or 
-a result of the severity of sepsis is unknown. We observed 
-that in certain classes, the subgroup of patients receiving 
-platelet transfusion had a lower risk. However, this result 
-is not entirely consistent across both databases. Improving 
-platelet monitoring and implementing targeted interventions 
-for ICU patients based on current research results require 
-well-designed real-world studies or randomized controlled 
-trials. In addition, when describing the classes identified by 
-JLCM, one should acknowledge that they are derived as 
-non-parametric representations of variation in individual tra-
-jectories, rather than just potentially substantive underlying 
-typologies [34]. 
-Conclusions 
-In summary, our study highlights the clinical significance of 
-platelet count changes in septic patients after ICU admission. 
-Different platelet count trajectories are associated with 
-mortality risks, with late-stage platelet decrease being a 
-stronger predictor of mortality. Our dynamic prediction 
-model provides real-time updates on risk for septic patients in 
-the ICU, offering valuable practical information for clinical 
-decision-making. These findings have important implications 
-for enhancing clinical management and prognosis prediction 
-in septic patients. 
-Abbreviations 
-AIC: Akaike information criterion; AUC: Area under the 
-receiver operating characteristic curve; APS III: Acute physi-
-ology score III; BIC: Bayesian information criteria; C-index: 
-Concordance index; CCI: Charlson comorbidity index; 
-CI: Confidence interval; eICU-CRD: eICU Collaborative 
-Research Database; HR: Hazard ratio; ICU: Intensive care 
-unit; JLCM: Joint latent class model; KM: Kaplan-Meier; 
-MIMIC-IV: Medical Information Mart for Intensive Care IV; 
-SABIC: sample-adjusted Bayesian information criteria.
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+The current results add to our earlier study7 to assist
+physicians and patients with estimating the individual risk-
+based beneﬁt of escalating endocrine therapy. A recent
+survey showed that practicing US medical oncologists
+underestimated the absolute improvement in 5-year free-
+dom from breast cancer with the use of aromatase
+inhibitors plus OFS versus tamoxifen for high-risk patients
+(physician estimate, 5.9%) compared with our previous
+study ﬁndings of 10% to 15%.7,32 An online tool is in de-
+velopment to assist clinicians with using SOFT/TEXT in their
+daily practice risk/beneﬁt calculations in premenopausal
+women with HR-positive/HER2-negative breast cancer.
+AFFILIATIONS
+1Institute of Oncology of Southern Switzerland, Geneva University
+Hospitals, and Swiss Group for Clinical Cancer Research (SAKK), Lugano
+Viganello, Switzerland
+2Peter MacCallum Cancer Center, St Vincent’s Hospital, and University of
+Melbourne, Melbourne, Victoria, Australia
+3The University of Chicago Medical Center, Chicago, IL
+4University of Calgary and Canadian Cancer Trials Group, Calgary,
+Alberta, Canada
+5International Breast Cancer Study Group Central Pathology Center, IEO,
+European Institute of Oncology IRCCS, and University of Milan, Milan,
+Italy
+6IEO, European Institute of Oncology IRCCS and International Breast
+Cancer Study Group, Milan, Italy
+7National Institute of Oncology, Budapest, Hungary
+8Instituto Nacional de Enfermedades Neopl´asicas, Lima, Peru
+9Ospedale Papa Giovanni XXIII, Bergamo, Italy
+10ASST Settelaghi Ospedale di Circolo e Fondazione Macchi, Varese, Italy
+11Hospital of Prato-AUSL Toscana Centro and International Breast
+Cancer Study Group, Prato, Italy
+12International Breast Cancer Study Group and University of Sydney,
+New South Wales, Australia
+13International Breast Cancer Study Group Statistical Center, Dana-
+Farber Cancer Institute, Harvard Medical School, Harvard T.H. Chan
+School of Public Health, and Frontier Science and Technology Research
+Foundation, Boston, MA
+14International Breast Cancer Study Group Statistical Center, Dana-
+Farber Cancer Institute, Harvard Medical School, Boston, MA
+CORRESPONDING AUTHOR
+Meredith M. Regan, ScD, International Breast Cancer Study Group
+Statistical Center, Division of Biostatistics, Dana-Farber Cancer
+Institute, 450 Brookline Ave, Boston, MA 02215; e-mail: mregan@
+jimmy.harvard.edu.
+PRIOR PRESENTATION
+Presented at the 2018 Annual Meeting of the American Society of
+Clinical Oncology, Chicago, IL, June 1-5, 2018.
+SUPPORT
+Supported by Pﬁzer, the International Breast Cancer Study Group, the US
+National Cancer Institute, and the Breast Cancer Research Foundation
+(16-185, 17-187, and 18-003) for Tamoxifen and Exemestane Trial and
+Suppression of Ovarian Function Trial conduct. Pﬁzer and Ipsen provided
+the drug supply. Support for central pathology included Susan G. Komen
+for the Cure Promise Grant KG080081 and the Breast Cancer Research
+Foundation. Support for the coordinating group, International Breast
+Cancer Study Group, was from the US National Cancer Institute
+(CA075362), Frontier Science and Technology Research Foundation,
+Swiss Group for Clinical Cancer Research, Cancer Research Switzerland,
+Oncosuisse, Cancer League Switzerland, Foundation for Clinical Cancer
+Research of Eastern Switzerland. Support of cooperative groups was as
+follows: Breast Cancer Trials Australia & New Zealand (National Health
+and Medical Research Council grants 351161, 510788, and 1105058);
+Institute of Cancer Research Clinical Trials and Statistics Unit on behalf
+of the National Cancer Research Institute Breast Clinical Studies Group
+United Kingdom (Cancer Research UK grants CRUKE/03/022 and
+CRUKE/03/023 and grant A15955 National Institute for Health
+Research Royal Marsden/Institute of Cancer Research Biomedical
+Research Centre, National Institute for Health Research/Cambridge
+Biomedical Research Centre); Alliance for Clinical Trials in Oncology (US
+National Institutes of Health [NIH] grant CA180821); SWOG (US NIH
+grant CA32102); Eastern Cooperative Oncology Group-American College
+of Radiology Imaging Network Cancer Research Group (US NIH
+grants CA21115 and CA16116); NRG Oncology (US NIH grants
+U10CA180868, U10CA180822, and UG1CA189867); and Canadian
+Cancer Trials Group (US NIH grant CA077202 and Canadian Cancer
+Society Research Institute grants 015469 and 021039).
+CLINICAL TRIAL INFORMATION
+NCT00066690 and NCT00066703.
+AUTHORS’ DISCLOSURES OF POTENTIAL CONFLICTS OF
+INTEREST AND DATA AVAILABILITY STATEMENT
+Disclosures provided by the authors and data availability statement (if
+applicable) are available with this article at DOI https://doi.org/10.1200/
+JCO.18.01967.
+AUTHOR CONTRIBUTIONS
+Conception and design: Olivia Pagani, Prudence A. Francis, Gini F.
+Fleming, Barbara A. Walley, Giuseppe Viale, Alan S. Coates, Aron
+Goldhirsch, Richard D. Gelber, Meredith M. Regan
+Provision of study material or patients: Prudence A. Francis, Barbara A.
+Walley, Giuseppe Viale, Istv´an L´ang, Henry L. G´omez, Carlo Tondini,
+Graziella Pinotti
+Collection and assembly of data: Prudence A. Francis, Marco Colleoni,
+Istv´an L´ang, Henry L. G´omez, Carlo Tondini, Aron Goldhirsch, Meredith
+M. Regan
+Data analysis and interpretation: Olivia Pagani, Prudence A. Francis, Gini
+F. Fleming, Barbara A. Walley, Giuseppe Viale, Henry L. G´omez, Carlo
+Tondini, Graziella Pinotti, Angelo Di Leo, Aron Goldhirsch, Meredith M.
+Regan
+Manuscript writing: All authors
+Final approval of manuscript: All authors
+Accountable for all aspects of the work: All authors
+ACKNOWLEDGMENT
+We thank the patients, physicians, nurses, trial coordinators, and
+pathologists who participated in the TEXT and SOFT clinical trials. The
+trials were coordinated by the International Breast Cancer Study Group in
+collaboration with the Breast International Group and its cooperative
+groups and US National Cancer Institute National Clinical Trials Network
+cooperative groups. We thank Hui Huang for programming assistance
+with the online tool.
+1302 © 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
 
 # Page 11
 
-Burns & Trauma, 2024, Vol. 12, tkae016
-11
-Supplementary data 
-Supplementary data is available at Burns & Trauma Journal 
-online. 
-Acknowledgements 
-The authors acknowledge all participants in the eICU and MIMIC 
-studies, and the Laboratory for Computational Physiology team 
-from the Massachusetts Institute of Technology (LCP-MIT) who 
-maintain the eICU-CRD and MIMIC-IV databases. Additionally, 
-special thanks to Zoucheng Pan for providing support in statistical 
-analysis. 
-Funding 
-We thank all participants and research staff who participated in 
-MIMIC and eICU for providing the data. This study was funded by 
-the National Natural Science Foundation of China (81973142 to YW, 
-82220108002 to FC and 82273737 to RZ). 
-Authors’ contributions 
-Qian Ye (Methodology, Formal analysis, Data Curation, Visual-
-ization, Writing—original draft), Xuan Wang (Methodology, For-
-mal analysis, Data curation, Visualization, Writing—original draft), 
-Xiaoshuang Xu (Formal analysis, Data curation, Visualization, Writ-
-ing—review & editing), Jiajin Chen (Methodology, Data curation), 
-David C. Christiani (Supervision, Writing—review & editing), Feng 
-Chen (Project administration, Funding acquisition, Writing—review 
-& editing), Ruyang Zhang (Conceptualization, Funding acquisi-
-tion, Writing—review & editing), Yongyue Wei (Conceptualization, 
-Project administration, Funding acquisition, Writing—review & edit-
-ing) 
-Ethics approval and consent to participate 
-The eICU-CRD and MIMIC databases are publicly available and 
-have been anonymized. They do not require further approval from 
-an ethical committee. 
-Conﬂict of interest 
-None declared. 
-Data availability 
-Data are fully available at https://eicu-crd.mit.edu/ and https://mimi 
-c.mit.edu/ . 
-References 
-1. Zhang Z, Ho KM, Gu H, Hong Y, Yu Y. Defining persistent 
-critical illness based on growth trajectories in patients with 
-sepsis. Crit Care. 2020;24:57. 
-2. Mackman N, Tilley RE, Key NS. Role of the extrinsic pathway 
-of blood coagulation in hemostasis and thrombosis. Arterioscler 
-Thromb Vasc Biol. 2007;27:1687–93. 
-3. Clark SR, Ma AC, Tavener SA, McDonald B, Goodarzi Z, Kelly 
-MM, et al. Platelet TLR4 activates neutrophil extracellular traps 
-to ensnare bacteria in septic blood. Nat Med. 2007;13:463–9. 
-4. de Stoppelaar SF, van ’t C, Claushuis TA, Albersen BJ, Roelofs 
-JJ, van der Poll T. Thrombocytopenia impairs host defense in 
-gram-negative pneumonia-derived sepsis in mice. Blood. 2014; 
-124:3781–90. 
-5. Claushuis TA, van Vught LA, Scicluna BP, Wiewel MA, Klein 
-Klouwenberg PM, Hoogendijk AJ, et al. Thrombocytopenia is 
-associated with a dysregulated host response in critically ill sepsis 
-patients. Blood. 2016;127:3062–72. 
-6. Vanderschueren S, De Weerdt A, Malbrain M, Vankersschaever 
-D, Frans E, Wilmer A, et al. Thrombocytopenia and prognosis 
-in intensive care. Crit Care Med. 2000;28:1871–6. 
-7. Sharma B, Sharma M, Majumder M, Steier W, Sangal A, 
-Kalawar M. Thrombocytopenia in septic shock patients–a 
-prospective observational study of incidence, risk factors and 
-correlation with clinical outcome. Anaesth Intensive Care. 2007; 
-35:874–80. 
-8. He J, Wei Y, Chen J, Chen F, Gao W, Lu X. Dynamic trajectory 
-of platelet-related indicators and survival of severe COVID-19 
-patients. Crit Care. 2020;24:607. 
-9. Akca S, Haji-Michael P, de Mendonça A, Suter P, Levi M, 
-Vincent JL. Time course of platelet counts in critically ill patients. 
-Crit Care Med. 2002;30:753–6. 
-10. Greinacher A, Selleng K. Thrombocytopenia in the intensive 
-care unit patient. Hematology Am Soc Hematol Educ Program. 
-2010;2010:135–43. 
-11. Chen J, Gao X, Shen S, Xu J, Sun Z, Lin R, et al. Association 
-of longitudinal platelet count trajectory with ICU mortality: a 
-multi-cohort study. Front Immunol. 2022;13:936662. https:// 
-doi.org/10.3389/fimmu.2022.936662 . 
-12. Ghimire S, Ravi S, Budhathoki R, Arjyal L, Hamal S, Bista A, 
-et al. Current understanding and future implications of sepsis-
-induced thrombocytopenia. Eur J Haematol. 2021;106:301–5. 
-13. Douglas-Louis R, Lou M, Lee B, Minejima E, Bubeck-
-Wardenburg J, Wong-Beringer A. Prognostic significance of early 
-platelet dynamics in Staphylococcus aureus bacteremia. BMC 
-Infect Dis. 2023;23:82. 
-14. Kim SY. Determining the number of latent classes in single-
-and multi-phase growth mixture models. Struct Equ Modeling. 
-2014;21:263–79. 
-15. Dekker FW, de Mutsert R, van Dijk PC, Zoccali C, Jager KJ. 
-Survival analysis: time-dependent effects and time-varying risk 
-factors. Kidney Int. 2008;74:994–7. 
-16. Zhang Z, Reinikainen J, Adeleke KA, Pieterse ME, Groothuis-
-Oudshoorn CGM. Time-varying covariates and coefficients in 
-cox regression models. Ann Transl Med. 2018;6:121. 
-17. Proust-Lima C, Taylor JM. Development and validation of a 
-dynamic prognostic tool for prostate cancer recurrence using 
-repeated measures of posttreatment PSA: a joint modeling 
-approach. Biostatistics. 2009;10:535–49. 
-18. Singer M, Deutschman CS, Seymour CW, Shankar-Hari M, 
-Annane D, Bauer M, et al. The third international consensus 
-definitions for sepsis and septic shock (Sepsis-3). JAMA. 2016; 
-315:801–10. 
-19. Sprung CL, Peduzzi PN, Shatney CH, Schein RM, Wilson MF, 
-Sheagren JN, et al. Impact of encephalopathy on mortality in 
-the sepsis syndrome. The veterans administration systemic sepsis 
-cooperative study group. Crit Care Med. 1990;18:801–6. 
-20. Wang LN, He DK, Shao YR, Lv J, Wang PF, Ge Y, et al. Early 
-platelet level reduction as a prognostic factor in intensive care 
-unit patients with severe aspiration pneumonia. Front Physiol. 
-2023;14:1064699. 
-21. Moreau D, Timsit JF, Vesin A, Garrouste-Orgeas M, de Lassence 
-A, Zahar JR, et al. Platelet count decline: an early prognostic
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+REFERENCES
+1.
+Pagani O, Regan MM, Walley BA, et al: Adjuvant exemestane with ovarian suppression in premenopausal breast cancer. N Engl J Med 371:107-118, 2014
+2.
+Francis PA, Regan MM, Fleming GF, et al: Adjuvant ovarian suppression in premenopausal breast cancer. N Engl J Med 372:436-446, 2015
+3.
+Paluch-Shimon S, Pagani O, Partridge AH, et al: ESO-ESMO 3rd International Consensus Guidelines for Breast Cancer in Young Women (BCY3). Breast 35:
+203-217, 2017
+4.
+Curigliano G, Burstein HJ, Winer EP, et al: De-escalating and escalating treatments for early-stage breast cancer: The St. Gallen International Expert Consensus
+Conference on the Primary Therapy of Early Breast Cancer 2017. Ann Oncol 28:2153, 2018
+5.
+Burstein HJ, Lacchetti C, Anderson H, et al: Adjuvant endocrine therapy for women with hormone receptor-positive breast cancer: American Society of Clinical
+Oncology clinical practice guideline update on ovarian suppression. J Clin Oncol 34:1689-1701, 2016
+6.
+Senkus E, Kyriakides S, Ohno S, et al: Primary breast cancer: ESMO clinical practice guidelines for diagnosis, treatment and follow-up. Ann Oncol 26:v8-v30,
+2015
+7.
+Regan MM, Francis PA, Pagani O, et al: Absolute beneﬁt of adjuvant endocrine therapies for premenopausal women with hormone receptor-positive, human
+epidermal growth factor receptor 2-negative early breast cancer: TEXT and SOFT trials. J Clin Oncol 34:2221-2231, 2016
+8.
+Francis PA, Pagani O, Fleming GF, et al: Tailoring adjuvant endocrine therapy for premenopausal breast cancer. N Engl J Med 379:122-137, 2018
+9.
+Di Lascio S, Pagani O: Is it time to address survivorship in advanced breast cancer? A review article. Breast 31:167-172, 2017
+10.
+Regan MM, Pagani O, Francis PA, et al: Predictive value and clinical utility of centrally assessed ER, PgR, and Ki-67 to select adjuvant endocrine therapy for
+premenopausal women with hormone receptor-positive, HER2-negative early breast cancer: TEXT and SOFT trials. Breast Cancer Res Treat 154:275-286,
+2015
+11.
+Bonetti M, Gelber RD: Patterns of treatment effects in subsets of patients in clinical trials. Biostatistics 5:465-481, 2004
+12.
+Lazar AA, Cole BF, Bonetti M, et al: Evaluation of treatment-effect heterogeneity using biomarkers measured on a continuous scale: Subpopulation treatment
+effect pattern plot. J Clin Oncol 28:4539-4544, 2010
+13.
+Pan H, Gray R, Braybrooke J, et al: 20-Year risks of breast-cancer recurrence after stopping endocrine therapy at 5 years. N Engl J Med 377:1836-1846, 2017
+14.
+Early Breast Cancer Trialists’ Collaborative Group (EBCTCG): Aromatase inhibitors versus tamoxifen in early breast cancer: Patient-level meta-analysis of the
+randomised trials. Lancet 386:1341-1352, 2015
+15.
+Regan MM, Fleming GF, Walley B, et al: Adjuvant systemic treatment of premenopausal women with hormone receptor-positive early breast cancer: Lights and
+shadows. J Clin Oncol 37:862-866, 2019
+16.
+Perrone F, De Laurentiis M, De Placido S, et al: Adjuvant zoledronic acid and letrozole plus ovarian function suppression in premenopausal breast cancer:
+HOBOE phase 3 randomised trial. Eur J Cancer 118:178-186, 2019
+17.
+Lambertini M, Campbell C, Bines J, et al: Adjuvant anti-HER2 therapy, treatment-related amenorrhea, and survival in premenopausal HER2-positive early
+breast cancer patients. J Natl Cancer Inst 111:86-94, 2019
+18.
+Sparano JA, Gray RJ, Makower DF, et al: Prospective validation of a 21-gene expression assay in breast cancer. N Engl J Med 373:2005-2014, 2015
+19.
+Cardoso F, van’t Veer LJ, Bogaerts J, et al: 70-Gene signature as an aid to treatment decisions in early-stage breast cancer. N Engl J Med 375:717-729, 2016
+20.
+Sparano JA, Gray RJ, Makower DF, et al: Adjuvant chemotherapy guided by a 21-gene expression assay in breast cancer. N Engl J Med 379:111-121, 2018
+21.
+Harris LN, Ismaila N, McShane LM, et al: Use of biomarkers to guide decisions on adjuvant systemic therapy for women with early-stage invasive breast cancer:
+American Society of Clinical Oncology Clinical practice guideline. J Clin Oncol 34:1134-1150, 2016
+22.
+Sgroi DC, Sestak I, Cuzick J, et al: Prediction of late distant recurrence in patients with oestrogen-receptor-positive breast cancer: A prospective comparison of
+the breast-cancer index (BCI) assay, 21-gene recurrence score, and IHC4 in the TransATAC study population. Lancet Oncol 14:1067-1076, 2013
+23.
+Dowsett M, Sestak I, Lopez-Knowles E, et al: Comparison of PAM50 risk of recurrence score with oncotype DX and IHC4 for predicting risk of distant recurrence
+after endocrine therapy. J Clin Oncol 31:2783-2790, 2013
+24.
+Sestak I, Buus R, Cuzick J, et al: Comparison of the performance of 6 prognostic signatures for estrogen receptor-positive breast cancer: A secondary analysis of
+a randomized clinical trial. JAMA Oncol 4:545-553, 2018
+25.
+Cuzick J: Prognosis vs treatment interaction. JNCI Cancer Spectrum 2:pky006, 2018
+26.
+Lamerato L, Havstad S, Gandhi S, et al: Economic burden associated with breast cancer recurrence: Findings from a retrospective analysis of health system
+data. Cancer 106:1875-1882, 2006
+27.
+Lˆe MG, Arriagada R, Spielmann M, et al: Prognostic factors for death after an isolated local recurrence in patients with early-stage breast carcinoma. Cancer 94:
+2813-2820, 2002
+28.
+Rosenberg SM, Stanton AL, Petrie KJ, et al: Symptoms and symptom attribution among women on endocrine therapy for breast cancer. Oncologist 20:598-604,
+2015
+29.
+Murphy CC, Bartholomew LK, Carpentier MY, et al: Adherence to adjuvant hormonal therapy among breast cancer survivors in clinical practice: A systematic
+review. Breast Cancer Res Treat 134:459-478, 2012
+30.
+Hershman DL, Kushi LH, Shao T, et al: Early discontinuation and nonadherence to adjuvant hormonal therapy in a cohort of 8,769 early-stage breast cancer
+patients. J Clin Oncol 28:4120-4128, 2010
+31.
+Lambert LK, Balneaves LG, Howard AF, et al: Patient-reported factors associated with adherence to adjuvant endocrine therapy after breast cancer: An
+integrative review. Breast Cancer Res Treat 167:615-633, 2018
+32.
+Patel R, Maxwell S, Yan D, et al: Medical oncologists’ perception of antiestrogen therapy beneﬁt in premenopausal women with hormone receptor-positive early-
+stage breast cancer. Ann Oncol 29:772-773, 2018
+n n n
+Journal of Clinical Oncology
+1303
+Freedom From Distant Recurrence With Endocrine Therapies
 
 # Page 12
 
+AUTHORS’ DISCLOSURES OF POTENTIAL CONFLICTS OF INTEREST
+Absolute Improvements in Freedom From Distant Recurrence to Tailor Adjuvant Endocrine Therapies for Premenopausal Women: Results From TEXT and SOFT
+The following represents disclosure information provided by authors of this manuscript. All relationships are considered compensated unless otherwise noted.
+Relationships are self-held unless noted. I = Immediate Family Member, Inst = My Institution. Relationships may not relate to the subject matter of this manuscript.
+For more information about ASCO’s conﬂict of interest policy, please refer to www.asco.org/rwc or ascopubs.org/journal/jco/site/ifc.
+Open Payments is a public database containing information reported by companies about payments made to US-licensed physicians (Open Payments).
+Prudence A. Francis
+Honoraria: AstraZeneca, Novartis
+Travel, Accommodations, Expenses: Pﬁzer
+Gini F. Fleming
+Honoraria: Curio Science
+Research Funding: Corcept Therapeutics (Inst), AbbVie (Inst), Genentech (Inst),
+Tesaro (Inst), Syndax (Inst), Forty Seven (Inst), Iovance Biotherapeutics (Inst),
+Syros Pharmaceuticals (Inst), Astex Pharmaceuticals (Inst), Merck (Inst), Sanoﬁ
+(Inst), Sermonix Pharmaceuticals (Inst), Compugen (Inst), Incyte (Inst), Leap
+Therapeutics (Inst), Hoffmann La Roche (Inst)
+Giuseppe Viale
+Honoraria: MSD Oncology, Pﬁzer
+Consulting or Advisory Role: Dako, Roche, Genentech, Astellas Pharma,
+Novartis, Bayer AG
+Speakers’ Bureau: Roche, Genentech
+Research Funding: Roche, Genentech, Ventana Medical Systems (Inst), Dako
+(Inst), Agilent Technologies (Inst)
+Travel, Accommodations, Expenses: Roche, Celgene
+Marco Colleoni
+Honoraria: Novartis
+Consulting or Advisory Role: Pierre Fabre, Pﬁzer, OBI Pharma, Puma
+Biotechnology, Celldex, AstraZeneca
+Carlo Tondini
+Consulting or Advisory Role: Myriad Genetics
+Speakers’ Bureau: Amgen
+Travel, Accommodations, Expenses: Roche, Genentech, Novartis, Celgene
+Angelo Di Leo
+Honoraria: Roche, Novartis, Pﬁzer, AstraZeneca, Eisai (I), Eli Lilly, Bayer AG,
+Celgene (I), Amgen
+Consulting or Advisory Role: Roche, Novartis, Pﬁzer, AstraZeneca, Eli Lilly,
+Celgene (I), Puma Biotechnology, Ipsen, Genentech, Amgen, Seattle Genetics,
+Genomic Health
+Research Funding: Novartis (Inst), Pﬁzer (Inst), Genomic Health (Inst)
+Travel, Accommodations, Expenses: Roche (I), Pﬁzer, Celgene, Eli Lilly
+Richard D. Gelber
+Research Funding: AstraZeneca (Inst), Novartis (Inst), Roche (Inst), Celgene
+(Inst), Merck (Inst), Pﬁzer (Inst), Ipsen (Inst), Ferring Pharmaceuticals (Inst)
+Meredith M. Regan
+Consulting or Advisory Role: Ipsen (Inst)
+Research Funding: Veridex (Inst), OncoGenex (Inst), Pﬁzer (Inst), Ipsen (Inst),
+Novartis (Inst), Merck (Inst), Ferring Pharmaceuticals (Inst), Celgene (Inst),
+AstraZeneca (Inst), Pierre Fabre (Inst), Bayer AG (Inst), Bristol-Myers Squibb
+(Inst), Roche (Inst), Astellas Pharma (Inst), Medivation (Inst), Janssen
+Pharmaceuticals (Inst), Millennium Pharmaceuticals (Inst), Sanoﬁ(Inst), Sotio
+(Inst), Dendreon (Inst), TerSera (Inst)
+Travel, Accommodations, Expenses: Bristol-Myers Squibb
+No other potential conﬂicts of interest were reported.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 13
+
+APPENDIX
+Excluded
+ Submitted material; not HR positive
+Ineligible (locally determined HR negative)
+  Tumor HER2 positive by central or local determination
+(n = 816)
+(n = 64)
+(n = 5)
+(n = 747)
+TEXT and SOFT ITT
+(N = 5,707)
+TEXT and SOFT 
+HR-positive/HER2-negative
+analysis population
+(n = 4,891)
+SOFT no chemotherapy
+EXEM + OFS
+   TAM + OFS
+   TAM
+(n = 1,353)
+(n = 454)
+(n = 449)
+(n = 450)
+TEXT no chemotherapy
+EXEM + OFS
+TAM + OFS
+(n = 991)
+(n = 493)
+(n = 498)
+TEXT chemotherapy
+ EXEM + OFS
+TAM + OFS
+(n = 1,276)
+(n = 644)
+(n = 632)
+SOFT prior chemothearpy
+ EXEM + OFS
+  TAM + OFS
+ TAM
+(n = 1,271)
+(n = 416)
+(n = 423)
+(n = 432)
+FIG A1. Flow diagram of the 4,891 patients included in the Suppression of Ovarian Function Trial (SOFT) and the Tamoxifen and Exemestane Trial (TEXT)
+hormone receptor (HR)–positive/human epidermal growth factor receptor 2 (HER2)–negative analysis population. EXEM, exemastane; ITT, intent to treat;
+OFS, ovarian function suppression; TAM, tamoxifen.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 14
+
+8-Year Freedom From Distant Recurrence (95% CI)
+50
+55
+60
+65
+70
+75
+80
+85
+90
+95
+100
+50
+55
+60
+65
+70
+75
+80
+85
+90
+95
+100
+≥ 26
+20-25
+14-19
+< 14
+Ki-67 expression, %
+3
+2
+1
+Tumor grade
+< 20
+20-49
+≥ 50
+PgR expression, %
+< 50
+≥ 50
+ER expression, %
+> 2
+≤ 2
+Tumor size, cm
+≥ 4
+1-3
+0
+No. of positive nodes
+< 35
+35-39
+40-44
+45-49
+≥ 50
+Age at random assignment, years
+TAM
+EXEM + OFS
+TAM + OFS
+Characteristic
+SOFT
+TEXT
+FIG A2. Kaplan-Meier estimates of 8-year freedom from distant recurrence in seven clinicopathologic subgroups, according to treatment assignment,
+separately by trial. The plotted values are provided in Tables A2 and A5. Unknown values are omitted. ER, estrogen receptor; EXEM, exemestane; Ki-67,
+Ki-67 labeling index; PgR, progesterone receptor; OFS, ovarian function suppression; SOFT, Suppression of Ovarian Function Trial; TAM, tamoxifen;
+TEXT, Tamoxifen and Exemestane Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 15
+
+Subgroup
+EXEM + OFS
+TAM + OFS
+Hazard Ratio
+ 95% CI
+Events
+Patients
+DRFI Subgroups for TEXT HR Positive/HER2 Negative 
+0.25
+0.5
+0.69
+1
+1.5
+2
+Favors EXEM + OFS
+Favors TAM + OFS
+DRFI
+TEXT HR positive/HER2 negative 81
+1,137
+113
+1,130
+0.69
+  0.52 to 0.92
+Age at randomization, years
+< 35
+20
+94
+20
+84
+0.87
+  0.47 to 1.61
+35-39
+18
+176
+30
+158
+40-44
+23
+392
+35
+391
+45-49
+16
+373
+24
+415
+4
+102
+4
+82
+No. of nodes positive
+16
+0
+592
+31
+585
+1-3
+27
+379
+39
+395
+≥ 4
+38
+166
+43
+150
+Tumor size, cm
+≤ 2
+25
+686
+38
+698
+> 2
+55
+438
+74
+421
+Unknown
+1
+13
+1
+11
+ER expression, %
+< 50
+6
+46
+8
+39
+≥ 50
+74
+1,072
+104
+1,070
+Unknown
+1
+19
+1
+21
+PgR expression, %
+< 20
+18
+114
+25
+107
+20-49 
+10
+106
+20
+97
+≥ 50 
+51
+894
+67
+904
+Unknown
+2
+23
+1
+22
+Tumor grade
+5
+1
+204
+3
+213
+37
+2
+659
+61
+653
+39
+3
+274
+49
+264
+Ki-67 expression, %
+< 14
+6
+211
+4
+257
+14-19
+13
+281
+17
+274
+20-25
+16
+189
+32
+180
+≥ 26
+29
+227
+42
+219
+Unknown
+17
+229
+18
+200
+0.49        0.27 to 0.87
+ 0.67       0.39 to 1.13
+ 0.72       0.38 to 1.35
+ 0.70       0.17 to 2.79
+ 0.50       0.28 to 0.92
+ 0.70       0.43 to 1.14
+ 0.75       0.49 to 1.17
+ 0.67       0.41 to 1.12
+ 0.67       0.47 to 0.94
+ 0.66       0.23 to 1.91
+ 0.68       0.51 to 0.92
+ 0.64       0.35 to 1.18
+ 0.39       0.18 to 0.84
+ 0.76       0.52 to 1.09
+ 1.92       0.46 to 8.05
+ 0.57       0.38 to 0.85
+ 0.73       0.48 to 1.11
+ 1.82       0.51 to 6.47
+ 0.77       0.37 to 1.58
+ 0.48       0.26 to 0.87
+ 0.55       0.34 to 0.89
+ 0.83       0.43 to 1.61
+Events
+Patients
+A
+≥ 50
+FIG A3. Estimated relative treatment effects on distance recurrence–free interval (DRFI) overall and according to seven clinicopathologic subgroups
+for the hormone receptor (HR)–positive/human epidermal growth factor receptor (HER2)–negative analysis population. The hazard ratios were
+estimated from Cox proportional hazards models stratiﬁed by cohort. Estimates not provided for unknown groups of , 50 patients. Estimates in
+subgroups having few events should be interpreted with caution. (A) The Tamoxifen and Exemestane Trial (TEXT) cohorts comparing exemestane
+(EXE) 1 ovarian function suppression (OFS) versus tamoxifen (TAM) 1 OFS. (B) Combined TEXT and Suppression of Ovarian Function Trial (SOFT)
+cohorts comparing EXE 1 OFS versus TAM 1 OFS. (C) SOFT cohorts comparing EXE 1 OFS versus TAM. (D) SOFT cohorts comparing TAM 1 OFS
+versus TAM. ER, estrogen receptor; Ki-67, Ki67 labeling index; PgR, progesterone receptor.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 16
+
+DRFI Subgroups for Combined SOFT + TEXT HR Positive/HER2 Negative
+0.25
+0.5 0.69
+1
+2
+4
+Favors EXEM + OFS
+Favors TAM + OFS
+DRFI
+HR positive/HER2 negative
+142
+2,007
+202
+2,002
+0.69
+ 0.55 to 0.85
+Age at randomization, years
+< 35
+31
+183
+37
+166
+35-39
+43
+333
+56
+312
+40-44
+38
+633
+58
+659
+45-49
+25
+654
+43
+692
+≥ 50
+5
+204
+8
+173
+No. of nodes positive
+32
+0
+1,192
+56
+1,165
+1-3
+44
+575
+73
+606
+≥ 4
+66
+240
+73
+231
+Tumor size, cm
+≤ 2
+47
+1,297
+60
+1,277
+> 2
+91
+682
+134
+691
+Unknown
+4
+28
+8
+34
+ER expression, %
+< 50
+13
+88
 12
-Burns & Trauma, 2024, Vol. 12, tkae016
-marker in critically ill patients with prolonged ICU stays. Chest. 
-2007;131:1735–41. 
-22. Kinasewitz GT, Yan SB, Basson B, Comp P, Russell JA, Cariou 
-A, et al. Universal changes in biomarkers of coagulation and 
-inflammation occur in patients with severe sepsis, regardless 
-of causative micro-organism [ISRCTN74215569]. Crit Care. 
-2004;8:R82–90. 
-23. Strauss R, Wehler M, Mehler K, Kreutzer D, Koebnick C, Hahn 
-EG. Thrombocytopenia in patients in the medical intensive 
-care unit: bleeding prevalence, transfusion requirements, and 
-outcome. Crit Care Med. 2002;30:1765–71. 
-24. Zarychanski R, Houston DS. Assessing thrombocytopenia 
-in the intensive care unit: the past, present, and future. 
-Hematology Am Soc Hematol Educ Program. 2017;2017: 
-660–6. 
-25. Nijsten MW, ten Duis HJ, Zijlstra JG, Porte RJ, Zwaveling 
-JH, Paling JC, et al. Blunted rise in platelet count in critically 
-ill patients is associated with worse outcome. Crit Care Med. 
-2000;28:3843–6. 
-26. Wang HL, Aguilera C, Knopf KB, Chen TM, Maslove DM, 
-Kuschner WG. Thrombocytopenia in the intensive care unit. 
-J Intensive Care Med. 2013;28:268–80. 
-27. Thiele T, Selleng K, Selleng S, Greinacher A, Bakchoul T. Throm-
-bocytopenia in the intensive care unit-diagnostic approach and 
-management. Semin Hematol. 2013;50:239–50. 
-28. Peres Bota D, Melot C, Lopes Ferreira F, Nguyen Ba V, Vincent 
-J-L. The multiple organ dysfunction score (MODS) versus the 
-sequential organ failure assessment (SOFA) score in outcome 
-prediction.Intensive Care Med.2002;28:1619–24 https://pubme 
-d.ncbi.nlm.nih.gov/12415450 . 
-29. Liu N, Ren J, Yu L, Xie J. Mechanical ventilation associated 
-with worse survival in septic patients: a retrospective analysis 
-of MIMIC-III. J Emerg Crit Care Med. 2020;4. https://doi.o 
-rg/10.21037/jeccm.2020.01.01 . 
-30. Gao A, Zhang L, Zhong D. Chemotherapy-induced thrombocy-
-topenia: literature review. Discov Oncol. 2023;14:10. 
-31. Cain DW, Cidlowski JA. Immune regulation by glucocorticoids. 
-Nat Rev Immunol. 2017;17:233–47. 
-32. Pirracchio R, Annane D, Waschka AK, Lamontagne F, Arabi 
-YM, Bollaert P-E, et al. Patient-level meta-analysis of low-
-dose hydrocortisone in adults with septic. Shock. 2023;2:EVI-
-Doa2300034. 
-33. Stéphan F, Thiolière B, Verdy E, Tulliez M. Role of hemophago-
-cytic histiocytosis in the etiology of thrombocytopenia in 
-patients with sepsis syndrome or septic shock. Clin Infect Dis. 
-1997;25:1159–64. 
-34. Herle M, Micali N, Abdulkadir M, Loos R, Bryant-Waugh R, 
-Hübel C, et al. Identifying typical trajectories in longitudinal 
-data: modelling strategies and interpretations. Eur J Epidemiol. 
-2020;35:205–22.
-Downloaded from https://academic.oup.com/burnstrauma/article/doi/10.1093/burnst/tkae016/7693876 by guest on 30 August 2024
+71
+≥ 50
+127
+1,889
+186
+1,896
+Unknown
+2
+30
+4
+35
+PgR expression, %
+< 20
+32
+222
+42
+190
+20-49 
+18
+171
+33
+165
+≥ 50
+88
+1,575
+123
+1,610
+Unknown
+4
+39
+4
+37
+Tumor grade
+7
+1
+435
+9
+445
+77
+2
+1,154
+114
+1,137
+58
+3
+418
+79
+420
+Ki-67 expression, %
+< 14
+16
+478
+17
+508
+14-19
+27
+494
+32
+476
+20-25
+27
+299
+50
+308
+≥ 26
+45
+337
+69
+333
+Unknown
+27
+399
+34
+377
+0.72             0.45 to 1.16
+0.66             0.44 to 0.99
+0.69             0.46 to 1.04
+0.62             0.38 to 1.02
+0.46             0.15 to 1.41
+0.55             0.36 to 0.85
+0.60             0.42 to 0.88
+0.89             0.64 to 1.25
+0.78             0.53 to 1.14
+0.65             0.50 to 0.84
+0.54             0.16 to 1.79
+0.91             0.41 to 1.99
+0.67             0.54 to 0.84
+0.58             0.11 to 3.19
+0.59             0.37 to 0.94
+0.43             0.24 to 0.76
+0.75             0.57 to 0.98
+1.06             0.26 to 4.23
+0.81             0.30 to 2.17
+0.65             0.48 to 0.86
+0.72             0.51 to 1.01
+0.99             0.50 to 1.96
+0.85             0.51 to 1.41
+0.55             0.35 to 0.88
+0.59             0.40 to 0.86
+0.72             0.44 to 1.20
+Subgroup
+Hazard Ratio
+ 95% CI
+B
+EXEM + OFS
+TAM + OFS
+Events
+Patients
+Events
+Patients
+FIG A3. (Continued).
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 17
+
+Subgroup
+Hazard Ratio
+95% CI
+DRFI Subgroups for SOFT HR Positive/HER2 Negative
+0.25
+0.5 0.68
+1
+2
+4
+Favors EXEM + OFS
+Favors TAM
+DRFI
+SOFT HR positive/HER2 negative 61
+870
+89
+882
+Age at randomization, years
+< 35
+11
+89
+20
+81
+35-39
+25
+157
+30
+167
+40-44
+15
+241
+24
+268
+45-49
+9
+281
+10
+280
+≥ 50
+1
+102
+5
+86
+No. of nodes positive
+16
+0
+600
+26
+582
+1-3
+17
+196
+34
+220
+≥ 4
+28
+74
+29
+80
+Tumor size, cm
+≤ 2
+22
+611
+38
+602
+> 2
+36
+244
+45
+259
+Unknown
+3
+15
+6
+21
+ER expression, %
+< 50
+7
+42
+11
+37
+≥ 50
+53
+817
+77
+839
+Unknown
+1
+11
+1
+6
+PgR expression, %
+< 20
+14
+108
+22
+97
+20-49 
+8
+65
+12
+64
+≥ 50
+37
+681
+53
+707
+Unknown
+2
+16
+2
+14
+Tumor grade
+2
+1
+231
+11
+240
+40
+2
+495
+49
+474
+19
+3
+144
+29
+168
+Ki-67 expression, %
+< 14
+10
+267
+16
+236
+14-19
+14
+213
+16
+212
+20-25
+11
+110
+14
+130
+≥ 26
+16
+110
+23
+115
+Unknown
+10
+170
+20
+189
+0.68                0.49 to 0.95
+0.45                 0.22 to 0.94
+0.79                 0.46 to 1.34
+0.74                 0.39 to 1.41
+0.87                 0.35 to 2.14
+0.18                 0.02 to 1.56
+0.58                 0.31 to 1.08
+0.54                 0.30 to 0.97
+0.95                 0.56 to 1.59
+0.56                 0.33 to 0.94
+0.84                 0.54 to 1.30
+0.46                 0.12 to 1.84
+0.43                 0.17 to 1.11
+0.70                 0.49 to 0.99
+0.50                 0.26 to 0.99
+0.58                 0.24 to 1.43
+0.74                 0.49 to 1.13
+0.19                 0.04 to 0.87
+0.77                 0.50 to 1.16
+0.71                 0.40 to 1.27
+0.52                 0.24 to 1.15
+0.89                 0.43 to 1.82
+0.80                 0.36 to 1.76
+0.76                 0.40 to 1.44
+0.54                 0.25 to 1.14
+C
+EXEM + OFS
+TAM
+Events
+Patients
+Events
+Patients
+FIG A3. (Continued).
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 18
+
+Subgroup
+Hazard Ratio
+95% CI
+DRFI Subgroups for SOFT HR Positive/HER2 Negative
+0.25
+0.5
+1
+2
+4
+Favors TAM + OFS
+Favors TAM
+DRFI
+SOFT HR positive/HER2 negative 89
+872
+89
+882
+Age at randomization, years
+< 35
+17
+82
+20
+81
+35-39
+26
+154
+30
+167
+40-44
+23
+268
+24
+268
+45-49
+19
+277
+10
+280
+≥ 50
+4
+91
+5
+86
+No. of nodes positive
+25
+0
+580
+26
+582
+1-3
+34
+211
+34
+220
+≥ 4
+30
+81
+29
+80
+Tumor size, cm
+≤ 2
+22
+579
+38
+602
+> 2
+60
+270
+45
+259
+Unknown
+7
+23
+6
+21
+ER expression, %
+< 50
+4
+32
+11
+37
+≥ 50
+82
+826
+77
+839
+Unknown
+3
+14
+1
+6
+PgR expression, %
+< 20
+17
+83
+22
+97
+20-49
+13
+68
+12
+64
+≥ 50
+56
+706
+53
+707
+Unknown
+3
+15
+2
+14
+Tumor grade
+6
+1
+232
+11
+240
+5
+2
+3
+484
+49
+474
+30
+3
+156
+29
+168
+Ki-67 expression, %
+< 14
+13
+251
+16
+236
+14-19
+15
+202
+16
+212
+20-25
+18
+128
+14
+130
+≥ 26
+27
+114
+23
+115
+Unknown
+16
+177
+20
+189
+1.00           0.74 to 1.34
+0.81          0.42 to 1.54 
+0.89          0.53 to 1.51 
+0.99          0.56 to 1.76 
+1.71           0.80 to 3.68
+0.91          0.24 to 3.39
+0.96          0.55 to 1.66
+1.08           0.67 to 1.73
+0.84          0.50 to 1.39
+0.59          0.35 to 0.99
+1.33           0.91 to 1.96
+0.83          0.28 to 2.47 
+0.30          0.10 to 0.95
+1.07           0.79 to 1.47
+0.88          0.47 to 1.66 
+1.24           0.57 to 2.72
+1.00           0.69 to 1.46
+0.62           0.23 to 1.68
+1.02           0.69 to 1.51
+1.04           0.62 to 1.73
+0.74           0.36 to 1.54
+0.96           0.47 to 1.94
+1.18           0.59 to 2.37
+1.18           0.68 to 2.07
+0.90           0.46 to 1.73
+D
+TAM + OFS
+TAM
+Events Patients
+Events Patients
+FIG A3. (Continued).
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 19
+
+0.89
+1.42 1.79 2.27
+3.02 3.40
+8-Year Freedom From
+Distant Recurrence (%)
+A
+TEXT Chemotherapy
+EXEM + OFS
+TAM + OFS
+0
+20
+40
+60
+80
+100
+Composite Risk in HR-Positive/HER2-Negative
+Subpopulations (median) 
+0.06 0.54 0.89 1.30
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TAM
+SOFT No Chemotherapy
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TEXT No Chemotherapy
+0.46
+1.07
+1.611.91
+0
+20
+40
+60
+80
+100
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+EXEM + OFS
+TAM + OFS
+TAM
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+Patients (No.)
+0
+5
+4
+3
+1
+2
+0
+100
+50
+Composite Risk in 
+HR Positive/HER2 Negative
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+4
+3
+1
+2
+0
+5
+4
+3
+1
+2
+ Patients (No.)
+0
+100
+50
+Composite Risk, 3.0
+FIG A4. Subpopulation treatment effect pattern plots (STEPP) of 8-year freedom from distant recurrence (y-axis) according to median composite risk in
+subpopulations (x-axis) and histograms of the composite risk distributions for each of (continued on following page)the four cohorts in the hormone receptor
+(HR)–positive/human epidermal growth factor receptor 2 (HER2)–negative analysis population according to treatment assignment. The horizontal lines above
+each histogram indicate the ranges of composite risks in subpopulations that are plotted at the subpopulation median composite risk value in each
+corresponding STEPP. The red vertical line on the histograms indicates the selected composite risk, and intersects one or more subpopulations in which the
+composite risk value is represented. The dark orange circles on the STEPPs indicate the corresponding subpopulations in which the selected composite risk is
+represented. The black vertical dashed lines indicate the median composite risk of 1.42 in the overall HR-positive/HER2-negative analysis population. Three
+scenarios are presented: (A) A high-risk scenario (composite risk 5 3.00; 35-39 years of age, pT2pN1a, grade 3, estrogen receptor [ER] $ 50%, progesterone
+receptor [PgR] $ 50% and Ki-67 labeling index [Ki-67] $ 26%). In this scenario, there are no circles on the Tamoxifen and Exemestane Trial (TEXT) no
+chemotherapy and Suppression of Ovarian Function Trial (SOFT) no chemotherapy STEPPs because there were too few patients with the same or similar
+composite risk values.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 20
+
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TAM
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+EXEM + OFS
+TAM + OFS
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT No Chemotherapy
+0.46
+1.07
+1.61 1.91
+SOFT No Chemotherapy
+Composite Risk in HR-Positive/HER2-Negative
+Subpopulations (median) 
+EXEM + OFS
+TAM + OFS
+TAM
+0.06 0.54 0.89 1.30
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+B
+0.89
+1.42 1.79
+2.27
+3.02 3.40
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+EXEM + OFS
+TAM + OFS
+TEXT Chemotherapy
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in 
+HR Positive/HER2 Negative 
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+4
+3
+1
+2
+0
+5
+4
+3
+1
+2
+Patients (No.)
+0
+100
+50
+Composite Risk, 1.78
+FIG A4. (Continued). (B) An intermediate-risk scenario (composite risk 5 1.78; 40-44 years of age, pT1pN1a, grade 2, ER $ 50%, PgR
+$ 50%, and Ki-67 20-25%).
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 21
+
+0.89
+1.42 1.79
+2.27
+3.02 3.40
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+TEXT Chemotherapy
+EXEM + OFS
+TAM + OFS
+0
+5
+4
+3
+1
+2
+Patients (No.) 
+0
+100
+50
+Composite Risk, 0.89
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT Prior Chemotherapy
+1.22
+1.73 2.13
+2.77 3.04
+EXEM + OFS
+TAM + OFS
+TAM
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+Composite Risk in HR-Positive/HER2-Negative 
+Subpopulations (median) 
+0.06
+0.54 0.89 1.30
+0
+20
+40
+60
+80
+100
+8-Year Freedom From
+Distant Recurrence (%)
+SOFT No Chemotherapy
+EXEM + OFS
+TAM + OFS
+TAM
+Composite Risk in HR Positive/HER2 Negative
+Patients (No.)
+0
+200
+150
+100
+50
+0
+5
+4
+3
+1
+2
+0
+20
+40
+60
+80
+100
+8-YearFreedom From
+Distant Recurrence (%) 
+TEXT No Chemotherapy
+0.46
+1.07
+1.611.91
+EXEM + OFS
+TAM + OFS
+Patients (No.)
+0
+100
+50
+0
+5
+4
+3
+1
+2
+C
+FIG A4. (Continued). (C) A low-risk scenario (composite risk 5 0.89; 40-44 years of age, pT1pN0, grade 2, ER $ 50%, PgR $ 50%, and Ki-67 14-19%).
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 22
+
+TABLE A1. Clinicopathologic Characteristics of the HR-Positive/HER2-Negative Analysis Population of TEXT and SOFT Overall and According to
+Cohort Deﬁned by Trial and Chemotherapy Use
+TEXT
+Chemotherapy
+SOFT Prior
+Chemotherapy
+TEXT No
+Chemotherapy
+SOFT No
+Chemotherapy
+All Patients
+Characteristic
+No.
+%
+No.
+%
+No.
+%
+No.
+%
+No.
+%
+No. of patients
+1,276
+100
+1,271
+100
+991
+100
+1,353
+100
+4,891
+100
+Age at random assignment, years
+, 35
+141
+11.1
+232
+18.3
+37
+3.7
+20
+1.5
+430
+8.8
+35-39
+221
+17.3
+375
+29.5
+113
+11.4
+103
+7.6
+812
+16.6
+40-44
+442
+34.6
+407
+32.0
+341
+34.4
+370
+27.3
+1,560
+31.9
+45-49
+403
+31.6
+213
+16.8
+385
+38.8
+625
+46.2
+1,626
+33.2
+$ 50
+69
+5.4
+44
+3.5
+115
+11.6
+235
+17.4
+463
+9.5
+No. of positive nodes
+0
+401
+31.4
+527
+41.5
+776
+78.3
+1,235
+91.3
+2,939
+60.1
+1-3
+561
+44.0
+510
+40.1
+213
+21.5
+117
+8.6
+1,401
+28.6
+$ 4
+314
+24.6
+234
+18.4
+2
+0.2
+1
+0.1
+551
+11.3
+Tumor size, cm
+Unknown
+21
+1.6
+50
+3.9
+3
+0.3
+9
+0.7
+83
+1.7
+# 2
+593
+46.5
+630
+49.6
+791
+79.8
+1,162
+85.9
+3,176
+64.9
+. 2
+662
+51.9
+591
+46.5
+197
+19.9
+182
+13.5
+1,632
+33.4
+ER expression, %
+Unknown
+23
+1.8
+17
+1.3
+17
+1.7
+14
+1.0
+71
+1.5
+, 50
+65
+5.1
+75
+5.9
+20
+2.0
+36
+2.7
+196
+4.0
+$ 50
+1,188
+93.1
+1,179
+92.8
+954
+96.3
+1,303
+96.3
+4,624
+94.5
+PgR expression, %
+Unknown
+26
+2.0
+23
+1.8
+19
+1.9
+22
+1.6
+90
+1.8
+, 20
+163
+12.8
+233
+18.3
+58
+5.9
+55
+4.1
+509
+10.4
+20-49
+133
+10.4
+131
+10.3
+70
+7.1
+66
+4.9
+400
+8.2
+$ 50
+954
+74.8
+884
+69.6
+844
+85.2
+1,210
+89.4
+3,892
+79.6
+Tumor grade
+1
+165
+12.9
+199
+15.7
+252
+25.4
+504
+37.3
+1,120
+22.9
+2
+725
+56.8
+729
+57.4
+587
+59.2
+724
+53.5
+2,765
+56.5
+3
+386
+30.3
+343
+27.0
+152
+15.3
+125
+9.2
+1,006
+20.6
+Ki-67 expression, %
+Unknown
+240
+18.8
+266
+20.9
+189
+19.1
+270
+20.0
+965
+19.7
+, 14
+199
+15.6
+248
+19.5
+269
+27.1
+506
+37.4
+1,222
+25.0
+14-19
+293
+23.0
+303
+23.8
+262
+26.4
+324
+23.9
+1,182
+24.2
+20-25
+234
+18.3
+216
+17.0
+135
+13.6
+152
+11.2
+737
+15.1
+$ 26
+310
+24.3
+238
+18.7
+136
+13.7
+101
+7.5
+785
+16.0
+Abbreviations: ER, estrogen receptor; HER2, human epidermal growth factor receptor 2; HR, hormone receptor; Ki-67, Ki-67 labeling index;
+PgR, progesterone receptor; SOFT, Suppression of Ovarian Function Trial; TEXT, Tamoxifen and Exemestane Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 23
+
+TABLE A2. TEXT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Treatment Assignment
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+All patients
+2,267
+194
+93.2 (91.5 to 94.6)
+90.1 (88.0 to 91.8)
+Age at random assignment, years
+, 35
+178
+40
+77.5 (66.6 to 85.3)
+75.5 (63.8 to 83.8)
+35-39
+334
+48
+91.7 (86.1 to 95.1)
+82.8 (75.5 to 88.1)
+40-44
+783
+58
+93.5 (90.3 to 95.7)
+90.8 (87.2 to 93.4)
+45-49
+788
+40
+96.1 (93.4 to 97.7)
+93.8 (90.7 to 95.9)
+$ 50
+184
+8
+98.0 (92.2 to 99.5)
+96.1 (88.2 to 98.7)
+No. of positive nodes
+0
+1,177
+47
+98.0 (96.3 to 98.9)
+94.9 (92.5 to 96.5)
+1-3
+774
+66
+93.7 (90.6 to 95.8)
+90.6 (87.0 to 93.2)
+$ 4
+316
+81
+75.7 (67.8 to 81.9)
+70.2 (61.5 to 77.3)
+Tumor size, cm
+# 2
+1,384
+63
+96.9 (95.1 to 98.1)
+94.9 (92.8 to 96.4)
+. 2
+859
+129
+87.6 (83.9 to 90.5)
+82.0 (77.7 to 85.5)
+Unknown
+24
+2
+ER expression, %
+, 50
+85
+14
+87.5 (72.4 to 94.7)
+80.3 (63.0 to 90.1)
+$ 50
+2,142
+178
+93.5 (91.7 to 94.9)
+90.3 (88.2 to 92.1)
+Unknown
+40
+2
+PgR expression, %
+, 20
+221
+43
+82.1 (72.9 to 88.4)
+75.5 (65.6 to 82.9)
+20-49
+203
+30
+90.7 (82.8 to 95.0)
+80.9 (70.9 to 87.7)
+$ 50
+1,798
+118
+95.1 (93.3 to 96.4)
+92.8 (90.7 to 94.4)
+Unknown
+45
+3
+Tumor grade
+1
+417
+8
+97.8 (94.1 to 99.2)
+99.0 (95.9 to 99.7)
+2
+1,312
+98
+94.9 (92.7 to 96.5)
+91.2 (88.6 to 93.3)
+3
+538
+88
+85.7 (80.6 to 89.6)
+79.7 (73.7 to 84.4)
+Ki-67 expression, %
+, 14
+468
+10
+97.1 (93.0 to 98.8)
+98.6 (95.6 to 99.5)
+14-19
+555
+30
+95.9 (92.4 to 97.8)
+94.2 (90.3 to 96.5)
+20-25
+369
+48
+91.3 (85.6 to 94.8)
+83.2 (76.3 to 88.2)
+$ 26
+446
+71
+88.3 (83.1 to 92.0)
+78.7 (72.0 to 84.0)
+Unknown
+429
+35
+93.1 (88.5 to 95.9)
+91.7 (86.6 to 94.9)
+NOTE. Estimates not provided for unknown groups of , 50 patients. Estimates in subgroups that had few events should be interpreted with
+caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; TEXT, Tamoxifen and Exemestane Trial.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 24
+
+TABLE A3. TEXT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Chemotherapy Use and
+Treatment Assignment
+Chemotherapy
+No Chemotherapy
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+Patients
+DRs
+8-Year % (95% CI)
+All patients
+1,276
+159
+90.0 (87.2 to 92.2)
+84.9 (81.6 to 87.6)
+991
+35
+97.0 (95.5 to 97.9)
+Age at random assignment, years
+, 35
+141
+36
+73.9 (61.2 to 83.0)
+73.2 (59.4 to 82.9)
+37
+4
+87.5 (69.7 to 95.2)
+35-39
+221
+37
+89.0 (81.3 to 93.6)
+78.7 (68.6 to 85.9)
+113
+11
+93.3 (86.5 to 96.8)
+40-44
+442
+49
+90.3 (84.9 to 93.8)
+85.6 (79.9 to 89.8)
+341
+9
+97.8 (95.3 to 98.9)
+45-49
+403
+31
+95.0 (90.6 to 97.4)
+89.7 (84.3 to 93.4)
+385
+9
+97.6 (95.0 to 98.9)
+$ 50
+69
+6
+97.6 (83.9 to 99.7)
+88.7 (69.0 to 96.2)
+115
+2
+99.1 (93.7 to 99.9)
+No. of positive nodes
+0
+401
+20
+98.4 (95.0 to 99.5)
+92.9 (87.8 to 95.9)
+776
+27
+96.8 (95.1 to 97.9)
+1-3
+561
+58
+92.8 (88.8 to 95.4)
+87.2 (82.4 to 90.7)
+213
+8
+97.5 (93.9 to 98.9)
+$ 4
+314
+81
+75.7 (67.8 to 81.9)
+70.2 (61.5 to 77.3)
+2
+0
+Tumor size, cm
+# 2
+593
+38
+95.6 (92.2 to 97.6)
+92.6 (88.5 to 95.2)
+791
+25
+97.2 (95.6 to 98.3)
+. 2
+662
+119
+85.3 (80.8 to 88.8)
+77.7 (72.5 to 82.1)
+197
+10
+95.7 (91.6 to 97.8)
+Unknown
+21
+2
+3
+0
+—
+ER expression, %
+, 50
+65
+13
+83.7 (65.1 to 92.9)
+74.5 (53.8 to 87.0)
+20
+1
+$ 50
+1,188
+144
+90.4 (87.6 to 92.7)
+85.3 (82.0 to 88.1)
+954
+34
+96.8 (95.3 to 97.8)
+Unknown
+23
+2
+17
+1
+—
+PgR expression, %
+, 20
+163
+36
+79.6 (68.7 to 87.0)
+72.5 (60.2 to 81.6)
+58
+7
+85.8 (72.1 to 93.1)
+20-49
+133
+25
+87.6 (76.6 to 93.6)
+75.0 (61.2 to 84.5)
+70
+5
+94.1 (85.0 to 97.7)
+$ 50
+954
+95
+92.6 (89.7 to 94.8)
+88.0 (84.5 to 90.8)
+844
+23
+97.9 (96.5 to 98.7)
+Unknown
+26
+3
+19
+0
+—
+Tumor grade
+1
+165
+6
+93.6 (83.8 to 97.6)
+98.7 (91.2 to 99.8)
+252
+2
+99.6 (97.0 to 99.9)
+2
+725
+81
+92.7 (89.2 to 95.0)
+85.4 (80.9 to 88.9)
+587
+17
+97.9 (96.1 to 98.9)
+3
+386
+72
+83.7 (77.3 to 88.4)
+77.2 (69.8 to 83.0)
+152
+16
+88.4 (81.3 to 92.9)
+Ki-67 expression, %
+, 14
+199
+8
+94.6 (86.2 to 98.0)
+97.9 (92.0 to 99.5)
+269
+2
+98.9 (95.7 to 99.7)
+14-19
+293
+26
+92.3 (86.1 to 95.8)
+89.9 (83.3 to 94.1)
+262
+4
+99.6 (97.2 to 99.9)
+20-25
+234
+41
+90.1 (82.2 to 94.6)
+76.5 (67.1 to 83.6)
+135
+7
+94.5 (88.1 to 97.6)
+$ 26
+310
+58
+86.0 (79.4 to 90.5)
+74.9 (66.1 to 81.6)
+136
+13
+90.0 (82.8 to 94.2)
+Unknown
+240
+26
+90.0 (82.6 to 94.3)
+86.9 (78.5 to 92.2)
+189
+9
+97.1 (93.3 to 98.8)
+NOTE. Estimates provided for treatment groups combined in the no-chemotherapy cohort because of a small number of events and were not
+reported when # 20 patients. Estimates not provided for unknown groups of , 50 patients overall. Estimates in subgroups that had few events
+should be interpreted with caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; TEXT, Tamoxifen and Exemestane Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 25
+
+TABLE A4. Combined SOFT and TEXT Cohorts Treated With Ovarian Suppression: Kaplan-Meier Estimates of 8-Year Freedom From DR in
+Clinicopathologic Subgroups According to Treatment Assignment
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+All patients
+4,009
+344
+93.1 (91.8 to 94.2)
+89.8 (88.3 to 91.1)
+Age at random assignment, years
+, 35
+349
+68
+82.3 (75.5 to 87.4)
+76.2 (68.4 to 82.4)
+35-39
+645
+99
+87.7 (83.3 to 91.0)
+82.7 (77.6 to 86.7)
+40-44
+1,292
+96
+93.6 (91.2 to 95.4)
+90.8 (88.2 to 92.9)
+45-49
+1,346
+68
+96.6 (94.7 to 97.8)
+93.8 (91.5 to 95.5)
+$ 50
+377
+13
+98.5 (95.3 to 99.5)
+95.3 (90.2 to 97.7)
+No. of positive nodes
+0
+2,357
+88
+97.9 (96.8 to 98.7)
+95.2 (93.7 to 96.4)
+1-3
+1,181
+117
+92.6 (90.0 to 94.6)
+88.0 (84.9 to 90.4)
+$ 4
+471
+139
+70.9 (64.2 to 76.6)
+67.7 (60.8 to 73.7)
+Tumor size, cm
+# 2
+2,574
+107
+96.7 (95.4 to 97.6)
+95.3 (93.9 to 96.4)
+. 2
+1,373
+225
+86.7 (83.7 to 89.1)
+80.4 (77.0 to 83.3)
+Unknown
+62
+12
+88.4 (68.2 to 96.1)
+75.3 (56.6 to 86.8)
+ER expression, %
+, 50
+159
+25
+87.3 (77.5 to 93.0)
+83.3 (71.9 to 90.4)
+$ 50
+3,785
+313
+93.4 (92.1 to 94.5)
+90.1 (88.6 to 91.4)
+Unknown
+65
+6
+91.1 (68.8 to 97.7)
+86.7 (68.2 to 94.8)
+PgR expression, %
+, 20
+412
+74
+83.7 (77.6 to 88.2)
+76.2 (69.0 to 82.0)
+20-49
+336
+51
+91.0 (85.3 to 94.6)
+80.3 (72.9 to 85.8)
+$ 50
+3,185
+211
+94.8 (93.5 to 95.9)
+92.5 (91.0 to 93.7)
+Unknown
+76
+8
+86.8 (68.4 to 94.8)
+87.3 (69.4 to 95.0)
+Tumor grade
+1
+880
+16
+98.4 (96.3 to 99.3)
+98.2 (96.3 to 99.2)
+2
+2,291
+191
+93.7 (92.0 to 95.1)
+90.0 (88.0 to 91.7)
+3
+838
+137
+86.0 (82.0 to 89.1)
+80.5 (76.0 to 84.2)
+Ki-67 expression, %
+, 14
+986
+33
+96.6 (94.2 to 98.0)
+97.0 (94.8 to 98.2)
+14-19
+970
+59
+95.0 (92.5 to 96.7)
+93.2 (90.4 to 95.3)
+20-25
+607
+77
+90.6 (86.4 to 93.6)
+83.9 (78.9 to 87.9)
+$ 26
+670
+114
+87.1 (82.9 to 90.4)
+78.2 (73.0 to 82.5)
+Unknown
+776
+61
+93.6 (90.4 to 95.8)
+90.9 (87.3 to 93.5)
+NOTE. Estimates not provided for unknown groups of , 50 patients. Estimates in subgroups that had few events should be interpreted with
+caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; SOFT, Suppression of Ovarian Function Trial; TEXT, Tamoxifen and Exemestane Trial.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 26
+
+TABLE A5. SOFT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Treatment Assignment
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+Tamoxifen,
+8-Year % (95% CI)
+All patients
+2,624
+239
+93.0 (90.9 to 94.6)
+89.5 (87.2 to 91.5)
+89.7 (87.3 to 91.7)
+Age at random assignment, years
+, 35
+252
+48
+87.2 (78.0 to 92.7)
+77.4 (66.0 to 85.3)
+74.5 (62.5 to 83.1)
+35-39
+478
+81
+83.1 (75.5 to 88.6)
+82.6 (74.7 to 88.2)
+79.7 (71.4 to 85.8)
+40-44
+777
+62
+93.9 (89.7 to 96.4)
+91.0 (86.7 to 93.9)
+91.8 (87.4 to 94.6)
+45-49
+838
+38
+97.2 (94.2 to 98.7)
+93.8 (90.0 to 96.2)
+95.9 (92.3 to 97.8)
+$ 50
+279
+10
+99.0 (92.9 to 99.9)
+94.6 (86.1 to 98.0)
+95.2 (87.7 to 98.2)
+No. of positive nodes
+0
+1,762
+67
+97.9 (96.1 to 98.8)
+95.6 (93.4 to 97.1)
+95.3 (92.8 to 96.9)
+1-3
+627
+85
+90.6 (85.3 to 94.1)
+83.0 (76.8 to 87.7)
+85.5 (79.7 to 89.7)
+$ 4
+235
+87
+60.3 (47.3 to 71.0)
+63.5 (51.5 to 73.2)
+59.0 (46.0 to 69.8)
+Tumor size, cm
+# 2
+1,792
+82
+96.4 (94.5 to 97.7)
+95.9 (93.6 to 97.3)
+93.6 (91.0 to 95.5)
+. 2
+773
+141
+84.9 (79.3 to 89.1)
+77.9 (72.2 to 82.6)
+81.7 (75.9 to 86.2)
+Unknown
+59
+16
+85.1 (52.3 to 96.1)
+69.6 (46.6 to 84.2)
+73.9 (48.2 to 88.2)
+ER expression, %
+, 50
+111
+22
+87.0 (71.2 to 94.4)
+86.7 (68.3 to 94.8)
+70.1 (51.0 to 82.8)
+$ 50
+2,482
+212
+93.3 (91.2 to 94.9)
+89.9 (87.5 to 91.9)
+90.6 (88.2 to 92.5)
+Unknown
+31
+5
+PgR expression, %
+, 20
+288
+53
+85.6 (76.9 to 91.3)
+77.2 (65.4 to 85.5)
+76.5 (66.2 to 84.1)
+20-49
+197
+33
+91.6 (81.0 to 96.5)
+79.7 (67.6 to 87.7)
+81.4 (68.8 to 89.3)
+$ 50
+2,094
+146
+94.4 (92.2 to 96.0)
+92.2 (89.8 to 94.1)
+92.3 (89.7 to 94.2)
+Unknown
+45
+7
+Tumor grade
+1
+703
+19
+98.9 (95.7 to 99.7)
+97.6 (94.2 to 99.0)
+95.9 (91.7 to 98.0)
+2
+1,453
+142
+92.1 (89.1 to 94.3)
+88.4 (85.0 to 91.1)
+90.0 (86.6 to 92.5)
+3
+468
+78
+86.6 (79.6 to 91.4)
+81.9 (74.7 to 87.2)
+79.9 (72.1 to 85.7)
+Ki-67 expression, %
+, 14
+754
+39
+96.2 (92.4 to 98.1)
+95.4 (91.5 to 97.5)
+93.0 (88.0 to 96.0)
+14-19
+627
+45
+94.0 (89.7 to 96.6)
+92.2 (87.3 to 95.2)
+93.0 (88.0 to 95.9)
+20-25
+368
+43
+89.5 (81.8 to 94.0)
+84.8 (76.3 to 90.4)
+87.6 (79.8 to 92.6)
+$ 26
+339
+66
+84.7 (76.2 to 90.4)
+77.2 (68.1 to 84.0)
+79.2 (70.0 to 85.8)
+Unknown
+536
+81
+94.4 (89.0 to 97.2)
+90.0 (84.1 to 93.7)
+89.8 (84.3 to 93.5)
+NOTE. Estimates not provided for unknown groups of , 50 patients. Estimates in subgroups that had few events should be interpreted with
+caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR,
+progesterone receptor; SOFT, Suppression of Ovarian Function Trial.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al
+
+# Page 27
+
+TABLE A6. SOFT: Kaplan-Meier Estimates of 8-Year Freedom From DR in Clinicopathologic Subgroups According to Chemotherapy Use and Treatment
+Assignment
+Prior Chemotherapy
+No Chemotherapy
+Characteristic
+Patients
+DRs
+Exemestane Plus OFS,
+8-Year % (95% CI)
+Tamoxifen Plus OFS,
+8-Year % (95% CI)
+Tamoxifen,
+8-Year % (95% CI) Patients DRs 8-Year % (95% CI)
+All patients
+1,271
+216
+86.2 (82.2 to 89.4)
+80.3 (75.9 to 84.0)
+81.0 (76.6 to 84.6)
+1,353
+23
+98.5 (97.6 to 99.1)
+Age at random assignment, years
+, 35
+232
+48
+86.0 (76.2 to 92.0)
+75.3 (63.2 to 83.9)
+72.9 (60.4 to 82.0)
+20
+0
+35-39
+375
+79
+79.7 (70.8 to 86.2)
+77.4 (67.7 to 84.5)
+75.9 (66.2 to 83.2)
+103
+2
+96.6 (85.5 to 99.2)
+40-44
+407
+53
+90.0 (82.6 to 94.4)
+83.5 (76.1 to 88.9)
+88.1 (81.2 to 92.5)
+370
+9
+97.8 (95.3 to 99.0)
+45-49
+213
+29
+90.1 (79.2 to 95.5)
+82.0 (70.9 to 89.2)
+84.1 (70.8 to 91.7)
+625
+9
+99.2 (98.0 to 99.7)
+$ 50
+44
+7
+93.3 (61.3 to 99.0)
+87.5 (38.7 to 98.1)
+77.0 (49.7 to 90.7)
+235
+3
+98.5 (95.4 to 99.5)
+No. of positive nodes
+0
+527
+47
+94.2 (89.0 to 97.0)
+89.1 (82.8 to 93.1)
+88.2 (81.3 to 92.6)
+1,235
+20
+98.7 (97.8 to 99.2)
+1-3
+510
+82
+89.2 (83.0 to 93.3)
+79.7 (72.3 to 85.3)
+83.4 (76.8 to 88.2)
+117
+3
+96.0 (87.0 to 98.8)
+$ 4
+234
+87
+60.3 (47.3 to 71.0)
+63.5 (51.5 to 73.2)
+58.3 (45.2 to 69.3)
+1
+0
+Tumor size, cm
+# 2
+630
+70
+90.5 (85.5 to 93.9)
+90.4 (84.8 to 94.0)
+84.1 (77.7 to 88.8)
+1,162
+12
+99.1 (98.2 to 99.5)
+. 2
+591
+130
+81.6 (74.7 to 86.8)
+71.6 (64.4 to 77.6)
+79.0 (72.3 to 84.2)
+182
+11
+94.7 (89.3 to 97.4)
+Unknown
+50
+16
+83.3 (48.2 to 95.6)
+66.7 (42.5 to 82.5)
+64.6 (34.7 to 83.5)
+9
+0
+—
+ER expression, %
+, 50
+75
+20
+80.9 (59.4 to 91.7)
+81.0 (56.7 to 92.4)
+61.3 (36.4 to 78.9)
+36
+2
+94.4 (79.6 to 98.6)
+$ 50
+1,179
+191
+86.7 (82.6 to 89.9)
+80.7 (76.1 to 84.5)
+82.1 (77.6 to 85.8)
+1,303
+21
+98.6 (97.7 to 99.2)
+Unknown
+17
+5
+14
+0
+—
+PgR expression, %
+, 20
+233
+52
+82.9 (72.7 to 89.5)
+70.5 (56.1 to 81.0)
+72.1 (60.0 to 81.1)
+55
+1
+98.1 (87.6 to 99.7)
+20-49
+131
+32
+90.6 (76.8 to 96.4)
+64.4 (46.5 to 77.6)
+73.5 (57.2 to 84.5)
+66
+1
+98.4 (89.4 to 99.8)
+$ 50
+884
+125
+87.0 (82.1 to 90.7)
+84.9 (80.1 to 88.6)
+84.4 (79.2 to 88.4)
+1,210
+21
+98.5 (97.5 to 99.1)
+Unknown
+23
+7
+22
+0
+—
+Tumor grade
+1
+199
+15
+96.4 (85.9 to 99.1)
+92.3 (80.8 to 97.1)
+90.3 (79.5 to 95.5)
+504
+4
+99.2 (97.4 to 99.8)
+2
+729
+127
+85.1 (79.5 to 89.2)
+78.9 (72.8 to 83.8)
+82.4 (76.4 to 86.9)
+724
+15
+98.3 (96.8 to 99.0)
+3
+343
+74
+82.5 (73.3 to 88.8)
+77.4 (68.3 to 84.1)
+72.8 (63.0 to 80.5)
+125
+4
+97.5 (92.5 to 99.2)
+Ki-67 expression, %
+, 14
+248
+33
+88.5 (77.8 to 94.3)
+86.5 (75.6 to 92.8)
+81.8 (69.7 to 89.4)
+506
+6
+99.4 (97.5 to 99.9)
+14-19
+303
+40
+87.6 (79.2 to 92.8)
+85.3 (76.4 to 91.0)
+88.7 (79.9 to 93.8)
+324
+5
+98.5 (95.8 to 99.5)
+20-25
+216
+38
+85.8 (74.4 to 92.3)
+76.4 (63.8 to 85.0)
+80.6 (67.8 to 88.7)
+152
+5
+96.5 (91.8 to 98.5)
+$ 26
+238
+61
+78.6 (66.9 to 86.6)
+72.1 (60.7 to 80.7)
+71.4 (59.6 to 80.2)
+101
+5
+96.0 (89.6 to 98.5)
+Unknown
+266
+44
+88.8 (78.6 to 94.3)
+80.3 (69.4 to 87.6)
+81.0 (71.1 to 87.7)
+270
+2
+99.1 (96.4 to 99.8)
+NOTE. Estimates provided for treatment groups combined in the no-chemotherapy cohort because of the small number of events and not provided when
+# 20 patients. Estimates not provided for unknown groups of , 50 patients overall (chemotherapy and no-chemotherapy combined). Estimates in subgroups
+that had a few events should be interpreted with caution.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; Ki-67, Ki-67 labeling index; OFS, ovarian function suppression; PgR, progesterone receptor;
+SOFT, Suppression of Ovarian Function Trial.
+Journal of Clinical Oncology
+Freedom From Distant Recurrence With Endocrine Therapies
+
+# Page 28
+
+TABLE A7. Distribution of the Composite Measures of Recurrence Risk in Clinicopathologic Subgroups
+Composite Risk
+Measure
+Patients
+DRs
+Median
+Quartile 1
+Quartile 3
+Minimum
+Maximum
+All HR-positive/HER2-negative
+4,891
+433
+1.42
+0.81
+2.16
+–0.28
+4.60
+Age at random assignment, years
+, 35
+430
+88
+2.49
+1.95
+3.16
+0.67
+4.59
+35-39
+812
+129
+2.01
+1.49
+2.80
+0.52
+4.60
+40-44
+1,560
+120
+1.44
+0.89
+2.02
+0.07
+3.84
+45-49
+1,626
+78
+1.07
+0.72
+1.65
+20.28
+4.01
+$ 50
+463
+18
+0.79
+0.50
+1.36
+20.04
+3.87
+No. of positive nodes
+0
+2,939
+114
+0.98
+0.72
+1.47
+20.28
+3.26
+1-3
+1,401
+151
+1.91
+1.42
+2.43
+0.44
+3.91
+$ 4
+551
+168
+3.18
+2.71
+3.59
+1.30
+4.60
+Tumor size, cm
+Unknown
+83
+18
+2.49
+2.13
+3.15
+0.89
+4.60
+# 2
+3,176
+145
+1.07
+0.72
+1.59
+20.28
+4.01
+. 2
+1,632
+270
+2.27
+1.73
+2.92
+0.48
+4.59
+ER expression, %
+Unknown
+71
+7
+1.85
+1.61
+2.42
+20.28
+4.60
+, 50
+196
+36
+2.10
+1.32
+2.96
+0.06
+4.59
+$ 50
+4,624
+390
+1.39
+0.77
+2.09
+20.10
+4.44
+PgR expression, %
+Unknown
+90
+10
+2.14
+1.67
+2.63
+0.90
+4.60
+, 20
+509
+96
+2.37
+1.79
+3.03
+0.36
+4.59
+20-49
+400
+63
+2.14
+1.40
+2.90
+0.21
+4.32
+$ 50
+3,892
+264
+1.29
+0.73
+1.89
+20.28
+4.03
+Tumor grade
+1
+1,120
+27
+0.35
+0.06
+0.75
+20.28
+2.94
+2
+2,765
+240
+1.46
+0.98
+2.10
+0.72
+4.60
+3
+1,006
+166
+2.29
+1.75
+2.98
+0.69
+4.59
+Ki-67 expression, %
+Unknown
+965
+81
+1.41
+0.79
+2.11
+20.28
+4.60
+, 14
+1,222
+49
+0.75
+0.17
+1.39
+0.00
+3.82
+14-19
+1,182
+75
+1.29
+0.77
+1.87
+20.10
+3.85
+20-25
+737
+91
+1.79
+1.24
+2.42
+0.26
+4.39
+$ 26
+785
+137
+2.36
+1.87
+3.00
+0.49
+4.59
+NOTE. Values of grade, ER, and PgR expression were centrally determined if available and locally determined otherwise; Ki-67 expression was
+available only by central determination.
+Abbreviations: DR, distant recurrence; ER, estrogen receptor; HER2, human epidermal growth factor receptor 2; HR, hormone receptor;
+Ki-67, Ki-67 labeling index; PgR, progesterone receptor.
+© 2019 by American Society of Clinical Oncology
+Volume 38, Issue 12
+Pagani et al

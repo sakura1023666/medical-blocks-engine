@@ -18,9 +18,16 @@ if [[ -f "$STUDY/collect_summary_result.local.sh" ]]; then
 fi
 
 _is_hip=0
-if [[ -d "$STUDY/phase1_CHARLS_allages" ]] &&
+_is_dep_htn=0
+if [[ -f "$STUDY/README_DEPRESSION_HTN_FRAILTY.txt" ]] ||
+   [[ -f "$STUDY/data/harmonized/D04_CHARLS_depression_htn_baseline.RData" ]]; then
+  _is_dep_htn=1
+fi
+# 抑郁×高血压绝不能走髋部专用收集（summary 残留 *Hip* 文件名也会误触发）
+if [[ "$_is_dep_htn" != "1" ]] &&
+   [[ -d "$STUDY/phase1_CHARLS_allages" ]] &&
    { [[ -d "$STUDY/phase1_HRS_allages" ]] || [[ -d "$STUDY/phase1_HRS" ]]; } &&
-   { [[ ! -f "$STUDY/config_long_panel.R" ]] || ! grep -qE "circadian_index_var" "$STUDY/config_long_panel.R" 2>/dev/null; }
+   { [[ ! -f "$STUDY/config_long_panel.R" ]] || ! grep -qE '^[[:space:]]*\.circadian_index_var[[:space:]]*<-' "$STUDY/config_long_panel.R" 2>/dev/null; }
 then
   # 表名仍是髋部时才走旧脚本（新课题即使目录叫 allages 也用 generic）
   if ls "$STUDY"/phase1_CHARLS_allages/Tables/*Hip* >/dev/null 2>&1 ||

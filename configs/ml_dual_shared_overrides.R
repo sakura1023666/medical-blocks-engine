@@ -60,12 +60,9 @@ ml_dual_audit_study_inherited_excludes <- function(config) {
   }
   ac <- config$assoc_covariate %||% list()
   if (isTRUE(ac$demo_uv_to_model1 %||% FALSE)) {
-    dk <- unique(as.character(ac$demo_keywords %||% character(0)))
-    if (!length(dk) || !any(tolower(dk) %in% c("gender", "sex"))) {
-      cli::cli_alert_warning(
-        "assoc_covariate$demo_keywords 未含 Gender/Sex；单因素显著的性别可能不进 Table2 Model1（与 VIF 不一致）"
-      )
-    }
+    cli::cli_alert_warning(
+      "assoc_covariate$demo_uv_to_model1=TRUE（旧行为）；默认应 FALSE，Model1 仅强制 Age+Gender"
+    )
   }
   rcs <- config$rcs_incidence %||% list()
   if (isTRUE(rcs$ylim_force %||% FALSE) &&
@@ -140,14 +137,17 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       severity_score_keep_priority = c("APSIII", "SAPSII", "OASIS", "SOFA", "GCS")
     )
   )
-  ## Cox/Logistic 协变量铁律（全 ML 课题默认）：仅 Age 强制；人体测量由 VIF 协调
+  ## Cox/Logistic 协变量铁律：Model1=Age+Gender；Model2=UV→VIF→MV→VIF final
   config$assoc_covariate <- modifyList(
     config$assoc_covariate %||% list(),
     list(
       enable = TRUE,
-      force_model1 = "Age",
-      demo_uv_to_model1 = TRUE,
-      demo_keywords = c("Gender", "Sex", "Height", "Weight", "BMI"),
+      force_model1 = c("Age", "Gender"),
+      force_gender_in_model1 = TRUE,
+      demo_uv_to_model1 = FALSE,
+      demo_keywords = character(0),
+      model2_from_vif_final = TRUE,
+      allow_ml_features_in_model2 = TRUE,
       model2_exclude = character(0),
       uv_source = "tb1",
       allow_m2_eq_m1 = TRUE
@@ -184,7 +184,15 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       waterfall_link = "logit",
       waterfall_fx_label = "f(x) = predicted probability",
       waterfall_efx_label = "E[f(x)] = incidence",
-      waterfall_auto_case_high_prob = TRUE
+      waterfall_auto_case_high_prob = TRUE,
+      ## D 面板：|SHAP| 连续变量；不置顶 force_composite 硬入选暴露
+      dependence_skip_binary = TRUE,
+      dependence_pin_index = FALSE,
+      dependence_color_continuous = TRUE,
+      dependence_add_smooth = TRUE,
+      dependence_point_alpha = 0.35,
+      dependence_x_quantiles = c(0.01, 0.99),
+      n_dependence = 4L
     )
   )
   # 通用能力层默认开关（项目可覆盖）
@@ -252,20 +260,23 @@ ml_dual_apply_feature_selection_overrides <- function(config) {
       restrict_to_train = TRUE,
       force_composite_features = TRUE,
       include_composite_in_ml = TRUE,
-      ## Figure S1：多方法→韦恩；单方法→该方法筛选图（LASSO 两图上下拼）
-      draw_venn = TRUE
+      ## 暴露未进 LASSO 非零系数 → 整指标 failed（见 .mlfsb_assert_exposure_in_lasso）
+      fail_if_exposure_not_in_lasso = TRUE,
+      ## 用户 2026-10-30：交付不再要 Figure S1 韦恩；特征筛选主图走 LASSO 等（如 Fig2）
+      draw_venn = FALSE
     )
   )
   config$feature_selection_venn <- modifyList(
     config$feature_selection_venn %||% list(),
     list(
-      enable = TRUE,
+      enable = FALSE,
       sync_venn_center_to_ml = TRUE,
       require_exposure_in_features = TRUE,
       single_method_use_s2_plot = TRUE
     )
   )
-  ml_dual_sanitize_multicollinearity_anthropometric(config)
+  config <- ml_dual_sanitize_multicollinearity_anthropometric(config)
+  ml_dual_apply_pub_font_overrides(config)
 }
 
 ml_dual_default_ml_methods <- function() {
@@ -302,9 +313,14 @@ ml_dual_apply_train_validation_batch_overrides <- function(config) {
     )
   )
   # 预测模型默认：仅训练集拟合 MICE，再应用到 validation（须 pipeline 中 train_validation 在 imputation 前）
+  # 双库严格缺失并集：伙伴库超 missing_col_threshold 的列在本库一并剔除
+  # （避免主库训出 Globulin 等外验插补后没有的特征 → ml_eval_external 全军覆没）
   config$imputation <- modifyList(
     config$imputation %||% list(),
-    list(fit_on = "train")
+    list(
+      fit_on = "train",
+      dual_db_partner_drop_even_if_self_ok = TRUE
+    )
   )
   config
 }
@@ -328,6 +344,7 @@ ml_dual_apply_cross_db_split_overrides <- function(config) {
 }
 
 ml_dual_apply_nhanes_upstream_overrides <- function(config) {
+  config <- ml_dual_apply_attrition_overrides(config)
   config$univariate_nhanes <- modifyList(
     config$univariate_nhanes %||% list(),
     list(
@@ -497,16 +514,40 @@ ml_dual_apply_nhanes_logistic_outputs_overrides <- function(config) {
       pause_enable = FALSE
     )
   )
+  ## ML 套路默认不出 Figure S2：关闭箱线 / 单因素 ROC（曾占 S1/S2）
   config$boxplot <- modifyList(
     config$boxplot %||% list(),
     list(
-      enable = TRUE,
+      enable = FALSE,
       group_var = "Disease_Group",
       response_vars = NULL,
       overall_method = "kruskal.test",
       pairwise_method = "wilcox.test",
       pause_enable = FALSE,
       pause_if_all_overall_ns = FALSE
+    )
+  )
+  config$roc_simple <- modifyList(
+    config$roc_simple %||% list(),
+    list(enable = FALSE)
+  )
+  config$omit_figure_s2 <- TRUE
+  ## 用户 2026-11-17：ML 交付默认不要 Figure S1（有 RCS/Fig2 LASSO 时防重复）
+  config$omit_figure_s1 <- TRUE
+  config$ml_batch <- modifyList(
+    config$ml_batch %||% list(),
+    list(
+      omit_figure_s1 = TRUE,
+      omit_figure_s2 = TRUE,
+      curate_purge_pub_figures = TRUE
+    )
+  )
+  config$incidence_batch <- modifyList(
+    config$incidence_batch %||% list(),
+    list(
+      omit_figure_s1 = TRUE,
+      omit_figure_s2 = TRUE,
+      curate_purge_pub_figures = TRUE
     )
   )
   if (is.null(config$data)) config$data <- list()
@@ -610,6 +651,10 @@ ml_dual_apply_prognosis_ml_overrides <- function(config) {
       fig_s1_name = "Figure S1.LASSO-Cox.pdf"
     )
   )
+  config$feature_selection <- modifyList(
+    config$feature_selection %||% list(),
+    list(fail_if_exposure_not_in_lasso = TRUE)
+  )
   config$feature_selection_venn <- modifyList(
     config$feature_selection_venn %||% list(),
     list(
@@ -620,16 +665,18 @@ ml_dual_apply_prognosis_ml_overrides <- function(config) {
     )
   )
 
-  ## Cox 关联协变量 = 单因素→VIF 通过池（仅排除暴露）；不再用「UV 显著且未进 ML」
+  ## Cox 关联协变量 = Model1 Age+Gender；Model2 = 终末 VIF final 池
   config$assoc_covariate <- modifyList(
     config$assoc_covariate %||% list(),
     list(
       enable = TRUE,
-      force_model1 = "Age",
-      demo_uv_to_model1 = TRUE,
-      demo_keywords = c("Gender", "Sex", "Height", "Weight", "BMI"),
+      force_model1 = c("Age", "Gender"),
+      force_gender_in_model1 = TRUE,
+      demo_uv_to_model1 = FALSE,
+      demo_keywords = character(0),
       uv_source = "tb1",
-      model2_from_vif_pass = TRUE,
+      model2_from_vif_final = TRUE,
+      model2_from_vif_pass = FALSE,
       allow_ml_features_in_model2 = TRUE,
       allow_m2_eq_m1 = TRUE,
       model2_exclude = character(0)
@@ -792,7 +839,28 @@ ml_dual_primary_ml_subgroup_render_blocks <- function(config) {
   character(0)
 }
 
+#' ML Figure 1 默认：年龄 Exclude + 暴露成分分项缺失 Exclude（即使 n=0 也出框）
+#'
+#' dabiao 若已在 prep 预筛年龄，须在课题 config 写：
+#'   config$attrition$upstream = list(n_source=…, age_exclude_n=…, age_exclude_label=…)
+ml_dual_apply_attrition_overrides <- function(config) {
+  at <- config$attrition %||% list()
+  config$attrition <- modifyList(
+    at,
+    list(
+      enable = isTRUE(at$enable %||% TRUE),
+      outcome_breakdown = isTRUE(at$outcome_breakdown %||% TRUE),
+      draw_pdf = isTRUE(at$draw_pdf %||% TRUE),
+      # 有显式 steps 时禁止 runtime log 冲掉诚实纳排
+      config_steps_only = isTRUE(at$config_steps_only %||% length(at$steps %||% list()) > 0L),
+      ml_standard_layout = isTRUE(at$ml_standard_layout %||% TRUE)
+    )
+  )
+  config
+}
+
 ml_dual_apply_regular_upstream_overrides <- function(config) {
+  config <- ml_dual_apply_attrition_overrides(config)
   config$univariate_incidence_binary <- modifyList(
     config$univariate_incidence_binary %||% list(),
     list(
@@ -884,5 +952,55 @@ ml_dual_apply_regular_upstream_overrides <- function(config) {
     config$subgroup %||% list(),
     list(restrict_to_required = TRUE, pause_enable = FALSE)
   )
+  ## ML 套路默认不要 Figure S2（箱线/简单 ROC 会占 S1→S2）
+  config$boxplot <- modifyList(
+    config$boxplot %||% list(),
+    list(enable = FALSE)
+  )
+  config$roc_simple <- modifyList(
+    config$roc_simple %||% list(),
+    list(enable = FALSE)
+  )
+  config$omit_figure_s2 <- TRUE
+  config$omit_figure_s1 <- TRUE
+  config$ml_batch <- modifyList(
+    config$ml_batch %||% list(),
+    list(omit_figure_s1 = TRUE, omit_figure_s2 = TRUE)
+  )
+  config$incidence_batch <- modifyList(
+    config$incidence_batch %||% list(),
+    list(omit_figure_s1 = TRUE, omit_figure_s2 = TRUE)
+  )
+  ## 发表位数：ICMJE/NEJM（P 可变位 + 效应量三位）；课题可显式 p_style="fixed" 覆盖
+  pd <- modifyList(
+    list(
+      est = 3L, p = 3L, desc = 3L, cutoff = 3L,
+      int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"
+    ),
+    config$pub_digits %||% list()
+  )
+  if (!nzchar(as.character(pd$p_style %||% "")[1L])) pd$p_style <- "nejm"
+  config$pub_digits <- pd
+  ## 发表字体：cairo 必须 Times New Roman（Windows 裸 Times→Arial）
+  config <- ml_dual_apply_pub_font_overrides(config)
+  config
+}
+
+#' 全 ML 课题发表字体 / 禁下划线展示默认
+ml_dual_apply_pub_font_overrides <- function(config) {
+  config$plot <- modifyList(
+    config$plot %||% list(),
+    list(
+      font_family = "Times New Roman",
+      pdf_device = "cairo_pdf"
+    )
+  )
+  if (!is.null(config$attrition) && is.list(config$attrition)) {
+    af <- as.character(config$attrition$font_family %||% "")[1L]
+    if (!nzchar(af) || identical(tolower(af), "times") ||
+        grepl("(?i)arial|helvetica|sans", af)) {
+      config$attrition$font_family <- "Times New Roman"
+    }
+  }
   config
 }

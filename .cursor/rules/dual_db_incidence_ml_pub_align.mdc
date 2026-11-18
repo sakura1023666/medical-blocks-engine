@@ -1,3 +1,8 @@
+---
+description: 双库发病/ML 发表编号对齐 + 表题同步 + summary_results 五件套
+alwaysApply: true
+---
+
 # 双库发病 ML 预测发表对齐（全项目复用）
 
 ML 双库 / 发病双库批量在指标成功 finalize 时须与**单库发病**同一套编号与命名；区别仅多一个库目录与 A/B 拼图。
@@ -10,7 +15,10 @@ ML 双库 / 发病双库批量在指标成功 finalize 时须与**单库发病**
 4. **协变量对齐**：Gate B / `dual_db_covariate_harmonize` / ML `ml_assoc_covariate_resolve` 两库 Model1/2 一致；临床交集空时 `require_same_clinical_cols=FALSE` 各库保留 Model1/2（见 `baseline_index_ns_ml_dual.mdc` Gate B 节）。
 5. **Table 1 暴露显著性**：主/次库 Table 1 暴露 P ≥ 0.05 → `BASELINE_INDEX_NS_STOP` → `【failed】`（`baseline_index_ns_ml_dual.mdc`，不可关）。
 6. **ML 特征对齐**：次库走 `ml_inherit_primary_features`，禁止次库重新海选。
-7. **curate 闸门**：`pub_figure_scheme = ml_dual_standard`；非胜出 logistic 分位 drop；`incidence_batch_curate_ml_pub_tables` + `export_pub_figures`。
+7. **curate 闸门**：`pub_figure_scheme = ml_dual_standard` 或 `ml_dual_dev_ext`；非胜出 logistic 分位 drop；`incidence_batch_curate_ml_pub_tables` + `export_pub_figures`。
+8. **表内标题 = 文件名**：finalize 必须 `pub_sync_xlsx_a1_titles_to_filenames`（见 `ml_dual_dev_ext_pub_p0_gate`）。
+9. **dev_ext 主模型 / SHAP**：预指定外验最优作报告主模型；SHAP 若用他模须图题限定；禁止裸 “best model”。
+10. **指标级 summary_results 五件套**：`write_index_summary_results = TRUE`；交付根只留图/表/Methods md/软件版本/中期。
 
 ## 实现入口
 
@@ -18,6 +26,8 @@ ML 双库 / 发病双库批量在指标成功 finalize 时须与**单库发病**
 - 图：`R/incidence_dual_batch_runner.R` → `incidence_batch_ml_pub_figure_target_bn` / `incidence_batch_curate_ml_pub_figures_dir`
 - 拼图：`R/dual_db_combine_figures.R` → `dual_db_combine_paired_figures`（finalize 内 mirror 之后）
 - 薄 config：`configs/study_interface/ml_dual_batch_build.R`（`merge_dual_db_tables`、`mirror_aggregate_prefix_db`）
+- 收口 / 表题：`R/ml_index_summary_results.R`、`R/pub_xlsx_surgical.R`
+- P0 总册：`.cursor/rules/ml_dual_dev_ext_pub_p0_gate.mdc`
 
 ## 检查清单
 
@@ -26,9 +36,12 @@ ML 双库 / 发病双库批量在指标成功 finalize 时须与**单库发病**
 - [ ] 各库 `Tables/` 与单库序号链一致（含 train/val 附表）
 - [ ] `_batch_status.json` success 且 code/ 包存在
 - [ ] Table 1 暴露不显著指标在 `【failed】`，不在 `【success】`
+- [ ] S 表 A1 与文件名同号；Fig1 排除标签诚实且无图底长脚注
+- [ ] `summary_results/` 五件套齐全
 
 ## 反例（禁止）
 
 - `NHANES_Table 1-NHANES. …` 与 `Table 1. NHANES. …` 混留
 - 汇总目录两库各一张 Figure 4 而不拼图
 - 次库单独跑 feature selection 导致 ML 特征与主库不一致
+- 内题 Table S5、文件名 Table S2；SHAP 与外验主模型错位却写「最优」

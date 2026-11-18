@@ -53,22 +53,30 @@
 
 .cq03_Tb_ModelGroupNg_HR <- function(time_var, event_var, ContinuousName, FactorName, TrendName,
                                       Data, Model1Factors, Model2Factors, group_labels, cutoffs,
-                                      Model3Factors = NULL) {
+                                      Model3Factors = NULL, ctx = NULL) {
   surv_lhs <- paste0("Surv(", time_var, ", ", event_var, ")")
   rhs_c <- function(vars) paste(c(vars), collapse = " + ")
   include_m3 <- length(as.character(Model3Factors %||% character(0))) > 0L
-  mc1 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(ContinuousName))), data = Data)
-  mc2 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model1Factors)))), data = Data)
-  mc3 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model2Factors)))), data = Data)
-  mc4 <- if (include_m3) coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(ContinuousName, Model3Factors)))), data = Data) else NULL
-  mf1 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(FactorName))), data = Data)
-  mf2 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(FactorName, Model1Factors)))), data = Data)
-  mf3 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(FactorName, Model2Factors)))), data = Data)
-  mf4 <- if (include_m3) coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(FactorName, Model3Factors)))), data = Data) else NULL
-  mt1 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(TrendName))), data = Data)
-  mt2 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(TrendName, Model1Factors)))), data = Data)
-  mt3 <- coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(TrendName, Model2Factors)))), data = Data)
-  mt4 <- if (include_m3) coxph(as.formula(paste0(surv_lhs, " ~ ", rhs_c(c(TrendName, Model3Factors)))), data = Data) else NULL
+  .fit <- function(rhs) {
+    fml <- as.formula(paste0(surv_lhs, " ~ ", rhs_c(rhs)))
+    if (exists("mi_coxph", mode = "function") && !is.null(ctx)) {
+      mi_coxph(ctx, fml, Data, keep_vars = c(time_var, event_var, rhs))
+    } else {
+      coxph(fml, data = Data)
+    }
+  }
+  mc1 <- .fit(ContinuousName)
+  mc2 <- .fit(c(ContinuousName, Model1Factors))
+  mc3 <- .fit(c(ContinuousName, Model2Factors))
+  mc4 <- if (include_m3) .fit(c(ContinuousName, Model3Factors)) else NULL
+  mf1 <- .fit(FactorName)
+  mf2 <- .fit(c(FactorName, Model1Factors))
+  mf3 <- .fit(c(FactorName, Model2Factors))
+  mf4 <- if (include_m3) .fit(c(FactorName, Model3Factors)) else NULL
+  mt1 <- .fit(TrendName)
+  mt2 <- .fit(c(TrendName, Model1Factors))
+  mt3 <- .fit(c(TrendName, Model2Factors))
+  mt4 <- if (include_m3) .fit(c(TrendName, Model3Factors)) else NULL
   .hr_ci_p <- function(m, row) {
     if (exists("pub_hr_ci_p", mode = "function")) return(pub_hr_ci_p(m, row))
     sm <- summary(m); ci <- suppressMessages(confint(m))
@@ -287,7 +295,7 @@ block_cox_quartile <- function(ctx, ...) {
 
   res <- tryCatch(
     .cq03_Tb_ModelGroupNg_HR(time_var, event_var, index_var, "Group", "Num", dt,
-                             Model1Factors, Model2Factors, raw_levels, cutoffs),
+                             Model1Factors, Model2Factors, raw_levels, cutoffs, ctx = ctx),
     error = function(e) {
       if (.cq03_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) .cq03_pause(ctx, conditionMessage(e), "检查协变量")
       stop("cox_quartile: ", conditionMessage(e), call. = FALSE)
@@ -338,7 +346,7 @@ block_cox_quartile <- function(ctx, ...) {
         .cq03_Tb_ModelGroupNg_HR(
           time_var, event_var, index_var, "Group", "Num", dt,
           Model1Factors, Model2Factors, raw_levels, cutoffs,
-          Model3Factors = m3a$M3
+          Model3Factors = m3a$M3, ctx = ctx
         ),
         error = function(e) NULL
       )
@@ -359,7 +367,7 @@ block_cox_quartile <- function(ctx, ...) {
       res <- tryCatch(
         .cq03_Tb_ModelGroupNg_HR(
           time_var, event_var, index_var, "Group", "Num", dt,
-          Model1Factors, Model2Factors, raw_levels, cutoffs
+          Model1Factors, Model2Factors, raw_levels, cutoffs, ctx = ctx
         ),
         error = function(e) res
       )

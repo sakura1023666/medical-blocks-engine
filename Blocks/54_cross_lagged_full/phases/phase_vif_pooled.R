@@ -168,7 +168,10 @@ ctx <- list(
   config = list(
     project = list(output_dir = file.path(study_root, "phase2_Pooled")),
     cross_lagged_pooled_bind = list(
-      country_map = list(CHARLS = "China", ELSA = "UK", HRS = "America", NHANES = "America"),
+      country_map = list(
+        CHARLS = "China", ELSA = "UK", HRS = "America", NHANES = "America",
+        SHARE = "Europe"
+      ),
       force_country_in_model = TRUE,
       model1_locked = lock$model1,
       model2_locked = lock$model2,

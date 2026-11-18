@@ -41,6 +41,7 @@ disable-model-invocation: false
 | trajectory | `trajectory_batch` / `trajectory_jlcm` | `run/trajectory_prognosis/run_trajectory_prognosis_apri_batch.R` |
 | competing | `competing_risk` / `study_batch`+`competing_` | `run/competing_risk/run_competing_risk_chf_batch.R` |
 | tst（两阶段 Transformer） | `tst_stroke` / `tst_cohort` / `two_stage_transformer` | `run/two_stage_transformer_stroke/run_two_stage_transformer_stroke_task_parallel.R` |
+| ml（双库发病/预后 ML） | `ml_dual_batch_build` | `run/ml/run_ml_dual_batch.R`（**5006** `_template_ml`；可迁 **2202/user02**） |
 | ipw（用药Jin） | `ipw_diabetes` / `Diabetes_HbA1c` / `ipw_jin_composite_risk` | `run/ipw_diabetes_stroke/run_ipw_diabetes_stroke_batch.R`（**5003**；可迁 **2203/user03**） |
 
 ## Agent 可自动做 vs 必须人工
@@ -92,6 +93,19 @@ disable-model-invocation: false
 - 产出：研究文件夹内（非 `02block_result`）
 - 依赖：R 共享层 + **Python/PyTorch** Worker
 - CLI：`--shared-only` / `--workers N` / `--only-unit L72_B_twostage` / `--list-units`
+
+### ml 默认约定（双库发病 · 对齐 Cataract WWI 图/表角色）
+
+- 入口：`run/ml/run_ml_dual_batch.R`
+- 薄 config：`configs/study_interface/ml_dual_batch_build.R`（识别关键字 `ml_dual_batch_build`）
+- 隔离模板：`templates/config_ml_dual_batch.template.R`
+- 骨架：`studies/_template_ml/`（`config.R` + `STUDY.md` + `Data/{nhanes,charls}`）
+- 决策树：`docs/Decisiontree/decision_tree_ml_dual_batch.md`
+- 参考图/表：`02block_result/40_Cataract/ml_40395549/by_index/【success】WWI`
+  （Fig1 纳排 · Fig2 LASSO · Fig3–6 ROC/校准/指标/DCA · Fig7 SHAP · Fig8 亚组；Table1–5 + S*）
+- 默认拆分：`split_mode = "dev_internal_ext"`（主库训+内验 → 次库外验）
+- 交付：`by_index/【success】*/summary_results/` 白名单五件套（图/表/Methods md/软件版本/中期）
+- CLI：`--routine ml --shared-only` / `--workers N` / `--only-index WWI`
 
 ---
 
@@ -216,6 +230,18 @@ cp -a studies/_template_competing studies/stroke_aki_smoke
 - 冒烟：两套 config `SOURCE_OK`、全部 pipeline block 注册匹配、`run_study` 路由正确（trajectory/competing/tst/environment）
 - 正式跑：把数据放入 `P_BLOCK/studies/<研究>/Data/{eicu,mimic}`，然后
   `./run_study.sh <研究> --shared-only` → `--workers N --only-index …`
+
+### 5006 + 2202 / user02（2026-10-29，ML 双库发病）
+
+- **5006**：已追加 `studies/_template_ml/`、`templates/config_ml_dual_batch.template.R`、
+  `docs/Decisiontree/decision_tree_ml_dual_batch.md`；`run_study` 识别 `ml_dual_batch_build` → `run/ml/run_ml_dual_batch.R`
+- **参考图/表角色**：Cataract WWI（只作模板注释对照，不改该课题产物）
+- **2202**：`P_BLOCK/studies/_template_ml` + templates/docs 已同步；`engine.env` =
+  `MEDICAL_BLOCKS_ROOT=/home/user02/medical-blocks/engine`（勿用 5006 的 `E:/...` 覆盖）
+- 引擎关键文件已同步：`ml_dual_batch_build.R`（默认 `write_index_summary_results=TRUE`）、
+  `run/ml/`、`R/ml_index_summary_results.R`
+- 新建研究：`cp -a studies/_template_ml studies/<病>_ml_<PMID>` → 放 `Data/nhanes`+`Data/charls` →
+  改 `<TO_CONFIRM*>` → `./run_study.sh <研究> --routine ml --shared-only`
 
 ## 参考路径
 

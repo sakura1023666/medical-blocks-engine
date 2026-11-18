@@ -95,11 +95,11 @@ def _label_overlay_pdf(
 
 
 def _grid_shape(n: int, layout: str = "side") -> tuple[int, int]:
-    """Return (cols, rows). stack/vertical -> 1xN column; N==4 or grid -> 2x2; else 1xN row."""
+    """Return (cols, rows). stack/vertical -> 1xN column; grid or (side+N==4) -> 2x2; else 1xN row."""
     layout = (layout or "side").lower()
     if layout in ("stack", "vertical", "col"):
         return 1, n
-    if layout == "grid" or n == 4:
+    if layout == "grid" or (layout == "side" and n == 4):
         return 2, 2
     return n, 1
 

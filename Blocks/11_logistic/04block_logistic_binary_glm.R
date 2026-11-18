@@ -192,11 +192,30 @@ block_logistic_binary_glm <- function(ctx, ...) {
     cli::cli_alert_info("logistic_binary_glm: 使用已有分类列 '{group_var_name}'")
   } else {
     q_med       <- as.numeric(quantile(data2[[index_var]], probs = 0.5, na.rm = TRUE))
-    data2$Group <- ifelse(data2[[index_var]] < q_med, "Q1", "Q2")
+    x_idx       <- data2[[index_var]]
+    low         <- !is.na(x_idx) & x_idx < q_med
+    # 中位数落在最小值上时（大量 0 分），「< 中位数」为空组，改成 ≤ 中位数 vs 更高
+    if (!any(low) || !any(!is.na(x_idx) & !low)) {
+      low <- !is.na(x_idx) & x_idx <= q_med
+      cli::cli_alert_warning(
+        "logistic_binary_glm: 中位数 {q_med} 使一侧为空，改为 \u2264 中位数 vs 更高"
+      )
+    }
+    data2$Group <- ifelse(is.na(x_idx), NA_character_, ifelse(low, "Q1", "Q2"))
     data2$Group <- factor(data2$Group, levels = c("Q1", "Q2"))
     data2$Num   <- as.numeric(data2$Group)
     raw_levels  <- c("Q1", "Q2")
-    cutoffs     <- c(Q1 = paste0("< ", round(q_med, 2)), Q2 = paste0("\u2265 ", round(q_med, 2)))
+    q1_lab <- if (any(!is.na(x_idx) & x_idx == q_med & low)) {
+      paste0("\u2264 ", round(q_med, 2))
+    } else {
+      paste0("< ", round(q_med, 2))
+    }
+    q2_lab <- if (any(!is.na(x_idx) & x_idx == q_med & low)) {
+      paste0("> ", round(q_med, 2))
+    } else {
+      paste0("\u2265 ", round(q_med, 2))
+    }
+    cutoffs     <- c(Q1 = q1_lab, Q2 = q2_lab)
   }
 
   include_cont <- isTRUE(bl_cfg$include_continuous_row %||% !predefined)
@@ -363,7 +382,10 @@ block_logistic_binary_glm <- function(ctx, ...) {
     }
     tryCatch(export_sci_table(rt_body, filepath, title = title,
                               header_row1 = h1, header_row2 = h2, latex_include_colnames = FALSE,
-                              table_footnotes = logistic_glm_table_footnotes(Model1Factors, Model2Factors, Model3Factors, m3_sig)),
+                              table_footnotes = logistic_glm_table_footnotes(
+                                Model1Factors, Model2Factors, Model3Factors, m3_sig,
+                                ctx = ctx
+                              )),
              error = function(e) cli::cli_alert_warning("logistic_binary_glm: export 失败: {e$message}"))
   }
   if (exists("logistic_gate_throw_pending_stop", mode = "function")) {

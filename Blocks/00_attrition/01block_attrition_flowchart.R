@@ -43,12 +43,27 @@
 .attrition_db_label <- function(ctx) {
   cfg <- ctx$config %||% list()
   dual <- cfg$dual_db %||% list()
-  db <- as.character(dual$current_db %||% "")[1L]
+  # 显式 db_label 优先（单库 CHARLS 占 nhanes 槽时避免标题写成 nhanes）
+  db <- as.character((cfg$attrition %||% list())$db_label %||% "")[1L]
+  if (!nzchar(db)) {
+    db <- as.character(dual$current_db %||% "")[1L]
+  }
   if (!nzchar(db)) {
     db <- as.character((cfg$project %||% list())$database %||% "")[1L]
   }
   if (!nzchar(db)) {
-    db <- as.character((cfg$attrition %||% list())$db_label %||% "")[1L]
+    db <- as.character(dual$primary_name %||% dual$primary_db %||% "")[1L]
+  }
+  # 单库占位槽 nhanes/mimic → 用真实主库名
+  if (tolower(trimws(db)) %in% c("nhanes", "mimic") &&
+      isTRUE((cfg$ml_batch %||% list())$single_db %||%
+               (cfg$dual_db %||% list())$workflow == "primary_only")) {
+    pn <- as.character(
+      dual$primary_name %||%
+        (cfg$project %||% list())$primary_name %||%
+        ""
+    )[1L]
+    if (nzchar(pn) && !identical(tolower(pn), "unused")) db <- pn
   }
   if (!nzchar(db)) return("")
   trimws(db)
@@ -117,14 +132,8 @@ block_attrition_flowchart <- function(ctx, ...) {
   pdf_ok <- FALSE
   if (isTRUE(cfg$draw_pdf %||% TRUE)) {
     db_lab <- .attrition_db_label(ctx)
+    # 全项目默认：面板内不印 Figure 1.… 小标题；多库拼图外标写库名
     title <- as.character(cfg$title %||% cfg$figure_title %||% "")[1L]
-    if (!nzchar(title)) {
-      title <- if (nzchar(db_lab)) {
-        paste0("Figure 1. Inclusion exclusion flowchart (", db_lab, ")")
-      } else {
-        "Figure 1. Inclusion exclusion flowchart"
-      }
-    }
     font_family <- as.character(cfg$font_family %||% "Times New Roman")[1L]
     box_fill <- "#F7F7F7"
     if (exists("is_pub_profile", mode = "function") &&
@@ -140,10 +149,41 @@ block_attrition_flowchart <- function(ctx, ...) {
         error = function(e) character(0)
       )
     }
+    study_kind <- tolower(trimws(as.character(
+      (ctx$config$project %||% list())$study_type %||% ""
+    )[1L]))
+    # 配置了 attrition$pv2 即用银屑病/预后 v2 版式（含 ML prediction）；预后另走专属路径。
+    pv2_cfg <- (ctx$config$attrition %||% list())$pv2
+    use_pv2 <- !identical(study_kind, "prognosis") &&
+      is.list(pv2_cfg) && length(pv2_cfg) > 0L &&
+      exists("attrition_draw_pv2_pdf", mode = "function")
     pdf_ok <- isTRUE(tryCatch(
-      attrition_draw_pdf(rows, title, pdf_path,
-                         font_family = font_family, footnote = footnote,
-                         box_fill = box_fill),
+      if (use_pv2) {
+        attrition_draw_pv2_pdf(
+          rows, pdf_path,
+          cohort = {
+            cohort <- (ctx$config$attrition %||% list())$pv2 %||% list()
+            auto <- trimws(as.character(ctx$results$attrition_key_missing_label %||% "")[1L])
+            if (nzchar(auto) && !identical(auto, "NA")) cohort$key_missing_label <- auto
+            wi <- (ctx$results %||% list())$nhanes_weight_info
+            if (is.list(wi) && nzchar(as.character(wi$weight_col %||% "")[1L])) {
+              wt <- gsub("_", " ", as.character(wi$weight_col)[1L], fixed = TRUE)
+              src <- gsub("_", " ", as.character(wi$source %||% "")[1L], fixed = TRUE)
+              cohort$survey_weight_label <- if (nzchar(src)) {
+                sprintf("Survey weight: %s\n(%s)", wt, src)
+              } else {
+                sprintf("Survey weight: %s", wt)
+              }
+            }
+            cohort
+          },
+          width = ((ctx$config$attrition %||% list())$pv2 %||% list())$figure_width
+        )
+      } else {
+        attrition_draw_pdf(rows, title, pdf_path,
+                           font_family = font_family, footnote = footnote,
+                           box_fill = box_fill)
+      },
       error = function(e) {
         if (requireNamespace("cli", quietly = TRUE)) {
           cli::cli_alert_warning("attrition_flowchart PDF draw failed: {e$message}")

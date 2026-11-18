@@ -127,12 +127,16 @@
   cutoff <- bl_cfg$sig_cutoff
   if (is.null(cutoff)) cutoff <- bl_cfg$p_threshold
   if (is.null(cutoff)) {
-    .bb01_pause(
-      ctx,
-      "未配置 config$baseline_binary$sig_cutoff（或 legacy p_threshold）。",
-      "在 config$baseline_binary 中设置 sig_cutoff，或设 pause_enable = FALSE 后自行处理。",
-      NULL
-    )
+    if (.bb01_should_pause(bl_cfg, "pause_on_missing_sig_cutoff", TRUE)) {
+      .bb01_pause(
+        ctx,
+        "未配置 config$baseline_binary$sig_cutoff（或 legacy p_threshold）。",
+        "在 config$baseline_binary 中设置 sig_cutoff，或设 pause_enable = FALSE 后自行处理。",
+        NULL
+      )
+    }
+    cutoff <- 0.05
+    cli::cli_alert_warning("baseline_binary: 未配置 sig_cutoff，回退默认 0.05")
   }
   as.numeric(cutoff)[1L]
 }
@@ -321,6 +325,33 @@ block_baseline_binary <- function(ctx, strata_var = NULL, ...) {
       NULL
     )
   }
+  # NHANES 加权主分析后：不加权敏感性须与分析集同分母（剔权重缺失/非正）
+  has_svy <- any(vapply(
+    c("nhanes_design_quart", "nhanes_design_tert", "nhanes_design_binary", "nhanes_design"),
+    function(nm) !is.null((ctx$results %||% list())[[nm]]),
+    logical(1L)
+  ))
+  align_svy <- bl_cfg$align_survey_analytic
+  if (is.null(align_svy)) align_svy <- has_svy
+  if (isTRUE(align_svy)) {
+    if (!exists("pipeline_align_survey_analytic_rows", mode = "function")) {
+      .er <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+      .p <- file.path(.er, "R", "nhanes_survey_weight.R")
+      if (!nzchar(.er) || !file.exists(.p)) {
+        .p <- file.path((cfg$project$root %||% getwd()), "R", "nhanes_survey_weight.R")
+      }
+      if (file.exists(.p)) suppressWarnings(source(.p, local = FALSE))
+    }
+    if (exists("pipeline_align_survey_analytic_rows", mode = "function")) {
+      data <- pipeline_align_survey_analytic_rows(
+        data, ctx = ctx, cfg = cfg, label = "baseline_binary"
+      )
+    } else {
+      cli::cli_alert_warning(
+        "baseline_binary: 需对齐调查分析集但未找到 pipeline_align_survey_analytic_rows"
+      )
+    }
+  }
 
   outcome_col   <- cfg$data$outcome_column %||% "Disease"
   study_type    <- tolower(cfg$project$study_type %||% "incidence")
@@ -409,6 +440,30 @@ block_baseline_binary <- function(ctx, strata_var = NULL, ...) {
     "expire_flag", "hospitalexpireflag", "dod", "dod_hosp", "dod_ssn",
     as.character(cfg$survival$event_var %||% character(0))
   ))
+  # 全项目铁律：Table1 / 不加权敏感性基线（S10 等）禁止 cycle 与调查权重列
+  # （new_Weight / WTMEC* / WTSAF* / SDMV* / Source_File）。与加权 Table1 变量集对齐。
+  wt_auto <- c(
+    "cycle", "Cycle", "Source_File",
+    "new_Weight", "new_weight", "new Weight",
+    "WTINT2YR", "WTMEC2YR", "WTMEC4YR", "WTINT4YR", "WTSAF2YR", "WTSAF4YR",
+    "WTDRD1", "WTDR2D", "WTSA2YR", "WTSOG2YR", "WTSB2YR", "WTSC2YR", "WTSVOC2YR",
+    "SDMVPSU", "SDMVSTRA"
+  )
+  if (exists("nhanes_survey_weight_source_cols", mode = "function")) {
+    wt_auto <- unique(c(wt_auto, nhanes_survey_weight_source_cols(cfg)))
+  }
+  if (exists("pipeline_nhanes_survey_design_exclude_cols", mode = "function")) {
+    wt_auto <- unique(c(
+      wt_auto,
+      pipeline_nhanes_survey_design_exclude_cols(names(data), cfg)
+    ))
+  }
+  # 名称模糊：任意 WT* 调查权重列、cycle 别名
+  wt_like <- candidates[grepl(
+    "^(WT[A-Z0-9]+|new[_ ]?[Ww]eight)$|^cycle$|^Cycle$|^SDMV(PSU|STRA)$|^Source_File$",
+    candidates
+  )]
+  excl_cfg <- unique(c(excl_cfg, wt_auto, wt_like))
   # 名称模糊匹配：含 mortality / 28.?day.?mort 的列也排除
   mort_like <- candidates[grepl(
     "mortality|28.?day.?mort|hosp.?dead|expire.?flag|fustatus",

@@ -196,6 +196,17 @@
   ticks <- d[!duplicated(d$median_risk), c("median_risk", "n_window"), drop = FALSE]
   ticks <- ticks[order(ticks$median_risk), , drop = FALSE]
   tick_labs <- sprintf("%.2f\nn=%d", ticks$median_risk, ticks$n_window)
+  n_tk <- nrow(ticks)
+  # 窗多时：稀疏刻度 + 倾斜，避免双栏拼图后字体重叠
+  show_lab <- rep(TRUE, n_tk)
+  if (n_tk > 10L) {
+    show_lab <- (seq_len(n_tk) %% 2L == 1L)
+    show_lab[c(1L, n_tk)] <- TRUE
+  }
+  tick_labs_disp <- ifelse(show_lab, tick_labs, "")
+  lab_angle <- if (n_tk > 8L) 35 else 0
+  lab_size <- if (n_tk > 10L) 7 else 9
+  lab_hjust <- if (lab_angle > 0) 1 else 0.5
 
   y_vals <- c(d$rfs_rate, d$rfs_lower, d$rfs_upper)
   y_vals <- y_vals[is.finite(y_vals)]
@@ -231,7 +242,7 @@
     ggplot2::scale_color_manual(values = setNames(unname(group_colors), unname(group_labels))) +
     ggplot2::scale_x_continuous(
       breaks = ticks$median_risk,
-      labels = tick_labs
+      labels = tick_labs_disp
     ) +
     ggplot2::scale_y_continuous(limits = y_lim) +
     ggplot2::labs(
@@ -243,8 +254,10 @@
     ggplot2::theme(
       text = ggplot2::element_text(family = font_family),
       legend.position = "right",
-      axis.text.x = ggplot2::element_text(size = 9, lineheight = 0.95),
-      plot.margin = ggplot2::margin(8, 12, 8, 8)
+      axis.text.x = ggplot2::element_text(
+        size = lab_size, angle = lab_angle, hjust = lab_hjust, lineheight = 0.9
+      ),
+      plot.margin = ggplot2::margin(8, 12, if (lab_angle > 0) 20 else 8, 8)
     )
 }
 

@@ -91,14 +91,22 @@ block_pamob_contextual_inventory <- function(ctx, ...) {
   dist_rows <- list()
   discordant_rows <- list()
 
-  # CHARLS：phenotype baseline from long/base
+  # CHARLS：情境表分母 = 主分析唯一 ID（Table 1 / LMM），表型用基线锁定。
+  # 禁止再用 wave==2011 认知行（那是已作废的 2,098 子集）。
   long <- ctx$data$pamob_charls_long
   base <- ctx$data$pamob_charls_baseline
   if (!is.null(long) && !is.null(ctx_c)) {
-    b <- long[long$wave == wave & !duplicated(long$ID_h), , drop = FALSE]
-    if (!nrow(b) && !is.null(base)) {
-      b <- base
-      b$phenotype <- factor(b$phenotype_bl, levels = unname(pamob_phenotype_labels()))
+    ids <- unique(long$ID_h[!is.na(long$phenotype)])
+    if (!is.null(base) && "ID_h" %in% names(base)) {
+      b <- base[base$ID_h %in% ids & !duplicated(base$ID_h), , drop = FALSE]
+      if (!"phenotype" %in% names(b) && "phenotype_bl" %in% names(b)) {
+        b$phenotype <- b$phenotype_bl
+      }
+    } else {
+      b <- long[!duplicated(long$ID_h) & long$ID_h %in% ids, , drop = FALSE]
+    }
+    if (!nrow(b)) {
+      b <- long[!duplicated(long$ID_h), , drop = FALSE]
     }
     b <- merge(b, ctx_c, by = "ID_h", all.x = TRUE)
     b$phenotype <- factor(as.character(b$phenotype %||% b$phenotype_bl),

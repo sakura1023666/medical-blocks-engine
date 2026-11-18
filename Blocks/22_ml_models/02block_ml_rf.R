@@ -512,7 +512,7 @@
 
 .mlrf02_run_rf <- function(traindata2, testdata2, folds, seed,
                         pred_ref_col, pred_ana_col, ref_g, ana_g,
-                        rf_engine = "randomForest") {
+                        rf_engine = "randomForest", bl_cfg = list()) {
   rf_engine <- tolower(trimws(as.character(rf_engine)[1L]))
   if (identical(rf_engine, "randomforest")) rf_engine <- "randomForest"
   if (!rf_engine %in% c("randomForest", "ranger")) rf_engine <- "randomForest"
@@ -530,12 +530,25 @@
     workflows::add_model(model_rf) %>%
     workflows::add_formula(Group ~ .)
 
+  n_pred <- max(1L, ncol(traindata2) - 1L)
+  mt <- as.integer(bl_cfg$mtry_range %||% c(2L, 10L)); if (length(mt) < 2L) mt <- c(2L, 10L)
+  mt[[1L]] <- max(1L, min(mt[[1L]], n_pred))
+  mt[[2L]] <- max(mt[[1L]], min(mt[[2L]], n_pred))
+  tr <- as.integer(bl_cfg$trees_range %||% c(200L, 500L)); if (length(tr) < 2L) tr <- c(200L, 500L)
+  mn <- as.integer(bl_cfg$min_n_range %||% c(20L, 50L)); if (length(mn) < 2L) mn <- c(20L, 50L)
+  grid_size <- as.integer(bl_cfg$grid_size %||% NA_integer_)[1L]
   hpset_rf <- dials::parameters(
-    dials::mtry(range = c(2, 10)),
-    dials::trees(range = c(200, 500)),
-    dials::min_n(range = c(20, 50))
+    dials::mtry(range = c(mt[[1L]], mt[[2L]])),
+    dials::trees(range = c(tr[[1L]], tr[[2L]])),
+    dials::min_n(range = c(mn[[1L]], mn[[2L]]))
   )
-  hpgrid_rf <- dials::grid_regular(hpset_rf, levels = c(2, 2, 2))
+  set.seed(seed)
+  if (is.finite(grid_size) && grid_size >= 2L) {
+    hpgrid_rf <- dials::grid_random(hpset_rf, size = grid_size)
+    cli::cli_alert_info("ml_rf 调参网格: random size={grid_size}; mtry=[{mt[[1]]},{mt[[2]]}]; trees=[{tr[[1]]},{tr[[2]]}]; min_n=[{mn[[1]]},{mn[[2]]}]")
+  } else {
+    hpgrid_rf <- dials::grid_regular(hpset_rf, levels = c(2, 2, 2))
+  }
 
   set.seed(seed)
   tune_rf <- wk_rf %>%
@@ -621,7 +634,8 @@ block_ml_rf <- function(ctx, ...) {
       pred_ref_col = prep$pred_ref_col,
       pred_ana_col = prep$pred_ana_col,
       ref_g = prep$ref_group,
-      ana_g = prep$ana_group, rf_engine = rf_engine
+      ana_g = prep$ana_group, rf_engine = rf_engine,
+      bl_cfg = bl_cfg
     ),
     error = function(e) {
       cli::cli_alert_danger("{toupper(tag)} 失败: {e$message}")
@@ -635,6 +649,7 @@ block_ml_rf <- function(ctx, ...) {
   ctx$results$ml_models[[tag]] <- saved$model
   ctx$results$ml_predictions_all[[tag]] <- saved$preds
   ctx$results$ml_eval_by_model[[tag]] <- saved$eval
+  ctx <- .ml_register_model_probs(ctx, tag, preds_df = saved$preds)
   cli::cli_alert_success("ml_rf 完成。")
   ctx
 }

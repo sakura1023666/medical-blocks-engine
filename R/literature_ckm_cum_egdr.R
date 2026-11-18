@@ -139,6 +139,9 @@ ckm_stroke_harmonize_columns <- function(df) {
   if ("Osteoporosis" %in% names(df)) {
     df$Osteoporosis <- as.integer(as.numeric(df$Osteoporosis) == 1)
   }
+  if ("MASLD" %in% names(df)) {
+    df$MASLD <- as.integer(as.numeric(df$MASLD) == 1)
+  }
   if ("CKM_stage" %in% names(df)) df$CKM_stage <- as.integer(df$CKM_stage)
   # ELSA / 通用：Drink 别名
   if (!"Drink" %in% names(df) && "Alcohol_drinking" %in% names(df)) {
@@ -168,6 +171,67 @@ ckm_stroke_recompute_egdr <- function(df, cfg = list()) {
     df$cum_eGDR <- (as.numeric(df$eGDR_t1) + as.numeric(df$eGDR_t2)) / 2 * mult
   }
   df
+}
+
+#' 累计暴露分位数个数：force_n_quantile_by_index[[index]] > n_quantile > 默认 3（三分位）
+ckm_stroke_resolve_n_quantile <- function(bl, index_name = NULL) {
+  bl <- bl %||% list()
+  idx <- as.character(index_name %||% "")[1L]
+  by <- bl$force_n_quantile_by_index
+  if (nzchar(idx) && is.list(by) && length(by) && !is.null(by[[idx]])) {
+    n <- as.integer(by[[idx]])[1L]
+    if (is.finite(n) && n >= 2L) return(n)
+  }
+  n <- as.integer(bl$n_quantile %||% 3L)[1L]
+  if (!is.finite(n) || n < 2L) n <- 3L
+  n
+}
+
+#' 分位水平前缀：三分位跟 Wang 用 T1–T3；四分位及以上用 Q1–Qn（禁止 Quartiles 标题却写 T1–T4）
+ckm_stroke_quantile_level_prefix <- function(n) {
+  n <- as.integer(n)[1L]
+  if (!is.finite(n) || n < 2L) n <- 3L
+  if (identical(n, 3L)) "T" else "Q"
+}
+
+#' 参照档标签（T1 或 Q1）
+ckm_stroke_quantile_ref_level <- function(n) {
+  paste0(ckm_stroke_quantile_level_prefix(n), "1")
+}
+
+#' 把连续暴露切成分位档（列名仍可叫 eGDR_tertile，兼容下游）
+ckm_stroke_cut_quantile <- function(x, n = 3L, prefix = NULL) {
+  x <- as.numeric(x)
+  n <- as.integer(n)[1L]
+  if (!is.finite(n) || n < 2L) n <- 3L
+  if (is.null(prefix) || !nzchar(as.character(prefix)[1L])) {
+    prefix <- ckm_stroke_quantile_level_prefix(n)
+  }
+  prefix <- as.character(prefix)[1L]
+  labs <- paste0(prefix, seq_len(n))
+  probs <- seq(0, 1, length.out = n + 1L)
+  qs <- as.numeric(stats::quantile(x, probs = probs, na.rm = TRUE, names = FALSE, type = 7))
+  qs_u <- unique(qs)
+  if (length(qs_u) < n + 1L) {
+    # 并列过多时用秩切分，保证 n 档
+    r <- rank(x, ties.method = "average", na.last = "keep")
+    br <- unique(as.numeric(stats::quantile(r, probs = probs, na.rm = TRUE, names = FALSE, type = 7)))
+    if (length(br) < 3L) {
+      return(factor(rep(labs[1L], length(x)), levels = labs))
+    }
+    return(cut(r, breaks = br, include.lowest = TRUE, labels = labs[seq_len(length(br) - 1L)]))
+  }
+  cut(x, breaks = qs, include.lowest = TRUE, labels = labs)
+}
+
+ckm_stroke_quantile_section_label <- function(n, index_lab = "eGDR") {
+  n <- as.integer(n)[1L]
+  index_lab <- as.character(index_lab %||% "eGDR")[1L]
+  if (identical(n, 2L)) sprintf("Binary groups of cumulative %s", index_lab)
+  else if (identical(n, 3L)) sprintf("Tertiles of cumulative %s", index_lab)
+  else if (identical(n, 4L)) sprintf("Quartiles of cumulative %s", index_lab)
+  else if (identical(n, 5L)) sprintf("Quintiles of cumulative %s", index_lab)
+  else sprintf("%d-quantiles of cumulative %s", n, index_lab)
 }
 
 ckm_stroke_is_full_depth <- function(index_name, cfg) {
@@ -205,6 +269,73 @@ ckm_stroke_kmeans_fit <- function(mat, k = 4L, seed = 2026L, nstart = 25L) {
   list(cluster = cl, centers = km$centers, ok = ok, tot.withinss = km$tot.withinss)
 }
 
+# 外验：用发现队列固定中心（行=语义类名，列 t1/t2）最近邻分配
+ckm_stroke_kmeans_assign_centers <- function(mat, centers) {
+  mat <- as.matrix(mat)
+  centers <- as.matrix(centers)
+  if (is.null(colnames(centers))) colnames(centers) <- c("t1", "t2")
+  if (ncol(centers) < 2L) stop("fixed centers 需至少两列 t1/t2", call. = FALSE)
+  centers <- centers[, 1:2, drop = FALSE]
+  labs <- rownames(centers)
+  if (is.null(labs) || !any(nzchar(labs))) {
+    stop("fixed centers 行名须为语义类（Persistent_low 等）", call. = FALSE)
+  }
+  ok <- stats::complete.cases(mat[, 1:2, drop = FALSE])
+  out <- rep(NA_character_, nrow(mat))
+  if (!any(ok)) {
+    return(factor(out, levels = labs))
+  }
+  m <- mat[ok, 1:2, drop = FALSE]
+  # 欧氏距离最近中心
+  d2 <- matrix(NA_real_, nrow(m), nrow(centers))
+  for (j in seq_len(nrow(centers))) {
+    d2[, j] <- (m[, 1] - centers[j, 1])^2 + (m[, 2] - centers[j, 2])^2
+  }
+  jj <- max.col(-d2, ties.method = "first")
+  out[ok] <- labs[jj]
+  factor(out, levels = unique(c(
+    "Persistent_low", "Moderate_high_stable", "Stable_high", "Rapid_decrease", labs
+  )))
+}
+
+ckm_stroke_read_fixed_centers_csv <- function(path) {
+  path <- as.character(path)[1L]
+  if (!nzchar(path) || !file.exists(path)) {
+    stop("fixed_centers_csv 不存在: ", path, call. = FALSE)
+  }
+  d <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE,
+                       fileEncoding = "UTF-8-BOM")
+  lab_col <- intersect(c("class", "Class", "eGDR_Class", "label"), names(d))[1L]
+  if (is.na(lab_col)) lab_col <- names(d)[1L]
+  t1_col <- intersect(c("t1", "eGDR_t1", "WWI_t1", "center_t1"), names(d))[1L]
+  t2_col <- intersect(c("t2", "eGDR_t2", "WWI_t2", "center_t2"), names(d))[1L]
+  if (is.na(t1_col) || is.na(t2_col)) {
+    stop("fixed_centers_csv 需含 t1/t2（或 eGDR_t1/t2）列", call. = FALSE)
+  }
+  labs <- as.character(d[[lab_col]])
+  mat <- cbind(as.numeric(d[[t1_col]]), as.numeric(d[[t2_col]]))
+  colnames(mat) <- c("t1", "t2")
+  rownames(mat) <- labs
+  mat
+}
+
+# 从发现队列拟合结果导出「语义类 → 中心」矩阵（供外验固定分配）
+ckm_stroke_centers_by_semantic <- function(fit_centers, cluster, semantic) {
+  fit_centers <- as.matrix(fit_centers)
+  semantic <- as.character(semantic)
+  cluster <- as.integer(cluster)
+  labs <- unique(stats::na.omit(semantic))
+  out <- matrix(NA_real_, length(labs), ncol(fit_centers),
+                dimnames = list(labs, colnames(fit_centers) %||% c("t1", "t2")))
+  for (lab in labs) {
+    ids <- unique(stats::na.omit(cluster[semantic == lab]))
+    if (!length(ids)) next
+    # 该类对应的原始 k-means 簇中心（通常唯一）
+    out[lab, ] <- colMeans(fit_centers[ids, , drop = FALSE], na.rm = TRUE)
+  }
+  out
+}
+
 ckm_stroke_anchor_classes <- function(cluster, t1, t2, ref_policy = "lowest_mean_t1") {
   # 文献 Class2 = persistent low eGDR = 高风险参照
   u <- sort(unique(stats::na.omit(cluster)))
@@ -233,7 +364,9 @@ ckm_stroke_anchor_classes <- function(cluster, t1, t2, ref_policy = "lowest_mean
     dlt <- vapply(mid, function(k) {
       mean(as.numeric(t2)[cluster == k] - as.numeric(t1)[cluster == k], na.rm = TRUE)
     }, numeric(1))
-    # 下降更多 → Rapid_decrease；另一 → Moderate_high_stable
+    # 内部水平名仍可能是 Rapid_decrease（供已有 checkpoint 对齐）。
+    # 若该类 |mean Δ| 很小，发表脚注禁止沿用这个名字，必须走
+    # ckm_stroke_class_display_labels()（类间极差的 25% 门槛）。
     dec <- mid[which.min(dlt)]
     stab <- setdiff(mid, dec)
     out[cluster == dec] <- "Rapid_decrease"
@@ -284,6 +417,8 @@ ckm_stroke_add_futime <- function(df) {
     df$status <- as.integer(as.numeric(df$Stroke) == 1L)
   } else if ("Osteoporosis" %in% names(df) && !"status" %in% names(df)) {
     df$status <- as.integer(as.numeric(df$Osteoporosis) == 1L)
+  } else if ("MASLD" %in% names(df) && !"status" %in% names(df)) {
+    df$status <- as.integer(as.numeric(df$MASLD) == 1L)
   }
   df
 }
@@ -323,7 +458,8 @@ ckm_stroke_fit_hr_row <- function(df, exposure, covars = NULL) {
   out
 }
 
-# 暴露成分不得进 Model（BMI 指数时踢 BMI；eGDR 不踢 BMI）
+# 暴露成分不得进 Model（公式原始列 + 临床近义代理；eGDR 不踢 BMI）
+# 例：ePWV = f(Age, MBP←SBP/DBP) → 踢 Age / SBP / DBP / MBP / Hypertension
 ckm_stroke_model_drop_exposure_components <- function(vars, index_name = NULL, bl = list()) {
   vars <- unique(as.character(vars %||% character(0)))
   idx <- as.character(index_name %||% bl$current_index %||% "")[1L]
@@ -335,7 +471,38 @@ ckm_stroke_model_drop_exposure_components <- function(vars, index_name = NULL, b
       drop <- c(drop, "BMI")
     }
   }
-  setdiff(vars, drop)
+  # 公式传递闭包（若 index 定义表已加载）
+  comps <- character(0)
+  if (nzchar(idx) && exists("pipeline_index_raw_components", mode = "function")) {
+    comps <- tryCatch(
+      as.character(pipeline_index_raw_components(idx)),
+      error = function(e) character(0)
+    )
+  }
+  # ePWV / MBP 未加载定义表时的硬兜底
+  if (grepl("^ePWV$", idx, ignore.case = TRUE)) {
+    comps <- unique(c(comps, "Age", "MBP", "SBP", "DBP"))
+  }
+  if (grepl("^MBP$", idx, ignore.case = TRUE)) {
+    comps <- unique(c(comps, "SBP", "DBP"))
+  }
+  if (grepl("^CVAI$", idx, ignore.case = TRUE)) {
+    comps <- unique(c(comps, "Age"))
+  }
+  drop <- c(drop, comps)
+  # 列名别名（ELSA NBPS/NBPD ↔ SBP/DBP）
+  if (any(c("SBP", "DBP", "MBP", "NBPS", "NBPD") %in% comps) ||
+      grepl("^ePWV$|^MBP$", idx, ignore.case = TRUE)) {
+    drop <- c(drop, "SBP", "DBP", "MBP", "NBPS", "NBPD",
+              "Hypertension", "Hypertension_w4", "Hypertension_t2")
+  }
+  if ("Age" %in% comps) drop <- c(drop, "Age")
+  if ("BMI" %in% comps) drop <- c(drop, "BMI")
+  if (any(c("Waist_circumference", "WC", "Weight", "Height") %in% comps)) {
+    # 体成分指数：不把整个人体测量池全踢，仅踢公式里出现的列名本身
+    drop <- c(drop, intersect(comps, c("Waist_circumference", "WC", "Weight", "Height")))
+  }
+  setdiff(vars, unique(as.character(drop)))
 }
 
 # 单因素 logistic P（连续=系数 P；因子=LRT 整体 P）
@@ -489,32 +656,77 @@ ckm_stroke_resolve_models_uv_vif <- function(
   )
 }
 
+ckm_stroke_apply_force_adjust_by_index <- function(models, bl, data, index_name = NULL) {
+  ix <- as.character(index_name %||% bl$current_index %||% "")[1L]
+  force_map <- bl$force_adjust_by_index
+  if (!length(ix) || !nzchar(ix) || is.null(force_map) || !length(force_map)) {
+    return(models)
+  }
+  # 兼容 list(HbA1c_HDL_C=...) / 带空格展示名
+  hit <- force_map[[ix]]
+  if (is.null(hit)) {
+    nm <- names(force_map)
+    key <- nm[toupper(gsub("[^A-Za-z0-9]", "", nm)) == toupper(gsub("[^A-Za-z0-9]", "", ix))]
+    if (length(key)) hit <- force_map[[key[[1L]]]]
+  }
+  if (is.null(hit) || !is.list(hit)) return(models)
+  m2 <- intersect(as.character(hit$Model2 %||% hit$model2 %||% character(0)), names(data))
+  m3 <- intersect(as.character(hit$Model3 %||% hit$model3 %||% character(0)), names(data))
+  # 也支持仅排除名单：在 uv/fixed 结果上踢变量
+  excl <- unique(as.character(hit$exclude %||% hit$adjust_exclude %||% character(0)))
+  if (length(excl)) {
+    if (!length(m2)) m2 <- setdiff(as.character(models$Model2 %||% character(0)), excl)
+    if (!length(m3)) m3 <- setdiff(as.character(models$Model3 %||% character(0)), excl)
+    m2 <- setdiff(m2, excl)
+    m3 <- setdiff(m3, excl)
+  }
+  if (length(m2) || length(m3)) {
+    if (length(m2)) models$Model2 <- m2
+    if (length(m3)) {
+      # 显式 Model3 名单为准；若只给了增量则并入 Model2
+      models$Model3 <- if (length(m2) && !all(m2 %in% m3)) unique(c(m2, m3)) else unique(m3)
+    } else if (length(m2)) {
+      models$Model3 <- unique(c(m2, setdiff(as.character(models$Model3 %||% character(0)), excl)))
+    }
+    models$force_adjust_index <- ix
+    models$force_adjust_note <- sprintf(
+      "force_adjust_by_index[%s]: M2=%s; M3=%s",
+      ix,
+      paste(models$Model2, collapse = "+"),
+      paste(models$Model3, collapse = "+")
+    )
+  }
+  models
+}
+
 ckm_stroke_model_sets <- function(bl, data, index_name = NULL, outcome = NULL) {
   mode <- tolower(as.character(bl$covariate_mode %||% "fixed")[1L])
+  out <- NULL
   if (identical(mode, "uv_vif")) {
     oc <- as.character(outcome %||% bl$outcome_column %||% "Osteoporosis")[1L]
     if (!oc %in% names(data)) {
       # 常见别名回退
-      for (alt in c("Stroke", "status", "Osteoporosis")) {
+      for (alt in c("Stroke", "status", "Osteoporosis", "MASLD")) {
         if (alt %in% names(data)) { oc <- alt; break }
       }
     }
     res <- ckm_stroke_resolve_models_uv_vif(data, oc, bl = bl, index_name = index_name)
-    return(list(
+    out <- list(
       Model1 = res$Model1, Model2 = res$Model2, Model3 = res$Model3,
       uv_vif = res
-    ))
+    )
+  } else {
+    m1 <- character(0)
+    m2 <- intersect(as.character(bl$model2 %||% c("Age", "Gender", "Marital")), names(data))
+    m3 <- intersect(as.character(bl$model3 %||% c(
+      "Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
+      "eGFR", "Dyslipidemia", "Diabetes"
+    )), names(data))
+    m2 <- ckm_stroke_model_drop_exposure_components(m2, index_name, bl)
+    m3 <- ckm_stroke_model_drop_exposure_components(m3, index_name, bl)
+    out <- list(Model1 = m1, Model2 = m2, Model3 = m3)
   }
-
-  m1 <- character(0)
-  m2 <- intersect(as.character(bl$model2 %||% c("Age", "Gender", "Marital")), names(data))
-  m3 <- intersect(as.character(bl$model3 %||% c(
-    "Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
-    "eGFR", "Dyslipidemia", "Diabetes"
-  )), names(data))
-  m2 <- ckm_stroke_model_drop_exposure_components(m2, index_name, bl)
-  m3 <- ckm_stroke_model_drop_exposure_components(m3, index_name, bl)
-  list(Model1 = m1, Model2 = m2, Model3 = m3)
+  ckm_stroke_apply_force_adjust_by_index(out, bl, data, index_name = index_name)
 }
 
 ckm_stroke_prepare_age_group <- function(df, cutoff = 60L) {

@@ -97,6 +97,7 @@ dir.create(.arch, recursive = TRUE, showWarnings = FALSE)
 )
 
 .prespec <- c("Age", "diameter_cm", "volume_cm3", "energy_j", "shots")
+.nom <- c("Age", "diameter_cm", "energy_j", "shots")
 .cats <- intersect(c("Sex", "shape", "color", "surface", "stone_type"), names(.df))
 .conts_extra <- intersect(c("ct_min", "ct_max", "pct_lt40", "pct_40_80", "pct_gt80"), names(.df))
 # Age 置顶（其余连续预指定 → 分类 → 探索性 CT）
@@ -123,27 +124,50 @@ dir.create(.arch, recursive = TRUE, showWarnings = FALSE)
   )
 }
 
-# train/val split（与 Methods 人数对齐）
-.set_seed <- 42L
-set.seed(.set_seed)
-.n <- nrow(.df)
-.tr_n <- {
-  note <- file.path(.proj, "Tables", "Methods_split_denominator_note.txt")
-  if (file.exists(note)) {
-    ln <- readLines(note, warn = FALSE)
-    hit <- grep("^train_n=", ln, value = TRUE)
-    if (length(hit)) as.integer(sub(".*=", "", hit[[1]])) else floor(0.7 * .n)
-  } else floor(0.7 * .n)
+# 与 Fig4–9 同一拆分：rsample strata=Success, seed=42 → 190/83
+set.seed(42)
+if (requireNamespace("rsample", quietly = TRUE)) {
+  .sp <- rsample::initial_split(.df, prop = 0.7, strata = .out)
+  .df$Set <- factor("Validation", levels = c("Training", "Validation"))
+  .df$Set[as.integer(.sp, data = "analysis")] <- "Training"
+} else {
+  .idx <- sample.int(nrow(.df), size = floor(0.7 * nrow(.df)))
+  .df$Set <- factor("Validation", levels = c("Training", "Validation"))
+  .df$Set[.idx] <- "Training"
 }
-.idx <- sample.int(.n, size = min(.tr_n, .n))
-.df$Set <- factor("Validation", levels = c("Training", "Validation"))
-.df$Set[.idx] <- "Training"
+.message("split train=", sum(.df$Set == "Training"), " val=", sum(.df$Set == "Validation"))
 
+# 必须吃原始 p。gtsummary::style_pvalue() 默认 digits=1，会把 0.185 收成 0.2，
+# 再 sprintf("%.3f") 就变成 0.200；"<0.001" 被拆成数字后又变成 0.001。
 .fmt_p <- function(p) {
-  p <- as.numeric(p)
-  ifelse(!is.finite(p), "—",
-         ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)))
+  p <- suppressWarnings(as.numeric(p))
+  out <- if (exists("fmt_pval", mode = "function")) {
+    fmt_pval(p)
+  } else {
+    ifelse(!is.finite(p), NA_character_,
+           ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)))
+  }
+  out[is.na(out)] <- ""
+  out
 }
+.fmt_p_cell <- function(x) {
+  x <- trimws(as.character(x))
+  if (!nzchar(x) || x %in% c("NA", "NaN", "—")) return("")
+  if (grepl("^<", x)) return("<0.001")
+  if (grepl("^>", x)) return(">0.999")
+  px <- suppressWarnings(as.numeric(x))
+  if (!is.finite(px)) return(x)
+  .fmt_p(px)
+}
+.p_test <- list(
+  all_continuous() ~ "t.test",
+  all_categorical() ~ "chisq.test"
+)
+.p_fn_baseline <- paste(
+  "Continuous variables: Welch two-sample t-test.",
+  "Categorical variables: chi-square test.",
+  "P values are reported to 3 decimal places; P < 0.001 is shown as <0.001."
+)
 
 # ---------- Table 1：按 Success 分层（发病套路 gtsummary 宽表）----------
 .message("→ Table 1 SCI xlsx (by Success) …")
@@ -166,12 +190,7 @@ for (vv in .cont_force) .d1[[vv]] <- as.numeric(.d1[[vv]])
     missing = "no"
   ) %>%
   add_overall() %>%
-  add_p(
-    test = list(
-      all_continuous() ~ "t.test",
-      all_categorical() ~ "chisq.test"
-    )
-  ) %>%
+  add_p(test = .p_test, pvalue_fun = .fmt_p) %>%
   modify_header(
     label ~ "**Characteristic**",
     all_stat_cols() ~ "**{level}**\nN = {n}"
@@ -202,23 +221,13 @@ if (ncol(.df1) >= 5) {
 }
 # P 格式化
 if ("P value" %in% names(.df1)) {
-  .df1[["P value"]] <- vapply(.df1[["P value"]], function(x) {
-    x <- as.character(x)
-    if (!nzchar(trimws(x)) || x %in% c("NA", "—")) return("")
-    # gtsummary 可能已是 <0.001
-    if (grepl("^<", x) || grepl("^[0-9]", x)) {
-      px <- suppressWarnings(as.numeric(gsub("[^0-9.eE+-]", "", x)))
-      if (is.finite(px)) return(.fmt_p(px))
-      return(x)
-    }
-    x
-  }, character(1))
+  .df1[["P value"]] <- vapply(.df1[["P value"]], .fmt_p_cell, character(1))
 }
 .t1_stem <- "Table 1. Baseline characteristics of the participants"
 .t1_title <- .t1_stem
 .t1_fn <- c(
   "Values are mean (SD) for continuous variables and n (%) for categorical variables.",
-  "P values compare Success = No vs Yes (t-test / chi-square).",
+  paste("P values compare Success = No vs Yes.", .p_fn_baseline),
   "Outcome = lithotripsy success."
 )
 # 优先 guan-style Table1（与发病 baseline_binary 同路）
@@ -262,12 +271,7 @@ for (vv in intersect(.cont_force, names(.d2))) .d2[[vv]] <- as.numeric(.d2[[vv]]
     label = as.list(.lbl[intersect(names(.lbl), .vars_t1)]),
     missing = "no"
   ) %>%
-  add_p(
-    test = list(
-      all_continuous() ~ "t.test",
-      all_categorical() ~ "chisq.test"
-    )
-  ) %>%
+  add_p(test = .p_test, pvalue_fun = .fmt_p) %>%
   modify_header(
     label ~ "**Characteristic**",
     all_stat_cols() ~ "**{level}**\nN = {n}"
@@ -288,17 +292,12 @@ if (ncol(.df2) >= 4) {
   )
 }
 if ("P value" %in% names(.df2)) {
-  .df2[["P value"]] <- vapply(.df2[["P value"]], function(x) {
-    x <- as.character(x)
-    if (!nzchar(trimws(x)) || x %in% c("NA", "—")) return("")
-    px <- suppressWarnings(as.numeric(gsub("[^0-9.eE+-]", "", x)))
-    if (is.finite(px)) .fmt_p(px) else x
-  }, character(1))
+  .df2[["P value"]] <- vapply(.df2[["P value"]], .fmt_p_cell, character(1))
 }
 .t2_stem <- "Table 2. Baseline characteristics between training and validation sets"
 .t2_fn <- c(
   "Values are mean (SD) or n (%).",
-  "P values compare Training vs Validation.",
+  paste("P values compare Training vs Validation.", .p_fn_baseline),
   "Split seed = 42; train:validation ratio aligned with Methods split denominator note."
 )
 .t2_path <- file.path(.tab, paste0(.t2_stem, ".xlsx"))
@@ -332,12 +331,22 @@ if (!file.exists(.s1_csv)) {
       "Binary endpoint: lithotripsy success (Yes/No).",
       rep("See Methods.", length(.prespec) + length(.cats))
     ),
-    Role = c("Outcome", rep("Nomogram predictor", length(.prespec)),
+    Role = c("Outcome",
+             ifelse(.prespec %in% .nom, "Nomogram predictor", "Univariate only"),
              rep("Baseline / subgroup", length(.cats))),
     stringsAsFactors = FALSE
   )
 } else {
   .s1 <- utils::read.csv(.s1_csv, stringsAsFactors = FALSE)
+}
+if ("Role" %in% names(.s1)) {
+  .vcol <- if ("Variable" %in% names(.s1)) "Variable" else names(.s1)[1]
+  .vol <- grepl("volume", .s1[[.vcol]], ignore.case = TRUE)
+  .s1$Role[.vol] <- "Univariate only"
+  .dcol <- grep("Description", names(.s1), value = TRUE)[1]
+  if (!is.na(.dcol)) {
+    .s1[[.dcol]][.vol] <- "Stone volume, cm3. Table 1 and univariate figures only; not a nomogram predictor."
+  }
 }
 .export_sci(
   .s1,
@@ -347,70 +356,55 @@ if (!file.exists(.s1_csv)) {
 
 # ---------- Table S2 ----------
 .message("→ Table S2 …")
-.s2_csv <- file.path(.tab, "Table S2. Variance inflation factors between variables.csv")
-if (!file.exists(.s2_csv)) .s2_csv <- file.path(.arch, basename(.s2_csv))
-if (file.exists(.s2_csv)) {
-  .s2 <- utils::read.csv(.s2_csv, stringsAsFactors = FALSE)
+.use <- .nom[.nom %in% names(.df)]
+.dtr <- .df[.df$Set == "Training", c(".y", .use), drop = FALSE]
+.fit <- stats::glm(
+  stats::as.formula(paste(".y ~", paste(.use, collapse = "+"))),
+  data = .dtr, family = stats::binomial()
+)
+if (requireNamespace("car", quietly = TRUE)) {
+  vf <- car::vif(.fit)
+  .s2 <- data.frame(Variable = .lbl[names(vf)], VIF = round(as.numeric(vf), 3), stringsAsFactors = FALSE)
+  .s2$Variable[is.na(.s2$Variable)] <- names(vf)[is.na(.s2$Variable)]
 } else {
-  .use <- .prespec[.prespec %in% names(.df)]
-  .dtr <- .df[.df$Set == "Training", c(".y", .use), drop = FALSE]
-  .fit <- stats::glm(
-    stats::as.formula(paste(".y ~", paste(.use, collapse = "+"))),
-    data = .dtr, family = stats::binomial()
-  )
-  if (requireNamespace("car", quietly = TRUE)) {
-    vf <- car::vif(.fit)
-    .s2 <- data.frame(Variable = names(vf), VIF = as.numeric(vf), stringsAsFactors = FALSE)
-  } else {
-    .s2 <- data.frame(Variable = .use, VIF = NA_real_)
-  }
+  .s2 <- data.frame(Variable = .lbl[.use], VIF = NA_real_, stringsAsFactors = FALSE)
 }
-# round VIF
-if ("VIF" %in% names(.s2)) .s2$VIF <- round(as.numeric(.s2$VIF), 3)
 .export_sci(
   .s2,
   "Table S2. Variance inflation factors between variables",
-  footnotes = "VIF from multivariable logistic model of prespecified predictors on the training set."
+  footnotes = "VIF from the training-set logistic model of the four nomogram predictors (Age, Diameter, Energy, Shots)."
 )
 
 # ---------- Table S3 ----------
 .message("→ Table S3 …")
-.s3_csv <- file.path(.tab, "Table S3. Association of features with lithotripsy success (Model 1-3).csv")
-if (!file.exists(.s3_csv)) .s3_csv <- file.path(.arch, basename(.s3_csv))
-if (!file.exists(.s3_csv)) {
-  .s3_csv <- file.path(.arch, "Table_assoc_OR_Model123_all.csv")
+.assoc_csv <- file.path(.tab, "Table_assoc_OR_Model123_all.csv")
+if (!file.exists(.assoc_csv)) .assoc_csv <- file.path(.arch, "Table_assoc_OR_Model123_all.csv")
+if (!file.exists(.assoc_csv)) stop("missing association source for Table S3")
+a <- utils::read.csv(.assoc_csv, stringsAsFactors = FALSE)
+mk <- function(mod, pref) {
+  sub <- a[a$model == mod, , drop = FALSE]
+  out <- data.frame(
+    feature = sub$feature,
+    OR_CI = sub$OR_CI,
+    P = ifelse(is.finite(sub$P) & sub$P < 0.001, "<0.001",
+               ifelse(is.finite(sub$P), sprintf("%.3f", sub$P), "—")),
+    stringsAsFactors = FALSE
+  )
+  names(out)[2:3] <- paste0(pref, c(" OR (95%CI)", " P"))
+  out
 }
-if (file.exists(.s3_csv) && grepl("Model 1-3", basename(.s3_csv))) {
-  .s3 <- utils::read.csv(.s3_csv, stringsAsFactors = FALSE)
-} else if (file.exists(file.path(.arch, "Table_assoc_OR_Model123_all.csv"))) {
-  a <- utils::read.csv(file.path(.arch, "Table_assoc_OR_Model123_all.csv"), stringsAsFactors = FALSE)
-  mk <- function(mod, pref) {
-    sub <- a[a$model == mod, , drop = FALSE]
-    out <- data.frame(
-      feature = sub$feature,
-      OR_CI = sub$OR_CI,
-      P = ifelse(is.finite(sub$P) & sub$P < 0.001, "<0.001",
-                 ifelse(is.finite(sub$P), sprintf("%.3f", sub$P), "—")),
-      stringsAsFactors = FALSE
-    )
-    names(out)[2:3] <- paste0(pref, c("_OR (95%CI)", "_P"))
-    out
-  }
-  .s3 <- Reduce(function(x, y) merge(x, y, by = "feature", all = TRUE),
-                list(mk("Model1", "Model1"), mk("Model2", "Model2"), mk("Model3", "Model3")))
-  .ord <- c(.prespec, setdiff(unique(a$feature), .prespec))
-  .s3 <- .s3[match(intersect(.ord, .s3$feature), .s3$feature), , drop = FALSE]
-} else {
-  stop("missing S3 source")
-}
+.s3 <- Reduce(function(x, y) merge(x, y, by = "feature", all = TRUE),
+              list(mk("Model1", "Model1"), mk("Model2", "Model2"), mk("Model3", "Model3")))
+.ord <- c(.prespec, setdiff(unique(a$feature), .prespec))
+.s3 <- .s3[match(intersect(.ord, .s3$feature), .s3$feature), , drop = FALSE]
 names(.s3)[names(.s3) == "feature"] <- "Variable"
 .export_sci(
   .s3,
   "Table S3. Association of features with lithotripsy success (Model 1-3)",
   footnotes = c(
-    "OR per 1-SD increase for continuous predictors unless otherwise noted.",
-    "Model 1: crude; Model 2/3: covariate sets as in Methods.",
-    "Aligned with Chen Supplemental Table 3 layout."
+    "Full analysis set N=273. OR per 1-SD increase, brglm2.",
+    "Model 1: Age. Model 2: Age and Sex. Model 3: Age, Sex, Shape, Color, Surface, and Stone type.",
+    "These are not the training-set per-unit odds ratios in Figure 5."
   )
 )
 
@@ -419,7 +413,7 @@ names(.s3)[names(.s3) == "feature"] <- "Variable"
 .s4_csv <- file.path(.tab, "Table S4. Characteristics of predictors between training and validation sets.csv")
 if (!file.exists(.s4_csv)) .s4_csv <- file.path(.arch, basename(.s4_csv))
 # Prefer rebuild from gtsummary subset of predictors only
-.d4 <- .df[, c("Set", .prespec[.prespec %in% names(.df)]), drop = FALSE]
+.d4 <- .df[, c("Set", .nom[.nom %in% names(.df)]), drop = FALSE]
 .tbl4 <- .d4 %>%
   tbl_summary(
     by = Set,
@@ -428,7 +422,7 @@ if (!file.exists(.s4_csv)) .s4_csv <- file.path(.arch, basename(.s4_csv))
     label = as.list(.lbl[intersect(names(.lbl), names(.d4))]),
     missing = "no"
   ) %>%
-  add_p(test = list(all_continuous() ~ "t.test")) %>%
+  add_p(test = list(all_continuous() ~ "t.test"), pvalue_fun = .fmt_p) %>%
   modify_header(label ~ "**Characteristic**", all_stat_cols() ~ "**{level}**\nN = {n}") %>%
   bold_labels()
 .df4 <- as.data.frame(.tbl4)
@@ -446,18 +440,15 @@ if (ncol(.df4) >= 4) {
   )
 }
 if ("P value" %in% names(.df4)) {
-  .df4[["P value"]] <- vapply(.df4[["P value"]], function(x) {
-    x <- as.character(x)
-    if (!nzchar(trimws(x))) return("")
-    px <- suppressWarnings(as.numeric(gsub("[^0-9.eE+-]", "", x)))
-    if (is.finite(px)) .fmt_p(px) else x
-  }, character(1))
+  .df4[["P value"]] <- vapply(.df4[["P value"]], .fmt_p_cell, character(1))
 }
 .export_sci(
   .df4,
   "Table S4. Characteristics of predictors between training and validation sets",
   footnotes = c(
-    "Prespecified nomogram predictors only.",
+    "Nomogram predictors only: Age, Diameter, Energy, and Shots. Volume is not in this table.",
+    "Energy takes five values (0.6, 0.7, 0.8, 0.9, 1.0) and is analysed as continuous.",
+    .p_fn_baseline,
     "Chen Supplemental Table 4 used external validation; this study reports internal validation."
   )
 )

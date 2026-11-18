@@ -39,7 +39,7 @@ config <- list(
     export_figure_svg = FALSE
   ),
   # 发表小数位（全项目统一；一般勿改）est=HR；p=P；desc=描述；cutoff=切点
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE),
+  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
   attrition = list(
     enable = TRUE,
     title = NULL,
@@ -111,6 +111,17 @@ config <- list(
       covariate_source = "auto"
     )
   ),
+  # 发表收口：by_index/【success】*/summary_results/ 白名单五件套（与发病同口径）
+  pub = list(
+    write_index_summary_results = TRUE,
+    index_summary_results_dir = "summary_results",
+    summary_dirname = "summary_results",
+    summary_result = FALSE,
+    tables_figures_only = FALSE,
+    auto_qc = TRUE,
+    include_sa_complete_case = TRUE,
+    sa_complete_case_require_sig = TRUE
+  ),
   feishu = list(
     enable = TRUE,
     push_on_worker_finish = TRUE,
@@ -145,7 +156,8 @@ config <- list(
     variable_aliases = list(age = "Age", hypertension = "Hypertension", diabetes = "Diabetes")
   ),
   imputation = list(
-    missing_col_threshold = 0.4, method = "cart", m = 5L, seed = 1234L,
+    missing_col_threshold = 0.4, method = "cart", m = 5L, max_iter = 5L,
+    seed = 1234L, complete_action = 1L, rubin_pool = TRUE,
     mi_quality_exclude_enable = TRUE, mi_quality_p_threshold = 0.05,
     export_missing_fig = FALSE
   ),
@@ -310,8 +322,10 @@ config <- list(
     # S8 关联表候选池：.mi02_resolve_lab_indicator_pool（血检+extra+best_mediator）
     lab_indicator_vars = NULL,
     mediator_extra_vars = NULL,
-    # 双库 Figure S3 必须同一中介（闸门 E：交集内双库 Prop_Med 均值最大）
+    # 双库：LM 显著交集 → 相关表/中介表同变量；路径图 best 须两库均显著
+    dual_db_lock_shared_lm_mediators = TRUE,
     dual_db_lock_best_mediator = TRUE,
+    dual_db_require_both_significant = TRUE,
     dual_db_force_rerun_mediation = TRUE,
     best_mediator = NULL,
     diagram_palette = "matcha",

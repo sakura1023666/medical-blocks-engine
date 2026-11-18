@@ -42,8 +42,10 @@ suppressPackageStartupMessages({
             "pct_lt40", "pct_40_80", "pct_gt80", "energy_j", "shots")
 # 临床预指定预测因子（小样本；不含 CT%/近分离分类）
 .prespec <- c("Age", "diameter_cm", "volume_cm3", "energy_j", "shots")
-# 主文 Fig2/3：预指定连续变量
+# 主文 Fig2/3：预指定连续变量（体积留在单变量/RCS，不进列线图）
 .feats_fig23 <- .prespec
+# Fig4–9 预测模型：去掉 volume（与直径共线后多因素 OR 方向反转，判定 B）
+.nom_vars <- c("Age", "diameter_cm", "energy_j", "shots")
 .cats <- c("Sex", "shape", "color", "surface", "stone_type")
 # 发表展示名：引擎字典（R/literature_gallstone_nomogram.R）+ pipeline_display_label
 .lab_disp <- gallstone_nomogram_display_labels()
@@ -268,30 +270,16 @@ message(sprintf("Fig2 ggplot forest: xlim log[%.2f,%.2f] size=%.2fx%.2f in", .xl
 writeLines(c(
   "Fig2 footnote (not drawn on figure to avoid axis overlap):",
   "Model1=Age forced; Model2=Age+UV-sig demo; Model3=Age+UV-sig pool (brglm2).",
+  "OR per 1 SD on the full analysis set (N=273), not the training-set per-unit ORs in Fig5.",
+  "Shots Model 1 OR in this figure is the same brglm2 estimate as Table S3 Model 1.",
   "OR per 1 SD; log xlim [0.01,50]; ticks 0.01/0.1/1/10/50; CI >50 shown as >50 with arrow.",
   sprintf("Fig2/3 exposures = nomogram continuous only: %s.",
           paste(.disp(.feats_fig23), collapse = ", "))
 ), file.path(.tab, "Methods_fig2_footnote.txt"))
 .fig2_pdf <- file.path(.fig, "pdf", "Figure 2. Associations of continuous features.pdf")
+# 交付 PDF 必须矢量：禁止 trim 后用 grid.raster 覆盖 PDF（bad_pdf_raster = P0）
 .save_pdf_png(.fig2_combined, .fig2_pdf, .w2, .h2)
-.fig2_png <- file.path(.fig, "png", "Figure 2. Associations of continuous features.png")
-tryCatch({
-  ggplot2::ggsave(.fig2_png, .fig2_combined, width = .w2, height = .h2, dpi = 200, bg = "white")
-  .trim_png_white(.fig2_png, pad = 4L, thr = 250L)
-  im <- png::readPNG(.fig2_png)
-  wi <- dim(im)[2] / 200; hi <- dim(im)[1] / 200
-  grDevices::pdf(.fig2_pdf, width = wi, height = hi, useDingbats = FALSE)
-  grid::grid.raster(im, interpolate = TRUE)
-  grDevices::dev.off()
-  for (d in c(
-    file.path(.proj, "Figures", "pdf"),
-    file.path(.proj, "_shared", "Figures", "pdf")
-  )) {
-    dir.create(d, recursive = TRUE, showWarnings = FALSE)
-    file.copy(.fig2_pdf, file.path(d, basename(.fig2_pdf)), overwrite = TRUE)
-  }
-  message(sprintf("Fig2 cropped PDF: %.2fx%.2f in", wi, hi))
-}, error = function(e) message("Fig2 trim/rewrite: ", conditionMessage(e)))
+message(sprintf("Fig2 vector PDF: %.2fx%.2f in", .w2, .h2))
 
 # ===================== Fig3 RCS（Chen 样式 A|B；纵轴按曲线自适应，禁止线/CI 穿框）=====================
 message("→ Fig3 RCS Chen-style overlay hist (A|B, fit-ylim) …")
@@ -485,19 +473,20 @@ if (!length(.fits3)) stop("Fig3: no RCS panels")
 })
 .n3 <- length(.rcs_panels)
 # 五张：上排 A–C，下排 D–E（右下空位）
+# 长边 ≤ 11 in（pub_figures$max_edge_in；超限 = bad_pdf_geometry P0）
 if (.n3 == 5L) {
   .fig3 <- wrap_plots(
     .rcs_panels[[1]], .rcs_panels[[2]], .rcs_panels[[3]],
     .rcs_panels[[4]], .rcs_panels[[5]], plot_spacer(),
     ncol = 3, nrow = 2
   )
-  .w3 <- 12.6; .h3 <- 7.2
+  .w3 <- 10.8; .h3 <- 6.2
 } else if (.n3 <= 3L) {
   .fig3 <- wrap_plots(.rcs_panels, nrow = 1, widths = rep(1, .n3))
-  .w3 <- 4.15 * .n3 + 0.3; .h3 <- 3.55
+  .w3 <- min(4.15 * .n3 + 0.3, 11); .h3 <- 3.55
 } else {
   .fig3 <- wrap_plots(.rcs_panels, ncol = 3)
-  .w3 <- 12.6; .h3 <- 3.55 * ceiling(.n3 / 3)
+  .w3 <- 10.8; .h3 <- min(3.55 * ceiling(.n3 / 3), 11)
 }
 .save_pdf_png(.fig3, file.path(.fig, "pdf", "Figure 3. RCS of continuous features.pdf"),
               .w3, .h3)
@@ -513,8 +502,9 @@ message("→ Prespec + Ridge / Firth MV / Nomogram …")
   y <- d[[.out]]
   if (is.factor(y)) as.integer(y == "Yes") else as.integer(as.numeric(y) == 1L)
 }
-.use <- .prespec[.prespec %in% names(.train)]
-message("Nomogram features (clinically pre-specified): ", paste(.use, collapse = ", "))
+.use <- .nom_vars[.nom_vars %in% names(.train)]
+message("Nomogram features (no volume): ", paste(.use, collapse = ", "))
+message("NOTE: volume_cm3 kept in Fig2/3 and Table 1 only (sign flip after diameter).")
 message("NOTE: CT%/ct_max/shape/stone_type excluded from prediction by pre-specification (near-separation risk).")
 .mm <- model.matrix(~ ., data = .train[, .use, drop = FALSE])[, -1, drop = FALSE]
 for (j in seq_len(ncol(.mm))) {
@@ -744,26 +734,11 @@ dir.create(dirname(.fig5_png), recursive = TRUE, showWarnings = FALSE)
   grid::grid.newpage()
   grid::grid.draw(.p5)
 }
+# 矢量 PDF 定稿；PNG 仅可选预览，禁止 raster 回写 PDF
 grDevices::pdf(.fig5_pdf, width = .w5, height = .h5, useDingbats = FALSE)
 .draw5()
 grDevices::dev.off()
-grDevices::png(.fig5_png, width = .w5, height = .h5, units = "in", res = 300, bg = "white")
-.draw5()
-grDevices::dev.off()
-# 紧裁白边（尤其底部），画布贴内容
-.trim_png_white(.fig5_png, pad = 4L, thr = 248L)
-.im5 <- tryCatch(png::readPNG(.fig5_png), error = function(e) NULL)
-if (!is.null(.im5)) {
-  .w5 <- dim(.im5)[2] / 300
-  .h5 <- dim(.im5)[1] / 300
-  grDevices::pdf(.fig5_pdf, width = .w5, height = .h5, useDingbats = FALSE)
-  grid::grid.raster(.im5, interpolate = TRUE)
-  grDevices::dev.off()
-  grDevices::png(.fig5_png, width = .w5, height = .h5, units = "in", res = 300, bg = "white")
-  grid::grid.raster(.im5, interpolate = TRUE)
-  grDevices::dev.off()
-}
-message(sprintf("Fig5 Chen forestploter: %.2fx%.2f in, n_rows=%d", .w5, .h5, nrow(.plot5)))
+message(sprintf("Fig5 Chen forestploter vector: %.2fx%.2f in, n_rows=%d", .w5, .h5, nrow(.plot5)))
 .mirror_fig5 <- function(src, dests) {
   for (d in dests) {
     dest <- file.path(d, basename(src))
@@ -944,23 +919,8 @@ for (v in .use6) {
 grDevices::pdf(.fig6_pdf, width = .w6, height = .h6, useDingbats = FALSE)
 .draw6_chen()
 grDevices::dev.off()
-grDevices::png(.fig6_png, width = .w6, height = .h6, units = "in", res = 300, bg = "white")
-.draw6_chen()
-grDevices::dev.off()
-.trim_png_white(.fig6_png, pad = 4L, thr = 248L)
-.im6 <- tryCatch(png::readPNG(.fig6_png), error = function(e) NULL)
-if (!is.null(.im6)) {
-  .w6 <- dim(.im6)[2] / 300
-  .h6 <- dim(.im6)[1] / 300
-  grDevices::pdf(.fig6_pdf, width = .w6, height = .h6, useDingbats = FALSE)
-  grid::grid.raster(.im6, interpolate = TRUE)
-  grDevices::dev.off()
-  grDevices::png(.fig6_png, width = .w6, height = .h6, units = "in", res = 300, bg = "white")
-  grid::grid.raster(.im6, interpolate = TRUE)
-  grDevices::dev.off()
-}
 message(sprintf(
-  "Fig6 Chen nomogram (ridge): %.2fx%.2f in; risk TP [%.0f,%.0f]; TotalPoints 0-%d; lambda.1se=%.4g",
+  "Fig6 Chen nomogram vector (ridge): %.2fx%.2f in; risk TP [%.0f,%.0f]; TotalPoints 0-%d; lambda.1se=%.4g",
   .w6, .h6, min(.tp_at_risk, na.rm = TRUE), max(.tp_at_risk, na.rm = TRUE),
   as.integer(.tp_max_disp), .cv6$lambda.1se
 ))
@@ -1027,27 +987,10 @@ message("→ Fig7 ROC+校准 | Fig8 DCA of nomogram… | Fig9 CIC of nomogram…
 }
 .p_tr <- .pred(.mv, .train, .train); .y_tr <- .y01(.train)
 .p_va <- .pred(.mv, .test, .train);  .y_va <- .y01(.test)
-.full <- rbind(.train, .test)
-set.seed(42)
-.B <- 200L
-.auc_b <- rep(NA_real_, .B)
-.p_boot_mat <- matrix(NA_real_, nrow(.full), 40)
-for (b in seq_len(.B)) {
-  ii <- sample.int(nrow(.full), replace = TRUE)
-  db <- .align(.full[ii, ], .train); db$.y <- .y01(db)
-  fb <- tryCatch(glm(.fml, data = transform(db, .y = .y01(db)), family = binomial(), method = "brglmFit"),
-                 error = function(e) tryCatch(glm(.fml, data = transform(db, .y = .y01(db)), family = binomial()), error = function(e2) NULL))
-  if (is.null(fb)) next
-  pb <- .pred(fb, .full, .train)
-  .auc_b[b] <- .auc(.y01(.full), pb)
-  if (b <= 40) .p_boot_mat[, b] <- pb
-}
-.p_boot <- rowMeans(.p_boot_mat, na.rm = TRUE)
 .metrics <- data.frame(
-  set = c("train", "internal_val", "bootstrap"),
-  AUC = c(.auc(.y_tr, .p_tr), .auc(.y_va, .p_va), mean(.auc_b, na.rm = TRUE)),
-  AUC_boot_lo = c(NA, NA, quantile(.auc_b, 0.025, na.rm = TRUE)),
-  AUC_boot_hi = c(NA, NA, quantile(.auc_b, 0.975, na.rm = TRUE))
+  set = c("train", "internal_val"),
+  AUC = c(.auc(.y_tr, .p_tr), .auc(.y_va, .p_va)),
+  stringsAsFactors = FALSE
 )
 utils::write.csv(.metrics, file.path(.tab, "Table 4. Discrimination (AUC) train validation bootstrap.csv"), row.names = FALSE)
 utils::write.csv(.metrics, file.path(.proj, "Tables", "Table_AUC_train_val_boot.csv"), row.names = FALSE)
@@ -1202,11 +1145,9 @@ message("→ Fig7 Chen-style ROC + calibration (2×3) …")
 }
 .p7A <- .roc_panel(.y_tr, .p_tr, "A", "Train ROC")
 .p7B <- .roc_panel(.y_va, .p_va, "B", "Validation ROC")
-.p7C <- .roc_panel(.y01(.full), .p_boot, "C", "Bootstrap ROC", boot_auc = .auc_b)
-.p7D <- .cal_panel(.y_tr, .p_tr, "D", "Training")
-.p7E <- .cal_panel(.y_va, .p_va, "E", "Validation")
-.p7F <- .cal_panel(.y01(.full), .p_boot, "F", "Bootstrap")
-.fig7 <- (.p7A | .p7B | .p7C) / (.p7D | .p7E | .p7F) +
+.p7D <- .cal_panel(.y_tr, .p_tr, "C", "Training")
+.p7E <- .cal_panel(.y_va, .p_va, "D", "Validation")
+.fig7 <- (.p7A | .p7B) / (.p7D | .p7E) +
   plot_annotation(
     tag_levels = "A",
     theme = theme(
@@ -1217,17 +1158,17 @@ message("→ Fig7 Chen-style ROC + calibration (2×3) …")
   theme(plot.tag.position = c(0.01, 0.98))
 .fig7_pdf <- file.path(.fig, "pdf", "Figure 7. ROC and calibration.pdf")
 .fig7_png <- file.path(.fig, "png", "Figure 7. ROC and calibration.png")
-.save_pdf_png(.fig7, .fig7_pdf, 12.2, 8.4)
+.save_pdf_png(.fig7, .fig7_pdf, 8.4, 8.4)
 tryCatch({
-  ggplot2::ggsave(.fig7_png, .fig7, width = 12.2, height = 8.4, dpi = 200, bg = "white")
+  ggplot2::ggsave(.fig7_png, .fig7, width = 8.4, height = 8.4, dpi = 200, bg = "white")
   .trim_png_white(.fig7_png, pad = 6L, thr = 250L)
 }, error = function(e) message("Fig7 png: ", conditionMessage(e)))
 writeLines(c(
-  "Fig7 = Chen-style 2x3: A–C orange ROC + AUC(CI); D–F red Loess calibration + intercept/slope/c.",
-  "Panel C/F = Bootstrap (no external cohort; locked). Grey panel + white grid like Chen FreeStatistics.",
-  "AUC CI: DeLong (train/val); bootstrap percentile (panel C)."
+  "Fig7 = 2x2: A–B ROC train/internal validation; C–D calibration.",
+  "Bootstrap panel omitted: prior interval rescored the original 273 rows and is not a validation CI.",
+  "AUC CI: DeLong (train/val)."
 ), file.path(.tab, "Methods_fig7_layout.txt"))
-message("Fig7 Chen-style 2x3 done")
+message("Fig7 train/validation 2x2 done")
 
 # ---------- Fig8：对齐 Chen FreeStatistics DCA（Standardized NB + Cost:Benefit + CI）----------
 message("→ Fig8 Chen-style DCA …")
@@ -1290,12 +1231,11 @@ message("→ Fig8 Chen-style DCA …")
 }
 .dd8 <- rbind(
   .dca_chen_one(.y_tr, .p_tr, "Train set", n_boot = 200L, seed = 42L),
-  .dca_chen_one(.y_va, .p_va, "Internal validation set", n_boot = 200L, seed = 43L),
-  .dca_chen_one(.y01(.full), .p_boot, "Bootstrap", n_boot = 200L, seed = 44L)
+  .dca_chen_one(.y_va, .p_va, "Internal validation set", n_boot = 200L, seed = 43L)
 )
 .dd8$panel <- factor(
   .dd8$panel,
-  levels = c("Train set", "Internal validation set", "Bootstrap")
+  levels = c("Train set", "Internal validation set")
 )
 # Chen FreeStatistics：Cost:Benefit 标签对齐在 0/0.2/…/1 主刻度下（非 1/101 精确点）
 .cb_breaks <- c(0, 0.2, 0.4, 0.6, 0.8, 1.0)
@@ -1378,10 +1318,8 @@ message("→ Fig8 Chen-style DCA …")
 }
 .p8A <- .dca_panel_plot(subset(.dd8, panel == "Train set"), "A")
 .p8B <- .dca_panel_plot(subset(.dd8, panel == "Internal validation set"), "B")
-.p8C <- .dca_panel_plot(subset(.dd8, panel == "Bootstrap"), "C")
-# 共享底图例，避开图内挡线；三栏等宽方形感
-.fig8 <- (.p8A | .p8B | .p8C) +
-  plot_layout(widths = c(1, 1, 1), guides = "collect") &
+.fig8 <- (.p8A | .p8B) +
+  plot_layout(widths = c(1, 1), guides = "collect") &
   theme(
     legend.position = "bottom",
     legend.direction = "horizontal",
@@ -1398,17 +1336,17 @@ unlink(list.files(file.path(.fig, "pdf"), pattern = "^Figure 8\\. DCA", full.nam
 unlink(list.files(file.path(.fig, "png"), pattern = "^Figure 8\\. DCA", full.names = TRUE))
 unlink(list.files(file.path(.fig, "tiff"), pattern = "^Figure 8\\. DCA", full.names = TRUE))
 unlink(list.files(file.path(.fig, "image_information"), pattern = "^Figure 8\\. DCA", full.names = TRUE))
-.save_pdf_png(.fig8, .fig8_pdf, 11.6, 4.55)
+.save_pdf_png(.fig8, .fig8_pdf, 8.2, 4.55)
 tryCatch({
-  ggplot2::ggsave(.fig8_png, .fig8, width = 11.6, height = 4.55, dpi = 300, bg = "white")
+  ggplot2::ggsave(.fig8_png, .fig8, width = 8.2, height = 4.55, dpi = 300, bg = "white")
   .trim_png_white(.fig8_png, pad = 4L, thr = 250L)
 }, error = function(e) message("Fig8 png: ", conditionMessage(e)))
 writeLines(c(
-  "Fig8 = Chen FreeStatistics-style DCA (3 panels).",
+  "Fig8 = Chen FreeStatistics-style DCA (2 panels: train and internal validation).",
   "Y = Standardized Net Benefit [0,1] clipped; X top=High Risk Threshold, bottom=Cost:Benefit Ratio (Chen);",
   "None = red near y=0 (visible); All/model clipped inside panel; shared bottom legend;",
   " curves = Prediction nomogram (blue + thin bootstrap 95% CI lines, no ribbon), All (grey), None (red).",
-  "Panels: A Train set | B Internal validation set | C Bootstrap (no external cohort).",
+  "Panels: A Train set | B Internal validation set. No bootstrap panel.",
   "Caption style: DCA of nomogram prediction model for lithotripsy success."
 ), file.path(.tab, "Methods_fig8_layout.txt"))
 message("Fig8 Chen-style DCA done: ", .fig8_stem)
@@ -1467,10 +1405,9 @@ message("→ Fig9 Chen-style CIC …")
 }
 .dd9 <- rbind(
   .cic_chen_one(.y_tr, .p_tr, "Train set", n_boot = 200L, seed = 52L),
-  .cic_chen_one(.y_va, .p_va, "Internal validation set", n_boot = 200L, seed = 53L),
-  .cic_chen_one(.y01(.full), .p_boot, "Bootstrap", n_boot = 200L, seed = 54L)
+  .cic_chen_one(.y_va, .p_va, "Internal validation set", n_boot = 200L, seed = 53L)
 )
-.dd9$panel <- factor(.dd9$panel, levels = c("Train set", "Internal validation set", "Bootstrap"))
+.dd9$panel <- factor(.dd9$panel, levels = c("Train set", "Internal validation set"))
 
 .theme9 <- theme_bw(base_size = 11) +
   theme(
@@ -1567,8 +1504,7 @@ message("→ Fig9 Chen-style CIC …")
 }
 .p9A <- .cic_panel_plot(subset(.dd9, panel == "Train set"), "A")
 .p9B <- .cic_panel_plot(subset(.dd9, panel == "Internal validation set"), "B")
-.p9C <- .cic_panel_plot(subset(.dd9, panel == "Bootstrap"), "C")
-.fig9 <- (.p9A | .p9B | .p9C) + plot_layout(widths = c(1, 1, 1))
+.fig9 <- (.p9A | .p9B) + plot_layout(widths = c(1, 1))
 
 .fig9_stem <- "Figure 9. CIC of nomogram prediction model for lithotripsy success"
 .fig9_pdf <- file.path(.fig, "pdf", paste0(.fig9_stem, ".pdf"))
@@ -1577,16 +1513,16 @@ unlink(list.files(file.path(.fig, "pdf"), pattern = "^Figure 9\\. CIC", full.nam
 unlink(list.files(file.path(.fig, "png"), pattern = "^Figure 9\\. CIC", full.names = TRUE))
 unlink(list.files(file.path(.fig, "tiff"), pattern = "^Figure 9\\. CIC", full.names = TRUE))
 unlink(list.files(file.path(.fig, "image_information"), pattern = "^Figure 9\\. CIC", full.names = TRUE))
-.save_pdf_png(.fig9, .fig9_pdf, 11.6, 4.55)
+.save_pdf_png(.fig9, .fig9_pdf, 8.2, 4.55)
 tryCatch({
-  ggplot2::ggsave(.fig9_png, .fig9, width = 11.6, height = 4.55, dpi = 300, bg = "white")
+  ggplot2::ggsave(.fig9_png, .fig9, width = 8.2, height = 4.55, dpi = 300, bg = "white")
   .trim_png_white(.fig9_png, pad = 4L, thr = 250L)
 }, error = function(e) message("Fig9 png: ", conditionMessage(e)))
 writeLines(c(
-  "Fig9 = Chen FreeStatistics-style Clinical Impact Curve (3 panels).",
+  "Fig9 = Chen FreeStatistics-style Clinical Impact Curve (2 panels).",
   "Y = Number high risk (out of 100); X top = High Risk Threshold; X bottom = Cost:Benefit Ratio.",
   "Red solid (+ thin CI) = Number high risk; Blue dashed (+ thin dotted CI) = Number high risk with event.",
-  "Panels: A Train | B Internal validation | C Bootstrap.",
+  "Panels: A Train | B Internal validation. No bootstrap panel.",
   "Caption: CIC of nomogram prediction model for lithotripsy success."
 ), file.path(.tab, "Methods_fig9_layout.txt"))
 message("Fig9 Chen-style CIC done: ", .fig9_stem)
@@ -1843,38 +1779,16 @@ message("→ Supplementary figures (Chen-style subgroup forests) …")
     grid::grid.newpage()
     grid::grid.draw(pobj)
   }
+  # 矢量 PDF 定稿；禁止 trim PNG 后 grid.raster 覆盖交付 PDF
   grDevices::pdf(pdf_path, width = w, height = h, useDingbats = FALSE)
   .draw()
   grDevices::dev.off()
-  grDevices::png(png_path, width = w, height = h, units = "in", res = 300, bg = "white")
-  .draw()
-  grDevices::dev.off()
-  # pad 稍大，避免裁掉表头顶横线
-  .trim_png_white(png_path, pad = 8L, thr = 250L)
-  .im <- tryCatch(png::readPNG(png_path), error = function(e) NULL)
-  if (!is.null(.im)) {
-    w <- dim(.im)[2] / 300
-    h <- dim(.im)[1] / 300
-    grDevices::pdf(pdf_path, width = w, height = h, useDingbats = FALSE)
-    grid::grid.raster(.im, interpolate = TRUE)
-    grDevices::dev.off()
-    grDevices::png(png_path, width = w, height = h, units = "in", res = 300, bg = "white")
-    grid::grid.raster(.im, interpolate = TRUE)
-    grDevices::dev.off()
-  }
   for (d in c(
     file.path(.proj, "Figures", "pdf"),
     file.path(.proj, "_shared", "Figures", "pdf")
   )) {
     dir.create(d, recursive = TRUE, showWarnings = FALSE)
     file.copy(pdf_path, file.path(d, basename(pdf_path)), overwrite = TRUE)
-  }
-  for (d in c(
-    file.path(.proj, "Figures", "png"),
-    file.path(.proj, "_shared", "Figures", "png")
-  )) {
-    dir.create(d, recursive = TRUE, showWarnings = FALSE)
-    file.copy(png_path, file.path(d, basename(png_path)), overwrite = TRUE)
   }
   utils::write.csv(
     data.frame(
@@ -1931,41 +1845,20 @@ writeLines(c(
   "stone_type collapse → Methods_rebuild_notes.txt (not Figure S2)."
 ), file.path(.tab, "Methods_figS1_S2_layout.txt"))
 
+# 默认交付 PDF + image_information；禁止用栅格回写 PDF；随后白名单 prune
+.cfg_pub <- list(
+  pub = list(renumber = FALSE),
+  pub_figures = list(export_png = FALSE, export_tiff = FALSE, dpi = 600L, max_edge_in = 11)
+)
 tryCatch(
-  pub_figure_ensure_formats(.fig, config = list(pub = list(renumber = FALSE))),
+  pub_figure_ensure_formats(.fig, config = .cfg_pub),
   error = function(e) message("formats: ", conditionMessage(e))
 )
-tryCatch({
-  .f2n <- "Figure 2. Associations of continuous features"
-  .trim_png_white(file.path(.fig, "png", paste0(.f2n, ".png")), pad = 3L, thr = 250L)
-  .png2 <- file.path(.fig, "png", paste0(.f2n, ".png"))
-  .tiff2 <- file.path(.fig, "tiff", paste0(.f2n, ".tiff"))
-  if (file.exists(.png2) && requireNamespace("tiff", quietly = TRUE)) {
-    tiff::writeTIFF(png::readPNG(.png2), .tiff2, compression = "LZW")
-  }
-  for (d in c(file.path(.proj, "Figures", "png"),
-              file.path(.proj, "_shared", "Figures", "png"))) {
-    if (dir.exists(dirname(d))) {
-      dir.create(d, recursive = TRUE, showWarnings = FALSE)
-      file.copy(.png2, file.path(d, basename(.png2)), overwrite = TRUE)
-    }
-  }
-}, error = function(e) message("Fig2 final trim: ", conditionMessage(e)))
 .strip_flat_figure_pdfs(.fig)
 for (fr in c(file.path(.proj, "Figures"), file.path(.proj, "_shared", "Figures"),
              file.path(.proj, "by_index", "\u3010success\u3011NOMOGRAM", "summary_results", "Figures"))) {
   .strip_flat_figure_pdfs(fr)
 }
-
-
-writeLines(c(
-  "# summary_results — 文献对齐重画版",
-  "",
-  "主入口：`Figures/pdf/`（Figure 1–9 + S1/S2），禁止根目录平铺 PDF。",
-  "Fig1 CONSORT | Fig2 一页森林（预指定连续）| Fig3 RCS（同上）| Fig4 Ridge 预指定 | Fig5 Firth 多因素 | Fig6 列线图 | Fig7 ROC+校准 | Fig8 DCA of nomogram… | Fig9 CIC of nomogram…",
-  "补充: Figure S1 Diameter 亚组森林; Figure S2 Shots 亚组森林（对标 Chen Supplemental Fig1/2）",
-  "详见 Tables/Methods_rebuild_notes.txt"
-), file.path(.set, "README.md"))
 
 # 四目录导出后重刷 image_information（无下划线展示名）
 tryCatch({
@@ -1975,6 +1868,19 @@ tryCatch({
     system2("Rscript", c("--vanilla", .imd_scr), stdout = TRUE, stderr = TRUE)
   }
 }, error = function(e) message("image_information WARN: ", conditionMessage(e)))
+
+# 引擎级交付收口：Methods md + 软件版本 txt + 去 png/tiff + 白名单五件套
+tryCatch({
+  source(file.path(.root, "R/pub_gallstone_methods.R"), local = FALSE)
+  message("→ gallstone_finalize_summary_delivery …")
+  gallstone_finalize_summary_delivery(
+    summary_root = .set,
+    project_root = .proj,
+    config = .cfg_pub,
+    rewrite_methods = TRUE,
+    prune = TRUE
+  )
+}, error = function(e) message("finalize delivery WARN: ", conditionMessage(e)))
 
 # Phase 6：发表质控骨架（Agent 须继续 nature-statistics / nature-figure 修 P0）
 tryCatch({

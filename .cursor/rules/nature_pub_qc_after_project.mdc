@@ -11,6 +11,22 @@ alwaysApply: true
 `configs/templates/H1_Methods_P0_author_adjudication.template.md`（通常只写描述、不重跑）。  
 复用地图：`docs/reuse/2026-10-08-nature-pub-qc-tst-reuse-map.md`。
 
+**轨道 B 默认确认（用户 2026-10-12 授权）：** Agent 按产物填实 H1「推荐/定稿结论」后，**裁决记录直接写「全按推荐」并将状态全部勾 `[x]`**，不必再请用户逐条确认。用户若某课题要改措辞会主动说；未说即视为同意推荐。仍禁止因 H1 误开全库重跑。
+
+**窄 PASS 禁止（用户 2026-10-12）：** Layer D 在分母/亚组 N 对齐之后，仍必须过 `nature-statistics/references/common-failure-modes.md` 的「Medical Blocks 交付漏检」和 `pub-qc-after-project/checklist.md` §B2（错图号 AUC、Incidence/Prevalence、RCS 面板、Youden 无出处、CI–P 口径、加权检验脚注、中介 CI 互串、xlsx drawing、缺 pdf）。未逐条检查不得写 PASS。
+
+**NHANES/发病加检（用户 2026-10-26；银屑病 eGDR）：** 另须过 checklist **§B3** 与规则 `pub_nhanes_incidence_p0_gate.mdc`（Table2 调整集与 step 同源、加权/不加权切点、中介总效应≠Table2 脚注、Methods 公式/MICE/权重、ROC 禁自曝、Fig md≠图面 NE）。无 NHANES 可 N/A。
+
+**预后 v2 / Cox 加检（用户 2026-10-26；Hip AKI；Stroke ANLR 14d 2026-11 加严）：** 另须过 checklist **§B4** 与规则 `prognosis_v2_pub_p0_gate.mdc`，并跑 `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear、禁下划线、PH 表、Methods 取材/MICE、**RCS knots、Boruta/SHAP 参数、S5 landmark=主文、Fig7 Overall=Table3 M1、Fig1 not-computable⇒Limitations 选择偏倚、Fig1 vs 项目信息排除链写实、ICD 码表 AUTHOR_INPUT**）。无预后 Cox 可 N/A。
+
+**双库 ML dev_ext 加检（用户 2026-11-02；AKI_TX BUN_Cr）：** 另须过规则 `ml_dual_dev_ext_pub_p0_gate.mdc`（Fig1 诚实排除+短标签+无图底长脚注、主模型≠裸 best、S 表 A1=文件名、Model2 筛源写实、图带库/集标签、summary_results 五件套）。无双库 ML 可 N/A。
+
+**ML/TCF 预测加检（用户 2026-11-16；SA-AKI TCF）：** 另须过 checklist **§B6** 与规则 `ml_tcf_pub_reuse.mdc`（结局标签生死线 28-day vs in-hospital、分析单位患者级/stay 级、排除定义分类、熵/RSCV/TOPSIS α 数据集用途链、Python 软件两件套、complete_action/logistic_mi 写实）。无 TCF/多算法融合可 N/A。
+
+**数据库池化 / BlendedLoS 加检（用户 2026-11-17；ULN-triple）：** 另须过 checklist **§B7** 与 nature-statistics「Medical Blocks 数据库池化 / BlendedLoS 漏检」（数据溯源 A/B 口径、Fig2≠Table3 禁对读、S1 MOESM1/N clipped 语义、TPC 选型、超参/特征/equal-n 写实、AUPRC Baseline=预测框患病率）。无 dbpool 可 N/A。
+
+**发表数字格式加检（用户 2026-11-03；肺炎 DeLong）：** 另须过 `pub_digits_consistency.mdc` 与 checklist **§B5**；结构 CLI 已跑 `pub_qc_scan_table_digits`（Layer A2）。P/DeLong/NRI/AUC 裸 `0`/`0.000` = **P0**；Fig1 图底长脚注 = P0/P1。未过不得 PASS。
+
 ## 强制技能（只审发表产物）
 
 1. **`nature-statistics`**（`.cursor/skills/nature-statistics/SKILL.md`，个人副本 `~/.cursor/skills/nature-statistics/`）  
@@ -18,7 +34,7 @@ alwaysApply: true
    - 输出格式与严重度按该 skill；落盘写入项目 `reports/nature_statistics_qc_YYYY-MM-DD.md`。
 
 2. **`nature-figure`**（`.cursor/skills/nature-figure/SKILL.md`，个人副本 `~/.cursor/skills/nature-figure/`）  
-   - 审：定稿 `Figures/`（优先 `pdf/`；缺则 png）面板对齐、碰撞、图注统计对齐、四目录与可读性。  
+   - 审：定稿 `Figures/`（优先 `pdf/`；缺则 png）面板对齐、碰撞、图注统计对齐、四目录与可读性；**定稿 png/tiff 嵌入 DPI ≥ 600（全项目铁律，缺/不足 = P0）**。  
    - 能跑脚本则跑 `scripts/validate_figure.py` / `audit_panel_alignment.py` / `audit_figure_collisions.py` / `audit_pdf_text.py`；`FIX BEFORE DELIVERY` 或 `severity=FAIL` **等同 P0**。  
    - 落盘 `reports/nature_figure_qc_YYYY-MM-DD.md`（可附 collision/alignment JSON 路径）。
 
@@ -31,7 +47,7 @@ alwaysApply: true
 | 来源 | 视为 P0 |
 |------|---------|
 | nature-statistics | 标签为 **P0** 的条目（能推翻中心结论的统计报告/分析逻辑问题） |
-| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读 |
+| nature-figure | `FIX BEFORE DELIVERY`、碰撞/对齐 **FAIL**、主文图不可读/轴标签错误/面板角色错乱导致误读；**仅当** `config$pub_figures$export_png/tiff=TRUE` 时，定稿栅格 DPI&lt;600 / stale_raster 才算 P0（2026-11-02 起默认只交 PDF，缺 png/tiff 不再 P0）；**交付 PDF 整页 image-only（`bad_pdf_raster`）= P0**（须真矢量；截图/Shiny 白名单除外） |
 
 **铁律：**
 
@@ -62,7 +78,7 @@ alwaysApply: true
    - 关闭：`config$pub$auto_qc = FALSE` 或环境变量 `MEDICAL_BLOCKS_AUTO_PUB_QC=0`
 3. **Agent 立刻接 Layer D**：按 `pub-qc-after-project` + 本规则填实 nature 两份报告并 **修清全部 P0**。
 4. 用户说「跑完了」而未给路径时：用本会话刚写的 `project_root`；仍无则追问一次路径。
-5. **禁下划线**：见 `pub_no_underscore_display`；QC 结构层会 WARN。
+5. **禁下划线**：见 `pub_no_underscore_display`；QC 结构层 **Layer A3 = P0 FAIL**（`pub_qc_scan_underscores`）。
 
 ## Agent 检查清单
 
@@ -71,6 +87,8 @@ alwaysApply: true
 - [ ] 已写出两份 QC md（或合并报告中含两节）
 - [ ] P0 已修复并复检清零（或用户接受残留已记录）
 - [ ] 图改动后重跑四目录导出（`pub_figure_ensure_formats`）
+- [ ] png/tiff DPI ≥ 600 已检（`pub_figure_formats_status` 或抽读元数据；不合格当场重导）
+- [ ] P0 已清且总评 PASS/WARN 后，已按 `Aiya-NB004-midterm-report` 对每个刚审完的 success 发表根出中期 PDF（用户说不要中期则跳过并声明；FAIL 不出）
 
 ## 反例（禁止）
 

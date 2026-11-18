@@ -192,6 +192,32 @@
   data.frame(Variable = vars, VIF = round(vifs, 3), stringsAsFactors = FALSE)
 }
 
+## 通过集上的终末加权 VIF（发表 Table S4/S6 用）
+## 禁止用「迭代前联合 VIF」过滤：否则 Hypertension / Lymphocytes 等起始 VIF≥阈值、
+## 剔除共线变量后已通过的行会从 S4 消失，却仍进 S5（COPD MCMI 2026-11）
+.mcnw_build_pass_vif_table <- function(selected, data, wt_col = NULL, exposure = character(0)) {
+  vars <- unique(c(as.character(selected %||% character(0)), as.character(exposure %||% character(0))))
+  vars <- vars[nzchar(vars) & vars %in% names(data)]
+  if (!length(vars)) return(NULL)
+  if (length(vars) == 1L) {
+    return(data.frame(Variable = vars, VIF = NA_real_, stringsAsFactors = FALSE))
+  }
+  if (!is.null(wt_col) && nzchar(as.character(wt_col)[1L]) &&
+      as.character(wt_col)[1L] %in% names(data)) {
+    vif_vals <- tryCatch(
+      .mcnw_weighted_vif_values(vars, data, as.character(wt_col)[1L]),
+      error = function(e) NULL
+    )
+    if (!is.null(vif_vals) && length(vif_vals)) {
+      vifs <- vapply(vars, function(v) {
+        .mcnw_max_vif_for_original_var(vif_vals, v)
+      }, numeric(1))
+      return(data.frame(Variable = vars, VIF = round(vifs, 3), stringsAsFactors = FALSE))
+    }
+  }
+  .mcnw_build_orig_var_vif_table(vars, data)
+}
+
 .mcnw_weighted_vif_values <- function(vars, df, wt_col) {
   for (nm in intersect(vars, names(df)[sapply(df, is.factor)])) {
     df[[nm]] <- as.numeric(as.factor(df[[nm]]))
@@ -328,12 +354,19 @@
     cli::cli_alert_info("Saved: {full_name}（全量 VIF 诊断表）")
   }
 
-  vif_export <- vif_tbl[is.finite(vif_tbl$VIF) & vif_tbl$VIF < thr, , drop = FALSE]
+  ## 发表表以 selected（通过集）为准；vif_tbl 应已是通过集终末 VIF。
+  ## 旧逻辑用「起始联合 VIF < 阈值」过滤，会漏掉起始高、剔除共线后已通过的行。
   if (length(selected)) {
-    vif_export <- vif_export[vif_export$Variable %in% selected, , drop = FALSE]
+    keep <- unique(c(as.character(selected), as.character(exposure %||% character(0))))
+    vif_export <- vif_tbl[vif_tbl$Variable %in% keep, , drop = FALSE]
+  } else {
+    vif_export <- vif_tbl[is.finite(vif_tbl$VIF) & vif_tbl$VIF < thr, , drop = FALSE]
   }
   if (length(exposure) > 0L && nzchar(exposure)) {
     exp_row <- pub_src[pub_src$Variable == exposure, , drop = FALSE]
+    if (!nrow(exp_row)) {
+      exp_row <- vif_tbl[vif_tbl$Variable == exposure, , drop = FALSE]
+    }
     if (nrow(exp_row) && !exposure %in% vif_export$Variable) {
       vif_export <- rbind(vif_export, exp_row)
       if (exists("order_vars_like_table1", mode = "function")) {
@@ -342,12 +375,17 @@
       }
     }
   }
-  # 注意：不再无条件回填 VOC 行。VIF >= 阈值 的 VOC 已被迭代剔除，
-  # 若回填会让 Table S4 重新出现 VIF>4 的环境变量（用户明确要求逐一删除）。
-  # 仅保留通过 VIF 筛选（已在 selected 内、VIF < 阈值）的 VOC 行。
+  # 注意：不再无条件回填已迭代剔除的高 VIF 变量（如 WBC）。
   if (!nrow(vif_export)) {
-    cli::cli_alert_warning("NHANES VIF {phase_label} 发表表：无 VIF < {thr} 的行，跳过导出")
+    cli::cli_alert_warning("NHANES VIF {phase_label} 发表表：通过集无行可导出，跳过")
     return(invisible(FALSE))
+  }
+  hi <- vif_export$Variable[is.finite(vif_export$VIF) & vif_export$VIF >= thr &
+                              !vif_export$Variable %in% exposure]
+  if (length(hi)) {
+    cli::cli_alert_warning(
+      "NHANES VIF {phase_label} 发表表：通过集中仍有 VIF>={thr}（请查迭代是否未收敛）: {paste(hi, collapse = ', ')}"
+    )
   }
 
   vif_export$Variable_display <- .mcnw_disp(vif_export$Variable)
@@ -570,9 +608,15 @@
     table_caption <- phase_cfg$table_title %||%
       paste0("Weighted Multicollinearity Analysis VIF screen for ",
              cfg$project$disease %||% "outcome")
-    .mcnw_export_vif_tables(ctx, cfg, "screen", vif_tbl, selected, csv_name, table_caption)
+    vif_tbl_pass <- .mcnw_build_pass_vif_table(selected, data, wt_col = wt_col, exposure = exposure)
+    if (is.null(vif_tbl_pass) || !nrow(vif_tbl_pass)) vif_tbl_pass <- vif_tbl
+    .mcnw_export_vif_tables(
+      ctx, cfg, "screen", vif_tbl_pass, selected, csv_name, table_caption,
+      vif_tbl_pub = vif_tbl
+    )
     ctx$results$vif_screen_table_weighted <- vif_tbl
     ctx$results$vif_screen_pass_weighted <- selected
+    ctx$results$vif_screen_table_pass_weighted <- vif_tbl_pass
     cli::cli_alert_success(
       "multicollinearity_nhanes_screen 完成: {length(selected)} 个变量 VIF 通过 — {paste(selected, collapse = ', ')}"
     )
@@ -631,12 +675,15 @@
   } else {
     function(vif_tbl, exposure, data, build_fn, ctx = NULL, cfg = NULL) vif_tbl
   }
-  vif_tbl_pub <- append_fn(
+  ## full = 进入 final 阶段的起始联合 VIF；发表表 = 通过集终末 VIF
+  vif_tbl_full <- append_fn(
     vif_tbl, exposure, data, .mcnw_build_orig_var_vif_table, ctx, cfg
   )
+  vif_tbl_pass <- .mcnw_build_pass_vif_table(selected, data, wt_col = wt_col, exposure = exposure)
+  if (is.null(vif_tbl_pass) || !nrow(vif_tbl_pass)) vif_tbl_pass <- vif_tbl_full
   .mcnw_export_vif_tables(
-    ctx, cfg, "final", vif_tbl, selected, csv_name, table_caption,
-    vif_tbl_pub = vif_tbl_pub
+    ctx, cfg, "final", vif_tbl_pass, selected, csv_name, table_caption,
+    vif_tbl_pub = vif_tbl_full
   )
 
   ctx$results$Model1Factors <- Model1Factors

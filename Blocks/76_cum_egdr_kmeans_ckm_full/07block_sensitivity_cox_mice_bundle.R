@@ -117,98 +117,12 @@ block_sensitivity_cox_mice_bundle <- function(ctx, ...) {
   }
 
   # ---- MICE: Table S3 Cox / Table S4 logistic ----
-  mice_vars <- unique(c(outcome, cont_col, tert_col, "eGDR_Class", "futime", "status",
-                        models$Model3, "eGDR_t1", "eGDR_t2"))
-  mice_vars <- intersect(mice_vars[!is.null(mice_vars)], names(data))
-  if (requireNamespace("mice", quietly = TRUE) && length(mice_vars) >= 3L) {
-    set.seed(as.integer(bl$seed %||% 2026L))
-    md <- data[, mice_vars, drop = FALSE]
-    # 仅对有缺失的协变量插补；暴露/结局尽量保留
-    if (any(!stats::complete.cases(md))) {
-      imp <- tryCatch(
-        mice::mice(md, m = 5L, maxit = 5L, method = "pmm", printFlag = FALSE,
-                   seed = as.integer(bl$seed %||% 2026L)),
-        error = function(e) NULL
-      )
-    } else {
-      # 近似完整：仍写 pooled 表=complete-case 对照
-      imp <- NULL
-      note <- c(note, "- MICE skipped (almost complete-case); S3/S4 mirror complete-case.")
-    }
-
-    .pool_or <- function(imp_obj, expo, cov) {
-      if (is.null(imp_obj)) {
-        return(ckm_stroke_fit_or_row(data, expo, outcome, cov))
-      }
-      fits <- lapply(seq_len(imp_obj$m), function(i) {
-        di <- mice::complete(imp_obj, i)
-        if (is.factor(data[[expo]]) || is.character(data[[expo]])) {
-          di[[expo]] <- factor(di[[expo]], levels = levels(factor(data[[expo]])))
-          if (identical(expo, "eGDR_Class"))
-            di[[expo]] <- stats::relevel(di[[expo]], ref = bl$class_ref %||% "Persistent_low")
-          if (grepl("tertile", expo, ignore.case = TRUE))
-            di[[expo]] <- stats::relevel(factor(di[[expo]]), ref = "T1")
-        }
-        ckm_stroke_fit_or_row(di, expo, outcome, cov)
-      })
-      fits <- Filter(Negate(is.null), fits)
-      if (!length(fits)) return(NULL)
-      # 简易：取第 1 套 complete 行结构，数值对 OR 取几何均近似
-      base <- fits[[1L]]
-      if (length(fits) > 1L) {
-        for (j in seq_len(nrow(base))) {
-          ors <- vapply(fits, function(f) {
-            ii <- match(base$term[j], f$term)
-            if (is.na(ii)) NA_real_ else f$OR[ii]
-          }, numeric(1))
-          base$OR[j] <- exp(mean(log(ors), na.rm = TRUE))
-          base$OR_CI[j] <- sprintf("%.2f (pooled)", base$OR[j])
-          base$P[j] <- mean(vapply(fits, function(f) {
-            ii <- match(base$term[j], f$term)
-            if (is.na(ii)) NA_real_ else f$P[ii]
-          }, numeric(1)), na.rm = TRUE)
-        }
-      }
-      base
-    }
-
-    .pool_hr <- function(imp_obj, expo, cov) {
-      if (is.null(imp_obj)) return(ckm_stroke_fit_hr_row(data, expo, cov))
-      fits <- lapply(seq_len(imp_obj$m), function(i) {
-        di <- mice::complete(imp_obj, i)
-        di <- ckm_stroke_add_futime(di)
-        if (!"futime" %in% names(di) && "futime" %in% names(data)) di$futime <- data$futime
-        if (!"status" %in% names(di) && "status" %in% names(data)) di$status <- data$status
-        if (identical(expo, "eGDR_Class") && expo %in% names(di))
-          di[[expo]] <- stats::relevel(factor(di[[expo]]), ref = bl$class_ref %||% "Persistent_low")
-        ckm_stroke_fit_hr_row(di, expo, cov)
-      })
-      fits <- Filter(Negate(is.null), fits)
-      if (!length(fits)) return(NULL)
-      fits[[1L]]
-    }
-
-    s4 <- .bundle_rows(
-      function(d, expo, cov) .pool_or(imp, expo, cov),
-      data, models, blocks_expo
-    )
-    if (nrow(s4)) {
-      utils::write.csv(s4, file.path(tab_dir, "Table S4. Logistic after MICE.csv"),
-                       row.names = FALSE)
-      note <- c(note, sprintf("- Table S4 logistic-MICE rows=%d", nrow(s4)))
-    }
-    s3 <- .bundle_rows(
-      function(d, expo, cov) .pool_hr(imp, expo, cov),
-      data, models, blocks_expo
-    )
-    if (nrow(s3)) {
-      utils::write.csv(s3, file.path(tab_dir, "Table S3. Cox after MICE.csv"),
-                       row.names = FALSE)
-      note <- c(note, sprintf("- Table S3 Cox-MICE rows=%d", nrow(s3)))
-    }
-  } else {
-    note <- c(note, "- mice 包不可用或变量不足，跳过 S3/S4")
-  }
+  # 发表 S3/S4 只由 rebuild 用 mice::pool（Rubin）写出。
+  # 禁止在本 block 里把完整病例行复制成 “after MICE”，也禁止用几何均 OR 冒充 Rubin。
+  note <- c(
+    note,
+    "- Publication Table S3/S4 are written by rebuild_publication (ckm_stroke_prepare_mice + mice::pool). This block does not emit them."
+  )
 
   # ---- Fig.S1 Cox RCS (HR) ----
   if (requireNamespace("rms", quietly = TRUE) && cont_col %in% names(data) &&

@@ -13,7 +13,9 @@ alwaysApply: true
 2. **禁止 LM 筛选时提前落盘**：`Associations of <index> with laboratory indicators` 不得在 LM 筛中介时 `export_sci_table`；仅写入 `ctx$results$mediation_*_correlation_lm_rt`，门控通过后再 `.mi02_export_lab_association_table`。
 3. **门控失败必须清残留**：调用 `.mi02_unlink_mediation_exports(ctx)`（含表/图队列 dequeue + 磁盘删除），覆盖 step 目录、库级 Tables/Figures、指标根目录。
 4. **旧命名一并匹配**：`The associations between … laboratory indicators` 与 `Associations of …` 同属删除范围。
-5. **双库关联表同一候选池**：S8（实验室关联）只走 `.mi02_resolve_lab_indicator_pool`（Table1 Laboratory Tests + `lab_indicator_vars` + `mediator_extra_vars`）再 pin `best_mediator`。**禁止** CHARLS/MIMIC 用「全列减 exclude」而 NHANES 用血检名单，导致一侧混入饮酒/婚姻/身高/血压。两库表行列名应对齐（各库没有的列可缺，不得一侧多出人口学/体征）。
+5. **双库关联表同一候选池**：S8（实验室关联）只走 `.mi02_resolve_lab_indicator_pool`（Table1 Laboratory Tests + `lab_indicator_vars` + `mediator_extra_vars`）再 pin `best_mediator`。**禁止** CHARLS/MIMIC 用「全列减 exclude」而 NHANES 用血检名单，导致一侧混入饮酒/婚姻/身高/血压。
+5a. **双库 S8 变量 = 两侧可用列交集**：`dual_db_lock_shared_lab_indicator_pool` 落盘共享池；中介块经 `.mi02_apply_dual_shared_lab_pool` 与本地池取交；remirror 用 `incidence_batch_harmonize_dual_lab_assoc_varnames` 删单侧变量行。各库没有的列可从交集自然消失，**禁止**一侧用 `lm_screen_exclude_vars` 刻意踢掉对侧仍有的血检（如 CHARLS 剔 BUN/Creatinine/HbA1c 而 NHANES 保留）。
+5b. **中介行 = 共享 LM 显著集（+ best）**：`mediators=NULL`（或空）时用 LM 筛出的共享实验室；若 config 锁 `mediators=c("CRP")` / `best_mediator`，双库默认 `also_include_lm_sig_mediators=TRUE`（除非 `mediators_strict_only=TRUE`）合并其余 LM 显著实验室。路径图仍用 `best_mediator` / pick_best_row。
 
 ## 用户授权的单项目例外
 
@@ -24,11 +26,13 @@ alwaysApply: true
 ## 实现入口
 
 - 公共：`Blocks/20_mediation/00mediation_common.R`
-  - `.mi02_mediation_should_export` / `.mi02_unlink_mediation_exports` / `.mi02_export_lab_association_table` / `.mi02_resolve_lab_indicator_pool`
+  - `.mi02_mediation_should_export` / `.mi02_unlink_mediation_exports` / `.mi02_export_lab_association_table` / `.mi02_resolve_lab_indicator_pool` / `.mi02_apply_dual_shared_lab_pool` / `.mi02_also_include_lm_sig_mediators`
+- 双库池：`R/dual_db_harmonize.R` → `dual_db_lock_shared_lab_indicator_pool`
+- remirror：`incidence_batch_harmonize_dual_lab_assoc_varnames`
 - 预后：`01block_mediation_prognosis.R`
 - 发病：`02block_mediation_incidence.R`
 - NHANES：`03block_mediation_nhanes_weighted.R`
-- 回归：`tests/test_mediation_unlink_assoc.R`
+- 回归：`tests/test_mediation_unlink_assoc.R`、`tests/test_dual_sxx_omit_lab_assoc.R`
 
 ## 新项目 / 重跑检查清单
 
@@ -36,7 +40,9 @@ alwaysApply: true
 - [ ] 指标根 / 库级 / step*_mediation_* 下无 Associations / Path diagram / Mediation analysis 残留
 - [ ] 仅当门控通过时才出现实验室关联表，且编号在中介表之前（或与课题编号规则一致）
 - [ ] 双库 S8 变量均为实验室指标（+锁定中介），无 Alcohol/Marital/Height/SBP 等非血检项
+- [ ] 双库 S8 变量集为交集（无 NHANES-only BUN 而 CHARLS 无对应列却仍留在 NHANES 表）
 - [ ] 发病 `mediation_incidence` / 预后 `mediation_prognosis` / NHANES 均调用 `.mi02_resolve_lab_indicator_pool`，未写 `var_input <- a[!a %in% exclude]`
+- [ ] 双库中介行含共享 LM 显著实验室（非仅 CRP），除非 `mediators_strict_only`
 - [ ] 若启用单项目例外：已有当前对话明确授权；产物标注 Exploratory；引擎默认门控未改
 
 ## 反例（禁止）
@@ -45,3 +51,5 @@ alwaysApply: true
 - LM 筛完立刻 export 关联表，再靠 unlink「碰运气」清掉（队列 flush 后会复活）
 - NHANES 写「关联表始终导出」与门控脱钩
 - CHARLS S8 含饮酒/婚姻/身高，NHANES S8 只有血检+腰围（候选池分裂）
+- NHANES S8 有 BUN/Creatinine/HbA1c、CHARLS S8 无，却不走交集对齐
+- 双库只跑 CRP 中介、却丢弃其余共享 LM 显著实验室（未设 `mediators_strict_only`）

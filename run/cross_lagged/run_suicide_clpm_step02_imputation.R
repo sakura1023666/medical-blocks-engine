@@ -64,6 +64,37 @@ load(src, envir = e)
 df0 <- e$dabiao
 stopifnot(is.data.frame(df0), nrow(df0) > 0L)
 
+# 家族史、MMAS-8 在插补之前合成。MASS 8 来自更新后的 D04（A=1, B=0.75, C=0.5, D=0.25, E=0）。
+source(file.path(engine_root, "run/cross_lagged/suicide_clpm_indicator_names.R"), local = FALSE)
+d04_path <- file.path(study_root, "data/RDATA/RDATA/01RawData/D04_Full_Treatment_related_Information.RData")
+if (!file.exists(d04_path)) stop("Missing updated D04: ", d04_path, call. = FALSE)
+e04 <- new.env(parent = emptyenv())
+load(d04_path, envir = e04)
+d04 <- e04[[ls(e04)[1L]]]
+if (!"MASS_8" %in% names(d04)) stop("D04 has no MASS_8", call. = FALSE)
+id_df <- trimws(as.character(df0$ID))
+id_raw <- trimws(as.character(d04[["新编号"]]))
+hit <- match(id_df, id_raw)
+if (anyNA(hit)) stop("MASS_8 match failed for ", sum(is.na(hit)), " IDs", call. = FALSE)
+df0[["MASS 8"]] <- trimws(as.character(d04$MASS_8[hit]))
+df0 <- suicide_recode_indicator_levels(df0)
+df0 <- suicide_add_composite_indicators(df0)
+if (!"Medication adherence" %in% names(df0)) {
+  stop("Medication adherence was not created; MASS items 1-8 must all be present", call. = FALSE)
+}
+dabiao <- df0
+save(dabiao, file = file.path(study_root, "step01_data_clean/dabiao.RData"))
+save(dabiao, file = file.path(study_root, "data/harmonized/D04_outpatient_clpm.RData"))
+
+message(
+  "[step02_imputation] pre-MI Family history missing=",
+  sum(is.na(df0[["Family history"]])),
+  " Medication adherence missing=",
+  sum(is.na(df0[["Medication adherence"]])),
+  " adherence range=",
+  paste(range(df0[["Medication adherence"]], na.rm = TRUE), collapse = "-")
+)
+
 message("[step02_imputation] study_root = ", study_root)
 message("[step02_imputation] input n=", nrow(df0), " cols=", ncol(df0))
 
@@ -75,7 +106,11 @@ never_mice <- unique(c(
   mice_excl_cfg,
   scale_cols,
   design_excl,
-  "ID", "新编号", "患者类别", "patient_group"
+  "ID", "新编号", "患者类别", "Patient Group",
+  paste("Familyhistory", 1:6),
+  "Forgets medication", "Missed doses in 2 weeks", "Reduced dose alone",
+  "Forgets medication away", "Took medication yesterday", "Stopped when better",
+  "Hard to adhere", "MASS 8", "MASS_8"
 ))
 
 # 仅基线协变量白名单（config）；再剔除禁插补列
@@ -248,8 +283,9 @@ readme <- c(
   "## 规则",
   "",
   "- 输入：`step01_data_clean/dabiao.RData`（六节点已 listwise 完整）",
-  "- **禁止插补**：所有 HAMD / HAMA / CSSRS / C_SSRS 相关列（节点 + 原始量表副本）",
-  "- **可插补**：config `covariate_candidate_vars` 中、且缺失率 < 0.4 的基线协变量",
+  "- **插补前合成**：Family history（六列任一种精神疾病诊断即为 Yes）；Medication adherence（MMAS-8，0-8）；Education 收成 Before high school / High school or above",
+  "- **禁止插补**：HAMD / HAMA / CSSRS、家族史原列、MASS 第 1-8 题原列",
+  "- **可插补**：合成列和其余基线协变量中缺失率 < 0.4 的列",
   "- mice：method=cart，m=5，complete_action=1，seed=40595747",
   "",
   paste0("- **n = ", nrow(dabiao), "**（人数不变；只填协变量缺失）"),

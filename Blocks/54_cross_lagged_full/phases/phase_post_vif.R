@@ -319,9 +319,9 @@ run_pooled <- function() {
   ctry_lvls <- sort(unique(as.character(dabiao$Country)))
   dabiao$Country <- factor(dabiao$Country, levels = ctry_lvls)
 
-  # 以 CHARLS phase1 为模板改 Pooled
+  # 以首个可用 phase1 config 为模板改 Pooled（非仅 CHARLS）
   e <- new.env(parent = globalenv())
-  sys.source(file.path(study_root, "config_phase1_CHARLS.R"), envir = e)
+  sys.source(cross_lagged_phase1_template_config(study_root, .meta), envir = e)
   out_dir <- file.path(study_root, "phase3_post_Pooled")
   ck_dir <- file.path(out_dir, "checkpoints")
   dir.create(ck_dir, recursive = TRUE, showWarnings = FALSE)
@@ -335,8 +335,12 @@ run_pooled <- function() {
   patched$config$project$database <- "Pooled"
   patched$config$column_mapping$database_type <- "regular"
   if (is.null(patched$config$rcs_incidence)) patched$config$rcs_incidence <- list()
-  # RCS Model1 在 Gender+Education+Country 上再加 Weight：右尾 OR 可稳住 >1（筛查见 model1_screen.csv）
-  m1_rcs <- unique(c(m1, "Weight"))
+  # 髋部等可加 Weight 稳住 RCS；肌少症课题 Weight 进 SMI → 禁止入模
+  m1_rcs <- if (identical(as.character(.meta$kind %||% "")[1L], "aip_sarcopenia")) {
+    unique(m1)
+  } else {
+    unique(c(m1, "Weight"))
+  }
   patched$config$rcs_incidence$crude_factors <- "Country"
   patched$config$rcs_incidence$model1_factors <- m1_rcs
   patched$config$rcs_incidence$model2_factors <- m2
@@ -384,7 +388,13 @@ run_pooled <- function() {
     root_output_dir = out_dir
   )
 
-  .run_core_then_rcs(patched, initial_ctx = initial_ctx)
+  tryCatch(
+    .run_core_then_rcs(patched, initial_ctx = initial_ctx),
+    error = function(err) {
+      cli::cli_alert_danger("Pooled post_vif 失败（不阻断单库）: {conditionMessage(err)}")
+      invisible(NULL)
+    }
+  )
 }
 
 dbs <- c(.main_units, "Pooled")
@@ -392,7 +402,13 @@ if (!is.null(only_dbs) && length(only_dbs)) dbs <- intersect(dbs, only_dbs)
 if (!length(dbs)) stop("无有效 --only 库")
 
 for (db in dbs) {
-  if (identical(db, "Pooled")) run_pooled() else run_unit(db)
+  if (identical(db, "Pooled")) {
+    tryCatch(run_pooled(), error = function(err) {
+      cli::cli_alert_danger("Pooled 跳过: {conditionMessage(err)}")
+    })
+  } else {
+    run_unit(db)
+  }
 }
 
 cli::cli_alert_success("Phase3 post-VIF 完成: {paste(dbs, collapse = ', ')}")

@@ -65,25 +65,47 @@
   )
 }
 
-.cxi06_coerce_event01 <- function(x, event_value) {
+.cxi06_soft_skip <- function(ctx, reason) {
+  cli::cli_alert_warning("cox_interaction: {reason}，跳过本块（不中断 pipeline）")
+  ctx$results$cox_interaction <- list(skipped = TRUE, reason = as.character(reason)[1L])
+  ctx
+}
+
+.cxi06_coerce_event01 <- function(x, event_value, cfg = NULL) {
+  ## 优先公共编码器（识别 Non-survivor / Expired / 死亡 等展示标签）
+  if (exists("pipeline_outcome_as_01", mode = "function")) {
+    y <- tryCatch(
+      pipeline_outcome_as_01(x, cfg = cfg),
+      error = function(e) NULL
+    )
+    if (!is.null(y) && length(y) == length(x)) {
+      return(as.integer(y))
+    }
+  }
   if (is.logical(x)) return(as.integer(x))
   if (is.numeric(x) || is.integer(x)) {
     return(suppressWarnings(as.integer(x == event_value)))
   }
+  death_labs <- c(
+    "1", "yes", "y", "true", "t", "recurrence", "是", "复发",
+    "non-survivor", "nonsurvivor", "non survivor", "dead", "death",
+    "died", "expire", "expired", "deceased", "死亡", "去世", "病死"
+  )
   if (is.factor(x)) {
     lab <- tolower(trimws(as.character(x)))
     ev_chr <- tolower(trimws(as.character(event_value)))
     v <- rep(0L, length(lab))
-    if (nzchar(ev_chr)) v[lab == ev_chr] <- 1L
-    v[grepl("^(yes|y|1|recurrence|是|复发)", lab, perl = TRUE)] <- 1L
+    if (nzchar(ev_chr) && !ev_chr %in% c("1", "0")) v[lab == ev_chr] <- 1L
+    v[lab %in% death_labs] <- 1L
+    v[grepl("^(yes|y|1|recurrence|是|复发|dead|death|expire|non[- ]?survivor|死亡)", lab, perl = TRUE)] <- 1L
     return(v)
   }
   xc <- tolower(trimws(as.character(x)))
   ev_chr <- tolower(trimws(as.character(event_value)))
   v <- rep(0L, length(xc))
-  if (nzchar(ev_chr)) v[xc == ev_chr] <- 1L
-  v[xc %in% c("1", "yes", "y", "recurrence", "true", "t", "是", "复发")] <- 1L
-  v[grepl("^yes", xc, perl = TRUE)] <- 1L
+  if (nzchar(ev_chr) && !ev_chr %in% c("1", "0")) v[xc == ev_chr] <- 1L
+  v[xc %in% death_labs] <- 1L
+  v[grepl("^(yes|y|1|recurrence|是|复发|dead|death|expire|non[- ]?survivor|死亡)", xc, perl = TRUE)] <- 1L
   v
 }
 
@@ -335,13 +357,16 @@ block_cox_interaction <- function(ctx, ...) {
     if (.cxi06_should_pause(bl_cfg, "pause_on_no_data", TRUE)) {
       .cxi06_pause(ctx, "缺少分析数据", "请先运行 imputation 或 data_clean")
     }
-    stop("cox_interaction: 无可用 data.frame。", call. = FALSE)
+    return(.cxi06_soft_skip(ctx, "无可用 data.frame"))
   }
 
   need_cols <- c(time_var, event_var, index_var, modifier_var)
   miss <- setdiff(need_cols, names(data))
   if (length(miss)) {
-    stop("cox_interaction: 数据缺少列: ", paste(miss, collapse = ", "), call. = FALSE)
+    if (.cxi06_should_pause(bl_cfg, "pause_on_no_data", TRUE)) {
+      .cxi06_pause(ctx, paste0("数据缺少列: ", paste(miss, collapse = ", ")), "先跑 derived_grouping")
+    }
+    return(.cxi06_soft_skip(ctx, paste0("数据缺少列: ", paste(miss, collapse = ", "))))
   }
 
   if (!requireNamespace("survival", quietly = TRUE)) {
@@ -356,7 +381,7 @@ block_cox_interaction <- function(ctx, ...) {
     if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
       .cxi06_pause(ctx, paste0(modifier_var, " 有效水平 < 2"), "检查分类变量水平")
     }
-    stop("cox_interaction: modifier 水平不足。", call. = FALSE)
+    return(.cxi06_soft_skip(ctx, paste0(modifier_var, " 有效水平 < 2")))
   }
 
   ref_level <- as.character(bl_cfg$reference_level %||% mod_levels[1L])[1L]
@@ -372,18 +397,24 @@ block_cox_interaction <- function(ctx, ...) {
   )
   non_ref_levels <- setdiff(mod_levels, ref_level)
 
-  data2$.cxi06_event01 <- .cxi06_coerce_event01(data2[[event_var]], event_value)
+  data2$.cxi06_event01 <- .cxi06_coerce_event01(
+    data2[[event_var]], event_value, cfg = cfg
+  )
   data2 <- data2[!is.na(data2$.cxi06_event01), , drop = FALSE]
   n_events <- sum(data2$.cxi06_event01 == 1L, na.rm = TRUE)
   min_events <- as.integer(bl_cfg$min_events %||% 5L)[1L]
-  if (isTRUE(bl_cfg$pause_on_low_events %||% TRUE) && n_events < min_events) {
-    if (.cxi06_should_pause(bl_cfg, "pause_on_low_events", TRUE)) {
+  if (n_events < min_events) {
+    if (.cxi06_should_pause(bl_cfg, "pause_on_low_events", TRUE) &&
+        isTRUE(bl_cfg$pause_on_low_events %||% TRUE)) {
       .cxi06_pause(
         ctx,
         paste0("事件数过少 (", n_events, " < ", min_events, ")"),
-        "扩大样本或降低 min_events"
+        "扩大样本或降低 min_events；或检查 fustatus 是否被标成 Non-survivor 而未识别"
       )
     }
+    return(.cxi06_soft_skip(
+      ctx, sprintf("事件数=%s < min_events=%s", n_events, min_events)
+    ))
   }
 
   min_ev_str <- as.integer(bl_cfg$min_events_stratum %||% 2L)[1L]
@@ -405,7 +436,7 @@ block_cox_interaction <- function(ctx, ...) {
     if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
       .cxi06_pause(ctx, "完整病例数过少", "检查缺失", utils::head(fit_df, 5L))
     }
-    stop("cox_interaction: 完整病例 < 10。", call. = FALSE)
+    return(.cxi06_soft_skip(ctx, "完整病例 < 10"))
   }
 
   idx_sd <- stats::sd(fit_df[[index_var]], na.rm = TRUE)
@@ -413,7 +444,7 @@ block_cox_interaction <- function(ctx, ...) {
     if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
       .cxi06_pause(ctx, paste0(index_var, " 无变异"), "检查 index 列")
     }
-    stop("cox_interaction: index 近似常数。", call. = FALSE)
+    return(.cxi06_soft_skip(ctx, paste0(index_var, " 无变异")))
   }
 
   f_main <- stats::as.formula(paste0(
@@ -427,22 +458,26 @@ block_cox_interaction <- function(ctx, ...) {
 
   fit_main <- tryCatch(
     survival::coxph(f_main, data = fit_df, x = TRUE, y = TRUE),
-    error = function(e) {
-      if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
-        .cxi06_pause(ctx, paste0("主效应 Cox 失败: ", conditionMessage(e)), "检查共线")
-      }
-      stop("cox_interaction: ", conditionMessage(e), call. = FALSE)
-    }
+    error = function(e) e
   )
+  if (inherits(fit_main, "error")) {
+    msg <- conditionMessage(fit_main)
+    if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
+      .cxi06_pause(ctx, paste0("主效应 Cox 失败: ", msg), "检查共线")
+    }
+    return(.cxi06_soft_skip(ctx, paste0("主效应 Cox 失败: ", msg)))
+  }
   fit_int <- tryCatch(
     survival::coxph(f_int, data = fit_df, x = TRUE, y = TRUE),
-    error = function(e) {
-      if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
-        .cxi06_pause(ctx, paste0("交互 Cox 失败: ", conditionMessage(e)), "检查共线")
-      }
-      stop("cox_interaction: ", conditionMessage(e), call. = FALSE)
-    }
+    error = function(e) e
   )
+  if (inherits(fit_int, "error")) {
+    msg <- conditionMessage(fit_int)
+    if (.cxi06_should_pause(bl_cfg, "pause_on_fit_fail", TRUE)) {
+      .cxi06_pause(ctx, paste0("交互 Cox 失败: ", msg), "检查共线")
+    }
+    return(.cxi06_soft_skip(ctx, paste0("交互 Cox 失败: ", msg)))
+  }
 
   lrt <- tryCatch(
     stats::anova(fit_main, fit_int, test = "LRT"),

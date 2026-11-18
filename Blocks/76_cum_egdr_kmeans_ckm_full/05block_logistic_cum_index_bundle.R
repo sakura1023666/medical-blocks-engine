@@ -68,13 +68,17 @@ block_logistic_cum_index_bundle <- function(ctx, ...) {
     }
   }
 
+  n_q <- ckm_stroke_resolve_n_quantile(bl, idx)
   tert_col <- if (ckm_stroke_is_full_depth(idx, bl) && "eGDR_tertile" %in% names(data)) {
+    # 若 config 分位数与已有列档数不一致，按当前 n_q 重切
+    n_have <- nlevels(factor(data$eGDR_tertile))
+    if (is.finite(n_q) && n_have != n_q && "cum_eGDR" %in% names(data)) {
+      data$eGDR_tertile <- ckm_stroke_cut_quantile(as.numeric(data$cum_eGDR), n = n_q)
+      if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data else ctx$data$cleaned <- data
+    }
     "eGDR_tertile"
   } else if (idx %in% names(data)) {
-    x <- as.numeric(data[[idx]])
-    qs <- stats::quantile(x, c(1/3, 2/3), na.rm = TRUE, names = FALSE)
-    data[[paste0(idx, "_tertile")]] <- cut(x, c(-Inf, qs[1], qs[2], Inf),
-                                           labels = c("T1", "T2", "T3"), include.lowest = TRUE)
+    data[[paste0(idx, "_tertile")]] <- ckm_stroke_cut_quantile(as.numeric(data[[idx]]), n = n_q)
     ctx$data$cleaned <- data
     if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data
     paste0(idx, "_tertile")
@@ -86,7 +90,8 @@ block_logistic_cum_index_bundle <- function(ctx, ...) {
     for (mn in model_names) {
       rr <- ckm_stroke_fit_or_row(d, tert_col, outcome, models[[mn]])
       if (!is.null(rr)) {
-        rr$block <- "Tertile"; rr$model <- mn
+        rr$block <- if (identical(as.integer(n_q), 3L)) "Tertile" else "Quantile"
+        rr$model <- mn
         rows[[length(rows) + 1L]] <- rr
       }
     }
