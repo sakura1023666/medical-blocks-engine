@@ -4,15 +4,17 @@
 
 ## 铁律
 
-1. **主库 NHANES**：加权 Table 1 暴露指标（`incidence$index_var`）组间 P ≥ `baseline_nhanes$sig_cutoff`（默认 0.05）→ `BASELINE_INDEX_NS_STOP`，指标记 **failed**。
+1. **主库 NHANES**：加权 Table 1 暴露指标组间 P ≥ `baseline_nhanes$sig_cutoff`（默认 0.05）→ `BASELINE_INDEX_NS_STOP`，指标记 **failed**。
 2. **次库 regular**：非加权 Table 1 同样判定（`baseline_binary$early_stop_if_index_ns`）。
-3. **引擎强制**：`ml_dual_apply_baseline_index_ns_fail_rule()` 在 `ml_dual_batch_build.R` 末尾与 worker/batch runner `source(config)` 之后再次写入，课题 config **不得**设 `early_stop_if_index_ns = FALSE` 或 `baseline_early_stop_disable`。
-4. **目录标记**：早停后 `_batch_status.json` 为 `error`，批量 runner 重命名为 `【failed】<指标>/`。
-5. **Gate B 独立**：临床协变量交集空时走 `require_same_clinical_cols=FALSE` + per-db fallback，**不**替代 Table 1 暴露显著性闸门。
+3. **combo / 双暴露同生共死**：`prediction$index_vars` / `analysis_exclusion$current_index_vars` / `feature_selection$composite_features` 中的**每一列**都必须 Table 1 组间显著。禁止只查 `index_var[[1]]`（如 `LymWBC+WBC_CV` 主指标显著、搭档 `WBC_CV` P=0.85 仍 success）。
+4. **引擎强制**：`ml_dual_apply_baseline_index_ns_fail_rule()` 在 `ml_dual_batch_build.R` 末尾与 worker/batch runner `source(config)` 之后再次写入，课题 config **不得**设 `early_stop_if_index_ns = FALSE` 或 `baseline_early_stop_disable`。
+5. **目录标记**：早停后 `_batch_status.json` 为 `error`，批量 runner 重命名为 `【failed】<指标>/`。
+6. **Gate B 独立**：临床协变量交集空时走 `require_same_clinical_cols=FALSE` + per-db fallback，**不**替代 Table 1 暴露显著性闸门。
 
 ## 实现入口
 
-- 判定：`Blocks/04_baseline/01block_baseline_binary.R` / `03block_baseline_nhanes.R`（`BASELINE_INDEX_NS_STOP`）
+- 判定：`Blocks/04_baseline/01block_baseline_binary.R` / `03block_baseline_nhanes.R` → `pipeline_baseline_index_ns_gate`（`R/utils.R`）
+- 暴露名单：`pipeline_resolve_index_vars_for_ns_gate`
 - 强制开关：`configs/ml_dual_shared_overrides.R` → `ml_dual_apply_baseline_index_ns_fail_rule`
 - Build：`configs/study_interface/ml_dual_batch_build.R`（末尾 + harmonization 放宽 Gate B）
 - Worker：`run/ml/run_ml_dual_batch_worker.R`（`source(config)` 后强制）
@@ -23,6 +25,7 @@
 - [ ] 课题 config 无 `baseline_early_stop_disable` / `early_stop_if_index_ns <- FALSE`
 - [ ] SHR 等 Table 1 P≥0.05 的指标在 `by_index/【failed】/` 而非 `【success】`
 - [ ] CHARLS 次库 baseline 不显著同样 failed（非仅 NHANES）
+- [ ] combo 搭档 CV 不显著 → failed（非仅主指标显著）
 - [ ] `dual_db$harmonization$require_same_clinical_cols = FALSE`（避免 GATE_B_EMPTY_COMMON 误杀）
 
 ## 反例（禁止）
@@ -30,3 +33,4 @@
 - 「ML 预测流水线」关闭 Table 1 暴露早停，SHR CHARLS P=0.402 仍 success
 - 只修 Gate B、不改早停，阴性暴露指标继续出 ML 表图
 - 课题 post-build 写 `config$baseline_nhanes$early_stop_if_index_ns <- FALSE`
+- `LymWBC+WBC_CV` 因 LymWBC P&lt;0.001 标 success，却忽略 WBC_CV P≥0.05

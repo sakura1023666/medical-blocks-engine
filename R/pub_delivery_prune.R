@@ -401,6 +401,27 @@ pub_delivery_scrub_display <- function(delivery_root, root = NULL) {
         cli::cli_alert_info("pub_xlsx_scrub_display.py: {paste(utils::tail(st, 3), collapse = ' | ')}")
       }
     }
+    # 三线表收口闸门（全项目）：清掉所有历史边框，重画 顶线(medium)+栏目线(thin)+
+    # 底线(medium，必须落在最后一个数据行，脚注在底线下方)，无竖线 + 关网格线。
+    # 只动边框/视图层，单元格值零改动；幂等，可反复跑。
+    tl_script <- file.path(eng, "python", "pub_xlsx_enforce_three_line.py")
+    if (nzchar(py) && file.exists(tl_script)) {
+      st_tl <- tryCatch(
+        system2(
+          py,
+          vapply(c(tl_script, "--dir", tab), shQuote, character(1L)),
+          stdout = TRUE, stderr = TRUE
+        ),
+        error = function(e) structure(conditionMessage(e), status = 1L)
+      )
+      tl_ok <- is.null(attr(st_tl, "status")) || identical(as.integer(attr(st_tl, "status")), 0L)
+      if (!tl_ok && requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning("pub_xlsx_enforce_three_line.py 失败: {paste(utils::tail(st_tl, 3), collapse = ' | ')}")
+      } else if (requireNamespace("cli", quietly = TRUE)) {
+        n_tl <- sum(grepl("three-line enforced", st_tl))
+        cli::cli_alert_info("三线表强制闸门: {n_tl} 张 xlsx 已对齐 booktabs 三线")
+      }
+    }
   }
   u <- list(n = 0L)
   cjk <- list(n = 0L)

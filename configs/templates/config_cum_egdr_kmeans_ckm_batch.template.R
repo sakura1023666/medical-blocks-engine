@@ -88,6 +88,16 @@ config <- list(
     seed = 2026L,
     nstart = 25L,
     class_ref = "Persistent_low",
+    n_quantile = 3L,
+    # Model1 暴露门控：不显著则换分位×换 k；仍 NS → 【failed】
+    success_require_exposure_sig = TRUE,
+    exposure_sig_alpha = 0.05,
+    exposure_sig_crude_model1 = TRUE,
+    exposure_sig_require_continuous = TRUE,  # 连续 Model1 必须显著
+    model1_cascade_enable = TRUE,
+    model1_cascade_fix_class_ne = TRUE,   # 类别 NE/参照0事件 → 优先 k=2
+    model1_cascade_k = c(2L, 3L, 4L),
+    model1_cascade_n_quantile = c(3L, 2L, 4L),
     # 文献 Methods：Model1 未校正；Model2 年龄/性别/婚姻；Model3 +BMI/教育/吸烟饮酒/eGFR/血脂异常/糖尿病
     model2 = c("Age", "Gender", "Marital"),
     model3 = c("Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
@@ -159,6 +169,8 @@ config <- list(
     parallel_workers = 1L,       # 用户要求：不并行
     skip_existing = FALSE,
     fail_policy = "stop",
+    # 引擎默认 TRUE：收口后删【failed】结果/检查点
+    prune_failed_on_finish = TRUE,
     worker_script = "run/study/run_study_batch_worker.R",
     shared_ck_alias = "ckm_attrition_flowchart"
   ),
@@ -185,6 +197,7 @@ pipeline_unit <- list(
   blocks = c(
     "cum_exposure_build",
     "kmeans_elbow_bivar",
+    "model1_scheme_cascade",
     "kmeans_trajectory_panels",
     "table1_by_class_ckm",
     "logistic_cum_index_bundle",

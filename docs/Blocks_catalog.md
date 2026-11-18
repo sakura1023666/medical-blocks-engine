@@ -1,6 +1,6 @@
 # Blocks 选型目录（写 config 用）
 
-> 生成/同步：`python3 scripts/update_blocks_catalog.py`  ·  日期：2026-11-03  ·  register_block 数：523
+> 生成/同步：`python3 scripts/update_blocks_catalog.py`  ·  日期：2026-11-18  ·  register_block 数：537
 
 分工：`docs/block操作手册.md` = 怎么跑研究；本文件 = **选哪个 block / 改哪些 config 键**；`docs/block_catalog/` = 程序员 search_blocks 只读导出（另一套）。
 
@@ -111,7 +111,7 @@
 | `12_obj` | 1 | `obj` |
 | `13_roc` | 2 | `ROC`, `simple_ROC` |
 | `14_cutoff` | 1 | `cutoff` |
-| `15_rcs` | 5 | `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group` |
+| `15_rcs` | 6 | `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `rcs_sofa_horizon` |
 | `16_weightcox` | 4 | `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile` |
 | `17_shap` | 2 | `shap`, `shap_glm` |
 | `18_subgroup` | 8 | `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `unsupervised_clustering_table` |
@@ -120,10 +120,9 @@
 | `21_train_validation` | 1 | `train_validation` |
 | `22_ml_models` | 32 | `cart_decision_path`, `ml_adaboost`, `ml_aggregate`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, …(+24) |
 | `23_ml_performance` | 1 | `performance_ml` |
-| `24_ml_dual` | 10 | `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_logistic_multi_index_bundle`, `ml_models_bundle`, …(+2) |
-| `24_ml_supplementary` | 1 | `supplementary_ml` |
+| `24_ml_dual` | 11 | `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_logistic_multi_index_bundle`, `ml_models_bundle`, …(+3) |
 | `25_shiny` | 2 | `shiny_dynnom`, `shiny_ml_app` |
-| `26_trajectory` | 6 | `trajectory_chisq`, `trajectory_dynpred`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_plot_gbmt`, `trajectory_plot_jlcm` |
+| `26_trajectory` | 30 | `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `competing_lmm_trajectory`, `competing_trajectory_cluster`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `multimorbidity_kml3d_trajectory`, `trajectory_baseline_by_class`, …(+22) |
 | `27_KM` | 3 | `km_binary`, `km_continuous_router`, `km_strata` |
 | `28_plot` | 2 | `plot_cutoff`, `plot_histogram` |
 | `29_chord_diagram` | 1 | `chord_diagram` |
@@ -142,18 +141,15 @@
 | `41_environment_target` | 1 | `environment_target_enrichment` |
 | `42_environment_single` | 2 | `environment_single_exposure_transform`, `exwas_unweighted` |
 | `43_dynamic_causal` | 2 | `dynamic_causal_cox_total`, `dynamic_causal_index_compute` |
-| `44_multimorbidity` | 2 | `multimorbidity_baseline_category`, `multimorbidity_gee_cognition` |
+| `44_multimorbidity` | 11 | `multimorbidity_baseline_category`, `multimorbidity_cognition_zscore`, `multimorbidity_define_exposures`, `multimorbidity_empirical_transition`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_gee_trajectory`, …(+3) |
 | `45_multimodal` | 1 | `multimodal_early_fusion` |
 | `46_environment_omics` | 5 | `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary` |
 | `47_dynamic_causal_full` | 4 | `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change` |
-| `48_multimorbidity_full` | 4 | `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sensitivity_suite` |
 | `49_multimodal_full` | 2 | `multimodal_dl_shap`, `multimodal_omics_preprocess` |
 | `50_complex_network` | 5 | `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_publication_tables` |
 | `51_bayesian_comorbidity` | 7 | `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_outcome_validate`, `bayesian_roc_calibration` |
-| `52_trajectory_incidence` | 8 | `trajectory_creatinine_pct`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_prepare_wide_rdata`, `trajectory_wide_to_long` |
-| `53_trajectory_prognosis_full` | 8 | `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_dynpred_individual`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_piecewise_cox`, `trajectory_subgroup_class`, `trajectory_weibull_compare` |
 | `54_cross_lagged_full` | 21 | `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, …(+13) |
-| `55_competing_risk_full` | 18 | `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, …(+10) |
+| `55_competing_risk_full` | 16 | `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_mixed_cox`, …(+8) |
 | `56_ai_clinical_full` | 9 | `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_reader_comparison`, …(+1) |
 | `57_dual_incidence_mr_full` | 10 | `crm_cox_mortality`, `crm_gout_strata`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, …(+2) |
 | `58_medication_regimen_full` | 7 | `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons` |
@@ -162,7 +158,7 @@
 | `61_network_temperature_full` | 9 | `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, …(+1) |
 | `62_sem_chain_mediation_full` | 9 | `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, …(+1) |
 | `63_ai_medical_qa_full` | 8 | `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate` |
-| `64_causal_forest_trajectory_full` | 9 | `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, …(+1) |
+| `64_causal_forest_trajectory_full` | 7 | `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long` |
 | `65_incidence_prepost_full` | 8 | `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize` |
 | `66_target_trial_full` | 9 | `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, …(+1) |
 | `67_transformer_shortseq_full` | 10 | `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, …(+2) |
@@ -174,12 +170,13 @@
 | `73_ml_nafld_cm` | 6 | `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare` |
 | `74_pa_mobility_cognitive_full` | 19 | `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, …(+11) |
 | `75_osteo_dxa_qct` | 3 | `diagnostic_vs_fracture`, `dxa_qct_agreement`, `modality_discordance_profile` |
-| `76_cum_egdr_kmeans_ckm_full` | 11 | `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `cum_exposure_build`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `logistic_cum_index_bundle`, `rcs_ckm_strata_panels`, …(+3) |
+| `76_cum_egdr_kmeans_ckm_full` | 9 | `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `cum_exposure_build`, `logistic_cum_index_bundle`, `rcs_ckm_strata_panels`, `sensitivity_cox_mice_bundle`, `table1_by_class_ckm`, …(+1) |
 | `77_gallstone_nomogram_full` | 13 | `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, …(+5) |
 | `78_database_pooling_full` | 9 | `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, …(+1) |
 | `79_sleep_dyslipid_prognosis_full` | 5 | `bayesian_mediation_horizon`, `horizon_roc_youden`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `survival_fixed_horizon` |
 | `80_easymr_full` | 3 | `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample` |
 | `81_clhls_symptom_network_full` | 9 | `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, …(+1) |
+| `82_trajectory_incidence_joint` | 6 | `tj_cox_rubin`, `tj_data_ingest`, `tj_gbmtm_fit`, `tj_pub_export`, `tj_sensitivity`, `tj_subgroup` |
 
 <!-- END AUTO:dir_index -->
 
@@ -394,7 +391,7 @@
 | `multivariate_prognosis` |
 | `multivariate_prognosis_harmonized` |
 
-### `rcs_*`（6）
+### `rcs_*`（7）
 
 | register_block |
 |---|
@@ -404,6 +401,7 @@
 | `rcs_nhanes` |
 | `rcs_prognosis` |
 | `rcs_prognosis_by_group` |
+| `rcs_sofa_horizon` |
 
 ### `subgroup_*`（7）
 
@@ -417,7 +415,7 @@
 | `subgroup_prognosis` |
 | `subgroup_treatment_forest` |
 
-### `trajectory_*`（22）
+### `trajectory_*`（23）
 
 | register_block |
 |---|
@@ -436,6 +434,7 @@
 | `trajectory_lcmm_mpcmp_plot` |
 | `trajectory_outcome_adjusted` |
 | `trajectory_outcome_models` |
+| `trajectory_pamm` |
 | `trajectory_piecewise_cox` |
 | `trajectory_plot_gbmt` |
 | `trajectory_plot_jlcm` |
@@ -527,11 +526,14 @@
 | `configs/templates/config_ml_small_sample.template.R` | config_ml_small_sample.template.R — 小样本 ML 配置模板（单库 / 单指标 or 全变量） | 见文件头 |
 | `configs/templates/config_ml_tcf_sepsis_aki_batch.template.R` | config_ml_tcf_sepsis_aki_batch.template | 见文件头 |
 | `configs/templates/config_multimodal_tbi_batch.template.R` | config_multimodal_tbi_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
-| `configs/templates/config_multimorbidity_additive_batch.template.R` | config_multimorbidity_additive_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
+| `configs/templates/config_multimorbidity_additive.template.R` | config_multimorbidity_additive.template.R — 多病叠加单队列模板（Wang 2025） | 见文件头 |
+| `configs/templates/config_multimorbidity_additive_batch.template.R` | config_multimorbidity_additive_batch.template.R — 多队列批跑壳 | 见文件头 |
+| `configs/templates/config_multimorbidity_frailty_depression.template.R` | config_multimorbidity_frailty_depression.template.R — hrs 示例：Frailty×抑郁→肌少症 | 见文件头 |
 | `configs/templates/config_network_temperature_adolescent_batch.template.R` | config_network_temperature_adolescent_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_pa_mobility_cognitive.template.R` | config_pa_mobility_cognitive.template | 见文件头 |
 | `configs/templates/config_pa_mobility_cognitive_batch.template.R` | config_pa_mobility_cognitive_batch.template | 见文件头 |
 | `configs/templates/config_prognosis_v2_sleep_dyslipid.template.R` | config_prognosis_v2_sleep_dyslipid.template.R | 见文件头 |
+| `configs/templates/config_prognosis_v2_stroke_anlr.template.R` | config_prognosis_v2_stroke_anlr.template.R | 见文件头 |
 | `configs/templates/config_sem_chain_mediation_charls_batch.template.R` | config_sem_chain_mediation_charls_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_sepsis_jin_prognosis_index_sofa_dual_batch.template.R` | config_sepsis_jin_prognosis_index_sofa_dual_batch.template.R | 见文件头 |
 | `configs/templates/config_sle_aki_inc_prog_batch.template.R` | config_sle_aki_inc_prog_batch.template.R | 见文件头 |
@@ -540,7 +542,9 @@
 | `configs/templates/config_survival_sae.template.R` | config_survival_sae.template | 见文件头 |
 | `configs/templates/config_target_trial_rasi_aki_batch.template.R` | config_target_trial_rasi_aki_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_trajectory_incidence_aki_batch.template.R` | config_trajectory_incidence_aki_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
+| `configs/templates/config_trajectory_incidence_joint.template.R` | config_trajectory_incidence_joint.template.R | 见文件头 |
 | `configs/templates/config_trajectory_prognosis_batch.template.R` | config_trajectory_prognosis_batch.template.R — 轨迹预后 JLCM 双库批量模板 | 见文件头 |
+| `configs/templates/config_trajectory_prognosis_copd_jlcm_batch.template.R` | config_trajectory_prognosis_copd_jlcm_batch.template | 见文件头 |
 | `configs/templates/config_trajectory_prognosis_plt.template.R` | config_trajectory_prognosis_plt.template.R — 轨迹预后 PLT 单库模板 | 见文件头 |
 | `configs/templates/config_trajectory_prognosis_plt_batch.template.R` | config_trajectory_prognosis_plt_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
 | `configs/templates/config_transformer_aki_single_batch.template.R` | config_transformer_aki_single_batch.template.R — 配置模板（复制到研究产出目录后按【必改】修改） | 见文件头 |
@@ -591,7 +595,7 @@
 <!-- BEGIN AUTO:block_cards -->
 ## 8. Block 卡片（AUTO）
 
-共 **523** 个 `register_block`。 细节以各文件头部注释为准；本表只做选型索引。
+共 **537** 个 `register_block`。 细节以各文件头部注释为准；本表只做选型索引。
 
 ### `00_attrition/`
 
@@ -1200,6 +1204,12 @@
 - config 节: `config$project`, `config$rcs_prognosis_by_group`, `config$survival`
 - 回读: `Blocks/15_rcs/04block_rcs_prognosis_by_group.R` 文件头注释
 
+#### `rcs_sofa_horizon`
+- 路径: `Blocks/15_rcs/06block_rcs_sofa_horizon.R`
+- 用途: ##############################################################################
+- config 节: `config$rcs_sofa_horizon`
+- 回读: `Blocks/15_rcs/06block_rcs_sofa_horizon.R` 文件头注释
+
 
 ### `16_weightcox/`
 
@@ -1254,7 +1264,6 @@
 - 路径: `Blocks/17_shap/02block_shap_glm.R`
 - 用途: ##############################################################################
 - 典型位置: logistic_nomogram 之后
-- config 节: `config$jin_index_sofa`, `config$shap_glm`
 - 回读: `Blocks/17_shap/02block_shap_glm.R` 文件头注释
 
 
@@ -1669,6 +1678,7 @@
 #### `ml_xgboost`
 - 路径: `Blocks/22_ml_models/03block_ml_xgboost.R`
 - 用途: ##############################################################################
+- 典型位置: train_validation → 本块 → ml_aggregate
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = feature_selection_final（feature_selection 启用时）或 Model2Factors`
 - 回读: `Blocks/22_ml_models/03block_ml_xgboost.R` 文件头注释
 
@@ -1755,16 +1765,13 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/24_ml_dual/06block_ml_vif_train_test.R` 文件头注释
 
-
-### `24_ml_supplementary/`
-
 #### `supplementary_ml`
-- 路径: `Blocks/24_ml_supplementary/01block_supplementary_ml.R`
+- 路径: `Blocks/24_ml_dual/10block_supplementary_ml.R`
 - 用途: ##############################################################################
 - 典型位置: ml_models → supplementary_ml（勿与父块重复 source）
 - 前置: `require_results = ctx$results$ml_models；Data/Hpbest.RData、Models/evalresult_<tag>.RData`; `require_data = ctx$data$train / test（logloss / delong / nri_idi）；超参数表仅需 Hpbest`
 - config 节: `config$supplementary_ml`
-- 回读: `Blocks/24_ml_supplementary/01block_supplementary_ml.R` 文件头注释
+- 回读: `Blocks/24_ml_dual/10block_supplementary_ml.R` 文件头注释
 
 
 ### `25_shiny/`
@@ -1788,17 +1795,77 @@
 
 ### `26_trajectory/`
 
+#### `cftraj_lcmm_episodic`
+- 路径: `Blocks/26_trajectory/26block_cftraj_lcmm_episodic.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/26block_cftraj_lcmm_episodic.R` 文件头注释
+
+#### `cftraj_lcmm_fit`
+- 路径: `Blocks/26_trajectory/25block_cftraj_lcmm_fit.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/25block_cftraj_lcmm_fit.R` 文件头注释
+
+#### `competing_lmm_trajectory`
+- 路径: `Blocks/26_trajectory/28block_trajectory_lmm.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/28block_trajectory_lmm.R` 文件头注释
+
+#### `competing_trajectory_cluster`
+- 路径: `Blocks/26_trajectory/29block_trajectory_cluster.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/29block_trajectory_cluster.R` 文件头注释
+
+#### `kmeans_elbow_bivar`
+- 路径: `Blocks/26_trajectory/23block_kmeans_elbow_bivar.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/23block_kmeans_elbow_bivar.R` 文件头注释
+
+#### `kmeans_trajectory_panels`
+- 路径: `Blocks/26_trajectory/24block_kmeans_trajectory_panels.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/24block_kmeans_trajectory_panels.R` 文件头注释
+
+#### `multimorbidity_kml3d_trajectory`
+- 路径: `Blocks/26_trajectory/27block_trajectory_kml3d.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/27block_trajectory_kml3d.R` 文件头注释
+
+#### `trajectory_baseline_by_class`
+- 路径: `Blocks/26_trajectory/21block_trajectory_baseline_by_class.R`
+- 用途: ##############################################################################
+- 前置: `require_upstream = trajectory_jlcm（assign_class_ng 需已回写 trajectory_class）`; `require_pkg = gtsummary, openxlsx, dplyr`
+- config 节: `config$survival`
+- 回读: `Blocks/26_trajectory/21block_trajectory_baseline_by_class.R` 文件头注释
+
+#### `trajectory_calc_28d_index`
+- 路径: `Blocks/26_trajectory/22block_trajectory_calc_28d_index.R`
+- 用途: ##############################################################################
+- config 节: `config$dual_db`, `config$trajectory_jlcm`
+- 回读: `Blocks/26_trajectory/22block_trajectory_calc_28d_index.R` 文件头注释
+
 #### `trajectory_chisq`
 - 路径: `Blocks/26_trajectory/05block_trajectory_chisq.R`
 - 用途: ##############################################################################
 - config 节: `config$trajectory`
 - 回读: `Blocks/26_trajectory/05block_trajectory_chisq.R` 文件头注释
 
+#### `trajectory_creatinine_pct`
+- 路径: `Blocks/26_trajectory/07block_trajectory_creatinine_pct.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/07block_trajectory_creatinine_pct.R` 文件头注释
+
 #### `trajectory_dynpred`
 - 路径: `Blocks/26_trajectory/06block_trajectory_dynpred.R`
 - 用途: ##############################################################################
 - config 节: `config$plot`, `config$trajectory`
 - 回读: `Blocks/26_trajectory/06block_trajectory_dynpred.R` 文件头注释
+
+#### `trajectory_dynpred_individual`
+- 路径: `Blocks/26_trajectory/19block_trajectory_dynpred_individual.R`
+- 用途: ##############################################################################
+- 前置: `require_upstream = trajectory_jlcm（需要 ctx$results$trajectory_jlcm_models[[Index]]）`; `require_pkg = lcmm, survival, flexsurv, dplyr, tidyr, ggplot2, MASS`; `require_survivor_dyn_better = TRUE, # 存活代表：动态模型生存概率需优于静态 Weibull`
+- config 节: `config$trajectory_jlcm`
+- 回读: `Blocks/26_trajectory/19block_trajectory_dynpred_individual.R` 文件头注释
 
 #### `trajectory_gbmt`
 - 路径: `Blocks/26_trajectory/01block_trajectory_gbmt.R`
@@ -1815,6 +1882,58 @@
 - config 节: `config$survival`
 - 回读: `Blocks/26_trajectory/02block_trajectory_jlcm.R` 文件头注释
 
+#### `trajectory_jlcm_discovery_validate`
+- 路径: `Blocks/26_trajectory/17block_trajectory_jlcm_discovery_validate.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/17block_trajectory_jlcm_discovery_validate.R` 文件头注释
+
+#### `trajectory_km_class`
+- 路径: `Blocks/26_trajectory/18block_trajectory_km_class.R`
+- 用途: ##############################################################################
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_pkg = survival, survminer, dplyr, ggplot2`
+- config 节: `config$survival`
+- 回读: `Blocks/26_trajectory/18block_trajectory_km_class.R` 文件头注释
+
+#### `trajectory_lcmm_external_validate`
+- 路径: `Blocks/26_trajectory/13block_trajectory_lcmm_external_validate.R`
+- 用途: ##############################################################################
+- 前置: `require_predictClass = TRUE`
+- config 节: `config$trajectory`, `config$trajectory_lcmm_external_validate`
+- 回读: `Blocks/26_trajectory/13block_trajectory_lcmm_external_validate.R` 文件头注释
+
+#### `trajectory_lcmm_fit`
+- 路径: `Blocks/26_trajectory/09block_trajectory_lcmm_fit.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/09block_trajectory_lcmm_fit.R` 文件头注释
+
+#### `trajectory_lcmm_mpcmp_plot`
+- 路径: `Blocks/26_trajectory/12block_trajectory_lcmm_mpcmp_plot.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/12block_trajectory_lcmm_mpcmp_plot.R` 文件头注释
+
+#### `trajectory_outcome_adjusted`
+- 路径: `Blocks/26_trajectory/14block_trajectory_outcome_adjusted.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/14block_trajectory_outcome_adjusted.R` 文件头注释
+
+#### `trajectory_outcome_models`
+- 路径: `Blocks/26_trajectory/10block_trajectory_outcome_models.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/10block_trajectory_outcome_models.R` 文件头注释
+
+#### `trajectory_pamm`
+- 路径: `Blocks/26_trajectory/30block_trajectory_pamm.R`
+- 用途: ##############################################################################
+- config 节: `config$trajectory_pamm`
+- 回读: `Blocks/26_trajectory/30block_trajectory_pamm.R` 文件头注释
+
+#### `trajectory_piecewise_cox`
+- 路径: `Blocks/26_trajectory/15block_trajectory_piecewise_cox.R`
+- 用途: ##############################################################################
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`
+- config 节: `config$survival`, `config$trajectory_pub`
+- 回读: `Blocks/26_trajectory/15block_trajectory_piecewise_cox.R` 文件头注释
+
 #### `trajectory_plot_gbmt`
 - 路径: `Blocks/26_trajectory/03block_trajectory_plot_gbmt.R`
 - 用途: ##############################################################################
@@ -1826,6 +1945,30 @@
 - 用途: ##############################################################################
 - 前置: `require_ctx_data = ctx$data$trajectory_long（或 long_data_dir 磁盘兜底）`; `require_ctx_results = ctx$results$trajectory_jlcm_models（或 jlcm_model_dir 兜底）`; `require_upstream = trajectory_jlcm`
 - 回读: `Blocks/26_trajectory/04block_trajectory_plot_jlcm.R` 文件头注释
+
+#### `trajectory_prepare_wide_rdata`
+- 路径: `Blocks/26_trajectory/11block_trajectory_prepare_wide_rdata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/11block_trajectory_prepare_wide_rdata.R` 文件头注释
+
+#### `trajectory_subgroup_class`
+- 路径: `Blocks/26_trajectory/20block_trajectory_subgroup_class.R`
+- 用途: ##############################################################################
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`
+- config 节: `config$survival`
+- 回读: `Blocks/26_trajectory/20block_trajectory_subgroup_class.R` 文件头注释
+
+#### `trajectory_weibull_compare`
+- 路径: `Blocks/26_trajectory/16block_trajectory_weibull_compare.R`
+- 用途: ##############################################################################
+- 前置: `require_upstream = trajectory_jlcm（需要 ctx$results$trajectory_jlcm_models[[Index]]）`; `require_pkg = lcmm, survival, flexsurv, dplyr, tidyr, ggplot2, Hmisc`
+- config 节: `config$trajectory_jlcm`
+- 回读: `Blocks/26_trajectory/16block_trajectory_weibull_compare.R` 文件头注释
+
+#### `trajectory_wide_to_long`
+- 路径: `Blocks/26_trajectory/08block_trajectory_wide_to_long.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/26_trajectory/08block_trajectory_wide_to_long.R` 文件头注释
 
 
 ### `27_KM/`
@@ -2138,10 +2281,57 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/44_multimorbidity/01block_multimorbidity_baseline_category.R` 文件头注释
 
+#### `multimorbidity_cognition_zscore`
+- 路径: `Blocks/44_multimorbidity/06block_multimorbidity_cognition_zscore.R`
+- 用途: ##############################################################################
+- config 节: `config$multimorbidity`
+- 回读: `Blocks/44_multimorbidity/06block_multimorbidity_cognition_zscore.R` 文件头注释
+
+#### `multimorbidity_define_exposures`
+- 路径: `Blocks/44_multimorbidity/05block_multimorbidity_define_exposures.R`
+- 用途: ##############################################################################
+- config 节: `config$multimorbidity`
+- 回读: `Blocks/44_multimorbidity/05block_multimorbidity_define_exposures.R` 文件头注释
+
+#### `multimorbidity_empirical_transition`
+- 路径: `Blocks/44_multimorbidity/09block_multimorbidity_empirical_transition.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/09block_multimorbidity_empirical_transition.R` 文件头注释
+
 #### `multimorbidity_gee_cognition`
 - 路径: `Blocks/44_multimorbidity/02block_multimorbidity_gee_cognition.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/44_multimorbidity/02block_multimorbidity_gee_cognition.R` 文件头注释
+
+#### `multimorbidity_gee_interaction`
+- 路径: `Blocks/44_multimorbidity/03block_multimorbidity_gee_interaction.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/03block_multimorbidity_gee_interaction.R` 文件头注释
+
+#### `multimorbidity_gee_stratified`
+- 路径: `Blocks/44_multimorbidity/02block_multimorbidity_gee_stratified.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/02block_multimorbidity_gee_stratified.R` 文件头注释
+
+#### `multimorbidity_gee_trajectory`
+- 路径: `Blocks/44_multimorbidity/07block_multimorbidity_gee_trajectory.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/07block_multimorbidity_gee_trajectory.R` 文件头注释
+
+#### `multimorbidity_graphical_abstract`
+- 路径: `Blocks/44_multimorbidity/10block_multimorbidity_graphical_abstract.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/10block_multimorbidity_graphical_abstract.R` 文件头注释
+
+#### `multimorbidity_sankey_transition`
+- 路径: `Blocks/44_multimorbidity/08block_multimorbidity_sankey_transition.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/08block_multimorbidity_sankey_transition.R` 文件头注释
+
+#### `multimorbidity_sensitivity_suite`
+- 路径: `Blocks/44_multimorbidity/04block_multimorbidity_sensitivity_suite.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/04block_multimorbidity_sensitivity_suite.R` 文件头注释
 
 
 ### `45_multimodal/`
@@ -2201,29 +2391,6 @@
 - 路径: `Blocks/47_dynamic_causal_full/04block_dynamic_causal_rcs_change.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/47_dynamic_causal_full/04block_dynamic_causal_rcs_change.R` 文件头注释
-
-
-### `48_multimorbidity_full/`
-
-#### `multimorbidity_gee_interaction`
-- 路径: `Blocks/48_multimorbidity_full/03block_multimorbidity_gee_interaction.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/48_multimorbidity_full/03block_multimorbidity_gee_interaction.R` 文件头注释
-
-#### `multimorbidity_gee_stratified`
-- 路径: `Blocks/48_multimorbidity_full/02block_multimorbidity_gee_stratified.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/48_multimorbidity_full/02block_multimorbidity_gee_stratified.R` 文件头注释
-
-#### `multimorbidity_kml3d_trajectory`
-- 路径: `Blocks/48_multimorbidity_full/01block_multimorbidity_kml3d_trajectory.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/48_multimorbidity_full/01block_multimorbidity_kml3d_trajectory.R` 文件头注释
-
-#### `multimorbidity_sensitivity_suite`
-- 路径: `Blocks/48_multimorbidity_full/04block_multimorbidity_sensitivity_suite.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/48_multimorbidity_full/04block_multimorbidity_sensitivity_suite.R` 文件头注释
 
 
 ### `49_multimodal_full/`
@@ -2303,105 +2470,6 @@
 - 路径: `Blocks/51_bayesian_comorbidity/07block_bayesian_roc_calibration.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/51_bayesian_comorbidity/07block_bayesian_roc_calibration.R` 文件头注释
-
-
-### `52_trajectory_incidence/`
-
-#### `trajectory_creatinine_pct`
-- 路径: `Blocks/52_trajectory_incidence/00block_trajectory_creatinine_pct.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/00block_trajectory_creatinine_pct.R` 文件头注释
-
-#### `trajectory_lcmm_external_validate`
-- 路径: `Blocks/52_trajectory_incidence/06block_trajectory_lcmm_external_validate.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/06block_trajectory_lcmm_external_validate.R` 文件头注释
-
-#### `trajectory_lcmm_fit`
-- 路径: `Blocks/52_trajectory_incidence/02block_trajectory_lcmm_fit.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/02block_trajectory_lcmm_fit.R` 文件头注释
-
-#### `trajectory_lcmm_mpcmp_plot`
-- 路径: `Blocks/52_trajectory_incidence/05block_trajectory_lcmm_mpcmp_plot.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/05block_trajectory_lcmm_mpcmp_plot.R` 文件头注释
-
-#### `trajectory_outcome_adjusted`
-- 路径: `Blocks/52_trajectory_incidence/07block_trajectory_outcome_adjusted.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/07block_trajectory_outcome_adjusted.R` 文件头注释
-
-#### `trajectory_outcome_models`
-- 路径: `Blocks/52_trajectory_incidence/03block_trajectory_outcome_models.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/03block_trajectory_outcome_models.R` 文件头注释
-
-#### `trajectory_prepare_wide_rdata`
-- 路径: `Blocks/52_trajectory_incidence/04block_trajectory_prepare_wide_rdata.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/04block_trajectory_prepare_wide_rdata.R` 文件头注释
-
-#### `trajectory_wide_to_long`
-- 路径: `Blocks/52_trajectory_incidence/01block_trajectory_wide_to_long.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/52_trajectory_incidence/01block_trajectory_wide_to_long.R` 文件头注释
-
-
-### `53_trajectory_prognosis_full/`
-
-#### `trajectory_baseline_by_class`
-- 路径: `Blocks/53_trajectory_prognosis_full/07block_trajectory_baseline_by_class.R`
-- 用途: ##############################################################################
-- 前置: `require_upstream = trajectory_jlcm（assign_class_ng 需已回写 trajectory_class）`; `require_pkg = gtsummary, openxlsx, dplyr`
-- config 节: `config$survival`
-- 回读: `Blocks/53_trajectory_prognosis_full/07block_trajectory_baseline_by_class.R` 文件头注释
-
-#### `trajectory_calc_28d_index`
-- 路径: `Blocks/53_trajectory_prognosis_full/08block_trajectory_calc_28d_index.R`
-- 用途: ##############################################################################
-- config 节: `config$dual_db`, `config$trajectory_jlcm`
-- 回读: `Blocks/53_trajectory_prognosis_full/08block_trajectory_calc_28d_index.R` 文件头注释
-
-#### `trajectory_dynpred_individual`
-- 路径: `Blocks/53_trajectory_prognosis_full/05block_trajectory_dynpred_individual.R`
-- 用途: ##############################################################################
-- 前置: `require_upstream = trajectory_jlcm（需要 ctx$results$trajectory_jlcm_models[[Index]]）`; `require_pkg = lcmm, survival, flexsurv, dplyr, tidyr, ggplot2, MASS`; `require_survivor_dyn_better = TRUE, # 存活代表：动态模型生存概率需优于静态 Weibull`
-- config 节: `config$trajectory_jlcm`
-- 回读: `Blocks/53_trajectory_prognosis_full/05block_trajectory_dynpred_individual.R` 文件头注释
-
-#### `trajectory_jlcm_discovery_validate`
-- 路径: `Blocks/53_trajectory_prognosis_full/03block_trajectory_jlcm_discovery_validate.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/53_trajectory_prognosis_full/03block_trajectory_jlcm_discovery_validate.R` 文件头注释
-
-#### `trajectory_km_class`
-- 路径: `Blocks/53_trajectory_prognosis_full/04block_trajectory_km_class.R`
-- 用途: ##############################################################################
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_pkg = survival, survminer, dplyr, ggplot2`
-- config 节: `config$survival`
-- 回读: `Blocks/53_trajectory_prognosis_full/04block_trajectory_km_class.R` 文件头注释
-
-#### `trajectory_piecewise_cox`
-- 路径: `Blocks/53_trajectory_prognosis_full/01block_trajectory_piecewise_cox.R`
-- 用途: ##############################################################################
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`
-- config 节: `config$survival`, `config$trajectory_pub`
-- 回读: `Blocks/53_trajectory_prognosis_full/01block_trajectory_piecewise_cox.R` 文件头注释
-
-#### `trajectory_subgroup_class`
-- 路径: `Blocks/53_trajectory_prognosis_full/06block_trajectory_subgroup_class.R`
-- 用途: ##############################################################################
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`
-- config 节: `config$survival`
-- 回读: `Blocks/53_trajectory_prognosis_full/06block_trajectory_subgroup_class.R` 文件头注释
-
-#### `trajectory_weibull_compare`
-- 路径: `Blocks/53_trajectory_prognosis_full/02block_trajectory_weibull_compare.R`
-- 用途: ##############################################################################
-- 前置: `require_upstream = trajectory_jlcm（需要 ctx$results$trajectory_jlcm_models[[Index]]）`; `require_pkg = lcmm, survival, flexsurv, dplyr, tidyr, ggplot2, Hmisc`
-- config 节: `config$trajectory_jlcm`
-- 回读: `Blocks/53_trajectory_prognosis_full/02block_trajectory_weibull_compare.R` 文件头注释
 
 
 ### `54_cross_lagged_full/`
@@ -2558,11 +2626,6 @@
 - config 节: `config$competing_risk`
 - 回读: `Blocks/55_competing_risk_full/13block_competing_index_exposure.R` 文件头注释
 
-#### `competing_lmm_trajectory`
-- 路径: `Blocks/55_competing_risk_full/02block_competing_lmm_trajectory.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/55_competing_risk_full/02block_competing_lmm_trajectory.R` 文件头注释
-
 #### `competing_mixed_cox`
 - 路径: `Blocks/55_competing_risk_full/07block_competing_mixed_cox.R`
 - 用途: ##############################################################################
@@ -2602,11 +2665,6 @@
 - 路径: `Blocks/55_competing_risk_full/19block_competing_supp_tables.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/55_competing_risk_full/19block_competing_supp_tables.R` 文件头注释
-
-#### `competing_trajectory_cluster`
-- 路径: `Blocks/55_competing_risk_full/20block_competing_trajectory_cluster.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/55_competing_risk_full/20block_competing_trajectory_cluster.R` 文件头注释
 
 #### `competing_tyg_compute`
 - 路径: `Blocks/55_competing_risk_full/01block_competing_tyg_compute.R`
@@ -2989,16 +3047,6 @@
 - 路径: `Blocks/64_causal_forest_trajectory_full/01block_cftraj_circs_compute.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/64_causal_forest_trajectory_full/01block_cftraj_circs_compute.R` 文件头注释
-
-#### `cftraj_lcmm_episodic`
-- 路径: `Blocks/64_causal_forest_trajectory_full/08block_cftraj_lcmm_episodic.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/08block_cftraj_lcmm_episodic.R` 文件头注释
-
-#### `cftraj_lcmm_fit`
-- 路径: `Blocks/64_causal_forest_trajectory_full/03block_cftraj_lcmm_fit.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/03block_cftraj_lcmm_fit.R` 文件头注释
 
 #### `cftraj_multinomial`
 - 路径: `Blocks/64_causal_forest_trajectory_full/04block_cftraj_multinomial.R`
@@ -3675,16 +3723,6 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/76_cum_egdr_kmeans_ckm_full/02block_cum_exposure_build.R` 文件头注释
 
-#### `kmeans_elbow_bivar`
-- 路径: `Blocks/76_cum_egdr_kmeans_ckm_full/03block_kmeans_elbow_bivar.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/76_cum_egdr_kmeans_ckm_full/03block_kmeans_elbow_bivar.R` 文件头注释
-
-#### `kmeans_trajectory_panels`
-- 路径: `Blocks/76_cum_egdr_kmeans_ckm_full/04block_kmeans_trajectory_panels.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/76_cum_egdr_kmeans_ckm_full/04block_kmeans_trajectory_panels.R` 文件头注释
-
 #### `logistic_cum_index_bundle`
 - 路径: `Blocks/76_cum_egdr_kmeans_ckm_full/05block_logistic_cum_index_bundle.R`
 - 用途: ##############################################################################
@@ -3938,11 +3976,57 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/81_clhls_symptom_network_full/04block_clhls_weighted.R` 文件头注释
 
+
+### `82_trajectory_incidence_joint/`
+
+#### `tj_cox_rubin`
+- 路径: `Blocks/82_trajectory_incidence_joint/03block_tj_cox_rubin.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/82_trajectory_incidence_joint/03block_tj_cox_rubin.R` 文件头注释
+
+#### `tj_data_ingest`
+- 路径: `Blocks/82_trajectory_incidence_joint/01block_tj_data_ingest.R`
+- 用途: ##############################################################################
+- config 节: `config$data`, `config$joint_trajectory`
+- 头部配置摘录:
+
+```r
+joint_trajectory = list(
+  id_column         = "id",
+  waves             = c(2, 4, 6),            # 轨迹测量波
+  index_pairs       = list(                  # 体系（联合轨迹对）
+    BMI_TyG   = c("TyG", "BMI"),
+    WHtR_TyG  = c("TyG", "WHtR")
+  ),
+```
+- 回读: `Blocks/82_trajectory_incidence_joint/01block_tj_data_ingest.R` 文件头注释
+
+#### `tj_gbmtm_fit`
+- 路径: `Blocks/82_trajectory_incidence_joint/02block_tj_gbmtm_fit.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/82_trajectory_incidence_joint/02block_tj_gbmtm_fit.R` 文件头注释
+
+#### `tj_pub_export`
+- 路径: `Blocks/82_trajectory_incidence_joint/06block_tj_pub_export.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/82_trajectory_incidence_joint/06block_tj_pub_export.R` 文件头注释
+
+#### `tj_sensitivity`
+- 路径: `Blocks/82_trajectory_incidence_joint/05block_tj_sensitivity.R`
+- 用途: ##############################################################################
+- config 节: `config$joint_trajectory`
+- 回读: `Blocks/82_trajectory_incidence_joint/05block_tj_sensitivity.R` 文件头注释
+
+#### `tj_subgroup`
+- 路径: `Blocks/82_trajectory_incidence_joint/04block_tj_subgroup.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/82_trajectory_incidence_joint/04block_tj_subgroup.R` 文件头注释
+
 <!-- END AUTO:block_cards -->
 
 <!-- BEGIN AUTO:id_list -->
 ## 9. 全量 register_block 列表（AUTO）
 
-`ROC`, `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate`, `ai_reader_comparison`, `ai_reader_study`, `analysis_exclusion`, `attrition_flowchart`, `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_mediation_horizon`, `bayesian_outcome_validate`, `bayesian_roc_calibration`, `bkmr_analysis`, `bkmr_fit`, `boxplot`, `cart_decision_path`, `cdc_wonder_fetch`, `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long`, `chord_diagram`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended`, `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, `clhls_weighted`, `column_mapping`, `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, `competing_mixed_cox`, `competing_models_123`, `competing_models_123_death`, `competing_ph_calibration`, `competing_pub_export`, `competing_rcs`, `competing_stratified`, `competing_supp_tables`, `competing_trajectory_cluster`, `competing_tyg_compute`, `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_publication_tables`, `composite_risk_cox`, `correlation`, `cox_binary`, `cox_interaction`, `cox_ml_continuous_batch`, `cox_multi_horizon`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_subphenotype`, `cox_tertile`, `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, `crm_nhanes_ordinal_pub`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables`, `crm_nhanes_rcs_pub`, `crm_nhanes_subgroup_supp`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, `cross_lagged_frailty_transition`, `cross_lagged_km`, `cross_lagged_long_prepare`, `cross_lagged_mediation`, `cross_lagged_mediation_bootstrap`, `cross_lagged_meta_merge`, `cross_lagged_network`, `cross_lagged_network_bootstrap`, `cross_lagged_panel_network`, `cross_lagged_pooled_bind`, `cross_lagged_sensitivity`, `cross_lagged_subgroup`, `cross_lagged_subgroup_extended`, `cum_exposure_build`, `cutoff`, `data_clean`, `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, `dbpool_train_eval`, `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency`, `derived_grouping`, `diagnostic_vs_fracture`, `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize`, `dxa_qct_agreement`, `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change`, `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample`, `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary`, `environment_characteristics`, `environment_lod_screen`, `environment_single_exposure_transform`, `environment_subgroup_search`, `environment_target_enrichment`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `ers_elastic_net`, `exwas_gastric_assemble`, `exwas_unweighted`, `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, `feature_selection_venn`, `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, `gallstone_roc_cal_boot`, `gallstone_subgroup_sex`, `gallstone_table1`, `gallstone_train_split`, `gallstone_uv_covariate_screen`, `glm_environment_quartile`, `horizon_roc_youden`, `imputation`, `index`, `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `iptw_association`, `iptw_balance`, `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub`, `km_binary`, `km_continuous_router`, `km_strata`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `lasso_environment_voc`, `lca`, `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_cum_index_bundle`, `logistic_environment_glm`, `logistic_nomogram`, `logistic_quartile_clogit`, `logistic_quartile_glm`, `logistic_quartile_glm_rcs`, `logistic_quartile_iptw_weighted`, `logistic_quartile_nhanes_weighted`, `logistic_quartile_nhanes_weighted_rcs`, `logistic_quintile_clogit`, `logistic_quintile_glm`, `logistic_quintile_glm_rcs`, `logistic_rcs_cutoff_nhanes_weighted`, `logistic_sextile_clogit`, `logistic_sextile_glm`, `logistic_subphenotype`, `logistic_tertile_clogit`, `logistic_tertile_glm`, `logistic_tertile_glm_rcs`, `logistic_tertile_iptw_weighted`, `logistic_tertile_nhanes_weighted`, `logistic_tertile_nhanes_weighted_rcs`, `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons`, `ml_adaboost`, `ml_aggregate`, `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_gbdt`, `ml_gbmsurv`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_knn`, `ml_lightgbm`, `ml_logistic`, `ml_logistic_multi_index_bundle`, `ml_mboost_cox`, `ml_mlp`, `ml_models_bundle`, `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare`, `ml_naive_bayes`, `ml_realmlp`, `ml_realtabpfn_2_5`, `ml_rf`, `ml_ridge_cox`, `ml_rsf`, `ml_rsvm`, `ml_stratified_reference_profile`, `ml_survivalsvm`, `ml_tablcl_v2`, `ml_tabpfn`, `ml_tabpfnv2`, `ml_tcf_balance_scale`, `ml_tcf_sklearn_external`, `ml_tcf_sklearn_rscv`, `ml_topsis_fusion`, `ml_vif_train_test`, `ml_xgboost`, `ml_xgbsurv`, `modality_discordance_profile`, `modmed_data_prep`, `modmed_mediation_batch`, `modmed_moderated_mediation`, `modmed_moderation`, `modmed_simple_slopes`, `modmed_spearman`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample`, `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen`, `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess`, `multimorbidity_baseline_category`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sensitivity_suite`, `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized`, `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory`, `obj`, `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, `pamob_feasibility`, `pamob_flowchart`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_pub_export`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, `pamob_svy_nfl`, `pamob_traj_plot`, `performance_ml`, `plot_cutoff`, `plot_histogram`, `prepare_environment_dkd_data`, `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize`, `process_environment_data`, `prognosis_outcome_landmark`, `qgcomp_environment`, `rcs_ckm_strata_panels`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `remove_outliers`, `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified`, `sensitivity_cox_mice_bundle`, `sensitivity_scenarios`, `shap`, `shap_glm`, `shiny_dynnom`, `shiny_ml_app`, `simple_ROC`, `skew_log1p`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `stepp_prognosis`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `subtype_viz`, `supplementary_ml`, `survival_fixed_horizon`, `table1_by_class_ckm`, `table1_summary`, `table3_class_subgroup_forests`, `threshold_logistic`, `train_validation`, `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_chisq`, `trajectory_creatinine_pct`, `trajectory_dynpred`, `trajectory_dynpred_individual`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_piecewise_cox`, `trajectory_plot_gbmt`, `trajectory_plot_jlcm`, `trajectory_prepare_wide_rdata`, `trajectory_subgroup_class`, `trajectory_weibull_compare`, `trajectory_wide_to_long`, `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, `trf_sensitivity`, `trf_train_eval`, `trim_index_extreme`, `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, `tst_split`, `tst_summary_results`, `tst_timeseries`, `tst_train_eval`, `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting`, `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis`, `unsupervised_clustering_table`, `voc_correlation`, `wqs_environment`, `wqs_exwas_fixed`
+`ROC`, `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate`, `ai_reader_comparison`, `ai_reader_study`, `analysis_exclusion`, `attrition_flowchart`, `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_mediation_horizon`, `bayesian_outcome_validate`, `bayesian_roc_calibration`, `bkmr_analysis`, `bkmr_fit`, `boxplot`, `cart_decision_path`, `cdc_wonder_fetch`, `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long`, `chord_diagram`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended`, `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, `clhls_weighted`, `column_mapping`, `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, `competing_mixed_cox`, `competing_models_123`, `competing_models_123_death`, `competing_ph_calibration`, `competing_pub_export`, `competing_rcs`, `competing_stratified`, `competing_supp_tables`, `competing_trajectory_cluster`, `competing_tyg_compute`, `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_publication_tables`, `composite_risk_cox`, `correlation`, `cox_binary`, `cox_interaction`, `cox_ml_continuous_batch`, `cox_multi_horizon`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_subphenotype`, `cox_tertile`, `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, `crm_nhanes_ordinal_pub`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables`, `crm_nhanes_rcs_pub`, `crm_nhanes_subgroup_supp`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, `cross_lagged_frailty_transition`, `cross_lagged_km`, `cross_lagged_long_prepare`, `cross_lagged_mediation`, `cross_lagged_mediation_bootstrap`, `cross_lagged_meta_merge`, `cross_lagged_network`, `cross_lagged_network_bootstrap`, `cross_lagged_panel_network`, `cross_lagged_pooled_bind`, `cross_lagged_sensitivity`, `cross_lagged_subgroup`, `cross_lagged_subgroup_extended`, `cum_exposure_build`, `cutoff`, `data_clean`, `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, `dbpool_train_eval`, `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency`, `derived_grouping`, `diagnostic_vs_fracture`, `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize`, `dxa_qct_agreement`, `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change`, `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample`, `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary`, `environment_characteristics`, `environment_lod_screen`, `environment_single_exposure_transform`, `environment_subgroup_search`, `environment_target_enrichment`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `ers_elastic_net`, `exwas_gastric_assemble`, `exwas_unweighted`, `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, `feature_selection_venn`, `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, `gallstone_roc_cal_boot`, `gallstone_subgroup_sex`, `gallstone_table1`, `gallstone_train_split`, `gallstone_uv_covariate_screen`, `glm_environment_quartile`, `horizon_roc_youden`, `imputation`, `index`, `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `iptw_association`, `iptw_balance`, `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub`, `km_binary`, `km_continuous_router`, `km_strata`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `lasso_environment_voc`, `lca`, `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_cum_index_bundle`, `logistic_environment_glm`, `logistic_nomogram`, `logistic_quartile_clogit`, `logistic_quartile_glm`, `logistic_quartile_glm_rcs`, `logistic_quartile_iptw_weighted`, `logistic_quartile_nhanes_weighted`, `logistic_quartile_nhanes_weighted_rcs`, `logistic_quintile_clogit`, `logistic_quintile_glm`, `logistic_quintile_glm_rcs`, `logistic_rcs_cutoff_nhanes_weighted`, `logistic_sextile_clogit`, `logistic_sextile_glm`, `logistic_subphenotype`, `logistic_tertile_clogit`, `logistic_tertile_glm`, `logistic_tertile_glm_rcs`, `logistic_tertile_iptw_weighted`, `logistic_tertile_nhanes_weighted`, `logistic_tertile_nhanes_weighted_rcs`, `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons`, `ml_adaboost`, `ml_aggregate`, `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_gbdt`, `ml_gbmsurv`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_knn`, `ml_lightgbm`, `ml_logistic`, `ml_logistic_multi_index_bundle`, `ml_mboost_cox`, `ml_mlp`, `ml_models_bundle`, `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare`, `ml_naive_bayes`, `ml_realmlp`, `ml_realtabpfn_2_5`, `ml_rf`, `ml_ridge_cox`, `ml_rsf`, `ml_rsvm`, `ml_stratified_reference_profile`, `ml_survivalsvm`, `ml_tablcl_v2`, `ml_tabpfn`, `ml_tabpfnv2`, `ml_tcf_balance_scale`, `ml_tcf_sklearn_external`, `ml_tcf_sklearn_rscv`, `ml_topsis_fusion`, `ml_vif_train_test`, `ml_xgboost`, `ml_xgbsurv`, `modality_discordance_profile`, `modmed_data_prep`, `modmed_mediation_batch`, `modmed_moderated_mediation`, `modmed_moderation`, `modmed_simple_slopes`, `modmed_spearman`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample`, `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen`, `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess`, `multimorbidity_baseline_category`, `multimorbidity_cognition_zscore`, `multimorbidity_define_exposures`, `multimorbidity_empirical_transition`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_gee_trajectory`, `multimorbidity_graphical_abstract`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sankey_transition`, `multimorbidity_sensitivity_suite`, `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized`, `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory`, `obj`, `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, `pamob_feasibility`, `pamob_flowchart`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_pub_export`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, `pamob_svy_nfl`, `pamob_traj_plot`, `performance_ml`, `plot_cutoff`, `plot_histogram`, `prepare_environment_dkd_data`, `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize`, `process_environment_data`, `prognosis_outcome_landmark`, `qgcomp_environment`, `rcs_ckm_strata_panels`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `rcs_sofa_horizon`, `remove_outliers`, `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified`, `sensitivity_cox_mice_bundle`, `sensitivity_scenarios`, `shap`, `shap_glm`, `shiny_dynnom`, `shiny_ml_app`, `simple_ROC`, `skew_log1p`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `stepp_prognosis`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `subtype_viz`, `supplementary_ml`, `survival_fixed_horizon`, `table1_by_class_ckm`, `table1_summary`, `table3_class_subgroup_forests`, `threshold_logistic`, `tj_cox_rubin`, `tj_data_ingest`, `tj_gbmtm_fit`, `tj_pub_export`, `tj_sensitivity`, `tj_subgroup`, `train_validation`, `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_chisq`, `trajectory_creatinine_pct`, `trajectory_dynpred`, `trajectory_dynpred_individual`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_pamm`, `trajectory_piecewise_cox`, `trajectory_plot_gbmt`, `trajectory_plot_jlcm`, `trajectory_prepare_wide_rdata`, `trajectory_subgroup_class`, `trajectory_weibull_compare`, `trajectory_wide_to_long`, `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, `trf_sensitivity`, `trf_train_eval`, `trim_index_extreme`, `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, `tst_split`, `tst_summary_results`, `tst_timeseries`, `tst_train_eval`, `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting`, `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis`, `unsupervised_clustering_table`, `voc_correlation`, `wqs_environment`, `wqs_exwas_fixed`
 
 <!-- END AUTO:id_list -->

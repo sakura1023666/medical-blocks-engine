@@ -1,0 +1,25 @@
+# TST 原文流程默认（全项目，2026-11-18 起）
+
+凡 **两阶段 Transformer / `two_stage_transformer_40041421`** 新病种或重跑，默认按本口径；禁止回到「coverage 砍维 + 图表写迁移 Yang」。
+
+## 铁律
+
+1. **纳排**：原文五条（年龄 / 性别 / 诊断有效若可操作 / ICU≥24h / 缺失≤30% **剔人**）；病种谓词可换；首次 ICU 若课题裁决则写入主口径。
+2. **特征**：先落盘 `reports/tst_feature_lit_<disease>_*.md`，再写 `configs/tst_feature_priority/<disease>_<db>.R`；**禁止**无检索抄脓毒症/他病 Supp；**禁止**按 N 比例缩维。
+3. **不砍维**：`feature_select_mode="whitelist"` 且 `whitelist_apply_coverage_drop=FALSE`；缺失步只发生在纳排。
+4. **时序**：小时网格 + 前向填充；不足 5 天与 Day-k 用 **天级 mask**。
+5. **对照评分**：`comparator_score`（卒中默认 **SAPSII**）单独挂 map CSV，**不进**动态/静态特征池。
+6. **发表表述**：Methods / 表题 / 图题 / image_information **禁止**「迁移 Yang」「参考 Yang」「pbaf003」等字样；可写两阶段 Transformer 方法学操作化定义。
+7. **样本档**：N≈3000±200 时动态特征目标约 **50±10**（文献驱动落数，非公式）。
+
+## 入口
+
+- 模板：`configs/templates/config_two_stage_transformer_stroke_task_parallel.template.R`
+- 缺血性卒中实例：`02block_result/11_ischemic stroke/two_stage_transformer_40041421/`
+- 特征例：`configs/tst_feature_priority/ischemic_stroke_mimic.R`
+
+## 反例（禁止）
+
+- day1 缺失>30% 自动砍特征维当主分析
+- 把 SAPSII/APSIII/SOFA 塞进 Transformer 输入还当 Fig 对照
+- Methods/图注写「架构迁移自 Yang et al.」

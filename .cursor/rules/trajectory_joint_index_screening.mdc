@@ -1,0 +1,82 @@
+# 联合轨迹发病（GBMTM）指标池筛选铁律（全项目复用）
+
+凡 **`Blocks/82_trajectory_incidence_joint`（tj_* 六块）/ 双指标联合轨迹发病** 写 config
+`joint_trajectory$index_pairs` **之前**必须过本门控。踩坑背景：ELSA×CVD 文献复现
+（Liu et al. Cardiovasc Diabetol 2026;25:207）暴露体系为 **预先点名**，非穷举排列。
+
+## 1. 为什么不能「所有组合都跑一遍」
+
+1. 轨迹发病的假设单位 = **一对有临床关联、且有文献先例的复合指标**（如 TyG × BMI）。
+   穷举 `C(p,2)` 会把「没有任何疾病依据」的对（如 TyG × ABSI 在骨病队列）塞进池，
+   审稿必抓「探索性组合无预设假设」。
+2. 每对体系都要独立拟合 GBMTM 选 K + Model1–4 Cox + 亚组 + 敏感性 + 发表图，
+   穷举成本 = O(K 波 × 组合数)；小队列某组合可能整类 <5%，选不出合格模型。
+3. 与 `ml_config_novelty_dual_composite` 同源精神：**先查新、后锁组合、再写 config**。
+
+## 2. 筛选三级门控（顺序不可颠倒）
+
+### Gate 0 — 疾病成分硬排除（`disease_component_hard_exclusion`）
+- 结局/诊断泄漏变量不得作指标成分；`pipeline_indices_using_vars(disease_vars)` 整指标剔除。
+- 当前体系 A、B 的成分列不得进 Model1–4 协变量集（展示例外走 `protect_vars`）。
+
+### Gate 1 — 可算性（数据可行性）
+1. 复合指标必须来自 `configs/indices/composite_index_vars.R` + `Blocks/00_index/01block_index.R`
+   真公式库；**禁止** dabiao 原始单列当「指标」。
+2. 每个候选指标须能按 `config$joint_trajectory$waves` 逐波计算：
+   成分列 `<comp>_w<k>` 在**≥2 个轨迹波**有非缺失覆盖（建议 ≥50%；`recompute_indices=TRUE`）。
+3. 基线波（waves[1]）成分任一缺失 → 该人整行按诚实分项剔除（Fig1 必须写 `Missing <components>` n，
+   见 `attrition_consort_flowchart` §8）；禁止静默插补暴露成分后定类。
+4. 自有数据指标 <10 个时：优先扩「同一成分不同组合」而非造新公式；每个仍要过 Gate 2。
+
+### Gate 2 — 文献与 novelty（预设假设）
+1. PubMed：`疾病 × 指标A 轨迹`、`疾病 × 指标B 轨迹`、`疾病 × A+B 联合轨迹` 三段检索（近 15 年）。
+2. 至少满足其一才可入池：
+ - (a) 有文献分别报告 A、B 与该疾病关联（联合为增量假设）；
+ - (b) 索引文献即 A+B 联合轨迹，本课题换疾病/换库复现（须注明）。
+3. **搜寻不到**（用户 2026-11 授权口径）：
+ - 降级为 **Exploratory 体系**：仍跑，但 Methods/图题/中期写 `exploratory`，
+   不作中心结论；Limitations 承认无外部先例。
+ - 禁止为「有文献」编造引用；检索式与命中数落盘 `reports/tj_index_screen_<db>.md`。
+ - 若 Exploratory 体系 >2 对：须用户确认后才进 full run。
+
+## 3. 决策与确认（写 config 前）
+
+```
+候选复合指标池（Gate 0+1 后）
+  → 配对（同疾病通路 / 文献先例）→ 检索证据分级（预设 / Exploratory）
+  → 落盘 reports/tj_index_screen_<db>.md（表格：A|B|波次覆盖|检索命中|分级）
+  → 用户确认 index_pairs 名单 → 写 config → --shared-only 冒烟 → full workers
+```
+
+1. `index_pairs` 每个 job = 一对 `(A,B)`；命名 `A_B`（目录/表/图标题同源）。
+2. 多体系课题：体系数建议 ≤4；超过须说明算力与多重比较策略（Bonferroni/FDR 写 Methods）。
+3. 选定体系后类别锁定（GBMTM 在 master 操作层定类），**禁止**下游再改 K 造成表图分裂
+   （`quantile_scheme_consistency` 同精神）。
+
+## 4. 实现入口
+
+- 指标池：`configs/indices/composite_index_vars.R`；波次重算 `tj_calc_index_waves()`
+ （`R/literature_trajectory_joint.R`）
+- 成分剔除：`Blocks/03_imputation/03block_analysis_exclusion.R`（`disease_vars`）
+- 可算性预检：`Rscript run/trajectory_incidence/screen_trajectory_joint_index_pool.R --config <cfg>`
+- 纳排诚实分项：`attrition_index_component_missing_label`（`R/attrition_log.R`）
+- 检索落盘模板：`configs/templates/reports_tj_index_screen.template.md`
+
+## 5. Agent 检查清单
+
+```
+[ ] Gate 0：disease_vars 名单审阅过，无结局/成分泄漏
+[ ] Gate 1：每指标逐波可算（覆盖表落盘）；基线缺失剔除进 Fig1 诚实分项
+[ ] Gate 2：每对有检索记录（或明确标 Exploratory 且经用户确认）
+[ ] reports/tj_index_screen_<db>.md 存在，用户在聊天里确认过 index_pairs
+[ ] config 在确认之后写；禁止先写死再补查新
+[ ] 体系命名 A_B 贯穿表/图/Methods；多重比较策略已写明
+```
+
+## 6. 反例（禁止）
+
+- 把 12 个复合指标 `combn(12,2)=66` 对全部塞进 `index_pairs` 交差
+- 检索零命中却 Methods 写 "has been associated with …" 伪引用
+- 用原始 Glucose / BMI 单列冒充「复合指标体系」
+- 轨迹波覆盖 <2 波仍入池，GBMTM 靠插补后假波动定类
+- Exploratory 体系当中心结论写进中期「主要发现」

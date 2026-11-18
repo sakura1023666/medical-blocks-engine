@@ -68,13 +68,17 @@ block_logistic_cum_index_bundle <- function(ctx, ...) {
     }
   }
 
+  n_q <- ckm_stroke_resolve_n_quantile(bl, idx)
   tert_col <- if (ckm_stroke_is_full_depth(idx, bl) && "eGDR_tertile" %in% names(data)) {
+    # 若 config 分位数与已有列档数不一致，按当前 n_q 重切
+    n_have <- nlevels(factor(data$eGDR_tertile))
+    if (is.finite(n_q) && n_have != n_q && "cum_eGDR" %in% names(data)) {
+      data$eGDR_tertile <- ckm_stroke_cut_quantile(as.numeric(data$cum_eGDR), n = n_q)
+      if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data else ctx$data$cleaned <- data
+    }
     "eGDR_tertile"
   } else if (idx %in% names(data)) {
-    x <- as.numeric(data[[idx]])
-    qs <- stats::quantile(x, c(1/3, 2/3), na.rm = TRUE, names = FALSE)
-    data[[paste0(idx, "_tertile")]] <- cut(x, c(-Inf, qs[1], qs[2], Inf),
-                                           labels = c("T1", "T2", "T3"), include.lowest = TRUE)
+    data[[paste0(idx, "_tertile")]] <- ckm_stroke_cut_quantile(as.numeric(data[[idx]]), n = n_q)
     ctx$data$cleaned <- data
     if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data
     paste0(idx, "_tertile")
@@ -82,11 +86,14 @@ block_logistic_cum_index_bundle <- function(ctx, ...) {
 
   if (!is.null(tert_col) && tert_col %in% names(data)) {
     d <- data
-    d[[tert_col]] <- stats::relevel(factor(d[[tert_col]]), ref = "T1")
+    .tlv <- levels(factor(d[[tert_col]]))
+    if (!length(.tlv)) .tlv <- sort(unique(as.character(stats::na.omit(d[[tert_col]]))))
+    d[[tert_col]] <- stats::relevel(factor(d[[tert_col]], levels = .tlv), ref = .tlv[[1L]])
     for (mn in model_names) {
       rr <- ckm_stroke_fit_or_row(d, tert_col, outcome, models[[mn]])
       if (!is.null(rr)) {
-        rr$block <- "Tertile"; rr$model <- mn
+        rr$block <- if (identical(as.integer(n_q), 3L)) "Tertile" else "Quantile"
+        rr$model <- mn
         rows[[length(rows) + 1L]] <- rr
       }
     }
@@ -101,6 +108,30 @@ block_logistic_cum_index_bundle <- function(ctx, ...) {
   utils::write.csv(tab, file.path(tab_dir, "Table 2. Logistic Class Continuous Tertile.csv"), row.names = FALSE)
   ctx$results$logistic_cum_index_bundle <- tab
   cli::cli_alert_success("Table 2 bundle: {nrow(tab)} 行")
+
+  # 收口闸门：Model1 暴露仍不显著 → failed（级联应已在 model1_scheme_cascade 尝试）
+  require_sig <- isTRUE(bl$success_require_exposure_sig %||% TRUE) &&
+    isTRUE(bl$exposure_sig_crude_model1 %||% TRUE)
+  if (require_sig && nrow(tab)) {
+    sg <- ckm_stroke_model1_sig_from_bundle_tab(
+      tab,
+      alpha = bl$exposure_sig_alpha %||% 0.05,
+      require_continuous = isTRUE(bl$exposure_sig_require_continuous %||% TRUE)
+    )
+    ctx$results$logistic_model1_exposure_sig <- sg
+    if (!isTRUE(sg$ok)) {
+      stop(
+        sprintf(
+          "MODEL1_EXPOSURE_NS: index=%s continuous Model1 non-significant in logistic bundle (contP=%s, minP=%s, alpha=%s).",
+          idx,
+          format(sg$cont_p %||% NA_real_, digits = 4),
+          format(sg$min_p, digits = 4),
+          sg$alpha
+        ),
+        call. = FALSE
+      )
+    }
+  }
   ctx
 }
 

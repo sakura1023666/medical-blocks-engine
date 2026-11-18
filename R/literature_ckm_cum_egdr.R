@@ -139,6 +139,9 @@ ckm_stroke_harmonize_columns <- function(df) {
   if ("Osteoporosis" %in% names(df)) {
     df$Osteoporosis <- as.integer(as.numeric(df$Osteoporosis) == 1)
   }
+  if ("MASLD" %in% names(df)) {
+    df$MASLD <- as.integer(as.numeric(df$MASLD) == 1)
+  }
   if ("CKM_stage" %in% names(df)) df$CKM_stage <- as.integer(df$CKM_stage)
   # ELSA / 通用：Drink 别名
   if (!"Drink" %in% names(df) && "Alcohol_drinking" %in% names(df)) {
@@ -168,6 +171,466 @@ ckm_stroke_recompute_egdr <- function(df, cfg = list()) {
     df$cum_eGDR <- (as.numeric(df$eGDR_t1) + as.numeric(df$eGDR_t2)) / 2 * mult
   }
   df
+}
+
+#' 累计暴露分位数个数：force_n_quantile_by_index[[index]] > n_quantile > 默认 3（三分位）
+ckm_stroke_resolve_n_quantile <- function(bl, index_name = NULL) {
+  bl <- bl %||% list()
+  idx <- as.character(index_name %||% "")[1L]
+  by <- bl$force_n_quantile_by_index
+  if (nzchar(idx) && is.list(by) && length(by) && !is.null(by[[idx]])) {
+    n <- as.integer(by[[idx]])[1L]
+    if (is.finite(n) && n >= 2L) return(n)
+  }
+  n <- as.integer(bl$n_quantile %||% 3L)[1L]
+  if (!is.finite(n) || n < 2L) n <- 3L
+  n
+}
+
+#' 分位水平前缀：三分位跟 Wang 用 T1–T3；四分位及以上用 Q1–Qn（禁止 Quartiles 标题却写 T1–T4）
+ckm_stroke_quantile_level_prefix <- function(n) {
+  n <- as.integer(n)[1L]
+  if (!is.finite(n) || n < 2L) n <- 3L
+  if (identical(n, 3L)) "T" else "Q"
+}
+
+#' 参照档标签（T1 或 Q1）
+ckm_stroke_quantile_ref_level <- function(n) {
+  paste0(ckm_stroke_quantile_level_prefix(n), "1")
+}
+
+#' 把连续暴露切成分位档（列名仍可叫 eGDR_tertile，兼容下游）
+ckm_stroke_cut_quantile <- function(x, n = 3L, prefix = NULL) {
+  x <- as.numeric(x)
+  n <- as.integer(n)[1L]
+  if (!is.finite(n) || n < 2L) n <- 3L
+  if (is.null(prefix) || !nzchar(as.character(prefix)[1L])) {
+    prefix <- ckm_stroke_quantile_level_prefix(n)
+  }
+  prefix <- as.character(prefix)[1L]
+  labs <- paste0(prefix, seq_len(n))
+  probs <- seq(0, 1, length.out = n + 1L)
+  qs <- as.numeric(stats::quantile(x, probs = probs, na.rm = TRUE, names = FALSE, type = 7))
+  qs_u <- unique(qs)
+  if (length(qs_u) < n + 1L) {
+    # 并列过多时用秩切分，保证 n 档
+    r <- rank(x, ties.method = "average", na.last = "keep")
+    br <- unique(as.numeric(stats::quantile(r, probs = probs, na.rm = TRUE, names = FALSE, type = 7)))
+    if (length(br) < 3L) {
+      return(factor(rep(labs[1L], length(x)), levels = labs))
+    }
+    return(cut(r, breaks = br, include.lowest = TRUE, labels = labs[seq_len(length(br) - 1L)]))
+  }
+  cut(x, breaks = qs, include.lowest = TRUE, labels = labs)
+}
+
+ckm_stroke_quantile_section_label <- function(n, index_lab = "eGDR") {
+  n <- as.integer(n)[1L]
+  index_lab <- as.character(index_lab %||% "eGDR")[1L]
+  if (identical(n, 2L)) sprintf("Binary groups of cumulative %s", index_lab)
+  else if (identical(n, 3L)) sprintf("Tertiles of cumulative %s", index_lab)
+  else if (identical(n, 4L)) sprintf("Quartiles of cumulative %s", index_lab)
+  else if (identical(n, 5L)) sprintf("Quintiles of cumulative %s", index_lab)
+  else sprintf("%d-quantiles of cumulative %s", n, index_lab)
+}
+
+#' 类别 logistic 是否可估（参照类有事件且 OR/CI 有限，非分离假 OR）
+ckm_stroke_class_or_estimable <- function(
+    data,
+    outcome,
+    class_col = "eGDR_Class",
+    class_ref = "Persistent_low",
+    or_cap = 1e5
+) {
+  if (is.null(data) || is.null(class_col) || !class_col %in% names(data)) {
+    return(list(estimable = NA, ref_events = NA_integer_, n_class = NA_integer_,
+                reason = "no_class_col"))
+  }
+  outcome <- as.character(outcome)[1L]
+  if (!outcome %in% names(data)) {
+    return(list(estimable = FALSE, ref_events = NA_integer_, n_class = NA_integer_,
+                reason = "no_outcome"))
+  }
+  d <- data
+  y <- if (exists("pipeline_outcome_as_01", mode = "function")) {
+    tryCatch(pipeline_outcome_as_01(d[[outcome]]), error = function(e) NULL)
+  } else {
+    NULL
+  }
+  if (is.null(y)) {
+    raw <- d[[outcome]]
+    if (is.factor(raw) || is.character(raw)) {
+      y <- as.integer(as.character(raw) %in% c("1", "Yes", "YES", "true", "TRUE"))
+    } else {
+      y <- as.integer(as.numeric(raw) == 1L)
+    }
+  }
+  lv <- levels(factor(d[[class_col]]))
+  if (!length(lv)) lv <- sort(unique(as.character(stats::na.omit(d[[class_col]]))))
+  n_class <- length(lv)
+  ref <- as.character(class_ref %||% "Persistent_low")[1L]
+  if (!ref %in% lv) ref <- lv[[1L]]
+  ref_events <- as.integer(sum(y[as.character(d[[class_col]]) == ref] == 1L, na.rm = TRUE))
+  if (!is.finite(ref_events) || ref_events < 1L) {
+    return(list(
+      estimable = FALSE, ref_events = ref_events, n_class = n_class,
+      ref = ref, reason = "ref_zero_events"
+    ))
+  }
+  d[[class_col]] <- stats::relevel(factor(d[[class_col]], levels = unique(c(ref, lv))), ref = ref)
+  rr <- ckm_stroke_fit_or_row(d, class_col, outcome, covars = NULL)
+  if (is.null(rr) || !nrow(rr)) {
+    return(list(
+      estimable = FALSE, ref_events = ref_events, n_class = n_class,
+      ref = ref, reason = "fit_failed"
+    ))
+  }
+  ok_row <- is.finite(rr$OR) & is.finite(rr$CI_low) & is.finite(rr$CI_high) &
+    (rr$OR < as.numeric(or_cap)[1L]) & (rr$CI_high < as.numeric(or_cap)[1L] * 10)
+  list(
+    estimable = isTRUE(any(ok_row)),
+    ref_events = ref_events,
+    n_class = n_class,
+    ref = ref,
+    reason = if (any(ok_row)) "ok" else "separation_or_inf",
+    details = rr
+  )
+}
+
+#' Model1（未校正）暴露是否任一显著：类别水平 / 连续 / 最高分位 vs 参照
+ckm_stroke_model1_exposure_screen <- function(
+    data,
+    outcome,
+    class_col = "eGDR_Class",
+    cont_col = "cum_eGDR",
+    tert_col = "eGDR_tertile",
+    alpha = 0.05,
+    class_ref = "Persistent_low"
+) {
+  alpha <- as.numeric(alpha)[1L]
+  if (!is.finite(alpha) || alpha <= 0) alpha <- 0.05
+  outcome <- as.character(outcome)[1L]
+  rows <- list()
+
+  .push <- function(block, term, p) {
+    if (is.null(p) || !is.finite(as.numeric(p)[1L])) return()
+    rows[[length(rows) + 1L]] <<- data.frame(
+      block = block, term = as.character(term)[1L], P = as.numeric(p)[1L],
+      stringsAsFactors = FALSE
+    )
+  }
+
+  class_info <- ckm_stroke_class_or_estimable(
+    data, outcome, class_col = class_col, class_ref = class_ref
+  )
+
+  if (!is.null(class_col) && class_col %in% names(data)) {
+    d <- data
+    lv <- levels(factor(d[[class_col]]))
+    if (!length(lv)) lv <- sort(unique(as.character(stats::na.omit(d[[class_col]]))))
+    ref <- as.character(class_ref %||% "Persistent_low")[1L]
+    if (!ref %in% lv) ref <- lv[[1L]]
+    d[[class_col]] <- stats::relevel(factor(d[[class_col]], levels = unique(c(ref, lv))), ref = ref)
+    rr <- ckm_stroke_fit_or_row(d, class_col, outcome, covars = NULL)
+    if (!is.null(rr) && nrow(rr)) {
+      for (i in seq_len(nrow(rr))) .push("Class", rr$term[[i]], rr$P[[i]])
+    }
+  }
+
+  if (!is.null(cont_col) && cont_col %in% names(data)) {
+    rr <- ckm_stroke_fit_or_row(data, cont_col, outcome, covars = NULL)
+    if (!is.null(rr) && nrow(rr)) {
+      for (i in seq_len(nrow(rr))) .push("Continuous", rr$term[[i]], rr$P[[i]])
+    }
+  }
+
+  if (!is.null(tert_col) && tert_col %in% names(data)) {
+    d <- data
+    lv <- levels(factor(d[[tert_col]]))
+    if (!length(lv)) lv <- sort(unique(as.character(stats::na.omit(d[[tert_col]]))))
+    if (length(lv) >= 2L) {
+      d[[tert_col]] <- stats::relevel(factor(d[[tert_col]], levels = lv), ref = lv[[1L]])
+      rr <- ckm_stroke_fit_or_row(d, tert_col, outcome, covars = NULL)
+      if (!is.null(rr) && nrow(rr)) {
+        for (i in seq_len(nrow(rr))) .push("Quantile", rr$term[[i]], rr$P[[i]])
+      }
+    }
+  }
+
+  det <- if (length(rows)) {
+    do.call(rbind, rows)
+  } else {
+    data.frame(block = character(0), term = character(0), P = numeric(0),
+               stringsAsFactors = FALSE)
+  }
+  cont_rows <- if (nrow(det)) det[det$block == "Continuous", , drop = FALSE] else det
+  cont_p <- if (nrow(cont_rows)) min(cont_rows$P, na.rm = TRUE) else NA_real_
+  cont_ok <- isTRUE(is.finite(cont_p) && cont_p < alpha)
+  any_ok <- isTRUE(nrow(det) > 0L && any(det$P < alpha, na.rm = TRUE))
+  min_p <- if (nrow(det)) min(det$P, na.rm = TRUE) else NA_real_
+  list(
+    ok = any_ok,
+    cont_ok = cont_ok,
+    cont_p = cont_p,
+    class_estimable = isTRUE(class_info$estimable),
+    class_ref_events = class_info$ref_events,
+    class_n = class_info$n_class,
+    class_reason = class_info$reason,
+    min_p = min_p,
+    alpha = alpha,
+    details = det
+  )
+}
+
+#' 判定 Model1 门控是否通过（默认强制连续暴露显著）
+ckm_stroke_model1_gate_pass <- function(screen, bl = list()) {
+  bl <- bl %||% list()
+  require_cont <- isTRUE(bl$exposure_sig_require_continuous %||% TRUE)
+  require_class <- isTRUE(bl$exposure_sig_require_estimable_class %||% FALSE)
+  ok <- TRUE
+  if (require_cont) ok <- ok && isTRUE(screen$cont_ok)
+  if (require_class) ok <- ok && isTRUE(screen$class_estimable)
+  if (!require_cont && !require_class) ok <- isTRUE(screen$ok)
+  ok
+}
+
+#' 方案是否「可用」：连续门控 +（默认）类别可估；类别分离时触发换 k
+ckm_stroke_model1_scheme_acceptable <- function(screen, bl = list()) {
+  bl <- bl %||% list()
+  require_cont <- isTRUE(bl$exposure_sig_require_continuous %||% TRUE)
+  # 默认：有类别列时要求可估（避免 Table2 类别全 NE）；显式 FALSE 可关
+  prefer_class <- !isFALSE(bl$model1_cascade_fix_class_ne %||% TRUE)
+  ok <- TRUE
+  if (require_cont) ok <- ok && isTRUE(screen$cont_ok)
+  if (prefer_class && !is.na(screen$class_estimable)) {
+    # 仅当检测过类别时要求可估
+    ok <- ok && isTRUE(screen$class_estimable)
+  }
+  ok
+}
+
+#' 从 logistic bundle 表（含 model 列）判定 Model1 暴露是否显著
+ckm_stroke_model1_sig_from_bundle_tab <- function(tab, alpha = 0.05, require_continuous = TRUE) {
+  alpha <- as.numeric(alpha)[1L]
+  if (is.null(tab) || !nrow(tab)) {
+    return(list(ok = FALSE, cont_ok = FALSE, cont_p = NA_real_,
+                min_p = NA_real_, alpha = alpha, details = tab))
+  }
+  need <- c("model", "P")
+  if (!all(need %in% names(tab))) {
+    return(list(ok = FALSE, cont_ok = FALSE, cont_p = NA_real_,
+                min_p = NA_real_, alpha = alpha, details = tab))
+  }
+  m1 <- tab[toupper(as.character(tab$model)) %in% c("MODEL1", "M1"), , drop = FALSE]
+  if (!nrow(m1)) m1 <- tab
+  # 排除纯趋势行（若有）
+  if ("block" %in% names(m1)) {
+    m1 <- m1[!grepl("trend", as.character(m1$block), ignore.case = TRUE), , drop = FALSE]
+  }
+  if ("term" %in% names(m1)) {
+    m1 <- m1[!grepl("trend|intercept", as.character(m1$term), ignore.case = TRUE), , drop = FALSE]
+  }
+  cont <- m1
+  if ("block" %in% names(m1)) {
+    cont <- m1[grepl("^Continuous$", as.character(m1$block), ignore.case = TRUE), , drop = FALSE]
+    # Continuous_perSD 不计入主连续门控
+    cont <- cont[!grepl("perSD|per_sd", as.character(cont$block), ignore.case = TRUE), , drop = FALSE]
+  }
+  p_all <- as.numeric(m1$P); p_all <- p_all[is.finite(p_all)]
+  p_cont <- as.numeric(cont$P); p_cont <- p_cont[is.finite(p_cont)]
+  cont_p <- if (length(p_cont)) min(p_cont) else NA_real_
+  cont_ok <- isTRUE(is.finite(cont_p) && cont_p < alpha)
+  any_ok <- length(p_all) > 0L && any(p_all < alpha)
+  list(
+    ok = if (isTRUE(require_continuous)) cont_ok else any_ok,
+    cont_ok = cont_ok,
+    cont_p = cont_p,
+    min_p = if (length(p_all)) min(p_all) else NA_real_,
+    alpha = alpha,
+    details = if (isTRUE(require_continuous) && nrow(cont)) cont else m1
+  )
+}
+
+#' Model1 不显著时：尝试不同分位数 × 不同 k；返回锁定方案或 ok=FALSE
+ckm_stroke_model1_scheme_cascade <- function(
+    data,
+    mat,
+    outcome,
+    bl = list(),
+    index_name = NULL,
+    current_k = NULL,
+    current_n_q = NULL,
+    seed = 2026L,
+    nstart = 25L
+) {
+  bl <- bl %||% list()
+  alpha <- as.numeric(bl$exposure_sig_alpha %||% 0.05)[1L]
+  class_ref <- as.character(bl$class_ref %||% "Persistent_low")[1L]
+  outcome <- as.character(outcome)[1L]
+  idx <- as.character(index_name %||% "")[1L]
+
+  if (is.null(current_k) || !is.finite(as.numeric(current_k)[1L])) {
+    current_k <- nlevels(factor(data$eGDR_Class))
+  }
+  current_k <- as.integer(current_k)[1L]
+  if (is.null(current_n_q) || !is.finite(as.numeric(current_n_q)[1L])) {
+    current_n_q <- ckm_stroke_resolve_n_quantile(bl, idx)
+  }
+  current_n_q <- as.integer(current_n_q)[1L]
+
+  k_cand <- as.integer(bl$model1_cascade_k %||% c(2L, 3L, 4L))
+  k_cand <- k_cand[is.finite(k_cand) & k_cand >= 2L]
+  nq_cand <- as.integer(bl$model1_cascade_n_quantile %||% c(3L, 2L, 4L))
+  nq_cand <- unique(c(current_n_q, nq_cand[is.finite(nq_cand) & nq_cand >= 2L]))
+
+  # 先筛当前方案
+  trials <- list()
+  .trial <- function(k, n_q, data_i, screen, note = "") {
+    trials[[length(trials) + 1L]] <<- data.frame(
+      k = as.integer(k), n_quantile = as.integer(n_q),
+      ok = isTRUE(ckm_stroke_model1_scheme_acceptable(screen, bl)),
+      cont_ok = isTRUE(screen$cont_ok),
+      cont_p = screen$cont_p %||% NA_real_,
+      class_estimable = isTRUE(screen$class_estimable),
+      class_ref_events = screen$class_ref_events %||% NA_integer_,
+      min_p = screen$min_p,
+      n_terms = nrow(screen$details), note = note,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  screen0 <- ckm_stroke_model1_exposure_screen(
+    data, outcome,
+    alpha = alpha, class_ref = class_ref
+  )
+  .trial(current_k, current_n_q, data, screen0, "baseline")
+  # 连续 Model1 不显著：换 k/分位无法改变连续项 → 直接 failed（默认）
+  if (isTRUE(bl$exposure_sig_require_continuous %||% TRUE) && !isTRUE(screen0$cont_ok)) {
+    return(list(
+      ok = FALSE, changed = FALSE, k = current_k, n_quantile = current_n_q,
+      data = data, screen = screen0,
+      trials = do.call(rbind, trials),
+      lock_reason = "continuous_model1_ns"
+    ))
+  }
+  # 连续 OK 且类别可估 → 基线过门
+  if (isTRUE(ckm_stroke_model1_scheme_acceptable(screen0, bl))) {
+    return(list(
+      ok = TRUE, changed = FALSE, k = current_k, n_quantile = current_n_q,
+      data = data, screen = screen0,
+      trials = do.call(rbind, trials),
+      lock_reason = "baseline_model1_sig"
+    ))
+  }
+
+  # 类别 NE / 参照 0 事件：优先试 k=2（引擎级）
+  class_ne <- !isTRUE(screen0$class_estimable)
+  if (class_ne) {
+    k_cand <- unique(c(2L, k_cand, current_k))
+  } else {
+    k_cand <- unique(c(current_k, k_cand))
+  }
+
+  if (!isTRUE(bl$model1_cascade_enable %||% TRUE)) {
+    # 连续已显著但类别 NE：仍算 success（连续门控），仅不换方案
+    return(list(
+      ok = isTRUE(ckm_stroke_model1_gate_pass(screen0, bl)),
+      changed = FALSE, k = current_k, n_quantile = current_n_q,
+      data = data, screen = screen0,
+      trials = do.call(rbind, trials),
+      lock_reason = if (class_ne) "cascade_disabled_class_ne" else "cascade_disabled"
+    ))
+  }
+
+  mat <- as.matrix(mat)
+  t_first <- mat[, 1L]
+  t_last <- mat[, ncol(mat)]
+  seed <- as.integer(bl$seed %||% seed)[1L]
+  nstart <- as.integer(bl$nstart %||% nstart)[1L]
+
+  # 顺序：类别 NE 时先扫各 k（固定当前分位）→ 再 k×其它分位
+  combos <- list()
+  if (class_ne) {
+    for (k in k_cand) {
+      if (identical(as.integer(k), current_k)) next
+      combos[[length(combos) + 1L]] <- list(k = as.integer(k), n_q = current_n_q)
+    }
+  }
+  for (nq in nq_cand) {
+    if (identical(as.integer(nq), current_n_q) && !class_ne) next
+    if (identical(as.integer(nq), current_n_q)) next
+    combos[[length(combos) + 1L]] <- list(k = current_k, n_q = as.integer(nq))
+  }
+  for (k in k_cand) {
+    for (nq in nq_cand) {
+      if (identical(as.integer(k), current_k) && identical(as.integer(nq), current_n_q)) next
+      # 已在 class_ne 首轮试过「换 k + 当前 n_q」
+      if (class_ne && identical(as.integer(nq), current_n_q)) next
+      combos[[length(combos) + 1L]] <- list(k = as.integer(k), n_q = as.integer(nq))
+    }
+  }
+
+  best_fallback <- NULL
+  for (cm in combos) {
+    k <- cm$k
+    n_q <- cm$n_q
+    data_i <- data
+    if (!identical(as.integer(k), as.integer(current_k)) || is.null(data_i$eGDR_Class) ||
+        nlevels(factor(data_i$eGDR_Class)) != as.integer(k)) {
+      fit <- ckm_stroke_kmeans_fit(mat, k = k, seed = seed, nstart = nstart)
+      cls <- ckm_stroke_anchor_classes(fit$cluster, t_first, t_last)
+      cls <- factor(as.character(cls), levels = intersect(
+        c("Persistent_low", "Moderate_high_stable", "Stable_high", "Rapid_decrease"),
+        unique(as.character(stats::na.omit(cls)))
+      ))
+      if (nlevels(cls) < 2L) {
+        .trial(k, n_q, data_i,
+               list(ok = FALSE, cont_ok = FALSE, cont_p = NA_real_,
+                    class_estimable = FALSE, class_ref_events = NA_integer_,
+                    min_p = NA_real_, details = data.frame()),
+               "class_levels<2")
+        next
+      }
+      data_i$eGDR_Class <- cls
+      data_i$Subphenotype <- cls
+    }
+    if ("cum_eGDR" %in% names(data_i)) {
+      data_i$eGDR_tertile <- ckm_stroke_cut_quantile(as.numeric(data_i$cum_eGDR), n = n_q)
+    }
+    sc <- ckm_stroke_model1_exposure_screen(
+      data_i, outcome, alpha = alpha, class_ref = class_ref
+    )
+    .trial(k, n_q, data_i, sc, if (class_ne) "cascade_fix_class_ne" else "cascade")
+    if (isTRUE(ckm_stroke_model1_scheme_acceptable(sc, bl))) {
+      return(list(
+        ok = TRUE, changed = TRUE, k = k, n_quantile = n_q,
+        data = data_i, screen = sc,
+        trials = do.call(rbind, trials),
+        lock_reason = sprintf("cascade_k=%s_nq=%s", k, n_q)
+      ))
+    }
+    # 连续仍显著的 k=2 作为次优回退（类别仍可能 NE）
+    if (isTRUE(sc$cont_ok) && identical(as.integer(k), 2L) && is.null(best_fallback)) {
+      best_fallback <- list(
+        ok = TRUE, changed = TRUE, k = k, n_quantile = n_q,
+        data = data_i, screen = sc,
+        lock_reason = "cascade_k=2_cont_ok_class_may_ne"
+      )
+    }
+  }
+
+  if (!is.null(best_fallback) && isTRUE(ckm_stroke_model1_gate_pass(best_fallback$screen, bl))) {
+    best_fallback$trials <- do.call(rbind, trials)
+    return(best_fallback)
+  }
+
+  list(
+    ok = isTRUE(ckm_stroke_model1_gate_pass(screen0, bl)),
+    changed = FALSE, k = current_k, n_quantile = current_n_q,
+    data = data, screen = screen0,
+    trials = do.call(rbind, trials),
+    lock_reason = if (class_ne) "class_ne_unresolved" else "all_schemes_model1_ns"
+  )
 }
 
 ckm_stroke_is_full_depth <- function(index_name, cfg) {
@@ -353,6 +816,8 @@ ckm_stroke_add_futime <- function(df) {
     df$status <- as.integer(as.numeric(df$Stroke) == 1L)
   } else if ("Osteoporosis" %in% names(df) && !"status" %in% names(df)) {
     df$status <- as.integer(as.numeric(df$Osteoporosis) == 1L)
+  } else if ("MASLD" %in% names(df) && !"status" %in% names(df)) {
+    df$status <- as.integer(as.numeric(df$MASLD) == 1L)
   }
   df
 }
@@ -399,8 +864,9 @@ ckm_stroke_model_drop_exposure_components <- function(vars, index_name = NULL, b
   idx <- as.character(index_name %||% bl$current_index %||% "")[1L]
   drop <- character(0)
   if (identical(toupper(idx), "BMI")) drop <- c(drop, "BMI")
-  if (grepl("WHtR|WWI|ABSI|CMI|VAI|AIP_BMI|TyG_BMI|METSIR|MCMI", idx, ignore.case = TRUE)) {
-    if (grepl("BMI|WHtR|WWI|ABSI|CMI|VAI|METSIR|MCMI|AIP_BMI|TyG_BMI", idx, ignore.case = TRUE) &&
+  # 体脂/体型指数：BMI 是直接肥胖代理，进 Model3 = 过度调整（BRI=WC/Height；与 WWI/ABSI 同口径）
+  if (grepl("WHtR|WWI|ABSI|BRI|CMI|VAI|AIP_BMI|TyG_BMI|METSIR|MCMI|Conicity|RFM|Ponderal", idx, ignore.case = TRUE)) {
+    if (grepl("BMI|WHtR|WWI|ABSI|BRI|CMI|VAI|METSIR|MCMI|AIP_BMI|TyG_BMI|Conicity|RFM|Ponderal", idx, ignore.case = TRUE) &&
         !grepl("^TyG$", idx) && !grepl("^AIP$", idx) && !grepl("^eGDR$", idx, ignore.case = TRUE)) {
       drop <- c(drop, "BMI")
     }
@@ -640,7 +1106,7 @@ ckm_stroke_model_sets <- function(bl, data, index_name = NULL, outcome = NULL) {
     oc <- as.character(outcome %||% bl$outcome_column %||% "Osteoporosis")[1L]
     if (!oc %in% names(data)) {
       # 常见别名回退
-      for (alt in c("Stroke", "status", "Osteoporosis")) {
+      for (alt in c("Stroke", "status", "Osteoporosis", "MASLD")) {
         if (alt %in% names(data)) { oc <- alt; break }
       }
     }

@@ -1,0 +1,60 @@
+# 缺血性脑卒中 / eICU — 动态特征白名单（与 MIMIC 同 50 列、同序）
+# 依据同 configs/tst_feature_priority/ischemic_stroke_mimic.R +
+#   reports/tst_feature_lit_ischemic_stroke_mimic_eicu.md。
+# 对照评分不入本 list（主文 comparator 默认 SAPSII；eICU 若无同名列则外验脚注写实）。
+
+tst_feature_priority_ischemic_stroke_eicu <- function() {
+  # 与 MIMIC 同 50 列，保证双库动态维对齐
+  list(
+    heartrate = c("heartrate"),
+    respiration = c("respiration"),
+    temperature = c("temperature"),
+    systemicmean = c("systemicmean"),
+    systemicsystolic = c("systemicsystolic"),
+    systemicdiastolic = c("systemicdiastolic"),
+    noninvasivemean = c("noninvasivemean"),
+    noninvasivesystolic = c("noninvasivesystolic"),
+    noninvasivediastolic = c("noninvasivediastolic"),
+    sao2 = c("sao2"),
+    total_rr = c("Total RR"),
+    glucose = c("glucose"),
+    creatinine = c("creatinine"),
+    bun = c("BUN"),
+    bicarbonate = c("bicarbonate"),
+    anion_gap = c("anion gap"),
+    calcium = c("calcium"),
+    sodium = c("sodium"),
+    potassium = c("potassium"),
+    chloride = c("chloride"),
+    magnesium = c("magnesium"),
+    phosphate = c("phosphate"),
+    lactate = c("lactate"),
+    albumin = c("albumin"),
+    wbc = c("WBC x 1000"),
+    lymphs = c("-lymphs"),
+    polys = c("-polys"),
+    hgb = c("Hgb"),
+    hct = c("Hct"),
+    rdw = c("RDW"),
+    platelets = c("platelets x 1000"),
+    mcv = c("MCV"),
+    pt = c("PT"),
+    ptt = c("PTT"),
+    inr = c("PT - INR"),
+    ph = c("pH"),
+    paco2 = c("paCO2"),
+    pao2 = c("paO2"),
+    base_excess = c("Base Excess"),
+    fio2 = c("FiO2"),
+    peep = c("PEEP"),
+    lpm_o2 = c("LPM O2"),
+    peak_insp_pressure = c("Peak Insp. Pressure"),
+    plateau_pressure = c("Plateau Pressure"),
+    mean_airway_pressure = c("Mean Airway Pressure"),
+    tidal_volume_set = c("Tidal Volume (set)"),
+    vent_rate = c("Vent Rate"),
+    exhaled_mv = c("Exhaled MV"),
+    alt = c("ALT (SGPT)"),
+    ast = c("AST (SGOT)")
+  )
+}

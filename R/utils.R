@@ -1679,6 +1679,72 @@ pipeline_resolve_index_var <- function(cfg) {
   )[1L]
 }
 
+#' 基线 Table 1 暴露 NS 早停：解析全部需过闸的暴露列
+#'
+#' combo_loop / 双暴露时，主指标与搭档（如 Albumin_CV）都必须组间显著；
+#' 仅检查 index_var[[1]] 会漏掉搭档 NS（如 LymWBC+WBC_CV 的 WBC_CV）。
+pipeline_resolve_index_vars_for_ns_gate <- function(cfg) {
+  cfg <- cfg %||% list()
+  ix <- unique(c(
+    as.character((cfg$prediction %||% list())$index_vars %||% character(0)),
+    as.character((cfg$analysis_exclusion %||% list())$current_index_vars %||% character(0)),
+    as.character((cfg$feature_selection %||% list())$composite_features %||% character(0)),
+    as.character((cfg$nhanes %||% list())$cutoff_index_var %||% character(0)),
+    as.character((cfg$ml_batch %||% list())$index_vars %||% character(0)),
+    as.character((cfg$incidence_batch %||% list())$index_vars %||% character(0)),
+    pipeline_resolve_index_var(cfg)
+  ))
+  ix <- ix[!is.na(ix) & nzchar(ix)]
+  # 排除伪标签 / 联合组名
+  ix <- ix[!grepl("^(ALLVARS|all_vars|Group[0-9]|joint)$", ix, ignore.case = TRUE)]
+  unique(as.character(ix))
+}
+
+#' 对 Table 1 gtsummary body 中每个暴露列做 NS 早停（任一失败即 stop）
+pipeline_baseline_index_ns_gate <- function(table_body, cfg, sig_cutoff,
+                                            weighted = FALSE,
+                                            fmt_fun = NULL) {
+  if (is.null(table_body) || !is.data.frame(table_body)) return(invisible(NULL))
+  ix_all <- pipeline_resolve_index_vars_for_ns_gate(cfg)
+  if (!length(ix_all)) return(invisible(NULL))
+  pv_nm <- if ("p.value" %in% names(table_body)) "p.value" else if ("p_value" %in% names(table_body)) "p_value" else NA_character_
+  if (is.na(pv_nm)) return(invisible(NULL))
+  vars <- as.character(table_body$variable %||% character(0))
+  fmt_fun <- fmt_fun %||% (if (exists("fmt_pval", mode = "function")) fmt_pval else function(x) format(x, digits = 3))
+  wlab <- if (isTRUE(weighted)) "加权" else ""
+  for (index_var in ix_all) {
+    hit <- which(vars == index_var)
+    if (!length(hit)) {
+      if (exists("cli_alert_warning", mode = "function") || requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning(
+          "early_stop: 暴露指标 {index_var} 不在{wlab} Table 1 或组间 p 值缺失，跳过该列早停判定。"
+        )
+      }
+      next
+    }
+    idx_p <- suppressWarnings(as.numeric(
+      gsub("[<>]", "", table_body[[pv_nm]][hit])
+    ))[1L]
+    if (is.na(idx_p)) {
+      cli::cli_alert_warning(
+        "early_stop: 暴露指标 {index_var} 组间 p 值缺失，跳过该列早停判定。"
+      )
+      next
+    }
+    if (idx_p >= sig_cutoff) {
+      stop(
+        "BASELINE_INDEX_NS_STOP: 暴露指标 ", index_var,
+        if (nzchar(wlab)) paste0(" ", wlab) else "",
+        "组间比较 P = ", fmt_fun(idx_p),
+        " >= ", sig_cutoff,
+        "（combo 须主指标与搭档均显著），按 early_stop_if_index_ns 早停 pipeline。",
+        call. = FALSE
+      )
+    }
+  }
+  invisible(NULL)
+}
+
 pipeline_check_index_regression_significant <- function(ctx, cfg, coef_df, tb_sig,
                                                         block_name, p_threshold) {
   bl_key <- switch(block_name,

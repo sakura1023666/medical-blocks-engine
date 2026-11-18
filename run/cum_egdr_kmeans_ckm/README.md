@@ -32,6 +32,8 @@ Rscript run/cum_egdr_kmeans_ckm/redraw_elsa_fig3_s123_all_success.R --index WWI,
 | 能力 | 入口 |
 |------|------|
 | `age_filter`（如 `Age >= 50`）在 ingest 落实 | `Blocks/76/.../01block_ckm_stroke_data_ingest.R` + config `data_clean$age_filter` |
+| Model1 NS → 换分位/换 k → 仍 NS 则 failed | `model1_scheme_cascade` + `ckm_stroke_model1_scheme_cascade` |
+| 批跑结束自动删【failed】结果/检查点 | `R/batch_prune_failed.R`（默认开；`MEDICAL_BLOCKS_PRUNE_FAILED=0` 可关） |
 | Hypertension_w4 → Hypertension | `R/literature_ckm_cum_egdr.R` → `ckm_stroke_harmonize_columns` |
 | uv_vif 前列对齐 | `Blocks/76/.../05block_logistic_cum_index_bundle.R` |
 | Table2/S1 指标名（非写死 eGDR） | `R/cum_egdr_kmeans_pub.R` → `ckm_stroke_build_table2_assoc(..., index_lab=)` |

@@ -151,10 +151,22 @@ def read_sheet(path: Path):
     return grid, merges
 
 
+def _looks_like_note(v):
+    """表注行判据(与 python/pub_xlsx_enforce_three_line.py 同步)。"""
+    v = v.strip()
+    if len(v) >= 50:
+        return True
+    if len(v) >= 15 and v.endswith((".", ";", ":")):
+        return True
+    return False
+
+
 def split_caption(grid, merges):
     """剥离开头只有单一非空单元格的标题行。返回 (caption_lines, body)。
     横向合并(跨≥2列)的单值行通常是内容行(如通栏的 'Overall (N=2,003)'),不是标题,
     遇到即停止剥离——除非其文本以 Table/Figure 开头(视为表格标题,仍算 caption)。
+    2026-11 新版式(标注放在开头):通栏长文本行=表注,同样剥离进 caption 块,
+    避免被误当表体首行;判据与三线表闸门 _looks_like_footnote 一致。
     merges 坐标是 grid 空间。"""
     caps, i = [], 0
     while i < len(grid):
@@ -164,6 +176,10 @@ def split_caption(grid, merges):
         v = nonempty[0]
         is_hmerge = any(r0 == i and c2 > c0 and r2 == r0 for (r0, c0, r2, c2) in merges)
         if is_hmerge and not TITLE_RE.match(v):
+            if _looks_like_note(v):
+                caps.append(v)
+                i += 1
+                continue
             break
         caps.append(v)
         i += 1
@@ -196,6 +212,10 @@ def grid_to_html_table(path: Path, table_id: str, suppress_caption: bool = False
     caps, body = split_caption(grid, merges)
     if not body:
         return f'<p class="warn">[空表] {html.escape(path.name)}</p>'
+    # 2026-11 新版式(三线表闸门标注放在开头):caps 里 Table 开头行=标题,
+    # 其余长文本=表注。表注统一渲染在表格下方(fullnote),中文报告惯例、内容零丢失。
+    title_caps = [c for c in caps if TITLE_RE.match(c)]
+    note_caps = [c for c in caps if not TITLE_RE.match(c)]
     off = len(caps)
     nhead = header_rows(body, merges, off)
     ncols = max(len(r) for r in body)
@@ -230,7 +250,7 @@ def grid_to_html_table(path: Path, table_id: str, suppress_caption: bool = False
 
     parts = []
     if not suppress_caption:
-        for ci, cap in enumerate(caps):
+        for ci, cap in enumerate(title_caps):
             if ci == 0:
                 parts.append(f"<caption>{html.escape(cap)}</caption>")
             else:
@@ -262,7 +282,10 @@ def grid_to_html_table(path: Path, table_id: str, suppress_caption: bool = False
     parts.append("</tbody>")
 
     size_cls = "tw" if ncols <= 8 else ("tm" if ncols <= 12 else "twide")
-    return f'<table id="{table_id}" class="data {size_cls}">' + "".join(parts) + "</table>"
+    notes_html = "".join(
+        f'<p class="table-note">{html.escape(t)}</p>' for t in note_caps)
+    return (f'<table id="{table_id}" class="data {size_cls}">' + "".join(parts)
+            + "</table>" + notes_html)
 
 
 def relkey(p: Path, proj: Path) -> str:
@@ -383,6 +406,7 @@ table.data th, table.data td { border: 0.5pt solid #8aa; padding: 3pt 5pt; overf
 table.data th { background: #e8eef3; }
 table.data td.rowhead, table.data th:first-child { text-align: left; }
 table.data td.fullnote { text-align: left; color: #444; }
+p.table-note { text-align: left; font-size: 9pt; color: #444; margin: 3pt 0 0; text-indent: 0; }
 table.data thead { display: table-header-group; }
 table.tw  { font-size: 8pt; }
 table.tm  { font-size: 6.5pt; }

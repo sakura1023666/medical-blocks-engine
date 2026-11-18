@@ -39,7 +39,9 @@ block_sensitivity_cox_mice_bundle <- function(ctx, ...) {
         if (identical(expo, "eGDR_Class")) {
           d[[expo]] <- stats::relevel(factor(d[[expo]]), ref = bl$class_ref %||% "Persistent_low")
         } else if (grepl("tertile", expo, ignore.case = TRUE)) {
-          d[[expo]] <- stats::relevel(factor(d[[expo]]), ref = "T1")
+          .tlv <- levels(factor(d[[expo]]))
+          if (!length(.tlv)) .tlv <- sort(unique(as.character(stats::na.omit(d[[expo]]))))
+          d[[expo]] <- stats::relevel(factor(d[[expo]], levels = .tlv), ref = .tlv[[1L]])
         } else {
           d[[expo]] <- factor(d[[expo]])
         }

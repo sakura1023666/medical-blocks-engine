@@ -6,6 +6,9 @@ out_path <- if (length(args)) args[[1L]] else
 
 root <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "/mnt/e/01block/01Block-new-Final")
 env <- new.env(parent = globalenv())
+if (!exists("register_block", envir = env, inherits = TRUE)) {
+  env$register_block <- function(...) invisible(NULL)
+}
 tryCatch(
   source(file.path(root, "Blocks/00_index/01block_index.R"), local = env),
   error = function(e) invisible(NULL)
@@ -41,7 +44,7 @@ zh_name <- c(
   WHtR = "腰高比", CMI = "心脏代谢指数", AISI = "聚集炎症指数", SIRI = "全身炎症反应指数",
   LMR = "淋巴细胞/单核细胞比值", MLR = "单核细胞/淋巴细胞比值", PIV = "泛免疫炎症值",
   SIIR = "全身免疫炎症反应指数", SIS = "系统炎症评分", MHR = "单核细胞/HDL 比值",
-  NMLR = "(单核+中性)/淋巴比值", CALLY = "CALLY 指数", CLR = "CRP-淋巴细胞相关",
+  NMLR = "(单核+中性)/淋巴比值", CALLY = "CALLY 指数", CLR = "CRP/淋巴比值",
   CTI = "心脏代谢炎症指数", hs_CRP_HDL_C = "hs-CRP/HDL-C", AIP_WC = "AIP×腰围",
   AIP_WHtR = "AIP×腰高比", WTI = "腰围-甘油三酯指数", TyG_WHtR = "TyG×腰高比",
   TyG_WC = "TyG×腰围", TyG_WWI = "TyG×WWI", TyG_ABSI = "TyG×ABSI",
@@ -52,12 +55,23 @@ zh_name <- c(
   ePWV = "估算脉搏波速度", lbLDL_C = "大而轻 LDL-C", sdLDL_C = "小而密 LDL-C",
   ALT_AST_ratio_flag = "ALT/AST 比值标志", FSI = "脂肪肝筛选指数", METS_VF = "METS 内脏脂肪",
   GNRI = "老年营养风险指数", ZJU = "浙大指数", VAI = "内脏脂肪指数", RFM = "相对脂肪质量",
-  LAP = "脂质蓄积产物"
+  LAP = "脂质蓄积产物", CVAI = "中国内脏脂肪指数", Conicity = "圆锥指数", Ponderal = "旁达勒指数",
+  VLDL = "极低密度脂蛋白胆固醇（估算）", GAR = "葡萄糖/白蛋白比值", LactAlb = "乳酸/白蛋白比值",
+  NAR = "中性粒细胞/白蛋白比值", WAR = "白细胞/白蛋白比值", NaAR = "钠/白蛋白比值",
+  CaAR = "总钙/白蛋白比值", UAR = "尿酸/白蛋白比值", ClAR = "氯/白蛋白比值",
+  KAR = "钾/白蛋白比值", AlbCr = "白蛋白/肌酐比值", LymWBC = "淋巴细胞/白细胞比值",
+  PHAR = "pH/白蛋白比值", RDWPLT = "RDW/血小板比值", CaNa = "总钙/钠比值",
+  SAR = "肌酐比值（预计算）", CrCV = "肌酐变异系数（预计算）", GV = "血糖变异（预计算）",
+  Potassium_FR = "钾首次/基线比", Potassium_CV = "钾变异系数", Platelet_FR = "血小板首次/基线比",
+  Platelet_CV = "血小板变异系数", Glucose_first = "血糖首次", Glucose_mean = "血糖均值",
+  WBC_first = "白细胞首次", WBC_CV = "白细胞变异系数", Sodium_mean = "钠均值",
+  Sodium_CV = "钠变异系数", Hemoglobin_CV = "血红蛋白变异系数", Albumin_CV = "白蛋白变异系数",
+  Lactate_CV = "乳酸变异系数"
 )
 
 category_of <- function(nm) {
   if (nm %in% c("BMI", "ABSI", "BRI", "WWI", "WHtR", "CMI", "RFM", "LAP", "VAI",
-                "METS_VF", "GNRI", "ZJU")) {
+                "METS_VF", "GNRI", "ZJU", "CVAI", "Conicity", "Ponderal")) {
     return("人体测量 / 体脂体型")
   }
   if (nm %in% c("NLR", "PLR", "SII", "NLPR", "ANLR", "LHR", "PHR", "HALP", "GLR", "WPR",
@@ -68,7 +82,8 @@ category_of <- function(nm) {
   if (nm %in% c("AIP", "TyG", "NHHR", "RC", "TG_HDL_C", "TC_HDL", "NHDL", "AC", "CRI_I",
                 "CRI_II", "LCI", "CHG", "AIP_BMI", "TyG_BMI", "TCBI", "HbA1c_HDL_C",
                 "ALT_HDL_C", "AIP_WC", "AIP_WHtR", "WTI", "TyG_WHtR", "TyG_WC",
-                "TyG_WWI", "TyG_ABSI", "RCII", "lnRCII", "lbLDL_C", "sdLDL_C", "UHR")) {
+                "TyG_WWI", "TyG_ABSI", "RCII", "lnRCII", "lbLDL_C", "sdLDL_C", "UHR",
+                "VLDL")) {
     return("血脂 / 脂代谢")
   }
   if (nm %in% c("SHR", "HGI", "GPR", "HOMA_IR", "MCMI", "eGDR", "HSI", "NFS", "FSI",
@@ -78,9 +93,18 @@ category_of <- function(nm) {
   if (nm %in% c("De_Ritis", "FIB4", "APRI", "ALBI", "AGR", "BAR", "AFR", "LAR", "log2LAR")) {
     return("肝功能 / 营养炎症")
   }
-  if (nm %in% c("CAR", "UA_CR", "BUN_Cr", "UACR", "EASIX")) return("肾功能相关")
-  if (nm %in% c("Hemoglobin", "RAR", "MCH", "MCV", "MCHC", "RDW_CV", "HHR", "HRR")) {
+  if (nm %in% c("CAR", "UA_CR", "BUN_Cr", "UACR", "EASIX", "AlbCr", "SAR", "CrCV")) {
+    return("肾功能相关")
+  }
+  if (nm %in% c("Hemoglobin", "RAR", "MCH", "MCV", "MCHC", "RDW_CV", "HHR", "HRR",
+                "LymWBC", "RDWPLT")) {
     return("血液学")
+  }
+  if (nm %in% c("GAR", "LactAlb", "NAR", "WAR", "NaAR", "CaAR", "UAR", "ClAR", "KAR",
+                "PHAR", "CaNa", "GV", "Potassium_FR", "Potassium_CV", "Platelet_FR",
+                "Platelet_CV", "Glucose_first", "Glucose_mean", "WBC_first", "WBC_CV",
+                "Sodium_mean", "Sodium_CV", "Hemoglobin_CV", "Albumin_CV", "Lactate_CV")) {
+    return("比值 / 纵向预计算")
   }
   if (nm %in% c("PNI", "CONUT_score", "alb_score", "lymp_score", "chol_score", "METSIR",
                 "SOSM", "ACAG", "MBP", "ePWV", "OAScore_z", "Periodontitis")) {
@@ -94,9 +118,10 @@ unit_notes <- c(
   "生化：Albumin / Globulin = g/dL；Creatinine / BUN / Uric_Acid = mg/dL；Glucose = mg/dL；HbA1c = %；Insulin = µU/mL；Bilirubin = mg/dL；ALT / AST / LD = IU/L",
   "血脂：Total_Cholesterol / Triglycerides / HDL / LDL = mg/dL",
   "炎症：CRP / HSCRP = mg/L；Fibrinogen = mg/dL",
-  "体征：Weight = kg；Height = cm；Waist_circumference = cm；SBP / DBP = mmHg",
+  "体征：Weight = kg；Height = cm；Waist_circumference = cm；SBP / DBP = mmHg（ABSI / TyG_ABSI 公式内将 WC、Height ÷100 转为 m）",
   "尿液：Urine_Creatinine = mg/dL；Albumin_Urine / AlbuminUrine = mg/L",
-  "常见换算常数：×17.1（胆红素 mg/dL→µmol/L，ALBI）；/18（葡萄糖 mg/dL→mmol/L）；×0.0259（HDL mg/dL→mmol/L）；AST ULN=40 IU/L（APRI）；eAG=28.7×HbA1c−46.7（SHR）"
+  "常见换算常数：×17.1（胆红素 mg/dL→µmol/L，ALBI）；/18（葡萄糖 mg/dL→mmol/L）；×0.0259（HDL mg/dL→mmol/L）；TG÷88.57 / HDL÷38.67（mg/dL→mmol/L，VAI/CVAI/LAP）；AST ULN=40 IU/L（APRI）；eAG=28.7×HbA1c−46.7（SHR）；HOMA-IR = Glucose(mg/dL)×Insulin/405",
+  "已校正口径（相对旧版）：CALLY=Alb×Lym/HSCRP；CLR=HSCRP/Lym；NFS 用 AST/ALT；VAI 血脂先转 mmol；LAP 女 WC−58；METS_VF 性别 Gender=='Male'；ABSI 米制"
 )
 
 lines <- c(
@@ -154,7 +179,7 @@ for (cat in unique(cats)) {
   lines <- c(lines, "| 指标 | 中文/说明 | 计算公式 | 小数位 |", "|---|---|---|---|")
   for (d in defs[cats == cat]) {
     nm <- d$name
-    zh <- if (!is.null(zh_name[[nm]]) && nzchar(zh_name[[nm]])) zh_name[[nm]] else nm
+    zh <- if (nm %in% names(zh_name) && nzchar(zh_name[[nm]])) zh_name[[nm]] else nm
     expr <- gsub("\\|", "\\\\|", as.character(d$expr)[1L])
     expr <- gsub("\n", " ", expr, fixed = TRUE)
     dig <- as.character(d$digits %||% 4L)[1L]
@@ -183,11 +208,70 @@ lines <- c(
 dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
 writeLines(lines, out_path, useBytes = TRUE)
 
-# 同步一份到 docs/
-out_docs <- "/mnt/g/DockerHome/5003/medical-blocks-studies/docs/指标定义与计算方法.md"
-dir.create(dirname(out_docs), recursive = TRUE, showWarnings = FALSE)
-writeLines(lines, out_docs, useBytes = TRUE)
+# 同步到 studies docs + 引擎 docs + 02block_result 通用版
+out_docs <- c(
+  "/mnt/g/DockerHome/5003/medical-blocks-studies/docs/指标定义与计算方法.md",
+  file.path(root, "docs", "指标定义与计算方法.md")
+)
+for (od in out_docs) {
+  dir.create(dirname(od), recursive = TRUE, showWarnings = FALSE)
+  writeLines(lines, od, useBytes = TRUE)
+  message("已写出: ", od, " (", file.info(od)$size, " bytes)")
+}
+
+# \\192.168.68.133\02block_result 通用版（无课题专属段）
+share_md <- "/mnt/g/02block_result/复合指标定义与计算方法.md"
+share_lines <- c(
+  "# 复合指标定义与计算方法",
+  "",
+  paste0("> 生成时间：", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+  "> 公式来源：Medical Blocks 引擎 `Blocks/00_index/01block_index.R` → `.idx_definitions()`",
+  paste0("> 复合指标总数：**", length(defs), "**"),
+  "",
+  "---",
+  "",
+  "## 单位假设（公式隐含）",
+  "",
+  paste0("- ", unit_notes),
+  "",
+  "## 公式总表",
+  ""
+)
+cats <- vapply(defs, function(d) category_of(d$name), character(1))
+for (cat in unique(cats)) {
+  share_lines <- c(share_lines, paste0("### ", cat), "")
+  share_lines <- c(share_lines, "| 指标 | 中文/说明 | 计算公式 | 小数位 |", "|---|---|---|---|")
+  for (d in defs[cats == cat]) {
+    nm <- d$name
+    zh <- if (nm %in% names(zh_name) && nzchar(zh_name[[nm]])) zh_name[[nm]] else nm
+    expr <- gsub("\\|", "\\\\|", as.character(d$expr)[1L])
+    expr <- gsub("\n", " ", expr, fixed = TRUE)
+    dig <- as.character(d$digits %||% 4L)[1L]
+    share_lines <- c(share_lines, sprintf("| `%s` | %s | `%s` | %s |", nm, zh, expr, dig))
+  }
+  share_lines <- c(share_lines, "")
+}
+share_lines <- c(
+  share_lines,
+  "---",
+  "",
+  "## 使用说明",
+  "",
+  "1. 启用 `config$index$enable = TRUE` 时，由 `index` block 按上表计算并写入数据。",
+  "2. `config$index$only` / `skip` 可限制计算范围；`digits` 控制舍入。",
+  "3. 组成变量进入协变量池时须遵守疾病变量与指标组成硬排除铁律（`analysis_exclusion`）。",
+  "4. 公式以引擎 `Blocks/00_index/01block_index.R` 为准；本文件由 `run/pub/export_index_definitions_md.R` 再生。",
+  "",
+  "---",
+  "",
+  "*自动生成自 Medical Blocks 引擎。*"
+)
+if (dir.exists(dirname(share_md))) {
+  writeLines(share_lines, share_md, useBytes = TRUE)
+  message("已写出: ", share_md, " (", file.info(share_md)$size, " bytes)")
+} else {
+  message("跳过共享盘（目录不存在）: ", share_md)
+}
 
 message("已写出: ", out_path, " (", file.info(out_path)$size, " bytes)")
-message("已写出: ", out_docs, " (", file.info(out_docs)$size, " bytes)")
 message("复合指标数: ", length(defs))

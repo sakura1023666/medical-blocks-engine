@@ -236,12 +236,25 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   dir.create(pp$tables, recursive = TRUE, showWarnings = FALSE)
   dir.create(pp$figures, recursive = TRUE, showWarnings = FALSE)
 
-  cmap <- ckm_stroke_class_map_paper()
   data0 <- readRDS(pp$checkpoint)$ctx$data$cleaned
   stopifnot(!is.null(data0))
+  # k≠4 时按实际语义类建 map（ABSI force_k=3 → 无 Class 4）
+  cmap <- if ("eGDR_Class" %in% names(data0)) {
+    ckm_stroke_class_map_from_present(data0$eGDR_Class)
+  } else {
+    ckm_stroke_class_map_paper()
+  }
   data <- .prepare_data(data0, index)
+  # .prepare_data 默认挂 4 类 Class_paper；用实际类 map 覆盖
+  data <- ckm_stroke_attach_class_paper(data, "eGDR_Class", cmap)
+  # 分位展示前缀：三分位 T*，四分位及以上 Q*（与 section 标题 Quartiles 对齐）
+  if ("cum_eGDR" %in% names(data)) {
+    .n_q_lock <- nlevels(factor(data$eGDR_tertile))
+    if (!is.finite(.n_q_lock) || .n_q_lock < 2L) .n_q_lock <- 4L
+    data$eGDR_tertile <- ckm_stroke_cut_quantile(as.numeric(data$cum_eGDR), n = .n_q_lock)
+  }
 
-  # 与 batch config 对齐：uv_vif → Model2 人口学 / Model3 + 其他
+  # 与 batch config 对齐：默认 uv_vif；ABSI 经 force_adjust_by_index 锁预设临床协变量
   bl <- list(
     covariate_mode = "uv_vif",
     uv_alpha = 0.05,
@@ -252,9 +265,24 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     model2 = c("Age", "Gender", "Marital"),
     model3 = c("Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
                "Dyslipidemia", "Diabetes", "Hypertension"),
+    force_adjust_by_index = list(
+      ABSI = list(
+        Model2 = c("Gender", "Marital"),
+        Model3 = c("Gender", "Marital", "Education", "Smoke", "Drink",
+                   "Diabetes", "Hypertension")
+      )
+    ),
     current_index = index
   )
   models <- ckm_stroke_model_sets(bl, data, index_name = index, outcome = "Cancer")
+  # force_adjust 名单仍剔暴露成分（ABSI→BMI）
+  models$Model2 <- ckm_stroke_model_drop_exposure_components(models$Model2, index, bl)
+  models$Model3 <- ckm_stroke_model_drop_exposure_components(models$Model3, index, bl)
+  .m3_note <- if (!is.null(models$force_adjust_note) && identical(toupper(index), "ABSI")) {
+    "Covariates were pre-specified for cancer (demographic then behavioural/clinical), not screened by univariate P or VIF. Age was intentionally omitted because age adjustment abolished the Model 2/3 associations for continuous cumulative ABSI and the highest k-means class in this cohort. BMI was omitted as an ABSI component. Dyslipidaemia and eGFR were not used (high missingness / unavailable in HRS)."
+  } else {
+    "Candidates (Age forced) were screened at univariate P<0.05, then VIF<4."
+  }
   if (!is.null(models$uv_vif$uv_table)) {
     .internal <- file.path(pp$summary, "_internal")
     dir.create(.internal, recursive = TRUE, showWarnings = FALSE)
@@ -274,7 +302,35 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     data, t1_col = "eGDR_t1", t2_col = "eGDR_t2", cmap = cmap
   )
   ref_disp <- class_disp$summary$display[class_disp$summary$class == cmap$ref_class][1L]
-  tert_cuts <- stats::quantile(as.numeric(data$cum_eGDR), probs = c(1/3, 2/3), na.rm = TRUE, names = FALSE)
+  n_q <- nlevels(factor(data$eGDR_tertile))
+  if (!is.finite(n_q) || n_q < 2L) n_q <- 3L
+  tert_probs <- seq(0, 1, length.out = n_q + 1L)[-c(1L, n_q + 1L)]
+  tert_cuts <- as.numeric(stats::quantile(
+    as.numeric(data$cum_eGDR), probs = tert_probs, na.rm = TRUE, names = FALSE, type = 7
+  ))
+  ix_lab <- .ix_display(index)
+  .q_sec <- ckm_stroke_quantile_section_label(n_q, ix_lab)
+  .q_cut_lab <- if (identical(as.integer(n_q), 2L)) "Binary-group"
+  else if (identical(as.integer(n_q), 3L)) "Tertile"
+  else if (identical(as.integer(n_q), 4L)) "Quartile"
+  else if (identical(as.integer(n_q), 5L)) "Quintile"
+  else sprintf("%d-quantile", as.integer(n_q))
+  .q_cut_note <- if (length(tert_cuts) == 1L) {
+    sprintf("%s cut of cumulative %s: %.3f.", .q_cut_lab, ix_lab, tert_cuts[1])
+  } else {
+    sprintf("%s cuts of cumulative %s: %s.",
+            .q_cut_lab, ix_lab,
+            paste(sprintf("%.3f", tert_cuts), collapse = ", "))
+  }
+  .q_ref_lv <- if (exists("ckm_stroke_quantile_ref_level", mode = "function")) {
+    ckm_stroke_quantile_ref_level(n_q)
+  } else {
+    paste0(if (identical(as.integer(n_q), 3L)) "T" else "Q", "1")
+  }
+  .q_ref_note <- paste0(
+    "Reference: Class 2 (", ref_disp, "); ",
+    .q_cut_lab, " ", .q_ref_lv, " (lowest)."
+  )
   n_all <- nrow(data)
   n_by_class <- as.integer(table(data$Class_paper))
   names(n_by_class) <- names(table(data$Class_paper))
@@ -282,7 +338,6 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   fig_dir <- pp$figures
   sr <- pp$summary
   outcome <- "Cancer"
-  ix_lab <- .ix_display(index)
 
   options(medical_blocks.pub_db_label = "HRS")
   Sys.setenv(MEDICAL_BLOCKS_PUB_DB = "HRS")
@@ -340,18 +395,17 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       c(
         "Model 1: unadjusted. Odds ratios are printed to 3 decimals.",
         paste0("Model 2: adjusted for ", paste(models$Model2, collapse = ", "), "."),
-        paste0(
-          "Model 3: adjusted for ", paste(models$Model3, collapse = ", "),
-          ". Candidates (Age forced) were screened at univariate P<0.05, then VIF<4."
-        ),
+        paste0("Model 3: adjusted for ", paste(models$Model3, collapse = ", "), ". ", .m3_note),
         if (identical(toupper(ix_lab), "WWI")) {
           "Waist circumference, weight, and BMI were kept out of the model because they are the components, or the immediate adiposity substitute, of WWI. Model 3 is not fully adjusted; residual confounding remains."
+        } else if (identical(toupper(ix_lab), "ABSI")) {
+          "Model 3 is not fully adjusted; residual confounding remains."
         } else {
           "Exposure-component variables were removed from the candidate set before screening. Model 3 is not fully adjusted; residual confounding remains."
         },
-        paste0("Reference: Class 2 (", ref_disp, "); Tertile T1."),
+        .q_ref_note,
         class_disp$footnote,
-        sprintf("Tertile cuts of cumulative %s: %.3f and %.3f.", ix_lab, tert_cuts[1], tert_cuts[2]),
+        .q_cut_note,
         "Incident cancer = HRS 2020 cancer status equal to 1. The risk set requires cancer-free at/before 2016. Dual-wave exposures are 2012 and 2016.",
         sprintf("Cumulative %s = ((%s_2012 + %s_2016)/2) \u00d7 4 (HRS wave span).", ix_lab, ix_lab, ix_lab),
         if (!isTRUE(all.equal(.ud, 1))) {
@@ -382,18 +436,17 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       "HR (95% CI). Follow-up is a fixed 2016 to 2020 interval (4 years) in the main Cox tables and Figure S1, so this is an interval check of a binary outcome rather than continuous-time survival.",
       "Model 1: unadjusted. Hazard ratios are printed to 3 decimals.",
       paste0("Model 2: adjusted for ", paste(models$Model2, collapse = ", "), "."),
-      paste0(
-        "Model 3: adjusted for ", paste(models$Model3, collapse = ", "),
-        ". Candidates (Age forced) were screened at univariate P<0.05, then VIF<4."
-      ),
+      paste0("Model 3: adjusted for ", paste(models$Model3, collapse = ", "), ". ", .m3_note),
       if (identical(toupper(ix_lab), "WWI")) {
         "Waist circumference, weight, and BMI stay out of the model (WWI components or the immediate adiposity substitute). Model 3 is not fully adjusted."
+      } else if (identical(toupper(ix_lab), "ABSI")) {
+        "Model 3 is not fully adjusted; residual confounding remains."
       } else {
         "Exposure-component variables were removed before screening. Model 3 is not fully adjusted."
       },
-      paste0("Reference: Class 2 (", ref_disp, "); Tertile T1."),
+      .q_ref_note,
       class_disp$footnote,
-      sprintf("Tertile cuts of cumulative %s: %.3f and %.3f.", ix_lab, tert_cuts[1], tert_cuts[2]),
+      .q_cut_note,
       if (!isTRUE(all.equal(.ud, 1))) {
         sprintf(
           "Continuous cumulative %s HR is per %s increase (analytic SD of cumulative %s = %.3f).",
@@ -402,7 +455,10 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       } else {
         sprintf("Continuous cumulative %s HR is per 1-unit increase.", ix_lab)
       },
-      "k-means: unstandardized 2012 and 2016 values; nstart=25; seed=2026; iter.max=100; k from the elbow plot with a visual cap of 4.",
+      sprintf(
+        "k-means: unstandardized 2012 and 2016 values; nstart=25; seed=2026; iter.max=100; k=%s (ABSI forced to 3 when configured; else elbow with visual cap of 4).",
+        nlevels(factor(data$eGDR_Class))
+      ),
       ckm_stroke_software_footnote()
     )
   )
@@ -430,7 +486,11 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   .mice_need <- intersect(.mice_need, names(data))
   .mice_md <- data[, .mice_need, drop = FALSE]
   .mice_md$eGDR_Class <- stats::relevel(factor(.mice_md$eGDR_Class), ref = cmap$ref_semantic)
-  .mice_md$eGDR_tertile <- stats::relevel(factor(.mice_md$eGDR_tertile), ref = "T1")
+  .mice_q_lv <- levels(factor(.mice_md$eGDR_tertile))
+  if (!length(.mice_q_lv)) .mice_q_lv <- sort(unique(as.character(stats::na.omit(.mice_md$eGDR_tertile))))
+  .mice_md$eGDR_tertile <- stats::relevel(
+    factor(.mice_md$eGDR_tertile, levels = .mice_q_lv), ref = .mice_q_lv[[1L]]
+  )
   .mice_md$T_num <- as.integer(.mice_md$eGDR_tertile)
   .mice_impute <- setdiff(
     names(.mice_md),
@@ -476,7 +536,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
               paste(.mice_prep$imputed, collapse = ", ")),
       "The outcome and the exposures are predictors in the imputation model and are not themselves imputed. Coefficients are combined with Rubin's rules (mice::pool).",
       "Model 1 has no covariates, so its imputed-data estimate can match the complete-case crude estimate. Model 2 and Model 3 must not.",
-      paste0("Reference: Class 2 (", ref_disp, "); Tertile T1."),
+      .q_ref_note,
       class_disp$footnote
     )
     s3b <- ckm_stroke_build_table_s1_cox(
@@ -523,9 +583,20 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     title = sprintf("Table 3. Subgroup analysis of %s change patterns and incident cancer (HRS)", ix_lab),
     table_footnotes = c(
       "Adjusted for Model 3 covariates except the stratification variable.",
-      paste0("Class 2 (", ref_disp, ") is the reference. Columns ordered Class 2 Reference, Class 1, Class 3, Class 4."),
+      {
+        .cls_ord <- setdiff(as.character(cmap$order_paper %||% character(0)), character(0))
+        if (!length(.cls_ord)) .cls_ord <- paste0("Class ", seq_len(nlevels(factor(data$Class_paper))))
+        .cls_ord <- .cls_ord[.cls_ord %in% as.character(unique(data$Class_paper))]
+        paste0(
+          "Class 2 (", ref_disp, ") is the reference. Columns ordered Class 2 Reference, then ",
+          paste(setdiff(.cls_ord, "Class 2"), collapse = ", "), "."
+        )
+      },
       class_disp$footnote,
-      "k-means classes are nominal, so this table has no P for trend across Class 1 to 4. Tertile trend stays in Table 2. P for interaction is a likelihood-ratio test, and is omitted when only one level remains estimable.",
+      sprintf(
+        "k-means classes are nominal, so this table has no P for trend across Class 1 to %s. Quantile trend stays in Table 2. P for interaction is a likelihood-ratio test, and is omitted when only one level remains estimable.",
+        nlevels(factor(data$eGDR_Class))
+      ),
       "Levels with no estimable class contrast (typically 0 events in the reference class) are omitted.",
       "Education strata for the continuous exposure are in Figure S2 (Cox) and Figure S3 (logistic), not in this class table.",
       "Gender levels ordered Female then Male."
@@ -543,7 +614,10 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     table_footnotes = c(
       "Adjusted for Model 3 covariates except the stratification variable.",
       "Each stratum N counts non-missing values only. Missing values are not assigned to both levels.",
-      "k-means classes are nominal. This table does not report a P for trend across Class 1 to 4.",
+      sprintf(
+        "k-means classes are nominal. This table does not report a P for trend across Class 1 to %s.",
+        nlevels(factor(data$eGDR_Class))
+      ),
       "NE marks a contrast that is not estimable. Its P value is an em dash.",
       paste0("Class 2 (", ref_disp, ") is the reference."),
       class_disp$footnote
@@ -759,7 +833,10 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
         "Study title: association of trajectory clusters and cumulative exposure with incident cancer (logistic, Cox, and restricted cubic splines). This is not a predictive model and not an artificial-intelligence analysis.",
         "Inclusion: baseline age at least 50 years, applied at data ingest.",
         "Incident cancer equals HRS 2020 cancer status = 1. The risk set requires cancer-free at/before 2016.",
-        "k-means uses unstandardized 2012 and 2016 values, nstart 25, seed 2026, iter.max 100. k is the elbow choice with a visual cap of 4.",
+        sprintf(
+          "k-means uses unstandardized 2012 and 2016 values, nstart 25, seed 2026, iter.max 100. This index uses k=%s (ABSI may force k=3; otherwise elbow with visual cap of 4). Cumulative exposure quantiles for this index: %s.",
+          nlevels(factor(data$eGDR_Class)), n_q
+        ),
         "Class display names are taken from the observed mean trajectory. A decline is called rapid only when the absolute mean change is at least 25 percent of the between-class 2012 range.",
         "Model 3 candidates are screened at univariate P<0.05 and VIF<4. Age is forced into the candidate set. Component variables of the exposure stay out. The model is not fully adjusted.",
         "Multiple imputation tables use mice with m=5 and Rubin's rules. They are not copies of the complete-case tables.",
@@ -779,7 +856,10 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     "# Figure 1. Inclusion exclusion flowchart",
     "",
     "## \u56fe\u9762\u8bf4\u660e",
-    sprintf("CONSORT \u5f0f\u7eb3\u6392\u6d41\u7a0b\u56fe\uff08HRS / %s\uff09\uff1a\u4e3b\u5e72\u4e3a\u9010\u6b65\u7eb3\u5165\uff0c\u53f3\u4fa7 Exclude \u6846\u4e3a\u76f8\u90bb\u6b65\u5dee\u989d\uff0c\u5e95\u90e8\u5206\u53c9\u4e3a Class 1\u20134\u3002", ix_lab),
+    sprintf(
+      "CONSORT \u5f0f\u7eb3\u6392\u6d41\u7a0b\u56fe\uff08HRS / %s\uff09\uff1a\u4e3b\u5e72\u4e3a\u9010\u6b65\u7eb3\u5165\uff0c\u53f3\u4fa7 Exclude \u6846\u4e3a\u76f8\u90bb\u6b65\u5dee\u989d\uff0c\u5e95\u90e8\u5206\u53c9\u4e3a Class 1\u2013%s\u3002",
+      ix_lab, length(n_by_class)
+    ),
     "",
     "### \u9010\u6b65\u4eba\u6570"
   )
@@ -799,19 +879,22 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       )
     }
   }
+  .k_use <- length(n_by_class)
+  .class_n_line <- paste0(
+    "- Class n：",
+    paste(sprintf("%s=%s", names(n_by_class),
+                  format(as.integer(n_by_class), big.mark = ",")), collapse = ", "),
+    sprintf("（合计 %s）", format(n_all, big.mark = ","))
+  )
   .fig1_lines <- c(
     .fig1_lines,
     "",
     "### \u56fe\u4e0a\u6807\u6ce8",
-    sprintf("- Class n：Class1=%s, Class2=%s, Class3=%s, Class4=%s",
-            format(n_by_class[["Class 1"]], big.mark = ","),
-            format(n_by_class[["Class 2"]], big.mark = ","),
-            format(n_by_class[["Class 3"]], big.mark = ","),
-            format(n_by_class[["Class 4"]], big.mark = ",")),
+    .class_n_line,
     "",
     "## \u5206\u6790\u4e0a\u4e0b\u6587",
     sprintf("暴露：%s（两波累计 + k-means）。结局：新发癌症。样本量 N=%s（HRS）。", ix_lab, format(n_all, big.mark = ",")),
-    "数据库：HRS。Grouping：Class 1\u20134。"
+    sprintf("数据库：HRS。Grouping：Class 1\u2013%s。", .k_use)
   )
   writeLines(.fig1_lines, fig1_md)
 
@@ -822,18 +905,17 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     "",
     "## \u56fe\u9762\u8bf4\u660e",
     "三面板合并图：",
-    "- A：肘部法则（WCSS vs k，虚线标 k=4）",
+    sprintf("- A：肘部法则（WCSS vs k，虚线标 k=%s）", .k_use),
     sprintf("- B：%s 2012 vs 2016 散点 + 各类凸包着色云", ix_lab),
-    sprintf("- C：四类 mean\u00b1SE %s 轨迹（2012\u21922016）", ix_lab),
+    sprintf("- C：%s类 mean\u00b1SE %s 轨迹（2012\u21922016）", .k_use, ix_lab),
     "",
     "### \u56fe\u4e0a\u6807\u6ce8",
-    "- A：chosen k = 4",
-    sprintf("- Class n：Class1=%s, Class2=%s, Class3=%s, Class4=%s（合计 %s）",
-            n_by_class[["Class 1"]], n_by_class[["Class 2"]],
-            n_by_class[["Class 3"]], n_by_class[["Class 4"]], n_all),
+    sprintf("- A：chosen k = %s", .k_use),
+    .class_n_line,
     "",
     "## \u5206\u6790\u4e0a\u4e0b\u6587",
-    sprintf("暴露：%s 轨迹类别（k-means, k=4）。结局：癌症。样本量 N=%s（HRS）。", ix_lab, format(n_all, big.mark = ",")),
+    sprintf("暴露：%s 轨迹类别（k-means, k=%s）。结局：癌症。样本量 N=%s（HRS）。",
+            ix_lab, .k_use, format(n_all, big.mark = ",")),
     class_disp$footnote,
     "数据库：HRS。"
   ), fig2_md)
@@ -923,29 +1005,97 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
 
   # 交付面：Methods md + 软件版本 txt + 白名单修剪（Figures/Tables/Methods/软件/中期）
   message("  finalize delivery whitelist...")
+  .is_absi_prespec <- identical(toupper(index), "ABSI") && !is.null(models$force_adjust_note)
   .fin <- ckm_stroke_finalize_summary_delivery(
     summary_root = sr,
     index_lab = ix_lab,
     n_analytic = n_all,
-    model3_covars = covars,
+    model2_covars = models$Model2,
+    model3_covars = models$Model3,
     unit_delta = .ud,
     min_age = 50L,
     database = "HRS",
     outcome_lab = "incident cancer",
+    k_clusters = nlevels(factor(data$eGDR_Class)),
+    k_note = if (.is_absi_prespec) {
+      sprintf("k was pre-specified as %d for ABSI (config force_k_by_index).", nlevels(factor(data$eGDR_Class)))
+    } else {
+      sprintf("k = %d (elbow with visual cap of 4, or index-specific force_k).", nlevels(factor(data$eGDR_Class)))
+    },
+    covariate_scheme = if (.is_absi_prespec) "prespecified" else "uv_vif",
+    covariate_note = if (.is_absi_prespec) {
+      "Age was intentionally omitted for ABSI because age adjustment abolished Model 2/3 associations for continuous cumulative ABSI and the highest k-means class in this HRS cohort."
+    } else {
+      NULL
+    },
     software_extra = c(
       class_disp$footnote,
       "Figure 3 / S1 panels: Overall | BMI < 30 | Age >= 60 (RCS, 3 knots).",
+      if (.is_absi_prespec) models$force_adjust_note else NULL,
       sprintf("Junk archived before prune: %s",
               if (length(moved)) paste(moved, collapse = ", ") else "(none)")
     ),
     prune = TRUE
   )
 
+  # 引擎级中期（客户可配 midterm_client；默认不写日期）→ 再 prune
+  message("  midterm PDF...")
+  .mid_client <- "开心乐"
+  .cfg_path <- file.path(.proj, "configs")
+  .cfg_files <- list.files(.cfg_path, pattern = "^config_.*\\.R$", full.names = TRUE)
+  if (length(.cfg_files)) {
+    .cfg_env2 <- new.env(parent = globalenv())
+    tryCatch(sys.source(.cfg_files[[1L]], envir = .cfg_env2), error = function(e) NULL)
+    if (exists("config", envir = .cfg_env2, inherits = FALSE)) {
+      .ck2 <- get("config", envir = .cfg_env2, inherits = FALSE)
+      if (!is.null(.ck2$cum_egdr_kmeans$midterm_client)) {
+        .mid_client <- as.character(.ck2$cum_egdr_kmeans$midterm_client)[1L]
+      }
+    }
+  }
+  .formula_lines <- {
+    .known <- c(
+      ABSI = "(WC/100) / (BMI^(2/3) \u00d7 (Height/100)^(1/2)) [Krakauer; WC & Height in cm]",
+      WWI = "WC / sqrt(Weight)",
+      WHtR = "WC / Height",
+      BMI = "Weight / Height^2",
+      NHHR = "(TC \u2212 HDL) / HDL",
+      TC_HDL = "TC / HDL"
+    )
+    expr <- unname(.known[[index]])
+    out <- character(0)
+    if (!is.null(expr) && nzchar(expr)) out <- c(out, sprintf("%s = %s", ix_lab, expr))
+    c(out, sprintf("累计 %s = ((%s 2012 + %s 2016)/2) \u00d7 4", ix_lab, ix_lab, ix_lab))
+  }
+  .mid_pdf <- tryCatch(
+    ckm_stroke_write_midterm_report(
+      summary_root = sr,
+      index_lab = ix_lab,
+      client = .mid_client,
+      no_date = TRUE,
+      formula_lines = .formula_lines,
+      model2_covars = models$Model2,
+      model3_covars = models$Model3,
+      n_analytic = n_all,
+      outcome_lab = "新发癌症",
+      database = "HRS"
+    ),
+    error = function(e) {
+      warning("midterm failed: ", conditionMessage(e))
+      NULL
+    }
+  )
+  # 中期写入后再次 prune，保证交付根仅白名单五项
+  if (exists("pub_prune_delivery_root", mode = "function")) {
+    try(pub_prune_delivery_root(sr, keep_raster = FALSE), silent = TRUE)
+  }
+
   message(
     "  DONE ", index,
     " | Tables: ", paste(list.files(tab_dir, pattern = "\\.xlsx$"), collapse = " | "),
     " | methods=", file.exists(.fin$methods),
     " | software=", file.exists(.fin$software),
+    " | midterm=", if (!is.null(.mid_pdf) && file.exists(.mid_pdf)) basename(.mid_pdf) else "NO",
     " | pruned=", length(.fin$moved %||% character(0))
   )
   invisible(TRUE)

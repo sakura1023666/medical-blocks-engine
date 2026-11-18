@@ -963,10 +963,21 @@ block_baseline_binary <- function(ctx, strata_var = NULL, ...) {
   ctx$results$sig_categorical  <- sig_categorical
   ctx$results$baseline_mode    <- "binary"
 
-  # 暴露指标(index_var)组间比较不显著 → 早停整条 pipeline。
-  # 默认开启（开关写死在代码：bl_cfg$early_stop_if_index_ns %||% TRUE），
-  # config$baseline_binary 设 early_stop_if_index_ns = FALSE 可临时关闭。
-  if (isTRUE(bl_cfg$early_stop_if_index_ns %||% TRUE)) {
+  # 暴露指标组间比较不显著 → 早停整条 pipeline。
+  # combo_loop：prediction$index_vars / current_index_vars 全部列都须显著
+  # （主指标 + 搭档 CV 同生共死；禁止只过 LymWBC 而放过 WBC_CV NS）。
+  # 默认开启（bl_cfg$early_stop_if_index_ns %||% TRUE）。
+  if (isTRUE(bl_cfg$early_stop_if_index_ns %||% TRUE) &&
+      exists("pipeline_baseline_index_ns_gate", mode = "function")) {
+    pipeline_baseline_index_ns_gate(
+      table_body = tbl$table_body,
+      cfg = cfg,
+      sig_cutoff = sig_cutoff,
+      weighted = FALSE,
+      fmt_fun = fmt_pval
+    )
+  } else if (isTRUE(bl_cfg$early_stop_if_index_ns %||% TRUE)) {
+    # 兜底：无公共函数时仍至少检查 index_var[[1]]
     index_var <- as.character(
       cfg$incidence$index_var %||% cfg$survival$index_var %||%
       cfg$project$index_var   %||% cfg$logistic$index_var %||%

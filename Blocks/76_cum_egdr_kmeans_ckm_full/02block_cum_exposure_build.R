@@ -96,14 +96,19 @@ block_cum_exposure_build <- function(ctx, ...) {
     sdx <- stats::sd(x, na.rm = TRUE)
     data$cum_eGDR_perSD <- if (is.finite(sdx) && sdx > 0) x / sdx else x
     data[[paste0(idx, "_perSD")]] <- data$cum_eGDR_perSD
-    qs <- stats::quantile(x, probs = c(1 / 3, 2 / 3), na.rm = TRUE, names = FALSE)
-    data$eGDR_tertile <- cut(x, breaks = c(-Inf, qs[1], qs[2], Inf),
-                             labels = c("T1", "T2", "T3"), include.lowest = TRUE)
+    n_q <- ckm_stroke_resolve_n_quantile(bl, idx)
+    data$eGDR_tertile <- ckm_stroke_cut_quantile(x, n = n_q)
+    ctx$results$cum_exposure_n_quantile <- n_q
   }
   ctx$data$cleaned <- data
   if (!is.null(ctx$data$imputed)) ctx$data$imputed <- data
-  ctx$results$cum_exposure_build <- list(index = idx, skipped = FALSE, n = nrow(data))
-  cli::cli_alert_success("累积暴露已构建: {idx} cum×{mult}; n={nrow(data)}")
+  ctx$results$cum_exposure_build <- list(
+    index = idx, skipped = FALSE, n = nrow(data),
+    n_quantile = ctx$results$cum_exposure_n_quantile %||% NA_integer_
+  )
+  cli::cli_alert_success(
+    "累积暴露已构建: {idx} cum×{mult}; n={nrow(data)}; quantiles={ctx$results$cum_exposure_n_quantile %||% 3L}"
+  )
   ctx
 }
 

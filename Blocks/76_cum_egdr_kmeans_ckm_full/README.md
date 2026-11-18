@@ -30,6 +30,7 @@ CHARLS 类「两波暴露 → k-means 轨迹类 → 累积指数关联结局」�
 | `01block_ckm_stroke_data_ingest.R` | `ckm_stroke_data_ingest` | 读 wide + 列对齐 |
 | `02block_cum_exposure_build.R` | `cum_exposure_build` | 累积暴露 / tertile |
 | `03block_kmeans_elbow_bivar.R` | `kmeans_elbow_bivar` | 二维 kmeans + elbow + Class 锚定 |
+| `03b_block_model1_scheme_cascade.R` | `model1_scheme_cascade` | Model1 NS → 换分位/换 k；仍 NS → failed |
 | `04block_kmeans_trajectory_panels.R` | `kmeans_trajectory_panels` | Fig2 草稿；优先写合并 `ckm_stroke_fig2_abc` |
 | `04b_block_table1_by_class_ckm.R` | `table1_by_class_ckm` | Table1；优先 `ckm_stroke_build_table1_by_class` |
 | `05block_logistic_cum_index_bundle.R` | `logistic_cum_index_bundle` | Table2 工作底稿（发表版式见 rebuild） |

@@ -1,0 +1,148 @@
+指标英文缩写,指标英文全称,指标中文名称,指标分类,指标计算公式,指标单位
+BMI,Body Mass Index,体重指数,其他,Weight / (Height / 100)^2,kg/m2
+ABSI,A Body Shape Index,身体形态指数,其他,(Waist_circumference / 100) / ((BMI^(2/3)) * ((Height / 100)^(1/2))),m^1.5/kg^(2/3)（无量纲趋势）
+BRI,Body Roundness Index,身体圆润度指数,其他,364.2 - 365.5 * sqrt(1 - ((Waist_circumference / (2 * pi)) / (0.5 * Height))^2),无量纲
+WWI,Weight-Adjusted Waist Index,体重调整腰围指数,其他,Waist_circumference / sqrt(Weight),cm/kg^0.5
+WHtR,Waist-to-Height Ratio,腰高比,其他,Waist_circumference / Height,无量纲
+Conicity,Conicity Index,锥度指数/圆锥指数,其他,(Waist_circumference / 100) / (0.109 * sqrt(Weight / (Height / 100))),复合量纲
+Ponderal,Ponderal Index,比重指数/体格指数,其他,Weight / (Height / 100)^3,kg/m3
+CMI,Cardiometabolic Index,心脏代谢指数,脂质类,(Triglycerides / HDL) * (Waist_circumference / Height),无量纲
+METS_VF,METS Visceral Fat,METS 内脏脂肪,其他,"4.466 + 0.011 * (log(METSIR))^3 + 3.239 * (log(Waist_circumference / Height))^3 + 0.319 * ifelse(Gender == 'Male', 1, 0) + 0.594 * log(Age)",cm^3（估测内脏脂肪体积）
+GNRI,Geriatric Nutritional Risk Index,老年营养风险指数,其他,"dplyr::case_when(Gender == 'Male' ~ (1.489 * Albumin * 10) + 41.7 * (Weight / (0.75 * Height - 62.5)), Gender == 'Female' ~ (1.489 * Albumin * 10) + 41.7 * (Weight / (0.60 * Height - 40)), TRUE ~ NA_real_)",无量纲
+ZJU,Zhejiang University Index,浙大指数,其他,"dplyr::case_when(Gender == 'Male' ~ Glucose / 18 + Weight / (Height / 100)^2 + 3 * ALT / AST + Triglycerides, Gender == 'Female' ~ Glucose / 18 + Weight / (Height / 100)^2 + 3 * ALT / AST + 2 + Triglycerides, TRUE ~ NA_real_)",mg/dL（各项相加的复合单位）
+VAI,Visceral Adiposity Index,内脏脂肪指数,脂质类,"dplyr::case_when(Gender == 'Male' ~ (Waist_circumference / (39.68 + 1.88 * BMI)) * ((Triglycerides / 88.57) / 1.03) * (1.31 / (HDL / 38.67)), Gender == 'Female' ~ (Waist_circumference / (36.58 + 1.89 * BMI)) * ((Triglycerides / 88.57) / 0.81) * (1.52 / (HDL / 38.67)), TRUE ~ NA_real_)",无量纲
+RFM,Relative Fat Mass,相对脂肪质量,其他,"dplyr::case_when(Gender == 'Male' ~ 64 - 20 * (Height / Waist_circumference), Gender == 'Female' ~ 76 - 20 * (Height / Waist_circumference), TRUE ~ NA_real_)",%（估测体脂率）
+LAP,Lipid Accumulation Product,脂质蓄积产物,脂质类,"dplyr::case_when(Gender == 'Male' ~ (Waist_circumference - 65) * Triglycerides / 88.57, Gender == 'Female' ~ (Waist_circumference - 58) * Triglycerides / 88.57, TRUE ~ NA_real_)",cm·mg/dL
+CVAI,Chinese Visceral Adiposity Index,中国内脏脂肪指数,脂质类,"dplyr::case_when(Gender == 'Male' ~ -267.93 + 0.68 * Age + 0.03 * BMI + 4 * Waist_circumference + 22 * log10(Triglycerides / 88.57) - 16.32 * (HDL / 38.67), Gender == 'Female' ~ -187.32 + 1.71 * Age + 4.23 * BMI + 1.12 * Waist_circumference + 39.76 * log10(Triglycerides / 88.57) - 11.66 * (HDL / 38.67), TRUE ~ NA_real_)",无量纲
+NLR,Neutrophil-to-Lymphocyte Ratio,中性粒细胞/淋巴细胞比值,炎症类,Neutrophil_Count / Lymphocytes,无量纲
+PLR,Platelet-to-Lymphocyte Ratio,血小板/淋巴细胞比值,炎症类,Platelet_Count / Lymphocytes,无量纲
+SII,Systemic Immune-Inflammation Index,全身免疫炎症指数,炎症类,Platelet_Count * Neutrophil_Count / Lymphocytes,K/µL
+NLPR,Neutrophil-to-Lymphocyte-Platelet Ratio,中性粒细胞×100/(淋巴细胞×血小板),炎症类,Neutrophil_Count * 100 / (Lymphocytes * Platelet_Count),无量纲
+ANLR,Albumin-to-Neutrophil-to-Lymphocyte Ratio,白蛋白/NLR 比值,炎症类,Albumin / (Neutrophil_Count / Lymphocytes),g/dL
+LHR,Lymphocyte-to-HDL Ratio,淋巴细胞/HDL 比值,炎症类,Lymphocytes / (HDL * 0.0259),无量纲
+PHR,Platelet-to-HDL Ratio,血小板/HDL 比值,炎症类,Platelet_Count / HDL,无量纲
+HALP,Hemoglobin-Albumin-Lymphocyte-Platelet Score,血红蛋白×白蛋白×淋巴细胞/血小板评分,炎症类,((Hemoglobin * 10) * (Albumin * 10) * Lymphocytes) / Platelet_Count,复合量纲（g·g·10^9/µL^2）
+GLR,Glucose-to-Lymphocyte Ratio,葡萄糖/淋巴细胞比值,炎症类,Glucose / Lymphocytes,mg/dL per K/µL
+WPR,White-Cell-to-Platelet Ratio,白细胞/血小板比值,炎症类,WBC / Platelet_Count,无量纲
+ALI,Advanced Lung Cancer Inflammation Index,晚期肺癌炎症指数,炎症类,(Weight / (Height / 100)^2) * Albumin / (Neutrophil_Count / Lymphocytes),复合量纲
+AISI,Aggregate Index of Systemic Inflammation,聚集炎症指数,炎症类,Neutrophil_Count * Platelet_Count * Monocyte / Lymphocytes,复合量纲（cells/L 量级）
+SIRI,Systemic Inflammation Response Index,全身炎症反应指数,炎症类,Neutrophil_Count * Monocyte / Lymphocytes,复合量纲
+LMR,Lymphocyte-to-Monocyte Ratio,淋巴细胞/单核细胞比值,炎症类,Lymphocytes / Monocyte,无量纲
+MLR,Monocyte-to-Lymphocyte Ratio,单核细胞/淋巴细胞比值,炎症类,Monocyte / Lymphocytes,无量纲
+PIV,Pan-Immune-Inflammation Value,泛免疫炎症值,炎症类,Platelet_Count * Neutrophil_Count * Monocyte / Lymphocytes,复合量纲
+SIIR,Systemic Immune-Inflammation Response Index,全身免疫炎症反应指数,炎症类,Neutrophil_Count * Monocyte * Platelet_Count / Lymphocytes,复合量纲
+SIS,Systemic Inflammation Score,系统炎症评分,炎症类,"dplyr::case_when(Lymphocytes / Monocyte > 4.44 & Albumin > 4.0 ~ 0, Lymphocytes / Monocyte <= 4.44 & Albumin <= 4.0 ~ 2, TRUE ~ 1)",分
+MHR,Monocyte-to-HDL Ratio,单核细胞/HDL 比值,炎症类,Monocyte / HDL,无量纲
+NMLR,Neutrophil-Monocyte-to-Lymphocyte Ratio,(单核+中性)/淋巴比值,炎症类,(Monocyte + Neutrophil_Count) / Lymphocytes,无量纲
+CALLY,C-Reactive Protein-Albumin-Lymphocyte Index,CALLY 指数（CRP-白蛋白-淋巴细胞指数）,炎症类,Albumin * Lymphocytes / HSCRP,复合量纲
+CLR,CRP-to-Lymphocyte Ratio,CRP-淋巴细胞相关比值,炎症类,HSCRP / Lymphocytes,复合量纲
+CTI,C-Reactive Protein-Triglyceride-Glucose Index,心脏代谢炎症指数,炎症类,0.412 * log(HSCRP / 10) + log((Glucose * Triglycerides) / 2),无量纲（对数复合）
+hs_CRP_HDL_C,hs-CRP-to-HDL-C Ratio,高敏CRP/HDL-C 比值,炎症类,HSCRP / (HDL / 1000),mg/L per mmol/L
+VLDL,Very Low-Density Lipoprotein Cholesterol (Estimated),估算 VLDL-C,脂质类,Triglycerides / 5,mg/dL
+AIP,Atherogenic Index of Plasma,致动脉粥样硬化指数,脂质类,log10(Triglycerides / HDL),无量纲（对数比值）
+TyG,Triglyceride-Glucose Index,甘油三酯-葡萄糖指数,脂质类,log(Glucose * Triglycerides / 2),mg/dL（对数复合）
+NHHR,Non-HDL-to-HDL Cholesterol Ratio,非HDL/HDL 胆固醇比值,脂质类,(Total_Cholesterol - HDL) / HDL,无量纲
+RC,Remnant Cholesterol,残余胆固醇,脂质类,Total_Cholesterol - HDL - LDL,mg/dL
+TG_HDL_C,Triglyceride-to-HDL-C Ratio,TG/HDL-C 比值,脂质类,Triglycerides / HDL,无量纲
+TC_HDL,Total Cholesterol-to-HDL Ratio,TC/HDL-C 比值,脂质类,Total_Cholesterol / HDL,无量纲
+NHDL,Non-HDL Cholesterol,非 HDL 胆固醇,脂质类,Total_Cholesterol - HDL,mg/dL
+AC,Atherogenic Coefficient,动脉粥样硬化系数,脂质类,(Total_Cholesterol - HDL) / HDL,无量纲
+CRI_I,Castelli Risk Index I,Castelli 风险指数 I,脂质类,Total_Cholesterol / HDL,无量纲
+CRI_II,Castelli Risk Index II,Castelli 风险指数 II,脂质类,LDL / HDL,无量纲
+LCI,Lipid Comprehensive Index,脂质综合指数,脂质类,((Total_Cholesterol / 38.67) * (Triglycerides / 88.57) * (LDL / 38.67)) / (HDL / 38.67),复合量纲（mmol/L 量级）
+CHG,Cholesterol-HDL-Glucose Index,胆固醇-HDL-葡萄糖指数,脂质类,log(Total_Cholesterol * Glucose / (2 * HDL)),复合量纲（对数）
+AIP_BMI,AIP × BMI,AIP×BMI,脂质类,log10(Triglycerides / HDL) * Weight / (Height / 100)^2,复合量纲
+TyG_BMI,TyG × BMI,TyG×BMI,脂质类,log(Triglycerides * Glucose / 2) * Weight / (Height / 100)^2,复合量纲
+TCBI,Triglyceride-Total Cholesterol-Body Weight Index,甘油三酯-胆固醇-体重指数,脂质类,Triglycerides * Total_Cholesterol * Weight / 1000,复合量纲
+HbA1c_HDL_C,HbA1c-to-HDL-C Ratio,HbA1c/HDL-C 比值,脂质类,HbA1c / HDL,% per mg/dL
+ALT_HDL_C,ALT-to-HDL-C Ratio,ALT/HDL-C 比值,脂质类,ALT / HDL,IU/L per mg/dL
+UHR,Uric Acid-to-HDL Ratio,尿酸/HDL 比值,脂质类,Uric_Acid / HDL,mg/dL per mg/dL
+AIP_WC,AIP × Waist Circumference,AIP×腰围,脂质类,log10(Triglycerides / HDL) * Waist_circumference,cm（对数复合）
+AIP_WHtR,AIP × Waist-to-Height Ratio,AIP×腰高比,脂质类,log10(Triglycerides / HDL) * (Waist_circumference / Height),无量纲（对数复合）
+WTI,Waist-to-Triglyceride Index,腰围-甘油三酯指数,脂质类,log((Triglycerides * Waist_circumference) / 2),复合量纲（对数）
+TyG_WHtR,TyG × Waist-to-Height Ratio,TyG×腰高比,脂质类,log((Glucose * Triglycerides) / 2) * (Waist_circumference / Height),无量纲（对数复合）
+TyG_WC,TyG × Waist Circumference,TyG×腰围,脂质类,log((Glucose * Triglycerides) / 2) * Waist_circumference,复合量纲
+TyG_WWI,TyG × Weight-Adjusted Waist Index,TyG×WWI,脂质类,log((Glucose * Triglycerides) / 2) * (Waist_circumference / sqrt(Weight)),复合量纲
+TyG_ABSI,TyG × A Body Shape Index,TyG×ABSI,脂质类,log((Glucose * Triglycerides) / 2) * ((Waist_circumference / 100) / ((BMI^(2/3)) * ((Height / 100)^(1/2)))),复合量纲
+RCII,Remnant Cholesterol-Inflammation Index,残余胆固醇炎症指数,炎症类,(Total_Cholesterol - HDL - LDL) * HSCRP / 10,复合量纲
+lnRCII,ln(Remnant Cholesterol-Inflammation Index),残余胆固醇炎症指数自然对数,炎症类,log((Total_Cholesterol - HDL - LDL) * HSCRP / 10),无量纲（对数）
+lbLDL_C,Large Buoyant LDL-Cholesterol,大而轻 LDL-C,脂质类,1.43 * LDL - 0.14 * log(Triglycerides) * LDL - 8.99,mg/dL
+sdLDL_C,Small Dense LDL-Cholesterol,小而密 LDL-C,脂质类,LDL - lbLDL_C,mg/dL
+SHR,Stress Hyperglycemia Ratio,应激性高血糖比,其他,Glucose / (28.7 * HbA1c - 46.7),无量纲
+HGI,Hemoglobin Glycation Index,血红蛋白糖化指数,其他,HbA1c - (0.01 * Glucose + 5.04),%
+GPR,Glucose-to-Potassium Ratio,葡萄糖/钾比值,其他,(Glucose / 18) / Potassium,mmol/L per mmol/L
+HOMA_IR,Homeostatic Model Assessment of Insulin Resistance,稳态模型胰岛素抵抗指数,其他,Glucose * Insulin / 405,复合量纲
+MCMI,Metabolic Syndrome-Related Composite Index,代谢综合征相关复合指数,其他,log(Triglycerides * Glucose / HDL) * (Waist_circumference / Height),复合量纲
+eGDR,Estimated Glucose Disposal Rate,估算葡萄糖处置率,其他,"21.158 - (0.09 * Waist_circumference) - (3.407 * ifelse(Hypertension == 'Yes', 1, 0)) - (0.551 * HbA1c)",mg/kg/min
+HSI,Hepatic Steatosis Index,肝脂肪变性指数,其他,"8 * (ALT / AST) + BMI + ifelse(Gender == 'Female', 2, 0) + ifelse(Diabetes == 'Yes', 2, 0)",分/复合量纲
+NFS,NAFLD Fibrosis Score,NAFLD 纤维化评分,其他,"-1.675 + 0.037 * Age + 0.094 * BMI + 1.13 * ifelse(Diabetes == 'Yes', 1, 0) + 0.99 * (AST / ALT) - 0.013 * Platelet_Count - 0.66 * Albumin",分
+ALT_AST_ratio_flag,ALT/AST Ratio Flag (≥1.33),ALT/AST 比值标志,其他,"ifelse((ALT / AST) >= 1.33, 1, 0)",0/1
+FSI,Fatty Liver Screening Index,脂肪肝筛选指数,其他,"-7.981 + 0.011 * Age + (-0.146) * ifelse(Gender == 'Female', 1, 0) + 0.173 * BMI + 0.007 * Triglycerides + 0.593 * ifelse(Hypertension == 'Yes', 1, 0) + 0.789 * ifelse(Diabetes == 'Yes', 1, 0) + 1.1 * ALT_AST_ratio_flag",分
+De_Ritis,De Ritis Ratio (AST/ALT),De Ritis 比值 (AST/ALT),其他,AST / ALT,无量纲
+FIB4,Fibrosis-4 Index,FIB-4 纤维化指数,其他,Age * AST / (Platelet_Count * sqrt(ALT)),复合量纲
+APRI,AST-to-Platelet Ratio Index,AST/血小板比值指数,其他,(AST / 40) / Platelet_Count * 100,无量纲
+ALBI,Albumin-Bilirubin Grade,白蛋白-胆红素评分,其他,log10(Bilirubin_Total * 17.1) * 0.66 + (10 * Albumin) * (-0.085),评分值（无量纲复合）
+AGR,Albumin-to-Globulin Ratio,白蛋白/球蛋白比值,其他,Albumin / Globulin,无量纲
+BAR,BUN-to-Albumin Ratio,BUN/白蛋白比值,其他,BUN / Albumin,mg/dL per g/dL
+AFR,Fibrinogen-to-Albumin Ratio,纤维蛋白原/白蛋白比值,其他,Fibrinogen * 10 / Albumin,mg/dL per g/dL
+LAR,Lactate Dehydrogenase-to-Albumin Ratio,LD/白蛋白比值,其他,LD / Albumin,IU/L per g/dL
+log2LAR,log2(LD-to-Albumin Ratio),log2(LD/白蛋白比值),其他,log2(LD / Albumin),无量纲（对数）
+CAR,Creatinine-to-Albumin Ratio,肌酐/白蛋白比值,肾功能类,Creatinine / Albumin,mg/dL per g/dL
+AlbCr,Albumin-to-Creatinine Ratio,白蛋白/肌酐比值,肾功能类,Albumin / Creatinine,mg/dL per mg/dL
+UA_CR,Uric Acid-to-Creatinine Ratio,尿酸/肌酐比值,肾功能类,Uric_Acid / Creatinine,无量纲
+BUN_Cr,BUN-to-Creatinine Ratio,BUN/肌酐比值,肾功能类,BUN / Creatinine,无量纲
+SAR,Creatinine First-to-Baseline Ratio (precomputed),肌酐首次/基线比（预计算）,肾功能类,SAR,无量纲
+CrCV,Creatinine Coefficient of Variation (precomputed),肌酐变异系数（预计算）,肾功能类,CrCV,%
+UACR,Urinary Albumin-to-Creatinine Ratio,尿白蛋白/肌酐比值,肾功能类,if (exists('Urine_Creatinine')) get(if (exists('Albumin_Urine')) 'Albumin_Urine' else 'AlbuminUrine') / (Urine_Creatinine * 0.01) else get(if (exists('Albumin_Creatinine')) 'Albumin_Creatinine' else 'AlbuminCreatinine'),mg/g
+EASIX,Endothelial Activation and Stress Index,内皮激活与应激指数,肾功能类,LD * Creatinine / Platelet_Count,复合量纲
+GAR,Glucose-to-Albumin Ratio,葡萄糖/白蛋白比值,炎症类,Glucose / Albumin,mg/dL per g/dL
+LactAlb,Lactate-to-Albumin Ratio,乳酸/白蛋白比值,炎症类,Lactate / Albumin,mmol/L per g/dL
+NAR,Neutrophil-to-Albumin Ratio,中性粒细胞/白蛋白比值,炎症类,Neutrophil_Count / Albumin,K/µL per g/dL
+WAR,WBC-to-Albumin Ratio,白细胞/白蛋白比值,炎症类,WBC / Albumin,K/µL per g/dL
+NaAR,Sodium-to-Albumin Ratio,钠/白蛋白比值,炎症类,Sodium / Albumin,mmol/L per g/dL
+CaAR,Calcium-to-Albumin Ratio,总钙/白蛋白比值,炎症类,CalciumTotal / Albumin,mg/dL per g/dL
+UAR,Uric Acid-to-Albumin Ratio,尿酸/白蛋白比值,其他,Uric_Acid / Albumin,mg/dL per g/dL
+ClAR,Chloride-to-Albumin Ratio,氯/白蛋白比值,其他,Chloride / Albumin,mmol/L per g/dL
+KAR,Potassium-to-Albumin Ratio,钾/白蛋白比值,其他,Potassium / Albumin,mmol/L per g/dL
+PHAR,pH-to-Albumin Ratio,pH/白蛋白比值,其他,PH / Albumin,per g/dL
+CaNa,Calcium-to-Sodium Ratio,总钙/钠比值,其他,CalciumTotal / Sodium,mg/dL per mmol/L
+GV,Glucose Variability (precomputed),血糖变异系数（预计算）,其他,GV,%
+Potassium_FR,Potassium First-to-Reference Ratio (precomputed),钾首次值比值（预计算）,血液学类,Potassium_FR,无量纲/比值
+Potassium_CV,Potassium Coefficient of Variation (precomputed),钾变异系数（预计算）,血液学类,Potassium_CV,%
+Platelet_FR,Platelet First Result (precomputed),血小板首次值（预计算）,血液学类,Platelet_FR,K/µL
+Platelet_CV,Platelet Coefficient of Variation (precomputed),血小板变异系数（预计算）,血液学类,Platelet_CV,%
+Glucose_first,First Glucose Value (precomputed),首次血糖值（预计算）,其他,Glucose_first,mg/dL
+Glucose_mean,Mean Glucose Value (precomputed),平均血糖值（预计算）,其他,Glucose_mean,mg/dL
+WBC_first,First WBC Value (precomputed),白细胞首次值（预计算）,血液学类,WBC_first,K/µL
+WBC_CV,WBC Coefficient of Variation (precomputed),白细胞变异系数（预计算）,血液学类,WBC_CV,%
+Sodium_mean,Mean Sodium Value (precomputed),钠平均值（预计算）,血液学类,Sodium_mean,mmol/L
+Sodium_CV,Sodium Coefficient of Variation (precomputed),钠变异系数（预计算）,血液学类,Sodium_CV,%
+Hemoglobin_CV,Hemoglobin Coefficient of Variation (precomputed),血红蛋白变异系数（预计算）,血液学类,Hemoglobin_CV,%
+Albumin_CV,Albumin Coefficient of Variation (precomputed),白蛋白变异系数（预计算）,血液学类,Albumin_CV,%
+Lactate_CV,Lactate Coefficient of Variation (precomputed),乳酸变异系数（预计算）,血液学类,Lactate_CV,%
+LymWBC,Lymphocyte-to-WBC Ratio,淋巴细胞/白细胞比值,血液学类,Lymphocytes / WBC,无量纲
+RDWPLT,RDW-to-Platelet Ratio,RDW/血小板比值,血液学类,RDW / Platelet_Count,% per K/µL
+Hemoglobin,Hemoglobin (native),血红蛋白（原生）,血液学类,Hemoglobin,g/dL
+RAR,Red Cell Distribution Width-to-Albumin Ratio,RDW/白蛋白比值,血液学类,RDW / Albumin,% per g/dL
+MCH,Mean Corpuscular Hemoglobin,平均红细胞血红蛋白量,血液学类,Hemoglobin / RBC * 10,pg
+MCV,Mean Corpuscular Volume,平均红细胞体积,血液学类,Hematocrit / RBC * 10,fL
+MCHC,Mean Corpuscular Hemoglobin Concentration,平均红细胞血红蛋白浓度,血液学类,Hemoglobin / Hematocrit * 100,g/dL
+RDW_CV,Red Cell Distribution Width-CV Related,RDW 变异系数相关,血液学类,RDW * RBC / Hematocrit,复合量纲
+HHR,Hematocrit-to-Hemoglobin Ratio,红细胞压积/血红蛋白比值,血液学类,Hematocrit / Hemoglobin,% per g/dL
+HRR,Hemoglobin-to-Red Cell Distribution Width Ratio,血红蛋白/RDW 比值,血液学类,Hemoglobin / RDW,g/dL per %
+PTK,PT-to-Potassium Ratio,PT/钾比值,其他,PT / Potassium,待确认（PT单位未在md定义）
+PTNa,PT-to-Sodium Ratio,PT/钠比值,其他,PT / Sodium,待确认（PT单位未在md定义）
+PTPLT,PT-to-Platelet Ratio,PT/血小板比值,其他,PT / Platelet_Count,待确认（PT单位未在md定义）
+PTHb,PT-to-Hemoglobin Ratio,PT/血红蛋白比值,其他,PT / Hemoglobin,待确认（PT单位未在md定义）
+PTRBC,PT-to-RBC Ratio,PT/红细胞比值,其他,PT / RBC,待确认（PT单位未在md定义）
+PTCr,PT-to-Creatinine Ratio,PT/肌酐比值,其他,PT / Creatinine,待确认（PT单位未在md定义）
+PNI,Prognostic Nutritional Index,预后营养指数,其他,10 * Albumin + Lymphocytes * 5,复合量纲
+METSIR,Metabolic Score for Insulin Resistance,METS-IR 胰岛素抵抗评分,其他,log((2 * Glucose + Triglycerides) * (Weight / (Height / 100)^2)) / log(HDL),复合量纲（对数）
+SOSM,Serum Osmolality (Estimated),血清渗透压,其他,1.86 * (Sodium + Potassium) + 1.15 * Glucose / 18 + BUN * 0.357 + 14,mOsm/kg
+ACAG,Albumin-Corrected Anion Gap,白蛋白校正阴离子间隙,其他,(4.4 - Albumin) * 2.5 + AnionGap,mmol/L
+alb_score,CONUT Albumin Score,CONUT 白蛋白分,其他,"dplyr::case_when(Albumin > 3.5 ~ 0, Albumin >= 3.0 & Albumin <= 3.49 ~ 2, Albumin >= 2.5 & Albumin <= 2.99 ~ 4, Albumin < 2.5 ~ 6, TRUE ~ NA_real_)",分
+lymp_score,CONUT Lymphocyte Score,CONUT 淋巴分,其他,"dplyr::case_when(Lymphocytes * 1000 > 1600 ~ 0, Lymphocytes * 1000 >= 1200 & Lymphocytes * 1000 <= 1599 ~ 1, Lymphocytes * 1000 >= 800 & Lymphocytes * 1000 <= 1199 ~ 2, Lymphocytes * 1000 < 800 ~ 3, TRUE ~ NA_real_)",分
+chol_score,CONUT Cholesterol Score,CONUT 胆固醇分,其他,"dplyr::case_when(Total_Cholesterol > 180 ~ 0, Total_Cholesterol >= 140 & Total_Cholesterol <= 179 ~ 1, Total_Cholesterol >= 100 & Total_Cholesterol <= 139 ~ 2, Total_Cholesterol < 100 ~ 3, TRUE ~ NA_real_)",分
+CONUT_score,CONtrolling NUTritional Status Score,控制营养状态评分,其他,alb_score + lymp_score + chol_score,分
+MBP,Mean Blood Pressure,平均血压,其他,DBP + 0.4 * (SBP - DBP),mmHg
+ePWV,Estimated Pulse Wave Velocity,估算脉搏波速度,其他,9.587 - 0.402 * Age + 0.00456 * Age^2 - 0.00002621 * Age^2 * MBP + 0.003176 * Age * MBP - 0.01832 * MBP,m/s

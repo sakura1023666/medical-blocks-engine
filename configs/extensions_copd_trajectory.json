@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "extensions": [
+    {
+      "slot": "trajectory.unit_end",
+      "block": "trajectory_pamm",
+      "pipeline_key": "pipeline_unit_suffix",
+      "added_at": "2026-11-18T15:00:00+0800",
+      "tree_version": "decision_tree_trajectory_prognosis_copd_jlcm.md",
+      "note": "Wang2026 PAMM Fig5/6; MIMIC-locked P5/P95 burden; after attrition"
+    }
+  ]
+}

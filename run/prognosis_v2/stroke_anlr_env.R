@@ -1,14 +1,25 @@
 # 卒中 ANLR：输出目录 / 结局窗口（由环境变量驱动；默认保持 28d summary_results）
+# STROKE_ANLR_PROJ = 研究根（含 data/）；程序员隔离区优先设此变量
 # STROKE_ANLR_OUT  = summary_results | summary_results_7d|14d|90d|365d
 # STROKE_ANLR_DAYS = 7 | 14 | 28 | 90 | 365
 
 stroke_anlr_proj <- function() {
+  env <- Sys.getenv("STROKE_ANLR_PROJ", unset = "")
+  if (nzchar(env) && dir.exists(env)) {
+    return(normalizePath(env, winslash = "/", mustWork = TRUE))
+  }
   cands <- c(
     "/mnt/g/02block_result/11_ischemic stroke/prognosis_v2_41904528",
     "G:/02block_result/11_ischemic stroke/prognosis_v2_41904528"
   )
   hit <- cands[dir.exists(cands)]
-  if (!length(hit)) stop("stroke ANLR project root not found")
+  if (!length(hit)) {
+    stop(
+      "stroke ANLR project root not found; set STROKE_ANLR_PROJ or place data under ",
+      "02block_result/11_ischemic stroke/prognosis_v2_41904528",
+      call. = FALSE
+    )
+  }
   hit[[1L]]
 }
 

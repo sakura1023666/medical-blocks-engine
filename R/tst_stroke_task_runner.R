@@ -514,6 +514,17 @@ tst_stroke_run_task_parallel <- function(root, config, pipeline_shared, units, w
     )
   }
 
+  if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+    .pf <- file.path(root, "R/batch_prune_failed.R")
+    if (file.exists(.pf)) source(.pf, local = FALSE)
+  }
+  if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+    tryCatch(
+      batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "unit"),
+      error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")
+    )
+  }
+
   n_fail <- sum(statuses$status %in% c("error", "failed"), na.rm = TRUE)
   if (n_fail > 0L) quit(save = "no", status = 1L)
 

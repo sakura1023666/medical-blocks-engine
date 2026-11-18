@@ -12,9 +12,13 @@ suppressPackageStartupMessages({
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L || (length(a) == 1L && is.na(a))) b else a
 
 .engine <- {
-  if (dir.exists("E:/01block/01Block-new-Final")) "E:/01block/01Block-new-Final"
+  env <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (nzchar(env) && dir.exists(env)) normalizePath(env, winslash = "/", mustWork = TRUE)
+  else if (dir.exists("E:/01block/01Block-new-Final")) "E:/01block/01Block-new-Final"
   else if (dir.exists("/mnt/e/01block/01Block-new-Final")) "/mnt/e/01block/01Block-new-Final"
-  else getwd()
+  else if (dir.exists(path.expand("~/medical-blocks/engine"))) {
+    normalizePath(path.expand("~/medical-blocks/engine"), winslash = "/", mustWork = TRUE)
+  } else getwd()
 }
 setwd(.engine)
 source(file.path(.engine, "R/utils.R"), local = FALSE)
@@ -25,8 +29,17 @@ source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 source(file.path(.engine, "R/attrition_log.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/stroke_anlr_env.R"), local = FALSE)
 
-# CLI: --days 7 --out summary_results_7d
+# CLI: --config <study/config.R> --days 7 --out summary_results_7d
 .args <- commandArgs(trailingOnly = TRUE)
+if ("--config" %in% .args) {
+  .ci <- which(.args == "--config")[1L]
+  if (.ci < length(.args)) {
+    .cfg <- normalizePath(.args[[.ci + 1L]], winslash = "/", mustWork = FALSE)
+    if (file.exists(.cfg) && !nzchar(Sys.getenv("STROKE_ANLR_PROJ", unset = ""))) {
+      Sys.setenv(STROKE_ANLR_PROJ = dirname(.cfg))
+    }
+  }
+}
 if ("--days" %in% .args) {
   .di <- which(.args == "--days")[1L]
   if (.di < length(.args)) Sys.setenv(STROKE_ANLR_DAYS = .args[[.di + 1L]])

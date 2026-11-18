@@ -723,10 +723,17 @@ block_baseline_nhanes <- function(ctx, ...) {
   ctx$results$baseline_nhanes_done <- TRUE
   ctx$results$nhanes_baseline_table <- !is.null(tbl_df_w)
 
-  # 暴露指标(index_var)组间比较不显著 → 早停整条 pipeline（基于加权 Table 1 的 p 值）。
-  # 默认开启（开关写死在代码：bl_cfg$early_stop_if_index_ns %||% TRUE），
-  # config$baseline_nhanes 设 early_stop_if_index_ns = FALSE 可临时关闭。
-  if (isTRUE(bl_cfg$early_stop_if_index_ns %||% TRUE)) {
+  # 暴露指标组间比较不显著 → 早停（加权 Table 1）。combo 主指标+搭档均须显著。
+  if (isTRUE(bl_cfg$early_stop_if_index_ns %||% TRUE) &&
+      exists("pipeline_baseline_index_ns_gate", mode = "function")) {
+    pipeline_baseline_index_ns_gate(
+      table_body = tb_weighted$table_body,
+      cfg = cfg,
+      sig_cutoff = sig_cutoff,
+      weighted = TRUE,
+      fmt_fun = fmt_pval
+    )
+  } else if (isTRUE(bl_cfg$early_stop_if_index_ns %||% TRUE)) {
     index_var <- as.character(
       cfg$incidence$index_var %||% cfg$survival$index_var %||%
       cfg$project$index_var   %||% cfg$logistic$index_var %||%

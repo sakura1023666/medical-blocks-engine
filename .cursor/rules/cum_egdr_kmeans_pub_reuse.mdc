@@ -26,6 +26,7 @@ alwaysApply: true
 | 森林 Never/Ever、CI en-dash | `ckm_stroke_forest_free_stats` |
 | 中间 CSV 不进发表 Tables | rebuild → `_internal/`；`ckm_stroke_clean_summary_junk` |
 | Age≥50 纳排日志标签 | `Blocks/02_data_clean/01block_data_clean.R` |
+| Model1 暴露门控 + 分位/k 级联；仍 NS → failed | `Blocks/76/.../03b_block_model1_scheme_cascade.R` + `ckm_stroke_model1_scheme_cascade`；config `success_require_exposure_sig` / `model1_cascade_*` |
 
 ## 正式入口
 
@@ -42,7 +43,7 @@ alwaysApply: true
    - **MICE 表禁止壳**：Table S3/S4 走 `ckm_stroke_fit_mice_assoc()`。协变量无缺失则函数返回 NULL、不出表。`ckm_stroke_assert_mice_not_shell` 拒绝空单元格和与完整病例逐格相同的 Model 2/3。`ckm_stroke_export_assoc_xlsx` 拒绝脚注里的 mirror complete-case / missingness near-zero。
    - **类别名跟轨迹走**：`ckm_stroke_class_display_labels()`。|均值变化| < 类间 Wave4 极差的 25% 时，禁止写成 Rapid decrease。内部因子水平可以仍叫 `Rapid_decrease`，脚注和图例必须用展示名。
    - **连续亚组森林默认每 1 单位**：`ckm_stroke_forest_free_stats` 的 `scale` 默认 `unit`。`scale="sd"` 必须显式 `allow_per_sd=TRUE`。标题写 1-SD 而估计是每 1 单位时直接停止。`expo_lab` 默认跟 `index_lab`，写了 eGDR 而指标不是 eGDR 时停止。Model 3 有缺失协变量且未传 `mice_keep` 时自动插补，Overall n 用分析集。分层变量本身不插补。
-   - **ABSI 例外**：`ckm_stroke_cont_unit_delta("ABSI")=0.1`；Table2/S1/S3/S4 连续行与 Fig S2/S3 一律 **per 0.1**（量纲 ~0.8、cum SD~0.2，per-1 会把 OR/HR 抬到两位数且森林全箭头）。其它指标仍 per 1。
+   - **ABSI 例外（Krakauer 米制）**：`ckm_stroke_cont_unit_delta("ABSI")=0.01`；Table2/S1/S3/S4 连续行与 Fig S2/S3 一律 **per 0.01**（单波 ~0.08、cum SD~0.02）。WC/Height 须 `/100` 再入公式；禁止 cm 直代入（会约偏大 10×）。其它指标仍 per 1。
    - **无序类别不做 P for trend**。三分位趋势留在 Table 2。参照类 0 事件的整层删掉。NE 的 P 经 `ckm_stroke_p_for_estimate_cell` 写成破折号。
    - **OR/HR 三位小数**。两位会把不同模型收成同一字符串。未舍入的连续项系数写 `_internal/*_continuous_full_precision.csv`。
    - **图 1 不印参与者 ID**；人数千分位用逗号，不用空格。
@@ -50,6 +51,8 @@ alwaysApply: true
 
 1. **暴露名跟指标走**：`index_lab` 传入 Table2/S1 构建；禁止表内残留他指标的 `eGDR` 字样（eGDR 课题除外）。
 2. **年龄门控写 config**：`data_clean$age_filter = "Age >= 50"`（或课题界值）；本流水线无 `data_clean` block，靠 ingest 落实。
+2a. **Model1 暴露显著性门控（默认开）**：**连续 Model1 必须 P&lt;α**（`exposure_sig_require_continuous=TRUE`）；仅类别/分位显著不算过门。连续 NS → 直接 `MODEL1_EXPOSURE_NS` → `【failed】`。  
+2b. **类别 Table2 全 NE（参照类 0 事件 / 分离）**：连续已显著时，引擎自动换 k（**优先 k=2**，再 3/4）并重锚定类别，直到类别 OR 可估；`model1_cascade_fix_class_ne=TRUE`（默认）。pipeline_unit 须含 `model1_scheme_cascade`。
 3. **发表定稿走 rebuild**：workers 产出是草稿；定稿 Tables/Figures/Methods/软件版本以 rebuild / redraw 末尾 `ckm_stroke_finalize_summary_delivery` 为准。
 4. **Fig3 默认口径**：RCS 3 knots；面板 Overall \| BMI&lt;30 \| Age≥60；S1 可用访视月 futime。
 5. **tmp / 课题 scripts 热修用完归档**；可复用逻辑必须回写 `R/` / `Blocks/76/` / `run/cum_egdr_kmeans_ckm/`。

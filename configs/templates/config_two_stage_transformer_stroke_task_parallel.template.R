@@ -2,14 +2,11 @@
 #  config_two_stage_transformer_stroke_task_parallel.template.R
 #  缺血性脑卒中两阶段 Transformer 双轨 — 任务并行（共享层 1 次 + Worker 并行）
 #
-#  依据: Yang et al. 2025 Precision Clinical Medicine pbaf003
+#  定稿默认（2026-11-18）：本病白名单 + 不砍维 + SAPSII 对照脱钩；
+#  Methods/图表禁写「迁移/参考 Yang」。细则见 .cursor/rules/tst_paper_flow_defaults.mdc
 #  设计: docs/superpowers/specs/2026-07-27-two-stage-transformer-stroke-design.md
 #  决策树: Decisiontree/decision_tree_two_stage_transformer_stroke.md
-#  单跑版本: configs/templates/config_two_stage_transformer_stroke.template.R
 #  入口: run/two_stage_transformer_stroke/run_two_stage_transformer_stroke_task_parallel.R
-#  Worker: run/two_stage_transformer_stroke/run_two_stage_transformer_stroke_worker.R
-#  Runner（Task7 交付）: R/tst_stroke_task_runner.R ::
-#    tst_stroke_run_task_parallel(root, config, pipeline_shared, units, workers)
 #
 #  复制到研究产出目录后按【必改】修改；勿改 pipeline_* blocks。
 #
@@ -102,16 +99,25 @@ config <- list(
     pause_enable = FALSE
   ),
 
-  # 纵向：day1 缺失>30% 剔特征；再在保留特征×前5天上、前向填前剔患者缺失>30%；然后前向填充
+  # 纵向默认：本病白名单 + 不砍维；纳排已剔高缺失人；小时 ffill + 天 mask
   tst_timeseries = list(
+    lab_format = "eicu_hourly_long",
+    value_col = "mean",
+    hourly_id_col = "stay_id",
+    feature_select_mode = "whitelist",
+    feature_priority_file = file.path(
+      .mb_root, "configs/tst_feature_priority/ischemic_stroke_mimic.R"
+    ),
     feature_missing_threshold = 0.30,
-    density_gate_apply_coverage_drop = TRUE,
-    patient_missing_threshold = 0.30,
+    whitelist_apply_coverage_drop = FALSE,
+    density_gate_apply_coverage_drop = FALSE,
+    patient_missing_threshold = 1.0,
+    patient_missing_drop_before_feature = FALSE,
     patient_missing_days = 5L,
     min_longitudinal_days = 1L,
     temporal_forward_fill = TRUE,
     sliding_window = TRUE,
-    max_export_day = 30L,
+    max_export_day = 5L,
     pause_enable = FALSE
   ),
 
@@ -137,29 +143,24 @@ config <- list(
   tst_stroke = list(
     landmarks = c(24L, 48L, 72L, 96L, 120L),
     split = list(train = 0.7, val = 0.2, test = 0.1, seed = 42L),
-    # 方案 A：日级对齐增强
     sliding_window = TRUE,
-    expand_hours = TRUE,          # 每日快照广播到 24 小时槽（【场景迁移】）
-    max_calendar_day = 30L,
+    expand_hours = FALSE,         # 真小时网格（勿把日快照广播成假 24h）
+    max_calendar_day = 5L,
     n_hours = 24L,
-    temporal_force_skip = TRUE,   # MIMIC 去标识日期；对齐原文「地理外推非时间外」
+    temporal_force_skip = TRUE,
     external = list(mode = "synthetic", is_synthetic = TRUE, n = 200L, seed = 42L),
     model_families = c("A1", "A2", "B", "logistic", "xgb", "mlp", "lstm"),
     ablation_variants = c("mask", "structure"),
-    # 对齐原文约 100 epoch + 早停（A3：patience 盯验证集 val_auc，非 val_loss）
     epochs = 100L,
     worker_epochs = 100L,
     early_stop_patience = 15L,
     early_stop_monitor = "val_auc",
-    # A4：Two-stage = 小时级 Transformer → 日级 Transformer（架构）；非两阶段训练流程；
-    #     arch B 可另加 tabular fusion，但“两阶段”不指表格+时序两路
-    # CPU 训练易超 1h；system2 exit=124=超时。默认 12h，可按机器调大/调小
     python_train_timeout_sec = 43200L,
     max_workers = 4L,
     ram_per_worker_gb = 4.0,
     finalize_blocks = c("tst_literature_validate", "tst_pub_export", "tst_summary_results"),
-    # summary_results 主文图默认 landmark（小时）；每项目尾段必出 summary_results/
-    summary_primary_landmark = 72L,
+    summary_primary_landmark = 120L,
+    comparator_score = "SAPSII",
     expand_full_matrix = TRUE,
     pause_enable = FALSE,
     # A 轨：A1=公开单截止；A2=规范单阶段多截止；B=两阶段多截止（双轨复现方案）

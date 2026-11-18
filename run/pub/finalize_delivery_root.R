@@ -54,6 +54,8 @@ ckm_pub <- file.path(engine, "R/cum_egdr_kmeans_pub.R")
 if (file.exists(ckm_pub)) source(ckm_pub, local = FALSE)
 gs_methods <- file.path(engine, "R/pub_gallstone_methods.R")
 if (file.exists(gs_methods)) source(gs_methods, local = FALSE)
+npc_pub <- file.path(engine, "R/npc_ebv_pet_pub.R")
+if (file.exists(npc_pub)) source(npc_pub, local = FALSE)
 
 dir <- get_opt("--dir", "")
 proj <- get_opt("--project", "")
@@ -272,6 +274,35 @@ is_gallstone <- grepl(
   study_type,
   ignore.case = TRUE
 )
+is_npc_ebv <- grepl(
+  "npc.?ebv|ebv.?pet|npc_ebv_pet",
+  study_type,
+  ignore.case = TRUE
+)
+# NPC EBV×PET：专用 Methods + sync draft→summary_results + 白名单
+if (isTRUE(is_npc_ebv) && exists("npc_ebv_pet_finalize_summary_delivery", mode = "function")) {
+  draft_guess <- get_opt("--draft", "")
+  if (!nzchar(draft_guess)) {
+    sib <- file.path(dirname(dir), "summary（new）")
+    draft_guess <- if (dir.exists(sib)) sib else dir
+  }
+  res <- npc_ebv_pet_finalize_summary_delivery(
+    draft_root = draft_guess,
+    summary_root = dir,
+    project_root = if (nzchar(proj)) proj else dirname(dir),
+    rewrite_methods = TRUE,
+    prune = TRUE,
+    sync_draft = !identical(normalizePath(draft_guess, mustWork = FALSE),
+                            normalizePath(dir, mustWork = FALSE))
+  )
+  cat(
+    "FINALIZE_OK study=npc_ebv_pet dir=", normalizePath(dir),
+    " methods=", isTRUE(res$methods),
+    " software=", isTRUE(res$software),
+    "\n", sep = ""
+  )
+  quit(save = "no", status = 0L)
+}
 # gallstone：走专用收口（方法 + 软件版本 + PDF-only + 白名单），然后退出
 if (isTRUE(is_gallstone) && exists("gallstone_finalize_summary_delivery", mode = "function")) {
   res <- gallstone_finalize_summary_delivery(

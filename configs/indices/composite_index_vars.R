@@ -25,6 +25,31 @@
   "GLR",          # Glucose / Lymphocytes
   "GAR",          # Glucose / Albumin（无 HbA1c 时血糖轴应激比，常与 GV 成对）
   "LactAlb",      # Lactate / Albumin（灌注轴，常与 Lactate_CV 成对）
+  "NAR",          # Neutrophil_Count / Albumin（炎症–营养；常与 Albumin_CV 成对）
+  "WAR",          # WBC / Albumin
+  "NaAR",         # Sodium / Albumin
+  "CaAR",         # CalciumTotal / Albumin（总钙；非离子钙）
+  "UAR",          # Uric_Acid / Albumin
+  "ClAR",         # Chloride / Albumin
+  "KAR",          # Potassium / Albumin
+  "AlbCr",        # Albumin / Creatinine
+  "LymWBC",       # Lymphocytes / WBC
+  "PHAR",         # PH / Albumin
+  "RDWPLT",       # RDW / Platelet_Count
+  "CaNa",         # CalciumTotal / Sodium
+  "PTK",          # PT / Potassium
+  "PTNa",         # PT / Sodium
+  "PTPLT",        # PT / Platelet_Count
+  "PTHb",         # PT / Hemoglobin
+  "PTRBC",        # PT / RBC
+  "PTCr",         # PT / Creatinine
+  "BiliPLT",      # Bilirubin_Total / Platelet_Count
+  "BiliNa",       # Bilirubin_Total / Sodium
+  "BiliWBC",      # Bilirubin_Total / WBC
+  "BiliHb",       # Bilirubin_Total / Hemoglobin
+  "BiliK",        # Bilirubin_Total / Potassium
+  "BiliBUN",      # Bilirubin_Total / BUN
+  "BiliCr",       # Bilirubin_Total / Creatinine
   "WPR",          # WBC / Platelet_Count
   # 血脂（禁止 HDL/LDL 原生透传进库；VLDL=TG/5 Friedewald 估算）
   "VLDL",         # Triglycerides / 5（估算 VLDL-C，mg/dL）
@@ -80,7 +105,7 @@
 
 # ── Group B：含 Waist_circumference，仅 NHANES 可计算 ──────────────────────
 .idx_group_B <- c(
-  "ABSI",         # Waist_circumference / (BMI^(2/3) * Height^(1/2))
+  "ABSI",         # (WC/100) / (BMI^(2/3) * (Height/100)^(1/2))  Krakauer：米制
   "BRI",          # 364.2 - 365.5 * sqrt(1 - (WC/(2*pi)/(0.5*H))^2)
   "WWI",          # Waist_circumference / sqrt(Weight)
   "WHtR",         # Waist_circumference / Height
@@ -97,14 +122,14 @@
   "TyG_WHtR",     # TyG * WHtR
   "TyG_WC",       # TyG * Waist_circumference
   "TyG_WWI",      # TyG * WWI
-  "TyG_ABSI",     # TyG * ABSI
+  "TyG_ABSI",     # TyG * ABSI（ABSI 同米制）
   "MCMI",         # log(TG*Glucose/HDL) * WHtR
   "eGDR",         # 21.158 - 0.09*WC - 3.407*Hypertension - 0.551*HbA1c
   "GNRI",         # 性别条件：1.489*Albumin*10 + 41.7*(Weight/理想体重)
   "ZJU",          # 性别条件：Glucose/18 + BMI + 3*ALT/AST + TG
-  "VAI",          # 性别条件：(WC/(39.68+1.88*BMI))*(TG/1.03)*(1.31/HDL)
+  "VAI",          # Amato：TG/HDL 转 mmol（÷88.57 / ÷38.67）后再入式
   "RFM",          # 性别条件：64 - 20*(Height/WC) [Male]
-  "LAP"           # 性别条件：(WC-65)*TG/88.57 [Male]
+  "LAP"           # Kahn：男 (WC-65)*TG/88.57；女 (WC-58)*TG/88.57
 )
 
 # ── Group C：含 NHANES 特有列（Monocyte/HSCRP/Insulin/UACR）───────────────
@@ -113,8 +138,8 @@
   "SIRI",         # Neutrophil_Count * Monocyte / Lymphocytes
   "MHR",          # Monocyte / HDL
   "NMLR",         # (Monocyte + Neutrophil_Count) / Lymphocytes
-  "CALLY",        # (Albumin/10) * Lymphocytes / (HSCRP*10)
-  "CLR",          # (HSCRP/10) * Lymphocytes
+  "CALLY",        # Albumin * Lymphocytes / HSCRP（Alb g/dL, CRP mg/L, Lym 10^9/L）
+  "CLR",          # HSCRP / Lymphocytes
   "CTI",          # 0.412*log(HSCRP/10) + log(Glucose*TG/2)
   "hs_CRP_HDL_C", # HSCRP / (HDL/1000)
   "RCII",         # (TC - HDL - LDL) * HSCRP / 10
@@ -132,7 +157,7 @@
   "HHR",          # Hematocrit / Hemoglobin
   "ACAG",         # (4.4 - Albumin) * 2.5 + AnionGap
   "METSIR",       # log((2*Glucose+TG)*BMI) / log(HDL)
-  "HOMA_IR",      # Glucose * Insulin / 22.5
+  "HOMA_IR",      # Glucose(mg/dL) * Insulin / 405
   "ALI"           # BMI * Albumin / NLR
 )
 
@@ -141,10 +166,10 @@
   "ePWV",         # 依赖 DBP/SBP → MBP → ePWV（NHANES 有 NBPS/NBPD）
   "sdLDL_C",      # sdLDL = LDL - lbLDL_C (需 LDL + TG)
   "FSI",          # 依赖 ALT/AST 比值 flag + 人口学
-  "METS_VF",      # 依赖 METSIR + WC/Height + Age + Gender
+  "METS_VF",      # METSIR + WHtR + Age + Gender（Male=1）
   "CONUT_score",  # 依赖 alb_score + lymp_score + chol_score
   "HSI",          # 8*(ALT/AST) + BMI + 性别 + 糖尿病
-  "NFS"           # -1.675 + 0.037*Age + ... + 0.99*(ALT/AST) - 0.013*Platelet - 0.66*Albumin
+  "NFS"           # Angulo：… + 0.99*(AST/ALT) - 0.013*Platelet - 0.66*Albumin
 )
 
 # ── 全量指标向量（按组合并）────────────────────────────────────────────────

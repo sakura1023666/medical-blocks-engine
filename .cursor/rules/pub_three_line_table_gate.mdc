@@ -1,0 +1,46 @@
+# 发表表三线表强制闸门（全项目）
+
+凡客户可见交付 `Tables/*.xlsx`（发病 / 预后 / ML / 轨迹 / IPW / dbpool 等所有套路）必须为 **SCI 三线表**：顶线（粗）+ 栏目线（细）+ 底线（粗，**必须落在最后一个数据行**）、**无竖线**、**关网格线**；且 **表题与表注（标注）一律放在表格开头**（表头上方），禁止把表注堆在底线以下。
+
+## 铁律
+
+1. **写出层**：发表表只走 `export_sci_table` → `sci_xlsx_single_header_booktabs` / `.sci_xlsx_double_header_booktabs`（`R/utils.R`），默认已是 booktabs 三线。**禁止**裸 `write.xlsx` / 自建 workbook 当交付表。
+2. **底线对齐最后数据行**：历史课题（openpyxl 往返 / 手写样式 / 脏值兜底）常把底线画早一行，最后一个数据行（如分类变量的 `No` 水平行）落到底线以下。收口闸门负责纠正。
+3. **标注在开头（用户 2026-11-18 指定，全项目）**：
+    - 每张交付表**第 1 行 = 表题，且文本必须 = 文件名 stem**（内题=文件名 P0，`Table N…` / `Table S…` 同规则）；
+    - 表题下方紧接 **副题行（原标题长句）+ 表注行**（统计方法、变量编码口径、Model 定义、结局复合定义、缩写说明等，单格通栏、横向合并占满整行、Times New Roman、自动换行）；
+    - 表注块之后才是**列头行（顶线 medium + 栏目线 thin）**，最后数据行画**底线 medium**；**底线以下不得再有任何单元格内容**（含旧表注）。
+    - 参照版式：文献与其补充材料将每表标注置于表内起始处（标题行/说明块紧贴表题之下、先于数据矩阵）。表注文字内容仍按 `attrition`/NHANES/预后各 P0 册要求写实（MICE m、Rubin、加权公式、检验方法、切点口径等）。
+4. **收口强制闸门（引擎）**：`pub_delivery_scrub_display()`（`R/pub_delivery_prune.R`）在 display scrub 后必跑 `python/pub_xlsx_enforce_three_line.py --dir Tables/`：
+    - 自动把**表尾表注块搬到表头上方**（值零改动、幂等），并把 A1 规范成文件名 stem；
+    - 识别表头行 = 表注块之后首个 ≥2 非空单元格行；表体末行 = 单脚注块（首个单格长文本 ≥50 字符或 ≥15 字符且句读结尾）之前；
+    - 清空全部旧边框后重画三线 + `showGridLines=False`；只动版式层，数值零改动；openpyxl 往返后自动 `xlsx_strip.py`；
+    - 单跑：`Rscript run/pub/finalize_delivery_root.R --dir …/summary_results`（内含本闸门）。
+5. **Block 级挂点**：`tj_pub_export`（`Blocks/82_trajectory_incidence_joint/06block_tj_pub_export.R`）收尾已显式 source `R/pub_delivery_prune.R` 并调 `pub_delivery_scrub_display(DR, root=root)`。新套路收口若未走 `finalize_delivery_root.R`，同样必须调 `pub_delivery_scrub_display`。
+6. **手工返工已交付表**：改完值后必须再跑一次 `python3 python/pub_xlsx_enforce_three_line.py <file>.xlsx`，再 `pub_xlsx_verify`（readable=TRUE, corrupt=0）。
+7. **中期报告同步**：xlsx 表版式改变后须重出中期 PDF。`Aiya-NB004-midterm-report/engine/build_report.py` 已适配：表头上方通栏长文本 = 表注，渲染在 PDF 表格下方（中文报告惯例），标题行渲染为 caption；inspect dump 的「标题行」即表题+表注块。
+
+## 检查清单
+
+- [ ] A1 = 文件名 stem（`Table 1.…` / `Table S5.…` 同号同文）
+- [ ] 表题+表注块在列头**上方**；底线以下零内容
+- [ ] 顶线仅 1 行、栏目线在表头下、底线在**最后一个数据行**
+- [ ] 全表无任何 left/right 边框；`showGridLines=False`
+- [ ] openxlsx 复读 readable 且 corrupt_cells=0；字体仍 Times New Roman
+- [ ] 收口日志出现「三线表强制闸门: N 张 xlsx」且含 `note-block(s) moved to top`（历史底注表）或 0（已是顶注）
+- [ ] 中期 PDF 重出且每表表注可全文检索到
+
+## 反例（禁止）
+
+- 表注块留在底线下方（用户 2026-11-18 点名纠正）
+- A1 内题 ≠ 文件名 stem（如 `Table S2. trajectory model selection` 内题 `Table Trajectory IC …`）
+- 底线停在倒数第二行数据（分类变量 `Yes/No` 的 `No` 行悬在底线之下）
+- 表注区/脚注区被画横线（非三线表）
+- 为改一个单元格整表 `write.xlsx` 重写丢三线样式（见 `pub_table_xlsx_surgical_firth_jlcm`）
+
+## 实现入口
+
+- 闸门：`python/pub_xlsx_enforce_three_line.py`（`relocate_annotations_to_top` + `find_layout` + Border 重画）
+- 挂点：`R/pub_delivery_prune.R` → `pub_delivery_scrub_display`；`Blocks/82_trajectory_incidence_joint/06block_tj_pub_export.R`
+- 写出：`R/utils.R` → `.sci_xlsx_write_three_line_workbook`
+- 中期渲染：`.cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py`（`split_caption` / `grid_to_html_table` / `p.table-note`）

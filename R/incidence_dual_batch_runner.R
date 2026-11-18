@@ -6358,5 +6358,19 @@ run_incidence_dual_batch <- function(root, config,
     }
   }
 
+  # 引擎默认：亚组补救/敏感性之后再删【failed】（嵌套【success】补救产物默认保留）
+  if (!shared_only) {
+    if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+      .pf <- file.path(root, "R/batch_prune_failed.R")
+      if (file.exists(.pf)) source(.pf, local = FALSE)
+    }
+    if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+      tryCatch(
+        batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "index"),
+        error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")
+      )
+    }
+  }
+
   invisible(statuses)
 }

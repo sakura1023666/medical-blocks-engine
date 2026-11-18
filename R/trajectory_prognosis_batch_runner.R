@@ -396,6 +396,18 @@ trajectory_batch_write_summary <- function(config, index_vars) {
     error = function(e) cli::cli_alert_warning("汇总 CSV 写入失败: {e$message}")
   )
   cli::cli_alert_success("汇总表: {.file {csv_path}}")
+
+  if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+    root <- (config$project %||% list())$root %||% getwd()
+    .pf <- file.path(root, "R/batch_prune_failed.R")
+    if (file.exists(.pf)) source(.pf, local = FALSE)
+  }
+  if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+    tryCatch(
+      batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "index"),
+      error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")
+    )
+  }
   invisible(statuses)
 }
 
@@ -428,8 +440,13 @@ trajectory_batch_dispatch_workers <- function(root, config, index_vars,
   rscript_bin <- if (exists("study_rscript_bin", mode = "function")) {
     study_rscript_bin()
   } else {
-    file.path(R.home("bin"), "Rscript")
+    file.path(R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
   }
+  if (!file.exists(rscript_bin)) {
+    stop("找不到 Rscript: ", rscript_bin, call. = FALSE)
+  }
+  # Windows：短路径无 .exe 时 normalizePath(mustWork=TRUE) 会炸，先落到长路径
+  rscript_bin <- normalizePath(rscript_bin, winslash = "/", mustWork = TRUE)
   use_processx <- .Platform$OS.type == "windows" || requireNamespace("processx", quietly = TRUE)
 
   .status_ok <- function(unit) {

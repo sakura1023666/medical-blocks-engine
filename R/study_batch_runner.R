@@ -382,6 +382,7 @@ study_batch_infer_failed_stage <- function(error_message) {
   keys <- c(
     "TRAJECTORY_CLUSTER_FAIL",
     "BASELINE_INDEX_NS_STOP",
+    "MODEL1_EXPOSURE_NS",
     "LASSO_EXPOSURE_NOT_SELECTED",
     "COMPOSITE_NOT_IN_FEATURE_SELECTION",
     "MODEL_COVARIATE_INSUFFICIENT",
@@ -394,6 +395,7 @@ study_batch_infer_failed_stage <- function(error_message) {
   stages <- c(
     "TRAJECTORY_CLUSTER_FAIL",
     "BASELINE_INDEX_NS_STOP",
+    "MODEL1_EXPOSURE_NS",
     "LASSO_EXPOSURE_NOT_SELECTED",
     "COMPOSITE_NOT_IN_FEATURE_SELECTION",
     "MODEL_COVARIATE_INSUFFICIENT",
@@ -634,6 +636,18 @@ run_study_batch <- function(root, config, pipeline_shared, pipeline_unit = NULL,
   finalize_blocks <- as.character(sb$finalize_blocks %||% character(0))
   if (length(finalize_blocks) && sum(statuses$status == "success", na.rm = TRUE) > 0L) {
     study_batch_run_finalize_layer(root, config, finalize_blocks, pipeline_unit = pipeline_unit)
+  }
+
+  # 引擎默认：跑完删除【failed】结果/检查点（省盘）；MEDICAL_BLOCKS_PRUNE_FAILED=0 可关
+  if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+    .pf <- file.path(root, "R/batch_prune_failed.R")
+    if (file.exists(.pf)) source(.pf, local = FALSE)
+  }
+  if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+    tryCatch(
+      batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "unit"),
+      error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")
+    )
   }
 
   if (isTRUE(sb$run_meta_after)) {

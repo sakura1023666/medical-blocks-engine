@@ -71,12 +71,13 @@ compute_indices <- function(df) {
   HTN <- to_htn01(df$Hypertension)
   CRP <- if ("CRP" %in% names(df)) as.numeric(df$CRP) else rep(NA_real_, nrow(df))
 
+  # Krakauer ABSI：WC、Height 用 m（库内为 cm → /100）；用 cm 会约偏大 10 倍
   out <- data.frame(
     ID = as.character(df$ID),
     BMI = BMI,
     WHtR = WC / Ht,
     WWI = WC / sqrt(Wt),
-    ABSI = WC / ((BMI^(2 / 3)) * (Ht^(1 / 2))),
+    ABSI = (WC / 100) / ((BMI^(2 / 3)) * ((Ht / 100)^(1 / 2))),
     BRI = 364.2 - 365.5 * sqrt(pmax(0, 1 - ((WC / (2 * pi)) / (0.5 * Ht))^2)),
     NHHR = (TC - HDL) / HDL,
     NHDL = TC - HDL,

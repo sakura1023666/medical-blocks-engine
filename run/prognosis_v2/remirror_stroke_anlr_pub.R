@@ -9,9 +9,15 @@ suppressPackageStartupMessages({
 })
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L) b else a
-.engine <- if (dir.exists("/mnt/e/01block/01Block-new-Final")) {
-  "/mnt/e/01block/01Block-new-Final"
-} else "E:/01block/01Block-new-Final"
+.engine <- {
+  env <- Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "")
+  if (nzchar(env) && dir.exists(env)) normalizePath(env, winslash = "/", mustWork = TRUE)
+  else if (dir.exists("/mnt/e/01block/01Block-new-Final")) "/mnt/e/01block/01Block-new-Final"
+  else if (dir.exists("E:/01block/01Block-new-Final")) "E:/01block/01Block-new-Final"
+  else if (dir.exists(path.expand("~/medical-blocks/engine"))) {
+    normalizePath(path.expand("~/medical-blocks/engine"), winslash = "/", mustWork = TRUE)
+  } else getwd()
+}
 setwd(.engine)
 source(file.path(.engine, "run/prognosis_v2/stroke_anlr_env.R"), local = FALSE)
 source(file.path(.engine, "R/utils.R"), local = FALSE)

@@ -43,13 +43,15 @@
 #    * /18    → Glucose mg/dL → mmol/L (GPR, SOSM)
 #    * *0.0259→ HDL mg/dL → mmol/L (LHR)
 #    * 28.7 / 46.7 → eAG = 28.7*HbA1c - 46.7 (SHR)
-#    * /22.5  → HOMA-IR 常数 (Glucose mg/dL * Insulin uU/mL)
+#    * /405   → HOMA-IR（Glucose mg/dL × Insulin µU/mL）；mmol/L 时用 /22.5
 #    * /40    → AST 正常值上限 ULN=40 IU/L (APRI = (AST/ULN)/Platelet(10^9/L)*100)
 #
 #  AFR = Fibrinogen(mg/dL)*10/Albumin(g/dL)，文献常用 ×1000 尺度 FAR
 #  BUN_Cr = BUN(mg/dL)/Creatinine(mg/dL)，肾前性氮质血症常用比值
 #  UA_CR  = Uric_Acid(mg/dL)/Creatinine(mg/dL)，即 UA/CR（无量纲比值）
 #  旧名 UA_CrR / 原始列 UA_Cr 见 R/index_canonical.R，批量只跑 UA_CR
+#  CALLY = Albumin(g/dL)*Lymphocytes/HSCRP(mg/L)（≡ Alb(g/L)*Lym/(CRP*10)）
+#  CLR   = HSCRP(mg/L)/Lymphocytes(10^9/L)；勿写成乘积
 ###############################################################################
 
 # ── 指标定义（按依赖顺序）─────────────────────────────────────────────────────
@@ -210,6 +212,95 @@
     list(name = "LactAlb",
          expr = "Lactate / Albumin",
          digits = 4),
+    # 炎症–营养轴白蛋白比（文献比值；常与 Albumin_CV 同轴成对）
+    # NAR = ANC(10^9/L) / Albumin(g/dL)；勿用中性粒百分比
+    list(name = "NAR",
+         expr = "Neutrophil_Count / Albumin",
+         digits = 4),
+    # WAR = WBC(10^9/L) / Albumin(g/dL)
+    list(name = "WAR",
+         expr = "WBC / Albumin",
+         digits = 4),
+    # NaAR = Sodium(mEq/L) / Albumin(g/dL)
+    list(name = "NaAR",
+         expr = "Sodium / Albumin",
+         digits = 4),
+    # CaAR = 血清总钙 CalciumTotal(mg/dL) / Albumin；禁止 Free_Calcium/离子钙
+    list(name = "CaAR",
+         expr = "CalciumTotal / Albumin",
+         digits = 4),
+    # UAR = 尿酸(mg/dL) / Albumin(g/dL)；文献尿酸–营养轴
+    list(name = "UAR",
+         expr = "Uric_Acid / Albumin",
+         digits = 4),
+    # ClAR / KAR 等电解质–白蛋白比（文献同轴筛选用）
+    list(name = "ClAR",
+         expr = "Chloride / Albumin",
+         digits = 4),
+    list(name = "KAR",
+         expr = "Potassium / Albumin",
+         digits = 4),
+    # AlbCr = Albumin/Creatinine（CAR 倒数；营养–肾轴）
+    list(name = "AlbCr",
+         expr = "Albumin / Creatinine",
+         digits = 4),
+    # LymWBC = 淋巴占白细胞比；常与 WBC_CV 同轴
+    list(name = "LymWBC",
+         expr = "Lymphocytes / WBC",
+         digits = 4),
+    # PHAR = 动脉血 pH / Albumin
+    list(name = "PHAR",
+         expr = "PH / Albumin",
+         digits = 4),
+    # RDWPLT = RDW / Platelet；常与 Platelet_CV 同轴
+    list(name = "RDWPLT",
+         expr = "RDW / Platelet_Count",
+         digits = 4),
+    # CaNa = 总钙 / 钠；常与 Sodium_CV 同轴（列名跟 CaAR：CalciumTotal）
+    list(name = "CaNa",
+         expr = "CalciumTotal / Sodium",
+         digits = 4),
+    # 凝血–白蛋白同轴筛：PT 比值 × Albumin_CV（文献可检索凝血/电解质或血细胞联合）
+    list(name = "PTK",
+         expr = "PT / Potassium",
+         digits = 4),
+    list(name = "PTNa",
+         expr = "PT / Sodium",
+         digits = 4),
+    list(name = "PTPLT",
+         expr = "PT / Platelet_Count",
+         digits = 4),
+    list(name = "PTHb",
+         expr = "PT / Hemoglobin",
+         digits = 4),
+    list(name = "PTRBC",
+         expr = "PT / RBC",
+         digits = 4),
+    list(name = "PTCr",
+         expr = "PT / Creatinine",
+         digits = 4),
+    # 胆红素比值 × Albumin_CV（肝胆–营养同轴筛）
+    list(name = "BiliPLT",
+         expr = "Bilirubin_Total / Platelet_Count",
+         digits = 4),
+    list(name = "BiliNa",
+         expr = "Bilirubin_Total / Sodium",
+         digits = 4),
+    list(name = "BiliWBC",
+         expr = "Bilirubin_Total / WBC",
+         digits = 4),
+    list(name = "BiliHb",
+         expr = "Bilirubin_Total / Hemoglobin",
+         digits = 4),
+    list(name = "BiliK",
+         expr = "Bilirubin_Total / Potassium",
+         digits = 4),
+    list(name = "BiliBUN",
+         expr = "Bilirubin_Total / BUN",
+         digits = 4),
+    list(name = "BiliCr",
+         expr = "Bilirubin_Total / Creatinine",
+         digits = 4),
     list(name = "UA_CR",
          expr = "Uric_Acid / Creatinine",
          digits = 4),
@@ -295,8 +386,9 @@
          digits = 4),
 
     # --- 体脂 / 体型 ---
+    # Krakauer：WC、Height 须为 m（库内 cm → /100）；用 cm 会约偏大 10 倍
     list(name = "ABSI",
-         expr = "Waist_circumference / ((BMI^(2/3)) * (Height^(1/2)))",
+         expr = "(Waist_circumference / 100) / ((BMI^(2/3)) * ((Height / 100)^(1/2)))",
          digits = 4),
     list(name = "BRI",
          expr = paste0(
@@ -370,11 +462,13 @@
            "/ Lymphocytes"
          ),
          digits = 4),
+    # CALLY: Alb(g/L)*Lym(10^9/L)/(CRP(mg/L)*10)；库内 Alb=g/dL → *10，等价 Alb*Lym/HSCRP
     list(name = "CALLY",
-         expr = "(Albumin / 10) * Lymphocytes / (HSCRP * 10)",
+         expr = "Albumin * Lymphocytes / HSCRP",
          digits = 4),
+    # CLR: CRP(mg/L) / Lymphocytes(10^9/L)；勿写成乘积
     list(name = "CLR",
-         expr = "(HSCRP / 10) * Lymphocytes",
+         expr = "HSCRP / Lymphocytes",
          digits = 4),
     list(name = "CTI",
          expr = paste0(
@@ -416,7 +510,7 @@
     list(name = "TyG_ABSI",
          expr = paste0(
            "log((Glucose * Triglycerides) / 2) * ",
-           "(Waist_circumference / ((BMI^(2/3)) * (Height^(1/2))))"
+           "((Waist_circumference / 100) / ((BMI^(2/3)) * ((Height / 100)^(1/2))))"
          ),
          digits = 4),
 
@@ -429,8 +523,9 @@
          digits = 4),
 
     # --- 糖代谢衍生 ---
+    # Glucose=mg/dL、Insulin=µU/mL → /405；勿用 mmol 口径 /22.5
     list(name = "HOMA_IR",
-         expr = "Glucose * Insulin / 22.5",
+         expr = "Glucose * Insulin / 405",
          digits = 4),
     list(name = "MCMI",
          expr = paste0(
@@ -454,11 +549,12 @@
            "ifelse(Diabetes == 'Yes', 2, 0)"
          ),
          digits = 4),
+    # Angulo 2007：系数为 AST/ALT（勿写成 ALT/AST）
     list(name = "NFS",
          expr = paste0(
            "-1.675 + 0.037 * Age + 0.094 * BMI + ",
            "1.13 * ifelse(Diabetes == 'Yes', 1, 0) + ",
-           "0.99 * (ALT / AST) - 0.013 * Platelet_Count - ",
+           "0.99 * (AST / ALT) - 0.013 * Platelet_Count - ",
            "0.66 * Albumin"
          ),
          digits = 4)
@@ -552,11 +648,12 @@
          digits = 4),
 
     # METSIR → METS_VF
+    # Sex：Male=1 / Female=0（与库内 Gender 字符水平对齐，勿写 Gender==1）
     list(name = "METS_VF",
          expr = paste0(
            "4.466 + 0.011 * (log(METSIR))^3 + ",
            "3.239 * (log(Waist_circumference / Height))^3 + ",
-           "0.319 * ifelse(Gender == 1, 1, 0) + ",
+           "0.319 * ifelse(Gender == 'Male', 1, 0) + ",
            "0.594 * log(Age)"
          ),
          digits = 4)
@@ -582,13 +679,14 @@
          ),
          digits = 4),
 
+    # Amato 2010：TG/HDL 须 mmol/L（mg/dL ÷88.57 / ÷38.67）
     list(name = "VAI",
          expr = paste0(
            "dplyr::case_when(",
            "Gender == 'Male' ~ (Waist_circumference / (39.68 + 1.88 * BMI)) * ",
-           "(Triglycerides / 1.03) * (1.31 / HDL), ",
+           "((Triglycerides / 88.57) / 1.03) * (1.31 / (HDL / 38.67)), ",
            "Gender == 'Female' ~ (Waist_circumference / (36.58 + 1.89 * BMI)) * ",
-           "(Triglycerides / 0.81) * (1.52 / HDL), ",
+           "((Triglycerides / 88.57) / 0.81) * (1.52 / (HDL / 38.67)), ",
            "TRUE ~ NA_real_)"
          ),
          digits = 4),
@@ -602,11 +700,12 @@
          ),
          digits = 4),
 
+    # Kahn 2005：男 WC−65、女 WC−58；TG mmol/L（÷88.57）
     list(name = "LAP",
          expr = paste0(
            "dplyr::case_when(",
            "Gender == 'Male' ~ (Waist_circumference - 65) * Triglycerides / 88.57, ",
-           "Gender == 'Female' ~ (Waist_circumference - 85) * Triglycerides / 88.57, ",
+           "Gender == 'Female' ~ (Waist_circumference - 58) * Triglycerides / 88.57, ",
            "TRUE ~ NA_real_)"
          ),
          digits = 4),
@@ -852,8 +951,9 @@ pipeline_exclusion_normalize_name <- function(x) {
     c("Platelet_Count", "PLT", "PlateletCount", "Platelets", "platelet"),
     c("Albumin", "ALB", "albumin"),
     c("Hemoglobin", "Hb", "HGB", "hemoglobin"),
-    c("Neutrophil_Count", "Neutrophils", "NEUT"),
+    c("Neutrophil_Count", "NeutrophilCount", "Neutrophils", "NEUT"),
     c("Lymphocytes", "Lymphocyte", "LYM", "Lymphocyte_Count"),
+    c("CalciumTotal", "Calcium", "Calcium_Total", "Total_Calcium"),
     c("AST", "Aspartate_Aminotransferase", "GOT"),
     c("ALT", "Alanine_Aminotransferase", "GPT")
   )

@@ -161,8 +161,11 @@ gbmtm_fit <- function(d, k, deg = 2, n_start = 10, maxit = 400, tol = 1e-5, seed
   out
 }
 
-#' 逐 K 拟合 + 选择（AIC/BIC 主判据；min AvePP≥0.70 且最小类占比≥5% 为软门槛）
-gbmtm_select <- function(d, k_range = 2:6, deg = 2, n_start = 10, seed = 42L) {
+#' 逐 K 拟合 + 选择（AIC/BIC 主判据；min AvePP 且最小类占比为软门槛）
+#' k_lock：按对标文献口径显式锁定 K（如 Liu 2026 "K = 4 selected for both
+#' approaches"）；门槛数值与锁定决策须在 S4 表注/Methods 如实披露
+gbmtm_select <- function(d, k_range = 2:6, deg = 2, n_start = 10, seed = 42L,
+                         k_lock = NULL, avepp_min = 0.70, min_prop_floor = 0.05) {
   fits <- lapply(k_range, function(k) {
     message("GBMTM K=", k)
     gbmtm_fit(d, k = k, deg = deg, n_start = n_start, seed = seed)
@@ -173,13 +176,16 @@ gbmtm_select <- function(d, k_range = 2:6, deg = 2, n_start = 10, seed = 42L) {
                min_occ = round(min(f$occ, na.rm = TRUE), 1), min_prop = round(f$min_prop, 4),
                converged = f$converged)
   }))
-  ok <- tab$min_avepp >= 0.70 & tab$min_prop >= 0.05
+  ok <- tab$min_avepp >= avepp_min & tab$min_prop >= min_prop_floor
   pick_aic <- tab$K[which.min(tab$AIC)]; pick_bic <- tab$K[which.min(tab$BIC)]
-  Kopt <- if (any(ok)) {
+  Kopt <- if (!is.null(k_lock) && k_lock %in% tab$K) {
+    k_lock
+  } else if (any(ok)) {
     tabo <- tab[ok, ]
     if (pick_aic %in% tabo$K) pick_aic else tabo$K[which.min(tabo$BIC)]
   } else pick_bic
-  list(table = tab, fits = fits, K_opt = Kopt, pick_aic = pick_aic, pick_bic = pick_bic)
+  list(table = tab, fits = fits, K_opt = Kopt, pick_aic = pick_aic, pick_bic = pick_bic,
+       locked = !is.null(k_lock) && k_lock %in% tab$K)
 }
 
 #' 升序风险命名：按基线（t_grid 首点）两指标 z 均值之和排序
