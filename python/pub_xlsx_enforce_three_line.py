@@ -182,12 +182,13 @@ def relocate_annotations_to_top(ws, title_stem=None) -> int:
 
     for i, txt in enumerate(ordered, start=1):
         c = ws.cell(row=i, column=1, value=txt)
+        is_title = bool(TITLE_RE.match(txt))
         if Alignment is not None:
             c.alignment = Alignment(
-                horizontal="center" if i == 1 else "left",
+                horizontal="center" if is_title else "left",
                 vertical="top", wrap_text=True)
             c.font = Font(name="Times New Roman", size=12,
-                          bold=(i == 1 and bool(TITLE_RE.match(txt))))
+                          bold=(i == 1 or is_title))
         try:
             ws.merge_cells(start_row=i, start_column=1, end_row=i, end_column=maxc)
             est = max(1, (len(txt) // 110) + 1)
