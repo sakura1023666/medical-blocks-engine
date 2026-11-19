@@ -103,6 +103,7 @@ config <- list(
   ),
   multicollinearity = list(
     vif_threshold_strict = 4, vif_threshold_loose = 10, min_vars_threshold = 0,
+    pause_on_empty_final = FALSE,
     exclude_vars = c("subject_id", "survival_time_28d", "survival_28d", .leak_admin_vars),
     screen = list(csv_name = "VIF_check_screen.csv"),
     final = list(csv_name = "VIF_check_final.csv")
@@ -165,7 +166,12 @@ config <- list(
     subgroup_vars = c("Gender", "Race", "Ventilation")
   ),
   trajectory_baseline_by_class = list(index_vars = NULL, vars_from = "table1"),
-  trajectory_chisq = list(index_vars = NULL, use_optimal_class_ng = TRUE, outcome_vars = c("survival_28d"), p_threshold = 1.0),
+  trajectory_chisq = list(
+    index_vars = NULL, use_optimal_class_ng = TRUE,
+    outcome_vars = c("survival_28d"), p_threshold = 1.0,
+    pause_on_no_results = FALSE,
+    pause_on_all_ns = FALSE
+  ),
 
   trajectory_pamm = list(
     index_vars = NULL,
@@ -253,6 +259,9 @@ config$trajectory_batch <- list(
   index_vars = NULL, index_group = "dual_safe",
   parallel_workers = "auto",
   worker_script = "run/trajectory_prognosis/run_trajectory_prognosis_copd_jlcm_batch_worker.R",
+  min_n_after_index = 50L,
+  exclude_published = character(0),
+  exclude_principle_fail = c("SII", "PLR", "GLR", "LactAlb", "PHR"),
   discovery_first = TRUE
 )
 

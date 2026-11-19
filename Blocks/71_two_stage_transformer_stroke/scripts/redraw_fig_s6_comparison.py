@@ -28,6 +28,17 @@ REPO = Path(r"E:/01block/01Block-new-Final")
 if not REPO.exists():
     REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+try:
+    from tst_mpl_times import setup_times_roman
+
+    setup_times_roman()
+except Exception:
+    matplotlib.rcParams["font.family"] = "serif"
+    matplotlib.rcParams["font.serif"] = ["Times New Roman", "Liberation Serif", "Nimbus Roman"]
+    matplotlib.rcParams["pdf.fonttype"] = 42
 
 from python.two_stage_transformer.baselines import (  # noqa: E402
     _day_sequence_features,
@@ -403,7 +414,7 @@ def main():
     ax.set_ylim(0, 1.08)
     ax.set_xticks(x0)
     ax.set_xticklabels([lab for _, lab in metrics], fontsize=11)
-    ax.set_ylabel("Mean ± SD", fontsize=11)
+    ax.set_ylabel("Mean +/- SD", fontsize=11)
     ax.set_title(f"Comparison of Models (Day {bar_day}, test set)", fontsize=13)
     ax.yaxis.grid(True, linestyle="--", alpha=0.5)
     ax.set_axisbelow(True)

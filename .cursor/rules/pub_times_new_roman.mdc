@@ -10,10 +10,10 @@ alwaysApply: true
 ## 铁律
 
 1. **表**：`sci_xlsx_*` / guan-style Table1 / `openxlsx::createStyle` 的 `fontName` 必须为 `"Times New Roman"`；禁止 Arial/Calibri/Helvetica 当发表表字体。
-2. **图**：ggplot / 森林 / KM / RCS / SHAP 导出走 `resolve_plot_font_family()` / `pipeline_pdf_device()` / `theme` 的 Times 系；`cairo_pdf` 优先嵌入 TrueType Times New Roman。
-3. **禁止**课题脚本私设 `family = "sans"` / `"Arial"` 覆盖发表默认（截图类白名单除外）。
+2. **图**：ggplot / 森林 / KM / RCS / SHAP 导出走 `resolve_plot_font_family()` / `pipeline_pdf_device()` / `theme` 的 Times 系；`cairo_pdf` **优先 Liberation/DejaVu Serif**，再试 Times New Roman；**实测后拒 Noto/CJK 替身**（否则 Adobe 打不开，见 `pub_pdf_openable_latin_serif`）。
+3. **禁止**课题脚本私设 `family = "sans"` / `"Arial"` / 裸 `"Times"` 覆盖发表默认（截图类白名单除外）。
 4. **收口**：`finalize_delivery_root` 经 `pub_delivery_scrub_display` **强制 xlsx Times**（`python/pub_xlsx_scrub_display.py`）；图走 `pub_figure_ensure_formats` / 引擎 theme。
-5. **与禁下划线同级**：新课题检查清单同时勾「无 `_`」+「Times New Roman」。
+5. **与禁下划线同级**：新课题检查清单同时勾「无 `_`」+「Times 系衬线」+「PDF 无 NotoCJK」。
 6. **禁止**课题再复制 `xlsx_force_times` 私有脚本；薄兼容入口仅 `R/pub_xlsx_force_times.R`（转调 scrub `--times-only`）。
 
 ## 实现入口
@@ -23,14 +23,16 @@ alwaysApply: true
 - LASSO-Cox：`Blocks/19_feature_selection/10block_feature_selection_lasso_cox.R` → `pipeline_pdf_device`（禁止裸 `pdf()`→Helvetica）
 - SHAP：`Blocks/17_shap/01block_shap.R` → `plot_font_from_config` / Times（禁止默认 `sans`）
 - 表 scrub（禁下划线 + **Times 强制**）：`python/pub_xlsx_scrub_display.py` ← `pub_delivery_scrub_display`
-- **结构 QC Layer A4**：`R/pub_qc_fonts.R` → `pub_qc_scan_fonts`（挂 `pub_qc_run_after_project`）；Helvetica/Arial/sans = **P0 FAIL**；括号文件名须 shell-quote
+- **结构 QC Layer A4**：`R/pub_qc_fonts.R` → `pub_qc_scan_fonts`（挂 `pub_qc_run_after_project`）；Helvetica/Arial/sans/**NotoCJK** = **P0 FAIL**；括号文件名须 shell-quote
+- 可打开性：`pub_pdf_openable_latin_serif.mdc`；`tests/test_pub_pdf_font_no_cjk.R`
 
 ## 检查清单
 
 - [ ] 新导 xlsx 样式 `fontName = Times New Roman`
-- [ ] 新导 PDF 经 `pdffonts` 为 Times / TimesNewRoman / LiberationSerif / Nimbus Roman 等衬线，无 Arial/Helvetica 主文
-- [ ] 课题未写死 sans/Arial 覆盖发表 theme
+- [ ] 新导 PDF 经 `pdffonts` 为 Times / LiberationSerif / DejaVuSerif / Nimbus Roman 等衬线，无 Arial/Helvetica/**Noto*CJK** 主文
+- [ ] 课题未写死 sans/Arial/裸 Times 覆盖发表 theme
 - [ ] `run_pub_qc_after_project.R` 报告「发表字体 Times 门控：PASS」
+- [ ] Adobe/常用阅读器能打开主文 Fig PDF
 
 ## 反例（禁止）
 
@@ -39,3 +41,4 @@ alwaysApply: true
 - LASSO / 任意 base 图用裸 `grDevices::pdf()` 落到 Helvetica
 - SHAP 默认 `sans` / NimbusSans
 - Linux 上对 `pdf()` 强传 `"Times New Roman"` 报 unknown family 却不走 `resolve_plot_font_family`
+- `cairo_pdf(family="Times")` 实际嵌入 NotoSerifCJK，pypdf 能读但 Adobe 打不开

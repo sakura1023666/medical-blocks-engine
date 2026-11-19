@@ -44,10 +44,17 @@ pv2_cox_fit_raw <- function(d, rhs, time_var = "futime_years", event_var = "fust
 pv2_cox_extract <- function(d, rhs, mids = NULL, time_var = "futime_years",
                             event_var = "fustatus", exposure_keep = character(0),
                             weighted = FALSE, rubin = TRUE) {
-  engine <- if (dir.exists("E:/01block/01Block-new-Final")) {
-    "E:/01block/01Block-new-Final"
-  } else {
-    "/mnt/e/01block/01Block-new-Final"
+  engine_cands <- c(
+    Sys.getenv("MEDICAL_BLOCKS_ROOT", ""),
+    "/home/user01/medical-blocks/engine",
+    "/mnt/e/01block/01Block-new-Final",
+    "E:/01block/01Block-new-Final",
+    getwd()
+  )
+  engine <- engine_cands[nzchar(engine_cands) &
+    vapply(engine_cands, function(p) file.exists(file.path(p, "R/mi_rubin_pool.R")), logical(1))][1]
+  if (!length(engine) || is.na(engine)) {
+    stop("pv2_cox_extract: cannot find R/mi_rubin_pool.R (set MEDICAL_BLOCKS_ROOT)")
   }
   if (!exists("mi_rubin_pool_estimates", mode = "function")) {
     source(file.path(engine, "R/mi_rubin_pool.R"), local = FALSE)

@@ -350,6 +350,52 @@ pv2_pub_p0_gate <- function(
     ))
   }
 
+  # ---- Table S4 / Figure 5：连续指标无协变量 ROC（COPD ALBI 2026-11；禁 Cox LP）----
+  if (!exists("pv2_index_roc_audit_delivery_text", mode = "function", inherits = TRUE)) {
+    for (cand in c(
+      file.path(getwd(), "R/pv2_index_roc.R"),
+      "R/pv2_index_roc.R",
+      file.path(Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = ""), "R/pv2_index_roc.R")
+    )) {
+      if (nzchar(cand) && file.exists(cand)) {
+        sys.source(cand, envir = environment())
+        break
+      }
+    }
+  }
+  .pv2_p0_audit_s4_fig5_roc <- function(blob) {
+    if (exists("pv2_index_roc_audit_delivery_text", mode = "function", inherits = TRUE)) {
+      return(pv2_index_roc_audit_delivery_text(blob))
+    }
+    out <- character(0)
+    if (grepl("Cox\\s*LP|Cox linear predictor|linear predictor of", blob, ignore.case = TRUE)) {
+      out <- c(out, "S4/Fig5: Cox LP / linear predictor wording (must be continuous index unadjusted)")
+    }
+    out
+  }
+  s4_paths <- list.files(tab_dir, pattern = "^Table S4.*\\.xlsx$", full.names = TRUE, ignore.case = TRUE)
+  fig5_pdf <- .pv2_p0_find_fig(fig_dir, check_fig_numbers$roc %||% 5L)
+  fig5_txt <- .pv2_p0_pdf_text(fig5_pdf)
+  fig5_md_blob <- ""
+  md5_dir <- file.path(fig_dir, "image_information")
+  if (dir.exists(md5_dir)) {
+    m5 <- list.files(md5_dir, pattern = "^Figure 5", full.names = TRUE)
+    if (length(m5)) fig5_md_blob <- paste(readLines(m5[[1L]], warn = FALSE), collapse = "\n")
+  }
+  s4_blob <- if (length(s4_paths)) {
+    paste(vapply(s4_paths, .pv2_p0_xlsx_text_blob, character(1)), collapse = "\n")
+  } else ""
+  roc_blob <- paste(c(s4_blob, fig5_txt %||% "", fig5_md_blob), collapse = "\n")
+  checks$s4_paths <- s4_paths
+  checks$fig5_pdf <- fig5_pdf
+  if (length(s4_paths) || nzchar(fig5_md_blob) || (!is.na(fig5_txt) && nzchar(fig5_txt))) {
+    roc_fails <- .pv2_p0_audit_s4_fig5_roc(roc_blob)
+    checks$s4_fig5_roc_audit <- roc_fails
+    if (length(roc_fails)) fails <- c(fails, roc_fails)
+  } else {
+    warns <- c(warns, "Table S4 / Figure 5 not found — skip continuous-index ROC audit")
+  }
+
   # ---- PH table（勿把 "Table 3. Cox proportional hazards" 主表误判为 PH 表）----
   if (isTRUE(require_ph_table)) {
     all_t <- list.files(tab_dir, full.names = TRUE)

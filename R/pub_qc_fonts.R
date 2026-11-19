@@ -14,9 +14,66 @@
 
 .pub_qc_font_deny_re <- function() {
   # 含子集前缀名（如 KJQHEV+NimbusSans-Regular）
+  # Noto/CJK/SourceHan：Linux 上「Times」常被映到 CJK，Adobe/部分阅读器直接打不开
   paste0(
     "(?i)(^|[+])(helvetica|arial|courier|sans|calibri|segoe|",
-    "nimbussans|dejavu.?sans|liberation.?sans|free.?sans)"
+    "nimbussans|dejavu.?sans|liberation.?sans|free.?sans|",
+    "noto|source.?han|cjk|wenquan|droid.?sans.?fallback|simsun|simhei|microsoft.?yahei)"
+  )
+}
+
+#' 抽出 PDF 内嵌/引用字体名（优先 pdffonts；失败则扫原始字节常见 CJK token）
+pub_pdf_font_names <- function(path) {
+  path <- as.character(path %||% "")[1L]
+  if (!nzchar(path) || !file.exists(path)) return(character(0))
+  pf <- Sys.which("pdffonts")
+  if (!nzchar(pf)) {
+    for (cand in c("/usr/bin/pdffonts", "/usr/local/bin/pdffonts")) {
+      if (file.exists(cand)) { pf <- cand; break }
+    }
+  }
+  if (nzchar(pf) && file.exists(pf)) {
+    out <- tryCatch({
+      cmd <- paste(shQuote(pf), shQuote(normalizePath(path, winslash = "/", mustWork = TRUE)))
+      suppressWarnings(system(cmd, intern = TRUE))
+    }, error = function(e) character(0))
+    if (length(out) >= 3L) {
+      body <- out[-(1:2)]
+      nms <- vapply(body, function(ln) {
+        cols <- strsplit(trimws(ln), "\\s{2,}")[[1]]
+        if (!length(cols)) return(NA_character_)
+        nm <- cols[[1L]]
+        if (!nzchar(nm) || grepl("^-+$", nm) || identical(nm, "name")) NA_character_ else nm
+      }, character(1L), USE.NAMES = FALSE)
+      return(unique(stats::na.omit(nms)))
+    }
+  }
+  # 兜底：字节里搜常见坏字体 token（null 安全）
+  n <- min(as.integer(file.info(path)$size %||% 0L), 4e6L)
+  if (!is.finite(n) || n < 32L) return(character(0))
+  raw <- tryCatch(readBin(path, what = "raw", n = n), error = function(e) raw(0))
+  if (!length(raw)) return(character(0))
+  # 只保留可打印 ASCII，避免 rawToChar 因 NUL 失败
+  raw[raw < as.raw(32L) | raw > as.raw(126L)] <- as.raw(32L)
+  txt <- rawToChar(raw, multiple = FALSE)
+  hits <- character(0)
+  for (tok in c(
+    "NotoSerifCJK", "NotoSansCJK", "SourceHan", "WenQuanYi",
+    "DroidSansFallback", "SimSun", "SimHei", "MicrosoftYaHei"
+  )) {
+    if (grepl(tok, txt, fixed = TRUE)) hits <- c(hits, tok)
+  }
+  unique(hits)
+}
+
+#' PDF 是否含会令 Adobe 打不开的 CJK/Noto 等字体
+pub_pdf_has_unsafe_cjk_font <- function(path) {
+  nms <- pub_pdf_font_names(path)
+  if (!length(nms)) return(FALSE)
+  grepl(
+    "(?i)noto|source.?han|cjk|wenquan|droid.?sans.?fallback|simsun|simhei|yahei",
+    paste(nms, collapse = " "),
+    perl = TRUE
   )
 }
 

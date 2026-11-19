@@ -179,13 +179,21 @@ DEFAULT_AKI_MIMIC = {
 
 
 def _norm_proj_path(p: Path | str) -> Path:
-    """WSL /mnt/g/... → G:/... so Windows torch python can open SMB paths."""
+    """WSL /mnt/g/... → G:/... only when Windows path is readable (torch python).
+
+    Linux python3 must keep /mnt/g/... — G:/ is not mounted in WSL userspace.
+    """
     s = str(p).replace("\\", "/")
+    raw = Path(s)
+    if raw.exists():
+        return raw
     if s.startswith("/mnt/") and len(s.split("/")) >= 4:
         drive = s.split("/")[2].upper()
         rest = "/".join(s.split("/")[3:])
-        return Path(f"{drive}:/{rest}")
-    return Path(p)
+        win = Path(f"{drive}:/{rest}")
+        if win.exists():
+            return win
+    return raw
 
 
 def _read_flowchart_csv(proj: Path) -> dict[str, dict]:

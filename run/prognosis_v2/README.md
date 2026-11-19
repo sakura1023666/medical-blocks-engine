@@ -22,6 +22,7 @@
 | 图四目录 / DPI≥600 | `R/pub_figure_export.R` | `pub_figure_ensure_formats` |
 | Nature 结构 QC | `run/pub/run_pub_qc_after_project.R` | Agent 再填 nature-statistics / nature-figure |
 | 预后 P0 机器门控（Hip 教训） | `R/pv2_pub_p0_gate.R` | remirror 收尾 `pv2_pub_p0_gate()`；规则 `prognosis_v2_pub_p0_gate.mdc` |
+| Table S4 / Fig5 单指标 ROC（禁 Cox LP） | `R/pv2_index_roc.R` | `pv2_index_roc_fit` / `pv2_index_roc_curve_by_db`；门控扫 Cox LP 文案 |
 
 说明见 `run/pub/README.md`、`docs/reuse/2026-10-23-prognosis-v2-hip-aki-pub-reuse-map.md`。
 
@@ -47,4 +48,5 @@
 5. **单库**：表/图文件名不加数据库前缀（`R/pv2_pub_names.R`）；多库才 `Table 1-NHANES.…`。
 6. **插补**：默认 `m=5`。Cox 必须 Rubin 合并；Boruta/图可用 complete#1。
 7. **S7/S8 协变量必须与脚注一致**：默认同 Table 3 Model 3；若因概念重叠（如 CHARLSON vs OASIS）改用 Model 2，脚注写明 Model 2 + 理由，**禁止**假称 Model 3 /「与 Table 2 一致」，也禁止把概念重叠写成假 VIF 共线。
-8. **收尾必跑** `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear/knots、禁下划线、PH/Methods、S5 landmark、Fig7 Overall=Table3 M1、暴露 not-computable⇒选择偏倚句）。见 `docs/reuse/2026-11-16-stroke-anlr-14d-p0-reuse-map.md`。
+8. **收尾必跑** `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear/knots、禁下划线、PH/Methods、S5 landmark、Fig7 Overall=Table3 M1、暴露 not-computable⇒选择偏倚句、**S4/Fig5 连续指标无协变量 ROC**）。见 `docs/reuse/2026-11-16-stroke-anlr-14d-p0-reuse-map.md`、`docs/reuse/2026-11-19-pv2-index-roc-unadjusted-reuse-map.md`。
+9. **Table S4 / Figure 5** 必须走 `R/pv2_index_roc.R`（continuous, unadjusted）。禁止 remirror/rebuild 手写 Cox LP + Age/GCS/Sodium 当主文 ROC。

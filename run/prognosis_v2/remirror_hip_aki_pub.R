@@ -22,6 +22,7 @@ source(file.path(.engine, "R/cox_gate.R"), local = FALSE)
 source(file.path(.engine, "R/quantile_scheme_cascade.R"), local = FALSE)
 source(file.path(.engine, "R/subgroup_forest_plot.R"), local = FALSE)
 source(file.path(.engine, "R/pv2_table1_smd.R"), local = FALSE)
+source(file.path(.engine, "R/pv2_index_roc.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/draw_fig1_nhanes.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 
@@ -508,26 +509,17 @@ if (file.exists(.s3_script)) {
   warning("missing _rebuild_tables3_hip_aki.R")
 }
 
-# S4 ROC：与 Fig5 同源（Cox LP；图注不写协变量名单）
-.roc_covs <- intersect(c("Age", "CHARLSON", "Sodium"), names(d))
+# S4 ROC：引擎 pv2_index_roc（连续指标无协变量；与 Fig5 同源）
 yd <- list()
 for (idx in c("SIRI", "PIV")) {
-  dd <- d[stats::complete.cases(d[, c(idx, "time", "event", .roc_covs)]), ]
-  fit <- coxph(as.formula(paste("Surv(time, event) ~", paste(c(idx, .roc_covs), collapse = "+"))), dd)
-  lp <- as.numeric(predict(fit, type = "lp"))
-  roc <- pROC::roc(dd$event, lp, quiet = TRUE, direction = "<")
-  cd <- pROC::coords(roc, "best", ret = c("threshold", "sensitivity", "specificity"),
-                     best.method = "youden", transpose = FALSE)
-  yd[[idx]] <- data.frame(
-    Index = idx, AUC = round(as.numeric(pROC::auc(roc)), 3),
-    Sensitivity = round(cd$sensitivity[1], 3),
-    Specificity = round(cd$specificity[1], 3)
-  )
+  fit <- pv2_index_roc_fit(event = d$fustatus, score = d[[idx]], index_lab = idx)
+  if (is.null(fit)) next
+  yd[[idx]] <- fit$table_row
 }
 write_one(
   "Table S4. Predictive performance for 365-day all-cause mortality",
   do.call(rbind, yd),
-  "Youden index on the ROC curve of the linear predictor."
+  paste(pv2_index_roc_footnotes("SIRI/PIV", "365-day all-cause mortality"), collapse = " ")
 )
 
 # S5/S6–S8：课题薄封装 → 引擎 R/pv2_literature_pub_tables.R（勿再抄算法）
@@ -798,21 +790,12 @@ p4 <- if (requireNamespace("patchwork", quietly = TRUE)) {
 ggsave(file.path(.fig, "Figure 4. Restricted cubic spline of inflammatory indices and all-cause mortality.pdf"),
        p4, width = 11.2, height = 4.2, device = cairo_pdf)
 
-# Fig5 ROC（同源 LP；图例只写 AUC，不写协变量）
-.roc_covs <- intersect(c("Age", "CHARLSON", "Sodium"), names(d))
+# Fig5 ROC：引擎 pv2_index_roc（连续指标无协变量）
 roc_df <- list()
 for (idx in c("SIRI", "PIV")) {
-  dd <- d[stats::complete.cases(d[, c(idx, "time", "event", .roc_covs)]), ]
-  fit <- coxph(as.formula(paste("Surv(time, event) ~", paste(c(idx, .roc_covs), collapse = "+"))), dd)
-  lp <- as.numeric(predict(fit, type = "lp"))
-  roc <- pROC::roc(dd$event, lp, quiet = TRUE, direction = "<")
-  cd <- pROC::coords(roc, ret = c("specificity", "sensitivity"), transpose = FALSE)
-  auc <- as.numeric(pROC::auc(roc))
-  roc_df[[idx]] <- data.frame(
-    Index = idx, fpr = 1 - cd$specificity, tpr = cd$sensitivity,
-    curve = sprintf("%s (AUC %.3f)", idx, auc),
-    stringsAsFactors = FALSE
-  )
+  fit <- pv2_index_roc_fit(event = d$fustatus, score = d[[idx]], index_lab = idx)
+  if (is.null(fit)) next
+  roc_df[[idx]] <- fit$curve_df
 }
 roc <- do.call(rbind, roc_df)
 roc$curve <- factor(roc$curve, levels = unique(roc$curve))
@@ -821,11 +804,13 @@ p5 <- ggplot(roc, aes(fpr, tpr, color = curve)) +
   geom_abline(linetype = 2, color = "grey40") +
   scale_color_manual(values = c("#D55E00", "#0072B2")) +
   labs(x = "1 - specificity", y = "Sensitivity", color = NULL,
-       title = "Receiver operating characteristic curves\nfor 365-day all-cause mortality") +
+       title = "Receiver operating characteristic curves\nfor 365-day all-cause mortality",
+       subtitle = "Continuous index, unadjusted") +
   coord_equal(clip = "off") +
   theme_bw(base_family = "Times", base_size = 11) +
   theme(legend.position = "bottom",
-        plot.title = element_text(size = 11, face = "bold", margin = margin(b = 6)))
+        plot.title = element_text(size = 11, face = "bold", margin = margin(b = 6)),
+        plot.subtitle = element_text(size = 9))
 ggsave(file.path(.fig, "Figure 5. Receiver operating characteristic curves for 365-day all-cause mortality.pdf"),
        p5, width = 6.2, height = 5.6, device = cairo_pdf, family = "Times")
 

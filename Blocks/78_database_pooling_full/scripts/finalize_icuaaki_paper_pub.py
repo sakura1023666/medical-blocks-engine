@@ -13,7 +13,7 @@ Extras (appended after base numbering):
   Figure 5   Risk-strata mortality
 
 Env:
-  ICUAKI_ROOT, ICUAKI_PUB_OUT, ICUAKI_N_BOOT (default 10000)
+  ICUAKI_ROOT, ICUAKI_PUB_OUT, ICUAKI_N_BOOT (default 2000; match CI pack)
 """
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ BLENDED = ROOT / os.environ.get(
     "LIVER_BLENDED_SUBDIR",
     os.environ.get("ICUAKI_BLENDED_SUBDIR", "blendedlos_icuaaki"),
 ).strip()
-N_BOOT = int(os.environ.get("ICUAKI_N_BOOT", "10000"))
+N_BOOT = int(os.environ.get("ICUAKI_N_BOOT", "2000"))
 ENGINE_SCRIPTS = Path(__file__).resolve().parent
 
 ARM = {
@@ -114,36 +114,55 @@ def _disp(s: str) -> str:
     return re.sub(r"_+", " ", str(s)).strip()
 
 
-def _fmt_n(n) -> str:
-    try:
-        return f"{int(n):,}"
-    except Exception:
-        return "–"
+# Allyn-aligned digit policy (engine): dbpool_pub_digits.py
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from dbpool_pub_digits import (  # type: ignore
+        DIGITS as DBPOOL_DIGITS,
+        fmt_ci as _fmt_ci_en,
+        fmt_est as _fmt_est,
+        fmt_n as _fmt_n,
+        fmt_p as _fmt_p,
+        scrub_display_underscore,
+    )
+except Exception:  # pragma: no cover
+    DBPOOL_DIGITS = {"auroc_supp": 3, "mape_supp": 2, "auroc_table3": 2}
 
+    def _fmt_n(n):
+        try:
+            return f"{int(n):,}"
+        except Exception:
+            return "–"
 
-def _fmt_est(x, digits=3):
-    if x is None or (isinstance(x, float) and not np.isfinite(x)):
-        return "–"
-    return f"{float(x):.{digits}f}"
+    def _fmt_est(x, digits=3):
+        if x is None or (isinstance(x, float) and not np.isfinite(x)):
+            return "–"
+        return f"{float(x):.{digits}f}"
+
+    def _fmt_ci_en(est, lo, hi, digits=3, sep="–"):
+        if est is None or (isinstance(est, float) and not np.isfinite(est)):
+            return "–"
+        if lo is None or hi is None or not (np.isfinite(lo) and np.isfinite(hi)):
+            return _fmt_est(est, digits)
+        return f"{float(est):.{digits}f} [{float(lo):.{digits}f}{sep}{float(hi):.{digits}f}]"
+
+    def _fmt_p(p):
+        if p is None or (isinstance(p, float) and not np.isfinite(p)):
+            return "–"
+        p = float(p)
+        if p < 0.001:
+            return "<0.001"
+        if p > 0.999:
+            return ">0.999"
+        return f"{p:.3f}"
+
+    def scrub_display_underscore(text: str) -> str:
+        return str(text).replace("_", " ") if text else text
 
 
 def _fmt_ci(est, lo, hi, digits=3) -> str:
-    if est is None or (isinstance(est, float) and not np.isfinite(est)):
-        return "–"
-    if lo is None or hi is None or not (np.isfinite(lo) and np.isfinite(hi)):
-        return _fmt_est(est, digits)
-    return f"{float(est):.{digits}f} [{float(lo):.{digits}f}, {float(hi):.{digits}f}]"
-
-
-def _fmt_p(p) -> str:
-    if p is None or (isinstance(p, float) and not np.isfinite(p)):
-        return "–"
-    p = float(p)
-    if p < 0.001:
-        return "<0.001"
-    if p > 0.999:
-        return ">0.999"
-    return f"{p:.3f}"
+    """S3-style CI with comma (legacy cells); prefer en-dash via _fmt_ci_en for new tables."""
+    return _fmt_ci_en(est, lo, hi, digits=digits, sep=", ")
 
 
 def _xlsx_cell_value(val):
@@ -158,12 +177,17 @@ def _xlsx_cell_value(val):
 
 def _save_table(df: pd.DataFrame, path: Path, *, title: str, footnote: str | None = None):
     path.parent.mkdir(parents=True, exist_ok=True)
+    title = scrub_display_underscore(_disp(title))
+    if footnote:
+        footnote = scrub_display_underscore(_disp(footnote))
     out = df.copy()
-    out.columns = [_disp(c) for c in out.columns]
+    out.columns = [scrub_display_underscore(_disp(c)) for c in out.columns]
     for c in out.columns:
         if out[c].dtype == object:
             out[c] = out[c].map(
-                lambda v: _disp(v) if isinstance(v, str) else _xlsx_cell_value(v)
+                lambda v: scrub_display_underscore(_disp(v))
+                if isinstance(v, str)
+                else _xlsx_cell_value(v)
             )
     xlsx_p = Path(str(path) + ".xlsx")
     wb = Workbook()
@@ -199,14 +223,19 @@ def _save_table(df: pd.DataFrame, path: Path, *, title: str, footnote: str | Non
         is_section = len(vals) >= 2 and any(str(vals[0]).strip()) and all(
             (v is None or str(v).strip() in ("", "–", "-")) for v in vals[1:]
         )
+        n_lines = 1
         for j, val in enumerate(vals, 1):
             cell = ws.cell(i, j, val)
             cell.font = (
                 Font(name="Times New Roman", bold=True, size=12) if is_section else font_b
             )
             cell.alignment = align_l if j == 1 else align_c
+            if isinstance(val, str) and "\n" in val:
+                n_lines = max(n_lines, val.count("\n") + 1)
             if last:
                 cell.border = Border(bottom=thick)
+        if n_lines > 1:
+            ws.row_dimensions[i].height = max(36, 14 * n_lines + (18 if last else 8))
     if footnote:
         fr = r0 + n + 2
         cell = ws.cell(fr, 1, footnote)
@@ -545,64 +574,106 @@ def table3_wide(store: dict, ci: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=[col0] + [col_map[a] for a in arms])
 
 
-def table4_literature(store: dict, ci: pd.DataFrame) -> pd.DataFrame:
-    """Own study vs published multi-DB ICU mortality DL baselines (context only)."""
-    h_b_e = _ci_lookup(ci, ARM["MIMIC-IV only"][0], "eicu")
-    h_d_e = _ci_lookup(ci, ARM["Pooling"][0], "eicu")
-    h_b_h = _ci_lookup(ci, ARM["MIMIC-IV only"][0], "hirid")
-    h_d_h = _ci_lookup(ci, ARM["Pooling"][0], "hirid")
+def table4_literature(store: dict | None = None, ci: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Table 4: key-studies matrix (Crit Care layout) with AKI-focused comparators.
+
+    Columns match the published multi-DB ICU comparison table. Prior rows are
+    ICU-AKI / AKI-endpoint studies with cross-database validation; last row is
+    the present pack with Yes + detail lines (newline), same structure as the
+    published "This study" row.
+    """
+    cols = [
+        "Study (year)",
+        "Databases",
+        "Endpoints",
+        "External validation",
+        "Transfer learning",
+        "Temporal validation",
+        "Performance cost quantified",
+        "Composite metric",
+        "Training sample size impact assessed",
+    ]
+    # Newlines = multi-line cells (paper last-row style); Excel wrap_text shows them.
     rows = [
         {
-            "Study / model": "Present study — TPC pooling (AmsterdamUMC+MIMIC-IV)",
-            "Cohort": "KDIGO ICU-AKI (DN=1); Cr/UO dropped from features",
-            "External AUROC eICU": _fmt_ci(
-                h_d_e.get("auroc_stay"),
-                h_d_e.get("auroc_stay_lo_delong"),
-                h_d_e.get("auroc_stay_hi_delong"),
-                3,
-            )
-            if h_d_e
-            else "–",
-            "External AUROC HiRID": _fmt_ci(
-                h_d_h.get("auroc_stay"),
-                h_d_h.get("auroc_stay_lo_delong"),
-                h_d_h.get("auroc_stay_hi_delong"),
-                3,
-            )
-            if h_d_h
-            else "–",
-            "Notes": "Stay-level DeLong CI; multitask RLoS+mortality",
+            "Study (year)": "Vagliano et al.\n2022",
+            "Databases": "MIMIC, eICU",
+            "Endpoints": "AKI",
+            "External validation": "Yes\nMIMIC→eICU",
+            "Transfer learning": "No",
+            "Temporal validation": "No",
+            "Performance cost quantified": "Indirectly\n(transportability)",
+            "Composite metric": "No",
+            "Training sample size impact assessed": "No",
         },
         {
-            "Study / model": "Present study — TPC MIMIC-IV alone",
-            "Cohort": "Same ICU-AKI extract",
-            "External AUROC eICU": _fmt_ci(
-                h_b_e.get("auroc_stay"),
-                h_b_e.get("auroc_stay_lo_delong"),
-                h_b_e.get("auroc_stay_hi_delong"),
-                3,
-            )
-            if h_b_e
-            else "–",
-            "External AUROC HiRID": _fmt_ci(
-                h_b_h.get("auroc_stay"),
-                h_b_h.get("auroc_stay_lo_delong"),
-                h_b_h.get("auroc_stay_hi_delong"),
-                3,
-            )
-            if h_b_h
-            else "–",
-            "Notes": "Primary single-database comparator",
+            "Study (year)": "Alfieri et al.\n2023",
+            "Databases": "MIMIC-III, Amsterdam,\neICU, MargheritaTre",
+            "Endpoints": "AKI\n(stage 2/3)",
+            "External validation": "Yes\nmulti-national",
+            "Transfer learning": "No",
+            "Temporal validation": "No",
+            "Performance cost quantified": "Indirectly",
+            "Composite metric": "No",
+            "Training sample size impact assessed": "No",
         },
         {
-            "Study / model": "Allyn et al. Crit Care 2024/2026 (TPC BlendedICU)",
-            "Cohort": "Heterogeneous ICU (not AKI-restricted)",
-            "External AUROC eICU": "see source paper",
-            "External AUROC HiRID": "see source paper",
-            "Notes": "Architecture / training protocol template for this study",
+            "Study (year)": "Rockenschaub et al.\n2024",
+            "Databases": "MIMIC-IV, eICU,\nHiRID, Amsterdam",
+            "Endpoints": "Mortality,\nAKI, sepsis",
+            "External validation": "Yes",
+            "Transfer learning": "No",
+            "Temporal validation": "No",
+            "Performance cost quantified": "Indirectly",
+            "Composite metric": "No",
+            "Training sample size impact assessed": "Partial\n(center)",
+        },
+        {
+            "Study (year)": "van de Water et al.\n2024",
+            "Databases": "MIMIC-IV, eICU,\nHiRID, Amsterdam",
+            "Endpoints": "Mortality, LOS,\nsepsis, AKI",
+            "External validation": "Yes",
+            "Transfer learning": "Yes",
+            "Temporal validation": "No",
+            "Performance cost quantified": "Indirectly",
+            "Composite metric": "No",
+            "Training sample size impact assessed": "No",
+        },
+        {
+            "Study (year)": "Zappalà et al.\n2024",
+            "Databases": "MIMIC-III, Amsterdam,\neICU, MargheritaTre",
+            "Endpoints": "Persistent AKI\nstage 3",
+            "External validation": "Yes\nmulti-national",
+            "Transfer learning": "No",
+            "Temporal validation": "No",
+            "Performance cost quantified": "Indirectly",
+            "Composite metric": "No",
+            "Training sample size impact assessed": "No",
+        },
+        {
+            "Study (year)": "Hourani et al.\n2026",
+            "Databases": "MIMIC-IV, eICU",
+            "Endpoints": "AKI\n(KDIGO 1–3)",
+            "External validation": "Yes,\ngeographic",
+            "Transfer learning": "No",
+            "Temporal validation": "Yes",
+            "Performance cost quantified": "Indirectly",
+            "Composite metric": "No",
+            "Training sample size impact assessed": "No",
+        },
+        {
+            "Study (year)": "Present study\nThis study, 2026",
+            "Databases": "MIMIC-IV, eICU,\nHiRID, Amsterdam\n(units-harmonized\nKDIGO ICU-AKI)",
+            "Endpoints": "Mortality,\nRLoS",
+            "External validation": "Yes\nAll 4 DBs",
+            "Transfer learning": "Yes\n+ data pooling",
+            "Temporal validation": "No",
+            "Performance cost quantified": "Yes, Primary metric\nAUROC, AUPRC &\nMAPE gap quantified",
+            "Composite metric": "Yes\nGeneralization–\nSpecialization\ntrade-off",
+            "Training sample size impact assessed": "Yes,\nMIMIC size sweep\n(Figure 2)",
         },
     ]
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=cols)
 
 
 def table_s1_scaling() -> pd.DataFrame:
@@ -651,7 +722,7 @@ def table_s2_architecture() -> pd.DataFrame:
             },
             {
                 "Item": "Feature exclusion",
-                "Specification": "Creatinine and urine_output dropped (AKI definition leakage)",
+                "Specification": "Creatinine and urine output dropped (AKI definition leakage)",
             },
             {
                 "Item": "Equal-n LSTM/Transformer benchmark",
@@ -670,23 +741,23 @@ def table_s3_ci(ci: pd.DataFrame, pw: pd.DataFrame) -> pd.DataFrame:
                 "Training strategy": name_map.get(r["unit"], r["unit"]),
                 "Evaluation database": DB_LAB.get(r["eval_on"], r["eval_on"]),
                 "N stays": _fmt_n(r.get("n_stays")),
-                "AUROC (DeLong 95% CI)": _fmt_ci(
+                "AUROC (DeLong 95% CI)": _fmt_ci_en(
                     r.get("auroc_stay"),
                     r.get("auroc_stay_lo_delong"),
                     r.get("auroc_stay_hi_delong"),
-                    3,
+                    DBPOOL_DIGITS.get("auroc_supp", 3),
                 ),
-                "AUPRC (bootstrap 95% CI)": _fmt_ci(
+                "AUPRC (bootstrap 95% CI)": _fmt_ci_en(
                     r.get("auprc_stay"),
                     r.get("auprc_lo_boot10k"),
                     r.get("auprc_hi_boot10k"),
-                    3,
+                    DBPOOL_DIGITS.get("auprc", 3),
                 ),
-                "MAPE (bootstrap 95% CI)": _fmt_ci(
+                "MAPE (bootstrap 95% CI)": _fmt_ci_en(
                     r.get("mape_stay_mean"),
                     r.get("mape_lo_boot10k"),
                     r.get("mape_hi_boot10k"),
-                    2,
+                    DBPOOL_DIGITS.get("mape_supp", 2),
                 ),
             }
         )
@@ -719,44 +790,54 @@ def table_s3_ci(ci: pd.DataFrame, pw: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _norm_stay_id(x) -> str:
+    """Align BlendedICU label ids (db:raw) with prediction patientids (db-raw)."""
+    s = str(x).strip()
+    m = re.match(r"^([A-Za-z0-9_]+):(.+)$", s)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    return s
+
+
 def _stay_preds(ci_mod, arm_key: str, db: str) -> pd.DataFrame:
     unit, prefer = ARM[arm_key]
     mort_p = ci_mod._pick_run(MAIN_OUT / unit, prefer)
     if mort_p is None:
         return pd.DataFrame()
     stay, _ = ci_mod._stay_frame(pd.read_csv(mort_p), None)
-    return stay[stay["eval_on"] == db].copy()
+    out = stay[stay["eval_on"] == db].copy()
+    if len(out):
+        out["stay"] = out["stay"].map(_norm_stay_id)
+    return out
 
 
 def _labels_by_stay() -> pd.DataFrame:
     lab = pd.read_parquet(BLENDED / "preprocessed_labels.parquet")
-    # uniquepid is typically "<db>-<id>" matching prediction patientids
     lab = lab.copy()
-    lab["stay"] = lab["uniquepid"].astype(str)
+    # Index is usually already "db-id"; uniquepid may still be "db:id".
+    idx = lab.index.astype(str)
+    if float(idx.str.contains("-").mean()) >= 0.5:
+        lab["stay"] = idx.map(_norm_stay_id)
+    else:
+        lab["stay"] = lab["uniquepid"].astype(str).map(_norm_stay_id)
     return lab
 
 
 def table_s4_baseline(ci_mod) -> pd.DataFrame:
     """Age+Sex logistic fit on MIMIC-IV train stays; compare AUROC on eICU/HiRID vs TPC B/D."""
     lab = _labels_by_stay()
-    split = json.loads((BLENDED / "split_summary.json").read_text())
-    # Use MIMIC labels with mortality; train = not in external-only DBs and mimic train split if available
     mim = lab[lab["source_dataset"] == "mimic4"].copy()
     mim["age"] = pd.to_numeric(mim["age"], errors="coerce")
     mim["sex"] = pd.to_numeric(mim["sex"], errors="coerce")
     mim["y"] = pd.to_numeric(mim["mortality"], errors="coerce").fillna(0).astype(int)
     mim = mim.dropna(subset=["age", "sex"])
-    # Prefer stays appearing in B train via absence from B test preds? Use 70% random of MIMIC as train proxy
-    # Better: use labels with lengthofstay and match B train stays from predictions folder train list if present.
     rng = np.random.default_rng(974)
     idx = np.arange(len(mim))
     rng.shuffle(idx)
     n_tr = int(0.7 * len(idx))
     tr = mim.iloc[idx[:n_tr]]
-    Xtr = tr[["age", "sex"]].to_numpy()
-    ytr = tr["y"].to_numpy()
     clf = LogisticRegression(max_iter=1000)
-    clf.fit(Xtr, ytr)
+    clf.fit(tr[["age", "sex"]].to_numpy(), tr["y"].to_numpy())
 
     rows = []
     for db in ("eicu", "hirid"):
@@ -767,36 +848,6 @@ def table_s4_baseline(ci_mod) -> pd.DataFrame:
         ext = ext.dropna(subset=["age", "sex"])
         p_base = clf.predict_proba(ext[["age", "sex"]].to_numpy())[:, 1]
         auc_base = float(roc_auc_score(ext["y"], p_base))
-        for arm in ("MIMIC-IV only", "Pooling"):
-            st = _stay_preds(ci_mod, arm, db)
-            if st.empty:
-                continue
-            # align on stay id
-            m = st.merge(ext[["stay", "age", "sex"]], on="stay", how="inner")
-            if m.empty or m["y_mort"].nunique() < 2:
-                continue
-            p_b2 = clf.predict_proba(m[["age", "sex"]].to_numpy())[:, 1]
-            auc_b2 = float(roc_auc_score(m["y_mort"], p_b2))
-            auc_tpc = float(roc_auc_score(m["y_mort"], m["pred_mort"]))
-            rows.append(
-                {
-                    "Evaluation database": DB_LAB[db],
-                    "Model": f"Age+Sex logistic (aligned stays)",
-                    "N stays": _fmt_n(len(m)),
-                    "AUROC": _fmt_est(auc_b2, 3),
-                    "Δ vs Age+Sex": "Ref",
-                }
-            )
-            rows.append(
-                {
-                    "Evaluation database": DB_LAB[db],
-                    "Model": f"TPC — {arm}",
-                    "N stays": _fmt_n(len(m)),
-                    "AUROC": _fmt_est(auc_tpc, 3),
-                    "Δ vs Age+Sex": _fmt_est(auc_tpc - auc_b2, 3),
-                }
-            )
-        # also report full-label baseline AUROC
         rows.append(
             {
                 "Evaluation database": DB_LAB[db],
@@ -806,6 +857,60 @@ def table_s4_baseline(ci_mod) -> pd.DataFrame:
                 "Δ vs Age+Sex": "–",
             }
         )
+
+        st_b = _stay_preds(ci_mod, "MIMIC-IV only", db)
+        st_d = _stay_preds(ci_mod, "Pooling", db)
+        if st_b.empty or st_d.empty:
+            print(f"[S4] WARN missing TPC preds for {db}", flush=True)
+            continue
+        # Fair block: Age+Sex Ref + both TPC arms on the intersection of B/D stays
+        common = sorted(set(st_b["stay"]) & set(st_d["stay"]))
+        if not common:
+            print(f"[S4] WARN no shared stays after id-norm for {db}", flush=True)
+            continue
+        base_m = (
+            ext[["stay", "age", "sex"]]
+            .drop_duplicates("stay")
+            .merge(pd.DataFrame({"stay": common}), on="stay", how="inner")
+        )
+        if base_m.empty:
+            print(f"[S4] WARN label merge empty for {db}", flush=True)
+            continue
+        # attach outcomes/preds from B for Ref y (same labels on shared stays)
+        y_join = st_b[["stay", "y_mort"]].drop_duplicates("stay")
+        base_m = base_m.merge(y_join, on="stay", how="inner")
+        if base_m.empty or base_m["y_mort"].nunique() < 2:
+            print(f"[S4] WARN aligned y degenerate for {db}", flush=True)
+            continue
+        p_ref = clf.predict_proba(base_m[["age", "sex"]].to_numpy())[:, 1]
+        auc_ref = float(roc_auc_score(base_m["y_mort"], p_ref))
+        rows.append(
+            {
+                "Evaluation database": DB_LAB[db],
+                "Model": "Age+Sex logistic (aligned stays)",
+                "N stays": _fmt_n(len(base_m)),
+                "AUROC": _fmt_est(auc_ref, 3),
+                "Δ vs Age+Sex": "Ref",
+            }
+        )
+        for arm, st in (("MIMIC-IV only", st_b), ("Pooling", st_d)):
+            m = (
+                st[["stay", "y_mort", "pred_mort"]]
+                .drop_duplicates("stay")
+                .merge(base_m[["stay"]], on="stay", how="inner")
+            )
+            if m.empty or m["y_mort"].nunique() < 2:
+                continue
+            auc_tpc = float(roc_auc_score(m["y_mort"], m["pred_mort"]))
+            rows.append(
+                {
+                    "Evaluation database": DB_LAB[db],
+                    "Model": f"TPC — {arm}",
+                    "N stays": _fmt_n(len(m)),
+                    "AUROC": _fmt_est(auc_tpc, 3),
+                    "Δ vs Age+Sex": _fmt_est(auc_tpc - auc_ref, 3),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -908,8 +1013,8 @@ def make_fig1(out: Path, store: dict):
         ax.text(x + w / 2, y + h * 0.28, subtitle, ha="center", va="center", fontsize=6.3, color=MUTED)
 
     steps = [
-        ("1  ICU-AKI cohort (KDIGO DN=1)", "Creatinine / urine_output dropped from features", "#d7e6f5"),
-        ("2  Four ICU databases", "AmsterdamUMC, MIMIC-IV, eICU, HiRID (BlendedICU)", "#dceee4"),
+        ("1  ICU-AKI cohort (KDIGO DN=1)", "Creatinine / urine output dropped from features", "#d7e6f5"),
+        ("2  Four ICU databases", "AmsterdamUMC, MIMIC-IV, eICU, HiRID (units-harmonized)", "#dceee4"),
         ("3  Time zero t0 = ICU admission", "Predict from hour 5 through ICU discharge", "#efe6c9"),
         ("4  Preprocess + patient split", "Phys clip, MNAR ffill+mask, q5–q95; 70/15/15 seed 974", "#f6dfd4"),
         ("5  TPC multitask model", "Hourly ICU mortality + remaining ICU LoS (RLoS)", "#e8dff5"),
@@ -1078,10 +1183,12 @@ def _net_benefit(y, p, thresholds):
 
 
 def make_fig4_dca(out: Path, ci_mod):
+    """Decision curves with y-axis starting at 0 (negative NB clipped from view)."""
     thresholds = np.linspace(0.01, 0.50, 50)
     fig, axes = plt.subplots(1, 2, figsize=(9.5, 4.3))
     for ax, db in zip(axes, ("eicu", "hirid")):
         plotted_all = False
+        y_max = 0.05
         for arm, color in (("MIMIC-IV only", "#c47b5b"), ("Pooling", "#3d7a5a")):
             st = _stay_preds(ci_mod, arm, db)
             if st.empty:
@@ -1089,15 +1196,25 @@ def make_fig4_dca(out: Path, ci_mod):
             y = st["y_mort"].to_numpy().astype(int)
             p = st["pred_mort"].to_numpy()
             nb, ta = _net_benefit(y, p, thresholds)
-            ax.plot(thresholds, nb, color=color, lw=1.4, label=arm)
+            # Clip to ≥0 for display: only the clinically relevant region
+            # (model / treat-all still better than treat-none).
+            nb_plot = np.clip(nb, 0, None)
+            ta_plot = np.clip(ta, 0, None)
+            ax.plot(thresholds, nb_plot, color=color, lw=1.4, label=arm)
+            y_max = max(y_max, float(np.nanmax(nb_plot)) if np.isfinite(nb_plot).any() else 0.0)
             if not plotted_all:
-                ax.plot(thresholds, ta, "--", color="#888888", lw=0.9, label="Treat all")
+                ax.plot(thresholds, ta_plot, "--", color="#888888", lw=0.9, label="Treat all")
                 ax.axhline(0, color="#444444", lw=0.8, label="Treat none")
+                y_max = max(
+                    y_max,
+                    float(np.nanmax(ta_plot)) if np.isfinite(ta_plot).any() else 0.0,
+                )
                 plotted_all = True
         ax.set_xlabel("Threshold probability")
         ax.set_ylabel("Net benefit")
         ax.set_title(DB_LAB[db])
         ax.set_xlim(0.01, 0.50)
+        ax.set_ylim(0.0, y_max * 1.12 if y_max > 0 else 0.1)
         ax.legend(frameon=False, fontsize=8)
     fig.tight_layout()
     _write_fig(fig, out, "Figure 4. Decision curve analysis")
@@ -1163,7 +1280,8 @@ def write_image_information(out: Path, store: dict, ci: pd.DataFrame, pw: pd.Dat
         "Figure 4. Decision curve analysis.md": (
             "# Figure 4. Decision curve analysis\n\n"
             "## 图面说明\n\n"
-            "阈值概率 1%–50% 的净获益；对照 Treat-all / Treat-none；比较 MIMIC-IV alone 与 Pooling。\n\n"
+            "阈值概率 1%–50% 的净获益；对照 Treat-all / Treat-none；比较 MIMIC-IV alone 与 Pooling。"
+            "纵轴从 0 起，负净获益（劣于 Treat none）不展示。\n\n"
             "## 分析上下文\n\n"
             "- 用途：临床部署阈值选择\n"
         ),
@@ -1183,7 +1301,7 @@ def write_methods(out: Path):
     md = f"""# Statistical analysis
 
 ## Study design and cohort
-This multi-database pooling study analysed adult ICU stays with KDIGO-defined ICU-acquired AKI (extraction label DN=1) in a BlendedICU-harmonised extract (AmsterdamUMC, MIMIC-IV, eICU, HiRID). Creatinine and urine output were excluded from model features to avoid definition leakage.
+This multi-database pooling study analysed adult ICU stays with KDIGO-defined ICU-acquired AKI (extraction label DN=1) in a units-harmonized four-database extract (AmsterdamUMC, MIMIC-IV, eICU, HiRID). Creatinine and urine output were excluded from model features to avoid definition leakage.
 
 ## Preprocessing
 Continuous time-series values were clipped to a priori physiological ranges, then scaled with training-set 5th/95th percentiles and clipped after scaling. Missingness used forward-fill with observation masks. Quantiles were fitted on the training split only.
@@ -1195,7 +1313,7 @@ The primary architecture was a Temporal Pointwise Convolution (TPC) multitask ne
 Mortality discrimination used AUROC; precision–recall used AUPRC where reported. RLoS error used MAPE. AUROC 95% CIs used the DeLong method at the ICU-stay level; MAPE/AUPRC intervals used patient-level percentile bootstrap ({N_BOOT:,} resamples). Pooling versus MIMIC-IV alone on shared external stays used paired DeLong tests (Table S3).
 
 ## Calibration, decision analysis, and clinical use
-Calibration curves and Brier scores compared MIMIC-IV alone with pooling on eICU and HiRID (Figure 3). Decision-curve net benefit was plotted over threshold probabilities 1%–50% (Figure 4). Age+Sex logistic regression fitted on MIMIC-IV served as a stronger tabular baseline (Table S4). Pooling predicted risks were stratified into tertiles and evaluated at Youden and fixed (10%, 20%) thresholds for deployment-oriented operating points (Table S5, Figure 5).
+Calibration curves and Brier scores compared MIMIC-IV alone with pooling on eICU and HiRID (Figure 3). Decision-curve net benefit was plotted over threshold probabilities 1%–50% with the y-axis starting at zero (negative net benefit versus treat-none omitted from the display; Figure 4). Age+Sex logistic regression fitted on MIMIC-IV served as a stronger tabular baseline, compared with TPC on shared external stays after stay-id harmonisation (Table S4). Pooling predicted risks were stratified into tertiles and evaluated at Youden and fixed (10%, 20%) thresholds for deployment-oriented operating points (Table S5, Figure 5).
 
 ## Software
 Deep-learning training used Python with PyTorch on NVIDIA GPUs. Publication tables use SCI three-line xlsx (Times New Roman). Figures are exported under `Figures/{{pdf,png,tiff,image_information}}/`. See `Methods_software_versions.txt`.
@@ -1227,7 +1345,9 @@ def _write_clinical_extras(ci_mod, store: dict, ci: pd.DataFrame, pw: pd.DataFra
             tables / "Table S4. Age-Sex baseline versus TPC",
             title="Table S4. Stronger baseline (Age+Sex logistic) versus TPC on external databases",
             footnote="Age+Sex logistic regression fitted on a 70% random split of MIMIC-IV labelled stays (seed 974). "
-            "Aligned-stay rows restrict to stays present in TPC test predictions for fair AUROC comparison.",
+            "Aligned-stay rows use the intersection of MIMIC-IV-only and Pooling TPC evaluation stays "
+            "(stay ids harmonised from label uniquepid db:id to prediction db-id). "
+            "Δ vs Age+Sex is relative to the aligned Age+Sex AUROC on that intersection.",
         )
     s5 = table_s5_risk_strata(ci_mod)
     if len(s5):
@@ -1296,17 +1416,24 @@ def main():
             table3_wide(store, ci),
             tables / "Table 3. Four training strategies",
             title="Table 3. Model performance on specialization and generalization in four separate training methods",
-            footnote="Endpoints: ICU mortality and remaining ICU LoS (RLoS; deaths excluded from MAPE). "
-            "AUROC 95% CI: DeLong (stay-level). MAPE 95% CI: patient-level bootstrap. "
-            "Mcomposite uses Amsterdam-alone on Amsterdam as baseline. "
-            "¹Transfer: pretrain MIMIC-IV then fine-tune AmsterdamUMC. ²Pooling: AmsterdamUMC + MIMIC-IV. "
-            "Generalization = mean of eICU and HiRID.",
+            footnote=(
+                "Endpoints: ICU mortality and remaining ICU LoS (RLoS; deaths excluded from MAPE). "
+                "AUROC 95% CI: DeLong (stay-level). "
+                f"MAPE 95% CI: patient-level bootstrap ({N_BOOT:,}). "
+                "Mcomposite uses Amsterdam-alone on Amsterdam as baseline. "
+                "¹Transfer: pretrain MIMIC-IV then fine-tune AmsterdamUMC. ²Pooling: AmsterdamUMC + MIMIC-IV. "
+                "Generalization = mean of eICU and HiRID."
+            ),
         )
         _save_table(
             table4_literature(store, ci),
-            tables / "Table 4. Literature comparison",
-            title="Table 4. Comparison with related multi-database ICU mortality modelling",
-            footnote="External AUROC values for the present study are stay-level DeLong estimates from Table S3.",
+            tables / "Table 4. Comparison of key studies",
+            title="Table 4. Comparison of key studies on ICU AKI / clinical outcome prediction and cross-database generalization",
+            footnote="AKI = acute kidney injury; AUROC = area under the receiver operating characteristic curve; "
+            "AUPRC = area under the precision–recall curve; LOS = length of stay; MAPE = mean absolute percentage error; "
+            "RLoS = remaining length of stay. Yes = feature present; No = not addressed. "
+            "Comparator rows are ICU-AKI or AKI-endpoint multi-database studies; "
+            "Present-study row is this units-harmonized KDIGO ICU-AKI pack (Cr/UO excluded from features).",
         )
         if not (tables / "Table S1. Physio clip and outliers.xlsx").exists():
             s1 = table_s1_scaling()
@@ -1328,6 +1455,29 @@ def main():
         if not (EXTRA / "liver_training_size_study").exists():
             make_fig2(PUB, store, ci)
 
+    # Table 4 always refreshed (including --extras-only) so units packs are not missing it
+    _save_table(
+        table4_literature(store, ci),
+        tables / "Table 4. Comparison of key studies",
+        title="Table 4. Comparison of key studies on ICU AKI / clinical outcome prediction and cross-database generalization",
+        footnote="AKI = acute kidney injury; AUROC = area under the receiver operating characteristic curve; "
+        "AUPRC = area under the precision–recall curve; LOS = length of stay; MAPE = mean absolute percentage error; "
+        "RLoS = remaining length of stay. Yes = feature present; No = not addressed. "
+        "Comparator rows are ICU-AKI or AKI-endpoint multi-database studies; "
+        "Present-study row is this units-harmonized KDIGO ICU-AKI pack (Cr/UO excluded from features).",
+    )
+    # drop superseded Table 4 filenames
+    for legacy_name in (
+        "Table 4. Literature comparison.xlsx",
+        "Table 4. External validation summary.xlsx",
+    ):
+        legacy_t4 = tables / legacy_name
+        if legacy_t4.exists():
+            try:
+                legacy_t4.unlink()
+            except Exception:
+                pass
+
     _write_clinical_extras(ci_mod, store, ci, pw, tables)
 
     (PUB / "PUBLISH_READY.time").write_text(
@@ -1336,6 +1486,61 @@ def main():
     print("wrote", PUB)
     print("tables:", sorted(p.name for p in tables.glob("*.xlsx")))
     print("figs:", sorted(p.name for p in (PUB / "Figures" / "pdf").glob("*.pdf")))
+
+    # Engine delivery: Methods (dbpool) + Times/underscore scrub + whitelist prune + QC
+    skip_delivery = os.environ.get("LIVER_SKIP_DELIVERY", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    if skip_delivery:
+        print("[finalize] LIVER_SKIP_DELIVERY=1 — skip delivery root finalize", flush=True)
+    else:
+        _finalize_delivery_root_icuaaki(PUB)
+
+
+def _finalize_delivery_root_icuaaki(pub: Path) -> None:
+    """Same hook as finalize_easl: run/dbpool/finalize_summary_delivery.R."""
+    engine = Path(__file__).resolve().parents[3]
+    if not (engine / "R").exists():
+        engine = Path("/mnt/e/01block/01Block-new-Final")
+    thin = engine / "run" / "dbpool" / "finalize_summary_delivery.R"
+    if not thin.exists():
+        print(f"[finalize] WARN missing {thin}", flush=True)
+        return
+    env = os.environ.copy()
+    env["MEDICAL_BLOCKS_ROOT"] = str(engine)
+    env.setdefault(
+        "DBPOOL_COHORT",
+        os.environ.get(
+            "LIVER_COHORT_TITLE",
+            "ICU-AKI (KDIGO DN=1; units harmonized)",
+        ),
+    )
+    env.setdefault(
+        "DBPOOL_FEATURE_SET",
+        os.environ.get(
+            "LIVER_FEATURE_DROP_EN",
+            "Creatinine and urine output excluded from model features; "
+            "blood glucose in mmol/L and hemoglobin in g/dL after units harmonisation.",
+        ),
+    )
+    env.setdefault("DBPOOL_KIND", "icuaaki")
+    cmd = [
+        "Rscript",
+        str(thin),
+        "--dir",
+        str(pub),
+        "--cohort",
+        env["DBPOOL_COHORT"],
+        "--feature-set",
+        env["DBPOOL_FEATURE_SET"],
+    ]
+    print("[finalize] delivery root finalize …", flush=True)
+    try:
+        subprocess.run(cmd, check=False, env=env)
+    except Exception as e:
+        print(f"[finalize] WARN delivery finalize failed: {e}", flush=True)
 
 
 if __name__ == "__main__":

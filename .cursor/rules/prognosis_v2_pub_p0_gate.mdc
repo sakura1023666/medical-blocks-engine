@@ -42,7 +42,15 @@ alwaysApply: true
 1. Boruta/SHAP/森林/轴标签展示层走 `pipeline_display_label()`；**禁止** `Mean_Corpuscular_Volume` 类编程名上图。
 2. 质控：`pdftotext` + `image_information` 扫描 `_`；命中临床特征下划线 → P0（见 `pub_no_underscore_display`）。
 
-## 5. Methods / 补充表硬项（防漏检）
+## 5. Table S4 / Figure 5 = 单指标连续 ROC，禁止 Cox LP（COPD ALBI 2026-11）
+
+1. **交付默认且强制**：Table S4 与 Figure 5 预测变量 = **连续暴露指标 alone**，`direction=auto`，Youden + DeLong CI；**不加** Age/Sex/GCS/Sodium 等任何协变量。
+2. **禁止**把 Cox linear predictor（index + 协变量）写成主文 S4 / Fig5；脚注不得出现 `Cox LP` / `linear predictor of … + Age…`。
+3. **单一引擎入口**：`R/pv2_index_roc.R` → `pv2_index_roc_fit` / `pv2_index_roc_curve_by_db` / `pv2_index_roc_footnotes`；COPD / 卒中 / Hip remirror 与 rebuild 必须 `source` 后调用，禁止课题手写 `coxph`→`predict(lp)`→`pROC`。
+4. **机器门控**：`pv2_pub_p0_gate()` 扫描 S4 xlsx + Fig5 PDF/md；命中 Cox LP / 协变量 ROC 文案 → **P0 FAIL**。
+5. 协变量联合模型 ROC 若确需，只能进敏感性附表/附图，**不得**占用 S4 / Figure 5 编号。
+
+## 6. Methods / 补充表硬项（防漏检）
 
 交付 Methods 缺任一项 → **P0（轨道 B 可只改文）**：
 
@@ -73,6 +81,8 @@ alwaysApply: true
 [ ] 中介脚注协变量 = 实际拟合；概念重叠≠假共线
 [ ] Fig4 有 P-linear + P-nonlinear；非仅 P-overall
 [ ] Fig2/展示层无临床特征下划线
+[ ] Table S4 / Fig5 = continuous index unadjusted；无 Cox LP / Age+GCS 脚注
+[ ] S4/Fig5 经 pv2_index_roc（非课题手写 LP）
 [ ] Methods：取材时点、MICE 结局入模裁决、cox.zph/S9
 [ ] Fig1 首框与项目信息排除链一致或已写实「提取后未再排除」
 [ ] ICD 最终码表可核（或 AUTHOR_INPUT 明示缺口）
@@ -93,3 +103,5 @@ alwaysApply: true
 - 把 CHARLSON–OASIS r≈0.07 写成「高度共线故剔除」
 - Fig2 SHAP 轴残留 `Red_Cell_Distribution_Width`
 - Methods 不写血常取材时点；无 Table S9 / 不提 PH
+- Table S4 / Fig5 写成 ALBI+Age+Sodium+GCS 的 Cox LP（COPD ALBI 已踩）
+- remirror/rebuild 手写 `predict(..., type="lp")` 当主文 ROC

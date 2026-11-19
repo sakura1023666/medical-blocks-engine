@@ -1039,34 +1039,69 @@
   cowplot::plot_grid(header, p, ncol = 1L, rel_heights = c(title_strip, 1))
 }
 
+## layout:
+##   "full"     = 2×4 A–H：ROC | 校准 | 平行线 | DCA（默认）
+##   "roc_dca"  = 2×2 A–D：ROC train/val + DCA train/val（校准改放补充单图）
+.pm_combined_layout_spec <- function(layout = "full") {
+  layout <- tolower(trimws(as.character(layout %||% "full")[1L]))
+  if (layout %in% c("roc_dca", "roc-dca", "main_roc_dca", "2x2")) {
+    list(
+      id = "roc_dca",
+      ord = c("roc_tr", "roc_va", "dca_tr", "dca_va"),
+      default_titles = c("Training set", "Validation set", "Training set", "Validation set"),
+      ncol = 2L,
+      legend_layout = list(
+        list(pos = c(0.7, 0.14), just = c(0.5, 0)),
+        list(pos = c(0.7, 0.14), just = c(0.5, 0)),
+        list(pos = c(0.88, 0.98), just = c(1, 1)),
+        list(pos = c(0.88, 0.98), just = c(1, 1))
+      ),
+      default_filename = "ML performance ROC and DCA",
+      default_width = 14,
+      default_height = 10
+    )
+  } else {
+    list(
+      id = "full",
+      ord = c("roc_tr", "roc_va", "cal_tr", "cal_va", "par_tr", "par_va", "dca_tr", "dca_va"),
+      default_titles = c(
+        "Training set", "Validation set",
+        "Training set", "Validation set",
+        "Training set — Model metrics", "Validation set — Model metrics",
+        "Training set", "Validation set"
+      ),
+      ncol = 4L,
+      legend_layout = list(
+        list(pos = c(0.7, 0.14), just = c(0.5, 0)),
+        list(pos = c(0.7, 0.14), just = c(0.5, 0)),
+        list(pos = c(0.9, 0.14), just = c(1, 0)),
+        list(pos = c(0.9, 0.14), just = c(1, 0)),
+        list(pos = c(0.88, 0.05), just = c(1, 0)),
+        list(pos = c(0.88, 0.05), just = c(1, 0)),
+        list(pos = c(0.88, 0.98), just = c(1, 1)),
+        list(pos = c(0.88, 0.98), just = c(1, 1))
+      ),
+      default_filename = "ML performance combined 2x4",
+      default_width = 24,
+      default_height = 12
+    )
+  }
+}
+
 .pm_build_combined_2x4 <- function(panels, font_family, panel_titles = NULL,
                                     label_size = 12, legend_guide_ncol = 1L,
-                                    base_size = 9) {
+                                    base_size = 9, layout = "full") {
   if (!requireNamespace("cowplot", quietly = TRUE)) return(NULL)
-  ord <- c("roc_tr", "roc_va", "cal_tr", "cal_va", "par_tr", "par_va", "dca_tr", "dca_va")
-  default_titles <- c(
-    "Training set", "Validation set",
-    "Training set", "Validation set",
-    "Training set — Model metrics", "Validation set — Model metrics",
-    "Training set", "Validation set"
-  )
+  spec <- .pm_combined_layout_spec(layout)
+  ord <- spec$ord
   if (is.null(panel_titles) || length(panel_titles) != length(ord)) {
-    panel_titles <- default_titles
+    panel_titles <- spec$default_titles
   }
   plots <- lapply(ord, function(nm) panels[[nm]])
   if (any(vapply(plots, is.null, logical(1L)))) return(NULL)
-  ncol <- 4L
+  ncol <- as.integer(spec$ncol)[1L]
   n <- length(plots)
-  legend_layout <- list(
-    list(pos = c(0.7, 0.14), just = c(0.5, 0)),   # A ROC
-    list(pos = c(0.7, 0.14), just = c(0.5, 0)),   # B ROC
-    list(pos = c(0.9, 0.14), just = c(1, 0)),     # C 校准
-    list(pos = c(0.9, 0.14), just = c(1, 0)),     # D 校准
-    list(pos = c(0.88, 0.05), just = c(1, 0)),   # E 平行线 — 右下
-    list(pos = c(0.88, 0.05), just = c(1, 0)),   # F 平行线 — 右下
-    list(pos = c(0.88, 0.98), just = c(1, 1)),   # G DCA — 右上
-    list(pos = c(0.88, 0.98), just = c(1, 1))    # H DCA — 右上
-  )
+  legend_layout <- spec$legend_layout
   plots <- lapply(seq_along(plots), function(i) {
     ly <- legend_layout[[i]]
     p <- plots[[i]]
@@ -1083,7 +1118,8 @@
     )
   })
   labeled <- lapply(seq_len(n), function(i) {
-    title_strip <- if (i %in% c(5L, 6L)) 0.055 else 0.07
+    ## full 布局中 E/F 平行线标题条略矮；roc_dca 无平行线
+    title_strip <- if (identical(spec$id, "full") && i %in% c(5L, 6L)) 0.055 else 0.07
     .pm_panel_labeled(
       plots[[i]], letter = LETTERS[i], subtitle = panel_titles[i],
       font_family = font_family, label_size = label_size,
@@ -1097,7 +1133,8 @@
     ei <- min(ri * ncol, n)
     row_plots[[ri]] <- cowplot::plot_grid(plotlist = labeled[si:ei], ncol = ncol, align = "hv")
   }
-  cowplot::plot_grid(plotlist = row_plots, ncol = 1L, rel_heights = c(1, 1.02))
+  rel_h <- if (nrow_gr <= 1L) 1 else c(1, 1.02)
+  cowplot::plot_grid(plotlist = row_plots, ncol = 1L, rel_heights = rel_h)
 }
 
 block_performance_ml <- function(ctx, ...) {
@@ -1611,48 +1648,98 @@ block_performance_ml <- function(ctx, ...) {
     }
   }
 
-  ## ── 2×4 总览拼图（与 C11 相同：A–H，cowplot）────────────────────────────
+  ## ── 主文拼图：默认 2×4；combined_layout="roc_dca" 时仅 ROC+DCA（2×2）─────
   if (want_combined) {
+    layout_spec <- .pm_combined_layout_spec(pm$combined_layout %||% "full")
     cal_cap <- if (!identical(cal_method, "none")) {
       tools::toTitleCase(cal_method)
     } else {
       "Raw"
     }
-    comb_panel_titles <- c(
-      "Training set", "Validation set",
-      if (identical(cal_method, "none")) {
-        c("Training set (Raw)", "Validation set (Raw)")
-      } else {
-        c(paste0("Training set (", cal_cap, " calibrated)"),
-          paste0("Validation set (", cal_cap, " calibrated)"))
-      },
-      "Training set — Model metrics", "Validation set — Model metrics",
-      "Training set", "Validation set"
-    )
+    if (identical(layout_spec$id, "roc_dca")) {
+      comb_panel_titles <- c(
+        "Training set", "Validation set",
+        "Training set", "Validation set"
+      )
+    } else {
+      comb_panel_titles <- c(
+        "Training set", "Validation set",
+        if (identical(cal_method, "none")) {
+          c("Training set (Raw)", "Validation set (Raw)")
+        } else {
+          c(paste0("Training set (", cal_cap, " calibrated)"),
+            paste0("Validation set (", cal_cap, " calibrated)"))
+        },
+        "Training set — Model metrics", "Validation set — Model metrics",
+        "Training set", "Validation set"
+      )
+    }
     comb <- .pm_build_combined_2x4(
       pm_panels, font_family,
       panel_titles = comb_panel_titles,
       label_size = as.numeric(pm$combined_label_size %||% 12)[1L],
       legend_guide_ncol = as.integer(pm$combined_legend_guide_ncol %||% 1L)[1L],
-      base_size = plot_base
+      base_size = plot_base,
+      layout = layout_spec$id
     )
     if (!is.null(comb)) {
       comb_fn <- pm$combined_filename %||%
-        pub_figure_file(ctx, "main_figure", "ML performance combined 2x4")
+        pub_figure_file(ctx, "main_figure", layout_spec$default_filename)
       ctx <- save_figure(
         ctx,
         comb_fn,
         function() comb,
-        width = as.numeric(pm$combined_width %||% 24)[1L],
-        height = as.numeric(pm$combined_height %||% 12)[1L]
+        width = as.numeric(pm$combined_width %||% layout_spec$default_width)[1L],
+        height = as.numeric(pm$combined_height %||% layout_spec$default_height)[1L]
       )
       ctx$results$performance_ml_combined_grob <- TRUE
+      ## roc_dca：校准单独拼成补充图（训练|验证），不进主文 Figure 4
+      if (identical(layout_spec$id, "roc_dca") &&
+          isTRUE(pm$calibration_as_supplement %||% TRUE) &&
+          requireNamespace("cowplot", quietly = TRUE) &&
+          !is.null(pm_panels$cal_tr) && !is.null(pm_panels$cal_va)) {
+        cal_titles <- if (identical(cal_method, "none")) {
+          c("Training set (Raw)", "Validation set (Raw)")
+        } else {
+          c(
+            paste0("Training set (", cal_cap, " calibrated)"),
+            paste0("Validation set (", cal_cap, " calibrated)")
+          )
+        }
+        cal_plots <- list(pm_panels$cal_tr, pm_panels$cal_va)
+        cal_labeled <- lapply(seq_along(cal_plots), function(i) {
+          p <- cal_plots[[i]]
+          if (inherits(p, "gg")) {
+            p <- p + ggplot2::theme(plot.title = ggplot2::element_blank())
+          }
+          p <- .pm_legend_combined_inset(
+            p, ncol_guide = as.integer(pm$combined_legend_guide_ncol %||% 1L)[1L],
+            base_size = plot_base,
+            legend_position = c(0.9, 0.14), legend_justification = c(1, 0),
+            font_family = font_family
+          )
+          .pm_panel_labeled(
+            p, letter = LETTERS[i], subtitle = cal_titles[i],
+            font_family = font_family,
+            label_size = as.numeric(pm$combined_label_size %||% 12)[1L],
+            title_strip = 0.07
+          )
+        })
+        cal_comb <- cowplot::plot_grid(plotlist = cal_labeled, ncol = 2L, align = "hv")
+        cal_fn <- pm$calibration_supp_filename %||%
+          pub_figure_file(ctx, "supp_figure", "ML performance calibration")
+        ctx <- save_figure(
+          ctx, cal_fn, function() cal_comb,
+          width = as.numeric(pm$calibration_supp_width %||% 14)[1L],
+          height = as.numeric(pm$calibration_supp_height %||% 5.5)[1L]
+        )
+      }
     } else {
       if (!requireNamespace("cowplot", quietly = TRUE)) {
-        cli::cli_alert_warning("combined_panel=TRUE 需要安装 cowplot 包，已跳过 2×4 拼图。")
+        cli::cli_alert_warning("combined_panel=TRUE 需要安装 cowplot 包，已跳过拼图。")
       } else {
         cli::cli_alert_warning(
-          "combined_panel=TRUE 但 8 张子图未齐（需 parallel_lines 与 roc_calibration_dca 均成功，且 ROC/校准/DCA 数据充足），已跳过拼图。"
+          "combined_panel=TRUE 但所需子图未齐（layout={layout_spec$id}），已跳过拼图。"
         )
       }
     }

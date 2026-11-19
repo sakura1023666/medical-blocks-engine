@@ -17,7 +17,7 @@ alwaysApply: true
 
 **NHANES/发病加检（用户 2026-10-26；银屑病 eGDR）：** 另须过 checklist **§B3** 与规则 `pub_nhanes_incidence_p0_gate.mdc`（Table2 调整集与 step 同源、加权/不加权切点、中介总效应≠Table2 脚注、Methods 公式/MICE/权重、ROC 禁自曝、Fig md≠图面 NE）。无 NHANES 可 N/A。
 
-**预后 v2 / Cox 加检（用户 2026-10-26；Hip AKI；Stroke ANLR 14d 2026-11 加严）：** 另须过 checklist **§B4** 与规则 `prognosis_v2_pub_p0_gate.mdc`，并跑 `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear、禁下划线、PH 表、Methods 取材/MICE、**RCS knots、Boruta/SHAP 参数、S5 landmark=主文、Fig7 Overall=Table3 M1、Fig1 not-computable⇒Limitations 选择偏倚、Fig1 vs 项目信息排除链写实、ICD 码表 AUTHOR_INPUT**）。无预后 Cox 可 N/A。
+**预后 v2 / Cox 加检（用户 2026-10-26；Hip AKI；Stroke ANLR 14d 2026-11 加严；COPD ALBI 2026-11 S4/Fig5）：** 另须过 checklist **§B4** 与规则 `prognosis_v2_pub_p0_gate.mdc`，并跑 `pv2_pub_p0_gate()`（KM=锁定 scheme、Fig6=S8 Direct、Fig7 对比+P-int、RCS P-linear、禁下划线、PH 表、Methods 取材/MICE、**RCS knots、Boruta/SHAP 参数、S5 landmark=主文、Fig7 Overall=Table3 M1、Fig1 not-computable⇒Limitations 选择偏倚、Fig1 vs 项目信息排除链写实、ICD 码表 AUTHOR_INPUT、Table S4/Fig5=连续指标无协变量 ROC（禁 Cox LP）**）。无预后 Cox 可 N/A。
 
 **双库 ML dev_ext 加检（用户 2026-11-02；AKI_TX BUN_Cr）：** 另须过规则 `ml_dual_dev_ext_pub_p0_gate.mdc`（Fig1 诚实排除+短标签+无图底长脚注、主模型≠裸 best、S 表 A1=文件名、Model2 筛源写实、图带库/集标签、summary_results 五件套）。无双库 ML 可 N/A。
 

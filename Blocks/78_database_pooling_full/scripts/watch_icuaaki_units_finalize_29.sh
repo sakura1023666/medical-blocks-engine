@@ -34,10 +34,12 @@ export EASL_EXTRA_OUT=$ICUAKI_EXTRA_OUT
 export LIVER_PUB_OUT=$ICUAKI_PUB_OUT
 export LIVER_COHORT_TITLE="ICU-AKI (KDIGO DN=1; units harmonized)"
 export LIVER_COHORT_RULE_SHORT="KDIGO ICU-AKI DN=1; drop Cr/UO; glucose mmol/L + Hb g/dL"
-export LIVER_TABLE1_FOOTNOTE="KDIGO ICU-AKI cohort (DN=1). Units harmonized (blood_glucose mmol/L; hemoglobin g/dL) before MOESM1 physio clip. Continuous: mean [SD]. Creatinine and urine_output excluded from model features."
-export LIVER_FEATURE_DROP_EN="Creatinine and urine_output excluded from model features."
+export LIVER_TABLE1_FOOTNOTE="KDIGO ICU-AKI cohort (DN=1). Units harmonized (blood glucose mmol/L; hemoglobin g/dL) before MOESM1 physio clip. Continuous: mean [SD]. Creatinine and urine output excluded from model features."
+export LIVER_FEATURE_DROP_EN="Creatinine and urine output excluded from model features; blood glucose mmol/L and hemoglobin g/dL after units harmonisation."
 export LIVER_SKIP_TABLE1=1
-export LIVER_SKIP_DELIVERY=1
+# Delivery finalize ON: Methods + Times/underscore scrub + whitelist prune + pub QC
+export LIVER_SKIP_DELIVERY=0
+export DBPOOL_KIND=icuaaki
 
 mkdir -p "$ICUAKI_PUB_OUT"
 

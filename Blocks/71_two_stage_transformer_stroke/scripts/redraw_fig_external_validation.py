@@ -25,6 +25,18 @@ from matplotlib.patches import Rectangle
 from sklearn.metrics import roc_auc_score, roc_curve
 from torch.utils.data import DataLoader
 
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+try:
+    from tst_mpl_times import setup_times_roman
+
+    setup_times_roman()
+except Exception:
+    matplotlib.rcParams["font.family"] = "serif"
+    matplotlib.rcParams["font.serif"] = ["Times New Roman", "Liberation Serif", "Nimbus Roman"]
+    matplotlib.rcParams["pdf.fonttype"] = 42
+
 
 def _to_path(p: str | Path) -> Path:
     s = str(p)

@@ -22,7 +22,7 @@ os.environ.setdefault(
     "KDIGO ICU-AKI cohort (DN=1). Continuous: mean [SD] "
     "(vitals/labs = stay-level hourly mean after physiological-range clip). "
     "Drug exposure: any hourly dose >0 during the stay. "
-    "Creatinine and urine_output excluded from model features.",
+    "Creatinine and urine output excluded from model features.",
 )
 os.environ.setdefault("LIVER_FEATURE_DROP_EN", "Creatinine and urine_output excluded from model features.")
 os.environ.setdefault("LIVER_TABLE1_WORKERS", "24")

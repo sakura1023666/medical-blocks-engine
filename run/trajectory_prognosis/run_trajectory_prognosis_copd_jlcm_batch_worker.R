@@ -14,7 +14,7 @@
 }
 
 .parse_worker_args <- function(args) {
-  opts <- list(unit = NULL, root = NULL, config = NULL)
+  opts <- list(unit = NULL, root = NULL, config = NULL, db = NULL)
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
@@ -22,6 +22,9 @@
       opts$unit <- trimws(args[[i + 1L]]); i <- i + 2L
     } else if (a == "--config" && i < length(args)) {
       opts$config <- trimws(args[[i + 1L]]); i <- i + 2L
+    } else if (a == "--db" && i < length(args)) {
+      # 仅跑指定库，如 --db eicu（外验补跑；须已有发现集模型）
+      opts$db <- tolower(trimws(args[[i + 1L]])); i <- i + 2L
     } else if (!startsWith(a, "--") && is.null(opts$root)) {
       opts$root <- a; i <- i + 1L
     } else {
@@ -111,6 +114,10 @@ tryCatch(
 
 tb <- config$trajectory_batch %||% list()
 db_seq <- as.character(tb$db_seq %||% c("mimic", "eicu"))
+if (!is.null(wk_opts$db) && nzchar(wk_opts$db)) {
+  db_seq <- wk_opts$db
+  cli::cli_alert_info("仅跑指定库: {paste(toupper(db_seq), collapse=', ')}")
+}
 pipeline_prefix <- tb$pipeline_unit_prefix %||% pipeline_unit_prefix
 suffix_disc <- tb$pipeline_unit_suffix_discovery %||% pipeline_unit_suffix
 suffix_val  <- tb$pipeline_unit_suffix_validation %||% pipeline_unit_suffix
@@ -141,15 +148,47 @@ tryCatch({
     }
     # 外验：指向发现集产出根，便于找 D01_jlcm_*_models.RData
     if (!is_disc) {
-      disc_out <- file.path(trajectory_batch_index_output_dir(config_ix, ix), disc_db)
+      out_base <- trajectory_batch_index_output_dir(config_ix, ix)
+      # 裸名可能已被标成【success】/【failed】；外验查找需覆盖别名
+      ix_dirs <- unique(c(
+        out_base,
+        file.path(dirname(out_base), paste0("\u3010success\u3011", ix)),
+        file.path(dirname(out_base), paste0("\u3010failed\u3011", ix))
+      ))
+      disc_out <- NULL
+      for (d in ix_dirs) {
+        cand <- file.path(d, disc_db)
+        if (dir.exists(cand)) { disc_out <- cand; break }
+      }
+      if (is.null(disc_out)) disc_out <- file.path(out_base, disc_db)
       if (is.null(config_ix$trajectory_lcmm_external_validate))
         config_ix$trajectory_lcmm_external_validate <- list()
       config_ix$trajectory_lcmm_external_validate$discovery_output_root <- disc_out
       config_ix$trajectory_lcmm_external_validate$discovery_db <- disc_db
       if (is.null(config_ix$trajectory_pamm)) config_ix$trajectory_pamm <- list()
-      config_ix$trajectory_pamm$locked_threshold_path <- file.path(
-        disc_out, "Tables", "PAMM", paste0("PAMM_thresholds_", ix, ".rds")
+      # PAMM 阈值：裸名/【success】/【failed】 × *_locked.rds / *.rds × Tables|step25
+      thr_names <- c(
+        paste0("PAMM_thresholds_", ix, "_locked.rds"),
+        paste0("PAMM_thresholds_", ix, ".rds")
       )
+      thr_hit <- NULL
+      for (d in ix_dirs) {
+        for (fn in thr_names) {
+          for (sub in c(
+            file.path(disc_db, "Tables", "PAMM", fn),
+            file.path(disc_db, "step25_trajectory_pamm", "Tables", "PAMM", fn)
+          )) {
+            tp <- file.path(d, sub)
+            if (file.exists(tp)) { thr_hit <- tp; break }
+          }
+          if (!is.null(thr_hit)) break
+        }
+        if (!is.null(thr_hit)) break
+      }
+      config_ix$trajectory_pamm$locked_threshold_path <- thr_hit %||%
+        file.path(disc_out, "Tables", "PAMM", paste0("PAMM_thresholds_", ix, "_locked.rds"))
+      if (!is.null(thr_hit))
+        cli::cli_alert_info("外验 PAMM 锁定阈值: {.file {thr_hit}}")
     }
     ctx_db <- tryCatch(
       trajectory_batch_run_index_db(root, config_ix, ix, db, pl_unit),

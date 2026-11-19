@@ -1292,6 +1292,8 @@ attrition_weight_footnote <- function(ctx) {
 .attrition_fit_side_text <- function(txt, fontsize, family, avail_npc) {
   txt <- as.character(txt %||% "")[1L]
   if (!nzchar(txt) || !is.finite(avail_npc) || avail_npc <= 0) return(txt)
+  # 留 8% 边距：Times/cairo 测宽常偏乐观，否则贴右边框甚至溢出
+  avail_npc <- as.numeric(avail_npc)[1L] * 0.92
   gp <- grid::gpar(fontsize = fontsize, fontfamily = family)
   widest <- function(block) {
     lines <- strsplit(block, "\n", fixed = TRUE)[[1L]]
@@ -1312,7 +1314,7 @@ attrition_weight_footnote <- function(ctx) {
     }
     plain <- gsub("[[:space:]]+", " ", trimws(ln))
     fitted <- plain
-    for (w in seq.int(max(16L, nchar(plain) - 4L), 16L, by = -2L)) {
+    for (w in seq.int(max(12L, nchar(plain) - 2L), 10L, by = -1L)) {
       wrapped <- paste(strwrap(plain, width = w), collapse = "\n")
       fitted <- wrapped
       if (widest(wrapped) <= avail_npc) break
@@ -1384,28 +1386,46 @@ attrition_draw_box_text <- function(text, x0, y0, x1, y1, fontsize = 10,
                                     reflow = FALSE) {
   align <- match.arg(align)
   avail <- max(0.02, abs(x1 - x0) - 2 * pad_npc)
-  fitted <- if (isTRUE(reflow)) attrition_reflow_label(text, avail, fontsize, family) else as.character(text)[1L]
-  lines <- strsplit(fitted, "\n", fixed = TRUE)[[1L]]
-  lines <- lines[nzchar(lines)]
-  if (!length(lines)) return(invisible(NULL))
-  gp <- grid::gpar(fontsize = fontsize, fontface = fontface, fontfamily = family,
-                   col = "#111111")
-  lh <- grid::convertHeight(grid::stringHeight("Hg"), "npc", valueOnly = TRUE) * 1.15
-  total <- lh * length(lines)
   box_h <- abs(y1 - y0)
+  fs <- as.numeric(fontsize)[1L]
+  fitted <- ""
+  lines <- character(0)
+  lh <- 0
+  # 字号过大则自动缩小，避免文字压出圆角框
+  for (try_i in seq_len(8L)) {
+    fitted <- if (isTRUE(reflow)) {
+      attrition_reflow_label(text, avail, fs, family)
+    } else {
+      as.character(text)[1L]
+    }
+    lines <- strsplit(fitted, "\n", fixed = TRUE)[[1L]]
+    lines <- lines[nzchar(lines)]
+    if (!length(lines)) return(invisible(NULL))
+    lh <- grid::convertHeight(
+      grid::unit(fs * 1.20, "points"), "npc", valueOnly = TRUE
+    )
+    total <- lh * length(lines)
+    if (total <= box_h - 2 * pad_npc || fs <= 5.0) break
+    fs <- max(5.0, fs - 0.6)
+  }
+  gp <- grid::gpar(fontsize = fs, fontface = fontface, fontfamily = family,
+                   col = "#111111")
+  total <- lh * length(lines)
   y_mid <- (y0 + y1) / 2
-  y_first <- if (total < box_h - 2 * pad_npc) {
-    y_mid + total / 2 - lh / 2
-  } else {
-    max(y0, y1) - pad_npc - lh / 2
+  y_first <- y_mid + total / 2 - lh / 2
+  # 仍溢出时顶对齐并裁在框内
+  if (y_first + lh / 2 > max(y0, y1) - pad_npc) {
+    y_first <- max(y0, y1) - pad_npc - lh / 2
   }
   x_pos <- if (align == "left") min(x0, x1) + pad_npc else (x0 + x1) / 2
   hjust <- if (align == "left") "left" else "centre"
   for (k in seq_along(lines)) {
+    yk <- y_first - (k - 1) * lh
+    if (yk < min(y0, y1) + pad_npc * 0.5) next
     grid::grid.text(
       lines[k],
       x = grid::unit(x_pos, "npc"),
-      y = grid::unit(y_first - (k - 1) * lh, "npc"),
+      y = grid::unit(yk, "npc"),
       just = c(hjust, "centre"),
       gp = gp
     )
@@ -1459,8 +1479,13 @@ attrition_draw_box_text <- function(text, x0, y0, x1, y1, fontsize = 10,
   if (grepl("CKD|chronic kidney", lab, ignore.case = TRUE)) {
     return("Without chronic kidney disease")
   }
-  if (grepl("periodontitis|depression outcome|available", lab, ignore.case = TRUE)) {
+  # 勿用裸 "available"：会误伤 “vital status available / follow-up available”
+  if (grepl("periodontitis|depression outcome", lab, ignore.case = TRUE)) {
     return("Missing periodontitis grade or depression outcome")
+  }
+  if (grepl("follow-up|vital status|landmark", lab, ignore.case = TRUE)) {
+    return(sprintf("Follow-up or vital status unavailable (n = %s)",
+                   format(as.integer(n_drop), big.mark = ",")))
   }
   if (grepl("extreme", lab, ignore.case = TRUE) ||
       grepl("final analytic|participants included", lab, ignore.case = TRUE)) {
@@ -1973,7 +1998,7 @@ attrition_draw_outcome_panel <- function(panel, family = "Times") {
     )
     attrition_draw_box_text(
       lab, x0, y0, x1, y1, fontsize = fs, family = ff, fontface = "plain",
-      pad_npc = 0.015, align = align, reflow = reflow
+      pad_npc = 0.022, align = align, reflow = reflow
     )
   }
   varrow <- function(x, y1, y0) {
@@ -1990,17 +2015,17 @@ attrition_draw_outcome_panel <- function(panel, family = "Times") {
       gp = grid::gpar(fill = "black", col = "black", lwd = 0.7)
     )
   }
-  ## 与 pv2 单栏一致：主列/排除列整体水平居中，避免贴左
-  ml <- 0.14
-  mr <- 0.54
+  ## 主列略左移，右侧 Exclude 加宽；侧框右缘留白防裁切
+  ml <- 0.10
+  mr <- 0.48
   cx <- (ml + mr) / 2
-  side_x0 <- 0.60
+  side_x0 <- 0.54
   side_x1 <- 0.94
   fork_gap <- 0.04
   fork_w <- (mr - ml - fork_gap) / 2
   if (nzchar(as.character(panel$letter %||% "")[1L])) {
     grid::grid.text(
-      as.character(panel$letter)[1L], x = ml - 0.06, y = 0.985, just = c("left", "top"),
+      as.character(panel$letter)[1L], x = ml - 0.04, y = 0.985, just = c("left", "top"),
       gp = grid::gpar(fontsize = 11, fontface = "bold", fontfamily = ff)
     )
   }
@@ -2028,38 +2053,46 @@ attrition_draw_outcome_panel <- function(panel, family = "Times") {
       format(as.integer(inc_n), big.mark = ",")
     )
   }
-  # 主列 y：有 mid 时三框；无 mid 时 top→inc 两框拉高
-  y_top <- c(0.82, 0.955)
-  y_mid <- c(0.52, 0.67)
-  y_inc <- c(0.22, 0.35)
+  # 主列 y：有 mid 时三框；无 mid 时 top→inc 两框拉高（框略增高防文字贴边）
+  y_top <- c(0.80, 0.955)
+  y_mid <- c(0.50, 0.66)
+  y_inc <- c(0.24, 0.38)
   if (!keep_mid && keep_inc) {
     y_inc <- c(0.42, 0.62)
   }
-  box(ml, y_top[1], mr, y_top[2], panel$top, fs = 7.4)
-  if (keep_mid) box(ml, y_mid[1], mr, y_mid[2], mid_lab, fs = 7.2)
-  if (keep_inc) box(ml, y_inc[1], mr, y_inc[2], inc_lab, fs = 7.4)
-  box(ml, 0.02, ml + fork_w, 0.13, panel$death, fs = 6.8)
-  box(mr - fork_w, 0.02, mr, 0.13, panel$alive, fs = 6.8)
-  side_fs <- 6.5
+  box(ml, y_top[1], mr, y_top[2], panel$top, fs = 7.0)
+  if (keep_mid) box(ml, y_mid[1], mr, y_mid[2], mid_lab, fs = 6.8)
+  if (keep_inc) box(ml, y_inc[1], mr, y_inc[2], inc_lab, fs = 7.0)
+  # 底部分叉框加高 + 更小字号，防文字出框
+  y_fork0 <- 0.018
+  y_fork1 <- 0.155
+  box(ml, y_fork0, ml + fork_w, y_fork1, panel$death, fs = 6.2)
+  box(mr - fork_w, y_fork0, mr, y_fork1, panel$alive, fs = 6.2)
+  side_fs <- 5.6
   side_h <- function(lab) {
     attrition_label_height_npc(
-      lab, side_x1 - side_x0, fontsize = side_fs, family = ff, pad_npc = 0.012
-    )
+      lab, side_x1 - side_x0, fontsize = side_fs, family = ff, pad_npc = 0.022
+    ) * 1.18
   }
   keep1 <- .side_keep(panel$side1)
   keep2 <- .side_keep(panel$side2) && keep_mid  # 无 mid 时 side2 无挂点
   if (isTRUE(keep1)) {
-    y_side1 <- if (keep_mid) 0.81 else (y_top[1] + y_inc[2]) / 2
-    h1 <- side_h(panel$side1)
-    box(side_x0, y_side1 - h1 / 2, side_x1, y_side1 + h1 / 2, panel$side1,
+    y_side1 <- if (keep_mid) 0.80 else (y_top[1] + y_inc[2]) / 2
+    h1 <- max(0.10, side_h(panel$side1))
+    y1a <- max(0.16, y_side1 - h1 / 2)
+    y1b <- min(0.97, y1a + h1)
+    box(side_x0, y1a, side_x1, y1b, panel$side1,
         fs = side_fs, align = "left", reflow = TRUE)
-    harrow(cx, side_x0, y_side1)
+    harrow(cx, side_x0, (y1a + y1b) / 2)
   }
   if (isTRUE(keep2)) {
-    h2 <- side_h(panel$side2)
-    box(side_x0, 0.51 - h2 / 2, side_x1, 0.51 + h2 / 2, panel$side2,
+    h2 <- max(0.14, side_h(panel$side2))
+    y2mid <- 0.50
+    y2a <- max(y_fork1 + 0.02, y2mid - h2 / 2)
+    y2b <- min(y_top[1] - 0.02, y2a + h2)
+    box(side_x0, y2a, side_x1, y2b, panel$side2,
         fs = side_fs, align = "left", reflow = TRUE)
-    harrow(cx, side_x0, 0.51)
+    harrow(cx, side_x0, (y2a + y2b) / 2)
   }
   if (keep_mid) {
     varrow(cx, y_top[1], y_mid[2])
@@ -2070,16 +2103,17 @@ attrition_draw_outcome_panel <- function(panel, family = "Times") {
   fl <- ml + fork_w / 2
   fr <- mr - fork_w / 2
   y_fork_from <- if (keep_inc) y_inc[1] else if (keep_mid) y_mid[1] else y_top[1]
+  y_bar <- y_fork1 + 0.02
   grid::grid.lines(
-    x = grid::unit(c(cx, cx), "npc"), y = grid::unit(c(y_fork_from, 0.165), "npc"),
+    x = grid::unit(c(cx, cx), "npc"), y = grid::unit(c(y_fork_from, y_bar), "npc"),
     gp = grid::gpar(col = "black", lwd = 0.7)
   )
   grid::grid.lines(
-    x = grid::unit(c(fl, fr), "npc"), y = grid::unit(c(0.165, 0.165), "npc"),
+    x = grid::unit(c(fl, fr), "npc"), y = grid::unit(c(y_bar, y_bar), "npc"),
     gp = grid::gpar(col = "black", lwd = 0.7)
   )
-  varrow(fl, 0.165, 0.13)
-  varrow(fr, 0.165, 0.13)
+  varrow(fl, y_bar, y_fork1)
+  varrow(fr, y_bar, y_fork1)
   invisible(panel)
 }
 
@@ -2149,17 +2183,27 @@ attrition_write_outcome_ledger <- function(panels, csv_path) {
 #' 多库并排的预后纳排图。每个 panel 用 attrition_draw_outcome_panel。
 #' csv_path 给定时，底账与图面人数同一来源，不再另写一套旧筛选。
 attrition_draw_outcome_figure <- function(pdf_path, panels, width = 15.6, height = 6.35,
-                                          family = "Times", csv_path = NULL) {
+                                          family = NULL, csv_path = NULL) {
   dir.create(dirname(pdf_path), recursive = TRUE, showWarnings = FALSE)
-  ff <- as.character(family %||% "Times")[1L]
+  # 默认走 resolve_plot_font_family：拒 Times→NotoCJK（Adobe 打不开）
+  ff <- if (!is.null(family) && nzchar(as.character(family)[1L])) {
+    as.character(family)[1L]
+  } else if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "DejaVu Serif"
+  }
   grDevices::cairo_pdf(pdf_path, width = width, height = height, family = ff)
   on.exit(grDevices::dev.off(), add = TRUE)
   grid::grid.newpage()
   n <- length(panels)
   if (!n) return(invisible(pdf_path))
   for (i in seq_len(n)) {
+    # 面板间留缝 + 略缩高，避免侧框/底框被 viewport 裁切出界
     grid::pushViewport(grid::viewport(
-      x = (i - 0.5) / n, y = 0.5, width = 1 / n, height = 1
+      x = (i - 0.5) / n, y = 0.5,
+      width = (1 / n) * 0.96, height = 0.96,
+      clip = "on"
     ))
     attrition_draw_outcome_panel(panels[[i]], family = ff)
     grid::popViewport()

@@ -1,9 +1,9 @@
-# Methods text for database-pooling / BlendedLoS liver multi-DB packs.
+# Methods text for database-pooling / multi-DB ICU packs.
 # Used by run/pub/finalize_delivery_root.R when --study-type dbpool|database_pool|blendedlos
 #
-# Provenance default (P0-1, 2026-11 ULN-triple): option B —
-# harmonized extract following BlendedICU v0.3.2 protocol (self-built mapping),
-# NOT Allyn official BlendedICU package redistribution.
+# Delivery wording rule (2026-11 ICUAKI): do NOT mention "Allyn", "版式", or
+# "BlendedLoS layout" in customer-facing Methods. Describe feature selection as
+# following prior published multi-database ICU mortality / LoS literature.
 
 pub_dbpool_methods_statistical_lines <- function(config = list()) {
   proj <- config$project %||% list()
@@ -13,17 +13,39 @@ pub_dbpool_methods_statistical_lines <- function(config = list()) {
     dbs <- trimws(unlist(strsplit(dbs, "[,;|]")))
   }
   db_lab <- paste(dbs, collapse = ", ")
+  n_boot <- suppressWarnings(as.integer(
+    proj$n_boot %||% Sys.getenv("ICUAKI_N_BOOT", unset = Sys.getenv("DBPOOL_N_BOOT", unset = "2000"))
+  )[1L])
+  if (!is.finite(n_boot) || n_boot < 1L) n_boot <- 2000L
+
+  kind <- tolower(as.character(
+    proj$kind %||% Sys.getenv("DBPOOL_KIND", unset = "")
+  )[1L])
+  is_icuaaki <- grepl("icuaaki|icu.?aki|kdigo", kind) ||
+    grepl("ICU-AKI|KDIGO|DN=1", cohort, ignore.case = TRUE)
+
+  default_feat <- if (isTRUE(is_icuaaki)) {
+    paste0(
+      "Candidate predictors followed prior published multi-database ICU mortality and ",
+      "length-of-stay modelling inventories: bedside vitals, common laboratories, selected ",
+      "medications, and static age/sex/height/weight (respiratory waveform channels off unless ",
+      "explicitly enabled). Creatinine and urine output were excluded because they enter the ",
+      "KDIGO AKI definition. Blood glucose was analysed in mmol/L and haemoglobin in g/dL after ",
+      "cross-database units harmonisation. No additional data-driven feature hunting was used ",
+      "beyond this literature-aligned inventory and the leakage exclusions above."
+    )
+  } else {
+    paste0(
+      "Model inputs followed prior published multi-database ICU modelling inventories ",
+      "(vitals + laboratories + selected medications + static age/sex/height/weight; ",
+      "respiratory off unless enabled); laboratories used only to define the cohort were ",
+      "dropped from predictors."
+    )
+  }
   feature_set <- as.character(
-    proj$feature_set %||%
-      Sys.getenv(
-        "DBPOOL_FEATURE_SET",
-        unset = paste0(
-          "Model inputs followed the BlendedLoS keep=1 inventory (vitals + laboratories + ",
-          "selected medications + static age/sex/height/weight; respiratory off unless enabled); ",
-          "laboratories used only to define the cohort were dropped from predictors."
-        )
-      )
+    proj$feature_set %||% Sys.getenv("DBPOOL_FEATURE_SET", unset = default_feat)
   )[1L]
+
   model <- as.character(proj$model %||% "Temporal Pointwise Convolution (TPC) multitask network")[1L]
   split <- as.character(proj$split %||% "patient-level 70%/15%/15% (fixed seed 974)")[1L]
   t0_hours <- as.integer(proj$time_before_pred %||% 5L)[1L]
@@ -39,52 +61,74 @@ pub_dbpool_methods_statistical_lines <- function(config = list()) {
       )
   )[1L]
 
+  sens_lines <- if (isTRUE(is_icuaaki)) {
+    c(
+      "## Sensitivity and clinical extras",
+      paste0(
+        "Supplementary tables report DeLong/bootstrap intervals (Table S3), an Age+Sex logistic ",
+        "baseline versus TPC on shared external stays (Table S4), and pooling-model risk tertiles ",
+        "with Youden and fixed operating points (Table S5). Calibration and decision-curve analyses ",
+        "compare MIMIC-IV alone with pooling on eICU and HiRID (Figures 3–4); Figure 5 shows ",
+        "observed mortality by predicted-risk tertile. Decision-curve panels display net benefit ",
+        "with the y-axis starting at zero (values below treat-none are omitted from the plot)."
+      ),
+      ""
+    )
+  } else {
+    c(
+      "## Sensitivity analyses",
+      paste0(
+        "When packed, single-enzyme ULN definitions (total bilirubin, ALT, or AST alone) are ",
+        "reported as numbered sensitivity tables and figures parallel to the primary all-three ",
+        "ULN cohort, using the same TPC arms, metrics, and confidence-interval methods."
+      ),
+      ""
+    )
+  }
+
   c(
     "# Statistical analysis",
     "",
     "## Study design, data provenance, and cohort",
     paste0(
       "This multi-database pooling study analysed adult ICU stays meeting the ",
-      cohort, ". Hourly tensors were built as a harmonized extract following the ",
-      "BlendedICU v0.3.2 protocol (self-built variable mapping / RealExtraction adaptation from ",
-      db_lab, " source tables; patient-level split seed 974). This is not a redistribution of ",
-      "the Allyn et al. official BlendedICU package release artifact. Source databases were ",
-      "accessed under the PhysioNet Credentialed Health Data Use Agreement; credentialed raw ",
-      "tables are not redistributed. ",
-      feature_set, " ",
-      "Cohort-defining laboratory thresholds were not used as a separate ",
-      "data-driven variable-selection step."
+      cohort, ". Hourly tensors were built as a harmonized extract with a self-built variable ",
+      "mapping from ", db_lab,
+      " source tables (patient-level split seed 974). Source databases were accessed under the ",
+      "PhysioNet Credentialed Health Data Use Agreement; credentialed raw tables are not ",
+      "redistributed. ",
+      feature_set
     ),
     "",
     "## Time zero and prediction window",
     paste0(
       "Time zero (t0) was ICU admission (hour index 0 on the harmonised hourly timeline). ",
       "The first ", t0_hours,
-      " hours after admission provided context only (time-before-pred = ", t0_hours,
-      "); the multitask model emitted hourly predictions from hour ", t0_hours,
+      " hours after admission provided context only; the multitask model emitted hourly ",
+      "predictions from hour ", t0_hours,
       " onward through the end of the observed ICU stay (sequence truncated by stay length). ",
       "No hospital-ward hours after ICU discharge entered the prediction window."
     ),
     "",
     "## Preprocessing",
     paste0(
-      "Continuous time-series values were clipped to Allyn MOESM1 tabulated empirical caps ",
-      "(protocol-copied bounds; not independently derived healthy-reference intervals), ",
-      "then scaled with training-set 5th/95th percentiles to the interval [−1, 1] between quantiles ",
-      "and clipped to [−4, 4] after scaling. Table S1 “N clipped” counts post-normalisation ",
-      "outliers (|scaled| > 4), not MOESM1 hard-clip rewrite counts; Before/After medians reflect ",
-      "the hard clip. Missingness was handled with forward-fill and observation masks ",
-      "(MNAR-aware layout). Quantiles were fitted on the training split only and reused for ",
-      "validation and test."
+      "Continuous time-series values were clipped to a priori physiological ranges taken from ",
+      "the reference multi-database ICU modelling protocol supplementary tables, then scaled with ",
+      "training-set 5th/95th percentiles to the interval [−1, 1] between quantiles and clipped to ",
+      "[−4, 4] after scaling. Table S1 “N clipped” counts post-normalisation outliers (|scaled| > 4), ",
+      "not hard-clip rewrite counts; Before/After medians reflect the hard clip. Missingness was ",
+      "handled with forward-fill and observation masks. Quantiles were fitted on the training ",
+      "split only and reused for validation and test."
     ),
     "",
     "## Model and endpoints",
     paste0(
       "The primary architecture was a ", model, " predicting, at each eligible hour, ",
       "(i) ICU mortality risk and (ii) remaining ICU length of stay (RLoS) among stays that ",
-      "did not die in the ICU. TPC was pre-specified to match the Allyn BlendedLoS main analysis; ",
-      "Table S2 architecture screens are descriptive (single equal-n run; LSTM/Transformer may ",
-      "lead individual cells without overturning TPC as primary). ",
+      "did not die in the ICU. TPC was pre-specified as the primary architecture following prior ",
+      "published multi-database ICU modelling work; Table S2 architecture screens are descriptive ",
+      "(single equal-n run; LSTM/Transformer may lead individual cells without overturning TPC ",
+      "as primary). ",
       "ICU mortality was the harmonised stay-level mortality label used consistently in Table 1 ",
       "and in model targets (not hospital-wide mortality after ICU discharge). ",
       "Source databases may encode death with different raw discharge-status fields before ",
@@ -109,7 +153,8 @@ pub_dbpool_methods_statistical_lines <- function(config = list()) {
       "curve (AUROC); precision–recall used AUPRC where reported. RLoS error used mean absolute ",
       "percentage error (MAPE). Unless noted, AUROC 95% confidence intervals used the DeLong ",
       "method at the ICU-stay level; MAPE and AUPRC intervals used patient-level percentile ",
-      "bootstrap (10,000 resamples). Point estimates are single fixed-seed runs (seed 974), ",
+      "bootstrap (", format(n_boot, big.mark = ","),
+      " resamples). Point estimates are single fixed-seed runs (seed 974), ",
       "not multi-seed means. ",
       "AUPRC Baseline is class prevalence in the same prediction stay frame as that cell ",
       "(not Table 1 all-stays mortality of complementary databases). ",
@@ -125,24 +170,26 @@ pub_dbpool_methods_statistical_lines <- function(config = list()) {
       "Table 2 is the single-database 100% trainval benchmark. ",
       "Table 3 is the four-strategy matrix under the ", split,
       " protocol (training N in column headers). ",
-      "Figure 2 is a separate MIMIC training-size sweep (metrics_multitask.csv mean of eICU+HiRID); ",
+      "Figure 2 is a separate MIMIC training-size sweep (mean of eICU+HiRID); ",
       "matching endpoint train N does not imply the same checkpoint as Table 3 MIMIC-alone ",
       "Generalization—do not cross-read. ",
       "Rounding also differs (Table 2 mortality AUROC three decimals; Table 3 two)."
     ),
     "",
-    "## Feature set",
+    "## Feature selection",
     paste0(feature_set),
     "",
-    "## Sensitivity analyses",
+    sens_lines,
+    "## Numeric reporting",
     paste0(
-      "When packed, single-enzyme ULN definitions (total bilirubin, ALT, or AST alone) are ",
-      "reported as numbered sensitivity tables and figures parallel to the primary all-three ",
-      "ULN cohort, using the same TPC arms, metrics, and confidence-interval methods."
+      "Publication rounding follows the reference multi-database ICU modelling tables: ",
+      "Table 2 mortality AUROC three decimals and MAPE one decimal; Table 3 AUROC two decimals ",
+      "and MAPE two decimals; supplementary CI tables use three-decimal AUROC/AUPRC and ",
+      "two-decimal MAPE; counts use thousands separators; P values use <0.001 / >0.999 caps."
     ),
     "",
     "## Software",
-    "(See Methods_software_versions.txt and the Software subsection appended at finalize.)",
+    "(See the companion software-versions text file in the delivery folder.)",
     ""
   )
 }

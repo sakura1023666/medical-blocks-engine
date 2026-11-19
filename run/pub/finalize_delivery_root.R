@@ -17,10 +17,18 @@
 # Methods_software_versions.txt / *中期*.pdf（见 R/pub_delivery_prune.R）
 
 args <- commandArgs(trailingOnly = TRUE)
+# 路径/文案含空格时，若上游未 shQuote，argv 会被拆成多段；拼到下一个 --flag 为止
 get_opt <- function(flag, default = NULL) {
   hit <- which(args == flag)
   if (!length(hit) || hit[[1]] >= length(args)) return(default)
-  args[[hit[[1]] + 1L]]
+  i <- hit[[1]] + 1L
+  parts <- character(0)
+  while (i <= length(args) && !grepl("^--", args[[i]])) {
+    parts <- c(parts, args[[i]])
+    i <- i + 1L
+  }
+  if (!length(parts)) return(default)
+  paste(parts, collapse = " ")
 }
 has_flag <- function(flag) flag %in% args
 
@@ -144,6 +152,13 @@ if (dir.exists(fig_dir) && exists("pub_figure_ensure_formats", mode = "function"
       max_edge_in = 16, require_vector_pdf = TRUE
     ))
   )
+  # ensure_formats 会重写 image_information/README；必须再 scrub 一次展示下划线
+  if (exists("pub_delivery_scrub_image_information", mode = "function")) {
+    tryCatch(
+      pub_delivery_scrub_image_information(dir),
+      error = function(e) warning("image_information scrub: ", conditionMessage(e), call. = FALSE)
+    )
+  }
 }
 
 is_tst <- grepl("tst|two.?stage|transformer", study_type, ignore.case = TRUE)

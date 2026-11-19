@@ -259,8 +259,8 @@ pv2_s6_before_after_body <- function(
           na_ <- sum(as.character(xa) == lv, na.rm = TRUE)
           add(
             paste0("  ", lv), "",
-            sprintf("%s (%s%%)", pub_format_int(nb), fmt_num(100 * nb / nrow(b))),
-            sprintf("%s (%s%%)", pub_format_int(na_), fmt_num(100 * na_ / nrow(a))),
+            sprintf("%s (%.1f%%)", pub_format_int(nb), 100 * nb / max(nrow(b), 1L)),
+            sprintf("%s (%.1f%%)", pub_format_int(na_), 100 * na_ / max(nrow(a), 1L)),
             ""
           )
         }
@@ -406,9 +406,9 @@ pv2_s8_mediation_body <- function(
         `Path b (95% CI)` = pv2_ci_cell(r$b, r$b_lo, r$b_hi),
         `Path b P` = pv2_fmt_p(r$pb),
         `Direct effect HR (95% CI)` = pv2_hr_cell(r$de_hr, r$de_lo, r$de_hi),
-        `Proportion mediated, %` = if (is.finite(r$prop)) round(r$prop, 3) else NA_real_,
+        `Proportion mediated, %` = if (is.finite(r$prop)) round(r$prop, 1) else NA_real_,
         `Proportion 95% CI, %` = if (all(is.finite(bp))) {
-          sprintf("%.3f, %.3f", bp["lo"], bp["hi"])
+          sprintf("%.1f, %.1f", bp["lo"], bp["hi"])
         } else "",
         check.names = FALSE, stringsAsFactors = FALSE
       )
@@ -421,10 +421,24 @@ pv2_s8_mediation_body <- function(
 pv2_table3_covariate_footnotes <- function(
     m2_covs = c("Age", "Gender"),
     m3_covs = c("Age", "Gender", "CHARLSON")) {
+  .lab <- c(
+    Gender = "Sex", Sex = "Sex",
+    PlateletCount = "Platelet count", UreaNitrogen = "Urea nitrogen",
+    Malignant_Tumor = "Malignant tumor", Liver_cirrhosis = "Liver cirrhosis",
+    Heart_Failure = "Heart failure", Myocardial_Infarction = "Myocardial infarction",
+    Ventilation = "Mechanical ventilation"
+  )
+  .disp <- function(x) {
+    x <- as.character(x)
+    hit <- x %in% names(.lab)
+    x[hit] <- unname(.lab[x[hit]])
+    x <- gsub("([a-z0-9])([A-Z])", "\\1 \\2", x)
+    if (exists("pipeline_display_label", mode = "function")) pipeline_display_label(x) else gsub("_", " ", x, fixed = TRUE)
+  }
   c(
     "Covariate sets are identical to Table 3.",
     "The Model 1 was non-adjusted.",
-    paste0("The Model 2 was adjusted by: ", paste(m2_covs, collapse = ", "), "."),
-    paste0("The Model 3 was adjusted by: ", paste(m3_covs, collapse = ", "), ".")
+    paste0("The Model 2 was adjusted by: ", paste(.disp(m2_covs), collapse = ", "), "."),
+    paste0("The Model 3 was adjusted by: ", paste(.disp(m3_covs), collapse = ", "), ".")
   )
 }

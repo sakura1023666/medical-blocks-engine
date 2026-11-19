@@ -1,0 +1,33 @@
+# 数据库池化 / BlendedLoS 发表小数位（全项目，对齐 Allyn Crit Care 2026）
+
+凡 **dbpool / BlendedLoS / ICUAKI 四库池化** 发表表必须遵守。实现：`Blocks/78_database_pooling_full/scripts/dbpool_pub_digits.py`；EASL/ICUAKI finalize 共用。
+
+## 铁律
+
+| 统计量 | 位数 | 出现位置 |
+|---|---|---|
+| 死亡 AUROC（及 CI） | **3** | Table 2、S2、S3、S4 |
+| 死亡 AUROC（及 CI） | **2** | **仅** Table 3 四策略主表 |
+| AUPRC（及 CI） | **3** | Table 2 / S3（若报） |
+| RLoS MAPE（及 CI） | **1** | Table 2、S2 |
+| RLoS MAPE（及 CI） | **2** | Table 3、S3 |
+| Mcomposite | **2** | Table 3 |
+| 内外验变化 % | **1** | Table 2 Variation |
+| 死亡率 / 分层 % | **1** | Table 1、S5 |
+| 预测风险 / Sens/Spec/PPV/NPV | **3** | S5、校准图注 |
+| 固定阈值标签 | **2** | S5（≥0.10 / ≥0.20） |
+| Youden 阈值 | **3** | S5 |
+| Brier | **3** | Fig3 |
+| DeLong / bootstrap P | NEJM | `<0.001` / `>0.999` / 其余 3 位 |
+| 人数 | 整数 + 千分位逗号 | 全表 |
+
+## 禁止
+
+- 正文把 Table 2 的三位 AUROC 与 Table 3 的两位 AUROC 混写成「同一数字」而不标表号
+- MAPE 在 Table 2 写两位、在 S2 写一位（须同角色同口径）
+- P 写成裸 `0` / `0.000`
+- 展示脚注残留 `blood_glucose` / `urine_output` 等编程下划线
+
+## Methods 必写
+
+收口 Methods 须有一句：Table 2 mortality AUROC three decimals; Table 3 two decimals（`R/pub_dbpool_methods.R` 已含）。

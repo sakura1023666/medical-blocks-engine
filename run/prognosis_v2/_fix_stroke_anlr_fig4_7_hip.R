@@ -19,6 +19,7 @@ source(file.path(.engine, "run/prognosis_v2/stroke_anlr_env.R"), local = FALSE)
 source(file.path(.engine, "R/utils.R"), local = FALSE)
 source(file.path(.engine, "R/pub_figure_export.R"), local = FALSE)
 source(file.path(.engine, "R/subgroup_forest_plot.R"), local = FALSE)
+source(file.path(.engine, "R/pv2_index_roc.R"), local = FALSE)
 source(file.path(.engine, "Blocks/20_mediation/01block_mediation_prognosis.R"), local = FALSE)
 
 .proj <- stroke_anlr_proj()
@@ -106,30 +107,11 @@ for (nm in names(rcs_list)) {
 }
 
 # ============================================================
-# Fig5：Hip 同款 ggplot ROC（双库两条曲线；Cox LP；图例只写 AUC）
+# Fig5：引擎 pv2_index_roc（连续指标无协变量；图例只写 AUC）
 # ============================================================
-message("==== Fig5 ROC Hip style ====")
-.roc_covs_prefer <- c("Age", "Sodium", "GCS")
-roc_df <- list()
-for (nm in names(dbs)) {
-  d <- as.data.frame(dbs[[nm]])
-  d$time <- as.numeric(d$futime_years)
-  d$event <- as.integer(d$fustatus)
-  covs <- intersect(.roc_covs_prefer, names(d))
-  need <- c(IDX, "time", "event", covs)
-  dd <- d[stats::complete.cases(d[, need]) & d$time > 0, ]
-  fit <- coxph(as.formula(paste("Surv(time, event) ~", paste(c(IDX, covs), collapse = "+"))), dd)
-  lp <- as.numeric(predict(fit, type = "lp"))
-  roc <- pROC::roc(dd$event, lp, quiet = TRUE, direction = "<")
-  cd <- pROC::coords(roc, ret = c("specificity", "sensitivity"), transpose = FALSE)
-  auc <- as.numeric(pROC::auc(roc))
-  roc_df[[nm]] <- data.frame(
-    Database = nm, fpr = 1 - cd$specificity, tpr = cd$sensitivity,
-    curve = sprintf("%s (AUC %.3f)", nm, auc),
-    stringsAsFactors = FALSE
-  )
-}
-roc <- do.call(rbind, roc_df)
+message("==== Fig5 ROC continuous unadjusted ====")
+roc <- pv2_index_roc_curve_by_db(dbs, IDX, event_col = "fustatus")
+if (is.null(roc) || !nrow(roc)) stop("Fig5: empty roc curves")
 roc$curve <- factor(roc$curve, levels = unique(roc$curve))
 p5 <- ggplot(roc, aes(fpr, tpr, color = curve)) +
   geom_path(linewidth = 0.9) +
@@ -137,13 +119,15 @@ p5 <- ggplot(roc, aes(fpr, tpr, color = curve)) +
   scale_color_manual(values = c("#D55E00", "#0072B2")) +
   labs(
     x = "1 - specificity", y = "Sensitivity", color = NULL,
-    title = paste0("Receiver operating characteristic curves\nfor ", .endpoint)
+    title = paste0("Receiver operating characteristic curves\nfor ", .endpoint),
+    subtitle = paste0(IDX, " continuous, unadjusted")
   ) +
   coord_equal(clip = "off") +
   theme_bw(base_family = "Times", base_size = 11) +
   theme(
     legend.position = "bottom",
-    plot.title = element_text(size = 11, face = "bold", margin = margin(b = 6))
+    plot.title = element_text(size = 11, face = "bold", margin = margin(b = 6)),
+    plot.subtitle = element_text(size = 9)
   )
 ggsave(
   file.path(.fig, sprintf("Figure 5. Receiver operating characteristic curves for %s.pdf", .endpoint)),

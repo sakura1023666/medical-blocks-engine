@@ -73,7 +73,19 @@
   list(lo = q[1L], hi = q[2L], probs = probs)
 }
 
-.tpamm_burden_table <- function(long, base, id_col, thr, time_var, event_var, covs, max_followup) {
+.tpamm_event_01 <- function(x, cfg = NULL) {
+  # 插补后结局常被 relabel 为 Survivor / Non-survivor；禁止 status == 1L
+  if (exists("pipeline_outcome_as_01", mode = "function")) {
+    return(as.integer(pipeline_outcome_as_01(x, cfg)))
+  }
+  if (is.numeric(x) || is.integer(x) || is.logical(x)) return(as.integer(as.numeric(x) == 1))
+  xs <- trimws(as.character(x))
+  as.integer(xs %in% c("1", "Non-survivor", "Dead", "dead", "Yes") |
+               grepl("non.?surv|dead|expir|death", xs, ignore.case = TRUE))
+}
+
+.tpamm_burden_table <- function(long, base, id_col, thr, time_var, event_var, covs, max_followup,
+                                cfg = NULL) {
   # person-level: prop time below lo / above hi; cumulative absolute deviation beyond thresholds
   agg <- stats::aggregate(
     expo ~ get(id_col), data = long,
@@ -103,7 +115,7 @@
   names(bur)[1L] <- id_col
   dd <- merge(base, bur, by = id_col, all.x = FALSE)
   dd$time <- pmin(as.numeric(dd[[time_var]]), max_followup)
-  dd$event <- as.integer(dd[[event_var]] == 1L)
+  dd$event <- .tpamm_event_01(dd[[event_var]], cfg)
   dd <- dd[is.finite(dd$time) & dd$time > 0, , drop = FALSE]
 
   fit_one <- function(term, scale = 1) {
@@ -229,13 +241,33 @@ block_trajectory_pamm <- function(ctx, ...) {
     dir.create(dirname(root_thr), recursive = TRUE, showWarnings = FALSE)
     saveRDS(thr, root_thr)
   } else {
-    lock_candidates <- c(
-      bl$locked_threshold_path %||% "",
-      root_thr,
-      file.path(dirname(dirname(ctx$config$project$output_dir %||% ".")), "mimic", "Tables", "PAMM",
-                paste0("PAMM_thresholds_", Index, ".rds"))
+    # 外验：config 注入路径优先；再扫同指标 mimic / 【failed】mimic 的 locked / 未加锁文件
+    out_ix <- dirname(ctx$config$project$output_dir %||% ".")  # .../by_index/NLPR
+    by_index <- dirname(out_ix)
+    ix_nm <- basename(out_ix)
+    disc_db <- as.character(bl$discovery_db %||% "mimic")[1L]
+    thr_fns <- c(
+      paste0("PAMM_thresholds_", Index, "_locked.rds"),
+      paste0("PAMM_thresholds_", Index, ".rds")
     )
-    lock_candidates <- lock_candidates[nzchar(lock_candidates) & file.exists(lock_candidates)]
+    sibling_roots <- unique(c(
+      file.path(by_index, ix_nm, disc_db),
+      file.path(by_index, paste0("\u3010success\u3011", ix_nm), disc_db),
+      file.path(by_index, paste0("\u3010failed\u3011", ix_nm), disc_db),
+      file.path(dirname(out_ix), disc_db)
+    ))
+    sibling_hits <- character(0)
+    for (sr in sibling_roots) {
+      for (fn in thr_fns) {
+        sibling_hits <- c(
+          sibling_hits,
+          file.path(sr, "Tables", "PAMM", fn),
+          file.path(sr, "step25_trajectory_pamm", "Tables", "PAMM", fn)
+        )
+      }
+    }
+    lock_candidates <- c(bl$locked_threshold_path %||% "", root_thr, sibling_hits)
+    lock_candidates <- unique(lock_candidates[nzchar(lock_candidates) & file.exists(lock_candidates)])
     if (!length(lock_candidates))
       stop("trajectory_pamm: 外验缺少发现集锁定阈值文件 ", root_thr, call. = FALSE)
     thr <- readRDS(lock_candidates[[1L]])
@@ -247,8 +279,20 @@ block_trajectory_pamm <- function(ctx, ...) {
   names(surv_df)[names(surv_df) == time_var] <- "time"
   names(surv_df)[names(surv_df) == event_var] <- "status"
   surv_df$time <- pmin(as.numeric(surv_df$time), max_fu)
-  surv_df$status <- as.integer(surv_df$status == 1L)
+  n_ev_raw <- sum(.tpamm_event_01(base[[event_var]], ctx$config), na.rm = TRUE)
+  surv_df$status <- .tpamm_event_01(surv_df$status, ctx$config)
   surv_df <- surv_df[is.finite(surv_df$time) & surv_df$time > 0, , drop = FALSE]
+  n_ev <- sum(surv_df$status == 1L, na.rm = TRUE)
+  cli::cli_alert_info(
+    "trajectory_pamm [{Index}]: n={nrow(surv_df)}, events={n_ev} (raw_encode_check={n_ev_raw})"
+  )
+  if (!n_ev) {
+    stop(
+      "trajectory_pamm: 编码后仍无事件。event_var=", event_var,
+      " levels=", paste(unique(as.character(base[[event_var]])), collapse = ","),
+      call. = FALSE
+    )
+  }
 
   long2 <- merge(long, surv_df[, c(id_col, covs), drop = FALSE], by = id_col, all.x = TRUE)
   # as_ped with concurrent exposure: use ped toolkit
@@ -271,14 +315,19 @@ block_trajectory_pamm <- function(ctx, ...) {
     # fallback: use day-1 exposure as baseline covariate in PED
     d1 <- long[long$time_day == 1L, c(id_col, "expo"), drop = FALSE]
     sdf <- merge(surv_df, d1, by = id_col, all.x = TRUE)
-    ped <- pammtools::as_ped(
-      data = sdf,
-      formula = stats::as.formula(paste0(
-        "Surv(time, status) ~ expo",
-        if (length(covs)) paste0(" + ", paste(covs, collapse = " + ")) else ""
-      )),
-      cut = cuts,
-      id = id_col
+    ped <- tryCatch(
+      pammtools::as_ped(
+        data = sdf,
+        formula = stats::as.formula(paste0(
+          "Surv(time, status) ~ expo",
+          if (length(covs)) paste0(" + ", paste(covs, collapse = " + ")) else ""
+        )),
+        cut = cuts,
+        id = id_col
+      ),
+      error = function(e) {
+        stop("trajectory_pamm as_ped 静态回退仍失败: ", conditionMessage(e), call. = FALSE)
+      }
     )
   }
 
@@ -287,7 +336,8 @@ block_trajectory_pamm <- function(ctx, ...) {
     NULL
   })
 
-  bur <- .tpamm_burden_table(long, base, id_col, thr, time_var, event_var, covs, max_fu)
+  bur <- .tpamm_burden_table(long, base, id_col, thr, time_var, event_var, covs, max_fu,
+                            cfg = ctx$config)
   bur$Index <- Index
   bur$db <- ctx$config$project$database %||% ""
   utils::write.csv(bur, file.path(out_tab, paste0("Table_PAMM_burden_HR_", Index, ".csv")),

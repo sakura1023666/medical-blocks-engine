@@ -4560,30 +4560,48 @@ resolve_plot_font_family <- function(preferred = "Times New Roman") {
   if (!nzchar(pref0)) pref0 <- "Times New Roman"
   times_like <- tolower(pref0) %in% c("times new roman", "times", "serif", "nimbus roman")
   # cairo 必须实测：仅 capabilities("cairo") 不够；缺字时会 PostScript/invalid font 写出空壳 PDF
+  # 实测后还要拒 CJK 替身（Times→NotoSerifCJK 时 size 仍>1500，但 Adobe 打不开）
+  .cairo_family_ok <- function(ff) {
+    tryCatch({
+      tmp <- tempfile(fileext = ".pdf")
+      on.exit(unlink(tmp), add = TRUE)
+      suppressWarnings({
+        grDevices::cairo_pdf(tmp, width = 2, height = 2, family = ff)
+        grid::grid.text("Mg", gp = grid::gpar(fontfamily = ff, fontsize = 12))
+        grDevices::dev.off()
+      })
+      if (!isTRUE(file.info(tmp)$size > 1500)) return(FALSE)
+      if (exists("pub_pdf_has_unsafe_cjk_font", mode = "function")) {
+        if (isTRUE(pub_pdf_has_unsafe_cjk_font(tmp))) return(FALSE)
+      } else {
+        # 轻量字节探针（pub_qc_fonts 未加载时）
+        raw <- tryCatch(readBin(tmp, "raw", n = min(as.integer(file.info(tmp)$size), 5e5L)), error = function(e) raw(0))
+        if (length(raw)) {
+          raw[raw < as.raw(32L) | raw > as.raw(126L)] <- as.raw(32L)
+          txt <- rawToChar(raw, multiple = FALSE)
+          if (grepl("NotoSerifCJK|NotoSansCJK|SourceHan|WenQuanYi|DroidSansFallback", txt)) {
+            return(FALSE)
+          }
+        }
+      }
+      TRUE
+    }, error = function(e) FALSE)
+  }
   if (isTRUE(capabilities("cairo"))) {
-    ## 禁止把裸 "Times" 放进 cairo 候选：Windows 上常映射成 Arial
+    ## 禁止裸 "Times"：Windows→Arial；中文 Linux→Noto CJK（Adobe 打不开）
+    ## 拉丁衬线优先 Liberation/DejaVu，Times New Roman 放后
     cairo_cands <- if (times_like) {
       c(
-        "Times New Roman", "Liberation Serif", "DejaVu Serif", "FreeSerif",
-        "Nimbus Roman", "serif"
+        "Liberation Serif", "DejaVu Serif", "FreeSerif", "Nimbus Roman",
+        "Times New Roman", "serif"
       )
     } else {
-      c(pref0, "serif")
+      c(pref0, "Liberation Serif", "DejaVu Serif", "serif")
     }
     cairo_cands <- unique(cairo_cands[nzchar(cairo_cands)])
     cairo_cands <- cairo_cands[!tolower(cairo_cands) %in% c("times", "sans")]
     for (ff in cairo_cands) {
-      ok <- tryCatch({
-        tmp <- tempfile(fileext = ".pdf")
-        on.exit(unlink(tmp), add = TRUE)
-        suppressWarnings({
-          grDevices::cairo_pdf(tmp, width = 2, height = 2, family = ff)
-          grid::grid.text("Mg", gp = grid::gpar(fontfamily = ff, fontsize = 12))
-          grDevices::dev.off()
-        })
-        isTRUE(file.info(tmp)$size > 1500)
-      }, error = function(e) FALSE)
-      if (isTRUE(ok)) return(ff)
+      if (isTRUE(.cairo_family_ok(ff))) return(ff)
     }
   }
   prefs <- unique(c(

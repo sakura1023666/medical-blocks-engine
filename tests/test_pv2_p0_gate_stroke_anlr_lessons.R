@@ -20,7 +20,8 @@ need <- c(
   "primary_day",
   "not computable",
   "Numbers_Master",
-  ".pv2_p0_xlsx_text_blob"
+  ".pv2_p0_xlsx_text_blob",
+  "s4_fig5_roc_audit"
 )
 miss <- need[!vapply(need, function(p) grepl(p, txt, fixed = TRUE), logical(1))]
 if (length(miss)) {

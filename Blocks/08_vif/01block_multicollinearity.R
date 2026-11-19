@@ -825,13 +825,29 @@
       selected <- order_vars_like_table1(selected, ctx, cfg, data)
     }
     if (!length(selected)) {
-      ctx$results$pause_point <- list(
-        block = "multicollinearity_final",
-        reason = "VIF final 筛选后无变量保留",
-        suggestion = paste0("检查共线性或放宽 vif_threshold_strict (当前: ", vif_threshold, ")"),
-        data_snapshot = utils::head(vif_tbl, 10)
+      # 批跑/轨迹：允许空池回退 Age+Gender，避免整指标被 PAUSE 误杀
+      allow_empty <- isFALSE(cfg$multicollinearity$pause_on_empty_final %||% TRUE) ||
+        isFALSE((cfg$multicollinearity$final %||% list())$pause_enable %||% TRUE)
+      if (!allow_empty) {
+        ctx$results$pause_point <- list(
+          block = "multicollinearity_final",
+          reason = "VIF final 筛选后无变量保留",
+          suggestion = paste0(
+            "检查共线性或放宽 vif_threshold_strict (当前: ", vif_threshold,
+            ")；批跑可设 multicollinearity$pause_on_empty_final=FALSE"
+          ),
+          data_snapshot = utils::head(vif_tbl, 10)
+        )
+        stop("PAUSE_FOR_USER_DECISION: VIF final 筛选后无变量。")
+      }
+      fb <- intersect(c("Age", "Gender", "Sex"), names(data))
+      cli::cli_alert_warning(
+        "VIF final 无变量保留；pause_on_empty_final=FALSE → 回退协变量: {paste(fb, collapse=', ')}"
       )
-      stop("PAUSE_FOR_USER_DECISION: VIF final 筛选后无变量。")
+      selected <- fb
+      if (!length(selected)) {
+        stop("PAUSE_FOR_USER_DECISION: VIF final 无变量且无 Age/Gender 可回退。", call. = FALSE)
+      }
     }
 
     split_res <- .mcol_apply_vif_final_covariate_split(ctx, cfg, selected, data)

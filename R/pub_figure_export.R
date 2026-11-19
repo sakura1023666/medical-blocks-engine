@@ -1746,6 +1746,8 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
   }
   if (length(readme_rows)) {
     tab <- do.call(rbind, readme_rows)
+    # 展示层禁下划线：索引表也 scrub（否则 QC Layer A3 扫 README 即 FAIL）
+    scrub <- function(x) gsub("_", " ", as.character(x), fixed = TRUE)
     lines <- c(
       "# Image information index",
       "",
@@ -1753,7 +1755,8 @@ pub_figure_refresh_image_information <- function(figures_dir, meta = list(), con
       "|---|---|---|---|",
       sprintf(
         "| %s | %s | %s | `%s` |",
-        tab$figure, tab$caption, ifelse(tab$combined, "yes", "no"), tab$pdf
+        scrub(tab$figure), scrub(tab$caption),
+        ifelse(tab$combined, "yes", "no"), scrub(tab$pdf)
       ),
       ""
     )

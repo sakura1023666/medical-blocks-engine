@@ -317,10 +317,15 @@ ckm_stroke_class_display_labels <- function(
   .w2 <- as.character(t2_wave_lab %||% "Wave 6")[1L]
   if (!nzchar(.w1)) .w1 <- "Wave 4"
   if (!nzchar(.w2)) .w2 <- "Wave 6"
+  # Krakauer ABSI 等小量纲：%.2f 会把 0.077/0.084/0.090 全收成 0.08，脚注不可辨
+  .mag <- max(abs(c(sm$mean_t1, sm$mean_t2, sm$median_delta, thr)), na.rm = TRUE)
+  .nd <- if (!is.finite(.mag) || .mag >= 1) 2L else if (.mag >= 0.1) 3L else 4L
+  .fmt <- function(x) sprintf(paste0("%.", .nd, "f"), x)
   phrase <- function(i) {
     sprintf(
-      "%s = %s (%s mean %.2f, %s mean %.2f, median within-person change %.2f)",
-      sm$class[i], sm$display[i], .w1, sm$mean_t1[i], .w2, sm$mean_t2[i], sm$median_delta[i]
+      "%s = %s (%s mean %s, %s mean %s, median within-person change %s)",
+      sm$class[i], sm$display[i], .w1, .fmt(sm$mean_t1[i]), .w2, .fmt(sm$mean_t2[i]),
+      .fmt(sm$median_delta[i])
     )
   }
   footnote <- paste(vapply(seq_len(nrow(sm)), phrase, character(1)), collapse = "; ")
@@ -328,7 +333,7 @@ ckm_stroke_class_display_labels <- function(
     "Class labels follow the observed trajectory. A decline is named rapid only when the absolute mean change is at least ",
     sprintf("%.0f%%", 100 * rapid_frac),
     " of the between-class range of ", .w1, " means (threshold ",
-    sprintf("%.2f", thr),
+    .fmt(thr),
     "). ",
     footnote, "."
   )
@@ -2408,9 +2413,14 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
       }
     )
   } else {
+    .absi_formula <- if (identical(toupper(ix), "ABSI")) {
+      " ABSI followed Krakauer (metres): (WC/100) / (BMI^(2/3) \u00d7 (Height/100)^(1/2)), with WC and Height stored in centimetres. "
+    } else {
+      " "
+    }
     sprintf(
-      "Wave-specific %s used the study anthropometric definition. Cumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
-      ix, ud_lab, .k_sentence
+      "Wave-specific %s used the study anthropometric definition.%sCumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
+      ix, .absi_formula, ud_lab, .k_sentence
     )
   }
   outcome_para <- if (is_elsa && is_masld) {
@@ -2715,25 +2725,25 @@ ckm_stroke_write_midterm_report <- function(
   if (!nzchar(client)) client <- "vivili"
   info <- file.path(sr, "项目信息-中期.md")
   formula_txt <- if (length(formula_lines)) paste(formula_lines, collapse = "；") else sprintf("%s（见 Methods）", ix)
-  writeLines(
-    c(
-      sprintf("客户: %s", client),
-      sprintf("暴露指标: %s", ix),
-      sprintf("结局: %s", outcome_lab),
-      sprintf("报告标题: %s轨迹类别与累积暴露和%s的关联分析", ix, outcome_lab),
-      "标题副题: 中期分析结果",
-      sprintf("研究人群: %s 基线年龄≥50岁成人", database),
-      sprintf("分析方法: %s", methods_lab),
-      sprintf("数据集: %s", database),
-      "类型: 中期分析结果",
-      sprintf("指标计算公式: %s", formula_txt),
-      if (isTRUE(no_date)) "分析日期: 无" else NULL,
-      if (isTRUE(no_date)) "日期: 无" else NULL,
-      ""
-    ),
-    info,
-    useBytes = TRUE
+  .info_lines <- c(
+    sprintf("客户: %s", client),
+    sprintf("暴露指标: %s", ix),
+    sprintf("结局: %s", outcome_lab),
+    sprintf("报告标题: %s轨迹类别与累积暴露和%s的关联分析", ix, outcome_lab),
+    "标题副题: 中期分析结果",
+    sprintf("研究人群: %s 基线年龄≥50岁成人", database),
+    sprintf("分析方法: %s", methods_lab),
+    sprintf("数据集: %s", database),
+    "类型: 中期分析结果",
+    sprintf("指标计算公式: %s", formula_txt),
+    if (isTRUE(no_date)) "分析日期: 无" else NULL,
+    if (isTRUE(no_date)) "日期: 无" else NULL,
+    ""
   )
+  # 必须 UTF-8 落盘；useBytes=TRUE 会写坏中文 → 封面退化成「与的/横断面」并冒出日期
+  .con <- file(info, open = "wt", encoding = "UTF-8")
+  writeLines(.info_lines, .con, useBytes = FALSE)
+  close(.con)
   # 最小 content.json：由表图文件名驱动；数字在 build 前由 inspect dump 校验
   tabs <- list.files(file.path(sr, "Tables"), pattern = "\\.xlsx$", full.names = FALSE)
   figs <- character(0)
@@ -2844,14 +2854,14 @@ ckm_stroke_write_midterm_report <- function(
   }
   py <- Sys.which("python3")
   if (!nzchar(py)) py <- Sys.which("python")
-  # inspect（可选）
+  # inspect / build：勿对每个参数 shQuote（引号会进 argv，导致 --project 找不到、封面退回默认「横断面」且写出日期）
   try(
-    system2(py, shQuote(c(eng, "--inspect", "--project", sr)), stdout = TRUE, stderr = TRUE),
+    system2(py, c(eng, "--inspect", "--project", sr), stdout = TRUE, stderr = TRUE),
     silent = TRUE
   )
   st <- system2(
     py,
-    shQuote(c(eng, "--build", "--project", sr, "--content", cj, "--out", out_pdf)),
+    c(eng, "--build", "--project", sr, "--content", cj, "--out", out_pdf),
     stdout = TRUE, stderr = TRUE
   )
   ok <- file.exists(out_pdf)

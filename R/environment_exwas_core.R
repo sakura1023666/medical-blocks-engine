@@ -434,27 +434,52 @@ exwas_fit_one_survey_beta <- function(df, y, x, covars, weight_col,
              note = "ok", stringsAsFactors = FALSE)
 }
 
-exwas_rubin_pool <- function(betas, ses) {
+# Rubin 合并。df_complete：完整数据推断自由度（复杂抽样建议传 survey::degf(design)）。
+# 有限 df_complete 时用 Barnard–Rubin 调整 df + t 分位数；否则大样本正态近似。
+exwas_rubin_pool <- function(betas, ses, df_complete = Inf) {
   ok <- is.finite(betas) & is.finite(ses) & ses > 0
   betas <- betas[ok]; ses <- ses[ok]
   m <- length(betas)
   if (m < 1L) {
-    return(list(OR = NA_real_, lo = NA_real_, hi = NA_real_, p = NA_real_, m_ok = 0L))
+    return(list(
+      OR = NA_real_, lo = NA_real_, hi = NA_real_, p = NA_real_, m_ok = 0L,
+      beta = NA_real_, se = NA_real_, df = NA_real_, lambda = NA_real_
+    ))
   }
   qbar <- mean(betas)
   ubar <- mean(ses^2)
   b <- if (m > 1L) stats::var(betas) else 0
-  t <- ubar + (1 + 1 / m) * b
-  se <- sqrt(t)
-  # Barnard-Rubin df
-  lambda <- if (t > 0) (1 + 1 / m) * b / t else 0
-  df_old <- if (m > 1L && b > 0) (m - 1) / lambda^2 else Inf
-  # 简化：用正态近似当 df 很大
+  tvar <- ubar + (1 + 1 / m) * b
+  se <- sqrt(tvar)
+  lambda <- if (tvar > 0) (1 + 1 / m) * b / tvar else 0
+  # Barnard-Rubin
+  df_old <- if (m > 1L && lambda > 0) (m - 1) / (lambda^2) else Inf
+  df_c <- if (is.finite(df_complete) && df_complete > 0) as.numeric(df_complete) else Inf
+  df_obs <- if (is.finite(df_c)) {
+    df_c * (df_c + 1) / (df_c + 3) * (1 - lambda)
+  } else {
+    Inf
+  }
+  df <- if (is.finite(df_old) && is.finite(df_obs) && df_old > 0 && df_obs > 0) {
+    1 / (1 / df_old + 1 / df_obs)
+  } else if (is.finite(df_old)) {
+    df_old
+  } else {
+    Inf
+  }
+  tcrit <- if (is.finite(df) && df > 0) stats::qt(0.975, df = df) else 1.96
   z <- if (se > 0) qbar / se else NA_real_
-  p <- if (is.finite(z)) 2 * stats::pnorm(-abs(z)) else NA_real_
+  p <- if (!is.finite(z)) {
+    NA_real_
+  } else if (is.finite(df) && df > 0) {
+    2 * stats::pt(-abs(z), df = df)
+  } else {
+    2 * stats::pnorm(-abs(z))
+  }
   list(
-    OR = exp(qbar), lo = exp(qbar - 1.96 * se), hi = exp(qbar + 1.96 * se),
-    p = p, m_ok = m, beta = qbar, se = se
+    OR = exp(qbar), lo = exp(qbar - tcrit * se), hi = exp(qbar + tcrit * se),
+    p = p, m_ok = m, beta = qbar, se = se, df = df, lambda = lambda,
+    df_complete = df_c, tcrit = tcrit
   )
 }
 
@@ -541,15 +566,34 @@ exwas_run_survey_mice <- function(df, y, exposures, covars, weight_map,
     }
   }
 
+  # 完整数据自由度：用设计样本估计 survey::degf（复杂抽样推断，非一律正态）
+  df_complete <- tryCatch({
+    wcol0 <- if (length(wmap)) wmap[[1]] else "WTDRD1_7"
+    if (!wcol0 %in% names(df)) wcol0 <- names(df)[grepl("^WTDRD1", names(df))][1]
+    dd0 <- df
+    dd0$.w <- exwas_to_num(dd0[[wcol0]])
+    dd0 <- dd0[is.finite(dd0$.w) & dd0$.w > 0 &
+                 is.finite(exwas_to_num(dd0[[psu]])) &
+                 is.finite(exwas_to_num(dd0[[strata]])), , drop = FALSE]
+    des0 <- survey::svydesign(
+      ids = stats::as.formula(paste0("~", psu)),
+      strata = stats::as.formula(paste0("~", strata)),
+      weights = ~.w, data = dd0, nest = TRUE
+    )
+    as.numeric(survey::degf(des0))
+  }, error = function(e) Inf)
+  exwas_log("Rubin df_complete(survey degf)=", df_complete)
+
   rows <- lapply(exposures, function(x) {
     st <- store[[x]]
-    pl <- exwas_rubin_pool(st$beta, st$se)
+    pl <- exwas_rubin_pool(st$beta, st$se, df_complete = df_complete)
     data.frame(
       exposure = x,
       n = suppressWarnings(as.integer(round(mean(st$n, na.rm = TRUE)))),
       n_events = suppressWarnings(as.integer(round(mean(st$n_events, na.rm = TRUE)))),
       weight = if (!is.null(wmap[[x]])) wmap[[x]] else "WTDRD1_7",
       OR = pl$OR, lo = pl$lo, hi = pl$hi, p = pl$p,
+      beta = pl$beta, se = pl$se, df = pl$df, df_complete = pl$df_complete,
       m_ok = pl$m_ok, m = as.integer(m),
       note = if (pl$m_ok >= 1L) "rubin_ok" else paste0("rubin_fail:", paste(unique(st$note), collapse = "|")),
       stringsAsFactors = FALSE
@@ -563,7 +607,7 @@ exwas_run_survey_mice <- function(df, y, exposures, covars, weight_map,
   } else {
     tab$q_family <- NA_real_
   }
-  list(table = tab, mice = imp)
+  list(table = tab, mice = imp, df_complete = df_complete)
 }
 
 exwas_has_survey <- function(df, cfg) {

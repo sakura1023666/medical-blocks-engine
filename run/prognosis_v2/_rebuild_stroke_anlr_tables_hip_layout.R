@@ -17,6 +17,7 @@ source(file.path(.engine, "R/utils.R"), local = FALSE)
 source(file.path(.engine, "R/pv2_pub_names.R"), local = FALSE)
 source(file.path(.engine, "R/quantile_scheme_cascade.R"), local = FALSE)
 source(file.path(.engine, "R/pv2_literature_pub_tables.R"), local = FALSE)
+source(file.path(.engine, "R/pv2_index_roc.R"), local = FALSE)
 source(file.path(.engine, "run/prognosis_v2/pv2_mi_cox.R"), local = FALSE)
 
 .proj <- stroke_anlr_proj()
@@ -230,40 +231,12 @@ write_df <- function(path, title, df, footnotes = character(0), level_rows = int
   body2
 }
 
-# 与 Fig5 同源：Cox LP = ANLR + Age + Sodium + GCS
-.roc_lp_covs <- c("Age", "Sodium", "GCS")
+# 与 Fig5 同源：引擎 pv2_index_roc（连续指标无协变量；禁 Cox LP）
 .build_s4 <- function(d) {
-  if (!requireNamespace("pROC", quietly = TRUE)) return(NULL)
   d <- as.data.frame(d)
-  d$time <- as.numeric(d$futime_years)
-  d$event <- as.integer(d$fustatus)
-  covs <- intersect(.roc_lp_covs, names(d))
-  need <- c(IDX, "time", "event", covs)
-  dd <- d[stats::complete.cases(d[, need]) & d$time > 0, , drop = FALSE]
-  if (nrow(dd) < 20L) return(NULL)
-  fit <- tryCatch(
-    survival::coxph(stats::as.formula(paste("Surv(time, event) ~", paste(c(IDX, covs), collapse = " + "))), dd),
-    error = function(e) NULL
-  )
+  fit <- pv2_index_roc_fit(event = d$fustatus, score = d[[IDX]], index_lab = IDX)
   if (is.null(fit)) return(NULL)
-  lp <- as.numeric(stats::predict(fit, type = "lp"))
-  roc <- tryCatch(pROC::roc(dd$event, lp, quiet = TRUE, direction = "<"), error = function(e) NULL)
-  if (is.null(roc)) return(NULL)
-  auc <- as.numeric(pROC::auc(roc))
-  ci <- tryCatch(as.numeric(pROC::ci.auc(roc)), error = function(e) c(NA, NA, NA))
-  best <- tryCatch(
-    pROC::coords(roc, "best", ret = c("sensitivity", "specificity"), transpose = FALSE),
-    error = function(e) NULL
-  )
-  data.frame(
-    Index = paste0(IDX, " Cox LP"),
-    AUC = sprintf("%.3f", auc),
-    `AUC 95% CI` = sprintf("%.3f\u2013%.3f", ci[1], ci[3]),
-    Sensitivity = if (!is.null(best)) sprintf("%.3f", best$sensitivity[1]) else "",
-    Specificity = if (!is.null(best)) sprintf("%.3f", best$specificity[1]) else "",
-    check.names = FALSE,
-    stringsAsFactors = FALSE
-  )
+  fit$table_row
 }
 
 .build_s9 <- function(d, m3) {
@@ -482,7 +455,7 @@ for (nm in names(dbs)) {
     level_rows = which(startsWith(body_s3$Variable, "  "))
   )
 
-  # ---- Table S4（与 Fig5 同源：Cox LP）----
+  # ---- Table S4（引擎 pv2_index_roc；与 Fig5 同源）----
   s4 <- .build_s4(d)
   if (!is.null(s4)) {
     write_df(
@@ -490,13 +463,7 @@ for (nm in names(dbs)) {
         "Table S4", sprintf("Predictive performance for %s", .endpoint), db = nm)),
       pv2_table_title("Table S4", sprintf("Predictive performance for %s", .endpoint)),
       s4,
-      footnotes = c(
-        paste0(
-          "Discrimination for ", .endpoint,
-          " using the Cox linear predictor of ANLR + Age, Sodium, GCS (same specification as Figure 5)."
-        ),
-        "Youden index on the ROC of the Cox linear predictor; AUC with DeLong 95% CI."
-      )
+      footnotes = pv2_index_roc_footnotes(IDX, .endpoint)
     )
   }
 

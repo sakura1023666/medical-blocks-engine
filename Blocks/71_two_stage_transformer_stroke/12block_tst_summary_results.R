@@ -223,14 +223,24 @@ block_tst_summary_results <- function(ctx, ...) {
       outcome <- as.character(prj$analysis_group %||% prj$disease %||% "in-hospital mortality")[1L]
       dbs <- prj$databases %||% c("MIMIC", "eICU")
       if (length(dbs) > 1L) dbs <- paste(dbs, collapse = ",")
-      args <- c(
+      # stdout=TRUE 时 Unix system2 走 shell，路径/文案含空格会被拆开 → 必须 shQuote
+      summary_abs <- tryCatch(
+        normalizePath(summary_dir, winslash = "/", mustWork = TRUE),
+        error = function(e) summary_dir
+      )
+      args_raw <- c(
         fin,
-        "--dir", summary_dir,
+        "--dir", summary_abs,
         "--study-type", "tst",
         "--outcome", outcome,
         "--exposure", "Two-stage Transformer",
         "--databases", as.character(dbs)[1L]
       )
+      if (exists(".system2_quote_args", mode = "function")) {
+        args <- .system2_quote_args(args_raw)
+      } else {
+        args <- .tst71_quote_sys2(args_raw)
+      }
       # 透传年龄/对照分到 finalize 用的环境变量（可选）
       Sys.setenv(
         TST_MIN_AGE = as.character(tst$min_age %||% 18L),

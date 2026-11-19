@@ -26,17 +26,41 @@ trajectory_batch_resolve_index_vars <- function(config) {
   tb  <- config$trajectory_batch %||% list()
   ivs <- tb$index_vars
   grp <- tb$index_group %||% "dual_safe"
-  if (!is.null(ivs) && length(ivs)) return(as.character(ivs))
-  all_vars <- get0(".composite_index_vars", inherits = TRUE)
-  if (!is.null(all_vars) && length(all_vars)) {
-    if (identical(grp, "dual_safe"))
-      return(get0(".composite_index_vars_dual_safe", inherits = TRUE) %||% all_vars)
-    grp_sym <- switch(grp, A = ".idx_group_A", B = ".idx_group_B",
-                      C = ".idx_group_C", D = ".idx_group_D", NULL)
-    if (!is.null(grp_sym)) return(get0(grp_sym, inherits = TRUE) %||% all_vars)
-    return(all_vars)
+  out <- NULL
+  if (!is.null(ivs) && length(ivs)) {
+    out <- as.character(ivs)
+  } else {
+    all_vars <- get0(".composite_index_vars", inherits = TRUE)
+    if (!is.null(all_vars) && length(all_vars)) {
+      if (identical(grp, "dual_safe"))
+        out <- get0(".composite_index_vars_dual_safe", inherits = TRUE) %||% all_vars
+      else {
+        grp_sym <- switch(grp, A = ".idx_group_A", B = ".idx_group_B",
+                          C = ".idx_group_C", D = ".idx_group_D", NULL)
+        out <- if (!is.null(grp_sym)) get0(grp_sym, inherits = TRUE) %||% all_vars else all_vars
+      }
+    }
   }
-  stop("找不到复合指标名单，请先 source configs/indices/composite_index_vars.R", call. = FALSE)
+  if (is.null(out) || !length(out))
+    stop("找不到复合指标名单，请先 source configs/indices/composite_index_vars.R", call. = FALSE)
+  # 查重剔除 / 原则性失败（JLCM 不收敛、样本量等）不再入队
+  drop <- unique(c(
+    as.character(tb$exclude_indices %||% character(0)),
+    as.character(tb$exclude_published %||% character(0)),
+    as.character(tb$exclude_principle_fail %||% character(0))
+  ))
+  drop <- drop[nzchar(drop)]
+  if (length(drop)) {
+    n0 <- length(out)
+    dropped <- intersect(as.character(out), drop)
+    out <- setdiff(as.character(out), drop)
+    if (length(dropped)) {
+      cli::cli_alert_info(
+        "trajectory_batch 剔除 {length(dropped)}/{n0} 个指标: {paste(dropped, collapse = ', ')}"
+      )
+    }
+  }
+  out
 }
 
 # ── 路径工具 ─────────────────────────────────────────────────────────────────
@@ -152,7 +176,8 @@ trajectory_batch_patch_config_for_index <- function(config, ix) {
   .pause_keys <- c(
     "pause_enable", "pause_on_no_output", "pause_on_missing_survival",
     "pause_on_all_negative", "pause_on_min_sig_vars", "pause_enable_if_index_ns",
-    "pause_on_no_output_after", "pause_on_all_ns"
+    "pause_on_no_output_after", "pause_on_all_ns",
+    "pause_on_no_results", "pause_on_no_figures", "pause_on_empty_final"
   )
   for (blk in ls(cfg)[grepl("^trajectory", ls(cfg))]) {
     node <- cfg[[blk]]
@@ -170,7 +195,9 @@ trajectory_batch_patch_config_for_index <- function(config, ix) {
       use_optimal_class_ng = cfg$trajectory_chisq$use_optimal_class_ng %||% TRUE,
       outcome_vars = cfg$trajectory_chisq$outcome_vars %||% c("survival_28d"),
       p_threshold = cfg$trajectory_chisq$p_threshold %||% 1.0,
-      pause_on_all_ns = cfg$trajectory_chisq$pause_on_all_ns %||% TRUE,
+      # 批跑：无有效卡方 / 全阴不中断（与上方 .pause_keys 强制 FALSE 一致）
+      pause_on_no_results = FALSE,
+      pause_on_all_ns = FALSE,
       cycle = cfg$trajectory_dynpred$cycle %||% 28L,
       jlcm = cfg$trajectory_dynpred$jlcm %||% list(prefer_ng = NULL)
     )

@@ -1,0 +1,40 @@
+# 发表 PDF 可打开 + 拉丁衬线铁律（COPD Fig1/Fig2 2026-11 教训）
+
+凡 **cairo_pdf / ggsave PDF / 纳排 Fig1 / Boruta·森林·KM 拼图** 必须遵守。踩坑：`01_COPD/prognosis_v2` ALBI Fig2 Adobe 打不开、Fig1 文字出框。
+
+## 根因（禁止再犯）
+
+1. **Linux 上 `family="Times"` / `"Times New Roman"` 被字体配置映到 Noto Serif CJK**  
+   写出的 PDF 体积正常、pypdf 能读，但 **Adobe / 部分 Windows 阅读器直接打不开或报字体错误**。
+2. **`print(ggplot, vp = viewport(...))` 嵌套进已打开的 cairo 设备**  
+   部分阅读器拒收；拼图一律用 **patchwork / cowplot + `ggsave(device = cairo_pdf)`**。
+3. **纳排框高度/侧栏宽度按「理想 Times」估，实际字宽更大或行数更多 → 文字压出圆角框**；面板 viewport 贴边还会裁掉侧框右边框。
+
+## 铁律
+
+1. **选字**：只经 `resolve_plot_font_family()`（优先 Liberation Serif / DejaVu Serif；**实测后拒 CJK 替身**）。禁止课题脚本硬写裸 `"Times"` 当 cairo family（除非已 resolve）。
+2. **拼 ggplot**：禁止 `print(p, vp=)` 写入已打开 PDF；用 patchwork `|` `/` 再 `ggsave`。
+3. **Fig1 纳排**：走 `attrition_draw_outcome_figure`（默认 resolve 字体；侧框短标签 + 框内自动缩字号 + 面板留白）。
+4. **QC**：`pub_qc_scan_fonts` deny 含 **Noto / CJK / SourceHan**（与 Helvetica 同级 P0）。交付前 `run_pub_qc_after_project.R` 必须过 Layer A4。
+5. **目视**：多行框文案须框内完整；旋转轴标签须有足够 `plot.margin` 底边，禁止贴画布裁字。
+
+## 实现入口
+
+- `R/utils.R` → `resolve_plot_font_family`（cairo 探针 + CJK 拒收）
+- `R/pub_qc_fonts.R` → `pub_pdf_font_names` / `pub_pdf_has_unsafe_cjk_font` / deny Noto
+- `R/attrition_log.R` → `attrition_draw_outcome_figure` / `attrition_draw_box_text`
+- 回归：`tests/test_pub_pdf_font_no_cjk.R`
+
+## 检查清单
+
+- [ ] 新导 PDF：`pdffonts` / `pub_pdf_font_names` 无 Noto*CJK / SourceHan
+- [ ] Adobe 或本地阅读器能打开主文 Fig1–Fig3
+- [ ] 无 `print(ggplot, vp=` 写发表 PDF
+- [ ] Fig1 侧栏/底部分叉文字在框内；Fig2 轴标签未被页边裁切
+
+## 反例（禁止）
+
+- `cairo_pdf(..., family = "Times")` 不经 resolve，在中文桌面 Linux 上交差
+- Boruta 双库拼图用手写 viewport + `print(p, vp=)`
+- 侧栏长句单行硬塞，框高按 2 行估却画出 3 行
+- QC 只扫 Helvetica、放过 NotoSerifCJK 仍标 PASS

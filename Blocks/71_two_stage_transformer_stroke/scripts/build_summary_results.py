@@ -28,6 +28,25 @@ def _mpl():
         matplotlib.use("Agg")
         from matplotlib import pyplot as plt
 
+        try:
+            from tst_mpl_times import setup_times_roman
+
+            setup_times_roman()
+        except Exception:
+            try:
+                sys.path.insert(0, str(Path(__file__).resolve().parent))
+                from tst_mpl_times import setup_times_roman
+
+                setup_times_roman()
+            except Exception:
+                matplotlib.rcParams["font.family"] = "serif"
+                matplotlib.rcParams["font.serif"] = [
+                    "Times New Roman",
+                    "Liberation Serif",
+                    "Nimbus Roman",
+                    "DejaVu Serif",
+                ]
+                matplotlib.rcParams["pdf.fonttype"] = 42
         _plt = plt
     return _plt
 
@@ -1942,10 +1961,32 @@ def build_summary_results(
             ["--project-root", _to_win_path(proj), "--out", _to_win_path(fig1), "--db-name", DB_NAME],
             timeout=120,
         )
-    if consort_png.exists() and consort_png.stat().st_size > 1000:
-        png_to_pdf(consort_png, fig1)
-    elif fig1.exists() and fig1.stat().st_size > 1000:
+        # Linux python 兜底（torch 脚本失败或 Windows 路径不可用时）
+        if (not fig1.exists() or fig1.stat().st_size < 1000) and consort_script.exists():
+            import subprocess as _sp
+
+            try:
+                _sp.run(
+                    [
+                        sys.executable,
+                        str(consort_script),
+                        "--project-root",
+                        str(proj),
+                        "--out",
+                        str(fig1),
+                        "--db-name",
+                        DB_NAME,
+                    ],
+                    check=False,
+                    timeout=120,
+                )
+            except Exception:
+                pass
+    # 禁止用 PNG→PDF 覆盖 consort 矢量稿（否则 pdffonts 空 → bad_pdf_raster P0）
+    if fig1.exists() and fig1.stat().st_size > 1000:
         pass
+    elif consort_png.exists() and consort_png.stat().st_size > 1000:
+        png_to_pdf(consort_png, fig1)
     elif fc_src.exists():
         csv_file_to_pdf(
             fc_src,

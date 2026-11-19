@@ -120,11 +120,13 @@ Agent 按层打勾；不适用项写 `N/A` + 一句理由。
 - [ ] **硬门控** 敏感性表脚注 landmark（如 “primary X-day locked grouping”）= 主文 landmark；禁 28-day 模板残留于 14d 交付
 - [ ] **硬门控** Fig7 Overall HR 字符串 = Table 3 Model1 同对比（Numbers_Master 单一出处；禁 Rubin vs complete#1 静默差 0.001）
 - [ ] **硬门控** Methods 含 Boruta/SHAP 可复述参数（confirmed 规则、包/实现、ntree/seed、Model3 交集）与 RCS 结点数/位置
+- [ ] **硬门控** Table S4 / Figure 5 = **连续指标 alone、unadjusted**（`R/pv2_index_roc.R`）；禁止 Cox LP / Age+GCS/Sodium 等协变量 ROC 占用 S4/Fig5
 - [ ] 同一表连续 per-1-SD 与分位方向强度相悖时：已复算尺度或已用 RCS 非线性写实
 - [ ] 收尾已跑 `pv2_pub_p0_gate()` 或等价 `pdftotext` 核验；失败不得 PASS
 
 > 踩坑：Hip AKI 2026-10 — Fig3 四分位 vs 锁 binary；Fig6 Total≠S8 Direct；Fig7 无 P-int / Q4vsQ1；Fig4 仅 P-overall；Fig2 下划线；S7 反向；无 PH/取材时点/MICE 裁决。  
-> 踩坑：Stroke ANLR 14d 2026-11 — Fig1 与项目信息排除链不一致；ICD 码表缺口；暴露缺失&gt;40% 未写入 Limitations；S5 脚注 28-day 残留；S5 连续 vs 分位相悖未说明；Fig7 Overall 0.256≠Table3 0.255；Boruta/SHAP/RCS knots 未入 Methods。
+> 踩坑：Stroke ANLR 14d 2026-11 — Fig1 与项目信息排除链不一致；ICD 码表缺口；暴露缺失&gt;40% 未写入 Limitations；S5 脚注 28-day 残留；S5 连续 vs 分位相悖未说明；Fig7 Overall 0.256≠Table3 0.255；Boruta/SHAP/RCS knots 未入 Methods。  
+> 踩坑：COPD ALBI 2026-11 — Table S4 / Fig5 写成 ALBI+Age+Sodium+GCS 的 Cox LP，参考文献要求单指标无协变量 ROC。
 
 ## §B5 发表数字格式（强制；2026-11 pneumonia DeLong；未勾不得 PASS）
 

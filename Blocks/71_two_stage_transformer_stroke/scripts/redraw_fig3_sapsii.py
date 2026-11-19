@@ -24,6 +24,18 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
 from torch.utils.data import DataLoader
 
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+try:
+    from tst_mpl_times import setup_times_roman
+
+    setup_times_roman()
+except Exception:
+    matplotlib.rcParams["font.family"] = "serif"
+    matplotlib.rcParams["font.serif"] = ["Times New Roman", "Liberation Serif", "Nimbus Roman"]
+    matplotlib.rcParams["pdf.fonttype"] = 42
+
 
 def _to_path(p: str | Path) -> Path:
     s = str(p)
@@ -452,7 +464,7 @@ def main():
     axb.set_ylim(0, max(1.08, top + 0.08))
     axb.set_xticks(x)
     axb.set_xticklabels(["AUC", "Accuracy"], fontsize=9)
-    axb.set_ylabel("Mean ± SD", fontsize=9)
+    axb.set_ylabel("Mean +/- SD", fontsize=9)
     axb.set_title("Comparison of Models", fontsize=11)
     axb.legend(loc="upper right", fontsize=7)
     axb.tick_params(labelsize=8)
