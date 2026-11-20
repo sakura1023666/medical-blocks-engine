@@ -10,9 +10,13 @@
 #   waves = c(2,4,6), wave_suffix = "_w",
 #   k_range = 2:6, poly_degree = 2L, n_start = 10L, seed = 42L,
 #   force_K = NULL,                       # 可选锁定 K（否则按 select）
-#   force_K_by_system = list(BMI_TyG = 3L),
+#   force_K_by_system = list(BMI_TyG = 4L, WHtR_TyG = 4L),  # 按对标文献锁 K
+#   avepp_min = 0.70,                     # 数据驱动质量门槛（内核 gbmtm_select）
+#   min_prop_floor = 0.05,                # 最小类占比门槛
 #   group_col_prefix = "grp_"             # 输出列 grp_BMI_TyG
 # )
+# 选 K 铁律：文献口径为六项标准（BIC/AIC/entropy/AvePP/OCC/最小类+临床可解释）；
+# 大队列 AIC/BIC 单调下降无低谷时禁止 naive which.min，锁文献 K 并在表注/Methods 披露。
 #
 # register_block: "tj_gbmtm_fit"
 # 写: ctx$results$tj_gbmtm[[system]]（fit/label/long）, ctx$data$cleaned[[grp_*]]
@@ -55,11 +59,16 @@ block_tj_gbmtm_fit <- function(ctx, ...) {
                   error = function(e) { cli::cli_alert_danger("GBMTM 长表失败 {sys}: {conditionMessage(e)}"); NULL })
     if (is.null(d) || !nrow(d)) { cli::cli_alert_danger("GBMTM {sys}: 长表为空，跳过"); next }
 
-    sel <- gbmtm_select(d, k_range = k_range, deg = deg, n_start = n_start, seed = seed)
     fk_force <- bl$force_K
     if (is.list(bl$force_K_by_system) && !is.null(bl$force_K_by_system[[sys]])) {
       fk_force <- bl$force_K_by_system[[sys]]
     }
+    # 定稿「轨迹发病」口径：按对标文献锁 K（如 Liu 2026 K=4 both systems），
+    # 或数据驱动时用可调质量门槛（AvePP / 最小类占比）。
+    sel <- gbmtm_select(d, k_range = k_range, deg = deg, n_start = n_start, seed = seed,
+                        k_lock = if (!is.null(fk_force)) as.integer(fk_force)[1L] else NULL,
+                        avepp_min = as.numeric(bl$avepp_min %||% 0.70),
+                        min_prop_floor = as.numeric(bl$min_prop_floor %||% 0.05))
     K_opt <- if (!is.null(fk_force) && fk_force %in% sel$table$K) as.integer(fk_force)[1L] else sel$K_opt
     fk <- sel$fits[[which(sel$table$K == K_opt)]]
     lab <- gbmtm_label(fk)
@@ -92,7 +101,9 @@ block_tj_gbmtm_fit <- function(ctx, ...) {
                        "K = number of joint trajectory classes; deg = polynomial degree.",
                        "AIC/BIC primary; AvePP >= 0.70 and smallest class >= 5% as soft gates.",
                        paste0("Selected K = ", K_opt,
-                              if (!is.null(fk_force)) " (forced)" else " (data-driven)")))
+                              if (!is.null(fk_force))
+                                " (locked per reference standard; selection by BIC/AIC/entropy/AvePP/OCC/class size, not curve trough alone)"
+                              else " (data-driven)")))
 
     ctx$results$tj_gbmtm[[sys]] <- list(select = sel, K_opt = K_opt, fit = fk, label = lab, long = d)
     ctx$results$tj_classes[[sys]] <- cls
