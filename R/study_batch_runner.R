@@ -638,12 +638,17 @@ run_study_batch <- function(root, config, pipeline_shared, pipeline_unit = NULL,
     study_batch_run_finalize_layer(root, config, finalize_blocks, pipeline_unit = pipeline_unit)
   }
 
-  # 引擎默认：跑完删除【failed】结果/检查点（省盘）；MEDICAL_BLOCKS_PRUNE_FAILED=0 可关
-  if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+  # 引擎默认：跑完删【failed】；若开 pubmed_novelty 再删查重未过
+  if (!exists("batch_prune_after_batch", mode = "function")) {
     .pf <- file.path(root, "R/batch_prune_failed.R")
     if (file.exists(.pf)) source(.pf, local = FALSE)
   }
-  if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+  if (exists("batch_prune_after_batch", mode = "function")) {
+    tryCatch(
+      batch_prune_after_batch(output_base, statuses, config = config, name_col = "unit"),
+      error = function(e) cli::cli_alert_warning("prune_after_batch: {conditionMessage(e)}")
+    )
+  } else if (exists("batch_prune_failed_from_statuses", mode = "function")) {
     tryCatch(
       batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "unit"),
       error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")

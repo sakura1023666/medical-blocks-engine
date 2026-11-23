@@ -14,7 +14,8 @@
   competing   = "Decisiontree/decision_tree_competing_risk_stroke.md",
   ipw         = "Decisiontree/decision_tree_ipw_diabetes_stroke.md",
   crm         = "Decisiontree/decision_tree_crm_nhanes_mr.md",
-  tst         = "Decisiontree/decision_tree_two_stage_transformer_stroke.md"
+  tst         = "Decisiontree/decision_tree_two_stage_transformer_stroke.md",
+  trajinc     = "Decisiontree/decision_tree_trajectory_incidence_joint.md"
 )
 
 .hooks_require_jsonlite <- function() {

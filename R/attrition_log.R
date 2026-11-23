@@ -621,14 +621,50 @@ attrition_draw_dual_panel_pdf <- function(rows_by_db, dest, titles = NULL,
   rows[keep, , drop = FALSE]
 }
 
+#' 选一张仍含指标公式成分列的数据帧，用于 Fig1 成分缺失分项 n=
+.attrition_df_for_component_counts <- function(ctx, idx, n_last = NA_integer_) {
+  slots <- list(
+    ctx$data$raw, ctx$data$cleaned, ctx$data$mapped, ctx$data$imputed
+  )
+  comps <- character(0)
+  if (exists("index_get_formula_components", mode = "function") && nzchar(idx)) {
+    comps <- tryCatch(
+      as.character(index_get_formula_components(idx) %||% character(0)),
+      error = function(e) character(0)
+    )
+    comps <- setdiff(unique(comps[nzchar(comps)]), idx)
+  }
+  .has_comp_cols <- function(df) {
+    if (!is.data.frame(df) || !nrow(df)) return(FALSE)
+    if (!length(comps)) return(TRUE)
+    nms <- names(df)
+    aliases <- comps
+    if (exists("pipeline_expand_lab_var_aliases", mode = "function")) {
+      aliases <- unique(unlist(lapply(comps, pipeline_expand_lab_var_aliases), use.names = FALSE))
+    }
+    any(aliases %in% nms) || any(comps %in% nms)
+  }
+  ## 优先：含成分列 + 行数=末配置步 N（如 Age≥50 后 6120）
+  if (is.finite(n_last)) {
+    for (df in slots) {
+      if (.has_comp_cols(df) && nrow(df) == as.integer(n_last)) return(df)
+    }
+  }
+  ## 次选：任意含成分列的帧（勿用已删成分的 cleaned 顶替）
+  for (df in slots) {
+    if (.has_comp_cols(df)) return(df)
+  }
+  ## 兜底
+  for (df in slots) {
+    if (is.data.frame(df) && nrow(df)) return(df)
+  }
+  NULL
+}
+
 #' 在 config 纳排末尾追加「指标可算分析集」步（成分缺失 Exclude 框）。
-#' 已有 after_index* / analytic_index 步时不重复追加。
+#' 已有 after_index* 但 Exclude 仍是笼统 “Missing … key variables” 时，升级为成分分项 n=。
 attrition_append_index_missing_step <- function(rows_df, ctx, config) {
   if (is.null(rows_df) || !is.data.frame(rows_df) || !nrow(rows_df)) {
-    return(rows_df)
-  }
-  sid0 <- tolower(as.character(rows_df$step_id %||% ""))
-  if (any(grepl("after_index|index_calculable|analytic_index|after_exposure", sid0))) {
     return(rows_df)
   }
   cfg <- config %||% list()
@@ -641,21 +677,44 @@ attrition_append_index_missing_step <- function(rows_df, ctx, config) {
   )[1L]
   if (!nzchar(idx) || identical(tolower(idx), "na")) return(rows_df)
 
+  sid0 <- tolower(as.character(rows_df$step_id %||% ""))
+  hit_ix <- which(grepl("after_index|index_calculable|analytic_index|after_exposure", sid0))
   n_cur <- attrition_n_current(ctx)
-  if (!is.finite(n_cur) || n_cur <= 0L) return(rows_df)
   n_last <- suppressWarnings(as.integer(rows_df$n[nrow(rows_df)])[1L])
+  ## 已有指标步时：若 Exclude 笼统，尝试升级成分分项
+  if (length(hit_ix)) {
+    i <- hit_ix[[length(hit_ix)]]
+    old_lab <- trimws(as.character(rows_df$exclude_label[i] %||% "")[1L])
+    generic <- !nzchar(old_lab) ||
+      grepl("Missing .+ key variables\\s*\\(n\\s*=", old_lab, ignore.case = TRUE) ||
+      !grepl("\\(n\\s*=", old_lab) ||
+      (grepl("Missing ", old_lab, ignore.case = TRUE) &&
+         !grepl(";", old_lab) &&
+         grepl("key variables", old_lab, ignore.case = TRUE))
+    if (!isTRUE(generic)) return(rows_df)
+    n_prev <- if (i > 1L) {
+      suppressWarnings(as.integer(rows_df$n[i - 1L])[1L])
+    } else {
+      n_last
+    }
+    df_counts <- .attrition_df_for_component_counts(ctx, idx, n_last = n_prev)
+    lab <- ""
+    if (is.data.frame(df_counts) && nrow(df_counts) > 0L) {
+      lab <- tryCatch(
+        attrition_index_component_missing_label(df_counts, idx),
+        error = function(e) ""
+      )
+    }
+    if (nzchar(lab)) {
+      rows_df$exclude_label[i] <- lab
+    }
+    return(rows_df)
+  }
+
+  if (!is.finite(n_cur) || n_cur <= 0L) return(rows_df)
   if (is.finite(n_last) && n_cur > n_last) return(rows_df)
 
-  df_counts <- ctx$data$raw %||% ctx$data$cleaned %||% ctx$data$mapped %||% NULL
-  if (is.data.frame(df_counts) && is.finite(n_last) && nrow(df_counts) > 0L &&
-      nrow(df_counts) != n_last) {
-    # 优先用与末配置步同 N 的帧计成分缺失；否则仍用 raw
-    if (is.data.frame(ctx$data$cleaned) && nrow(ctx$data$cleaned) == n_last) {
-      df_counts <- ctx$data$cleaned
-    } else if (is.data.frame(ctx$data$mapped) && nrow(ctx$data$mapped) == n_last) {
-      df_counts <- ctx$data$mapped
-    }
-  }
+  df_counts <- .attrition_df_for_component_counts(ctx, idx, n_last = n_last)
   lab <- ""
   if (is.data.frame(df_counts) && nrow(df_counts) > 0L) {
     lab <- tryCatch(

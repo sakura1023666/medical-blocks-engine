@@ -718,11 +718,16 @@ run_ml_dual_batch <- function(root,
   }
 
   .out_base <- bc$output_base %||% config$project$output_dir
-  if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+  if (!exists("batch_prune_after_batch", mode = "function")) {
     .pf <- file.path(root, "R/batch_prune_failed.R")
     if (file.exists(.pf)) source(.pf, local = FALSE)
   }
-  if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+  if (exists("batch_prune_after_batch", mode = "function")) {
+    tryCatch(
+      batch_prune_after_batch(.out_base, statuses, config = config, name_col = "index"),
+      error = function(e) cli::cli_alert_warning("prune_after_batch: {conditionMessage(e)}")
+    )
+  } else if (exists("batch_prune_failed_from_statuses", mode = "function")) {
     tryCatch(
       batch_prune_failed_from_statuses(.out_base, statuses, config = config, name_col = "index"),
       error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")

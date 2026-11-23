@@ -478,6 +478,51 @@ block_baseline_multiclass <- function(ctx, strata_var = NULL, ...) {
     NULL
   })
 
+  # 文献式表头 + χ²/H（Ma et al. Table 1：All/C* [Case (Percentage, %)] | χ²/H | P）
+  if (!is.null(tbl) && isTRUE(bl_cfg$table1_paper_style %||% FALSE)) {
+    tbl <- tryCatch({
+      tb2 <- tbl
+      if (requireNamespace("gtsummary", quietly = TRUE)) {
+        # unhide test statistic; hide unused add_p extras
+        hide_cols <- intersect(
+          c("estimate", "parameter", "conf.low", "conf.high", "test_name"),
+          names(tb2$table_body)
+        )
+        if (length(hide_cols)) {
+          tb2 <- gtsummary::modify_column_hide(tb2, columns = dplyr::all_of(hide_cols))
+        }
+        if ("statistic" %in% names(tb2$table_body)) {
+          tb2 <- gtsummary::modify_column_unhide(tb2, columns = "statistic")
+          tb2 <- gtsummary::modify_fmt_fun(
+            tb2,
+            statistic ~ function(x) {
+              ifelse(
+                is.na(x),
+                NA_character_,
+                formatC(as.numeric(x), format = "f", digits = 3L, drop0trailing = TRUE)
+              )
+            }
+          )
+        }
+        # Overall → All; group cols keep C1/C2/...; paper bracket header
+        hdr <- list(
+          label ~ "**Characteristic**",
+          gtsummary::all_stat_cols(stat_0 = FALSE) ~ "**{level}**<br>[Case (Percentage, %)]",
+          stat_0 ~ "**All**<br>[Case (Percentage, %)]",
+          p.value ~ "**P**"
+        )
+        if ("statistic" %in% names(tb2$table_body)) {
+          hdr <- c(hdr, list(statistic ~ "\u03c7\u00b2/H"))
+        }
+        tb2 <- do.call(gtsummary::modify_header, c(list(tb2), hdr))
+      }
+      tb2
+    }, error = function(e) {
+      cli::cli_alert_warning("table1_paper_style header failed: {e$message}")
+      tbl
+    })
+  }
+
   if (is.null(tbl) && .bb02_should_pause(bl_cfg, "pause_on_table1_fail", TRUE)) {
     .bb02_pause(
       ctx,

@@ -1,27 +1,35 @@
 ---
-description: 批跑结束后自动删除【failed】结果与检查点（引擎默认）
+description: 批跑结束后自动删除【failed】与 PubMed 查重未过结果/检查点（引擎默认 failed；查重新 opt-in）
 alwaysApply: true
 ---
 
-# 批跑结束清理 failed（全项目）
+# 批跑结束清理 failed / 查重未过（全项目）
 
-引擎默认在 batch 收口末尾删除 `【failed】` 指标/unit 的结果包与检查点，避免占盘。汇总 CSV（含失败名单）仍保留在 `Tables/`。
+引擎在 batch 收口末尾清理占盘结果包与检查点。汇总 CSV（含失败/查重名单）仍保留在 `Tables/`。
 
 ## 铁律
 
-1. **默认开启**：`prune_failed_on_finish = TRUE`（无需每个 config 手写）。
-2. **挂点**：`R/batch_prune_failed.R` → `batch_prune_failed_outputs` / `batch_prune_failed_from_statuses`  
+1. **【failed】默认开启**：`prune_failed_on_finish = TRUE`（无需每个 config 手写）。
+2. **挂点**：`R/batch_prune_failed.R` → `batch_prune_after_batch`（先 failed，再 novelty）  
    - study_batch（含 cum×k-means）  
    - incidence / survival dual-batch（亚组补救与敏感性**之后**）  
    - ML dual-batch  
    - 轨迹预后 batch  
    - TST batch  
-3. **嵌套补救保留**：`【failed】<ix>/` 下若仍有 `【success】*` 子目录（亚组补救产物），默认不删该父目录（`prune_failed_keep_nested_success`）。
-4. **关闭**：`config$study_batch$prune_failed_on_finish = FALSE`（或 incidence_batch / ml_batch 等同字段），或环境变量 `MEDICAL_BLOCKS_PRUNE_FAILED=0`。
-5. **审计**：删除清单写 `Tables/Pruned_failed_outputs.csv`。
+3. **检查点路径**：除 `checkpoints/<bare>` 外，同步清 `checkpoints/by_index|by_unit|*_sensitivity/<bare>`。
+4. **嵌套补救保留**：`【failed】<ix>/` 下若仍有 `【success】*` 子目录，默认不删该父目录（`prune_failed_keep_nested_success`）。
+5. **关闭 failed**：`config$*$prune_failed_on_finish = FALSE`，或 `MEDICAL_BLOCKS_PRUNE_FAILED=0`。
+6. **PubMed 查重未过（opt-in）**：`config$pubmed_novelty$enable = TRUE`（或 `MEDICAL_BLOCKS_PRUNE_NOVELTY=1`）。  
+   - 四维默认：疾病 × 暴露 × 结局 × 方法/分层；命中 `> keep_max`（默认 0）→ 删 `【success】` / 裸名包 + 检查点。  
+   - 命中来源：`fail_indices` 显式名单，或 `result_csv` / `reports/*pubmed*method*.csv`。  
+   - 实现：`R/pubmed_novelty_prune.R` → `batch_prune_novelty_failed_outputs`。  
+   - **禁止**在未写查新 CSV/名单时默认联网扫全库删 success。
+7. **审计**：`Tables/Pruned_failed_outputs.csv`、`Tables/Pruned_novelty_failed_outputs.csv`。
 
 ## 反例
 
 - 跑完留下大量 `【failed】` 占 G 盘却不清理  
 - 在亚组补救**之前**删掉 failed 父目录导致补救无法读状态  
-- 把失败名单从 `Batch_summary_*.csv` 里抹掉（清理的是目录，不是汇总表）
+- 只删 `checkpoints/<bare>`、留下 `checkpoints/by_index/<bare>` 占盘  
+- 把失败名单从 `Batch_summary_*.csv` 里抹掉（清理的是目录，不是汇总表）  
+- 无查新表却默认 enable novelty 把全部 success 当未过删掉  

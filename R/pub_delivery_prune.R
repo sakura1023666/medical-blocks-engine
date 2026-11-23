@@ -7,8 +7,9 @@
 #    Methods_statistical_analysis.md
 #    Methods_software_versions.txt
 #    *中期*.pdf（中期分析结果）
+#    Shiny/ 或 ShinyApp/（跑了 shiny_ml_app 时；ML 交付面保留，2026-11 用户确认）
 #
-#  Shiny/ShinyApp/code/reports 等一律进同级 *_delivery_workspace/（不进交付面）。
+#  code/reports 等一律进同级 *_delivery_workspace/（不进交付面）。
 ###############################################################################
 
 #' 判断是否为允许留在交付根的条目
@@ -23,6 +24,8 @@ pub_delivery_keep_name <- function(name, figures_tables_only = FALSE) {
   if (isTRUE(figures_tables_only)) return(FALSE)
   if (identical(name, "Methods_statistical_analysis.md")) return(TRUE)
   if (identical(name, "Methods_software_versions.txt")) return(TRUE)
+  ## ML Shiny 网页：进 summary_results（与 ml_finalize 同步一致；勿 prune 掉）
+  if (name %in% c("Shiny", "ShinyApp")) return(TRUE)
   # 中期 PDF（中英文文件名）
   if (grepl("\u4e2d\u671f", name, fixed = TRUE) && grepl("\\.pdf$", name, ignore.case = TRUE)) {
     return(TRUE)
@@ -386,13 +389,17 @@ pub_delivery_scrub_display <- function(delivery_root, root = NULL) {
     py_script <- file.path(eng, "python", "pub_xlsx_scrub_display.py")
     py <- Sys.which("python3")
     if (!nzchar(py)) py <- Sys.which("python")
+    # Paths with parentheses (e.g. summary(new)) must be shQuote'd for sh.
+    .py_run <- function(args) {
+      cmd <- paste(vapply(c(py, as.character(args)), shQuote, character(1L)), collapse = " ")
+      out <- system(cmd, intern = TRUE)
+      status <- attr(out, "status")
+      if (is.null(status)) status <- 0L
+      structure(out, status = as.integer(status)[1L])
+    }
     if (nzchar(py) && file.exists(py_script)) {
       st <- tryCatch(
-        system2(
-          py,
-          vapply(c(py_script, "--dir", tab), shQuote, character(1L)),
-          stdout = TRUE, stderr = TRUE
-        ),
+        .py_run(c(py_script, "--dir", tab)),
         error = function(e) structure(conditionMessage(e), status = 1L)
       )
       py_res <- list(ok = is.null(attr(st, "status")) || identical(as.integer(attr(st, "status")), 0L),
@@ -407,11 +414,7 @@ pub_delivery_scrub_display <- function(delivery_root, root = NULL) {
     tl_script <- file.path(eng, "python", "pub_xlsx_enforce_three_line.py")
     if (nzchar(py) && file.exists(tl_script)) {
       st_tl <- tryCatch(
-        system2(
-          py,
-          vapply(c(tl_script, "--dir", tab), shQuote, character(1L)),
-          stdout = TRUE, stderr = TRUE
-        ),
+        .py_run(c(tl_script, "--dir", tab)),
         error = function(e) structure(conditionMessage(e), status = 1L)
       )
       tl_ok <- is.null(attr(st_tl, "status")) || identical(as.integer(attr(st_tl, "status")), 0L)

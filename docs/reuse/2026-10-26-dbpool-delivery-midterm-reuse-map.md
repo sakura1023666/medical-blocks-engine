@@ -29,7 +29,8 @@
 |------|------|--------|
 | Methods（t0 / ICU mortality+RLoS / 表2≠表3 / Transfer） | `R/pub_dbpool_methods.R` | finalize |
 | 禁下划线 + **Times xlsx** | `python/pub_xlsx_scrub_display.py` ← `pub_delivery_scrub_display` | finalize / prune-only |
-| Times 薄 CLI（旧调用兼容） | `R/pub_xlsx_force_times.R` → 转调 scrub `--times-only` | 可选 |
+| Allyn 小数位 | `Blocks/78_…/scripts/dbpool_pub_digits.py` + `.cursor/rules/dbpool_pub_digits.mdc`；EASL/ICUAKI finalize 共用 | 出表 |
+| Times 薄 CLI（旧调用兼容） | `R/pub_xlsx_force_times.R` → 转调 scrub `--times-only`（路径一律 `shQuote`，兼容 `summary(new)`） | 可选 |
 | 字体 QC（括号文件名 OK） | `R/pub_qc_fonts.R` | pub-qc |
 | 软件版本（dbpool Python modules_only） | `R/pub_software_versions.R` | finalize |
 | 一键收口 | `run/dbpool/finalize_summary_delivery.R` | Methods+软件+scrub+QC+prune |
@@ -37,9 +38,22 @@
 | batch 挂点 | `Blocks/78_…/09block_dbpool_batch_finalize.R` | workers 末尾 |
 | 定稿表图挂点 | `Blocks/78_…/scripts/finalize_easl_paper_pub.py` | 重导后 |
 | ULN 三联 pack | `Blocks/78_…/scripts/pack_uln_triple_summary.py` | 主+敏感性后调 thin finalize |
+| **Table S9 特征清单 + Fig↔表数字链** | `Blocks/78_…/scripts/dbpool_feature_inventory.py` | finalize / pack 自动挂 |
 | 交叉评估 | `cross_eval_ams_mimic.py` + `refresh_uln_table3_after_cross.py` | Transfer/off-diagonal |
 | 中期 PDF | `.cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py` | Nature P0 清零后 |
 | scripts 分层说明 | `Blocks/78_…/scripts/README.md`（A 复用 / B 运维 / C 已并引擎） | — |
+
+### 2026-11-23 本轮并入（五条裁决 → 引擎）
+
+| 裁决 | 引擎落点 |
+|------|----------|
+| 敏感性=三单指标非并集 | `R/pub_dbpool_methods.R` + pack Methods 块 |
+| Fig 规模扫描 ↔ Gen 表锁链 | `dbpool_feature_inventory.append_training_size_metric_lock` |
+| 特征清单 Table S9 | `dbpool_feature_inventory.write_table_s9`（finalize keep 白名单含 S9） |
+| 软件踢 mice/jstable、无 TCF 注 | `finalize_delivery_root` exclude + `pub_software_versions` |
+| Multi-centric N=care_site | Table1 脚注模板 / pack `LIVER_TABLE1_FOOTNOTE` |
+
+**不要当源码**：G 盘 `summary(new)/`、`summary*_delivery_workspace/`、对话一次性 `python - <<` 写表——下一课题必须走上面入口。
 
 ### 手工补收口
 

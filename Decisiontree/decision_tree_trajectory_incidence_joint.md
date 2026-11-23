@@ -41,10 +41,17 @@ master + grp_* 固定类别列
   │  tj_cox_rubin     体系×结局×Model1–4：mi_coxph 每套 complete 拟合 → Rubin 合并
   │                    HR/CI/P；PH=complete#1 代表集（Methods 注明）
   ▼
+  │ [可选 竞争风险] tj_finegray_rubin
+  │    config$joint_trajectory$competing_risk$enable=TRUE 时自动插入 Cox 之后：
+  │    fstatus = 主事件 cause(1) / 死亡 death_cause(2) / 删失 cencode(0)；
+  │    竞争事件者 ftime 用 death_time_col（缺则沿用结局 time，Methods 如实说明）；
+  │    每套 complete cmprsk::crr → mi_rubin_pool_estimates 合并（m≥5 铁律）；
+  │    cmprsk 缺失回退 cause-specific Cox 并在 method 列写明（禁止冒充 Fine-Gray）。
+  ▼
   │  tj_subgroup      分层 Cox（剔分层变量自身）+ LRT 交互 χ² 跨套平均 → HR, P-int
   │  tj_sensitivity   S0/S1/S3/S4/S5/S6/S7(PP加权)/S9a/S9b；Rubin 或完整病例
   ▼
-  │  tj_pub_export    Table1(按类基线) / Table2(Cox) / Table3(亚组) / S*
+  │  tj_pub_export    Table1(按类基线) / Table2(Cox) / Table3(亚组) / Table4(Fine-Gray, 有 tj_fg 时) / S*
   │                    Fig1 flowchart / Fig2 KM / Fig3 AIC-BIC+轨迹 / Fig4 森林
   │                    Methods md + 软件版本 txt + 交付根白名单 prune
   ▼

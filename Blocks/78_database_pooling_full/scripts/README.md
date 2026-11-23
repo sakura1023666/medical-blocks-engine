@@ -21,6 +21,7 @@
 | `build_blendedlos_hourly.py` | 长表 → 小时宽表 |
 | `cross_eval_ams_mimic.py` | Amsterdam↔MIMIC 交叉 specialization |
 | `pack_uln_triple_summary.py` | ULN-all3 主包 + bili/ALT/AST 敏感性 S 表图 + 引擎收口 |
+| `dbpool_feature_inventory.py` | **Table S9** 特征清单 + Fig2/S*↔四策略表 Gen 数字链锁定（全 dbpool 复用） |
 | `refresh_uln_table3_after_cross.py` | 交叉评估后回填 Table 3 / S4/S6/S8 |
 | `redraw_uln_triple_figures.py` | ULN 三联 Figure 重画 |
 | `run_uln_cross_eval_four.sh` | 四队列交叉评估编排 |
@@ -48,6 +49,7 @@
 | 能力 | 引擎位置 |
 |---|---|
 | Methods + 软件版本 + 白名单 | `R/pub_dbpool_methods.R` + `run/dbpool/finalize_summary_delivery.R` |
+| 软件踢 mice/jstable（dbpool） | `run/pub/finalize_delivery_root.R` + `R/pub_software_versions.R` |
 | 禁下划线 + Times xlsx | `python/pub_xlsx_scrub_display.py` |
 | 字体 QC | `R/pub_qc_fonts.R` |
 | 通用 finalize / QC | `run/pub/finalize_delivery_root.R`、`run/pub/run_pub_qc_after_project.R` |

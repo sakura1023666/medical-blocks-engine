@@ -220,7 +220,22 @@ block_tst_summary_results <- function(ctx, ...) {
     if (file.exists(fin) && dir.exists(summary_dir)) {
       prj <- ctx$config$project %||% list()
       tst <- ctx$config$tst_stroke %||% list()
-      outcome <- as.character(prj$analysis_group %||% prj$disease %||% "in-hospital mortality")[1L]
+      # 禁把 analysis_group 0/1 当 Methods 结局；统一院内死亡展示名
+      outcome <- "in-hospital mortality"
+      disease_raw <- as.character(prj$disease %||% prj$name %||% "")[1L]
+      disease_lab <- if (grepl("IschemicStroke|ischemic.?stroke", disease_raw, ignore.case = TRUE)) {
+        "ischemic stroke"
+      } else if (grepl("SepsisAKI|sepsis.?aki|AKI_spesis", disease_raw, ignore.case = TRUE)) {
+        "sepsis-associated acute kidney injury"
+      } else if (grepl("\\bTBI\\b", disease_raw, ignore.case = TRUE)) {
+        "traumatic brain injury"
+      } else if (grepl("Osteoporosis", disease_raw, ignore.case = TRUE)) {
+        "osteoporosis"
+      } else if (grepl("\\bAKI\\b", disease_raw, ignore.case = TRUE)) {
+        "acute kidney injury"
+      } else {
+        as.character(prj$disease_label %||% "the target ICU condition")[1L]
+      }
       dbs <- prj$databases %||% c("MIMIC", "eICU")
       if (length(dbs) > 1L) dbs <- paste(dbs, collapse = ",")
       # stdout=TRUE 时 Unix system2 走 shell，路径/文案含空格会被拆开 → 必须 shQuote
@@ -241,11 +256,13 @@ block_tst_summary_results <- function(ctx, ...) {
       } else {
         args <- .tst71_quote_sys2(args_raw)
       }
-      # 透传年龄/对照分到 finalize 用的环境变量（可选）
+      # 透传年龄/对照分/病种到 finalize 用的环境变量
       Sys.setenv(
         TST_MIN_AGE = as.character(tst$min_age %||% 18L),
         TST_COMPARATOR = as.character(tst$comparator_score %||% "APSIII"),
-        TST_LANDMARK_H = as.character(tst$summary_primary_landmark %||% primary %||% 120L)
+        TST_LANDMARK_H = as.character(tst$summary_primary_landmark %||% primary %||% 120L),
+        TST_DISEASE_LABEL = disease_lab,
+        TST_OUTCOME_LABEL = outcome
       )
       st <- system2("Rscript", args, stdout = TRUE, stderr = TRUE)
       code <- attr(st, "status") %||% 0L

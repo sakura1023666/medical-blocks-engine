@@ -532,6 +532,23 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
   ## Wang 2025 / NPJ-codes：IterativeImputer(LinearRegression)；正文写作 Logistic MI。
   ## 引擎映射：连续 → norm（贝叶斯线性回归 MI），二分类 → logreg，多分类 → polyreg。
   tok <- tolower(as.character(method_token %||% "pmm")[1L])
+  # 泛用 token："mice"/"default"/"auto" = 按列类型展开（连续 PMM，分类 logreg/polyreg）
+  if (tok %in% c("mice", "default", "auto")) {
+    meth <- vapply(names(data_mice), function(nm) {
+      x <- data_mice[[nm]]
+      if (is.numeric(x) && !is.factor(x)) return("pmm")
+      if (is.logical(x)) return("logreg")
+      if (is.factor(x) || is.character(x)) {
+        nlev <- length(unique(stats::na.omit(as.character(x))))
+        if (nlev <= 2L) return("logreg")
+        return("polyreg")
+      }
+      "pmm"
+    }, character(1L))
+    names(meth) <- names(data_mice)
+    attr(meth, "tcf_alias") <- tok
+    return(meth)
+  }
   if (!tok %in% c("norm", "lr_mi", "linear", "linear_mi", "logistic_mi", "logreg_mi")) {
     return(NULL)
   }
@@ -577,7 +594,8 @@ mice.impute.pmm_stable <- function(y, ry, x, wy = NULL, donors = 5L, matchtype =
 
   dropped_hold <- NULL
   if (tolower(method_req) %in% c("pmm", "norm", "norm.nob", "norm.boot", "norm.predict",
-                                  "lr_mi", "linear", "linear_mi", "logistic_mi", "logreg_mi") ||
+                                  "lr_mi", "linear", "linear_mi", "logistic_mi", "logreg_mi",
+                                  "mice", "default", "auto") ||
       identical(method, "pmm_stable") ||
       (is.character(method) && any(method %in% c("norm", "norm.predict", "pmm_stable")))) {
     for (thr in unique(c(cor_threshold, 0.95, 0.90, 0.85))) {
@@ -1942,22 +1960,47 @@ block_imputation <- function(ctx, ...) {
         seen_sections <- c(seen_sections, sec_name)
       }
     }
-    is_num <- v %in% num_cols
+    x_before0 <- data_before[[v]]
+    x_after0  <- data_imputed[[v]]
+    ## 0/1 数值编码（如 Smoking）不得走 Wilcoxon：会在零缺失时仍报假显著 p
+    .is_bin01 <- function(x) {
+      xu <- unique(stats::na.omit(suppressWarnings(as.numeric(x))))
+      length(xu) > 0L && length(xu) <= 2L && all(xu %in% c(0, 1))
+    }
+    is_bin01 <- .is_bin01(x_before0) || .is_bin01(x_after0)
+    is_num <- (v %in% num_cols) && !is_bin01
+    ## 零缺失且插补前后逐格相同 → 不做检验、不进 MI quality 剔除名单
+    .s1_p_skip_identical <- function(xb, xa) {
+      miss_b <- mean(is.na(xb))
+      miss_a <- mean(is.na(xa))
+      if (!(is.finite(miss_b) && miss_b < 1e-12 && is.finite(miss_a) && miss_a < 1e-12)) {
+        return(FALSE)
+      }
+      if (length(xb) != length(xa)) return(FALSE)
+      identical(
+        as.character(unname(xb)),
+        as.character(unname(xa))
+      )
+    }
     if (is_num) {
-      x_before <- data_before[[v]]
-      x_after  <- data_imputed[[v]]
+      x_before <- x_before0
+      x_after  <- x_after0
       is_norm  <- v %in% normal_vars
       label    <- if (is_norm) "Mean \u00b1 SD" else "Median (Q1, Q3)"
-      p <- tryCatch({
-        if (is_norm) stats::t.test(x_after, x_before)$p.value
-        else          stats::wilcox.test(x_after, x_before)$p.value
-      }, error = function(e) NA_real_)
+      p <- if (isTRUE(.s1_p_skip_identical(x_before, x_after))) {
+        NA_real_
+      } else {
+        tryCatch({
+          if (is_norm) stats::t.test(x_after, x_before)$p.value
+          else          stats::wilcox.test(x_after, x_before)$p.value
+        }, error = function(e) NA_real_)
+      }
       raw_p_map[[v]] <- p
       rows[[length(rows) + 1L]] <- data.frame(
         Variable = v, Statistic = label,
         Before_MI = fmt_continuous(x_before, is_norm),
         After_MI  = fmt_continuous(x_after, is_norm),
-        P_value   = fmt_pval(p),
+        P_value   = if (is.finite(p)) fmt_pval(p) else "\u2014",
         .is_cat_row = FALSE, .is_section_row = FALSE,
         stringsAsFactors = FALSE
       )
@@ -1967,10 +2010,22 @@ block_imputation <- function(ctx, ...) {
       if (!is.null(miss_row)) rows[[length(rows) + 1L]] <- miss_row
       next
     }
-    if (!v %in% cat_cols) next
+    if (!(v %in% cat_cols || is_bin01)) next
 
-    x_before <- data_before[[v]]
-    x_after  <- data_imputed[[v]]
+    x_before <- x_before0
+    x_after  <- x_after0
+    if (is_bin01) {
+      x_before <- factor(
+        as.integer(suppressWarnings(as.numeric(x_before))),
+        levels = c(0L, 1L),
+        labels = c("0", "1")
+      )
+      x_after <- factor(
+        as.integer(suppressWarnings(as.numeric(x_after))),
+        levels = c(0L, 1L),
+        labels = c("0", "1")
+      )
+    }
     lvls <- unique(c(as.character(x_before), as.character(x_after)))
     lvls <- lvls[!is.na(lvls) & nzchar(lvls)]
     if (length(lvls) > max_cat_levels) {
@@ -1979,25 +2034,30 @@ block_imputation <- function(ctx, ...) {
       )
       next
     }
-    p <- tryCatch({
-      # 列联表：行=分类水平，列=Before/After（Race 等可有 >2 行，勿按 2×2 误丢 P）
-      tbl <- table(
-        c(as.character(x_before), as.character(x_after)),
-        c(rep("Before", length(x_before)), rep("After", length(x_after)))
-      )
-      if (ncol(tbl) != 2L || nrow(tbl) < 1L || nrow(tbl) > max_cat_levels) {
-        NA_real_
-      } else if (any(tbl < 5, na.rm = TRUE)) {
-        stats::fisher.test(tbl, simulate.p.value = TRUE, B = 2000L)$p.value
-      } else {
-        stats::chisq.test(tbl)$p.value
-      }
-    }, error = function(e) NA_real_)
+    p <- if (isTRUE(.s1_p_skip_identical(x_before0, x_after0))) {
+      NA_real_
+    } else {
+      tryCatch({
+        # 列联表：行=分类水平，列=Before/After（Race 等可有 >2 行，勿按 2×2 误丢 P）
+        tbl <- table(
+          c(as.character(x_before), as.character(x_after)),
+          c(rep("Before", length(x_before)), rep("After", length(x_after)))
+        )
+        if (ncol(tbl) != 2L || nrow(tbl) < 1L || nrow(tbl) > max_cat_levels) {
+          NA_real_
+        } else if (any(tbl < 5, na.rm = TRUE)) {
+          stats::fisher.test(tbl, simulate.p.value = TRUE, B = 2000L)$p.value
+        } else {
+          stats::chisq.test(tbl)$p.value
+        }
+      }, error = function(e) NA_real_)
+    }
     raw_p_map[[v]] <- p
     lvls <- sort(lvls)
     rows[[length(rows) + 1L]] <- data.frame(
       Variable = v, Statistic = "n (%)",
-      Before_MI = "", After_MI = "", P_value = fmt_pval(p),
+      Before_MI = "", After_MI = "",
+      P_value = if (is.finite(p)) fmt_pval(p) else "\u2014",
       .is_cat_row = TRUE, .is_section_row = FALSE, stringsAsFactors = FALSE
     )
     for (lv in lvls) {

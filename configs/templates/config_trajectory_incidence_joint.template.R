@@ -119,6 +119,18 @@ config <- list(
       )
     ),
 
+    # 竞争风险（Fine-Gray）：enable=TRUE 时 pipeline 追加 tj_finegray_rubin。
+    # 要求 master 有 0/1 死亡事件列（death_event_col）；有死亡时间列更佳
+    # （death_time_col，月；缺则竞争事件沿用结局 time，Methods 须如实说明）。
+    # fstatus: 主事件=cause(1) / 死亡=death_cause(2) / 其余=删失 cencode(0)。
+    # cmprsk 缺失自动回退 cause-specific Cox（日志写明，禁止冒充 Fine-Gray）。
+    competing_risk = list(
+      enable = FALSE,                 # <TO_CONFIRM> 竞争风险版置 TRUE
+      cause = 1L, cencode = 0L, death_cause = 2L,
+      death_event_col = "death_event",
+      death_time_col  = "death_time_m"
+    ),
+
     # 序贯 Cox 协变量集（文献四段式 Model 1–4；换病种须裁剪成分/泄漏变量）
     # 定稿 Model 4 = Model 3 + 降压/降糖/胰岛素/降脂药 + FVC
     model_sets = list(
@@ -186,6 +198,11 @@ pipeline <- list(
   blocks = c("tj_data_ingest", "tj_gbmtm_fit", "imputation", "tj_cox_rubin",
              "tj_subgroup", "tj_sensitivity", "tj_pub_export")
 )
+# 竞争风险版：enable=TRUE 时在推断链插入 tj_finegray_rubin（Rubin m 套 crr 合并）
+if (isTRUE(config$joint_trajectory$competing_risk$enable)) {
+  pipeline$blocks <- append(pipeline$blocks, "tj_finegray_rubin",
+                            after = match("tj_cox_rubin", pipeline$blocks))
+}
 
 # 类别列 / 结局事件时间 / 波次成分不作为 MICE 插补目标（只作预测因子或纯标签）
 config$imputation$exclude_from_mice_cols <- c(
@@ -193,7 +210,10 @@ config$imputation$exclude_from_mice_cols <- c(
   ".tj_row_id",
   unlist(lapply(c(list(config$joint_trajectory$outcome$primary),
                   config$joint_trajectory$outcome$secondaries %||% list()),
-                function(o) c(o$event_col, o$time_col)))
+                function(o) c(o$event_col, o$time_col))),
+  # 竞争风险：死亡事件/时间不进插补目标（事件标签不可插补，铁律同结局列）
+  local({ cr <- config$joint_trajectory$competing_risk %||% list()
+          c(cr$death_event_col %||% "death_event", cr$death_time_col %||% character(0)) })
 )
 # 轨迹成分波次列（TyG_w2…）保留为预测因子，不作删列/整列剔除
 config$imputation$force_keep_columns <- unique(c(

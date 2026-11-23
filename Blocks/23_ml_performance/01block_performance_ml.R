@@ -315,13 +315,14 @@
     )
   dig <- as.integer(digits)[1L]
   if (!is.finite(dig) || dig < 0L) dig <- 3L
-  ## 走引擎 pub_format_prob_metric：固定三位；|x|<0.001 → <0.001（禁止 0.000）
+  ## 走引擎 pub_format_prob_metric：固定三位；精确 0 → 0.000；
+  ## (0,0.001) → <0.001；NaN → NE（退化 DT 不得把 Sens=0 写成 <0.001）
   fmt_est <- function(x) {
     if (exists("pub_format_prob_metric", mode = "function")) {
-      return(pub_format_prob_metric(x, digits = dig))
+      return(pub_format_prob_metric(x, digits = dig, allow_exact_zero = TRUE))
     }
     x <- suppressWarnings(as.numeric(x))
-    ifelse(is.finite(x), sprintf(paste0("%.", dig, "f"), x), NA_character_)
+    ifelse(is.finite(x), sprintf(paste0("%.", dig, "f"), x), "NE")
   }
   num_cols <- vapply(out, is.numeric, logical(1L))
   if (any(num_cols)) {

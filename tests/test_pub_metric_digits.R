@@ -11,8 +11,11 @@ stopifnot(identical(pub_format_p_cell(0), "<0.001"))
 stopifnot(identical(pub_format_p_cell(0.0004), "<0.001"))
 stopifnot(identical(pub_format_p_cell(0.97), "0.970"))
 stopifnot(identical(pub_format_p_cell("0.000"), "<0.001"))
-stopifnot(identical(pub_format_prob_metric(0), "<0.001"))
+## 精确 0 保留 0.000（Sens=0 的退化 DT 不得写成 <0.001）；微小正值仍 <0.001
+stopifnot(identical(pub_format_prob_metric(0), "0.000"))
+stopifnot(identical(pub_format_prob_metric(0.0004), "<0.001"))
 stopifnot(identical(pub_format_prob_metric(0.7901), "0.790"))
+stopifnot(identical(pub_format_prob_metric(NaN), "NE"))
 stopifnot(identical(pub_format_est(1.01), "1.010"))
 
 ## DeLong 矩阵规范化
@@ -27,11 +30,12 @@ out <- pub_normalize_pub_df(
   filepath = "Table S8. DeLong tests (training set).xlsx",
   title = "DeLong tests (training set)"
 )
+## DeLong 矩阵格按 P 矩阵规范：裸 0 → <0.001
 stopifnot(identical(out$DT[2], "<0.001"))
 stopifnot(identical(out$RF[1], "<0.001"))
 stopifnot(identical(out$DT[1], "-"))
 
-## NRI 列
+## NRI 列（裸数字 + PredictABEL 长串不得打成 NE）
 nri <- data.frame(
   Model = c("ENet", "MLP"),
   NRI = c("0", "0.003"),
@@ -39,9 +43,44 @@ nri <- data.frame(
   stringsAsFactors = FALSE
 )
 n2 <- pub_normalize_pub_df(nri, filepath = "Table S11. NRI and IDI.xlsx", title = "NRI and IDI")
-stopifnot(identical(n2$NRI[1], "<0.001"))
-stopifnot(identical(n2$IDI[1], "<0.001"))
+stopifnot(identical(n2$NRI[1], "0.000"))
+stopifnot(identical(n2$IDI[1], "0.000"))
 stopifnot(identical(n2$NRI[2], "0.003"))
+nri_long <- data.frame(
+  `New model-Baseline model` = "RF - XGBoost",
+  NRI = "NRI(Continuous) [95% CI]: 0.8211 [ 0.7534 - 0.8888 ]",
+  `P value (NRI)` = "<0.001",
+  IDI = "IDI [95% CI]: 0.1116 [ 0.1032 - 0.12 ]",
+  `P value (IDI)` = "<0.001",
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+n3 <- pub_normalize_pub_df(
+  nri_long,
+  filepath = "Table S12. NRI and IDI (training set).xlsx",
+  title = "NRI and IDI (training set)"
+)
+stopifnot(identical(n3$NRI[1], "0.821 (0.753, 0.889)"))
+stopifnot(identical(n3$IDI[1], "0.112 (0.103, 0.120)"))
+## DeLong 宽表 New model / Baseline model = AUC
+dl <- data.frame(
+  `New model-Baseline model` = "RF - XGBoost",
+  `New model` = 0.896097302504817,
+  `Baseline model` = 0.724041040462428,
+  `Difference of AUC` = 0.172,
+  `95% CI` = "0.159 ~ 0.185",
+  `Z statistic` = 25.868,
+  `P value` = "<0.001",
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+dl2 <- pub_normalize_pub_df(
+  dl,
+  filepath = "Table S10. DeLong tests (training set).xlsx",
+  title = "DeLong tests (training set)"
+)
+stopifnot(identical(dl2[["New model"]][1], "0.896"))
+stopifnot(identical(dl2[["Baseline model"]][1], "0.724"))
 
 ## 超参表不得改写 0.000237
 hp <- data.frame(

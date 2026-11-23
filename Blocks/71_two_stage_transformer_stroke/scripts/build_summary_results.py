@@ -821,11 +821,28 @@ def _run_torch_script(script: Path, args: list[str], *, timeout: int = 600) -> s
 
 
 def _find_table1_src(proj: Path) -> Path | None:
-    tab_dir = proj / "_shared/step06_baseline_binary/Tables"
-    if not tab_dir.is_dir():
-        return None
-    hits = sorted(tab_dir.glob("Table 1-MIMIC*.xlsx"))
-    return hits[0] if hits else None
+    """Locate engine SCI Table 1 under shared baseline_binary (step number may shift)."""
+    candidates = [
+        proj / "_shared/step07_baseline_binary/Tables",
+        proj / "_shared/step06_baseline_binary/Tables",
+        proj / "_shared/step05_baseline_binary/Tables",
+    ]
+    # Also accept any shared *baseline_binary*/Tables
+    shared = proj / "_shared"
+    if shared.is_dir():
+        for p in sorted(shared.glob("step*_baseline_binary/Tables")):
+            if p.is_dir() and p not in candidates:
+                candidates.append(p)
+    for tab_dir in candidates:
+        if not tab_dir.is_dir():
+            continue
+        hits = sorted(tab_dir.glob("Table 1-MIMIC*.xlsx"))
+        if hits:
+            return hits[0]
+        hits = sorted(tab_dir.glob("Table 1*.xlsx"))
+        if hits:
+            return hits[0]
+    return None
 
 
 def _read_xlsx_rows_via_zip(src: Path) -> list[list[str]]:

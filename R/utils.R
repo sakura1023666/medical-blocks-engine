@@ -241,7 +241,10 @@ pub_format_ci <- function(lo, hi, digits = NULL) {
 # |x|<0.001 → "<0.001"（负值 → "−<0.001"）；精确 0 仅在 allow_exact_zero=TRUE
 # 时写 "0"（参照模型 NRI/IDI 用 "Ref"，勿走本函数）。
 # 依据：MedCalc/Nature 类表 AUC·NRI·IDI 三位；不得把极小差分写成裸 0。
-pub_format_prob_metric <- function(x, digits = NULL, allow_exact_zero = FALSE,
+# AUC/Acc/Sens/Spec/F1/Kappa/MCC/NRI 等概率型指标。
+# 精确 0 默认写成 0.000（退化分类器 Sens=0 不得写成 <0.001，否则 Table 宽表列义崩坏）；
+# (0, small_cut) 仍收成 <0.001；NaN/非有限 → NE。
+pub_format_prob_metric <- function(x, digits = NULL, allow_exact_zero = TRUE,
                                    small_cut = 0.001) {
   dig <- as.integer(digits %||% .pipeline_pub_digits()$est)[1L]
   if (!is.finite(dig) || dig < 0L) dig <- 3L
@@ -254,18 +257,18 @@ pub_format_prob_metric <- function(x, digits = NULL, allow_exact_zero = FALSE,
       character(1L), USE.NAMES = FALSE
     ))
   }
-  if (is.null(x) || length(x) == 0L) return("")
+  if (is.null(x) || length(x) == 0L) return("NE")
   s <- trimws(as.character(x)[1L])
   if (!nzchar(s) || s %in% c("Ref", "ref", "NE", "-", "—", "–", "NA", "NaN")) {
-    return(if (s %in% c("NA", "NaN")) "" else s)
+    return(if (s %in% c("NA", "NaN", "")) "NE" else s)
   }
   if (grepl("^\\s*<\\s*0\\.001", s) || grepl("^\u2212<0\\.001", s) || grepl("^-<0\\.001", s)) {
     return(if (grepl("^-|\u2212", s)) "\u2212<0.001" else "<0.001")
   }
   xn <- suppressWarnings(as.numeric(s))
-  if (!is.finite(xn)) return(s)
+  if (!is.finite(xn)) return("NE")
   if (abs(xn) < 1e-15) {
-    return(if (isTRUE(allow_exact_zero)) "0" else "<0.001")
+    return(if (isTRUE(allow_exact_zero)) formatC(0, format = "f", digits = dig) else "<0.001")
   }
   if (abs(xn) < small_cut) {
     return(if (xn < 0) "\u2212<0.001" else "<0.001")
@@ -310,8 +313,16 @@ pub_format_vif <- function(x, digits = NULL) {
     return("est")
   }
   if (grepl("95%\\s*ci|\\bci\\b", hl) && !grepl("nri|idi", hl)) return("ci")
-  if (grepl("^(auc|accuracy|sensitivity|specificity|f1|f_meas|kappa|mcc|log.?loss|nri|idi|difference of auc|delta.?auc)\\b", hl) ||
-      grepl("log.?loss|\\bnri\\b|\\bidi\\b|roc_auc|f_meas", hl)) {
+  ## NRI/IDI 常为 PredictABEL 长串，不得当裸概率 metric 打成 NE
+  if (grepl("^(nri|idi)\\b", hl) && !grepl("p value|p-value|^p$", hl)) {
+    return("nri_idi")
+  }
+  ## DeLong 宽表：New model / Baseline model 列存的是 AUC 点估计
+  if (grepl("delong", ctx) && grepl("^(new model|baseline model)$", hl)) {
+    return("prob")
+  }
+  if (grepl("^(auc|accuracy|sensitivity|specificity|f1|f_meas|kappa|mcc|log.?loss|difference of auc|delta.?auc)\\b", hl) ||
+      grepl("log.?loss|roc_auc|f_meas|difference of auc", hl)) {
     return("prob")
   }
   if (grepl("^vif$|variance inflation", hl)) return("vif")
@@ -338,6 +349,67 @@ pub_format_vif <- function(x, digits = NULL) {
   g <- regmatches(s0, m)[[1]]
   if (length(g) == 3L) {
     return(paste0(pub_format_est(g[2]), "-", pub_format_est(g[3])))
+  }
+  s0
+}
+
+#' 解析 PredictABEL / 简写 NRI·IDI 单元格 → 三位小数点估计 (+ 可选 CI)
+pub_format_nri_idi_cell <- function(x) {
+  if (length(x) != 1L) {
+    return(vapply(x, pub_format_nri_idi_cell, character(1L), USE.NAMES = FALSE))
+  }
+  if (is.null(x) || (length(x) == 1L && is.na(x))) return("NE")
+  s0 <- trimws(as.character(x)[1L])
+  if (!nzchar(s0) || s0 %in% c("NE", "-", "—", "–", "NA", "NaN", "Ref", "ref")) {
+    return(if (s0 %in% c("NA", "NaN", "")) "NE" else s0)
+  }
+  ## PredictABEL: "NRI(Continuous) [95% CI]: 0.8211 [ 0.7534 - 0.8888 ]"
+  m <- regexec(
+    "(?i)(?:NRI|IDI)[^:]*:\\s*([-+0-9.eE]+)\\s*\\[\\s*([-+0-9.eE]+)\\s*[-–—~～]+\\s*([-+0-9.eE]+)\\s*\\]",
+    s0,
+    perl = TRUE
+  )
+  g <- regmatches(s0, m)[[1]]
+  if (length(g) == 4L) {
+    return(sprintf(
+      "%s (%s, %s)",
+      pub_format_prob_metric(g[2]),
+      pub_format_prob_metric(g[3]),
+      pub_format_prob_metric(g[4])
+    ))
+  }
+  ## "0.123 [0.01 - 0.2]"
+  if (grepl("^[+-]?[0-9.eE]+\\s*\\[", s0)) {
+    m2 <- regexec(
+      "^([-+0-9.eE]+)\\s*\\[\\s*([-+0-9.eE]+)\\s*[-–—~～]+\\s*([-+0-9.eE]+)\\s*\\]\\s*$",
+      s0
+    )
+    g2 <- regmatches(s0, m2)[[1]]
+    if (length(g2) == 4L) {
+      return(sprintf(
+        "%s (%s, %s)",
+        pub_format_prob_metric(g2[2]),
+        pub_format_prob_metric(g2[3]),
+        pub_format_prob_metric(g2[4])
+      ))
+    }
+  }
+  ## 裸数字
+  xn <- suppressWarnings(as.numeric(s0))
+  if (is.finite(xn)) return(pub_format_prob_metric(xn))
+  ## 已是 "0.821 (0.753, 0.889)" 形式：规范三位
+  m3 <- regexec(
+    "^\\s*([-+0-9.eE]+)\\s*\\(\\s*([-+0-9.eE]+)\\s*,\\s*([-+0-9.eE]+)\\s*\\)\\s*$",
+    s0
+  )
+  g3 <- regmatches(s0, m3)[[1]]
+  if (length(g3) == 4L) {
+    return(sprintf(
+      "%s (%s, %s)",
+      pub_format_prob_metric(g3[2]),
+      pub_format_prob_metric(g3[3]),
+      pub_format_prob_metric(g3[4])
+    ))
   }
   s0
 }
@@ -370,6 +442,7 @@ pub_normalize_pub_df <- function(df, filepath = "", title = "") {
       if (identical(kind, "p") || identical(kind, "p_matrix")) {
         return(pub_format_p_cell(s0))
       }
+      if (identical(kind, "nri_idi")) return(pub_format_nri_idi_cell(s0))
       if (identical(kind, "prob")) return(pub_format_prob_metric(s0))
       if (identical(kind, "est")) {
         xn <- suppressWarnings(as.numeric(s0))
@@ -381,27 +454,6 @@ pub_normalize_pub_df <- function(df, filepath = "", title = "") {
       s0
     }, character(1L))
     out[[j]] <- new
-  }
-  ## NRI/IDI 值列常为 "0.123 [0.01 - 0.2]" 字符：再扫一遍含 NRI/IDI 的非 P 列
-  for (j in seq_len(ncol(out))) {
-    h <- tolower(names(out)[j] %||% "")
-    if (!grepl("^(nri|idi)\\b", h)) next
-    if (grepl("p value|p-value|^p$", h)) next
-    out[[j]] <- vapply(as.character(out[[j]]), function(s0) {
-      s0 <- trimws(s0)
-      if (!nzchar(s0) || grepl("\\[", s0)) {
-        ## 带 CI 的字符串：只规范估计段若为裸数字；复杂串留给上游
-        if (grepl("^[+-]?[0-9.]+\\s*\\[", s0)) {
-          m <- regexec("^([-+0-9.eE]+)\\s*(\\[.*\\])\\s*$", s0)
-          g <- regmatches(s0, m)[[1]]
-          if (length(g) == 3L) {
-            return(paste0(pub_format_prob_metric(g[2]), " ", g[3]))
-          }
-        }
-        return(s0)
-      }
-      pub_format_prob_metric(s0)
-    }, character(1L))
   }
   out
 }

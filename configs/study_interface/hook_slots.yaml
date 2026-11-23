@@ -368,3 +368,40 @@ slots:
     allow_tags: ["*"]
     max_extra: 8
     description: "任务单元末尾"
+
+  # ── trajinc（轨迹发病 · GBMTM 联合轨迹 + Fine-Gray 竞争风险 · 5006/2203）──
+  - id: trajinc.after_gbmtm
+    routine: trajinc
+    pipeline_key: pipeline
+    anchor_block: tj_gbmtm_fit
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "GBMTM 定类之后、MICE 之前（自定义质控/诊断块）"
+
+  - id: trajinc.after_cox
+    routine: trajinc
+    pipeline_key: pipeline
+    anchor_block: tj_cox_rubin
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "序贯 Cox 之后（竞争风险版此处默认已插 tj_finegray_rubin）"
+
+  - id: trajinc.after_finegray
+    routine: trajinc
+    pipeline_key: pipeline
+    anchor_block: tj_finegray_rubin
+    position: after
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "Fine-Gray 竞争风险之后、亚组之前（CIF/Aalen-Johansen 等自定义）"
+
+  - id: trajinc.end
+    routine: trajinc
+    pipeline_key: pipeline
+    anchor_block: null
+    position: end
+    allow_tags: ["*"]
+    max_extra: 8
+    description: "执行链末尾（pub_export 之后追加自定义收口）"

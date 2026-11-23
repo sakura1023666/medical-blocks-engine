@@ -18,36 +18,70 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import numpy as np
 
+# 发表图强制 Times New Roman（禁 DejaVuSans → QC Layer A4 / nature-figure P0）
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+try:
+    from tst_mpl_times import setup_times_roman
+
+    setup_times_roman()
+except Exception:
+    pass
+
 
 def _to_path(p: str | Path) -> Path:
+    """Prefer existing POSIX /mnt/<drive>/ paths on WSL/Linux; only map to X:/ when needed."""
     s = str(p)
+    raw = Path(s)
+    if raw.exists():
+        return raw
     if s.startswith("/mnt/") and len(s) > 7 and s[6] == "/":
-        return Path(f"{s[5].upper()}:/{s[7:]}".replace("\\", "/"))
-    return Path(s)
+        win = Path(f"{s[5].upper()}:/{s[7:]}".replace("\\", "/"))
+        if win.exists():
+            return win
+        # WSL: keep /mnt/g/... even if mid-flight mkdir target does not exist yet
+        return raw
+    return raw
 
 
-# eICU raw item → canonical（优先精确匹配）
+def _open_csv(path: Path):
+    """utf-8-sig 去 BOM，避免首列变成 \\ufeffpatientunitstayid。"""
+    return path.open(newline="", encoding="utf-8-sig", errors="replace")
+
+
+# eICU raw item → canonical（优先精确匹配；含缺血性卒中序列矩阵列名）
 EICU_ALIASES: dict[str, list[str]] = {
-    "heart_rate": ["Heart Rate"],
-    "respiratory_rate": ["Respiratory Rate", "RR (patient)", "Total RR"],
-    "spo2": ["O2 Sat (%)", "SpO2", "O2 Saturation", "SaO2"],
+    "heart_rate": ["Heart Rate", "heartrate"],
+    "heartrate": ["heartrate", "Heart Rate"],
+    "respiratory_rate": ["Respiratory Rate", "RR (patient)", "Total RR", "respiration"],
+    "respiration": ["respiration", "Respiratory Rate", "RR (patient)"],
+    "spo2": ["O2 Sat (%)", "SpO2", "O2 Saturation", "SaO2", "sao2"],
+    "sao2": ["sao2", "SaO2", "O2 Sat (%)", "SpO2", "O2 Saturation"],
     # MIMIC train temperature_c 实为 °F；Temperature (F) 直接映射，(C) 在 ingest 里转 °F
-    "temperature_c": ["Temperature (C)", "Temperature", "Temperature (F)"],
-    "nibp_systolic": ["NIBP systolic", "Non-Invasive BP Systolic"],
-    "nibp_diastolic": ["NIBP diastolic", "Non-Invasive BP Diastolic"],
-    "nibp_mean": ["NIBP mean", "Non-Invasive BP Mean"],
+    "temperature_c": ["Temperature (C)", "Temperature", "Temperature (F)", "temperature"],
+    "temperature": ["temperature", "Temperature (C)", "Temperature", "Temperature (F)"],
+    "nibp_systolic": ["NIBP systolic", "Non-Invasive BP Systolic", "noninvasivesystolic"],
+    "nibp_diastolic": ["NIBP diastolic", "Non-Invasive BP Diastolic", "noninvasivediastolic"],
+    "nibp_mean": ["NIBP mean", "Non-Invasive BP Mean", "noninvasivemean"],
+    "noninvasivesystolic": ["noninvasivesystolic", "NIBP systolic", "Non-Invasive BP Systolic"],
+    "noninvasivediastolic": ["noninvasivediastolic", "NIBP diastolic", "Non-Invasive BP Diastolic"],
+    "noninvasivemean": ["noninvasivemean", "NIBP mean", "Non-Invasive BP Mean"],
+    "systemicsystolic": ["systemicsystolic", "Systemic Systolic", "Arterial BP Systolic"],
+    "systemicdiastolic": ["systemicdiastolic", "Systemic Diastolic", "Arterial BP Diastolic"],
+    "systemicmean": ["systemicmean", "Systemic Mean", "Arterial BP Mean", "Arterial BP mean"],
     # eICU 可有 GCS Total 或 Eyes/Motor/Verbal；Total 在 ingest 里按 E4:M6:V5 拆分
     "gcs_eye": ["GCS Eye Opening", "Eyes", "Eye Opening"],
     "gcs_motor": ["GCS Motor Response", "Motor"],
     "gcs_verbal": ["GCS Verbal Response", "Verbal"],
     "rass": ["Sedation Score", "RASS", "Richmond Agitation-Sedation Scale", "Richmond Agitation Sedation Scale"],
     "creatinine": ["creatinine"],
-    "bun": ["BUN"],
+    "bun": ["BUN", "bun"],
     "sodium": ["sodium"],
     "potassium": ["potassium"],
     "chloride": ["chloride"],
     "bicarbonate": ["bicarbonate", "HCO3"],
-    "anion_gap": ["anion gap"],
+    "anion_gap": ["anion gap", "anion_gap"],
     "calcium": ["calcium"],
     "urine_output": ["Urine", "Urine Output (mL)-Urethral Catheter", "URINE CATHETER"],
     "ultrafiltrate": ["Ultrafiltrate Output"],
@@ -66,64 +100,456 @@ EICU_ALIASES: dict[str, list[str]] = {
     "fentanyl": ["Fentanyl (mcg/hr)", "Fentanyl (ml/hr)", "Fentanyl", "fentanyl", "Fentanyl IV"],
     "insulin": ["Insulin (units/hr)", "Insulin (ml/hr)", "Insulin", "insulin regular", "INsulin IV"],
     "daily_weight": ["Bodyweight (kg)", "Bodyweight (lb)", "Daily Weight"],
-    "cvp": ["CVP"],
+    "cvp": ["CVP", "cvp"],
     "fio2": ["FiO2", "Set Fraction of Inspired Oxygen (FIO2)", "FIO2 (%)", "Inspired O2 Fraction"],
     "peep": ["PEEP", "PEEP/CPAP", "PEEP set"],
-    "abp_mean": ["Arterial BP mean", "Invasive BP Mean", "Arterial Blood Pressure mean"],
+    "abp_mean": ["Arterial BP mean", "Invasive BP Mean", "Arterial Blood Pressure mean", "systemicmean"],
     "magnesium": ["magnesium", "Magnesium"],
     "phosphate": ["phosphate"],
     "glucose": ["glucose", "bedside glucose", "Bedside Glucose"],
-    "wbc": ["WBC x 1000"],
-    "hgb": ["Hgb"],
-    "hct": ["Hct"],
-    "platelets": ["platelets x 1000"],
+    "wbc": ["WBC x 1000", "wbc"],
+    "hgb": ["Hgb", "hgb"],
+    "hct": ["Hct", "hct"],
+    "platelets": ["platelets x 1000", "platelets"],
     "rbc": ["RBC"],
-    "mcv": ["MCV"],
+    "mcv": ["MCV", "mcv"],
     "mch": ["MCH"],
     "mchc": ["MCHC"],
-    "rdw": ["RDW"],
-    "inr": ["PT - INR"],
-    "pt": ["PT"],
-    "ptt": ["PTT"],
-    "ph": ["pH"],
+    "rdw": ["RDW", "rdw"],
+    "inr": ["PT - INR", "inr"],
+    "pt": ["PT", "pt"],
+    "ptt": ["PTT", "ptt"],
+    "ph": ["pH", "ph"],
     "lactate": ["lactate"],
-    "base_excess": ["Base Excess"],
-    "pao2": ["paO2"],
-    "paco2": ["paCO2"],
+    "base_excess": ["Base Excess", "base_excess"],
+    "pao2": ["paO2", "pao2"],
+    "paco2": ["paCO2", "paco2"],
     "total_co2": ["Total CO2"],
+    "albumin": ["albumin"],
+    "alt": ["ALT (SGPT)", "alt", "ALT"],
+    "ast": ["AST (SGOT)", "ast", "AST"],
+    "lymphs": ["-lymphs", "lymphs", "lymphocytes"],
+    "polys": ["-polys", "polys", "neutrophils"],
+    "total_rr": ["Total RR", "total_rr", "RR (patient)"],
+    "lpm_o2": ["LPM O2", "lpm_o2"],
+    "peak_insp_pressure": ["Peak Insp. Pressure", "peak_insp_pressure"],
+    "plateau_pressure": ["Plateau Pressure", "plateau_pressure"],
+    "mean_airway_pressure": ["Mean Airway Pressure", "mean_airway_pressure"],
+    "tidal_volume_set": ["Tidal Volume (set)", "tidal_volume_set"],
+    "vent_rate": ["Vent Rate", "vent_rate"],
+    "exhaled_mv": ["Exhaled MV", "exhaled_mv"],
+}
+
+# 宽表序列矩阵列 → MIMIC 特征名（卒中 72 特征矩阵）
+SEQ_COL_TO_FEAT: dict[str, str] = {
+    "heartrate": "heartrate",
+    "respiration": "respiration",
+    "temperature": "temperature",
+    "systemicmean": "systemicmean",
+    "systemicsystolic": "systemicsystolic",
+    "systemicdiastolic": "systemicdiastolic",
+    "noninvasivemean": "noninvasivemean",
+    "noninvasivesystolic": "noninvasivesystolic",
+    "noninvasivediastolic": "noninvasivediastolic",
+    "sao2": "sao2",
+    "SaO2": "sao2",
+    "O2 Sat (%)": "sao2",
+    "Total RR": "total_rr",
+    "RR (patient)": "total_rr",
+    "glucose": "glucose",
+    "bedside glucose": "glucose",
+    "creatinine": "creatinine",
+    "BUN": "bun",
+    "bicarbonate": "bicarbonate",
+    "HCO3": "bicarbonate",
+    "anion gap": "anion_gap",
+    "calcium": "calcium",
+    "sodium": "sodium",
+    "potassium": "potassium",
+    "chloride": "chloride",
+    "magnesium": "magnesium",
+    "phosphate": "phosphate",
+    "lactate": "lactate",
+    "albumin": "albumin",
+    "WBC x 1000": "wbc",
+    "-lymphs": "lymphs",
+    "-polys": "polys",
+    "Hgb": "hgb",
+    "Hct": "hct",
+    "RDW": "rdw",
+    "platelets x 1000": "platelets",
+    "MCV": "mcv",
+    "PT": "pt",
+    "PTT": "ptt",
+    "PT - INR": "inr",
+    "pH": "ph",
+    "paCO2": "paco2",
+    "paO2": "pao2",
+    "Base Excess": "base_excess",
+    "FiO2": "fio2",
+    "PEEP": "peep",
+    "LPM O2": "lpm_o2",
+    "Peak Insp. Pressure": "peak_insp_pressure",
+    "Plateau Pressure": "plateau_pressure",
+    "Mean Airway Pressure": "mean_airway_pressure",
+    "Tidal Volume (set)": "tidal_volume_set",
+    "Vent Rate": "vent_rate",
+    "Exhaled MV": "exhaled_mv",
+    "ALT (SGPT)": "alt",
+    "AST (SGOT)": "ast",
 }
 
 
-def _resolve_eicu_hourly(eicu_root: Path) -> Path:
-    """Prefer disease hourly extract; fall back to legacy AKI filename."""
+def _resolve_eicu_root(proj: Path) -> Path:
+    """Linux 区分大小写：优先 data/eicu，其次 data/eICU / EICU。"""
+    for name in ("eicu", "eICU", "EICU", "Eicu"):
+        p = proj / "data" / name
+        if p.is_dir():
+            return p
+    raise SystemExit(f"eICU: missing data/eicu under {proj / 'data'}")
+
+
+def _resolve_eicu_hourly(eicu_root: Path) -> Path | None:
+    """Prefer disease hourly extract; fall back to legacy AKI filename.
+
+    若仅有卒中宽表序列矩阵，返回 None（由 prepare_eicu_npz_from_seq 接手）。
+    """
     legacy = eicu_root / "374_eicu_aki_hourly_full_10d.csv"
     hits = sorted(eicu_root.glob("*_eicu_*_hourly_full_*.csv"))
-    if not hits and legacy.is_file():
+    # 物化长表若存在也算
+    hits = [p for p in hits if p.is_file()]
+    if hits:
+        def _rank(p: Path) -> tuple:
+            n = p.name.lower()
+            pri = 0 if ("tbi" in n or "aki" in n or "stroke" in n) else 1
+            return (pri, -p.stat().st_size, p.name)
+
+        return sorted(hits, key=_rank)[0]
+    if legacy.is_file():
         return legacy
-    if not hits:
-        raise SystemExit(f"eICU: no hourly CSV under {eicu_root}")
-    # Prefer TBI/AKI named files over misc; prefer longer coverage if multiple
-    def _rank(p: Path) -> tuple:
-        n = p.name.lower()
-        pri = 0 if ("tbi" in n or "aki" in n or "stroke" in n) else 1
-        return (pri, -p.stat().st_size, p.name)
-
-    return sorted(hits, key=_rank)[0]
+    return None
 
 
-def _ensure_dabiao(eicu_root: Path, hourly: Path) -> Path:
+def _find_seq_matrix(eicu_root: Path) -> Path | None:
+    cands = sorted(eicu_root.glob("序列矩阵*.csv")) + sorted(eicu_root.glob("*seq*matrix*.csv"))
+    for p in cands:
+        if p.is_file() and p.stat().st_size > 1000:
+            return p
+    return None
+
+
+def prepare_eicu_npz_from_seq(
+    *,
+    seq_csv: Path,
+    dabiao: Path,
+    prognosis: Path,
+    feat_names: list[str],
+    out_npz: Path,
+    max_day: int = 5,
+    n_hours: int = 24,
+    static_map: dict[int, dict[str, float]] | None = None,
+    source_label: str = "eICU seq-matrix dabiao ∩ prognosis",
+    min_age: float | None = 18.0,
+) -> dict:
+    """宽表序列矩阵直接落 npz（避免物化巨型长表）。"""
+    ids = _load_ids(dabiao)
+    y_map = _load_outcomes(prognosis)
+    keep = sorted(pid for pid in ids if pid in y_map)
+    if not keep:
+        raise SystemExit("eICU: no overlapping dabiao ∩ prognosis IDs")
+    static_map = static_map or {}
+    keep, age_meta = _apply_min_age(keep, static_map, min_age=min_age)
+    if not keep:
+        raise SystemExit("eICU: no IDs left after min_age filter")
+    keep_set = set(keep)
+    feat_idx = {f: i for i, f in enumerate(feat_names)}
+    col_fi: dict[str, int] = {}
+    with seq_csv.open(newline="", encoding="utf-8-sig", errors="replace") as f:
+        header = next(csv.reader(f))
+    for col in header:
+        if col.endswith("_mask"):
+            continue
+        feat = SEQ_COL_TO_FEAT.get(col)
+        if feat is None:
+            continue
+        fi = feat_idx.get(feat)
+        if fi is not None:
+            col_fi[col] = fi
+    if not col_fi:
+        raise SystemExit(f"eICU: seq matrix maps 0/{len(feat_names)} features: {seq_csv}")
+
+    # pid -> day,hod,fi -> values
+    buckets: dict[int, dict[tuple[int, int, int], list[float]]] = defaultdict(lambda: defaultdict(list))
+    n_rows = 0
+    n_hit = 0
+    with seq_csv.open(newline="", encoding="utf-8-sig", errors="replace") as f:
+        for row in csv.DictReader(f):
+            n_rows += 1
+            try:
+                pid = int(float(row["patientunitstayid"]))
+                h_abs = int(float(row.get("h") or row.get("hour") or -1))
+            except (TypeError, ValueError, KeyError):
+                continue
+            if pid not in keep_set or h_abs < 0:
+                continue
+            day = h_abs // n_hours
+            hod = h_abs % n_hours
+            if day >= max_day:
+                continue
+            for col, fi in col_fi.items():
+                mask_col = f"{col}_mask"
+                if mask_col in row:
+                    try:
+                        if float(row[mask_col] or 0) < 0.5:
+                            continue
+                    except (TypeError, ValueError):
+                        continue
+                raw = row.get(col, "")
+                if raw is None or str(raw).strip() == "":
+                    continue
+                try:
+                    val = float(raw)
+                except (TypeError, ValueError):
+                    continue
+                if val != val:
+                    continue
+                buckets[pid][(day, hod, fi)].append(val)
+                n_hit += 1
+
+    pids = [pid for pid in keep if pid in buckets] or list(keep)
+    n = len(pids)
+    F = len(feat_names)
+    X = np.full((n, max_day, n_hours, F), np.nan, dtype=np.float32)
+    y = np.zeros(n, dtype=np.int64)
+    day_mask = np.zeros((n, max_day), dtype=np.float32)
+    pid_arr = np.asarray(pids, dtype=np.int64)
+    n_static_filled = 0
+    for i, pid in enumerate(pids):
+        y[i] = int(y_map[pid])
+        for (day, hod, fi), vals in buckets.get(pid, {}).items():
+            X[i, day, hod, fi] = float(np.nanmean(vals))
+        for d in range(max_day):
+            if np.isfinite(X[i, d]).any():
+                day_mask[i, d] = 1.0
+        st = static_map.get(pid) or {}
+        if st:
+            for d in range(max_day):
+                if day_mask[i, d] < 0.5:
+                    continue
+                for fname, fval in st.items():
+                    fi = feat_idx.get(fname)
+                    if fi is None:
+                        continue
+                    X[i, d, :, fi] = float(fval)
+                    n_static_filled += 1
+        for f in range(F):
+            flat = X[i, :, :, f].reshape(-1)
+            last = np.nan
+            for t in range(flat.size):
+                if np.isfinite(flat[t]):
+                    last = flat[t]
+                elif np.isfinite(last):
+                    flat[t] = last
+            X[i, :, :, f] = flat.reshape(max_day, n_hours)
+        X[i] = np.nan_to_num(X[i], nan=0.0)
+
+    ok = day_mask.sum(1) > 0
+    X, y, day_mask, pid_arr = X[ok], y[ok], day_mask[ok], pid_arr[ok]
+    out_npz.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        out_npz,
+        X=X,
+        y=y,
+        day_mask=day_mask,
+        patient_id=pid_arr,
+        feature_names=np.asarray(feat_names, dtype="U64"),
+    )
+    meta = {
+        "n": int(len(y)),
+        "n_pos": int(y.sum()),
+        "n_neg": int((y == 0).sum()),
+        "F": F,
+        "D": max_day,
+        "H": n_hours,
+        "n_rows_scanned": n_rows,
+        "n_mapped_hits": n_hit,
+        "n_static_patient_fills": int(n_static_filled),
+        "n_static_ids": int(len(static_map)),
+        "features_with_any_data": int((np.abs(X).sum(axis=(0, 1, 2)) > 0).sum()),
+        "mapped_seq_cols": sorted(col_fi.keys()),
+        "is_synthetic": False,
+        "source": source_label,
+        "hourly_csv": seq_csv.name,
+        "min_age_filter": age_meta,
+        "align_notes": "wide seq-matrix → npz; mask columns honored; static_* broadcast",
+    }
+    (out_npz.parent / "eicu_external_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    print(
+        f"[eicu_prep:seq] n={meta['n']} dead={meta['n_pos']} alive={meta['n_neg']} F={F} "
+        f"hits={n_hit} mapped_cols={len(col_fi)} static_ids={len(static_map)}"
+    )
+    print(f"[eicu_prep:seq] wrote {out_npz}")
+    return meta
+
+
+def _ensure_prognosis(eicu_root: Path) -> Path:
+    """缺 EICU预后数据-all.csv 时从卒中 DN1 / 样本表生成。"""
+    prog = eicu_root / "EICU预后数据-all.csv"
+    if prog.is_file():
+        return prog
+    src = None
+    for name in (
+        "卒中队列_DN1_1642.csv",
+        "eICU-缺血性卒中-样本_200859.csv",
+        "dabiao.csv",
+    ):
+        p = eicu_root / name
+        if p.is_file():
+            src = p
+            break
+    if src is None:
+        raise SystemExit(f"missing prognosis: {prog} (and no DN1/dabiao fallback)")
+    n = 0
+    with src.open(newline="", encoding="utf-8-sig", errors="replace") as f, prog.open(
+        "w", encoding="utf-8", newline=""
+    ) as g:
+        r = csv.DictReader(f)
+        w = csv.writer(g)
+        w.writerow(["patientunitstayid", "hospitaldischargestatus", "unitdischargestatus"])
+        for row in r:
+            try:
+                pid = int(float(row.get("patientunitstayid") or row.get("stay_id") or ""))
+            except (TypeError, ValueError):
+                continue
+            st = str(row.get("hospitaldischargestatus") or row.get("hospdischargestatus") or "").strip()
+            if not st or st.lower() in ("nan", "none", "na"):
+                continue
+            w.writerow([pid, st, ""])
+            n += 1
+    if n < 20:
+        raise SystemExit(f"eICU: prognosis fallback too small n={n} from {src.name}")
+    print(f"[eicu_prep] built prognosis n={n} from {src.name} -> {prog.name}")
+    return prog
+
+
+def _ensure_static_features(eicu_root: Path) -> Path:
+    """从 静态特征_*.csv 写出 eicu_static_features.csv（static_* 列）。"""
+    out = eicu_root / "eicu_static_features.csv"
+    if out.is_file() and out.stat().st_size > 100:
+        return out
+    src = None
+    for p in sorted(eicu_root.glob("静态特征*.csv")) + sorted(eicu_root.glob("*static*.csv")):
+        if p.name == out.name:
+            continue
+        if p.is_file():
+            src = p
+            break
+    if src is None:
+        print("[eicu_prep] no static feature table; continue without static_*")
+        return out
+    n = 0
+    with src.open(newline="", encoding="utf-8-sig", errors="replace") as f, out.open(
+        "w", encoding="utf-8", newline=""
+    ) as g:
+        r = csv.DictReader(f)
+        fields = [
+            "patientunitstayid",
+            "static_Age",
+            "static_Gender",
+            "static_Weight",
+            "static_GCS",
+            "static_eyes",
+            "static_motor",
+            "static_verbal",
+            "static_Ventilation",
+            "static_intubated",
+            "static_dialysis",
+        ]
+        w = csv.DictWriter(g, fieldnames=fields)
+        w.writeheader()
+        for row in r:
+            try:
+                pid = int(float(row["patientunitstayid"]))
+            except (TypeError, ValueError, KeyError):
+                continue
+
+            def _f(*keys: str) -> float | None:
+                for k in keys:
+                    if k in row and str(row[k]).strip() not in ("", "nan", "None", "NA"):
+                        try:
+                            v = float(row[k])
+                        except (TypeError, ValueError):
+                            continue
+                        if v == v:
+                            return v
+                return None
+
+            age = _f("age", "Age", "age_num", "static_Age")
+            gender = _f("gender", "Gender", "static_Gender")
+            weight = _f("admissionweight", "weight", "Weight", "static_Weight")
+            eyes = _f("eyes", "static_eyes")
+            motor = _f("motor", "static_motor")
+            verbal = _f("verbal", "static_verbal")
+            gcs = _f("GCS", "gcs", "static_GCS")
+            if gcs is None and None not in (eyes, motor, verbal):
+                gcs = float(eyes) + float(motor) + float(verbal)
+            vent = _f("vent", "Ventilation", "static_Ventilation")
+            intu = _f("intubated", "static_intubated")
+            dial = _f("dialysis", "static_dialysis")
+            rec = {
+                "patientunitstayid": pid,
+                "static_Age": "" if age is None else age,
+                "static_Gender": "" if gender is None else gender,
+                "static_Weight": "" if weight is None else weight,
+                "static_GCS": "" if gcs is None else gcs,
+                "static_eyes": "" if eyes is None else eyes,
+                "static_motor": "" if motor is None else motor,
+                "static_verbal": "" if verbal is None else verbal,
+                "static_Ventilation": "" if vent is None else vent,
+                "static_intubated": "" if intu is None else intu,
+                "static_dialysis": "" if dial is None else dial,
+            }
+            w.writerow(rec)
+            n += 1
+    print(f"[eicu_prep] built static features n={n} from {src.name} -> {out.name}")
+    return out
+
+
+def _ensure_dabiao(eicu_root: Path, hourly: Path | None = None) -> Path:
     dabiao = eicu_root / "dabiao.csv"
     if dabiao.is_file():
         return dabiao
+    # 卒中 DN1 优先（首次 ICU 主口径）
+    for name in ("卒中队列_DN1_1642.csv",):
+        src = eicu_root / name
+        if src.is_file():
+            ids: set[int] = set()
+            with src.open(newline="", encoding="utf-8-sig", errors="replace") as f:
+                for row in csv.DictReader(f):
+                    try:
+                        ids.add(int(float(row["patientunitstayid"])))
+                    except (TypeError, ValueError, KeyError):
+                        continue
+            if ids:
+                with dabiao.open("w", encoding="utf-8", newline="") as f:
+                    w = csv.writer(f)
+                    w.writerow(["patientunitstayid"])
+                    for i in sorted(ids):
+                        w.writerow([i])
+                print(f"[eicu_prep] dabiao from {name} n={len(ids)} -> {dabiao}")
+                return dabiao
     ids: set[int] = set()
-    with hourly.open(newline="", encoding="utf-8", errors="replace") as f:
+    src_for_ids = hourly if hourly is not None else _find_seq_matrix(eicu_root)
+    if src_for_ids is None:
+        raise SystemExit("eICU: cannot build dabiao — no hourly/seq source")
+    with src_for_ids.open(newline="", encoding="utf-8-sig", errors="replace") as f:
         for row in csv.DictReader(f):
             try:
                 ids.add(int(float(row["patientunitstayid"])))
             except (TypeError, ValueError, KeyError):
                 continue
     if not ids:
-        raise SystemExit("eICU: cannot build dabiao — no patientunitstayid in hourly")
+        raise SystemExit("eICU: cannot build dabiao — no patientunitstayid in source")
     with dabiao.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(["patientunitstayid"])
@@ -138,7 +564,7 @@ def _load_static_features(path: Path) -> dict[int, dict[str, float]]:
     if not path.is_file():
         return {}
     out: dict[int, dict[str, float]] = {}
-    with path.open(newline="", encoding="utf-8", errors="replace") as f:
+    with path.open(newline="", encoding="utf-8-sig", errors="replace") as f:
         for row in csv.DictReader(f):
             try:
                 pid = int(float(row["patientunitstayid"]))
@@ -192,7 +618,7 @@ def _to_mimic_temperature_f(val: float) -> float:
 
 def _load_ids(dabiao: Path) -> set[int]:
     ids: set[int] = set()
-    with dabiao.open(newline="", encoding="utf-8", errors="replace") as f:
+    with dabiao.open(newline="", encoding="utf-8-sig", errors="replace") as f:
         for row in csv.DictReader(f):
             key = row.get("patientunitstayid") or row.get("stay_id") or next(iter(row.values()))
             try:
@@ -205,13 +631,17 @@ def _load_ids(dabiao: Path) -> set[int]:
 def _load_outcomes(prog: Path) -> dict[int, int]:
     """patientunitstayid -> is_hosp_dead (1/0)."""
     out: dict[int, int] = {}
-    with prog.open(newline="", encoding="utf-8", errors="replace") as f:
+    with prog.open(newline="", encoding="utf-8-sig", errors="replace") as f:
         for row in csv.DictReader(f):
             try:
                 pid = int(float(row["patientunitstayid"]))
             except (TypeError, ValueError, KeyError):
                 continue
-            st = str(row.get("hospdischargestatus") or "").strip().lower()
+            st = str(
+                row.get("hospitaldischargestatus")
+                or row.get("hospdischargestatus")
+                or ""
+            ).strip().lower()
             if st in ("expired", "dead", "death", "1", "true"):
                 out[pid] = 1
             elif st in ("alive", "home", "0", "false") or "alive" in st:
@@ -301,7 +731,7 @@ def prepare_eicu_npz(
     n_gcs_split = 0
     n_temp_c2f = 0
     n_lb2kg = 0
-    with hourly_csv.open(newline="", encoding="utf-8", errors="replace") as f:
+    with hourly_csv.open(newline="", encoding="utf-8-sig", errors="replace") as f:
         for row in csv.DictReader(f):
             n_rows += 1
             try:
@@ -464,7 +894,7 @@ def _load_severity_map(path: Path, score_name: str) -> dict[int, float]:
     if not path.is_file():
         return {}
     out: dict[int, float] = {}
-    with path.open(newline="", encoding="utf-8", errors="replace") as f:
+    with path.open(newline="", encoding="utf-8-sig", errors="replace") as f:
         for row in csv.DictReader(f):
             try:
                 raw_id = row.get("patientunitstayid") or row.get("stay_id")
@@ -493,6 +923,15 @@ def evaluate_and_plot(
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    # 图面强制 Times（禁 DejaVuSans P0）
+    try:
+        from tst_mpl_times import setup_times_roman
+
+        setup_times_roman()
+    except Exception:
+        matplotlib.rcParams["font.family"] = "serif"
+        matplotlib.rcParams["font.serif"] = ["Times New Roman", "Liberation Serif", "Nimbus Roman"]
+        matplotlib.rcParams["pdf.fonttype"] = 42
     from sklearn.metrics import roc_auc_score, roc_curve
     import torch
     from torch.utils.data import DataLoader
@@ -696,7 +1135,7 @@ def main() -> None:
     d = np.load(mimic_npz, allow_pickle=True)
     feat_names = [str(x) for x in d["feature_names"]]
 
-    eicu_root = proj / "data" / "eicu"
+    eicu_root = _resolve_eicu_root(proj)
     out_dir = proj / "summary_results" / "by_landmark" / f"L{args.landmark}" / "eicu_external"
     out_npz = out_dir / "eicu.npz"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -710,23 +1149,63 @@ def main() -> None:
 
     if not args.skip_prep or not out_npz.is_file():
         hourly = _resolve_eicu_hourly(eicu_root)
+        seq = _find_seq_matrix(eicu_root) if hourly is None else None
+        if hourly is None and seq is None:
+            raise SystemExit(f"eICU: no hourly CSV or seq matrix under {eicu_root}")
         dabiao = _ensure_dabiao(eicu_root, hourly)
-        prognosis = eicu_root / "EICU预后数据-all.csv"
-        if not prognosis.is_file():
-            raise SystemExit(f"missing prognosis: {prognosis}")
+        prognosis = _ensure_prognosis(eicu_root)
+        _ensure_static_features(eicu_root)
         static_map = _load_static_features(eicu_root / "eicu_static_features.csv")
-        disease = "TBI" if "tbi" in hourly.name.lower() else ("AKI" if "aki" in hourly.name.lower() else "eICU")
-        print(f"[eicu_prep] hourly={hourly.name} dabiao={dabiao.name} static_ids={len(static_map)} disease={disease}")
+        src_name = (hourly.name if hourly is not None else seq.name).lower()
+        disease = (
+            "TBI" if "tbi" in src_name else
+            ("AKI" if "aki" in src_name else
+             ("stroke" if ("stroke" in src_name or "ischemic" in src_name or "序列" in (hourly.name if hourly else seq.name)) else "eICU"))
+        )
+        print(
+            f"[eicu_prep] source={hourly.name if hourly else seq.name} "
+            f"dabiao={dabiao.name} static_ids={len(static_map)} disease={disease}"
+        )
         min_age = None if float(args.min_age) < 0 else float(args.min_age)
-        prepare_eicu_npz(
-            hourly_csv=hourly,
-            dabiao=dabiao,
-            prognosis=prognosis,
-            feat_names=feat_names,
-            out_npz=out_npz,
-            static_map=static_map,
-            source_label=f"eICU {disease} dabiao ∩ prognosis",
-            min_age=min_age,
+        if hourly is not None:
+            prepare_eicu_npz(
+                hourly_csv=hourly,
+                dabiao=dabiao,
+                prognosis=prognosis,
+                feat_names=feat_names,
+                out_npz=out_npz,
+                static_map=static_map,
+                source_label=f"eICU {disease} dabiao ∩ prognosis",
+                min_age=min_age,
+            )
+        else:
+            prepare_eicu_npz_from_seq(
+                seq_csv=seq,
+                dabiao=dabiao,
+                prognosis=prognosis,
+                feat_names=feat_names,
+                out_npz=out_npz,
+                static_map=static_map,
+                source_label=f"eICU {disease} seq-matrix dabiao ∩ prognosis",
+                min_age=min_age,
+            )
+        # 纳排说明（外验年龄门控可核）
+        note = out_dir / "eICU_外验纳排.txt"
+        note.write_text(
+            "\n".join(
+                [
+                    f"project={proj}",
+                    f"eicu_root={eicu_root}",
+                    f"source={hourly.name if hourly else seq.name}",
+                    f"dabiao={dabiao.name}",
+                    f"prognosis={prognosis.name}",
+                    f"min_age={min_age}",
+                    f"model={model}",
+                    "policy=MIMIC-trained weights, no retrain; TF alone default",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
         )
     else:
         print(f"[eicu_prep] skip-prep: reuse {out_npz}")

@@ -49,36 +49,52 @@ block_dbpool_batch_finalize <- function(ctx) {
     DBPOOL_COHORT = as.character(cohort)[1L],
     DBPOOL_DROP_FEATURES = as.character(drop_feat)[1L]
   )
+  # Prefer thin dbpool wrapper (quotes paths like summary(new); midterm rebuild hook)
+  cli_dbpool <- file.path(engine, "run/dbpool/finalize_summary_delivery.R")
   cli_fin <- file.path(engine, "run/pub/finalize_delivery_root.R")
-  if (file.exists(cli_fin)) {
+  .sh_run <- function(...) {
+    toks <- as.character(unlist(list(...), use.names = FALSE))
+    cmd <- paste(vapply(toks, shQuote, character(1L)), collapse = " ")
+    out <- system(cmd, intern = TRUE)
+    status <- attr(out, "status")
+    if (is.null(status)) status <- 0L
+    list(out = out, status = as.integer(status)[1L])
+  }
+  pub_abs <- normalizePath(pub_root, winslash = "/", mustWork = FALSE)
+  if (file.exists(cli_dbpool)) {
     tryCatch(
       {
-        out <- system2(
-          "Rscript",
-          c(
-            cli_fin,
-            "--dir", normalizePath(pub_root, winslash = "/", mustWork = FALSE),
-            "--study-type", "dbpool",
-            "--outcome", "ICU mortality and remaining length of stay",
-            "--exposure", "Multi-database pooling / transfer learning (TPC)",
-            "--databases", "AmsterdamUMC,MIMIC-IV,eICU,HiRID"
-          ),
-          stdout = TRUE, stderr = TRUE
+        res <- .sh_run("Rscript", cli_dbpool, "--dir", pub_abs)
+        cli::cli_alert_info(
+          "dbpool finalize_summary_delivery: {paste(tail(res$out, 3), collapse = ' | ')}"
         )
-        cli::cli_alert_info("dbpool finalize_delivery_root: {paste(tail(out, 3), collapse = ' | ')}")
+      },
+      error = function(e) cli::cli_alert_warning("finalize_summary_delivery failed: {e$message}")
+    )
+  } else if (file.exists(cli_fin)) {
+    tryCatch(
+      {
+        res <- .sh_run(
+          "Rscript", cli_fin,
+          "--dir", pub_abs,
+          "--study-type", "dbpool",
+          "--outcome", "ICU mortality and remaining length of stay",
+          "--exposure", "Multi-database pooling / transfer learning (TPC)",
+          "--databases", "AmsterdamUMC,MIMIC-IV,eICU,HiRID"
+        )
+        cli::cli_alert_info("dbpool finalize_delivery_root: {paste(tail(res$out, 3), collapse = ' | ')}")
       },
       error = function(e) cli::cli_alert_warning("finalize_delivery_root failed: {e$message}")
     )
   } else {
-    cli::cli_alert_warning("missing {cli_fin}")
+    cli::cli_alert_warning("missing finalize CLI under run/dbpool or run/pub")
   }
 
-  # 结构 QC + Nature stub + Phase7 midterm 队列（叙述仍由 Agent 写）
+  # 结构 QC + Nature stub（Phase7 中期叙述仍由 Agent 写 content.json）
   qc_cli <- file.path(engine, "run/pub/run_pub_qc_after_project.R")
   if (file.exists(qc_cli) && !identical(Sys.getenv("MEDICAL_BLOCKS_AUTO_PUB_QC", "1"), "0")) {
     tryCatch(
-      system2("Rscript", c(qc_cli, "--project", normalizePath(pub_root, winslash = "/", mustWork = FALSE)),
-              stdout = TRUE, stderr = TRUE),
+      .sh_run("Rscript", qc_cli, "--project", pub_abs),
       error = function(e) cli::cli_alert_warning("pub QC CLI failed: {e$message}")
     )
   }

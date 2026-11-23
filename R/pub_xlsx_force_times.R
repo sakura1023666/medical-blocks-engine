@@ -1,6 +1,17 @@
 # Times New Roman force for published xlsx — thin wrapper.
 # Canonical path: python/pub_xlsx_scrub_display.py (also runs on every
 # pub_delivery_scrub_display). Kept so older finalize hooks still source this file.
+#
+# Paths like summary(new) break unquoted system2→sh; always shQuote every argv.
+
+.pub_py_system <- function(py, args) {
+  cmd <- paste(vapply(c(as.character(py), as.character(args)), shQuote, character(1L)),
+               collapse = " ")
+  out <- system(cmd, intern = TRUE)
+  status <- attr(out, "status")
+  if (is.null(status)) status <- 0L
+  structure(out, status = as.integer(status)[1L])
+}
 
 pub_xlsx_force_times_fonts <- function(path) {
   path <- path.expand(as.character(path)[[1L]])
@@ -26,7 +37,7 @@ pub_xlsx_force_times_fonts <- function(path) {
   }
   args <- if (identical(script, scrub)) c(script, "--times-only", path) else c(script, path)
   out <- tryCatch(
-    system2(py, args, stdout = TRUE, stderr = TRUE),
+    .pub_py_system(py, args),
     error = function(e) paste0("ERR:", conditionMessage(e))
   )
   invisible(list(path = path, log = out))
@@ -44,13 +55,10 @@ pub_delivery_force_tables_times <- function(delivery_root, ...) {
   scrub <- file.path(root, "python", "pub_xlsx_scrub_display.py")
   py <- Sys.which("python3")
   if (!nzchar(py)) py <- Sys.which("python")
-  if (nzchar(py) && file.exists(scrub) && dir.exists(file.path(delivery_root, "Tables"))) {
+  tab_dir <- file.path(delivery_root, "Tables")
+  if (nzchar(py) && file.exists(scrub) && dir.exists(tab_dir)) {
     out <- tryCatch(
-      system2(
-        py,
-        c(scrub, "--dir", file.path(delivery_root, "Tables"), "--times-only"),
-        stdout = TRUE, stderr = TRUE
-      ),
+      .pub_py_system(py, c(scrub, "--dir", tab_dir, "--times-only")),
       error = function(e) paste0("ERR:", conditionMessage(e))
     )
     return(invisible(list(n = length(tabs), log = out)))

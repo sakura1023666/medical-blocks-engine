@@ -246,10 +246,25 @@
   ctx$results$ml_pred_ref_col <- prep$pred_ref_col
   ctx$results$ml_pred_ana_col <- prep$pred_ana_col
   ctx$results$ml_feature_names <- prep$feats
-  ctx$results$ml_models_models_dir <- prep$models_dir
-  ctx$results$ml_models <- ctx$results$ml_models %||% list()
-  ctx$results$ml_predictions_all <- ctx$results$ml_predictions_all %||% list()
-  ctx$results$ml_eval_by_model <- ctx$results$ml_eval_by_model %||% list()
+  ## 必须先 ensure ml_models 再写 ml_models_models_dir：否则 `$ml_models` 会部分匹配到
+  ## ml_models_models_dir（字符路径），随后 `ml_models[[tag]] <- workflow` 报
+  ## "more elements supplied than there are to replace"（UA_CR Age50 2026-11）。
+  if (exists("ensure_ctx_results_list", mode = "function")) {
+    ctx <- ensure_ctx_results_list(ctx, "ml_models")
+    ctx <- ensure_ctx_results_list(ctx, "ml_predictions_all")
+    ctx <- ensure_ctx_results_list(ctx, "ml_eval_by_model")
+  } else {
+    if (is.null(ctx$results[["ml_models"]]) || !is.list(ctx$results[["ml_models"]])) {
+      ctx$results[["ml_models"]] <- list()
+    }
+    if (is.null(ctx$results[["ml_predictions_all"]]) || !is.list(ctx$results[["ml_predictions_all"]])) {
+      ctx$results[["ml_predictions_all"]] <- list()
+    }
+    if (is.null(ctx$results[["ml_eval_by_model"]]) || !is.list(ctx$results[["ml_eval_by_model"]])) {
+      ctx$results[["ml_eval_by_model"]] <- list()
+    }
+  }
+  ctx$results[["ml_models_models_dir"]] <- prep$models_dir
   ctx
 }
 
@@ -646,9 +661,9 @@ block_ml_rf <- function(ctx, ...) {
 
   saved <- .mlrf02_save_tidymodels(prep, tag, res)
   ctx <- .mlrf02_write_ctx_meta(ctx, prep)
-  ctx$results$ml_models[[tag]] <- saved$model
-  ctx$results$ml_predictions_all[[tag]] <- saved$preds
-  ctx$results$ml_eval_by_model[[tag]] <- saved$eval
+  ctx$results[["ml_models"]][[tag]] <- saved$model
+  ctx$results[["ml_predictions_all"]][[tag]] <- saved$preds
+  ctx$results[["ml_eval_by_model"]][[tag]] <- saved$eval
   ctx <- .ml_register_model_probs(ctx, tag, preds_df = saved$preds)
   cli::cli_alert_success("ml_rf 完成。")
   ctx

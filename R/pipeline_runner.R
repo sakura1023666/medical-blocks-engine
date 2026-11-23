@@ -83,6 +83,7 @@ pipeline_block_sources <- function(root) {
     tj_subgroup                 = b("82_trajectory_incidence_joint/04block_tj_subgroup.R"),
     tj_sensitivity              = b("82_trajectory_incidence_joint/05block_tj_sensitivity.R"),
     tj_pub_export               = b("82_trajectory_incidence_joint/06block_tj_pub_export.R"),
+    tj_finegray_rubin           = b("82_trajectory_incidence_joint/07block_tj_finegray_rubin.R"),
     gallstone_flowchart           = file.path(root, "run", "gallstone_nomogram", "blocks_shell", "00block_gallstone_flowchart.R"),
     gallstone_data_ingest         = file.path(root, "run", "gallstone_nomogram", "blocks_shell", "01block_gallstone_data_ingest.R"),
     gallstone_uv_covariate_screen = file.path(root, "run", "gallstone_nomogram", "blocks_shell", "01a_block_gallstone_uv_covariate_screen.R"),
@@ -1139,6 +1140,11 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
       )
     }
   }
+  ## 自带交付收口的套路（如轨迹发病 tj_pub_export：已写 Tables/Figures/Methods + prune 白名单）
+  ## 必须跳过下面通用「单库发病 / ml_finalize」收口，否则其按 main_mediation scheme 误删图（pdf=0）。
+  pipeline_self_pub <- any(grepl("tj_pub_export", as.character(pipeline$blocks %||% character(0)))) ||
+    isTRUE((config$pub %||% list())$self_pub_finalize) ||
+    isTRUE((config$joint_trajectory %||% list())$pub$self_finalize)
   ## 发表表去重 + 单库发病图序整理 + summary_results 白名单收口（每次跑完自动）
   tryCatch({
     dedup_src <- file.path(engine_root, "R/pub_dedup_identical_tables.R")
@@ -1152,8 +1158,11 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
   tryCatch({
     fin_src <- file.path(engine_root, "R/incidence_single_pub_finalize.R")
     if (file.exists(fin_src)) source(fin_src, local = FALSE)
-    if (exists("incidence_single_finalize_after_pipeline", mode = "function")) {
+    if (exists("incidence_single_finalize_after_pipeline", mode = "function") &&
+        !pipeline_self_pub) {
       incidence_single_finalize_after_pipeline(out_root, config = config)
+    } else if (pipeline_self_pub) {
+      cli::cli_alert_info("已跳过通用单库发病收口（本 pipeline 自带交付收口，如 tj_pub_export）")
     }
   }, error = function(e) cli::cli_alert_warning("单库发病发表收口跳过: {e$message}"))
   tryCatch({
@@ -1174,7 +1183,8 @@ run_pipeline <- function(root, config, pipeline, run_opts = list()) {
           any(grepl("^ml_|performance_ml|shap", as.character(pipeline$blocks %||% character(0))))
       )
     ## 若 incidence_single_finalize 已写过 summary_results，此处再写一次保持幂等/补齐 Methods
-    if (isTRUE(want_sum) && exists("ml_finalize_index_summary_results", mode = "function")) {
+    if (isTRUE(want_sum) && !pipeline_self_pub &&
+        exists("ml_finalize_index_summary_results", mode = "function")) {
       config2 <- config
       config2$`_pipeline_blocks` <- as.character(pipeline$blocks %||% character(0))
       if (!is.list(config2$pub)) config2$pub <- list()

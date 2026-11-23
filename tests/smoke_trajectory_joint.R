@@ -47,6 +47,9 @@ cls_true <- sample(1:3, n, TRUE, c(.5,.3,.2))
 df$cvd_event  <- rbinom(n, 1, c(.08,.18,.30)[cls_true])
 df$cvd_time_m <- ifelse(df$cvd_event == 1, round(runif(n, 6, 90)), round(runif(n, 40, 120)))
 df$cvd_time_m[df$cvd_event == 0] <- 120
+# 竞争事件（死亡）：~15%，未发生 CVD 者为主；死亡时间 < 结局 censor 时间
+df$death_event  <- rbinom(n, 1, .15) * (df$cvd_event == 0)
+df$death_time_m <- ifelse(df$death_event == 1, round(runif(n, 30, 118)), NA_real_)
 
 tmp <- "/tmp/tj_smoke"; unlink(tmp, recursive = TRUE); dir.create(tmp, recursive = TRUE)
 out <- file.path(tmp, "Output"); dir.create(out, recursive = TRUE)
@@ -128,6 +131,21 @@ sens <- ctx$results$tj_sensitivity
 cat("sens rows:", nrow(sens), " analyses:", paste(unique(sens$analysis), collapse=", "), "\n")
 print(sens[sens$system=="BMI_TyG" & sens$class=="T4", c("analysis","HR","lo","hi","p","m")], row.names = FALSE)
 stopifnot(nrow(sens) > 0)
+
+cat("\n== finegray competing risk (Rubin m=2) ==\n")
+cfg$joint_trajectory$competing_risk <- list(
+  enable = TRUE, cause = 1L, cencode = 0L, death_cause = 2L,
+  death_event_col = "death_event", death_time_col = "death_time_m")
+ctx$config <- cfg
+source(file.path(root, "Blocks/82_trajectory_incidence_joint/07block_tj_finegray_rubin.R"))
+ctx <- block_tj_finegray_rubin(ctx)
+fg <- ctx$results$tj_fg
+cat("fg rows:", nrow(fg), "\n")
+print(head(fg[fg$model == "model3", c("system", "class", "sHR", "lo", "hi", "p", "method",
+                                       "n_events", "n_competing")], 6), row.names = FALSE)
+stopifnot(nrow(fg) > 0, all(grepl("Rubin", fg$method) | grepl("complete", fg$method)))
+stopifnot(file.exists(file.path(out, "results", "finegray", "finegray_all_models.csv")))
+cat("finegray OK\n")
 
 cat("\n== pub export ==\n")
 ctx$results$tj_outcome_primary <- ctx$results$tj_outcome_cvd

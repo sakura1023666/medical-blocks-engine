@@ -26,12 +26,15 @@ python Blocks/71_two_stage_transformer_stroke/scripts/draw_fig1_consort.py \
 python Blocks/71_two_stage_transformer_stroke/scripts/rebuild_table2_yang_layout.py \
   --project-root /path/to/study_output --landmark 120
 
-# eICU 外验 Figure S7（自动识别 data/eicu/*_eicu_*_hourly_full_*.csv；缺 dabiao 则从小时表生成）
+# eICU 外验 Figure S7
+# 识别顺序：data/eicu|eICU/*_eicu_*_hourly_full_*.csv
+#          → 否则宽表 序列矩阵*.csv（卒中等）直接落 npz
+# 缺预后表时从 卒中队列_DN1_*.csv 生成；缺 static 时从 静态特征_*.csv 生成
 # 可选：eicu_static_features.csv 广播 static_*；TBI 示例见 37_TBI/.../data/eicu/
 PYTHON=/mnt/c/ProgramData/Miniconda3/envs/torch/python.exe \
   $PYTHON Blocks/71_two_stage_transformer_stroke/scripts/prepare_eicu_external_and_eval.py \
-  --project-root G:/02block_result/37_TBI/two_stage_transformer_40041421 \
-  --landmark 120 --day 5 --repo E:/01block/01Block-new-Final
+  --project-root "G:/02block_result/11_ischemic stroke/two_stage_transformer_40041421" \
+  --landmark 120 --day 5 --repo E:/01block/01Block-new-Final --min-age 18
 ```
 
 ## 发表补充（只增不改主表）

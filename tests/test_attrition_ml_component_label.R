@@ -74,4 +74,29 @@ stopifnot(identical(as.integer(rows$n[rows$step_id == "starting_cohort"][1L]), 1
 stopifnot(!any(rows$step_id %in% c("after_data_clean", "after_imputation")))
 stopifnot(!any(grepl("^After data cleaning|^After imputation", rows$step)))
 
+## 已有 after_index 笼统 Missing key variables → 升级成分分项
+rows0 <- data.frame(
+  step = c("Age >= 50", "UA CR calculable"),
+  n = c(100L, 90L),
+  source = c("fixed", "current"),
+  kind = c("include", "include"),
+  step_id = c("after_age_filter", "after_index_calculable"),
+  exclude_label = c("Age < 50", "Missing UA CR key variables (n = 10)"),
+  stringsAsFactors = FALSE
+)
+ctx_up <- list(
+  data = list(
+    raw = data.frame(
+      Uric_Acid = c(rep(5, 90), rep(NA_real_, 10)),
+      Creatinine = rep(1, 100),
+      stringsAsFactors = FALSE
+    )
+  ),
+  config = list(`_current_index` = "UA_CR")
+)
+rows1 <- attrition_append_index_missing_step(rows0, ctx_up, list(`_current_index` = "UA_CR"))
+stopifnot(grepl("Uric Acid \\(n = 10\\)", rows1$exclude_label[2L]))
+stopifnot(grepl("Creatinine \\(n = 0\\)", rows1$exclude_label[2L]))
+stopifnot(!grepl("key variables", rows1$exclude_label[2L]))
+
 cat("test_attrition_ml_component_label: OK\n")

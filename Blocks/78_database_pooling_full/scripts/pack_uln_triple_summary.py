@@ -135,7 +135,10 @@ def _run_finalize(key: str, out: Path, *, skip_table1: bool = False, skip_delive
                 "then cohort mean [SD]). Drug exposure: any hourly dose >0 during the stay. "
                 "Unit type from BlendedICU labels (HiRID often Unknown). "
                 f"{meta['drop_en']} "
-                "Vitals/labs clipped to a priori physiological ranges (same bounds as model preprocess)."
+                "Vitals/labs clipped to a priori physiological ranges (same bounds as model preprocess). "
+                "Multi-centric database Yes (N = k) for eICU = number of distinct care_site "
+                "(hospital) IDs among eICU stays in this analytic cohort (k of 208 hospitals "
+                "described for eICU-CRD); not a client/project code."
             ),
             "LIVER_SCALE_FEATURE_NOTE": meta["drop_en"],
             "MEDICAL_BLOCKS_ROOT": os.environ.get(
@@ -250,6 +253,27 @@ def _merge_sensitivity(main: Path) -> None:
                 md.read_text(encoding="utf-8").replace(file_lab, label),
                 encoding="utf-8",
             )
+            try:
+                from dbpool_feature_inventory import (
+                    append_training_size_metric_lock,
+                    extract_gen_mimic_cells,
+                    endpoint_from_size_md,
+                )
+                t3p = tables / f"Table {t3s}. Four training strategies ({file_lab}).xlsx"
+                auc_c, mape_c, ams_c = extract_gen_mimic_cells(t3p)
+                ea, em = endpoint_from_size_md(md)
+                if auc_c and mape_c and ea is not None:
+                    append_training_size_metric_lock(
+                        md,
+                        endpoint_auroc=ea,
+                        endpoint_mape=em,
+                        table_label=f"Table {t3s}",
+                        table_auroc_cell=auc_c,
+                        table_mape_cell=mape_c,
+                        warn_spec_cell=ams_c,
+                    )
+            except Exception as e:
+                print(f"[pack] WARN metric lock {f2s}: {e}", flush=True)
         print(f"[pack] merged sensitivity {key} → Table {t2s}/{t3s}, Figure {f2s}", flush=True)
 
 
@@ -280,8 +304,8 @@ def _patch_methods(main: Path) -> None:
         "\n## Sensitivity analyses (single-lab ULN gates)\n"
         "The primary cohort required AST, ALT and total bilirubin all above laboratory ULN "
         "(AST ≥38 U/L, ALT ≥41 U/L, total bilirubin ≥1.3 mg/dL). "
-        "Three sensitivity cohorts used one lab gate only: bilirubin ≥1.3 mg/dL "
-        "(Tables S3–S4, Figure S1); ALT ≥41 U/L (Tables S5–S6, Figure S2); "
+        "Three sensitivity cohorts used one lab gate only (not a union / any-one gate): "
+        "bilirubin ≥1.3 mg/dL (Tables S3–S4, Figure S1); ALT ≥41 U/L (Tables S5–S6, Figure S2); "
         "AST ≥38 U/L (Tables S7–S8, Figure S3). "
         "Training strategies, TPC architecture, metrics and uncertainty methods matched the main analysis; "
         "only the cohort-defining laboratory (and its corresponding exclusion from predictors, "

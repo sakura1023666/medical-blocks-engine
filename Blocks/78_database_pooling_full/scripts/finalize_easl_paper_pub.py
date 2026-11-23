@@ -83,7 +83,9 @@ TABLE1_FOOTNOTE = os.environ.get(
     "Continuous: mean [SD] (vitals/labs = stay-level hourly mean after physiological-range clip, "
     "then cohort mean [SD]). Drug exposure: any hourly dose >0 during the stay. "
     "Unit type from BlendedICU labels (HiRID often Unknown). ALT/ALP excluded from model features. "
-    "Vitals/labs clipped to a priori physiological ranges (same bounds as model preprocess).",
+    "Vitals/labs clipped to a priori physiological ranges (same bounds as model preprocess). "
+    "Multi-centric database Yes (N = k) for eICU = distinct care_site (hospital) IDs in the "
+    "analytic eICU cohort (k of 208 hospitals described for eICU-CRD); not a client/project code.",
 ).strip()
 SCALE_FEATURE_NOTE = os.environ.get(
     "LIVER_SCALE_FEATURE_NOTE",
@@ -151,29 +153,45 @@ plt.rcParams.update(
 )
 
 
+# Engine digit policy (Allyn Crit Care 2026–aligned): dbpool_pub_digits.py
+try:
+    from dbpool_pub_digits import (  # type: ignore
+        DIGITS as DBPOOL_DIGITS,
+        fmt_ci as _fmt_ci_policy,
+        fmt_est as _fmt_est_policy,
+        fmt_n as _fmt_n_policy,
+        scrub_display_underscore as _disp_policy,
+    )
+except Exception:  # pragma: no cover
+    _here = Path(__file__).resolve().parent
+    if str(_here) not in sys.path:
+        sys.path.insert(0, str(_here))
+    from dbpool_pub_digits import (  # type: ignore
+        DIGITS as DBPOOL_DIGITS,
+        fmt_ci as _fmt_ci_policy,
+        fmt_est as _fmt_est_policy,
+        fmt_n as _fmt_n_policy,
+        scrub_display_underscore as _disp_policy,
+    )
+
+
 def _disp(s: str) -> str:
-    return re.sub(r"_+", " ", str(s)).strip()
+    return _disp_policy(s)
 
 
 def _fmt_n(n) -> str:
-    try:
-        return f"{int(n):,}"
-    except Exception:
-        return "–"
+    return _fmt_n_policy(n)
 
 
 def _fmt_est(x, digits=3):
     if x is None or (isinstance(x, float) and not np.isfinite(x)):
         return "–"
-    return f"{float(x):.{digits}f}"
+    return _fmt_est_policy(x, digits)
 
 
 def _fmt_ci(est, lo, hi, digits=3) -> str:
-    if est is None or (isinstance(est, float) and not np.isfinite(est)):
-        return "–"
-    if lo is None or hi is None or not (np.isfinite(lo) and np.isfinite(hi)):
-        return _fmt_est(est, digits)
-    return f"{float(est):.{digits}f} [{float(lo):.{digits}f}, {float(hi):.{digits}f}]"
+    # Allyn tables use en-dash in CI; keep comma form only if caller expects legacy
+    return _fmt_ci_policy(est, lo, hi, digits=digits, sep="–")
 
 
 def _xlsx_cell_value(val):
@@ -929,6 +947,8 @@ def table3_wide_matrix(store: dict, ci: pd.DataFrame | None) -> pd.DataFrame:
         ("Specialization on MIMIC-IV", "mimic4", False),
         ("Generalization", "gen", True),
     ]
+    # Allyn Crit Care main Table 3 display: AUROC 2 dp, MAPE 2 dp, Mcomposite 2 dp.
+    # Table S2 equal-n bake-off uses AUROC 3 dp / MAPE 1 dp (see rebuild_table_s2).
     metric_specs = [
         ("Mortality, AUROC", "auc", 2),
         ("RLoS, MAPE", "mape", 2),
@@ -1134,9 +1154,9 @@ def make_fig1(out: Path, store: dict):
 
     steps = [
         (f"1  {COHORT_TITLE} cohort", COHORT_RULE_SHORT, "#d7e6f5"),
-        ("2  Four ICU databases", "AmsterdamUMC, MIMIC-IV, eICU, HiRID (BlendedICU)", "#dceee4"),
+        ("2  Four ICU databases", "AmsterdamUMC, MIMIC-IV, eICU, HiRID (BlendedICU extract)", "#dceee4"),
         ("3  Time zero t0 = ICU admission", "Predict from hour 5 onward; through ICU discharge", "#efe6c9"),
-        ("4  Preprocess + patient split", "Phys clip, MNAR ffill+mask, q5–q95; 70/15/15 seed 974", "#f6dfd4"),
+        ("4  Preprocess + patient split", "Phys clip, ffill+mask, q5–q95; seed 974 (15/15/rest)", "#f6dfd4"),
         ("5  TPC multitask model", "Hourly ICU mortality + remaining ICU LoS (RLoS, cap 10 d)", "#e8dff5"),
         ("6  Internal then external test", "AUROC, AUPRC, MAPE; four strategies in panel B", "#e6e4f4"),
         ("7  Hourly clinical outputs", "ICU death probability; RLoS if predicted alive", "#f7f3ea"),
@@ -1329,7 +1349,7 @@ def fig2_training_size(extra_root: Path, out: Path) -> pd.DataFrame:
         color=c_comp,
         zorder=3,
     )
-    ax.set_ylabel("Composite metric (arbitrary unit)", color=c_comp, fontsize=10)
+    ax.set_ylabel("Mscan (vs max-N; arbitrary unit)", color=c_comp, fontsize=10)
     ax.tick_params(axis="y", colors=c_comp, labelsize=9)
     ax.spines["left"].set_color(c_comp)
     ax.spines["left"].set_linewidth(1.1)
@@ -1381,7 +1401,7 @@ def fig2_training_size(extra_root: Path, out: Path) -> pd.DataFrame:
     ax.text(
         x_last - x_pad,
         float(tab["Mcomposite"].iloc[-1]),
-        "Composite",
+        "Mscan",
         color=c_comp,
         fontsize=10,
         ha="right",
@@ -1494,13 +1514,14 @@ def write_notes(out: Path, store: dict, size_tab: pd.DataFrame):
     (info / "Figure 2. Training size.md").write_text(
         "# Figure 2. Training size\n\n"
         "## 图面说明\n\n"
-        "三轴布局：左轴灰色 Composite metric；"
+        "三轴布局：左轴灰色 Mscan（相对本扫描最大训练规模）；"
         "右内轴蓝色 Remaining length of stay (MAPE)；右外轴橙色 Mortality (AUROC)。"
-        "散点均为 ×，无连线、无插值。图内标注 Composite / RLoS / Mortality。\n\n"
+        "散点均为 ×，无连线、无插值。图内标注 Mscan / RLoS / Mortality。"
+        "Mscan 与 Table 3 Mcomposite（Amsterdam-alone 基线）同式不同基线，禁止对读。\n\n"
         "图上标注：" + "；".join(bits) + "\n\n"
         "## 分析上下文\n\n"
         "TPC；MIMIC-IV 训练人数扫描；外验为 eICU 与 HiRID 均值；"
-        "Composite（Mcomposite）以最大训练规模为参照（=1）。\n",
+        "Mscan 以本图最大训练规模为参照（末点=1.000）；勿与 Table 3 Mcomposite 对读。\n",
         encoding="utf-8",
     )
 
@@ -1515,6 +1536,7 @@ def _purge_non_manuscript_tables(tables_dir: Path):
         # Allyn MOESM1 layout (physio clip + post-norm outliers); not the old q5/q95-only Scaling sheet
         "Table S1. Physio clip and outliers.xlsx",
         "Table S2. Model architectures.xlsx",
+        "Table S9. Model feature inventory.xlsx",
     }
     if not tables_dir.exists():
         return
@@ -1543,15 +1565,14 @@ def main():
         _save_table(
             t2,
             tables / "Table 2. Internal and external",
-            title="Table 2. Comparison of the TPC model's internal and external validation when training on subsets of the BlendedICU dataset",
+            title="Table 2. Comparison of the TPC model's internal and external validation when training on one BlendedICU source database",
             footnote="TPC trained on one database (100% trainval). "
             "Internal = same-database test stays; External = pooled stays from the other three databases (single CI). "
-            "Not the same experiment as Table 3 (four-strategy 70/15/15; different train N and cells). "
+            "Not the same experiment as Table 3 (four-strategy patient-level split; different train N and cells). "
             "AUROC 95% CI: DeLong (ICU-stay level; stays treated as independent). "
             "MAPE/AUPRC 95% CI: patient-level bootstrap 10,000 (percentile). "
             "AUPRC cells include class-prevalence Baseline. "
-            "Variation = (external − internal) / internal × 100%. "
-            "Cite row labels exactly (e.g. eICU internal 0.897 is not MIMIC-IV).",
+            "Variation = (external − internal) / internal × 100%.",
         )
     t3 = table3_wide_matrix(store, ci)
     _save_table(
@@ -1563,7 +1584,8 @@ def main():
         "Not the same experiment as Table 2 (single-DB 100% trainval benchmark). "
         "AUROC 95% CI: DeLong (ICU-stay level; stays treated as independent; upper bound 1.00 possible in small cells). "
         "MAPE 95% CI: patient-level bootstrap 10,000. "
-        "Mcomposite = 0.5×[(MAPE/MAPE₀)+( (1−AUROC)/(1−AUROC₀) )] with Amsterdam-alone on Amsterdam as baseline; point estimate. "
+        "Mcomposite (table) = 0.5×[(MAPE/MAPE₀)+((1−AUROC)/(1−AUROC₀))] with Amsterdam-alone on Amsterdam as baseline; "
+        "not the same baseline as Figure 2 Mscan (max training-size). Point estimate. "
         "¹Transfer learning: pretrain on MIMIC-IV then fine-tune on AmsterdamUMC; only Amsterdam specialization is reported. "
         "²Data pooling: AmsterdamUMC + MIMIC-IV. "
         "Specialization off-diagonal cells (Amsterdam model on MIMIC-IV test; MIMIC-IV model on Amsterdam test) use peer-database cross-evaluation. "
@@ -1654,8 +1676,15 @@ def main():
                     s2,
                     tables / "Table S2. Model architectures",
                     title="Table S2. Performance comparison of the LSTM, Transformer, and TPC architectures"
-                    + (f" when training on {_fmt_n(ntr)} patients from the BlendedICU dataset" if ntr else ""),
-                    footnote="Equal-n training across four databases; validation reported separately by source database. "
+                    + (
+                        f" when training on {_fmt_n(ntr)} patients "
+                        f"(equal-n cap = Amsterdam train persons per database; post min-LoS filter)"
+                        if ntr
+                        else ""
+                    ),
+                    footnote="Equal-n: each database capped at the Amsterdam training person count before "
+                    "BlendedLoS inclusion filters; n_train is the post-filter training headcount. "
+                    "Validation reported separately by source database. "
                     "AUROC 95% CI: DeLong (stay-level); MAPE 95% CI: patient-level bootstrap 10,000.",
                 )
     else:
@@ -1666,8 +1695,15 @@ def main():
                 s2,
                 tables / "Table S2. Model architectures",
                 title="Table S2. Performance comparison of the LSTM, Transformer, and TPC architectures"
-                + (f" when training on {_fmt_n(ntr)} patients from the BlendedICU dataset" if ntr else ""),
-                footnote="Equal-n training across four databases; validation reported separately by source database. "
+                + (
+                    f" when training on {_fmt_n(ntr)} patients "
+                    f"(equal-n cap = Amsterdam train persons per database; post min-LoS filter)"
+                    if ntr
+                    else ""
+                ),
+                footnote="Equal-n: each database capped at the Amsterdam training person count before "
+                "BlendedLoS inclusion filters; n_train is the post-filter training headcount. "
+                "Validation reported separately by source database. "
                 "AUROC 95% CI: DeLong (stay-level); MAPE 95% CI: patient-level bootstrap 10,000.",
             )
 
@@ -1706,6 +1742,29 @@ def main():
             title="Table 1. Characteristics of ICU patient stays included in the study, according to the original database",
             footnote=TABLE1_FOOTNOTE,
         )
+    # Engine Table S9: literature keep-list − gate labs (reusable across dbpool packs)
+    try:
+        from dbpool_feature_inventory import write_table_s9, append_training_size_metric_lock, extract_gen_mimic_cells, endpoint_from_size_md
+        s9_meta = write_table_s9(tables)
+        print("[finalize] Table S9 feature inventory:", s9_meta.get("n_dynamic"), "+", s9_meta.get("n_static"), flush=True)
+        os.environ["DBPOOL_FEATURE_SET"] = s9_meta.get("methods_snip", os.environ.get("DBPOOL_FEATURE_SET", ""))
+        # Fig2 ↔ Table3 Gen MIMIC numeric lock
+        fig2_md = out / "Figures" / "image_information" / "Figure 2. Training size.md"
+        t3x = tables / "Table 3. Four training strategies.xlsx"
+        auc_c, mape_c, ams_c = extract_gen_mimic_cells(t3x)
+        ea, em = endpoint_from_size_md(fig2_md)
+        if auc_c and mape_c and ea is not None:
+            append_training_size_metric_lock(
+                fig2_md,
+                endpoint_auroc=ea,
+                endpoint_mape=em,
+                table_label="Table 3",
+                table_auroc_cell=auc_c,
+                table_mape_cell=mape_c,
+                warn_spec_cell=ams_c,
+            )
+    except Exception as e:
+        print(f"[finalize] WARN Table S9 / metric lock skipped: {e}", flush=True)
     _purge_non_manuscript_tables(tables)
     (out / "PUBLISH_READY.time").write_text(
         pd.Timestamp.utcnow().isoformat() + "Z\n", encoding="utf-8"

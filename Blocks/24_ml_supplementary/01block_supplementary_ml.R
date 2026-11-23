@@ -71,7 +71,11 @@
   out <- as.data.frame(df, stringsAsFactors = FALSE)
   for (cn in names(out)) {
     hl <- tolower(cn)
-    if (grepl("new model-baseline|baseline model name|^model$", hl)) next
+    ## 对比名列保留；New model / Baseline model 列是 AUC 点估计须收三位
+    if (grepl("new model-baseline|baseline model name|^model$", hl) &&
+        !grepl("^(new model|baseline model)$", hl)) {
+      next
+    }
     if (grepl("^p value$|^p$", hl) || grepl("p-value|p value", hl)) {
       out[[cn]] <- if (exists("pub_format_p_cell", mode = "function")) {
         pub_format_p_cell(out[[cn]])
@@ -86,10 +90,15 @@
       }, character(1L))
       next
     }
-    if (grepl("auc|difference|z statistic|^z$", hl)) {
-      if (exists("pub_format_prob_metric", mode = "function") && grepl("auc|difference", hl)) {
+    if (grepl("^(new model|baseline model)$", hl) ||
+        grepl("auc|difference", hl)) {
+      if (exists("pub_format_prob_metric", mode = "function")) {
         out[[cn]] <- pub_format_prob_metric(out[[cn]])
-      } else if (exists("pub_format_est", mode = "function")) {
+      }
+      next
+    }
+    if (grepl("z statistic|^z$", hl)) {
+      if (exists("pub_format_est", mode = "function")) {
         out[[cn]] <- pub_format_est(out[[cn]])
       }
     }
@@ -115,12 +124,8 @@
       next
     }
     if (grepl("^(nri|idi)\\b", hl)) {
-      out[[cn]] <- if (exists("pub_format_prob_metric", mode = "function")) {
-        vapply(as.character(out[[cn]]), function(s) {
-          s0 <- trimws(s)
-          if (!nzchar(s0) || grepl("\\[", s0)) return(s0)
-          pub_format_prob_metric(s0)
-        }, character(1L))
+      out[[cn]] <- if (exists("pub_format_nri_idi_cell", mode = "function")) {
+        pub_format_nri_idi_cell(out[[cn]])
       } else {
         as.character(out[[cn]])
       }

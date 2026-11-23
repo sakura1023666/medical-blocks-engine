@@ -115,6 +115,25 @@ block_tj_pub_export <- function(ctx, ...) {
       table_footnotes = c("Imputations = 1 for complete-case and when MICE disabled.",
                           "S7 weights posterior probabilities; S9 adds follow-up time main effect."))
   }
+  # ── Table 4 Fine-Gray competing risk（tj_fg 存在时）───────────────
+  fg <- ctx$results$tj_fg
+  if (!is.null(fg) && nrow(fg)) {
+    fgf <- fg[!is.na(fg$sHR), , drop = FALSE]
+    if (nrow(fgf)) {
+      fgf$est <- sprintf("%.3f (%.3f, %.3f)", fgf$sHR, fgf$lo, fgf$hi)
+      fgf$pv  <- ifelse(fgf$p < 0.001, "<0.001", sprintf("%.3f", fgf$p))
+      t4 <- fgf[, c("system", "outcome", "model", "class", "est", "pv", "method",
+                    "n_events", "n_competing")]
+      names(t4) <- c("System", "Outcome", "Model", "Class", "sHR (95% CI)", "P",
+                     "Method", "Events", "Competing events")
+      export_sci_table(t4, file.path(TD, "Table 4 - Fine-Gray competing risk by class.xlsx"),
+        title = "Table 4. Subdistribution hazard ratios for incident disease by trajectory class (Fine-Gray)",
+        table_footnotes = c("Competing event = all-cause death; sHR from cmprsk::crr (failcode = primary event).",
+                            "Cause-specific Cox fallback (see Method column) when cmprsk unavailable.",
+                            "Rubin pooled across MICE imputations when enabled; complete#1 otherwise."))
+    }
+  }
+
   # ── Figure 1 attrition flowchart ──────────────────────────────────
   tryCatch({
     rows <- attrition_finalize_rows(ctx, ctx$config)

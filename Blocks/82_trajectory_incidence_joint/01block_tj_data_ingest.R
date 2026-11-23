@@ -111,7 +111,8 @@ block_tj_data_ingest <- function(ctx, ...) {
                    meta = list(excluded = n_core_ex))
 
   # ── 基线现患剔除 ──
-  if (!is.null(bl$prevalent_exclude)) {
+  if (!is.null(bl$prevalent_exclude) && length(bl$prevalent_exclude) >= 1L &&
+      !is.null(names(bl$prevalent_exclude)[1L])) {
     pe <- bl$prevalent_exclude
     pv <- names(pe)[1]; codes <- pe[[1]]
     keep3 <- rep(TRUE, nrow(df))

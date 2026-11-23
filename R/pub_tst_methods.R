@@ -5,7 +5,69 @@
 #  含「防再审」Reporting gates（Figure vs Table、外验首末数、负 NRI、
 #  外验只报冻结模型、省略未记录超参、同 landmark 队列、Software 包白名单）。
 #  数字只写可从 config / 课题产物脚注核对的口径句；禁止编造 AUC/N。
+#
+#  发表数字（对齐 Yang et al. PCM 2025 / PMID 40041421 主表）：
+#    AUC mean 2 位小数 + SD 3 位；Accuracy (%) 均值与 SD 均 2 位；
+#    F1 均值与 SD 均 3 位；P 走 pub_format_p（禁裸 0 / 0.000）。
+#  实现入口：Blocks/71_.../scripts/rebuild_table2_yang_layout.py → fmt_mean_sd。
 ###############################################################################
+
+#' 从 config / 环境变量解析 TST 病种展示名（禁写死 sepsis AKI）
+#' @param config list
+#' @return character(1)
+pub_tst_resolve_disease_label <- function(config = NULL) {
+  cfg <- if (is.list(config)) config else list()
+  prj <- cfg$project %||% list()
+  env_lab <- Sys.getenv("TST_DISEASE_LABEL", unset = "")
+  if (nzchar(env_lab)) return(as.character(env_lab)[1L])
+  explicit <- as.character(
+    prj$disease_label %||% prj$cohort_label %||% cfg$disease_label %||% ""
+  )[1L]
+  if (nzchar(explicit)) return(explicit)
+  raw <- as.character(prj$disease %||% prj$name %||% "")[1L]
+  p <- tolower(paste(raw, prj$output_dir %||% "", collapse = " "))
+  if (grepl("ischemic.?stroke|ischemicstroke", p)) {
+    return("ischemic stroke")
+  }
+  if (grepl("sepsis.?aki|sepsisaki|aki_spesis|sepsis-associated", p)) {
+    return("sepsis-associated acute kidney injury")
+  }
+  if (grepl("\\btbi\\b|traumatic.?brain", p)) {
+    return("traumatic brain injury")
+  }
+  if (grepl("osteoporosis", p)) {
+    return("osteoporosis")
+  }
+  if (grepl("\\baki\\b", p) && !grepl("sepsis", p)) {
+    return("acute kidney injury")
+  }
+  "the target ICU condition"
+}
+
+#' 解析结局展示名（禁把 analysis_group 0/1 或 Survivor 写进 Methods 谓语）
+#' @param config list
+#' @return character(1)
+pub_tst_resolve_outcome_label <- function(config = NULL) {
+  cfg <- if (is.list(config)) config else list()
+  prj <- cfg$project %||% list()
+  env_lab <- Sys.getenv("TST_OUTCOME_LABEL", unset = "")
+  if (nzchar(env_lab)) return(as.character(env_lab)[1L])
+  cand <- as.character(
+    prj$outcome_label %||% prj$outcome %||% prj$analysis_group %||% ""
+  )[1L]
+  bad <- c(
+    "", "0", "1", "true", "false",
+    "non-survivor", "nonsurvivor", "survivor",
+    "expired", "alive"
+  )
+  if (!nzchar(cand) || tolower(cand) %in% bad || grepl("^[01]$", cand)) {
+    return("in-hospital mortality")
+  }
+  if (grepl("TwoStageTransformer|IschemicStroke_|_AKI|_TBI", cand)) {
+    return("in-hospital mortality")
+  }
+  cand
+}
 
 #' TST Statistical analysis 正文行（写入 Methods_statistical_analysis.md）
 #'
@@ -15,7 +77,8 @@ pub_tst_methods_statistical_lines <- function(config = NULL) {
   cfg <- if (is.list(config)) config else list()
   prj <- cfg$project %||% list()
   tst <- cfg$tst_stroke %||% cfg$tst %||% list()
-  outcome <- as.character(prj$analysis_group %||% prj$disease %||% "in-hospital mortality")[1L]
+  outcome <- pub_tst_resolve_outcome_label(cfg)
+  disease <- pub_tst_resolve_disease_label(cfg)
   dbs <- prj$databases %||% c("MIMIC", "eICU")
   if (is.character(dbs) && length(dbs) == 1L && grepl(",", dbs)) {
     dbs <- trimws(strsplit(dbs, ",", fixed = TRUE)[[1L]])
@@ -32,7 +95,7 @@ pub_tst_methods_statistical_lines <- function(config = NULL) {
     "",
     paste0(
       "This study developed a two-stage Transformer (hourly encoder followed by a day-level encoder) ",
-      "to predict ", outcome, " among adults with sepsis-associated acute kidney injury. ",
+      "to predict ", outcome, " among adults with ", disease, ". ",
       "Primary development used ", db_lab, ". Patients younger than ", min_age,
       " years were excluded on both the development and external-validation cohorts."
     ),
@@ -49,6 +112,9 @@ pub_tst_methods_statistical_lines <- function(config = NULL) {
     paste0(
       "Model discrimination (AUC), accuracy, and F1 in the main tables are patient-level bootstrap means (SD) ",
       "(default n_boot=400, seed=42 unless the project ledger records otherwise). ",
+      "Publication digits follow the index literature layout: AUC mean to 2 decimals with SD to 3 decimals; ",
+      "accuracy (%) mean and SD to 2 decimals; F1 mean and SD to 3 decimals; P values use the project ",
+      "publication formatter (never bare 0 or 0.000). ",
       "Day-5 Transformer table metrics use the full landmark test set; ", comparator,
       " table columns use the score-available subset when denominators differ. ",
       "Two-sided tests used α = 0.05. Classification thresholds used each model’s Youden index; ",
@@ -103,8 +169,9 @@ pub_tst_methods_statistical_lines <- function(config = NULL) {
     "",
     paste0(
       "6. **Software sentence.** Cite ", r_ver, " (or the host-captured version in Methods_software_versions.txt). ",
-      "List only packages used in the delivered analyses (typically mice, openxlsx, ggplot2, pROC on the R side). ",
-      "Do not name unused packages (e.g. survival) in the manuscript Software paragraph. ",
+      "List only packages used in the delivered analyses (typically mice, openxlsx, ggplot2, pROC on the R side; ",
+      "PyTorch / scikit-learn / XGBoost / SHAP on the Python side). ",
+      "Do not name unused packages (e.g. survival, cmprsk) in the manuscript Software paragraph. ",
       "Do not advertise unused baselines (e.g. LightGBM) unless they appear in tables."
     ),
     "",
@@ -115,6 +182,7 @@ pub_tst_methods_statistical_lines <- function(config = NULL) {
     "",
     "Reporting followed TRIPOD for the prediction model and STROBE for observational cohort description.",
     "Software name and package versions are listed in Methods_software_versions.txt and the Software subsection below.",
+    "Display labels in tables and figures omit programming underscores; publication fonts use Times New Roman.",
     ""
   )
 }

@@ -3125,9 +3125,15 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
   }
   ## 用户 2026-11-17：ML 交付默认不要 Figure S1（LASSO 已作 Figure 2 或有 RCS 占 Fig2 时不再交 S1）
   ## omit_figure_s1=TRUE（或 ml_batch / incidence_batch 同名）→ 删全部 Figure S1*
+  ## force_figure_s1_lasso=TRUE：即使 Fig2 已是 RCS，仍保留 Figure S1. Lasso（UA_CR Age50 2026-11）
+  force_s1_lasso <- isTRUE(
+    cfg$force_figure_s1_lasso %||% cfg$ml_batch$force_figure_s1_lasso %||%
+      cfg$incidence_batch$force_figure_s1_lasso %||% FALSE
+  )
   omit_s1 <- isTRUE(cfg$omit_figure_s1 %||% cfg$ml_batch$omit_figure_s1 %||%
                       cfg$incidence_batch$omit_figure_s1 %||% FALSE)
-  if (isTRUE(.is_ml_pub) && isFALSE(omit_s1)) {
+  if (isTRUE(force_s1_lasso)) omit_s1 <- FALSE
+  if (isTRUE(.is_ml_pub) && isFALSE(omit_s1) && !isTRUE(force_s1_lasso)) {
     ## ML 默认：有 Figure 2 Feature selection / RCS 时自动省略 S1 Lasso（防与 Fig2 重复）
     has_fig2_fs <- length(list.files(
       figures_dir,
@@ -3283,12 +3289,21 @@ incidence_batch_curate_ml_pub_figures_dir <- function(figures_dir, cfg = list())
     cli::cli_alert_info("ML 图定稿: 无 RCS，特征选择图升为 Figure 2")
   }
   ## omit_figure_s1：丢弃 s1_fs；若同时有 RCS 与 Feature selection Fig2，保留 RCS 为 Fig2、删 LASSO 撞号
+  ## force_figure_s1_lasso=TRUE：Fig2=RCS 时仍保留 Figure S1. Lasso（不删 s1_fs）
+  force_s1_lasso_role <- isTRUE(
+    cfg$force_figure_s1_lasso %||% cfg$ml_batch$force_figure_s1_lasso %||%
+      cfg$incidence_batch$force_figure_s1_lasso %||% FALSE
+  )
   omit_s1_role <- isTRUE(cfg$omit_figure_s1 %||% cfg$ml_batch$omit_figure_s1 %||%
                            cfg$incidence_batch$omit_figure_s1 %||% FALSE)
-  if (isTRUE(omit_s1_role) || (any(roles == "fig2_rcs") && any(roles %in% c("fig2_fs", "s1_fs")))) {
+  if (isTRUE(force_s1_lasso_role)) omit_s1_role <- FALSE
+  if (isTRUE(omit_s1_role) ||
+      (!isTRUE(force_s1_lasso_role) &&
+         any(roles == "fig2_rcs") && any(roles %in% c("fig2_fs", "s1_fs")))) {
     drop_fs <- roles %in% c("s1_fs")
+    if (isTRUE(force_s1_lasso_role)) drop_fs <- rep(FALSE, length(roles))
     if (any(roles == "fig2_rcs") && any(roles == "fig2_fs")) {
-      ## RCS 占 Figure 2 时不再保留第二张 Feature selection 撞号
+      ## RCS 占 Figure 2 时不再保留第二张 Feature selection 撞号（S1 不受影响）
       drop_fs <- drop_fs | (roles == "fig2_fs")
     }
     if (any(drop_fs)) {
@@ -6358,13 +6373,18 @@ run_incidence_dual_batch <- function(root, config,
     }
   }
 
-  # 引擎默认：亚组补救/敏感性之后再删【failed】（嵌套【success】补救产物默认保留）
+  # 引擎默认：亚组补救/敏感性之后再删【failed】；若开 pubmed_novelty 再删查重未过
   if (!shared_only) {
-    if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+    if (!exists("batch_prune_after_batch", mode = "function")) {
       .pf <- file.path(root, "R/batch_prune_failed.R")
       if (file.exists(.pf)) source(.pf, local = FALSE)
     }
-    if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+    if (exists("batch_prune_after_batch", mode = "function")) {
+      tryCatch(
+        batch_prune_after_batch(output_base, statuses, config = config, name_col = "index"),
+        error = function(e) cli::cli_alert_warning("prune_after_batch: {conditionMessage(e)}")
+      )
+    } else if (exists("batch_prune_failed_from_statuses", mode = "function")) {
       tryCatch(
         batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "index"),
         error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")

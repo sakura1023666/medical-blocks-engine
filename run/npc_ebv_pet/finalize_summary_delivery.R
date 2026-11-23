@@ -30,9 +30,15 @@ if (!dir.exists(file.path(engine, "R"))) {
 Sys.setenv(MEDICAL_BLOCKS_ROOT = engine)
 source(file.path(engine, "R/npc_ebv_pet_pub.R"), local = FALSE)
 
+# 默认：draft=summary（new），交付根也是 summary（new）——不再默认写到旧 ML 的 summary_results
 draft <- get_opt("--draft", "/mnt/g/02block_result/53_NPC/ml_40395549/summary（new）")
-summary <- get_opt("--summary", file.path(dirname(draft), "summary_results"))
+summary <- get_opt("--summary", draft)
 proj <- get_opt("--project", dirname(draft))
+# 仅当显式 --summary 且与 draft 不同时才 sync；默认同目录不 sync
+do_sync <- !identical(
+  normalizePath(draft, winslash = "/", mustWork = FALSE),
+  normalizePath(summary, winslash = "/", mustWork = FALSE)
+) && !has_flag("--no-sync")
 
 res <- npc_ebv_pet_finalize_summary_delivery(
   draft_root = draft,
@@ -40,7 +46,7 @@ res <- npc_ebv_pet_finalize_summary_delivery(
   project_root = proj,
   rewrite_methods = !has_flag("--keep-methods"),
   prune = !has_flag("--no-prune"),
-  sync_draft = !has_flag("--no-sync")
+  sync_draft = isTRUE(do_sync)
 )
 cat(
   "NPC_EBV_PET_FINALIZE_OK summary=", res$summary,

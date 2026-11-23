@@ -261,6 +261,23 @@ def table2_denom_footnotes(
 ) -> list[str]:
     """分母脚注：Transformer Day1–5 = 全 test；对照列 = 分数可得子集。"""
     notes = ["ᵃ F1-score, harmonic mean of precision and recall."]
+    if n_test is not None and int(n_test) > 0:
+        notes.append(
+            f"Transformer Day 1–5 metrics: full landmark test set (n = {int(n_test):,}); "
+            f"bootstrap mean (SD), n_boot = {int(n_boot)}, seed = {int(seed)}."
+        )
+    if (
+        n_comparator is not None
+        and int(n_comparator) > 0
+        and (n_test is None or int(n_comparator) != int(n_test))
+    ):
+        notes.append(
+            f"{comparator_name} column: score-available subset (n = {int(n_comparator):,})."
+        )
+    elif n_comparator is not None and int(n_comparator) > 0:
+        notes.append(
+            f"{comparator_name} column uses the same test set (n = {int(n_comparator):,})."
+        )
     return notes
 
 

@@ -68,10 +68,10 @@ stopifnot(is.data.frame(d))
   }
 }
 
-# --- LPA profiles ---
+# --- LCA profiles (primary: LCA_class; alias LPA_class) ---
 items <- paste0("DAS", 1:12)
 items <- items[items %in% names(d)]
-cls <- d$LPA_class
+cls <- if ("LCA_class" %in% names(d)) d$LCA_class else d$LPA_class
 ok <- stats::complete.cases(d[items]) & !is.na(cls)
 Xc <- as.data.frame(lapply(d[items][ok, , drop = FALSE], as.numeric))
 cls <- as.integer(cls[ok])
@@ -89,9 +89,9 @@ p_lpa <- ggplot2::ggplot(plot_df, ggplot2::aes(item, mean, group = class, colour
   ggplot2::theme_bw(base_family = ff) +
   ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, family = ff),
                  text = ggplot2::element_text(family = ff)) +
-  ggplot2::labs(title = paste0("LPA profiles (K=", length(unique(cls)), ")"),
+  ggplot2::labs(title = paste0("LCA class profiles (K=", length(unique(cls)), ")"),
                 y = "Item mean", x = NULL, colour = "Class")
-ggplot2::ggsave(file.path(out_pdf, "Figure LPA profiles.pdf"), p_lpa, width = 9, height = 5, device = grDevices::cairo_pdf)
+ggplot2::ggsave(file.path(out_pdf, "Figure 1. LCA profiles.pdf"), p_lpa, width = 9, height = 5, device = grDevices::cairo_pdf)
 
 # --- Networks ---
 nodes <- c("PHQ15", "SSS8", "SSD12", "Whiteley8", "WHODAS", "PHQ9", "GAD7")
@@ -119,9 +119,10 @@ lab_map <- c(
   invisible(TRUE)
 }
 .net_jobs <- list(Overall = d)
-if ("LPA_class" %in% names(d)) {
-  for (k in sort(unique(stats::na.omit(d$LPA_class)))) {
-    .net_jobs[[paste0("C", k)]] <- d[!is.na(d$LPA_class) & d$LPA_class == k, , drop = FALSE]
+.class_col <- if ("LCA_class" %in% names(d)) "LCA_class" else "LPA_class"
+if (.class_col %in% names(d)) {
+  for (k in sort(unique(stats::na.omit(d[[.class_col]])))) {
+    .net_jobs[[paste0("C", k)]] <- d[!is.na(d[[.class_col]]) & d[[.class_col]] == k, , drop = FALSE]
   }
 }
 for (nm in names(.net_jobs)) {
@@ -215,6 +216,7 @@ if (length(old_md)) unlink(old_md)
 # 也删旧 Correlation Filtered
 unlink(list.files(out_pdf, pattern = "Filtered", full.names = TRUE))
 
+k_star <- length(unique(cls))
 # image_information（正文无下划线）
 .write_md <- function(stem, face) {
   writeLines(c(
@@ -229,8 +231,8 @@ unlink(list.files(out_pdf, pattern = "Filtered", full.names = TRUE))
     "- 暴露: PHQ-15（症状负荷）",
     "- 中介: SSD-12 与 Whiteley-8（平行）",
     "- 结局: WHO-DAS 12 总分",
-    "- 样本量: N=699；LPA 完整病例 n=698",
-    "- Grouping: LPA K=4（DAS1–12）",
+    "- 样本量: N=699；LCA 完整病例 n=698",
+    paste0("- Grouping: polytomous LCA K=", k_star, "（DAS1–12；poLCA）"),
     "- 数据库: Hospital outpatient",
     "- 拼图: 否（单库）",
     ""
@@ -239,10 +241,10 @@ unlink(list.files(out_pdf, pattern = "Filtered", full.names = TRUE))
 for (f in list.files(out_pdf, pattern = "\\.pdf$")) {
   stem <- sub("\\.pdf$", "", f)
   face <- paste0("见图面 PDF「", stem, "」。关键数字见 Tables 中对应结果表。")
-  if (grepl("LPA", stem, ignore.case = TRUE)) {
-    face <- "LPA 剖面均值折线（WHO-DAS 条目 × 类别）。锁定 K=4。"
+  if (grepl("LCA|LPA", stem, ignore.case = TRUE)) {
+    face <- paste0("LCA 类别条目均值折线（WHO-DAS × 类别）。主分析 poLCA；锁定 K=", k_star, "。")
   } else if (grepl("Network", stem, ignore.case = TRUE)) {
-    face <- "EBICglasso 心理网络（量表总分节点）。标签为 Overall 或 LPA 类别。"
+    face <- "EBICglasso 心理网络（量表总分节点）。标签为 Overall 或 LCA 类别。"
   } else if (grepl("ROC", stem, ignore.case = TRUE)) {
     face <- "ROC：预测因子对 WHO-DAS 中位数二分结局；AUC 见临床 ROC 表。"
   } else if (grepl("DCA", stem, ignore.case = TRUE)) {

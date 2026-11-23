@@ -424,12 +424,17 @@ trajectory_batch_write_summary <- function(config, index_vars) {
   )
   cli::cli_alert_success("汇总表: {.file {csv_path}}")
 
-  if (!exists("batch_prune_failed_from_statuses", mode = "function")) {
+  if (!exists("batch_prune_after_batch", mode = "function")) {
     root <- (config$project %||% list())$root %||% getwd()
     .pf <- file.path(root, "R/batch_prune_failed.R")
     if (file.exists(.pf)) source(.pf, local = FALSE)
   }
-  if (exists("batch_prune_failed_from_statuses", mode = "function")) {
+  if (exists("batch_prune_after_batch", mode = "function")) {
+    tryCatch(
+      batch_prune_after_batch(output_base, statuses, config = config, name_col = "index"),
+      error = function(e) cli::cli_alert_warning("prune_after_batch: {conditionMessage(e)}")
+    )
+  } else if (exists("batch_prune_failed_from_statuses", mode = "function")) {
     tryCatch(
       batch_prune_failed_from_statuses(output_base, statuses, config = config, name_col = "index"),
       error = function(e) cli::cli_alert_warning("prune_failed: {conditionMessage(e)}")

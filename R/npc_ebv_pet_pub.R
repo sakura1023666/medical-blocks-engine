@@ -204,11 +204,13 @@ npc_ebv_pet_finalize_summary_delivery <- function(
 
   if (exists("pub_write_software_versions", mode = "function")) {
     pub_write_software_versions(index_root = summary_root, project_root = project_root, config = soft_cfg)
-    file.copy(
-      file.path(summary_root, "Methods_software_versions.txt"),
-      file.path(draft_root, "Methods_software_versions.txt"),
-      overwrite = TRUE
-    )
+    soft_src <- file.path(summary_root, "Methods_software_versions.txt")
+    soft_dst <- file.path(draft_root, "Methods_software_versions.txt")
+    if (file.exists(soft_src) &&
+        !identical(normalizePath(soft_src, winslash = "/", mustWork = FALSE),
+                   normalizePath(soft_dst, winslash = "/", mustWork = FALSE))) {
+      file.copy(soft_src, soft_dst, overwrite = TRUE)
+    }
   }
   if (exists("pub_write_methods_software_section", mode = "function")) {
     soft_tmp <- tempfile(fileext = ".md")
@@ -259,6 +261,32 @@ npc_ebv_pet_finalize_summary_delivery <- function(
     }
   }
 
+  # midterm 项目信息模板（不进白名单交付根；供 Aiya-NB004 中期合成）
+  ws <- file.path(dirname(summary_root), "summary_results_delivery_workspace")
+  dir.create(ws, FALSE, TRUE)
+  mid_info <- file.path(ws, "项目信息-中期.md")
+  if (!file.exists(mid_info)) {
+    writeLines(
+      c(
+        "客户: 马晶鑫",
+        "暴露指标: EBV DNA × PET/CT 联合指标",
+        "结局: OS / PFS / DM / DM+D / LR",
+        "研究人群: 鼻咽癌患者（队列A含IVB/M1；队列B非转移分析集）",
+        "数据集: 自有数据",
+        "分析方法: Ridge Cox / OOF IPCW-AUC / 竞争风险 / Landmark / 时间外验",
+        "类型: 中期分析结果",
+        "报告标题: EBV DNA与PET/CT联合指标对鼻咽癌预后的关联与预测分析",
+        "标题副题: 无",
+        "分析日期: ",
+        "指标计算公式: T0 score = LOD-relative EBV DNA coding（低于LOD记0；可检出值相对assay LOD缩放）；PET体积代谢指标对连续变量使用 log2(1+x) 变换（见表注）",
+        "表格路径: Tables",
+        "图片路径: Figures"
+      ),
+      mid_info,
+      useBytes = TRUE
+    )
+  }
+
   # drop non-whitelist docs from summary_results (PUBLICATION_LAYOUT etc.)
   if (isTRUE(prune) && exists("pub_prune_delivery_root", mode = "function")) {
     pub_prune_delivery_root(summary_root, dry_run = FALSE)
@@ -268,6 +296,7 @@ npc_ebv_pet_finalize_summary_delivery <- function(
     draft = draft_root,
     summary = summary_root,
     methods = file.exists(file.path(summary_root, "Methods_statistical_analysis.md")),
-    software = file.exists(file.path(summary_root, "Methods_software_versions.txt"))
+    software = file.exists(file.path(summary_root, "Methods_software_versions.txt")),
+    midterm_info = mid_info
   ))
 }

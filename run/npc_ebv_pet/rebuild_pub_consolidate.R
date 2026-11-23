@@ -757,19 +757,19 @@ writeLines(c(
   "Legacy 23-figure / 41-table dump archived in `_archive_pre_pub_20261118/`."
 ), file.path(out_root, "NUMBERING_AND_ROLE.md"), useBytes = TRUE)
 
-# 引擎级发表收口 → summary_results 白名单（Methods / 软件 / scrub / prune）
+# 引擎级发表收口：默认只收口本目录 out_root（summary（new）），
+# 禁止再覆盖课题旧 ML 的 summary_results。
 pub_src <- file.path(root, "R/npc_ebv_pet_pub.R")
 if (file.exists(pub_src)) {
   source(pub_src, local = FALSE)
-  sum_root <- file.path(dirname(out_root), "summary_results")
   fin <- tryCatch(
     npc_ebv_pet_finalize_summary_delivery(
       draft_root = out_root,
-      summary_root = sum_root,
+      summary_root = out_root,
       project_root = dirname(out_root),
       rewrite_methods = TRUE,
       prune = TRUE,
-      sync_draft = TRUE
+      sync_draft = FALSE
     ),
     error = function(e) {
       message("finalize warning: ", conditionMessage(e))
@@ -777,7 +777,7 @@ if (file.exists(pub_src)) {
     }
   )
   if (!is.null(fin)) {
-    .message("FINALIZE summary_results=%s methods=%s software=%s",
+    .message("FINALIZE delivery=%s methods=%s software=%s",
              fin$summary, isTRUE(fin$methods), isTRUE(fin$software))
   }
 } else {

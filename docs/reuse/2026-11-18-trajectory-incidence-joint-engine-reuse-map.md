@@ -42,6 +42,37 @@ Liu et al. Cardiovasc Diabetol 2026）。**下一「双指标联合轨迹 → �
 6. run_pub_qc_after_project.R + nature 两 skill → P0 清零 → 中期 → prune
 ```
 
+## 2026-11-23 增补：Fine-Gray 竞争风险 + 5006/2203 部署
+
+| 能力 | 入口 |
+|---|---|
+| Fine-Gray sHR（Rubin m 套合并） | `Blocks/82_trajectory_incidence_joint/07block_tj_finegray_rubin.R`（`tj_finegray_rubin`）|
+| config 开关 | `joint_trajectory$competing_risk = list(enable, cause=1, death_cause=2, cencode=0, death_event_col, death_time_col)` |
+| cmprsk 缺失回退 | cause-specific Cox，`method` 列写明（禁止冒充 Fine-Gray） |
+| Table 4 | `tj_pub_export` 消费 `ctx$results$tj_fg` → `Table 4 - Fine-Gray competing risk by class.xlsx` |
+| 隔离模板（程序员接口） | 5006: `templates/config_trajectory_incidence_joint_competing.template.R` + `studies/_template_trajinc/` |
+| run_study 路由 | `trajinc`（先于 `competing` 判定；匹配 `joint_trajectory|tj_finegray_rubin|tj_gbmtm_fit`）|
+
+## 本次进引擎的修复（2026-11-23）
+
+1. **`pipeline_self_pub` 守卫**（`R/pipeline_runner.R`）：pipeline 含 `tj_pub_export`（或
+   `pub$self_pub_finalize` / `joint_trajectory$pub$self_finalize`）时，跳过通用
+   `incidence_single_finalize_after_pipeline` 与 `ml_finalize_index_summary_results`，
+   否则通用收口按 main_mediation scheme 误删 tj 自产 PDF（Figures/pdf=0）。
+2. **`01block_tj_data_ingest` 空 `prevalent_exclude=list()` 崩溃**：加 `length>=1 && 有名字` 检。
+3. **`01block_imputation` 泛用 method token**：`"mice"/"default"/"auto"` → 按列类型展开
+   （连续 pmm、二分类 logreg、多分类 polyreg）；不再报 `mice.impute.mice not found`。
+
+## 部署（2203）
+
+- 同步清单：`02block_result` 外仅代码；rsync 排除 `Output/logs/checkpoints/02block_result`。
+- 2203 布局：`~/medical-blocks/engine`（=MEDICAL_BLOCKS_ROOT）+ `~/medical-blocks/studies-iface`。
+- R 4.6.1 空库：装包脚本 `~/install_trajinc_v2.R`（清华镜像，
+  `dependencies=c("Depends","Imports","LinkingTo")` —— **勿用 TRUE**，Suggests 会拉
+  bayesm/ks/robustbase 全家桶）；TMPDIR 指 `~/tmp`（容器 overlay 坑）。
+- 冒烟：`studies/_route_test`（合成 N=400）`./run_study.sh _route_test --routine trajinc`
+  → 8 blocks、Tables=8（含 Table 4）、Figures/pdf=6、summary_results 白名单干净。
+
 ## 反例（禁止）
 
 - 在课题 scripts/ 重写 phase0–9 脚本而不调 tj_* blocks

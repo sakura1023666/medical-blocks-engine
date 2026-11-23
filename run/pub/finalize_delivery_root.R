@@ -179,7 +179,17 @@ config <- list(
   project = list(
     study_type = study_type,
     analysis_group = outcome,
-    disease = outcome,
+    disease = if (is_tst) {
+      .env_chr("TST_DISEASE_LABEL", outcome)
+    } else {
+      outcome
+    },
+    disease_label = if (is_tst) .env_chr("TST_DISEASE_LABEL", "") else "",
+    outcome_label = if (is_tst) {
+      .env_chr("TST_OUTCOME_LABEL", "in-hospital mortality")
+    } else {
+      outcome
+    },
     exposure = exposure,
     databases = dbs
   ),
@@ -191,7 +201,7 @@ config <- list(
   ),
   software_versions = list(
     extra_pkgs = if (is_tst) {
-      c("mice", "openxlsx", "ggplot2", "pROC")
+      c("mice", "openxlsx", "ggplot2", "pROC", "tableone", "dplyr", "data.table")
     } else if (isTRUE(is_dbpool)) {
       c("openxlsx", "ggplot2", "data.table")
     } else if (isTRUE(grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE))) {
@@ -202,20 +212,33 @@ config <- list(
         "mediation", "pROC", "forestploter", "igraph")
     },
     include_python = isTRUE(is_dbpool) || isTRUE(is_tst),
-    python_modules = if (isTRUE(is_dbpool)) {
+    python_modules = if (is_tst) {
+      c(
+        "torch", "numpy", "pandas", "sklearn", "xgboost", "shap",
+        "imblearn", "joblib", "openpyxl", "matplotlib"
+      )
+    } else if (isTRUE(is_dbpool)) {
       c("torch", "numpy", "pandas", "scipy", "sklearn", "matplotlib", "openpyxl")
     } else {
       character(0)
     },
-    python_modules_only = isTRUE(is_dbpool),
+    # TST / dbpool：只列本分析用到的 Python 模块（勿灌 lightgbm 等未用基线）
+    python_modules_only = isTRUE(is_dbpool) || isTRUE(is_tst),
     # 全因死亡预后 v2：未做 Fine–Gray / 竞争风险，勿在 Methods 软件清单挂 cmprsk
-    # dbpool：剔除未用的 Cox/中介模板包
+    # dbpool / TST：剔除未用的 Cox/中介/LASSO 模板包
     exclude_pkgs = if (isTRUE(grepl("prognosis_v2|prognosis.?v2", study_type, ignore.case = TRUE))) {
       c("cmprsk")
+    } else if (isTRUE(is_tst)) {
+      c(
+        "survival", "survminer", "cmprsk", "mediation", "rms", "Boruta",
+        "glmnet", "Hmisc", "car", "jstable", "patchwork"
+      )
     } else if (isTRUE(is_dbpool)) {
       c(
         "survival", "survminer", "cmprsk", "mediation", "rms", "Boruta",
-        "glmnet", "Hmisc", "car", "tableone", "pROC", "patchwork", "dplyr"
+        "glmnet", "Hmisc", "car", "tableone", "pROC", "patchwork", "dplyr",
+        # TPC path does not use MICE / jstable (Cox template core — must not appear)
+        "mice", "jstable"
       )
     } else {
       character(0)
@@ -230,8 +253,12 @@ if (isTRUE(is_dbpool)) {
   config$project$feature_set <- .env_chr(
     "DBPOOL_FEATURE_SET",
     paste0(
-      "covariates selected with reference to prior literature on ICU mortality ",
-      "and length-of-stay prediction (harmonised BlendedICU physiologic and laboratory channels)"
+      "Model inputs followed prior published multi-database ICU modelling inventories ",
+      "(hourly vitals + laboratories + selected medications; respiratory channels off unless ",
+      "enabled; static age/sex/height/weight). Laboratories used only to define the cohort ",
+      "were dropped from predictors. Variable-level inventory is Table S9 (written by ",
+      "dbpool_feature_inventory.py at pack/finalize). No additional data-driven feature ",
+      "hunting was performed beyond this literature-aligned inventory and the leakage exclusions."
     )
   )
   config$project$model <- .env_chr(
@@ -389,17 +416,26 @@ writeLines(methods_lines, methods_path, useBytes = TRUE)
 # 旧名 Software_versions_for_submission.txt → 白名单标准名
 legacy_soft <- file.path(dir, "Software_versions_for_submission.txt")
 std_soft <- file.path(dir, "Methods_software_versions.txt")
+# 始终按当前 study_type 重写（保证 exclude_pkgs 踢 mice/jstable/cmprsk 等生效）
+# legacy 仅作附录素材；不得覆盖已按 study_type 清洗的 Methods_software_versions.txt
+pub_write_software_versions(index_root = dir, project_root = NULL, config = config)
+if (isTRUE(is_dbpool)) {
+  # 训练机 PyTorch 口径（finalize 主机未必有 CUDA torch）；可用环境变量覆盖
+  th <- Sys.getenv("DBPOOL_TRAINING_HOST", unset = "192.168.68.34")
+  tv <- Sys.getenv("DBPOOL_TORCH_VERSION", unset = "2.6.0+cu124")
+  tenv <- Sys.getenv("DBPOOL_TORCH_ENV", unset = "conda env blendedlos; TPC multitask training")
+  torch_lines <- c(
+    "",
+    paste0("Training host (", th, ") Python packages:"),
+    paste0("  torch ", tv),
+    paste0("  (", tenv, ")")
+  )
+  if (file.exists(std_soft)) {
+    writeLines(c(readLines(std_soft, warn = FALSE), torch_lines), std_soft, useBytes = TRUE)
+  }
+}
 if (file.exists(legacy_soft) && !file.exists(std_soft)) {
   file.copy(legacy_soft, std_soft, overwrite = FALSE)
-} else if (file.exists(legacy_soft) && file.exists(std_soft)) {
-  # 保留更完整的一份：优先已有 Methods_*；legacy 留给 prune 归档
-  invisible(TRUE)
-} else {
-  # 始终按当前 study_type 重写（保证 exclude_pkgs 如踢 cmprsk 生效）
-  pub_write_software_versions(index_root = dir, project_root = NULL, config = config)
-}
-if (!file.exists(std_soft)) {
-  pub_write_software_versions(index_root = dir, project_root = NULL, config = config)
 }
 
 if (exists("pub_write_methods_software_section", mode = "function")) {
@@ -457,10 +493,8 @@ if (exists("pub_write_methods_software_section", mode = "function")) {
   if (file.exists(sec)) unlink(sec)
 }
 
-# 若已有课题采集的 Python/PyTorch 版本清单，覆盖引擎默认 R 包清单
-if (file.exists(legacy_soft)) {
-  file.copy(legacy_soft, std_soft, overwrite = TRUE)
-}
+# dbpool / TST：禁止用 legacy 整文件覆盖（会把 mice/jstable/TCF 注句冲回交付）
+# 非 dbpool/TST 且仍有 legacy 时，仅在 std 缺失时已于上方 copy；此处不再 overwrite
 
 # image_information README 不进白名单：随 prune 移走；先删幽灵 S1/S2 行可选
 readme <- file.path(fig_dir, "image_information", "README.md")

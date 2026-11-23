@@ -180,14 +180,32 @@ pub_write_software_versions <- function(index_root, project_root = NULL, config 
       )
     }
   }
-  lines <- c(
-    lines,
+  footer <- as.character((config$software_versions %||% list())$footer_lines %||% character(0))
+  footer <- footer[nzchar(footer)]
+  is_tcf_note <- isTRUE((config$ml_tcf_sklearn_rscv %||% list())$enable) ||
+    identical(tolower(as.character((config$methods %||% list())$kind %||% "")[1L]), "tcf")
+  note_lines <- c(
     "",
     "Note: Versions reflect the machine that finalized this index;",
-    "re-running on another host may change package patch levels.",
-    "For TCF studies, list only packages used on the delivered analysis path;",
-    "do not retain unused Cox/competing-risk template packages."
+    "re-running on another host may change package patch levels."
   )
+  if (isTRUE(is_tcf_note)) {
+    note_lines <- c(
+      note_lines,
+      "For TCF studies, list only packages used on the delivered analysis path;",
+      "do not retain unused Cox/competing-risk template packages."
+    )
+  } else {
+    note_lines <- c(
+      note_lines,
+      "List only packages used on the delivered analysis path;",
+      "do not retain unused Cox/competing-risk/MICE template packages."
+    )
+  }
+  if (length(footer)) {
+    note_lines <- c(note_lines, "", footer)
+  }
+  lines <- c(lines, note_lines)
   out1 <- file.path(index_root, "Methods_software_versions.txt")
   writeLines(lines, out1, useBytes = TRUE)
   if (!is.null(project_root) && nzchar(as.character(project_root)[1L])) {
@@ -258,8 +276,10 @@ pub_write_methods_software_section <- function(
     paste0(
       "Publication tables use the engine SCI three-line xlsx entry ",
       "(`sci_xlsx_single_header_booktabs` / `write_table1_xlsx_guan_style`). ",
-      "Figures are exported under `Figures/{pdf,png,tiff,image_information}/`. ",
-      "Display labels omit programming underscores."
+      "Figures are exported under `Figures/{pdf,image_information}/` ",
+      "(PDF + image_information by default; png/tiff only if explicitly enabled). ",
+      "Display labels omit programming underscores; publication fonts use Times New Roman ",
+      "(or Times-compatible embedded serif)."
     ),
     "",
     paste0(

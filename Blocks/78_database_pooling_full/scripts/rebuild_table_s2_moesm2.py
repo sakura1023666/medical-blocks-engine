@@ -206,13 +206,20 @@ def main():
 
     title = (
         "Table S2. Performance comparison of the LSTM, Transformer, and TPC architectures"
-        + (f" when training on {_fmt_n(n_train)} patients from the BlendedICU dataset" if n_train else "")
+        + (
+            f" when training on {_fmt_n(n_train)} patients "
+            f"(equal-n cap = Amsterdam train persons per database; post min-LoS filter)"
+            if n_train
+            else ""
+        )
     )
     footnote = (
         "AUROC: area under the receiver operating characteristic curve; MAPE: mean absolute percentage error; "
         "CI: confidence interval; TPC: temporal pointwise convolution; LSTM: long short-term memory. "
-        "For each architecture, a single model was trained on an equal-n extract from all four databases; "
-        "validation is reported separately by source database. "
+        "Equal-n: each of the four databases was capped at the Amsterdam training person count "
+        "(seed 974) before BlendedLoS inclusion filters (e.g. min LoS); the n_train in the title is the "
+        "post-filter training headcount used by the model (not 4×cap stays). "
+        "Validation is reported separately by source database. "
         "AUROC 95% CI: DeLong (stay-level); MAPE 95% CI: patient-level bootstrap 10,000 (percentile). "
         "Best value per row in bold (lowest MAPE; highest AUROC). "
         f"Cohort: {args.cohort_label}."

@@ -131,15 +131,19 @@ config <- list(
     )
   ),
 
-  # LPA：DAS1–12；复合选模 = BIC + 极小类门槛（Q1）
-  # 本队列 WHODAS 地板效应明显；K=4 最小类约 34（~4.9%），门槛对齐该可解释解
+  # 主分析：DAS1–12 等级题 polytomous LCA（poLCA）；≠文献 SOC-13 连续 LPA
+  # 复合选模 = BIC（越小越好）+ 非退化 + 极小类门槛 + 相对 entropy 报告
+  # 无 Mplus → 不做 LMR/BLRT；亦非 cumulative-logit 有序约束（Methods 写实）
   latent_profile = list(
+    engine = "poLCA",
     items = paste0("DAS", 1:12),
     n_profiles_max = 5L,
     min_class_n = 30L,
     min_class_prop = 0.04,
+    nrep = 10L,
     seed = 1234L,
-    class_col = "LPA_class"
+    class_col = "LCA_class",
+    also_write_lpa_alias = TRUE
   ),
 
   analysis_var_policy = list(
@@ -147,19 +151,24 @@ config <- list(
   ),
 
   baseline_multiclass = list(
-    strata = "LPA_class_label",
+    strata = "LCA_class_label",
     sig_cutoff = 0.05,
+    # 对齐参考文献 Table 1：All/C* [Case (Percentage, %)] + χ²/H + P
+    table1_paper_style = TRUE,
     pause_enable = FALSE,
     pause_on_table1_fail = FALSE,
     pause_on_min_sig_vars = FALSE,
-    # 只展示人口学 + 量表总分（条目已进 LPA/网络，不进 Table1）
+    # 只展示人口学 + 量表总分（条目已进 LCA/网络，不进 Table1）
     include_vars = c(
       "age", "sex", "education", "marriage", "income", "livingsite",
       "occupation", "center", "department", "height", "weight",
       "PHQ15", "SSS8", "SSD12", "Whiteley8", "WHODAS", "PHQ9", "GAD7",
       "SSD", "N12AA"
     ),
-    exclude_vars = c("number", "BirthYear", "yearmonth", "LPA_class", "row_id")
+    exclude_vars = c(
+      "number", "BirthYear", "yearmonth",
+      "LCA_class", "LPA_class", "row_id"
+    )
   ),
 
   sem_cfa_discriminant = list(
@@ -183,10 +192,9 @@ config <- list(
   ),
 
   complex_network_profile_batch = list(
-    class_col = "LPA_class",
-    # 节点规模门控：量表总分块（症状 / 认知恐惧 / 功能 / 情绪）
+    class_col = "LCA_class",
+    # Fig2 角色对齐文献：按 LCA 三类分网；节点=7 个量表总分（非条目）
     nodes = c("PHQ15", "SSS8", "SSD12", "Whiteley8", "WHODAS", "PHQ9", "GAD7"),
-    # 与 LPA 小类门槛对齐；过小层仍跳过并在 summary 标明
     min_n = 30L,
     gamma = 0.5,
     n_boots = 200L,

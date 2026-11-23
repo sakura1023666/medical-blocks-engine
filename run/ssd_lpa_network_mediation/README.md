@@ -41,3 +41,20 @@ Config：`configs/study_ssd_lpa_network_mediation/config_ssd_lpa_network_mediati
 3. 中介调整集预声明：age/sex/education/marriage/income/livingsite  
 4. 横断面：Methods 禁止写成已证因果  
 5. 主分析全样本；SSD=yes 作分层/敏感性（另开）
+
+## 发表收口（每次必跑；已挂主入口末尾）
+
+`run_ssd_lpa_network_mediation.R` 成功结束后自动调用 `ssd_finalize_summary_delivery()`（`R/ssd_lpa_network_mediation_pub.R`）：
+
+- 展示层禁下划线 + Times New Roman（`pub_delivery_scrub_display`）
+- 小数位锁 `ssd_pub_digits()`（对齐 Ma 2026：OR/CI/P 三位；%≤2；Entropy/AUC/ACME 三位）
+- 写 `Methods_statistical_analysis.md` + `Methods_software_versions.txt`（**无日期戳**）
+- `summary_results/` 白名单 prune：只留 `Figures/` `Tables/` Methods 两件套 + 中期 PDF
+
+手工补跑：
+
+```bash
+Rscript run/ssd_lpa_network_mediation/finalize_ssd_summary_delivery.R
+```
+
+中期 PDF（客户：王玉贤；分析日期：无）在 Nature P0 清零后按 `Aiya-NB004-midterm-report` 出，再 prune 一次。

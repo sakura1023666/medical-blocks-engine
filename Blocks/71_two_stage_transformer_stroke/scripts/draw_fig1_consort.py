@@ -52,15 +52,21 @@ def _setup_times() -> str:
 
 
 def _box(ax, xy, w, h, text, *, fontsize=10, fw="normal", fc="#ffffff", ec="#222222", family="Times New Roman"):
+    """圆角框：pad=0（避免内缩吃高度），字号保守，居中不贴边。"""
     x, y = xy
     patch = FancyBboxPatch(
         (x, y), w, h,
-        boxstyle="round,pad=0.012,rounding_size=0.02",
-        linewidth=1.2, edgecolor=ec, facecolor=fc, mutation_aspect=0.3,
+        boxstyle="round,pad=0.0,rounding_size=0.06",
+        linewidth=1.1, edgecolor=ec, facecolor=fc,
     )
     ax.add_patch(patch)
-    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center",
-            fontsize=fontsize, fontweight=fw, family=family, linespacing=1.25)
+    ax.text(
+        x + w / 2, y + h / 2, text,
+        ha="center", va="center",
+        fontsize=fontsize, fontweight=fw, family=family,
+        linespacing=1.20, color="#111111",
+        clip_on=False,
+    )
     return patch
 
 
@@ -73,7 +79,129 @@ def _fmt(n: int) -> str:
     return f"{int(n):,}"
 
 
+def _short_lines(text: str, max_chars: int = 28) -> str:
+    """把过长标签收成短行，避免撑破圆角框。"""
+    raw = str(text or "").replace("\n", " ").strip()
+    if len(raw) <= max_chars:
+        return raw
+    # 优先在空格/逗号处断
+    parts = []
+    buf = ""
+    for tok in raw.replace(",", ", ").split():
+        cand = (buf + " " + tok).strip()
+        if len(cand) <= max_chars:
+            buf = cand
+        else:
+            if buf:
+                parts.append(buf)
+            buf = tok
+    if buf:
+        parts.append(buf)
+    return "\n".join(parts[:3])
+
+
+def draw_flowchart_steps(pdf: Path, counts: dict) -> None:
+    """文献式多步 CONSORT：短标签、无脚注、统一行高、Exclude 对齐。"""
+    family = _setup_times()
+    pdf = Path(pdf)
+    pdf.parent.mkdir(parents=True, exist_ok=True)
+    steps = list(counts.get("steps") or [])
+    if len(steps) < 2:
+        raise ValueError("draw_flowchart_steps needs counts['steps'] with >=2 entries")
+
+    if (
+        len(steps) >= 2
+        and int(steps[-1].get("n") or 0) == int(steps[-2].get("n") or -1)
+        and steps[-1].get("exclude_label") is None
+        and str(steps[-1].get("label") or "").strip().lower() in ("included", "include")
+    ):
+        steps = steps[:-1]
+        steps[-1] = dict(steps[-1])
+        steps[-1]["label"] = "Included"
+
+    dead = int(counts.get("dead") or 0)
+    alive = int(counts.get("alive") or 0)
+    n_main = len(steps)
+
+    # 固定几何：主列 / Exclude 同行同高；框加高给两行字留白
+    bw, ex_w, bh = 4.50, 3.15, 1.32
+    cx, ex_x = 3.25, 7.05
+    row = 1.62
+    fork_gap = 0.48
+    oh = 1.18
+    top_pad, bot_pad = 0.28, 0.22
+    top = top_pad + (n_main - 1) * row + bh + fork_gap + oh + bot_pad
+    fig, ax = plt.subplots(figsize=(8.6, max(9.2, top * 0.98)))
+    ax.set_xlim(0.15, 10.5)
+    ax.set_ylim(0, top)
+    ax.axis("off")
+
+    y = top - top_pad - bh
+    y_incl = y
+    for i, st in enumerate(steps):
+        lab = str(st.get("label") or f"Step {i+1}").strip()
+        if "\n" in lab:
+            lab = lab.split("\n")[0].strip()
+        n = int(st.get("n") or 0)
+        is_last = i == n_main - 1
+        _box(
+            ax, (cx - bw / 2, y), bw, bh,
+            f"{lab}\nn = {_fmt(n)}",
+            fontsize=10.5 if (i == 0 or is_last) else 10,
+            fw="bold",
+            fc="#EEF5FB" if is_last else "#FFFFFF",
+            family=family,
+        )
+        excl_lab = st.get("exclude_label")
+        excl_n = st.get("exclude_n")
+        if excl_lab is not None and excl_n is not None:
+            reason = str(excl_lab).replace("\n", " ").strip()
+            excl_txt = f"Exclude:\n{reason}\n(n = {_fmt(int(excl_n))})"
+            _box(ax, (ex_x, y), ex_w, bh, excl_txt, fontsize=9, fw="normal", fc="#F5F5F5", family=family)
+            ax.annotate(
+                "",
+                xy=(ex_x, y + bh / 2),
+                xytext=(cx + bw / 2, y + bh / 2),
+                arrowprops=dict(arrowstyle="-|>", color="#333333", lw=1.05, mutation_scale=10),
+            )
+        if not is_last:
+            y_next = y - row
+            _arrow(ax, cx, y, y_next + bh)
+            y = y_next
+        else:
+            y_incl = y
+
+    ow = 2.40
+    gap_x = 0.45
+    left_x = cx - gap_x / 2 - ow
+    right_x = cx + gap_x / 2
+    y_out = bot_pad
+    stem_top = y_incl
+    stem_bot = y_out + oh + 0.10
+    ax.plot([cx, cx], [stem_top, stem_bot], color="#222222", lw=1.15)
+    ax.plot([left_x + ow / 2, right_x + ow / 2], [stem_bot, stem_bot], color="#222222", lw=1.15)
+    ax.annotate("", xy=(left_x + ow / 2, y_out + oh), xytext=(left_x + ow / 2, stem_bot),
+                arrowprops=dict(arrowstyle="-|>", color="#222222", lw=1.15, mutation_scale=10))
+    ax.annotate("", xy=(right_x + ow / 2, y_out + oh), xytext=(right_x + ow / 2, stem_bot),
+                arrowprops=dict(arrowstyle="-|>", color="#222222", lw=1.15, mutation_scale=10))
+    _box(ax, (left_x, y_out), ow, oh, f"Expired\n(n = {_fmt(dead)})", fontsize=10.5, fw="bold", fc="#FFF1F1", family=family)
+    _box(ax, (right_x, y_out), ow, oh, f"Alive\n(n = {_fmt(alive)})", fontsize=10.5, fw="bold", fc="#F1FFF4", family=family)
+
+    fig.savefig(pdf, dpi=300, bbox_inches="tight", pad_inches=0.10)
+    dbg_png = pdf.with_suffix(".png")
+    fig.savefig(dbg_png, dpi=220, bbox_inches="tight", pad_inches=0.10)
+    plt.close(fig)
+    print(f"font={family}")
+    print(f"wrote {pdf}")
+    print(f"wrote {dbg_png}")
+
+
 def draw_flowchart(pdf: Path, counts: dict) -> None:
+    """若 counts 含 steps（文献多步纳排）走 steps 版；否则走旧两框缺失模板。"""
+    if counts.get("steps"):
+        draw_flowchart_steps(pdf, counts)
+        return
+
     family = _setup_times()
     pdf = Path(pdf)
     pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -81,6 +209,9 @@ def draw_flowchart(pdf: Path, counts: dict) -> None:
     disease = counts.get("disease_label", "AKI")
     db = counts.get("db_label", "MIMIC-IV")
     miss_pct = int(counts.get("patient_miss_pct", 50))
+    # 禁止把 patient_missing_threshold=1.0 画成「>100%」(无意义且与文献 >30% 冲突)
+    if miss_pct >= 100:
+        miss_pct = 30
     pool = int(counts["pool"])
     disease_n = int(counts["disease"])
     confirmed = int(counts.get("confirmed") or 0)
@@ -154,17 +285,9 @@ def draw_flowchart(pdf: Path, counts: dict) -> None:
     _box(ax, (left_x, y_out), ow, oh, f"Expired group\n(n = {_fmt(dead)})", fontsize=11, fw="bold", fc="#fff5f5", family=family)
     _box(ax, (right_x, y_out), ow, oh, f"Alive group\n(n = {_fmt(alive)})", fontsize=11, fw="bold", fc="#f3fff5", family=family)
 
-    foot = (
-        f"Table 1 / primary analysis pool: N = {_fmt(included)}.\n"
-        "Feature columns use a separate day-1 missing gate (> 30%); not used to drop patients."
-    )
-    if n_model:
-        foot += f"\nL120 Day-5 modeling further requires ICU stay >= 5 days (n = {_fmt(n_model)})."
-    ax.text(5.0, 0.85, foot, ha="center", va="center", fontsize=8, color="#333333", family=family)
-
-    fig.tight_layout()
-    fig.savefig(pdf, dpi=300, bbox_inches="tight")
-    fig.savefig(pdf.with_suffix(".png"), dpi=220, bbox_inches="tight")
+    # 无图底脚注（交付口径：细节进 Methods / image_information）
+    fig.savefig(pdf, dpi=300, bbox_inches="tight", pad_inches=0.12)
+    fig.savefig(pdf.with_suffix(".png"), dpi=220, bbox_inches="tight", pad_inches=0.12)
     plt.close(fig)
     print(f"font={family}")
     print(f"wrote {pdf}")
@@ -293,15 +416,20 @@ def counts_from_project(proj: Path, *, db_name: str = "MIMIC") -> dict:
     n_excl_miss = max(age18 - after_miss, 0)
     n_excl_idlist = max(disease_n - confirmed, 0) if confirmed else 0
 
-    miss_pct = 50
+    miss_pct = 30  # 文献默认 >30% missing；禁止把 pipeline threshold=1.0 画成 >100%
     cfg = proj / "config_two_stage_transformer_stroke_task_parallel.R"
+    cfg_txt = ""
     if cfg.is_file():
         import re
 
-        txt = cfg.read_text(encoding="utf-8", errors="ignore")
-        m = re.search(r"patient_missing_threshold\s*=\s*([0-9.]+)", txt)
+        cfg_txt = cfg.read_text(encoding="utf-8", errors="ignore")
+        m = re.search(r"patient_missing_threshold\s*=\s*([0-9.]+)", cfg_txt)
         if m:
-            miss_pct = int(round(float(m.group(1)) * 100)) if float(m.group(1)) <= 1 else int(float(m.group(1)))
+            thr = float(m.group(1))
+            cand = int(round(thr * 100)) if thr <= 1 else int(thr)
+            # threshold=1.0 表示「流水线不再剔人」(纳排已在提取完成)，图面仍按文献 30%
+            if 0 < cand < 100:
+                miss_pct = cand
 
     n_model = 0
     for lp in (
@@ -359,6 +487,46 @@ def counts_from_project(proj: Path, *, db_name: str = "MIMIC") -> dict:
                 out[k] = v
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
+    # 若 JSON 未给 steps，尝试从 config$attrition$steps 解析（R list 文本）
+    if not out.get("steps") and cfg_txt:
+        import re
+
+        block = re.search(r"attrition\s*=\s*list\((.*?)\)\s*,\s*\n\s*methods", cfg_txt, re.S)
+        if block:
+            steps_raw = re.findall(
+                r"list\(\s*label\s*=\s*\"([^\"]+)\"\s*,\s*n\s*=\s*([0-9]+)L?\s*\)",
+                block.group(1),
+            )
+            if len(steps_raw) >= 2:
+                parsed = []
+                prev_n = None
+                for lab, n_s in steps_raw:
+                    n = int(n_s)
+                    excl_n = None if prev_n is None else max(prev_n - n, 0)
+                    excl_lab = None
+                    low = lab.lower()
+                    if prev_n is not None:
+                        if "age" in low or "sex" in low:
+                            excl_lab = "< 18 years or\nunknown sex"
+                        elif "24" in low or "icu stay" in low:
+                            excl_lab = "ICU stay < 24 h"
+                        elif "missing" in low or "30%" in low:
+                            excl_lab = f"Records with\n> {miss_pct}% missing\n(day 1-5 proxy)"
+                        elif "first" in low:
+                            excl_lab = "Not first\nICU stay"
+                        else:
+                            excl_lab = "Excluded"
+                    item = {"label": lab, "n": n}
+                    if excl_lab is not None:
+                        item["exclude_label"] = excl_lab
+                        item["exclude_n"] = excl_n
+                    parsed.append(item)
+                    prev_n = n
+                # 首框不带 exclude；诊断框可带「非本病」差，若 pool→disease
+                if parsed:
+                    out["steps"] = parsed
+                    out["included"] = parsed[-1]["n"]
+                    out["patient_miss_pct"] = miss_pct
     return out
 
 

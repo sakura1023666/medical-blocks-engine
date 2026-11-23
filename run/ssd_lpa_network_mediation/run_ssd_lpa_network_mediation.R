@@ -97,6 +97,29 @@ if (isTRUE((config$feishu %||% list())$enable) &&
   )
 }
 
+# 发表收口（引擎级）：scrub / Times / Methods / versions / whitelist prune
+if (identical(status, "success")) {
+  tryCatch({
+    source(file.path(root, "R/ssd_lpa_network_mediation_pub.R"))
+    .sr <- file.path(config$project$output_dir %||% "", "summary_results")
+    if (!dir.exists(.sr)) {
+      .cand <- file.path(
+        dirname(config$project$output_dir %||% "."),
+        "by_index", "main_full_sample", "summary_results"
+      )
+      if (dir.exists(.cand)) .sr <- .cand
+    }
+    if (dir.exists(.sr)) {
+      ssd_finalize_summary_delivery(.sr, engine_root = root, run_struct_qc = TRUE)
+      cli::cli_alert_success("SSD finalize: {.file {.sr}}")
+    } else {
+      cli::cli_alert_warning("summary_results 未找到，跳过 finalize；可手工跑 finalize_ssd_summary_delivery.R")
+    }
+  }, error = function(e) {
+    cli::cli_alert_warning("SSD finalize 失败: {conditionMessage(e)}")
+  })
+}
+
 cli::cli_alert_success(
   "完成 status={status}; elapsed={round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1)} min"
 )
