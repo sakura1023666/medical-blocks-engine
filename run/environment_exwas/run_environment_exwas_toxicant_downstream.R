@@ -138,20 +138,30 @@ if (!file.exists(hits_path)) {
 hits <- utils::read.csv(hits_path, stringsAsFactors = FALSE)
 hit_cols <- if ("exposure" %in% names(hits)) hits$exposure else character(0)
 hit_cols <- intersect(hit_cols, scr$keep)
-if (length(hit_cols) < 2L) stop("FDR 命中可用列 <2: ", hits_path, call. = FALSE)
-exwas_log("FDR 命中入 ERS/WQS 候选: ", length(hit_cols), " from ", basename(hits_path))
+# Dong 2026：ERS 在全暴露框架下做 adaptive elastic-net（非仅 FDR 命中）
+ers_pool <- intersect(scr$keep, names(df))
+if (length(ers_pool) < 2L) stop("ERS 全暴露池 <2", call. = FALSE)
+exwas_log("ERS 全暴露池 n=", length(ers_pool),
+          "；FDR 命中(供 WQS/对照)=", length(hit_cols), " from ", basename(hits_path))
 utils::write.csv(
-  data.frame(exposure = hit_cols, source = hits_path),
+  data.frame(
+    exposure = ers_pool,
+    in_fdr_hits = ers_pool %in% hit_cols,
+    source = "scr$keep_full_exposure_pool",
+    stringsAsFactors = FALSE
+  ),
   file.path(out, "Table_S0_hit_pool.csv"), row.names = FALSE
 )
 
-# 3) Adaptive elastic-net ERS
-if (!requireNamespace("glmnet", quietly = TRUE)) stop("需要 glmnet", call. = FALSE)
+# 3) Adaptive elastic-net ERS（gcdnet；11α×50λ；Z-score）
 ers_fit <- exwas_tox_fit_adaptive_enet(
-  df, "DN", hit_cols,
+  df, "DN", ers_pool,
   n_boot = as.integer(opt$bootstrap),
   seed = 123456L,
-  use_gcdnet = TRUE
+  use_gcdnet = TRUE,
+  nlambda = 50L,
+  lambda_min = 1e-3,
+  lambda_max = 1e2
 )
 utils::write.csv(ers_fit$freq, file.path(out, "Table_S5_ERS_bootstrap_inclusion.csv"), row.names = FALSE)
 utils::write.csv(
@@ -164,18 +174,39 @@ utils::write.csv(
 )
 utils::write.csv(
   data.frame(
-    alpha = ers_fit$alpha, lambda = ers_fit$lambda,
+    alpha = ers_fit$alpha, lambda = ers_fit$lambda, lambda2 = ers_fit$lambda2,
     n_selected = length(ers_fit$selected),
     n_model = ers_fit$n_model, n_events = ers_fit$n_events,
-    n_boot = ers_fit$n_boot, gcdnet_used = ers_fit$gcdnet_used
+    n_boot = ers_fit$n_boot, gcdnet_used = ers_fit$gcdnet_used,
+    n_pool = length(ers_pool)
   ),
   file.path(out, "Table_S5_ERS_tuning.csv"), row.names = FALSE
 )
-exwas_log("ERS 入选 ", length(ers_fit$selected), " / ", length(hit_cols),
+if (!is.null(ers_fit$alpha_path)) {
+  utils::write.csv(ers_fit$alpha_path, file.path(out, "Table_S5_ERS_alpha_path.csv"), row.names = FALSE)
+}
+# 标准化参数（评分必须同源）
+utils::write.csv(
+  data.frame(
+    exposure = names(ers_fit$center),
+    center = unname(ers_fit$center),
+    scale = unname(ers_fit$scale),
+    is_binary = unname(ers_fit$is_binary[names(ers_fit$center)]),
+    stringsAsFactors = FALSE
+  ),
+  file.path(out, "Table_S5_ERS_standardize.csv"), row.names = FALSE
+)
+exwas_log("ERS 入选 ", length(ers_fit$selected), " / ", length(ers_pool),
           " alpha=", signif(ers_fit$alpha, 3),
+          " lambda=", signif(ers_fit$lambda, 3),
           " gcdnet=", ers_fit$gcdnet_used)
 
-df$ERS <- exwas_tox_score_ers(df, ers_fit$beta)
+df$ERS <- exwas_tox_score_ers(
+  df, ers_fit$beta,
+  center = ers_fit$center, scale = ers_fit$scale, is_binary = ers_fit$is_binary
+)
+# 持久化 fit 供 Fig4 B/C 重绘
+saveRDS(ers_fit, file.path(out, "ERS_adaptive_enet_fit.rds"))
 
 # 4) 加权 ERS 关联（原文 Model1 未调整 / Model2 全协变量）
 # 无正权重者在加权模型内自然剔除
@@ -264,38 +295,39 @@ if (length(hit_cols) >= 2L && requireNamespace("gWQS", quietly = TRUE)) {
   writeLines("gWQS unavailable or <2 hits", file.path(out, "WQS_not_fit.txt"))
 }
 
-# 7) 探索性中介（product method；有 survey 则加权）
-meds <- c("WBC", "NEUT", "MONO", "NLR", "SII", "SIRI", "CRP", "HSCRP")
+# 7) 探索性中介：对齐 Dong — mediation::mediate B=1000（风险差）；癌症 6 中介非牙周照搬
+# 正式 Fig5/S4 重建入口：run/environment_exwas/rebuild_pancancer_fig5_mediation.R
+meds <- if (isTRUE(opt$disease %in% c("pancancer", "breast", "prostate", "gastric"))) {
+  exwas_tox_cancer_mediators_default()
+} else {
+  c("WBC", "NEUT", "MONO", "NLR", "SII", "SIRI")
+}
 meds <- meds[meds %in% names(df)]
 med_rows <- list()
-use0 <- df[is.finite(df$ERS), , drop = FALSE]
+use0 <- df[is.finite(exwas_to_num(df$ERS)), , drop = FALSE]
+iqr_ers <- stats::IQR(use0$ERS, na.rm = TRUE)
+if (is.finite(iqr_ers) && iqr_ers > 0) use0$ERS_IQR <- use0$ERS / iqr_ers else use0$ERS_IQR <- use0$ERS
 for (med in meds) {
-  use <- use0[is.finite(exwas_to_num(use0[[med]])), , drop = FALSE]
-  if (nrow(use) < 80L) next
-  if (exwas_has_survey(use, sw)) {
-    des <- exwas_design(use, sw)
-    a_f <- stats::as.formula(paste(med, "~ ERS", if (length(covars_m2)) paste("+", paste(covars_m2, collapse = "+")) else ""))
-    b_f <- stats::as.formula(paste("DN ~ ERS +", med, if (length(covars_m2)) paste("+", paste(covars_m2, collapse = "+")) else ""))
-    fa <- tryCatch(survey::svyglm(a_f, design = des), error = function(e) NULL)
-    fb <- tryCatch(survey::svyglm(b_f, design = des, family = stats::quasibinomial()),
-                   error = function(e) NULL)
-    if (is.null(fa) || is.null(fb)) next
-    a <- unname(coef(fa)["ERS"]); b <- unname(coef(fb)[med])
-    med_rows[[med]] <- data.frame(
-      mediator = med, a = a, b = b, indirect = a * b,
-      direct = unname(coef(fb)["ERS"]), n = nrow(use),
-      method = "survey_product", exploratory = TRUE,
-      stringsAsFactors = FALSE
-    )
-  }
+  if (sum(is.finite(exwas_to_num(use0[[med]]))) < 200L) next
+  exwas_log("mediate ", med)
+  res <- tryCatch(
+    exwas_tox_mediate_one(
+      use0, treat = "ERS_IQR", mediator = med, outcome = "DN",
+      covars = intersect(covars_m2, names(use0)),
+      weight_col = if ("WTSA2YR" %in% names(use0)) "WTSA2YR" else sw,
+      sims = 1000L, seed = 123456L + match(med, meds)
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(res)) med_rows[[med]] <- res$table
 }
 if (length(med_rows)) {
   utils::write.csv(do.call(rbind, med_rows),
                    file.path(out, "Table_S6_mediation_exploratory.csv"), row.names = FALSE)
-  exwas_log("中介行数=", length(med_rows))
+  exwas_log("中介行数=", length(med_rows), " (mediation_boot)")
 } else {
   writeLines(
-    "Exploratory mediation: insufficient overlapping inflam biomarkers with ERS/weights.",
+    "Exploratory mediation: mediate() failed or insufficient inflam biomarkers.",
     file.path(out, "Figure_5_mediation_unavailable.txt")
   )
   exwas_log("中介未产出可用行")

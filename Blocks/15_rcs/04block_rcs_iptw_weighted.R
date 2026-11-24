@@ -630,7 +630,7 @@ block_rcs_iptw_weighted <- function(ctx, ...) {
 
   or1_txt <- if (length(cut_use$or1)) paste(rcs_format_cutoff(cut_use$or1), collapse = ", ") else "none"
   peak_txt <- if (length(cut_use$peak)) paste(rcs_format_cutoff(cut_use$peak), collapse = ", ") else "none"
-  cli::cli_alert_info("Model2 RCS cutoffs — OR=1: {or1_txt}; peak OR: {peak_txt}")
+  cli::cli_alert_info("Model2 RCS cutoffs — OR=1: {or1_txt}; slope-zero/reference: {peak_txt}")
   primary_txt <- if (is.finite(primary_cutoff)) rcs_format_cutoff(primary_cutoff) else "NA"
   cli::cli_alert_success(
     "rcs_iptw_weighted 完成（primary cutoff = {primary_txt}，共 {length(cut_use$all)} 个 cutoff）。"

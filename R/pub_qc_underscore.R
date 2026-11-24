@@ -52,7 +52,8 @@ pub_qc_underscore_tokens <- function(text, allow = NULL) {
   tmp <- tempfile(fileext = ".txt")
   on.exit(unlink(tmp), add = TRUE)
   st <- tryCatch(
-    system2(bin, c("-layout", pdf, tmp), stdout = FALSE, stderr = FALSE),
+    # shQuote：交付图名常含 "(BMI_TyG)" 等括号，dash/sh 会 Syntax error 致漏检（假阴性）
+    system2(bin, c("-layout", shQuote(pdf), shQuote(tmp)), stdout = FALSE, stderr = FALSE),
     error = function(e) 1L
   )
   if (!identical(as.integer(st), 0L) || !file.exists(tmp)) return(NA_character_)

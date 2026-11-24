@@ -583,16 +583,21 @@ ml_index_methods_statistical_lines <- function(config = NULL) {
         if (identical(split_mode, "dev_internal_ext") && isTRUE(has_dual_db)) {
           paste0(
             "In ", db_disp, ", participants were split into training and internal validation sets; ",
-            sec_disp, " served as the external validation cohort for supervised prediction of ",
-            disease, ". "
+            sec_disp, " served as the external validation cohort for supervised cross-sectional ",
+            "classification of ", disease, " (not an incident follow-up analysis). "
           )
         } else {
           paste0(
-            "Participants were split into training and validation sets for supervised prediction of ",
-            disease, ". "
+            "Participants were split into training and validation sets (default train_ratio = 0.70, ",
+            "outcome-stratified; seed and n_train/n_val as recorded in train_validation_split_meta) ",
+            "for supervised cross-sectional classification of ", disease,
+            " (not an incident follow-up analysis). "
           )
         },
-        "Feature selection (LASSO) and candidate classifiers followed the study ML blocks. ",
+        "Feature selection (LASSO; bootstrap frequency threshold from study config when set) ",
+        "and candidate classifiers followed the study ML blocks; hyperparameters were tuned by ",
+        "vfold_cv on the training set (default cv_folds = 5). ",
+        "Hyperparameter tables list the same Final_Features set used for SHAP and any Shiny app. ",
         "The primary reporting model followed the study primary_model_rule ",
         "(default: external-validation discrimination when available); ",
         "SHAP used the declared shap_explain_rule and must not be labelled simply as ",

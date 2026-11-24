@@ -66,6 +66,37 @@ block_tj_finegray_rubin <- function(ctx, ...) {
   outcomes <- sub("^tj_outcome_", "", grep("^tj_outcome_", names(ctx$results), value = TRUE))
   if (!length(outcomes)) outcomes <- (bl$outcome %||% list())$primary$name %||% "primary"
 
+  # 竞争事件语义自证（文献敏感性② = non-CVD death）：
+  #  - 死亡者中若无人带主结局事件 → 竞争事件即 "死亡且无主结局（非主结局死亡近似）"
+  #  - 有死因列 death_cause_icd + non_cause_pattern → 按 ICD 判非主结局死（严格口径）
+  # 语义写入 attr，Table 4 脚注与 Methods 必须如实引用，禁止把全因死亡冒充 non-CVD 死亡。
+  cr_note <- cr$death_semantics_note %||% NULL
+  icd_col <- cr$death_cause_icd_col %||% NULL
+  d_comp_lgl <- NULL   # 竞争事件（死亡）逻辑向量；NULL=沿用 death_col==1
+  if (!is.null(icd_col) && icd_col %in% names(df) && !is.null(cr$main_cause_regex)) {
+    # main_cause_regex = 死因归属主结局的 ICD 模式；匹配 → 非竞争（缺事件记录的保守删失）
+    main_death <- grepl(cr$main_cause_regex, as.character(df[[icd_col]]), perl = TRUE)
+    main_death[is.na(main_death)] <- FALSE
+    d_comp_lgl <- as.integer(df[[death_col]]) == 1L & !main_death
+    prim0 <- ctx$results[[paste0("tj_outcome_", outcomes[1])]]
+    n_amb <- if (!is.null(prim0)) sum(as.integer(df[[death_col]]) == 1L & main_death &
+                 as.integer(prim0$event) != 1L, na.rm = TRUE) else 0L
+    cr_note <- sprintf("non-%s death by underlying cause: %s NOT matching /%s/ (%d %s-cause deaths without recorded event censored conservatively)",
+                       toupper(outcomes[1]), icd_col, cr$main_cause_regex, n_amb, outcomes[1])
+    cli::cli_alert_info("tj_finegray_rubin: ICD 死因口径启用 -> {cr_note}")
+  } else if (is.null(cr_note)) {
+    prim_oc <- ctx$results[[paste0("tj_outcome_", outcomes[1])]]
+    mixed <- if (!is.null(prim_oc)) sum(as.integer(df[[death_col]]) == 1L &
+                       as.integer(prim_oc$event) == 1L, na.rm = TRUE) else NA_integer_
+    cr_note <- if (identical(cr$competing_is_all_cause, TRUE)) {
+      "all-cause death (explicit config declaration)"
+    } else {
+      sprintf("death without reported incident %s (non-%s death approximation; %d deaths co-occurring with the event are coded as the event, not as competing)",
+              outcomes[1], outcomes[1], if (is.na(mixed)) 0L else mixed)
+    }
+  }
+  ctx$results$tj_fg_note <- cr_note
+
   out_root <- file.path(ctx$config$project$output_dir %||% "Output")
   fg_dir <- file.path(out_root, "results", "finegray")
   dir.create(fg_dir, showWarnings = FALSE, recursive = TRUE)
@@ -85,12 +116,14 @@ block_tj_finegray_rubin <- function(ctx, ...) {
         tpl_cols <- unique(c(id_col, ".tj_row_id", gv, covs_present))
         base <- df[, tpl_cols, drop = FALSE]
         d_ev  <- as.integer(df[[death_col]])
+        # 竞争事件判定：ICD 口径优先（死亡且死因非主结局），否则死亡即竞争
+        dec   <- if (!is.null(d_comp_lgl)) d_comp_lgl else (d_ev == 1L)
         d_tm  <- if (!is.null(death_tcol) && death_tcol %in% names(df))
                     as.numeric(df[[death_tcol]]) else NULL
         base$.tj_ev <- ov$event
         base$.tj_tm <- ov$time
         base$.tj_fs <- ifelse(as.integer(ov$event) == 1L, cause,
-                        ifelse(d_ev == 1L, death_cause[1], cencode))
+                        ifelse(dec, death_cause[1], cencode))
         # 竞争事件者 ftime = 死亡时间（有列时），Fine-Gray 要求事件时间与状态一致
         if (!is.null(d_tm)) {
           is_comp <- base$.tj_fs == death_cause[1]

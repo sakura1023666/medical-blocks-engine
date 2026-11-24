@@ -186,6 +186,32 @@
         paste0(names(df)[j], "=", as.character(df[[j]][1]))
       }, character(1L)), collapse = "; ")
     }
+    ## 统一追加 Final_Features（防 S8 features=N 与 SHAP/Shiny 7 特征错位）
+    feats <- ctx$results$Final_Features %||%
+      ctx$results$final_features %||%
+      ctx$results$ml_final_features %||%
+      character(0)
+    feats <- unique(as.character(feats))
+    feats <- feats[nzchar(feats) & !feats %in% c("Group", "fustatus", "ID")]
+    if (length(feats)) {
+      feat_lab <- vapply(feats, function(x) {
+        if (exists("pipeline_display_label", mode = "function")) {
+          as.character(pipeline_display_label(x))[1L]
+        } else {
+          gsub("_", " ", x, fixed = TRUE)
+        }
+      }, character(1L), USE.NAMES = FALSE)
+      feat_txt <- paste0(
+        "features=", length(feats), ": ",
+        paste(feat_lab, collapse = ", ")
+      )
+      ## 去掉 Hpbest 里旧的 features=N 碎片，再写统一名单
+      hp_txt <- gsub("(;\\s*)?features\\s*=\\s*[^;]+", "", hp_txt, ignore.case = TRUE)
+      hp_txt <- gsub(";\\s*;", "; ", hp_txt)
+      hp_txt <- sub("^;\\s*", "", hp_txt)
+      hp_txt <- sub(";\\s*$", "", trimws(hp_txt))
+      hp_txt <- if (nzchar(hp_txt)) paste0(hp_txt, "; ", feat_txt) else feat_txt
+    }
     parts[[tg]] <- data.frame(
       Model = disp,
       `Package / function` = .sm_package_for_tag(tg),

@@ -132,6 +132,80 @@ exwas_aligned_vif_screen <- function(df, y, vars, thr = 4) {
   list(keep = vars, dropped = log_drop)
 }
 
+# UV ∩ VIF 后逐步回归（AIC，both）；force 变量强制保留在 lower scope
+exwas_aligned_stepwise <- function(df, y, vars,
+                                   force = c("Age", "Gender"),
+                                   direction = "both") {
+  vars <- unique(intersect(vars, names(df)))
+  force <- unique(intersect(force, names(df)))
+  vars <- unique(c(force, vars))
+  out <- list(
+    keep = vars, force = force, direction = direction,
+    table = data.frame(variable = vars, in_final = TRUE, stringsAsFactors = FALSE),
+    aic_start = NA_real_, aic_final = NA_real_, ok = FALSE
+  )
+  if (!length(vars)) return(out)
+  dd <- df[stats::complete.cases(df[, c(y, vars), drop = FALSE]), c(y, vars), drop = FALSE]
+  if (nrow(dd) < 80L || length(unique(dd[[y]])) < 2L) return(out)
+  for (v in vars) {
+    if (is.character(dd[[v]]) || is.factor(dd[[v]])) dd[[v]] <- factor(dd[[v]])
+  }
+  form_full <- stats::as.formula(paste(y, "~", paste(vars, collapse = "+")))
+  form_lower <- if (length(force)) {
+    stats::as.formula(paste(y, "~", paste(force, collapse = "+")))
+  } else {
+    stats::as.formula(paste(y, "~ 1"))
+  }
+  fit_full <- tryCatch(
+    stats::glm(form_full, data = dd, family = stats::binomial()),
+    error = function(e) NULL
+  )
+  if (is.null(fit_full)) return(out)
+  fit_step <- tryCatch(
+    stats::step(
+      fit_full,
+      scope = list(lower = form_lower, upper = form_full),
+      direction = direction,
+      trace = 0
+    ),
+    error = function(e) fit_full
+  )
+  terms <- setdiff(attr(stats::terms(fit_step), "term.labels"), character(0))
+  # 交互项名可能含 :；本流程仅主效应
+  keep <- unique(c(force, intersect(terms, vars)))
+  out$keep <- keep
+  out$aic_start <- as.numeric(stats::AIC(fit_full))
+  out$aic_final <- as.numeric(stats::AIC(fit_step))
+  out$ok <- TRUE
+  out$table <- data.frame(
+    variable = vars,
+    in_final = vars %in% keep,
+    forced = vars %in% force,
+    stringsAsFactors = FALSE
+  )
+  out
+}
+
+# DAG 候选 → 单因素 → VIF → 逐步；返回 Model2 协变量与审计表
+exwas_aligned_model2_uv_vif_step <- function(df, y, dag_vars,
+                                             p_cut = 0.05, vif_thr = 4,
+                                             force = c("Age", "Gender"),
+                                             direction = "both") {
+  dag_vars <- unique(intersect(dag_vars, names(df)))
+  uni <- exwas_aligned_univariate(df, y, dag_vars, p_cut = p_cut)
+  # force 即使 UV 不显著也进入 VIF/逐步池
+  uni_keep <- unique(c(intersect(force, dag_vars), uni$keep))
+  vif <- exwas_aligned_vif_screen(df, y, uni_keep, thr = vif_thr)
+  step <- exwas_aligned_stepwise(df, y, vif$keep, force = force, direction = direction)
+  list(
+    dag = dag_vars,
+    univariate = uni,
+    vif = vif,
+    stepwise = step,
+    keep = step$keep
+  )
+}
+
 exwas_aligned_evalue_or <- function(or, lo) {
   ev <- function(x) {
     if (!is.finite(x) || x <= 0) return(NA_real_)

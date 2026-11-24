@@ -156,7 +156,10 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     "^Table S1\\. Cox associations of .* with cancer\\.xlsx$",
     "^Table S2\\. Cox subgroup analysis of .* change patterns\\.xlsx$",
     "^Table S3\\. Cox after MICE\\.xlsx$",
-    "^Table S4\\. Logistic after MICE\\.xlsx$"
+    "^Table S4\\. Logistic after MICE\\.xlsx$",
+    # Age-adjustment SA（主文 Table2/S1 不调 Age 时的补充；不得覆盖主表）
+    "^Table S5\\. Age-adjusted logistic associations of .* with cancer\\.xlsx$",
+    "^Table S6\\. Age-adjusted Cox associations of .* with cancer\\.xlsx$"
   )
   for (f in list.files(tab_dir, full.names = TRUE)) {
     if (dir.exists(f)) next

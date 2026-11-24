@@ -142,6 +142,7 @@ config <- list(
     adaptive_class_cap = TRUE,
     adaptive_class_cap_n_threshold = 1000L,
     adaptive_class_cap_ng_low = 4L, adaptive_class_cap_ng_high = 6L,
+    # NULL=读发现集 Tables/Summary/optimal_ng_<Index>.txt；禁止静默用最大 ng
     prefer_final_ng = NULL, assign_class_ng = NULL,
     auto_select_class_ng = TRUE,
     min_class_proportion_pct = 5, min_entropy_for_selection = 0.3,
@@ -151,7 +152,8 @@ config <- list(
 
   trajectory_lcmm_external_validate = list(
     discovery_db = "mimic",
-    prefer_ng = NULL,
+    # 课题默认读发现集 optimal；GPR 锁定 3（禁止 max-ng=6）
+    prefer_ng = 3L,
     require_predictClass = TRUE
   ),
 

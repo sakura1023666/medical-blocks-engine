@@ -1,0 +1,24 @@
+# 横断面 ML · UA/CR 命名 · 特征集一致（全项目）
+
+踩坑：`46_CKM` Age≥50 UA_CR（2026-11）。凡 **横断面分期分类 ML**（CHARLS/类似基线分期，无随访事件）交付前必须过。
+
+## 铁律
+
+1. **口径**：Methods / 中期 / 项目信息不得写「发病预测 / incidence / incident」冒充随访；写 **cross-sectional classification / 横断面分期分类**。
+2. **UA_CR ≠ UACR**：血清尿酸/血清肌酐比值展示为 **UA/CR**（uric acid-to-creatinine ratio）；**禁止**写成尿白蛋白肌酐比 UACR（mg/g）。
+3. **特征集唯一**：Table S8（超参）`features=` 名单 = Figure 4 SHAP = Shiny `Final_Features` = Fig S1 入选集；引擎 `.sm_collect_hpbest_all` 必须追加 `Final_Features`。
+4. **RCS 竖线**：cutoff 扫描的 `peak_or` / slope-zero 候选在 Methods / image_information 写 **scanned reference**；**禁止**在曲线局部低谷处仍写 “peak-OR cutoff”。
+5. **软件版本**：`methods$kind=ml` 时 `pub_write_software_versions` 必须登记 xgboost/lightgbm/randomForest/kernlab/e1071/rpart/shapviz/shiny 等；禁止只交 15 个模板包。
+6. **可复现**：Methods 写 train_ratio / seed_used / n_train·n_val、CV 折数、LASSO 频率阈值、操作层 complete#1 vs Rubin。
+7. **中期**：只认当前 `summary_results` Tables/Figures；旧中期 PDF 数字冲突时归档，不入证据链。
+
+## 检查清单
+
+```
+[ ] Methods 无 incidence/发病预测；写 cross-sectional
+[ ] 全文 UA/CR，无 UACR 混用
+[ ] S8 features= 与 SHAP/Shiny 同集同数
+[ ] Fig2 md 无 peak-OR 误标低谷竖线
+[ ] Methods_software_versions 含 ML 分类器包
+[ ] 有 seed / ratio / CV / LASSO 阈值
+```

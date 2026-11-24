@@ -840,7 +840,7 @@ block_rcs_nhanes <- function(ctx, ...) {
 
   or1_txt <- if (length(cut_use$or1)) paste(rcs_format_cutoff(cut_use$or1), collapse = ", ") else "none"
   slope_txt <- if (length(cut_use$peak)) paste(rcs_format_cutoff(cut_use$peak), collapse = ", ") else "none"
-  cli::cli_alert_info("RCS cutoffs — OR=1: {or1_txt}; peak OR: {slope_txt}")
+  cli::cli_alert_info("RCS cutoffs — OR=1: {or1_txt}; slope-zero/reference: {slope_txt}")
   primary_txt <- if (is.finite(primary_cutoff)) rcs_format_cutoff(primary_cutoff) else "NA"
   cli::cli_alert_info(
     "RCS 分组 {grp_info$col_name}: {grp_info$n_groups} 组（mode={group_mode}）— {paste(grp_info$labels, collapse = ' | ')}"

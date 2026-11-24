@@ -150,7 +150,8 @@ config <- list(
 
   trajectory_lcmm_external_validate = list(
     discovery_db = "mimic",
-    prefer_ng = NULL,
+    # 发现集 optimal_ng_GPR=3；禁止回退 max ng=6
+    prefer_ng = 3L,
     require_predictClass = TRUE
   ),
 

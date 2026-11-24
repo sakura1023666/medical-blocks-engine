@@ -1170,6 +1170,262 @@ ckm_stroke_export_assoc_xlsx <- function(built, filepath, title, footnotes) {
   )
 }
 
+#' Prepend Age to Model 2/3 for age-adjustment sensitivity (Model 1 unchanged).
+ckm_stroke_models_prepend_age <- function(models) {
+  out <- models
+  for (mn in c("Model2", "Model3")) {
+    cov <- unique(as.character(out[[mn]] %||% character(0)))
+    cov <- cov[nzchar(cov) & !is.na(cov)]
+    if (!("Age" %in% cov)) cov <- c("Age", cov)
+    out[[mn]] <- cov
+  }
+  out$Model1 <- as.character(out$Model1 %||% character(0))
+  out
+}
+
+#' Age–exposure diagnostics for residual-confounding discussion.
+ckm_stroke_age_exposure_diagnostics <- function(
+    data,
+    cont_col = "cum_eGDR",
+    class_col = "Class_paper",
+    age_col = "Age") {
+  age <- as.numeric(data[[age_col]])
+  cont <- as.numeric(data[[cont_col]])
+  ok <- is.finite(age) & is.finite(cont)
+  spe <- if (sum(ok) >= 10L) {
+    suppressWarnings(stats::cor.test(age[ok], cont[ok], method = "spearman"))
+  } else {
+    NULL
+  }
+  by_class <- NULL
+  if (class_col %in% names(data)) {
+    cl <- as.character(data[[class_col]])
+    by_class <- do.call(rbind, lapply(sort(unique(stats::na.omit(cl))), function(lv) {
+      keep <- cl == lv & is.finite(age)
+      data.frame(
+        Class = lv,
+        n = sum(keep),
+        Age_mean = if (any(keep)) mean(age[keep]) else NA_real_,
+        Age_sd = if (any(keep)) stats::sd(age[keep]) else NA_real_,
+        Age_median = if (any(keep)) stats::median(age[keep]) else NA_real_,
+        stringsAsFactors = FALSE
+      )
+    }))
+  }
+  list(
+    n = sum(ok),
+    spearman_rho = if (!is.null(spe)) unname(spe$estimate) else NA_real_,
+    spearman_p = if (!is.null(spe)) spe$p.value else NA_real_,
+    age_mean = if (any(ok)) mean(age[ok]) else NA_real_,
+    age_sd = if (any(ok)) stats::sd(age[ok]) else NA_real_,
+    by_class = by_class
+  )
+}
+
+#' Export age-adjustment sensitivity tables without overwriting primary Table 2/S1.
+#'
+#' Writes Table S5 (logistic + Age) and Table S6 (Cox + Age) into `tables_dir`.
+#' Optional sidecar copies + comparison CSV under `sidecar_dir` / `_internal`.
+ckm_stroke_export_age_adjustment_sensitivity <- function(
+    data,
+    models_main,
+    tables_dir,
+    index_lab = "ABSI",
+    outcome = "Cancer",
+    cmap = NULL,
+    sidecar_dir = NULL,
+    internal_dir = NULL,
+    s5_bn = NULL,
+    s6_bn = NULL,
+    protect_existing = TRUE) {
+  stopifnot(is.data.frame(data), is.list(models_main))
+  tables_dir <- as.character(tables_dir)[1L]
+  dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
+  ix <- as.character(index_lab %||% "ABSI")[1L]
+  if (is.null(cmap)) {
+    cmap <- if ("eGDR_Class" %in% names(data)) {
+      ckm_stroke_class_map_from_present(data$eGDR_Class)
+    } else {
+      ckm_stroke_class_map_paper()
+    }
+  }
+  if (!"Class_paper" %in% names(data) && "eGDR_Class" %in% names(data)) {
+    data <- ckm_stroke_attach_class_paper(data, "eGDR_Class", cmap)
+  }
+  models_sa <- ckm_stroke_models_prepend_age(models_main)
+  # Drop BMI if present (ABSI component) even when Age is added
+  if (identical(toupper(ix), "ABSI")) {
+    models_sa$Model2 <- setdiff(models_sa$Model2, "BMI")
+    models_sa$Model3 <- setdiff(models_sa$Model3, "BMI")
+  }
+  if (!("Age" %in% names(data))) {
+    stop("ckm_stroke_export_age_adjustment_sensitivity: Age column missing", call. = FALSE)
+  }
+
+  diag <- ckm_stroke_age_exposure_diagnostics(data)
+  built_or <- ckm_stroke_build_table2_assoc(
+    data, models_sa, is_hr = FALSE, outcome = outcome, cmap = cmap, index_lab = ix
+  )
+  built_hr <- ckm_stroke_build_table2_assoc(
+    data, models_sa, is_hr = TRUE, outcome = outcome, cmap = cmap, index_lab = ix
+  )
+
+  .ud <- built_or$unit_delta %||% ckm_stroke_cont_unit_delta(ix)
+  .q_n <- nlevels(factor(data$eGDR_tertile))
+  if (!is.finite(.q_n) || .q_n < 2L) .q_n <- 4L
+  .q_lab <- if (identical(as.integer(.q_n), 3L)) "Tertile" else if (identical(as.integer(.q_n), 4L)) "Quartile" else sprintf("%d-quantile", as.integer(.q_n))
+  .ref_note <- sprintf(
+    "Sensitivity: Age added to Model 2 and Model 3. Primary Table 2 / Table S1 remain without Age. Reference class and %s cuts unchanged.",
+    tolower(.q_lab)
+  )
+  fn_or <- c(
+    .ref_note,
+    sprintf(
+      "Model 1 unadjusted; Model 2: %s; Model 3: %s. BMI omitted as an ABSI component when applicable.",
+      paste(models_sa$Model2, collapse = ", "),
+      paste(models_sa$Model3, collapse = ", ")
+    ),
+    sprintf(
+      "Age–cumulative %s Spearman rho = %s (P = %s). Mean Age (SD) = %s (%s).",
+      ix,
+      if (is.finite(diag$spearman_rho)) sprintf("%.3f", diag$spearman_rho) else "NA",
+      if (is.finite(diag$spearman_p)) ckm_stroke_fmt_p(diag$spearman_p) else "NA",
+      if (is.finite(diag$age_mean)) sprintf("%.1f", diag$age_mean) else "NA",
+      if (is.finite(diag$age_sd)) sprintf("%.1f", diag$age_sd) else "NA"
+    ),
+    "Attenuation after age adjustment does not prove mediation by age alone; residual confounding and shared variance between age and body-shape indices remain possible.",
+    sprintf("Continuous exposure per %s.", ckm_stroke_unit_delta_label(.ud)),
+    if (exists("ckm_stroke_software_footnote", mode = "function")) {
+      ckm_stroke_software_footnote()
+    } else {
+      "Analyses in R."
+    }
+  )
+  fn_hr <- c(
+    .ref_note,
+    sprintf(
+      "Cox Models 2–3 include Age. Model 2: %s; Model 3: %s.",
+      paste(models_sa$Model2, collapse = ", "),
+      paste(models_sa$Model3, collapse = ", ")
+    ),
+    fn_or[3L],
+    "Primary Cox Table S1 omits Age; interpret S6 alongside Table S1.",
+    sprintf("Continuous exposure per %s.", ckm_stroke_unit_delta_label(.ud)),
+    if (exists("ckm_stroke_software_footnote", mode = "function")) {
+      ckm_stroke_software_footnote()
+    } else {
+      "Analyses in R."
+    }
+  )
+
+  if (is.null(s5_bn) || !nzchar(as.character(s5_bn)[1L])) {
+    s5_bn <- sprintf(
+      "Table S5. Age-adjusted logistic associations of %s patterns and cumulative %s with cancer.xlsx",
+      ix, ix
+    )
+  }
+  if (is.null(s6_bn) || !nzchar(as.character(s6_bn)[1L])) {
+    s6_bn <- sprintf(
+      "Table S6. Age-adjusted Cox associations of %s patterns and cumulative %s with cancer.xlsx",
+      ix, ix
+    )
+  }
+  s5_path <- file.path(tables_dir, s5_bn)
+  s6_path <- file.path(tables_dir, s6_bn)
+  if (isTRUE(protect_existing)) {
+    # Never overwrite primary Table 1–3 / S1–S4
+    protect_pat <- c(
+      "^Table [123]\\.",
+      "^Table S[1-4]\\."
+    )
+    for (p in c(s5_path, s6_path)) {
+      bn <- basename(p)
+      if (any(vapply(protect_pat, function(re) grepl(re, bn), logical(1)))) {
+        stop("Refusing to write over protected primary table name: ", bn, call. = FALSE)
+      }
+    }
+  }
+  ckm_stroke_export_assoc_xlsx(
+    built_or, s5_path,
+    title = sub("\\.xlsx$", "", basename(s5_bn)),
+    footnotes = fn_or
+  )
+  ckm_stroke_export_assoc_xlsx(
+    built_hr, s6_path,
+    title = sub("\\.xlsx$", "", basename(s6_bn)),
+    footnotes = fn_hr
+  )
+  # export_sci_table 只入队；独立 SA 脚本必须 flush，否则磁盘无 xlsx
+  if (exists("render_queued_tables", mode = "function")) {
+    try(render_queued_tables(list()), silent = FALSE)
+  }
+
+  # Side-by-side key cells: continuous + highest class + highest quantile M2/M3
+  .pull_key <- function(built, label) {
+    df <- built$df
+    cont_row <- which(grepl("^Cumulative ", df$Variable) & !grepl("patterns|Quartile|Tertile|quantile", df$Variable, ignore.case = TRUE))
+    # highest non-ref class row (last Class row before Cumulative)
+    class_rows <- which(grepl("^  Class ", df$Variable))
+    q_rows <- which(grepl("^  [TQ][0-9]", df$Variable))
+    pick <- function(i) {
+      if (!length(i) || is.na(i[1L])) {
+        return(c(M2e = NA_character_, M2p = NA_character_, M3e = NA_character_, M3p = NA_character_))
+      }
+      i <- i[1L]
+      c(M2e = df$M2e[i], M2p = df$M2p[i], M3e = df$M3e[i], M3p = df$M3p[i])
+    }
+    rbind(
+      data.frame(block = label, term = "continuous", t(pick(cont_row)), stringsAsFactors = FALSE, check.names = FALSE),
+      data.frame(block = label, term = if (length(class_rows)) df$Variable[class_rows[length(class_rows)]] else "class_high",
+                 t(pick(if (length(class_rows)) class_rows[length(class_rows)] else NA_integer_)),
+                 stringsAsFactors = FALSE, check.names = FALSE),
+      data.frame(block = label, term = if (length(q_rows)) df$Variable[q_rows[length(q_rows)]] else "quantile_high",
+                 t(pick(if (length(q_rows)) q_rows[length(q_rows)] else NA_integer_)),
+                 stringsAsFactors = FALSE, check.names = FALSE)
+    )
+  }
+  cmp <- rbind(
+    .pull_key(built_or, "logistic_with_Age"),
+    .pull_key(built_hr, "cox_with_Age")
+  )
+  if (!is.null(internal_dir) && nzchar(internal_dir)) {
+    dir.create(internal_dir, recursive = TRUE, showWarnings = FALSE)
+    utils::write.csv(cmp, file.path(internal_dir, "SA_age_adjustment_key_cells.csv"), row.names = FALSE)
+    if (!is.null(diag$by_class)) {
+      utils::write.csv(diag$by_class, file.path(internal_dir, "SA_age_by_class.csv"), row.names = FALSE)
+    }
+    utils::write.csv(
+      data.frame(
+        spearman_rho = diag$spearman_rho,
+        spearman_p = diag$spearman_p,
+        age_mean = diag$age_mean,
+        age_sd = diag$age_sd,
+        Model2 = paste(models_sa$Model2, collapse = "+"),
+        Model3 = paste(models_sa$Model3, collapse = "+"),
+        stringsAsFactors = FALSE
+      ),
+      file.path(internal_dir, "SA_age_adjustment_meta.csv"),
+      row.names = FALSE
+    )
+  }
+  if (!is.null(sidecar_dir) && nzchar(sidecar_dir)) {
+    dir.create(sidecar_dir, recursive = TRUE, showWarnings = FALSE)
+    file.copy(s5_path, file.path(sidecar_dir, basename(s5_path)), overwrite = TRUE)
+    file.copy(s6_path, file.path(sidecar_dir, basename(s6_path)), overwrite = TRUE)
+    utils::write.csv(cmp, file.path(sidecar_dir, "SA_age_adjustment_key_cells.csv"), row.names = FALSE)
+  }
+
+  invisible(list(
+    s5 = normalizePath(s5_path, winslash = "/", mustWork = FALSE),
+    s6 = normalizePath(s6_path, winslash = "/", mustWork = FALSE),
+    models_sa = models_sa,
+    diagnostics = diag,
+    comparison = cmp,
+    built_or = built_or,
+    built_hr = built_hr
+  ))
+}
+
 # -----------------------------------------------------------------------------
 # Table 3 subgroup（参照类按 cmap$order_table_ref_first，不再写死 Class 2）
 # -----------------------------------------------------------------------------
@@ -2331,6 +2587,8 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
     k_note = NULL,
     covariate_scheme = c("uv_vif", "prespecified"),
     covariate_note = NULL,
+    sensitivity_note = NULL,
+    limitations_note = NULL,
     # osteoporosis: 暴露 W4+W6、结局 W8；masld: 暴露 W2+W4、结局 W6
     elsa_wave_scheme = c("osteoporosis", "masld")) {
   covariate_scheme <- match.arg(covariate_scheme)
@@ -2439,7 +2697,7 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
       outcome_lab
     )
   }
-  c(
+  lines <- c(
     "# Statistical analysis",
     "",
     "## Study design and cohort",
@@ -2507,10 +2765,27 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
     "",
     "## Missing data",
     "Primary Table 1 / Table 2 / Table S1 association estimates used complete cases for the variables in each model. Multiple-imputation sensitivity tables (when exported) used mice with m = 5 and Rubin's rules and were not copies of the complete-case tables.",
+    {
+      .sa <- as.character(sensitivity_note %||% "")[1L]
+      if (nzchar(.sa)) {
+        c("", "## Sensitivity analyses", .sa)
+      } else {
+        NULL
+      }
+    },
+    {
+      .lim <- as.character(limitations_note %||% "")[1L]
+      if (nzchar(.lim)) {
+        c("", "## Limitations", .lim)
+      } else {
+        NULL
+      }
+    },
     "",
     "## Software",
     "Analyses were performed in R. Package versions are listed in Methods_software_versions.txt beside this file."
   )
+  unlist(lines, use.names = FALSE)
 }
 
 #' 写 Methods md + 软件版本 txt，并按全项目白名单修剪 summary_results
@@ -2534,6 +2809,8 @@ ckm_stroke_finalize_summary_delivery <- function(
     k_note = NULL,
     covariate_scheme = c("uv_vif", "prespecified"),
     covariate_note = NULL,
+    sensitivity_note = NULL,
+    limitations_note = NULL,
     elsa_wave_scheme = c("osteoporosis", "masld")) {
   covariate_scheme <- match.arg(covariate_scheme)
   elsa_wave_scheme <- match.arg(elsa_wave_scheme)
@@ -2590,6 +2867,8 @@ ckm_stroke_finalize_summary_delivery <- function(
     k_note = k_note,
     covariate_scheme = covariate_scheme,
     covariate_note = covariate_note,
+    sensitivity_note = sensitivity_note,
+    limitations_note = limitations_note,
     elsa_wave_scheme = elsa_wave_scheme
   )
   lines <- lines[!vapply(lines, is.null, logical(1))]

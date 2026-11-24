@@ -16,7 +16,7 @@ Keep `docs/Blocks_catalog.md` (config-writing index) in sync with `Blocks/` and
 
 ## When to run (mandatory)
 After **any** of these in the same turn / task:
-- New `Blocks/**/0*block_*.R` (or any file calling `register_block(...)`)
+- New `Blocks/**/0*block_*.R` (or any file calling `register_block(...)`) — 新建前须已按 `split-medical-block` 确认**无法仅靠现有块 config 参数**满足需求
 - Rename / remove `register_block`
 - Material change to a block **header comment** (purpose, config keys, prerequisites)
 - New or renamed `configs/templates/*.template.R`

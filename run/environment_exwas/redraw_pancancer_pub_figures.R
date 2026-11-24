@@ -492,33 +492,14 @@ p_s7 <- ggplot(wqs, aes(x = reorder(lab, .data[[w_col]]), y = .data[[w_col]])) +
   theme_pub(10) + theme(panel.grid.major.y = element_blank())
 save_pdf(p_s7, file.path(fig_pdf, "Figure S7. WQS weights.pdf"), w = 7.5, h = 5.5)
 
-# S1 DAG — cleaner boxes
-grDevices::cairo_pdf(file.path(fig_pdf, "Figure S1. DAG covariates.pdf"), width = 9, height = 5.2, family = .font)
-grid.newpage()
-grid.text("Directed acyclic graph of covariates (cancer-adapted)",
-          x = 0.5, y = 0.94, gp = gpar(fontsize = 13, fontface = "bold", fontfamily = .font))
-boxes <- list(
-  list(x = 0.22, y = 0.62, w = 0.32, h = 0.28,
-       lab = "Age, Gender, Race,\nEducation, Marital status,\nPIR, BMI, Alcohol, eGFR"),
-  list(x = 0.55, y = 0.62, w = 0.22, h = 0.18, lab = "Environmental\ntoxicants / ERS"),
-  list(x = 0.82, y = 0.62, w = 0.2, h = 0.18, lab = "Pan-cancer\n(MCQ220)"),
-  list(x = 0.55, y = 0.22, w = 0.28, h = 0.2, lab = "Inflammation\n(WBC, NEUT, MONO,\nNLR, SII, SIRI)")
-)
-for (b in boxes) {
-  grid.roundrect(x = b$x, y = b$y, width = b$w, height = b$h, r = unit(0.02, "npc"),
-                 gp = gpar(fill = "white", col = "black", lwd = 1.1))
-  grid.text(b$lab, x = b$x, y = b$y, gp = gpar(fontsize = 10, fontfamily = .font))
+# S1 DAG：专用脚本（圆形节点+有向边，对齐 Dong Supp Fig1）
+message("Figure S1 DAG → redraw_pancancer_fig_s1_dag.R")
+sys_s1 <- "/mnt/e/01block/01Block-new-Final/run/environment_exwas/redraw_pancancer_fig_s1_dag.R"
+if (file.exists(sys_s1)) {
+  system2("Rscript", sys_s1)
+} else {
+  warning("missing redraw_pancancer_fig_s1_dag.R")
 }
-# arrows
-arr <- arrow(type = "open", length = unit(3, "mm"), angle = 22)
-grid.lines(c(0.38, 0.44), c(0.62, 0.62), arrow = arr, gp = gpar(lwd = 1.1))
-grid.lines(c(0.66, 0.72), c(0.62, 0.62), arrow = arr, gp = gpar(lwd = 1.1))
-grid.lines(c(0.55, 0.55), c(0.53, 0.32), arrow = arr, gp = gpar(lwd = 1.1))
-grid.lines(c(0.66, 0.78), c(0.28, 0.53), arrow = arr, gp = gpar(lwd = 1.1))
-grid.text("Dental covariates omitted (N/A for cancer). Smoke excluded from primary ExWAS.",
-          x = 0.05, y = 0.05, just = "left", gp = gpar(fontsize = 9, fontfamily = .font, col = "grey30"))
-grDevices::dev.off()
-
 # Rebuild Fig4 combined + 4A/4E if correlation/RCS sources exist
 # 4A: use existing pairwise from full_pub internal if available; else skip keep old and restyle via pdf copy after regenerating from hits list only labels
 # Attempt correlation from screen analytic is heavy; copy improved style by regenerating from saved cor csv if any

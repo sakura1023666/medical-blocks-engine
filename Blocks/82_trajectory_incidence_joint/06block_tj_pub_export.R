@@ -35,6 +35,15 @@ block_tj_pub_export <- function(ctx, ...) {
     dir.create(d, showWarnings = FALSE, recursive = TRUE)
 
   dfname <- function(s) gsub("[^A-Za-z0-9]+", "_", s)
+  ## 展示层：体系/pair 名禁编程下划线（pub_no_underscore_display）；文件名仍用 dfname
+  tdisp <- function(s) {
+    s <- as.character(s)
+    if (exists("pipeline_display_label", mode = "function")) {
+      out <- tryCatch(pipeline_display_label(s), error = function(e) NULL)
+      if (!is.null(out)) return(out)
+    }
+    gsub("_", " ", s)
+  }
   prim_key <- paste0("tj_outcome_", (bl$outcome %||% list())$primary$name %||% "primary")
   prim <- ctx$results[[prim_key]] %||% ctx$results$tj_outcome_primary
 
@@ -49,7 +58,7 @@ block_tj_pub_export <- function(ctx, ...) {
     # 文件名/标题避免括号（export_sci_table 会剥括号导致同名覆盖）；体系名用连字符后缀
     t1_path <- file.path(TD, paste0("Table 1 - baseline by trajectory class - ", dfname(sys), ".xlsx"))
     export_sci_table(t1, t1_path,
-      title = paste0("Table 1. Baseline characteristics by joint trajectory class - ", sys),
+      title = paste0("Table 1. Baseline characteristics by joint trajectory class - ", tdisp(sys)),
       table_footnotes = c("Mean (SD) for continuous, n (%) for binary; Kruskal-Wallis / chi-square P.",
                           "Reference class = lowest trajectory risk (T1)."))
     t1_list[[sys]] <- t1
@@ -72,6 +81,7 @@ block_tj_pub_export <- function(ctx, ...) {
       t2[[mn]][is.na(t2[[mn]]) | t2[[mn]] == "NA (NA, NA)"] <- "1 (reference)"
     }
     t2 <- t2[order(t2$System, match(t2$Class, c_lev)), ]
+    t2$System <- tdisp(t2$System)
     export_sci_table(t2, file.path(TD, "Table 2 - Cox models by class and covariate set.xlsx"),
       title = "Table 2. Hazard ratios (95% CI) for incident disease by trajectory class, sequential models",
       table_footnotes = c("Reference = T1 (lowest trajectory). Models sequentially add covariates.",
@@ -87,13 +97,13 @@ block_tj_pub_export <- function(ctx, ...) {
       sprintf("%.3f (%.3f, %.3f)", disp$HR, disp$lo, disp$hi))
     disp$pv <- ifelse(is.na(disp$p), NA,
       ifelse(disp$p < 0.001, "<0.001", sprintf("%.3f", disp$p)))
-    t3 <- data.frame(System = disp$system, Subgroup = disp$subgroup, Level = disp$level,
+    t3 <- data.frame(System = tdisp(disp$system), Subgroup = disp$subgroup, Level = disp$level,
                      N = disp$n, Events = disp$events, Class = disp$class,
                      `HR (95% CI)` = disp$est, P = disp$pv, check.names = FALSE)
     if (!is.null(pib) && nrow(pib)) {
       t3$P.int <- NA
       for (r in seq_len(nrow(pib))) {
-        hit <- which(t3$System == pib$system[r] & t3$Subgroup == pib$subgroup[r])
+        hit <- which(t3$System == tdisp(pib$system[r]) & t3$Subgroup == pib$subgroup[r])
         if (length(hit)) t3$P.int[hit[1]] <- sprintf("%.3f", pib$p_interaction[r])
       }
     }
@@ -108,12 +118,21 @@ block_tj_pub_export <- function(ctx, ...) {
   if (!is.null(sens) && nrow(sens)) {
     sens$est <- sprintf("%.3f (%.3f, %.3f)", sens$HR, sens$lo, sens$hi)
     sens$pv <- ifelse(sens$p < 0.001, "<0.001", sprintf("%.3f", sens$p))
-    ts <- sens[, c("system","analysis","class","est","pv","m")]
-    names(ts) <- c("System","Sensitivity analysis","Class","HR (95% CI)","P","Imputations")
+    has_bh <- "p_bh" %in% names(sens) && any(!is.na(sens$p_bh))
+    sens$pbh <- if (has_bh) ifelse(is.na(sens$p_bh), NA,
+      ifelse(sens$p_bh < 0.001, "<0.001", sprintf("%.3f", sens$p_bh))) else NA_character_
+    ts <- sens[, c("system","analysis","class","est","pv","pbh","m")]
+    ts$system <- tdisp(ts$system)
+    names(ts) <- c("System","Sensitivity analysis","Class","HR (95% CI)","P",
+                   "P (FDR-adjusted)","Imputations")
+    fn <- c("Imputations = 1 for complete-case and when MICE disabled.",
+            "S7 weights posterior probabilities; S9 adds follow-up time main effect.",
+            "S8 = interval-censored complementary log-log (Weibull PH parameterisation; visit windows).",
+            "S10 = cross-classified median-split categories of the two baseline indices (reference = both-low).",
+            "P (FDR-adjusted): Benjamini-Hochberg across trajectory classes within each analysis.")
     export_sci_table(ts, file.path(TD, "Table S1 - sensitivity analyses.xlsx"),
       title = "Table S1. Sensitivity analyses of trajectory class and incident disease",
-      table_footnotes = c("Imputations = 1 for complete-case and when MICE disabled.",
-                          "S7 weights posterior probabilities; S9 adds follow-up time main effect."))
+      table_footnotes = fn)
   }
   # ── Table 4 Fine-Gray competing risk（tj_fg 存在时）───────────────
   fg <- ctx$results$tj_fg
@@ -124,11 +143,14 @@ block_tj_pub_export <- function(ctx, ...) {
       fgf$pv  <- ifelse(fgf$p < 0.001, "<0.001", sprintf("%.3f", fgf$p))
       t4 <- fgf[, c("system", "outcome", "model", "class", "est", "pv", "method",
                     "n_events", "n_competing")]
+      t4$system <- tdisp(t4$system)
       names(t4) <- c("System", "Outcome", "Model", "Class", "sHR (95% CI)", "P",
                      "Method", "Events", "Competing events")
+      comp_note <- (ctx$results$tj_fg_note %||% "all-cause death")
       export_sci_table(t4, file.path(TD, "Table 4 - Fine-Gray competing risk by class.xlsx"),
         title = "Table 4. Subdistribution hazard ratios for incident disease by trajectory class (Fine-Gray)",
-        table_footnotes = c("Competing event = all-cause death; sHR from cmprsk::crr (failcode = primary event).",
+        table_footnotes = c(paste0("Competing event = ", comp_note,
+                                   "; sHR from cmprsk::crr (failcode = primary event)."),
                             "Cause-specific Cox fallback (see Method column) when cmprsk unavailable.",
                             "Rubin pooled across MICE imputations when enabled; complete#1 otherwise."))
     }
@@ -146,7 +168,7 @@ block_tj_pub_export <- function(ctx, ...) {
     gv <- paste0(prefix, sys); if (!gv %in% names(df)) next
     tryCatch(tj_km_pdf(df, gv, prim$event, prim$time,
       file.path(FD, "pdf", paste0("Figure 2 - KM by class (", dfname(sys), ").pdf")),
-      paste0("Figure 2. ", sys, " trajectory classes: incident outcome"), fam),
+      paste0("Figure 2. ", tdisp(sys), " trajectory classes: incident outcome"), fam),
       error = function(e) cli::cli_alert_warning("Fig2 {sys} 跳过: {conditionMessage(e)}"))
   }
 
@@ -154,7 +176,7 @@ block_tj_pub_export <- function(ctx, ...) {
   mn_last <- tail(unique(cox$model), 1)
   if (!is.null(cox) && nrow(cox) && !is.null(mn_last)) {
     fr <- cox[cox$model == mn_last, , drop = FALSE]
-    fr$lab <- paste0(fr$system, " ", fr$class, " (", fr$outcome, ")")
+    fr$lab <- paste0(tdisp(fr$system), " ", fr$class, " (", tdisp(fr$outcome), ")")
     fr <- fr[order(fr$HR), ]
     tryCatch(tj_forest_pdf(fr, file.path(FD, "pdf", "Figure 3 - adjusted HR forest.pdf"),
       paste0("Figure 3. Fully adjusted HR by trajectory class (", mn_last, ")"), fam),
@@ -168,7 +190,7 @@ block_tj_pub_export <- function(ctx, ...) {
       inds <- fobj$long$ind[1]
       tryCatch(tj_traj_panel(fobj, inds, file.path(FD, "pdf",
         paste0("Figure 4 - trajectories (", dfname(sys), ").pdf")), fam,
-        paste0("Figure 4. ", sys, " joint trajectory: ", inds)),
+        paste0("Figure 4. ", tdisp(sys), " joint trajectory: ", tdisp(inds))),
         error = function(e) cli::cli_alert_warning("Fig4 {sys} 跳过: {conditionMessage(e)}"))
     }
   }
@@ -190,7 +212,10 @@ block_tj_pub_export <- function(ctx, ...) {
     "## Statistical analysis",
     sprintf("Cox proportional hazards, sequential models: %s.", paste(m_lev, collapse = " -> ")),
     "Missing covariates multiply imputed (m >= 5) and Rubin-pooled; trajectory classes held fixed (operation layer).",
-    "Subgroup interaction P from Rubin-pooled likelihood-ratio test. Sensitivity: exclude early events, remove diabetes/hypertension, complete-case, exclude lipid/glucose medication, posterior-probability weighting, follow-up-time terms.",
+    "Subgroup interaction P from Rubin-pooled likelihood-ratio test. Benjamini-Hochberg FDR adjustment applied across trajectory groups.",
+    "Sensitivity analyses (nine, as in the reference protocol): (1) excluding events in the first years of follow-up; (2) Fine-Gray subdistribution model with non-primary-outcome death as competing event; (3-4) excluding baseline diabetes / hypertension; (5) complete-case analysis; (6) excluding glucose/lipid-lowering medication users; (7) posterior-probability weighted Cox; (8) interval-censored complementary log-log (visit windows); (9) alternative trajectory time functions (linear/cubic) plus median-split cross-classified analysis.",
+    paste0("Competing-risk semantics (Table 4, Fine-Gray): ",
+           ctx$results$tj_fg_note %||% "not enabled in this run."),
     "",
     "## Software",
     "See Methods_software_versions.txt. R with survival, survminer, mice, ggplot2. GBMTM via engine R/gbmtm_core.R."),
@@ -205,7 +230,7 @@ block_tj_pub_export <- function(ctx, ...) {
       "## 分析上下文",
       paste0("暴露 = GBMTM 联合轨迹类别（参照 T1）；结局 = ",
              (bl$outcome %||% list())$primary$name %||% "primary",
-             "；体系 = ", paste(names(bl$index_pairs), collapse = ", "))),
+             "；体系 = ", paste(vapply(names(bl$index_pairs), tdisp, character(1)), collapse = ", "))),
       file.path(FD, "image_information", paste0(bn, ".md")))
   }
 

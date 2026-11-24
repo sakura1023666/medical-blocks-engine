@@ -1,0 +1,1 @@
+../67_transformer_shortseq_full/06block_trf_external_val.R

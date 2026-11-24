@@ -113,6 +113,9 @@ block_data_clean <- function(ctx, ...) {
   if (exists("pipeline_derive_competing_aki_28d", mode = "function")) {
     data <- pipeline_derive_competing_aki_28d(data, cfg)
   }
+  if (exists("pipeline_derive_competing_crrt_28d", mode = "function")) {
+    data <- pipeline_derive_competing_crrt_28d(data, cfg)
+  }
   if (exists("pipeline_data_clean_enforce_min_n", mode = "function")) {
     pipeline_data_clean_enforce_min_n(data, cfg, stage = "cohort_merge")
   }

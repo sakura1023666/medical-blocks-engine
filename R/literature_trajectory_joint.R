@@ -83,6 +83,60 @@ tj_rubin_vec <- function(B, U) {
   out
 }
 
+#' 区间删失随访窗（cloglog 敏感性用）：由"末次无事件访视列"重建 (L, R]
+#' @param df  宽表（含访视月列，相对基线，0=基线）
+#' @param visit_cols 访视时间列名向量（如 c("tvisit_w3","tvisit_w5")）
+#' @param event 0/1 主事件向量；time 事件/删失时间（月）
+#' @return data.frame L, R（type="interval2" 语义：event 行 R 有限，删失行 R=Inf）
+tj_interval_windows <- function(df, visit_cols, event, time) {
+  event <- as.integer(event); event[is.na(event)] <- 0L
+  time  <- as.numeric(time)
+  vs <- as.matrix(df[, visit_cols, drop = FALSE])
+  vs <- apply(vs, 2, as.numeric)
+  L <- numeric(length(event)); R <- numeric(length(event))
+  for (i in seq_along(event)) {
+    wv <- c(0, vs[i, !is.na(vs[i, ])])
+    wv <- sort(unique(wv[wv >= 0]))
+    ti <- time[i]
+    if (event[i] == 1L && !is.na(ti) && ti > 0) {
+      j <- which(wv >= ti)
+      if (!length(j)) { L[i] <- ti; R[i] <- ti }        # 末次访视后事件：退化为点
+      else {
+        jj <- j[1]
+        L[i] <- if (jj > 1) wv[jj - 1] else 0
+        R[i] <- wv[jj]
+        if (R[i] <= L[i]) { L[i] <- ti; R[i] <- ti }    # 与基线同窗：点事件
+      }
+    } else {
+      # 删失（含无事件死亡/存活到底）：L=观测时间，R=Inf
+      L[i] <- if (!is.na(ti) && ti > 0) ti else max(0, wv[length(wv)])
+      R[i] <- Inf
+    }
+  }
+  data.frame(L = L, R = R)
+}
+
+#' cloglog（Weibull PH 参数化）区间删失回归：survreg interval2 + dist=weibull
+#' HR = exp(-coef/scale)（与 Cox PH 同向可比）。fit_hr 循环每套插补调用本函数。
+tj_cloglog_fit <- function(d, fml_str) {
+  f <- stats::as.formula(fml_str)
+  fit <- tryCatch(suppressWarnings(survival::survreg(f, data = d, dist = "weibull")),
+                  error = function(e) NULL)
+  if (is.null(fit) || !length(fit$coef)) return(NULL)
+  sc <- as.numeric(fit$scale)
+  allcf <- stats::coef(fit)
+  # survreg 系数名可能为 (Intercept)/Intercept + log(scale)；vcov 偶尔无 dimnames
+  keep <- setdiff(names(allcf), c("(Intercept)", "Intercept", "log(scale)"))
+  if (!length(keep)) return(NULL)
+  Vfull <- stats::vcov(fit)
+  if (is.null(dimnames(Vfull)) || !all(keep %in% rownames(Vfull)))
+    dimnames(Vfull) <- list(names(allcf), names(allcf))
+  V <- Vfull[keep, keep, drop = FALSE]
+  cf <- allcf[keep]
+  if (any(!is.finite(V))) return(NULL)
+  list(est = -cf / sc, var = as.matrix(V) / sc^2)   # log-HR 尺度近似（delta，忽略 scale 方差）
+}
+
 #' class 整数标签 → 因子，参照组为升序风险最低类（T1）
 #' @param lbl 字符标签向量（gbmtm_label 的 label 列，形如 T1/T2/...）
 tj_class_factor <- function(lbl) {

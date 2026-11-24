@@ -321,12 +321,17 @@ pub_format_vif <- function(x, digits = NULL) {
   if (grepl("delong", ctx) && grepl("^(new model|baseline model)$", hl)) {
     return("prob")
   }
+  ## 标签列优先（必须在 prob 判定之前）："Sensitivity analysis" 等分析名单元格
+  ## 不得被 ^(…|sensitivity|…)\b 命中成概率列而整列打 NE（Table S1 踩坑 2026-11-24）
+  if (grepl("^(sensitivity analysis|analysis|variable|indicator|term|feature|characteristic)\\b", hl)) return("skip")
   if (grepl("^(auc|accuracy|sensitivity|specificity|f1|f_meas|kappa|mcc|log.?loss|difference of auc|delta.?auc)\\b", hl) ||
       grepl("log.?loss|roc_auc|f_meas|difference of auc", hl)) {
     return("prob")
   }
   if (grepl("^vif$|variance inflation", hl)) return("vif")
   if (grepl("^z statistic$|^z$", hl)) return("est")
+  ## 标签列优先：敏感性分析名 "Sensitivity analysis" 不得当 sensitivity 概率列（→NE 事故）
+  if (grepl("^sensitivity analysis\\b|^analysis\\b|^variable\\b|^indicator\\b|^term\\b", hl)) return("skip")
   ## DeLong 矩阵：列名是模型名、表题含 DeLong → 整格当 P
   if (grepl("delong", ctx) && grepl("^(dt|rf|xgboost|enet|rsvm|mlp|logistic|lightgbm|knn|catboost|tabpfn|model)\\b", hl)) {
     return("p_matrix")
@@ -1702,6 +1707,95 @@ pipeline_derive_competing_aki_28d <- function(data, cfg) {
     delta_abs, ratio, followup,
     sum(status == 0L, na.rm = TRUE), sum(status == 1L, na.rm = TRUE),
     sum(status == 2L, na.rm = TRUE), sum(status == 3L, na.rm = TRUE)
+  ))
+  data
+}
+
+#' 竞争风险：CRRT（主事件=1）vs 死亡（竞争=2）；出院可删失
+#' 需要 data_clean$derive_competing_crrt_28d=TRUE，以及 hosp_day / is_hosp_dead / CRRT；
+#' 优先 CRRT_Day；缺失时用 competing_risk$crrt_day_fallback（默认 1）。
+pipeline_derive_competing_crrt_28d <- function(data, cfg) {
+  if (is.null(data) || !is.data.frame(data)) return(data)
+  dc <- cfg$data_clean %||% list()
+  if (!isTRUE(dc$derive_competing_crrt_28d %||% FALSE)) return(data)
+
+  cr <- cfg$competing_risk %||% list()
+  id_col <- as.character((cfg$data %||% list())$id_column %||% "ID")[1L]
+  need <- c("hosp_day", "is_hosp_dead", "CRRT")
+  miss <- setdiff(need, names(data))
+  if (length(miss)) {
+    stop(
+      "data_clean: derive_competing_crrt_28d 需要列 ", paste(need, collapse = ", "),
+      "；缺失: ", paste(miss, collapse = ", "), call. = FALSE
+    )
+  }
+
+  followup <- as.integer(cr$followup_days %||% 28L)[1L]
+  fallback_day <- suppressWarnings(as.integer(cr$crrt_day_fallback %||% 1L)[1L])
+  if (!is.finite(fallback_day) || fallback_day < 1L) fallback_day <- 1L
+
+  crrt_raw <- data$CRRT
+  crrt_yes <- if (is.logical(crrt_raw)) {
+    !is.na(crrt_raw) & crrt_raw
+  } else if (is.numeric(crrt_raw)) {
+    is.finite(crrt_raw) & crrt_raw == 1
+  } else {
+    tolower(trimws(as.character(crrt_raw))) %in% c("1", "yes", "y", "true", "crrt")
+  }
+
+  crrt_day <- if ("CRRT_Day" %in% names(data)) {
+    suppressWarnings(as.numeric(data$CRRT_Day))
+  } else {
+    rep(NA_real_, nrow(data))
+  }
+  used_fallback <- crrt_yes & (!is.finite(crrt_day) | crrt_day < 1)
+  crrt_day[used_fallback] <- as.numeric(fallback_day)
+  n_fallback <- sum(used_fallback, na.rm = TRUE)
+
+  hosp_day <- suppressWarnings(as.numeric(data$hosp_day))
+  is_dead <- suppressWarnings(as.numeric(data$is_hosp_dead))
+  # is_hosp_dead may be logical
+  if (is.logical(data$is_hosp_dead)) is_dead <- as.numeric(data$is_hosp_dead)
+  terminal_in_window <- is.finite(hosp_day) & hosp_day <= followup
+  if (isTRUE(cr$discharge_as_censor %||% TRUE)) {
+    terminal_status <- ifelse(is_dead == 1, 2L, 0L)
+  } else {
+    terminal_status <- ifelse(is_dead == 1, 2L, 3L)
+  }
+
+  crrt_ok <- crrt_yes & is.finite(crrt_day) & crrt_day <= followup
+  status <- ifelse(
+    crrt_ok & (!terminal_in_window | crrt_day <= hosp_day), 1L,
+    ifelse(terminal_in_window, terminal_status, 0L)
+  )
+  if (isTRUE(cr$discharge_as_censor %||% TRUE)) {
+    time <- ifelse(
+      status == 1L, crrt_day,
+      ifelse(
+        status == 2L, hosp_day,
+        ifelse(terminal_in_window & !(is_dead == 1), hosp_day, followup)
+      )
+    )
+  } else {
+    time <- ifelse(
+      status == 1L, crrt_day,
+      ifelse(status %in% c(2L, 3L), hosp_day, followup)
+    )
+  }
+
+  data$competing_time_28d <- as.numeric(time)
+  data$competing_status_28d <- as.integer(status)
+  data$competing_primary_event <- pipeline_competing_primary_event(
+    data$competing_status_28d,
+    cr$primary_cause %||% 1L
+  )
+
+  cli::cli_alert_success(sprintf(
+    "data_clean: 已衍生 competing_time/status_28d（CRRT vs 死亡，%d天；status 0/1/2/3 = %d/%d/%d/%d；CRRT_Day 回退=%d）",
+    followup,
+    sum(status == 0L, na.rm = TRUE), sum(status == 1L, na.rm = TRUE),
+    sum(status == 2L, na.rm = TRUE), sum(status == 3L, na.rm = TRUE),
+    n_fallback
   ))
   data
 }

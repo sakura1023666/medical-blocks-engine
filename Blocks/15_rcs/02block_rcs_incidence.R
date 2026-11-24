@@ -1324,7 +1324,7 @@ block_rcs_incidence <- function(ctx, ...) {
   } else {
     "none"
   }
-  cli::cli_alert_info("RCS cutoffs — OR=1: {or1_txt}; peak OR: {slope_txt}")
+  cli::cli_alert_info("RCS cutoffs — OR=1: {or1_txt}; slope-zero/reference: {slope_txt}")
   cli::cli_alert_info(
     "分组 {group_info$col_name}: {group_info$n_groups} 组（mode={group_mode}）— {paste(group_info$labels, collapse = ' | ')}"
   )

@@ -112,7 +112,11 @@ config <- list(
     #  区间删失口径 = 末次无事件访视与事件访视的中点，Methods 写实）
     exclude_first_years = 2,
     outcome = list(
-      primary = list(name = "cvd", event_col = "cvd_event", time_col = "cvd_time_m"),
+      primary = list(name = "cvd", event_col = "cvd_event", time_col = "cvd_time_m",
+                     # S8 区间删失窗来源：随访波访谈月（相对基线 0）。缺列时 S8 自动回退
+                     # ±sensitivity$interval_half_months 等宽窗（表注/日志写明，不冒充访视窗）。
+                     visit_time_cols = c("tvisit_w3", "tvisit_w5", "tvisit_w6",
+                                         "tvisit_w7", "tvisit_w8", "tvisit_w9")),
       secondaries = list(
         list(name = "heart",  event_col = "heart_event",  time_col = "heart_time_m"),
         list(name = "stroke", event_col = "stroke_event", time_col = "stroke_time_m")
@@ -123,12 +127,18 @@ config <- list(
     # 要求 master 有 0/1 死亡事件列（death_event_col）；有死亡时间列更佳
     # （death_time_col，月；缺则竞争事件沿用结局 time，Methods 须如实说明）。
     # fstatus: 主事件=cause(1) / 死亡=death_cause(2) / 其余=删失 cencode(0)。
-    # cmprsk 缺失自动回退 cause-specific Cox（日志写明，禁止冒充 Fine-Gray）。
+    # 竞争事件语义（文献敏感性②= non-CVD death，Table 4 脚注自动写明所用口径）：
+    #   a) master 有死因列 -> main_cause_regex 匹配主结局死因，其余死亡=竞争（严格复现）；
+    #   b) 无死因列 -> 默认「未报告主结局事件的死亡」近似 non-CVD death（引擎自证计数）；
+    #   c) competing_is_all_cause=TRUE -> 明示全因死亡（禁止用于复现敏感性②却不自知）。
     competing_risk = list(
       enable = FALSE,                 # <TO_CONFIRM> 竞争风险版置 TRUE
       cause = 1L, cencode = 0L, death_cause = 2L,
       death_event_col = "death_event",
-      death_time_col  = "death_time_m"
+      death_time_col  = "death_time_m",
+      death_cause_icd_col = NULL,     # 如 "death_icd_chapter"；NULL=无语义口径 b
+      main_cause_regex = NULL,        # 如 "^I0|^I1|^I2|^I6"（主结局=心脑血管死因）
+      competing_is_all_cause = FALSE
     ),
 
     # 序贯 Cox 协变量集（文献四段式 Model 1–4；换病种须裁剪成分/泄漏变量）
@@ -153,11 +163,17 @@ config <- list(
 
     sensitivity = list(
       model = "model4",
-      # S8 = 区间删失 Weibull AFT（±24 月窗；报时间比非 HR）——引擎未含 S8 时
-      # 按定稿课题脚本补跑并在表注写明（时间比 <1 = 发病更早）。
+      # 文献九项全实现（Liu 2026 Supplement）：
+      #   S8_cloglog_interval 需 outcome$primary$visit_time_cols（各随访波访谈月）；
+      #   缺访视列时自动回退 ±interval_half_months 等宽窗（定稿 Weibull 口径，日志/表注写明）。
+      #   S10_cross_class = 体系两成分基线波中位数四格 Cox（参照=双低）。
+      #   p_bh 列 = 跨轨迹组 Benjamini–Hochberg FDR（文献正文口径）。
+      visit_cols = NULL,                  # NULL -> 读 outcome$primary$visit_time_cols
+      interval_half_months = 24L,         # 双年度随访 -> ±24 月窗
       items = c("S0_main", "S1_exclude_first2y", "S3_exclude_DM", "S4_exclude_HBP",
                 "S5_complete_case", "S6_exclude_glucose_lipid_med", "S7_PP_weighted",
-                "S9a_linear_time", "S9b_cubic_time")
+                "S8_cloglog_interval",
+                "S9a_linear_time", "S9b_cubic_time", "S10_cross_class")
     ),
 
     # 判别增量（定稿 Table S8：ΔC-index Harrell / 连续 NRI / IDI@60,120 月；

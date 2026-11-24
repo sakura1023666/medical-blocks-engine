@@ -3431,7 +3431,7 @@ incidence_batch_is_figure1_placeholder <- function(path) {
     ok_cp <- tryCatch(file.copy(path, tmp, overwrite = TRUE), error = function(e) FALSE)
     if (isTRUE(ok_cp)) {
       txt <- paste(tryCatch(
-        system2("pdftotext", c("-layout", tmp, "-"), stdout = TRUE, stderr = FALSE),
+        system2("pdftotext", c("-layout", shQuote(tmp), "-"), stdout = TRUE, stderr = FALSE),
         error = function(e) character(0)
       ), collapse = " ")
     }
@@ -3552,7 +3552,7 @@ incidence_batch_figure1_is_legacy_style <- function(pdf_path) {
   txt <- ""
   if (nzchar(Sys.which("pdftotext"))) {
     txt <- paste(tryCatch(
-      system2("pdftotext", c("-layout", pdf_path, "-"), stdout = TRUE, stderr = FALSE),
+      system2("pdftotext", c("-layout", shQuote(pdf_path), "-"), stdout = TRUE, stderr = FALSE),
       error = function(e) character(0)
     ), collapse = "\n")
   }
@@ -3968,7 +3968,7 @@ incidence_batch_ensure_real_figure1 <- function(index_root, config, ix = NULL,
       tmp <- tempfile(fileext = ".pdf")
       if (isTRUE(tryCatch(file.copy(dest, tmp, overwrite = TRUE), error = function(e) FALSE))) {
         txt <- paste(tryCatch(
-          system2("pdftotext", c("-layout", tmp, "-"), stdout = TRUE, stderr = FALSE),
+          system2("pdftotext", c("-layout", shQuote(tmp), "-"), stdout = TRUE, stderr = FALSE),
           error = function(e) character(0)
         ), collapse = " ")
       }

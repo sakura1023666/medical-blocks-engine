@@ -1,6 +1,6 @@
 # Blocks 选型目录（写 config 用）
 
-> 生成/同步：`python3 scripts/update_blocks_catalog.py`  ·  日期：2026-11-23  ·  register_block 数：545
+> 生成/同步：`python3 scripts/update_blocks_catalog.py`  ·  日期：2026-11-24  ·  register_block 数：601
 
 分工：`docs/block操作手册.md` = 怎么跑研究；本文件 = **选哪个 block / 改哪些 config 键**；`docs/block_catalog/` = 程序员 search_blocks 只读导出（另一套）。
 
@@ -95,89 +95,100 @@
 | 目录 | 块数 | register_block（节选） |
 |---|---:|---|
 | `00_attrition` | 1 | `attrition_flowchart` |
+| `00_cumulative_exposure` | 1 | `cum_exposure_build` |
 | `00_dual_db` | 5 | `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize` |
 | `00_index` | 1 | `index` |
 | `01_column_mappings` | 1 | `column_mapping` |
 | `02_data_clean` | 3 | `data_clean`, `derived_grouping`, `psychometrics_scale_score` |
 | `03_imputation` | 5 | `analysis_exclusion`, `imputation`, `prognosis_outcome_landmark`, `skew_log1p`, `trim_index_extreme` |
-| `04_baseline` | 3 | `baseline_binary`, `baseline_multiclass`, `baseline_nhanes` |
-| `05_boxplot` | 1 | `boxplot` |
+| `04_baseline` | 10 | `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `baseline_node_means`, `baseline_quartile_table1`, `baseline_trajectory_table1`, `baseline_two_arm_means`, `baseline_two_group_means`, …(+2) |
+| `05_boxplot` | 2 | `boxplot`, `boxplot_train_validation` |
 | `06_univariate` | 4 | `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis` |
 | `07_multivariate` | 8 | `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized` |
 | `08_vif` | 5 | `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen` |
-| `09_correlation` | 1 | `correlation` |
-| `10_cox` | 9 | `cox_binary`, `cox_interaction`, `cox_ml_continuous_batch`, `cox_multi_horizon`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_subphenotype`, …(+1) |
-| `11_logistic` | 27 | `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_environment_glm`, `logistic_nomogram`, …(+19) |
+| `09_correlation` | 2 | `correlation`, `correlation_biomarker_grid` |
+| `10_cox` | 17 | `cox_allcause_sensitivity`, `cox_binary`, `cox_frailty_baseline`, `cox_interaction`, `cox_mixed_effects`, `cox_ml_continuous_batch`, `cox_multi_horizon`, `cox_multi_predictor_loop`, …(+9) |
+| `11_logistic` | 29 | `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_environment_glm`, `logistic_nomogram`, …(+21) |
 | `12_obj` | 1 | `obj` |
-| `13_roc` | 3 | `ROC`, `clinical_threshold_dca`, `simple_ROC` |
+| `13_roc` | 4 | `ROC`, `clinical_threshold_dca`, `horizon_roc_youden`, `simple_ROC` |
 | `14_cutoff` | 1 | `cutoff` |
-| `15_rcs` | 6 | `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `rcs_sofa_horizon` |
+| `15_rcs` | 9 | `rcs_after_analysis_filter`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_ns_continuous`, `rcs_ns_exposure`, `rcs_prognosis`, `rcs_prognosis_by_group`, …(+1) |
 | `16_weightcox` | 4 | `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile` |
-| `17_shap` | 2 | `shap`, `shap_glm` |
-| `18_subgroup` | 8 | `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `unsupervised_clustering_table` |
+| `17_shap` | 3 | `shap`, `shap_dl_mlp`, `shap_glm` |
+| `18_subgroup` | 14 | `subgroup_cox_basic`, `subgroup_cox_binary_strata`, `subgroup_cox_extended`, `subgroup_cox_strata`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_incidence_diff_by_db`, …(+6) |
 | `19_feature_selection` | 11 | `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, …(+3) |
-| `20_mediation` | 13 | `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `modmed_data_prep`, `modmed_mediation_batch`, …(+5) |
+| `20_mediation` | 18 | `bayesian_mediation_horizon`, `mediation_bootstrap_ci`, `mediation_chain_bootstrap`, `mediation_chain_cox`, `mediation_cox_chain`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, …(+10) |
 | `21_train_validation` | 1 | `train_validation` |
-| `22_ml_models` | 32 | `cart_decision_path`, `ml_adaboost`, `ml_aggregate`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, …(+24) |
+| `22_ml_models` | 36 | `cart_decision_path`, `ml_adaboost`, `ml_aggregate`, `ml_catboost`, `ml_cm_feature_spaces`, `ml_cm_nested_cv`, `ml_cm_score_compare`, `ml_coxboost`, …(+28) |
 | `23_ml_performance` | 1 | `performance_ml` |
 | `24_ml_dual` | 11 | `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_logistic_multi_index_bundle`, `ml_models_bundle`, …(+3) |
 | `25_shiny` | 2 | `shiny_dynnom`, `shiny_ml_app` |
-| `26_trajectory` | 30 | `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `competing_lmm_trajectory`, `competing_trajectory_cluster`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `multimorbidity_kml3d_trajectory`, `trajectory_baseline_by_class`, …(+22) |
-| `27_KM` | 3 | `km_binary`, `km_continuous_router`, `km_strata` |
-| `28_plot` | 2 | `plot_cutoff`, `plot_histogram` |
+| `26_trajectory` | 32 | `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `competing_lmm_trajectory`, `competing_trajectory_cluster`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `multimorbidity_kml3d_trajectory`, `trajectory_baseline_by_class`, …(+24) |
+| `27_KM` | 6 | `km_binary`, `km_by_treatment`, `km_chemo_treatment_strata`, `km_continuous_router`, `km_frailty_strata`, `km_strata` |
+| `28_plot` | 3 | `forest_or_subgroup`, `plot_cutoff`, `plot_histogram` |
 | `29_chord_diagram` | 1 | `chord_diagram` |
 | `30_lca` | 1 | `lca` |
 | `31_subtype_viz` | 1 | `subtype_viz` |
-| `32_stepp` | 1 | `stepp_prognosis` |
-| `33_composite_risk_score` | 1 | `composite_risk_cox` |
-| `34_IPTW` | 2 | `iptw_association`, `iptw_balance` |
-| `35_environment_function` | 11 | `environment_lod_screen`, `environment_subgroup_search`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `exwas_gastric_assemble`, `prepare_environment_dkd_data`, …(+3) |
+| `32_stepp` | 2 | `stepp_prognosis`, `stepp_treatment_strata` |
+| `33_composite_risk` | 2 | `composite_risk_cox`, `composite_risk_cox_lp` |
+| `34_IPTW` | 6 | `iptw_association`, `iptw_balance`, `ipw_overlap_weights`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub` |
 | `36_capability` | 1 | `sensitivity_scenarios` |
-| `36_environment_glm` | 2 | `ers_elastic_net`, `glm_environment_quartile` |
-| `37_environment_wqs` | 2 | `wqs_environment`, `wqs_exwas_fixed` |
-| `38_environment_bkmr` | 2 | `bkmr_analysis`, `bkmr_fit` |
-| `39_environment_qgcomp` | 1 | `qgcomp_environment` |
-| `40_environment_descriptive` | 2 | `environment_characteristics`, `voc_correlation` |
-| `41_environment_target` | 1 | `environment_target_enrichment` |
-| `42_environment_single` | 2 | `environment_single_exposure_transform`, `exwas_unweighted` |
-| `43_dynamic_causal` | 2 | `dynamic_causal_cox_total`, `dynamic_causal_index_compute` |
-| `44_multimorbidity` | 11 | `multimorbidity_baseline_category`, `multimorbidity_cognition_zscore`, `multimorbidity_define_exposures`, `multimorbidity_empirical_transition`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_gee_trajectory`, …(+3) |
-| `45_multimodal` | 1 | `multimodal_early_fusion` |
-| `46_environment_omics` | 5 | `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary` |
-| `47_dynamic_causal_full` | 4 | `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change` |
-| `49_multimodal_full` | 2 | `multimodal_dl_shap`, `multimodal_omics_preprocess` |
-| `50_complex_network` | 6 | `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_profile_batch`, `complex_network_publication_tables` |
+| `36_sensitivity` | 1 | `sensitivity_multi_scenario_cox` |
+| `43_dynamic_causal` | 6 | `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change` |
+| `44_multimorbidity` | 12 | `multimorbidity_baseline_category`, `multimorbidity_cognition_zscore`, `multimorbidity_define_exposures`, `multimorbidity_empirical_transition`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_gee_trajectory`, …(+4) |
+| `45_multimodal` | 3 | `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess` |
+| `50_complex_network` | 14 | `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_weighted`, …(+6) |
 | `51_bayesian_comorbidity` | 7 | `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_outcome_validate`, `bayesian_roc_calibration` |
-| `54_cross_lagged_full` | 21 | `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, …(+13) |
+| `54_cross_lagged` | 21 | `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, …(+13) |
 | `55_competing_risk_full` | 16 | `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_mixed_cox`, …(+8) |
-| `56_ai_clinical_full` | 9 | `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_reader_comparison`, …(+1) |
-| `57_dual_incidence_mr_full` | 10 | `crm_cox_mortality`, `crm_gout_strata`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, …(+2) |
-| `58_medication_regimen_full` | 7 | `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons` |
-| `59_markov_cognitive_full` | 8 | `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep` |
+| `56_ai_clinical_eval` | 9 | `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_reader_comparison`, …(+1) |
+| `57_crm` | 14 | `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_km_pub`, …(+6) |
+| `57_dual_incidence_mr_full` | 5 | `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample` |
+| `57_mr` | 3 | `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample` |
+| `58_medication_regimen` | 6 | `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_stepp_strata`, `medication_trial_comparisons` |
+| `58_medication_regimen_full` | 1 | `medication_literature_targets` |
+| `59_markov` | 8 | `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep` |
 | `60_cdc_wonder_cits_full` | 8 | `cdc_wonder_fetch`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended` |
-| `61_network_temperature_full` | 9 | `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, …(+1) |
-| `62_sem_chain_mediation_full` | 10 | `sem_cfa_discriminant`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, …(+2) |
-| `63_ai_medical_qa_full` | 8 | `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate` |
-| `64_causal_forest_trajectory_full` | 7 | `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long` |
+| `61_network_temperature` | 8 | `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory` |
+| `61_network_temperature_full` | 1 | `network_temp_literature_validate` |
+| `62_sem` | 8 | `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified` |
+| `62_sem_chain_mediation_full` | 2 | `sem_cfa_discriminant`, `sem_literature_validate` |
+| `63_ai_medical_qa` | 8 | `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate` |
+| `64_causal_forest` | 6 | `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_wide_to_long` |
+| `64_causal_forest_trajectory_full` | 1 | `cftraj_trajectory_validate` |
 | `65_incidence_prepost_full` | 8 | `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize` |
-| `66_target_trial_full` | 9 | `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, …(+1) |
-| `67_transformer_shortseq_full` | 10 | `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, …(+2) |
-| `68_dual_change_score_full` | 8 | `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency` |
-| `69_ipw_diabetes_stroke_full` | 10 | `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, …(+2) |
-| `70_crm_nhanes_pub` | 13 | `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, …(+5) |
-| `71_two_stage_transformer_stroke` | 12 | `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, …(+4) |
+| `66_target_trial` | 8 | `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting` |
+| `66_target_trial_full` | 1 | `tte_literature_validate` |
+| `67_transformer` | 18 | `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_multicenter_val`, `trf_sensitivity`, …(+10) |
+| `67_transformer_shortseq_full` | 1 | `trf_literature_validate` |
+| `68_dual_change_score` | 7 | `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency` |
+| `68_dual_change_score_full` | 1 | `dcs_literature_validate` |
+| `69_ipw_diabetes_stroke_full` | 6 | `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_pub_export` |
+| `69_periop_waveform` | 2 | `hypoxemia_case_hemodynamics`, `hypoxemia_duration_hist` |
+| `70_crm_nhanes_pub` | 4 | `crm_mr_literature`, `crm_nhanes_flowchart`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables` |
+| `71_two_stage_transformer_stroke` | 3 | `tst_literature_validate`, `tst_pub_export`, `tst_summary_results` |
 | `72_incidence_prognosis_two_stage` | 3 | `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `threshold_logistic` |
 | `73_ml_nafld_cm` | 6 | `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare` |
-| `74_pa_mobility_cognitive_full` | 19 | `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, …(+11) |
-| `75_osteo_dxa_qct` | 3 | `diagnostic_vs_fracture`, `dxa_qct_agreement`, `modality_discordance_profile` |
-| `76_cum_egdr_kmeans_ckm_full` | 10 | `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `cum_exposure_build`, `logistic_cum_index_bundle`, `model1_scheme_cascade`, `rcs_ckm_strata_panels`, `sensitivity_cox_mice_bundle`, …(+2) |
+| `74_glide_sol` | 10 | `glide_appendix_tables`, `glide_domain_inputs`, `glide_fetch_stations`, `glide_figures_all`, `glide_meteo_forcing`, `glide_pub_finalize`, `glide_solweig_run`, `glide_station_extract`, …(+2) |
+| `74_pa_lmm` | 10 | `pamob_cognition_long`, `pamob_contrast_preset`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, …(+2) |
+| `74_pa_mobility_cognitive_full` | 7 | `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_feasibility`, `pamob_flowchart`, `pamob_pub_export` |
+| `75_dxa_qct` | 3 | `diagnostic_vs_fracture`, `dxa_qct_agreement`, `modality_discordance_profile` |
+| `76_cum_egdr_kmeans_ckm_full` | 9 | `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `logistic_cum_index_bundle`, `model1_scheme_cascade`, `rcs_ckm_strata_panels`, `sensitivity_cox_mice_bundle`, `table1_by_class_ckm`, …(+1) |
 | `77_gallstone_nomogram_full` | 13 | `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, …(+5) |
 | `78_database_pooling_full` | 9 | `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, …(+1) |
-| `79_sleep_dyslipid_prognosis_full` | 5 | `bayesian_mediation_horizon`, `horizon_roc_youden`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `survival_fixed_horizon` |
-| `80_easymr_full` | 3 | `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample` |
-| `81_clhls_symptom_network_full` | 9 | `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, …(+1) |
+| `79_sleep_dyslipid` | 2 | `sleep_duration_range`, `sleep_dyslipid_cohort` |
+| `81_clhls_symptom_network_full` | 1 | `clhls_symptom_ingest` |
 | `82_trajectory_incidence_joint` | 7 | `tj_cox_rubin`, `tj_data_ingest`, `tj_finegray_rubin`, `tj_gbmtm_fit`, `tj_pub_export`, `tj_sensitivity`, `tj_subgroup` |
 | `83_latent_profile` | 1 | `latent_profile_tidylpa` |
+| `bkmr` | 2 | `bkmr_analysis`, `bkmr_fit` |
+| `descriptive` | 2 | `environment_characteristics`, `voc_correlation` |
+| `glm` | 2 | `ers_elastic_net`, `glm_environment_quartile` |
+| `omics` | 5 | `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary` |
+| `prep` | 11 | `environment_lod_screen`, `environment_subgroup_search`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `exwas_gastric_assemble`, `prepare_environment_dkd_data`, …(+3) |
+| `qgcomp` | 1 | `qgcomp_environment` |
+| `single` | 2 | `environment_single_exposure_transform`, `exwas_unweighted` |
+| `target` | 1 | `environment_target_enrichment` |
+| `wqs` | 2 | `wqs_environment`, `wqs_exwas_fixed` |
 
 <!-- END AUTO:dir_index -->
 
@@ -186,13 +197,18 @@
 
 按家族对照选型（pipeline 写 **register_block 名**，不是文件名）。
 
-### `baseline_*`（3）
+### `baseline_*`（8）
 
 | register_block |
 |---|
 | `baseline_binary` |
 | `baseline_multiclass` |
 | `baseline_nhanes` |
+| `baseline_node_means` |
+| `baseline_quartile_table1` |
+| `baseline_trajectory_table1` |
+| `baseline_two_arm_means` |
+| `baseline_two_group_means` |
 
 ### `competing_*`（18）
 
@@ -217,19 +233,26 @@
 | `competing_trajectory_cluster` |
 | `competing_tyg_compute` |
 
-### `cox_*`（9）
+### `cox_*`（16）
 
 | register_block |
 |---|
+| `cox_allcause_sensitivity` |
 | `cox_binary` |
+| `cox_frailty_baseline` |
 | `cox_interaction` |
+| `cox_mixed_effects` |
 | `cox_ml_continuous_batch` |
 | `cox_multi_horizon` |
+| `cox_multi_predictor_loop` |
 | `cox_quartile` |
 | `cox_quintile` |
 | `cox_sextile` |
+| `cox_simple_continuous` |
 | `cox_subphenotype` |
 | `cox_tertile` |
+| `cox_tertile_baseline_wrapper` |
+| `cox_tertile_continuous` |
 
 ### `crm_*`（18）
 
@@ -283,7 +306,7 @@
 | `ipw_surv_calibration_roc` |
 | `ipw_weighted_km_pub` |
 
-### `logistic_*`（28）
+### `logistic_*`（30）
 
 | register_block |
 |---|
@@ -296,6 +319,7 @@
 | `logistic_cum_index_bundle` |
 | `logistic_environment_glm` |
 | `logistic_nomogram` |
+| `logistic_ordinal_polr` |
 | `logistic_quartile_clogit` |
 | `logistic_quartile_glm` |
 | `logistic_quartile_glm_rcs` |
@@ -315,11 +339,16 @@
 | `logistic_tertile_iptw_weighted` |
 | `logistic_tertile_nhanes_weighted` |
 | `logistic_tertile_nhanes_weighted_rcs` |
+| `logistic_univariable_or` |
 
-### `mediation_*`（6）
+### `mediation_*`（10）
 
 | register_block |
 |---|
+| `mediation_bootstrap_ci` |
+| `mediation_chain_bootstrap` |
+| `mediation_chain_cox` |
+| `mediation_cox_chain` |
 | `mediation_ers_environment` |
 | `mediation_incidence` |
 | `mediation_longitudinal` |
@@ -327,7 +356,7 @@
 | `mediation_prognosis` |
 | `mediation_subgroup_router` |
 
-### `ml_*`（47）
+### `ml_*`（51）
 
 | register_block |
 |---|
@@ -336,6 +365,9 @@
 | `ml_assoc_bundle` |
 | `ml_assoc_covariate_resolve` |
 | `ml_catboost` |
+| `ml_cm_feature_spaces` |
+| `ml_cm_nested_cv` |
+| `ml_cm_score_compare` |
 | `ml_coxboost` |
 | `ml_dt` |
 | `ml_enet` |
@@ -375,6 +407,7 @@
 | `ml_tcf_sklearn_external` |
 | `ml_tcf_sklearn_rscv` |
 | `ml_topsis_fusion` |
+| `ml_variable_heatmap` |
 | `ml_vif_train_test` |
 | `ml_xgboost` |
 | `ml_xgbsurv` |
@@ -392,31 +425,40 @@
 | `multivariate_prognosis` |
 | `multivariate_prognosis_harmonized` |
 
-### `rcs_*`（7）
+### `rcs_*`（10）
 
 | register_block |
 |---|
+| `rcs_after_analysis_filter` |
 | `rcs_ckm_strata_panels` |
 | `rcs_incidence` |
 | `rcs_iptw_weighted` |
 | `rcs_nhanes` |
+| `rcs_ns_continuous` |
+| `rcs_ns_exposure` |
 | `rcs_prognosis` |
 | `rcs_prognosis_by_group` |
 | `rcs_sofa_horizon` |
 
-### `subgroup_*`（7）
+### `subgroup_*`（13）
 
 | register_block |
 |---|
+| `subgroup_cox_basic` |
+| `subgroup_cox_binary_strata` |
+| `subgroup_cox_extended` |
+| `subgroup_cox_strata` |
 | `subgroup_environment_or` |
 | `subgroup_incidence` |
 | `subgroup_incidence_continuous` |
+| `subgroup_incidence_diff_by_db` |
 | `subgroup_iptw_weighted` |
+| `subgroup_lm_age_interaction` |
 | `subgroup_nhanes_weighted` |
 | `subgroup_prognosis` |
 | `subgroup_treatment_forest` |
 
-### `trajectory_*`（23）
+### `trajectory_*`（25）
 
 | register_block |
 |---|
@@ -438,6 +480,8 @@
 | `trajectory_pamm` |
 | `trajectory_piecewise_cox` |
 | `trajectory_plot_gbmt` |
+| `trajectory_plot_gbmt_priori` |
+| `trajectory_plot_gbmt_priori_mean_ci` |
 | `trajectory_plot_jlcm` |
 | `trajectory_prepare_wide_rdata` |
 | `trajectory_subgroup_class` |
@@ -597,7 +641,7 @@
 <!-- BEGIN AUTO:block_cards -->
 ## 8. Block 卡片（AUTO）
 
-共 **545** 个 `register_block`。 细节以各文件头部注释为准；本表只做选型索引。
+共 **601** 个 `register_block`。 细节以各文件头部注释为准；本表只做选型索引。
 
 ### `00_attrition/`
 
@@ -607,6 +651,14 @@
 - 典型位置: 任意 pipeline 最后一个 block（baseline_pipelines / 研究 batch 末尾）
 - config 节: `config$attrition`
 - 回读: `Blocks/00_attrition/01block_attrition_flowchart.R` 文件头注释
+
+
+### `00_cumulative_exposure/`
+
+#### `cum_exposure_build`
+- 路径: `Blocks/00_cumulative_exposure/01block_cum_exposure_build.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/00_cumulative_exposure/01block_cum_exposure_build.R` 文件头注释
 
 
 ### `00_dual_db/`
@@ -748,6 +800,41 @@
 - config 节: `config$analysis_var_policy`, `config$baseline_nhanes`, `config$nhanes`
 - 回读: `Blocks/04_baseline/03block_baseline_nhanes.R` 文件头注释
 
+#### `baseline_node_means`
+- 路径: `Blocks/04_baseline/08block_baseline_node_means.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/08block_baseline_node_means.R` 文件头注释
+
+#### `baseline_quartile_table1`
+- 路径: `Blocks/04_baseline/09block_baseline_quartile_table1.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/09block_baseline_quartile_table1.R` 文件头注释
+
+#### `baseline_trajectory_table1`
+- 路径: `Blocks/04_baseline/10block_baseline_trajectory_table1.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/10block_baseline_trajectory_table1.R` 文件头注释
+
+#### `baseline_two_arm_means`
+- 路径: `Blocks/04_baseline/07block_baseline_two_arm_means.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/07block_baseline_two_arm_means.R` 文件头注释
+
+#### `baseline_two_group_means`
+- 路径: `Blocks/04_baseline/06block_baseline_two_group_means.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/06block_baseline_two_group_means.R` 文件头注释
+
+#### `pamob_baseline_charls`
+- 路径: `Blocks/04_baseline/04block_pamob_baseline_charls.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/04block_pamob_baseline_charls.R` 文件头注释
+
+#### `pamob_baseline_nhanes`
+- 路径: `Blocks/04_baseline/05block_pamob_baseline_nhanes.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/04_baseline/05block_pamob_baseline_nhanes.R` 文件头注释
+
 
 ### `05_boxplot/`
 
@@ -757,6 +844,12 @@
 - 典型位置: baseline 之后（可用 sig_vars 或 survival/logistic 指定指标）
 - config 节: `config$boxplot`
 - 回读: `Blocks/05_boxplot/01block_boxplot.R` 文件头注释
+
+#### `boxplot_train_validation`
+- 路径: `Blocks/05_boxplot/02block_boxplot_train_validation.R`
+- 用途: ##############################################################################
+- 典型位置: train_validation + imputation 之后
+- 回读: `Blocks/05_boxplot/02block_boxplot_train_validation.R` 文件头注释
 
 
 ### `06_univariate/`
@@ -892,8 +985,18 @@
 - config 节: `config$correlation`
 - 回读: `Blocks/09_correlation/01block_correlation.R` 文件头注释
 
+#### `correlation_biomarker_grid`
+- 路径: `Blocks/09_correlation/02block_correlation_biomarker_grid.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/09_correlation/02block_correlation_biomarker_grid.R` 文件头注释
+
 
 ### `10_cox/`
+
+#### `cox_allcause_sensitivity`
+- 路径: `Blocks/10_cox/14block_cox_allcause_sensitivity.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/10_cox/14block_cox_allcause_sensitivity.R` 文件头注释
 
 #### `cox_binary`
 - 路径: `Blocks/10_cox/01block_cox_binary.R`
@@ -902,12 +1005,22 @@
 - config 节: `config$cox`, `config$cox_binary`
 - 回读: `Blocks/10_cox/01block_cox_binary.R` 文件头注释
 
+#### `cox_frailty_baseline`
+- 路径: `Blocks/10_cox/11block_cox_frailty_baseline.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/10_cox/11block_cox_frailty_baseline.R` 文件头注释
+
 #### `cox_interaction`
 - 路径: `Blocks/10_cox/06block_cox_interaction.R`
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_study = config$project$study_type == "prognosis"`; `require_config = config$survival（time_var / event_var / event_value 必填）`
 - config 节: `config$cox_interaction`, `config$project`, `config$survival`
 - 回读: `Blocks/10_cox/06block_cox_interaction.R` 文件头注释
+
+#### `cox_mixed_effects`
+- 路径: `Blocks/10_cox/15block_cox_mixed_effects.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/10_cox/15block_cox_mixed_effects.R` 文件头注释
 
 #### `cox_ml_continuous_batch`
 - 路径: `Blocks/10_cox/08block_cox_ml_continuous_batch.R`
@@ -921,6 +1034,11 @@
 - 典型位置: derived_grouping 之后；UV/VIF/Cox 之后
 - config 节: `config$cox_multi_horizon`, `config$jin_index_sofa`
 - 回读: `Blocks/10_cox/09block_cox_multi_horizon.R` 文件头注释
+
+#### `cox_multi_predictor_loop`
+- 路径: `Blocks/10_cox/16block_cox_multi_predictor_loop.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/10_cox/16block_cox_multi_predictor_loop.R` 文件头注释
 
 #### `cox_quartile`
 - 路径: `Blocks/10_cox/03block_cox_quartile.R`
@@ -939,6 +1057,12 @@
 - config 节: `config$cox_sextile`
 - 回读: `Blocks/10_cox/05block_cox_sextile.R` 文件头注释
 
+#### `cox_simple_continuous`
+- 路径: `Blocks/10_cox/09block_cox_simple_continuous.R`
+- 用途: ##############################################################################
+- config 节: `config$cox_simple_continuous`, `config$dual_incidence_mr`
+- 回读: `Blocks/10_cox/09block_cox_simple_continuous.R` 文件头注释
+
 #### `cox_subphenotype`
 - 路径: `Blocks/10_cox/07block_cox_subphenotype_multimodel.R`
 - 用途: ##############################################################################
@@ -951,6 +1075,23 @@
 - 路径: `Blocks/10_cox/02block_cox_tertile.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/10_cox/02block_cox_tertile.R` 文件头注释
+
+#### `cox_tertile_baseline_wrapper`
+- 路径: `Blocks/10_cox/13block_cox_baseline_tertile_wrapper.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/10_cox/13block_cox_baseline_tertile_wrapper.R` 文件头注释
+
+#### `cox_tertile_continuous`
+- 路径: `Blocks/10_cox/12block_cox_tertile_continuous.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/10_cox/12block_cox_tertile_continuous.R` 文件头注释
+
+#### `survival_fixed_horizon`
+- 路径: `Blocks/10_cox/10block_survival_fixed_horizon.R`
+- 用途: ##############################################################################
+- 典型位置: sleep_duration_range 之后
+- config 节: `config$prognosis_v2`
+- 回读: `Blocks/10_cox/10block_survival_fixed_horizon.R` 文件头注释
 
 
 ### `11_logistic/`
@@ -1006,6 +1147,11 @@
 - 典型位置: derived_grouping / cox_multi_horizon 之后
 - config 节: `config$jin_index_sofa`, `config$logistic_nomogram`
 - 回读: `Blocks/11_logistic/20block_logistic_nomogram.R` 文件头注释
+
+#### `logistic_ordinal_polr`
+- 路径: `Blocks/11_logistic/20block_logistic_ordinal_polr.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/11_logistic/20block_logistic_ordinal_polr.R` 文件头注释
 
 #### `logistic_quartile_clogit`
 - 路径: `Blocks/11_logistic/03block_logistic_quartile_clogit.R`
@@ -1128,6 +1274,11 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/11_logistic/14block_logistic_tertile_nhanes_weighted.R` 文件头注释
 
+#### `logistic_univariable_or`
+- 路径: `Blocks/11_logistic/21block_logistic_univariable_or.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/11_logistic/21block_logistic_univariable_or.R` 文件头注释
+
 
 ### `12_obj/`
 
@@ -1156,6 +1307,12 @@
 - config 节: `config$clinical_threshold_dca`
 - 回读: `Blocks/13_roc/03block_clinical_threshold_dca.R` 文件头注释
 
+#### `horizon_roc_youden`
+- 路径: `Blocks/13_roc/03block_horizon_roc_youden.R`
+- 用途: ##############################################################################
+- 典型位置: survival_fixed_horizon 之后（依赖 event_h）
+- 回读: `Blocks/13_roc/03block_horizon_roc_youden.R` 文件头注释
+
 #### `simple_ROC`
 - 路径: `Blocks/13_roc/02block_simple_ROC.R`
 - 用途: ##############################################################################
@@ -1177,6 +1334,11 @@
 
 
 ### `15_rcs/`
+
+#### `rcs_after_analysis_filter`
+- 路径: `Blocks/15_rcs/06block_rcs_after_analysis_filter.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/15_rcs/06block_rcs_after_analysis_filter.R` 文件头注释
 
 #### `rcs_incidence`
 - 路径: `Blocks/15_rcs/02block_rcs_incidence.R`
@@ -1201,6 +1363,16 @@
 - 写出: ctx$results$nhanes_rcs（crude/model1/model2 预测与 P 值）； nhanes_rcs_cutoffs_all / nhanes_rcs_primary_cutoff（Model2 曲线切点，对齐 rcs_incidence）； rcs_nhanes_figure；rcs_nhanes_model1|2_factors
 - config 节: `config$rcs_nhanes`
 - 回读: `Blocks/15_rcs/03block_rcs_nhanes.R` 文件头注释
+
+#### `rcs_ns_continuous`
+- 路径: `Blocks/15_rcs/05block_rcs_ns_continuous.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/15_rcs/05block_rcs_ns_continuous.R` 文件头注释
+
+#### `rcs_ns_exposure`
+- 路径: `Blocks/15_rcs/07block_rcs_ns_exposure.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/15_rcs/07block_rcs_ns_exposure.R` 文件头注释
 
 #### `rcs_prognosis`
 - 路径: `Blocks/15_rcs/01block_rcs_prognosis.R`
@@ -1275,6 +1447,11 @@
 - config 节: `config$shap`
 - 回读: `Blocks/17_shap/01block_shap.R` 文件头注释
 
+#### `shap_dl_mlp`
+- 路径: `Blocks/17_shap/02block_shap_dl_mlp.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/17_shap/02block_shap_dl_mlp.R` 文件头注释
+
 #### `shap_glm`
 - 路径: `Blocks/17_shap/02block_shap_glm.R`
 - 用途: ##############################################################################
@@ -1283,6 +1460,26 @@
 
 
 ### `18_subgroup/`
+
+#### `subgroup_cox_basic`
+- 路径: `Blocks/18_subgroup/10block_subgroup_cox_basic.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/18_subgroup/10block_subgroup_cox_basic.R` 文件头注释
+
+#### `subgroup_cox_binary_strata`
+- 路径: `Blocks/18_subgroup/13block_subgroup_cox_binary_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/18_subgroup/13block_subgroup_cox_binary_strata.R` 文件头注释
+
+#### `subgroup_cox_extended`
+- 路径: `Blocks/18_subgroup/11block_subgroup_cox_extended.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/18_subgroup/11block_subgroup_cox_extended.R` 文件头注释
+
+#### `subgroup_cox_strata`
+- 路径: `Blocks/18_subgroup/12block_subgroup_cox_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/18_subgroup/12block_subgroup_cox_strata.R` 文件头注释
 
 #### `subgroup_environment_or`
 - 路径: `Blocks/18_subgroup/09block_subgroup_environment_or.R`
@@ -1306,12 +1503,22 @@
 - config 节: `config$subgroup`
 - 回读: `Blocks/18_subgroup/05block_subgroup_incidence_continuous.R` 文件头注释
 
+#### `subgroup_incidence_diff_by_db`
+- 路径: `Blocks/18_subgroup/15block_subgroup_incidence_diff_by_db.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/18_subgroup/15block_subgroup_incidence_diff_by_db.R` 文件头注释
+
 #### `subgroup_iptw_weighted`
 - 路径: `Blocks/18_subgroup/08block_subgroup_iptw_weighted.R`
 - 用途: ##############################################################################
 - 典型位置: iptw_balance → logistic_*_iptw_weighted（可选）→ subgroup_iptw_weighted
 - config 节: `config$subgroup`, `config$subgroup_iptw_weighted`
 - 回读: `Blocks/18_subgroup/08block_subgroup_iptw_weighted.R` 文件头注释
+
+#### `subgroup_lm_age_interaction`
+- 路径: `Blocks/18_subgroup/14block_subgroup_lm_age_interaction.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/18_subgroup/14block_subgroup_lm_age_interaction.R` 文件头注释
 
 #### `subgroup_nhanes_weighted`
 - 路径: `Blocks/18_subgroup/03block_subgroup_nhanes_weighted.R`
@@ -1422,6 +1629,33 @@
 
 
 ### `20_mediation/`
+
+#### `bayesian_mediation_horizon`
+- 路径: `Blocks/20_mediation/15block_bayesian_mediation_horizon.R`
+- 用途: ##############################################################################
+- 典型位置: survival_fixed_horizon 之后
+- config 节: `config$prognosis_v2`
+- 回读: `Blocks/20_mediation/15block_bayesian_mediation_horizon.R` 文件头注释
+
+#### `mediation_bootstrap_ci`
+- 路径: `Blocks/20_mediation/17block_mediation_bootstrap_ci.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/20_mediation/17block_mediation_bootstrap_ci.R` 文件头注释
+
+#### `mediation_chain_bootstrap`
+- 路径: `Blocks/20_mediation/18block_mediation_chain_bootstrap.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/20_mediation/18block_mediation_chain_bootstrap.R` 文件头注释
+
+#### `mediation_chain_cox`
+- 路径: `Blocks/20_mediation/16block_mediation_chain_cox.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/20_mediation/16block_mediation_chain_cox.R` 文件头注释
+
+#### `mediation_cox_chain`
+- 路径: `Blocks/20_mediation/19block_mediation_cox_chain.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/20_mediation/19block_mediation_cox_chain.R` 文件头注释
 
 #### `mediation_ers_environment`
 - 路径: `Blocks/20_mediation/04block_mediation_ers_environment.R`
@@ -1536,6 +1770,25 @@
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = feature_selection_final（feature_selection 启用时）或 Model2Factors`
 - 回读: `Blocks/22_ml_models/12block_ml_catboost.R` 文件头注释
+
+#### `ml_cm_feature_spaces`
+- 路径: `Blocks/22_ml_models/01block_ml_nafld_feature_spaces.R`
+- 用途: ##############################################################################
+- 典型位置: univariate + ml_vif_train_test 之后
+- config 节: `config$feature_engineering`
+- 回读: `Blocks/22_ml_models/01block_ml_nafld_feature_spaces.R` 文件头注释
+
+#### `ml_cm_nested_cv`
+- 路径: `Blocks/22_ml_models/02block_ml_nafld_nested_cv.R`
+- 用途: ##############################################################################
+- 典型位置: ml_nafld_feature_spaces 之后（折内仍重做特征选择）
+- config 节: `config$ml_small_sample`
+- 回读: `Blocks/22_ml_models/02block_ml_nafld_nested_cv.R` 文件头注释
+
+#### `ml_cm_score_compare`
+- 路径: `Blocks/22_ml_models/03block_ml_nafld_score_compare.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/22_ml_models/03block_ml_nafld_score_compare.R` 文件头注释
 
 #### `ml_coxboost`
 - 路径: `Blocks/22_ml_models/20block_ml_surv_extra_models.R`
@@ -1695,6 +1948,12 @@
 - 路径: `Blocks/22_ml_models/24block_ml_topsis_fusion.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/22_ml_models/24block_ml_topsis_fusion.R` 文件头注释
+
+#### `ml_variable_heatmap`
+- 路径: `Blocks/22_ml_models/28block_ml_variable_heatmap.R`
+- 用途: ##############################################################################
+- 典型位置: ml_aggregate / performance_ml / shap 之后
+- 回读: `Blocks/22_ml_models/28block_ml_variable_heatmap.R` 文件头注释
 
 #### `ml_xgboost`
 - 路径: `Blocks/22_ml_models/03block_ml_xgboost.R`
@@ -1961,6 +2220,20 @@
 - 前置: `require_ctx_data = ctx$data$trajectory_long（或 long_data_dir 磁盘兜底）`; `require_upstream = trajectory_gbmt（或已有 D01_long_*.RData）`
 - 回读: `Blocks/26_trajectory/03block_trajectory_plot_gbmt.R` 文件头注释
 
+#### `trajectory_plot_gbmt_priori`
+- 路径: `Blocks/26_trajectory/30block_trajectory_plot_gbmt_priori.R`
+- 用途: ##############################################################################
+- 典型位置: 编码先验分组后；与 trajectory_plot_gbmt（潜类）二选一或并列
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned # pipeline 决定，块内不选源`; `require_package = dplyr, tidyr, ggplot2, RColorBrewer`
+- 回读: `Blocks/26_trajectory/30block_trajectory_plot_gbmt_priori.R` 文件头注释
+
+#### `trajectory_plot_gbmt_priori_mean_ci`
+- 路径: `Blocks/26_trajectory/31block_trajectory_plot_gbmt_priori_mean_ci.R`
+- 用途: ##############################################################################
+- 典型位置: 编码先验分组后；与 trajectory_plot_gbmt / *_priori 并列
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_package = dplyr, tidyr, ggplot2, RColorBrewer`
+- 回读: `Blocks/26_trajectory/31block_trajectory_plot_gbmt_priori_mean_ci.R` 文件头注释
+
 #### `trajectory_plot_jlcm`
 - 路径: `Blocks/26_trajectory/04block_trajectory_plot_jlcm.R`
 - 用途: ##############################################################################
@@ -2001,10 +2274,25 @@
 - config 节: `config$km`
 - 回读: `Blocks/27_KM/01block_km_binary.R` 文件头注释
 
+#### `km_by_treatment`
+- 路径: `Blocks/27_KM/05block_km_by_treatment.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/27_KM/05block_km_by_treatment.R` 文件头注释
+
+#### `km_chemo_treatment_strata`
+- 路径: `Blocks/27_KM/06block_km_chemo_treatment_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/27_KM/06block_km_chemo_treatment_strata.R` 文件头注释
+
 #### `km_continuous_router`
 - 路径: `Blocks/27_KM/03block_km_continuous_router.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/27_KM/03block_km_continuous_router.R` 文件头注释
+
+#### `km_frailty_strata`
+- 路径: `Blocks/27_KM/04block_km_frailty_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/27_KM/04block_km_frailty_strata.R` 文件头注释
 
 #### `km_strata`
 - 路径: `Blocks/27_KM/02block_km_strata.R`
@@ -2015,6 +2303,12 @@
 
 
 ### `28_plot/`
+
+#### `forest_or_subgroup`
+- 路径: `Blocks/28_plot/03block_forest_or_subgroup.R`
+- 用途: ##############################################################################
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`
+- 回读: `Blocks/28_plot/03block_forest_or_subgroup.R` 文件头注释
 
 #### `plot_cutoff`
 - 路径: `Blocks/28_plot/01block_plot_cutoff.R`
@@ -2066,16 +2360,26 @@
 - config 节: `config$project`, `config$stepp_prognosis`, `config$survival`
 - 回读: `Blocks/32_stepp/01block_stepp_prognosis.R` 文件头注释
 
+#### `stepp_treatment_strata`
+- 路径: `Blocks/32_stepp/02block_stepp_treatment_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/32_stepp/02block_stepp_treatment_strata.R` 文件头注释
 
-### `33_composite_risk_score/`
+
+### `33_composite_risk/`
 
 #### `composite_risk_cox`
-- 路径: `Blocks/33_composite_risk_score/01block_composite_risk_cox.R`
+- 路径: `Blocks/33_composite_risk/01block_composite_risk_cox.R`
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_study = config$project$study_type == "prognosis"`; `require_config = config$survival（time_var / event_var / event_value 必填）`
 - 写出: ctx$data$imputed（追加 score_var） ctx$results$composite_risk_cox_model, composite_risk_cox_coef_table, composite_risk_score_var, composite_risk_predictors（实际使用的变量名）
 - config 节: `config$composite_risk_cox`, `config$project`, `config$survival`
-- 回读: `Blocks/33_composite_risk_score/01block_composite_risk_cox.R` 文件头注释
+- 回读: `Blocks/33_composite_risk/01block_composite_risk_cox.R` 文件头注释
+
+#### `composite_risk_cox_lp`
+- 路径: `Blocks/33_composite_risk/02block_composite_risk_cox_lp.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/33_composite_risk/02block_composite_risk_cox_lp.R` 文件头注释
 
 
 ### `34_IPTW/`
@@ -2095,78 +2399,34 @@
 - config 节: `config$iptw_balance`
 - 回读: `Blocks/34_IPTW/01block_iptw_balance.R` 文件头注释
 
-
-### `35_environment_function/`
-
-#### `environment_lod_screen`
-- 路径: `Blocks/35_environment_function/07block_environment_lod_screen.R`
+#### `ipw_overlap_weights`
+- 路径: `Blocks/34_IPTW/04block_ipw_overlap_weights.R`
 - 用途: ##############################################################################
-- 典型位置: column_mapping → environment_lod_screen → imputation
-- 回读: `Blocks/35_environment_function/07block_environment_lod_screen.R` 文件头注释
+- 典型位置: iptw_balance → ... → cox_binary → ipw_overlap_weights
+- 前置: `require_data = ctx$data$iptw_weighted %||% ctx$data$imputed %||% ctx$data$cleaned`; `require_results = ctx$results$iptw_ps_covariates（可选；来自 34_IPTW/01block_iptw_balance）`
+- 写出: ctx$results$ipw_overlap_weights（PS、重叠权重、Cox HR/CI/P）
+- config 节: `config$ipw_overlap_weights`
+- 回读: `Blocks/34_IPTW/04block_ipw_overlap_weights.R` 文件头注释
 
-#### `environment_subgroup_search`
-- 路径: `Blocks/35_environment_function/05block_environment_subgroup_search.R`
+#### `ipw_subgroup_km_pub`
+- 路径: `Blocks/34_IPTW/05block_ipw_subgroup_km_pub.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/35_environment_function/05block_environment_subgroup_search.R` 文件头注释
+- 前置: `require_data = ctx$data$iptw_weighted（须先 iptw_balance）`
+- 回读: `Blocks/34_IPTW/05block_ipw_subgroup_km_pub.R` 文件头注释
 
-#### `environment_voc_clinical_gate`
-- 路径: `Blocks/35_environment_function/02block_environment_voc_clinical_gate.R`
+#### `ipw_surv_calibration_roc`
+- 路径: `Blocks/34_IPTW/08block_ipw_surv_calibration_roc.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/35_environment_function/02block_environment_voc_clinical_gate.R` 文件头注释
+- 回读: `Blocks/34_IPTW/08block_ipw_surv_calibration_roc.R` 文件头注释
 
-#### `environment_voc_corrplot`
-- 路径: `Blocks/35_environment_function/08block_environment_voc_corrplot.R`
+#### `ipw_weighted_km_pub`
+- 路径: `Blocks/34_IPTW/03block_ipw_weighted_km_pub.R`
 - 用途: ##############################################################################
-- 典型位置: multicollinearity_nhanes_final → environment_voc_corrplot → environment_voc_clinical_gate
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx = voc_columns（来自 environment_lod_screen）`
-- config 节: `config$environment_corrplot`
-- 回读: `Blocks/35_environment_function/08block_environment_voc_corrplot.R` 文件头注释
-
-#### `environment_voc_extreme_trim`
-- 路径: `Blocks/35_environment_function/06block_environment_voc_extreme_trim.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/35_environment_function/06block_environment_voc_extreme_trim.R` 文件头注释
-
-#### `environment_voc_log_transform`
-- 路径: `Blocks/35_environment_function/00block_environment_voc_log_transform.R`
-- 用途: ##############################################################################
-- config 节: `config$environment_voc_log_transform`
-- 回读: `Blocks/35_environment_function/00block_environment_voc_log_transform.R` 文件头注释
-
-#### `exwas_gastric_assemble`
-- 路径: `Blocks/35_environment_function/09block_exwas_gastric_assemble.R`
-- 用途: ##############################################################################
-- 典型位置: exwas_gastric_assemble → exwas_unweighted → ers_elastic_net
-- config 节: `config$exwas_gastric_assemble`
-- 回读: `Blocks/35_environment_function/09block_exwas_gastric_assemble.R` 文件头注释
-
-#### `prepare_environment_dkd_data`
-- 路径: `Blocks/35_environment_function/00block_prepare_environment_dkd_data.R`
-- 用途: ##############################################################################
-- 典型位置: 第一步（在 data_clean 之前）
-- 回读: `Blocks/35_environment_function/00block_prepare_environment_dkd_data.R` 文件头注释
-
-#### `process_environment_data`
-- 路径: `Blocks/35_environment_function/01block_process_environment_data.R`
-- 用途: ##############################################################################
-- 典型位置: column_mapping → process_environment_data → logistic_environment_glm
-- 前置: `require_data = ctx$data$mapped %||% ctx$data$cleaned`
-- config 节: `config$environment_process`
-- 回读: `Blocks/35_environment_function/01block_process_environment_data.R` 文件头注释
-
-#### `remove_outliers`
-- 路径: `Blocks/35_environment_function/02block_remove_outliers.R`
-- 用途: ##############################################################################
-- 典型位置: imputation / process_environment_data → remove_outliers → 分析 block
-- 前置: `require_data = ctx$data[[data_slot]]（优先 imputed，回退 cleaned）`
-- config 节: `config$remove_outliers`
-- 回读: `Blocks/35_environment_function/02block_remove_outliers.R` 文件头注释
-
-#### `table1_summary`
-- 路径: `Blocks/35_environment_function/03block_table1_summary.R`
-- 用途: ##############################################################################
-- config 节: `config$table1_summary`
-- 回读: `Blocks/35_environment_function/03block_table1_summary.R` 文件头注释
+- 典型位置: iptw_balance → iptw_association → ipw_diabetes_flowchart → ipw_weighted_km_pub
+- 前置: `require_data = ctx$data$iptw_weighted（须先运行 34_IPTW/01block_iptw_balance）`; `require_results = ctx$results$iptw_weight_col（可选；缺省回退 "weight"）`
+- 写出: ctx$results$ipw_weighted_km_pub（加权/未加权 Cox HR、95% CI、P，pub_format_p 格式化）
+- config 节: `config$ipw_weighted_km_pub`, `config$survival`
+- 回读: `Blocks/34_IPTW/03block_ipw_weighted_km_pub.R` 文件头注释
 
 
 ### `36_capability/`
@@ -2177,112 +2437,25 @@
 - 回读: `Blocks/36_capability/01block_sensitivity_scenarios.R` 文件头注释
 
 
-### `36_environment_glm/`
+### `36_sensitivity/`
 
-#### `ers_elastic_net`
-- 路径: `Blocks/36_environment_glm/02block_ers_elastic_net.R`
+#### `sensitivity_multi_scenario_cox`
+- 路径: `Blocks/36_sensitivity/02block_sensitivity_multi_scenario_cox.R`
 - 用途: ##############################################################################
-- config 节: `config$ers_elastic_net`
-- 回读: `Blocks/36_environment_glm/02block_ers_elastic_net.R` 文件头注释
-
-#### `glm_environment_quartile`
-- 路径: `Blocks/36_environment_glm/01block_glm_environment_quartile.R`
-- 用途: ##############################################################################
-- 典型位置: lasso_environment_voc → glm_environment_quartile
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs # 上游 lasso_environment_voc 写入`
-- config 节: `config$data`, `config$glm_environment_quartile`
-- 回读: `Blocks/36_environment_glm/01block_glm_environment_quartile.R` 文件头注释
-
-
-### `37_environment_wqs/`
-
-#### `wqs_environment`
-- 路径: `Blocks/37_environment_wqs/01block_wqs_environment.R`
-- 用途: ##############################################################################
-- 典型位置: glm_environment_quartile → wqs_environment
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
-- config 节: `config$data`, `config$wqs_environment`
-- 回读: `Blocks/37_environment_wqs/01block_wqs_environment.R` 文件头注释
-
-#### `wqs_exwas_fixed`
-- 路径: `Blocks/37_environment_wqs/02block_wqs_exwas_fixed.R`
-- 用途: ##############################################################################
-- config 节: `config$wqs_exwas_fixed`
-- 回读: `Blocks/37_environment_wqs/02block_wqs_exwas_fixed.R` 文件头注释
-
-
-### `38_environment_bkmr/`
-
-#### `bkmr_analysis`
-- 路径: `Blocks/38_environment_bkmr/02block_bkmr_analysis.R`
-- 用途: ##############################################################################
-- 典型位置: bkmr_fit → bkmr_analysis
-- 前置: `require_ctx_results = fit_bkmr, bkmr_Z, bkmr_y, bkmr_X`
-- config 节: `config$bkmr_analysis`
-- 回读: `Blocks/38_environment_bkmr/02block_bkmr_analysis.R` 文件头注释
-
-#### `bkmr_fit`
-- 路径: `Blocks/38_environment_bkmr/01block_bkmr_fit.R`
-- 用途: ##############################################################################
-- 典型位置: wqs_environment → bkmr_fit → bkmr_analysis
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
-- config 节: `config$bkmr_fit`, `config$data`
-- 回读: `Blocks/38_environment_bkmr/01block_bkmr_fit.R` 文件头注释
-
-
-### `39_environment_qgcomp/`
-
-#### `qgcomp_environment`
-- 路径: `Blocks/39_environment_qgcomp/01block_qgcomp_environment.R`
-- 用途: ##############################################################################
-- 典型位置: glm_environment_quartile → qgcomp_environment
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
-- config 节: `config$data`, `config$qgcomp_environment`
-- 回读: `Blocks/39_environment_qgcomp/01block_qgcomp_environment.R` 文件头注释
-
-
-### `40_environment_descriptive/`
-
-#### `environment_characteristics`
-- 路径: `Blocks/40_environment_descriptive/02block_environment_characteristics.R`
-- 用途: ##############################################################################
-- 典型位置: process_environment_data → environment_characteristics
-- 前置: `require_ctx_results = environment_process_stats（由 process_environment_data 写入）`
-- config 节: `config$environment_characteristics`
-- 回读: `Blocks/40_environment_descriptive/02block_environment_characteristics.R` 文件头注释
-
-#### `voc_correlation`
-- 路径: `Blocks/40_environment_descriptive/01block_voc_correlation.R`
-- 用途: ##############################################################################
-- 典型位置: process_environment_data → voc_correlation
-- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
-- config 节: `config$voc_correlation`
-- 回读: `Blocks/40_environment_descriptive/01block_voc_correlation.R` 文件头注释
-
-
-### `41_environment_target/`
-
-#### `environment_target_enrichment`
-- 路径: `Blocks/41_environment_target/01block_environment_target_enrichment.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/41_environment_target/01block_environment_target_enrichment.R` 文件头注释
-
-
-### `42_environment_single/`
-
-#### `environment_single_exposure_transform`
-- 路径: `Blocks/42_environment_single/01block_environment_single_exposure_transform.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/42_environment_single/01block_environment_single_exposure_transform.R` 文件头注释
-
-#### `exwas_unweighted`
-- 路径: `Blocks/42_environment_single/02block_exwas_unweighted.R`
-- 用途: ##############################################################################
-- config 节: `config$exwas_unweighted`
-- 回读: `Blocks/42_environment_single/02block_exwas_unweighted.R` 文件头注释
+- 回读: `Blocks/36_sensitivity/02block_sensitivity_multi_scenario_cox.R` 文件头注释
 
 
 ### `43_dynamic_causal/`
+
+#### `dynamic_causal_analysis_filter`
+- 路径: `Blocks/43_dynamic_causal/01block_dynamic_causal_analysis_filter.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/43_dynamic_causal/01block_dynamic_causal_analysis_filter.R` 文件头注释
+
+#### `dynamic_causal_cox_baseline`
+- 路径: `Blocks/43_dynamic_causal/02block_dynamic_causal_cox_baseline.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/43_dynamic_causal/02block_dynamic_causal_cox_baseline.R` 文件头注释
 
 #### `dynamic_causal_cox_total`
 - 路径: `Blocks/43_dynamic_causal/02block_dynamic_causal_cox_total.R`
@@ -2293,6 +2466,16 @@
 - 路径: `Blocks/43_dynamic_causal/01block_dynamic_causal_index_compute.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/43_dynamic_causal/01block_dynamic_causal_index_compute.R` 文件头注释
+
+#### `dynamic_causal_meta_merge`
+- 路径: `Blocks/43_dynamic_causal/03block_dynamic_causal_meta_merge.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/43_dynamic_causal/03block_dynamic_causal_meta_merge.R` 文件头注释
+
+#### `dynamic_causal_rcs_change`
+- 路径: `Blocks/43_dynamic_causal/04block_dynamic_causal_rcs_change.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/43_dynamic_causal/04block_dynamic_causal_rcs_change.R` 文件头注释
 
 
 ### `44_multimorbidity/`
@@ -2354,80 +2537,71 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/44_multimorbidity/04block_multimorbidity_sensitivity_suite.R` 文件头注释
 
+#### `multimorbidity_table1_fig1`
+- 路径: `Blocks/44_multimorbidity/11block_multimorbidity_table1_fig1.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/44_multimorbidity/11block_multimorbidity_table1_fig1.R` 文件头注释
+
 
 ### `45_multimodal/`
+
+#### `multimodal_dl_shap`
+- 路径: `Blocks/45_multimodal/02block_multimodal_dl_shap.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/45_multimodal/02block_multimodal_dl_shap.R` 文件头注释
 
 #### `multimodal_early_fusion`
 - 路径: `Blocks/45_multimodal/01block_multimodal_early_fusion.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/45_multimodal/01block_multimodal_early_fusion.R` 文件头注释
 
-
-### `46_environment_omics/`
-
-#### `env_gsea`
-- 路径: `Blocks/46_environment_omics/01block_env_omics_suite.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/46_environment_omics/01block_env_omics_suite.R` 文件头注释
-
-#### `env_ml_gene_screen`
-- 路径: `Blocks/46_environment_omics/01block_env_omics_suite.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/46_environment_omics/01block_env_omics_suite.R` 文件头注释
-
-#### `env_mr_docking`
-- 路径: `Blocks/46_environment_omics/01block_env_omics_suite.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/46_environment_omics/01block_env_omics_suite.R` 文件头注释
-
-#### `env_network_toxicology`
-- 路径: `Blocks/46_environment_omics/01block_env_omics_suite.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/46_environment_omics/01block_env_omics_suite.R` 文件头注释
-
-#### `env_scrna_summary`
-- 路径: `Blocks/46_environment_omics/01block_env_omics_suite.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/46_environment_omics/01block_env_omics_suite.R` 文件头注释
-
-
-### `47_dynamic_causal_full/`
-
-#### `dynamic_causal_analysis_filter`
-- 路径: `Blocks/47_dynamic_causal_full/01block_dynamic_causal_analysis_filter.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/47_dynamic_causal_full/01block_dynamic_causal_analysis_filter.R` 文件头注释
-
-#### `dynamic_causal_cox_baseline`
-- 路径: `Blocks/47_dynamic_causal_full/02block_dynamic_causal_cox_baseline.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/47_dynamic_causal_full/02block_dynamic_causal_cox_baseline.R` 文件头注释
-
-#### `dynamic_causal_meta_merge`
-- 路径: `Blocks/47_dynamic_causal_full/03block_dynamic_causal_meta_merge.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/47_dynamic_causal_full/03block_dynamic_causal_meta_merge.R` 文件头注释
-
-#### `dynamic_causal_rcs_change`
-- 路径: `Blocks/47_dynamic_causal_full/04block_dynamic_causal_rcs_change.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/47_dynamic_causal_full/04block_dynamic_causal_rcs_change.R` 文件头注释
-
-
-### `49_multimodal_full/`
-
-#### `multimodal_dl_shap`
-- 路径: `Blocks/49_multimodal_full/02block_multimodal_dl_shap.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/49_multimodal_full/02block_multimodal_dl_shap.R` 文件头注释
-
 #### `multimodal_omics_preprocess`
-- 路径: `Blocks/49_multimodal_full/01block_multimodal_omics_preprocess.R`
+- 路径: `Blocks/45_multimodal/01block_multimodal_omics_preprocess.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/49_multimodal_full/01block_multimodal_omics_preprocess.R` 文件头注释
+- 回读: `Blocks/45_multimodal/01block_multimodal_omics_preprocess.R` 文件头注释
 
 
 ### `50_complex_network/`
+
+#### `clhls_bridge`
+- 路径: `Blocks/50_complex_network/05block_clhls_bridge.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/05block_clhls_bridge.R` 文件头注释
+
+#### `clhls_centrality`
+- 路径: `Blocks/50_complex_network/03block_clhls_centrality.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/03block_clhls_centrality.R` 文件头注释
+
+#### `clhls_network`
+- 路径: `Blocks/50_complex_network/02block_clhls_network.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/02block_clhls_network.R` 文件头注释
+
+#### `clhls_network_pub`
+- 路径: `Blocks/50_complex_network/09block_clhls_network_pub.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/09block_clhls_network_pub.R` 文件头注释
+
+#### `clhls_sex`
+- 路径: `Blocks/50_complex_network/06block_clhls_sex.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/06block_clhls_sex.R` 文件头注释
+
+#### `clhls_sex_nct`
+- 路径: `Blocks/50_complex_network/07block_clhls_sex_nct.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/07block_clhls_sex_nct.R` 文件头注释
+
+#### `clhls_stability`
+- 路径: `Blocks/50_complex_network/08block_clhls_stability.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/08block_clhls_stability.R` 文件头注释
+
+#### `clhls_weighted`
+- 路径: `Blocks/50_complex_network/04block_clhls_weighted.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/50_complex_network/04block_clhls_weighted.R` 文件头注释
 
 #### `complex_network_bootnet`
 - 路径: `Blocks/50_complex_network/03block_complex_network_bootnet.R`
@@ -2499,120 +2673,120 @@
 - 回读: `Blocks/51_bayesian_comorbidity/07block_bayesian_roc_calibration.R` 文件头注释
 
 
-### `54_cross_lagged_full/`
+### `54_cross_lagged/`
 
 #### `cross_lagged_biomarker_cor`
-- 路径: `Blocks/54_cross_lagged_full/11block_cross_lagged_biomarker_cor.R`
+- 路径: `Blocks/54_cross_lagged/11block_cross_lagged_biomarker_cor.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/11block_cross_lagged_biomarker_cor.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/11block_cross_lagged_biomarker_cor.R` 文件头注释
 
 #### `cross_lagged_change_logistic`
-- 路径: `Blocks/54_cross_lagged_full/20block_cross_lagged_change_logistic.R`
+- 路径: `Blocks/54_cross_lagged/20block_cross_lagged_change_logistic.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/20block_cross_lagged_change_logistic.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/20block_cross_lagged_change_logistic.R` 文件头注释
 
 #### `cross_lagged_corr_table`
-- 路径: `Blocks/54_cross_lagged_full/15block_cross_lagged_corr_table.R`
+- 路径: `Blocks/54_cross_lagged/15block_cross_lagged_corr_table.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/15block_cross_lagged_corr_table.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/15block_cross_lagged_corr_table.R` 文件头注释
 
 #### `cross_lagged_country_year_bar`
-- 路径: `Blocks/54_cross_lagged_full/18block_cross_lagged_country_year_bar.R`
+- 路径: `Blocks/54_cross_lagged/18block_cross_lagged_country_year_bar.R`
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$longitudinal %||% ctx$data$imputed`
-- 回读: `Blocks/54_cross_lagged_full/18block_cross_lagged_country_year_bar.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/18block_cross_lagged_country_year_bar.R` 文件头注释
 
 #### `cross_lagged_cox_frailty`
-- 路径: `Blocks/54_cross_lagged_full/02block_cross_lagged_cox_frailty.R`
+- 路径: `Blocks/54_cross_lagged/02block_cross_lagged_cox_frailty.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/02block_cross_lagged_cox_frailty.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/02block_cross_lagged_cox_frailty.R` 文件头注释
 
 #### `cross_lagged_fi_compute`
-- 路径: `Blocks/54_cross_lagged_full/01block_cross_lagged_fi_compute.R`
+- 路径: `Blocks/54_cross_lagged/01block_cross_lagged_fi_compute.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/01block_cross_lagged_fi_compute.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/01block_cross_lagged_fi_compute.R` 文件头注释
 
 #### `cross_lagged_fig1_group`
-- 路径: `Blocks/54_cross_lagged_full/19block_cross_lagged_fig1_group.R`
+- 路径: `Blocks/54_cross_lagged/19block_cross_lagged_fig1_group.R`
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$longitudinal`
-- 回读: `Blocks/54_cross_lagged_full/19block_cross_lagged_fig1_group.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/19block_cross_lagged_fig1_group.R` 文件头注释
 
 #### `cross_lagged_forest_or`
-- 路径: `Blocks/54_cross_lagged_full/16block_cross_lagged_forest_or.R`
+- 路径: `Blocks/54_cross_lagged/16block_cross_lagged_forest_or.R`
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`
-- 回读: `Blocks/54_cross_lagged_full/16block_cross_lagged_forest_or.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/16block_cross_lagged_forest_or.R` 文件头注释
 
 #### `cross_lagged_frailty_transition`
-- 路径: `Blocks/54_cross_lagged_full/08block_cross_lagged_frailty_transition.R`
+- 路径: `Blocks/54_cross_lagged/08block_cross_lagged_frailty_transition.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/08block_cross_lagged_frailty_transition.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/08block_cross_lagged_frailty_transition.R` 文件头注释
 
 #### `cross_lagged_km`
-- 路径: `Blocks/54_cross_lagged_full/06block_cross_lagged_km.R`
+- 路径: `Blocks/54_cross_lagged/06block_cross_lagged_km.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/06block_cross_lagged_km.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/06block_cross_lagged_km.R` 文件头注释
 
 #### `cross_lagged_long_prepare`
-- 路径: `Blocks/54_cross_lagged_full/14block_cross_lagged_long_prepare.R`
+- 路径: `Blocks/54_cross_lagged/14block_cross_lagged_long_prepare.R`
 - 用途: ##############################################################################
 - config 节: `config$cross_lagged_long_prepare`
-- 回读: `Blocks/54_cross_lagged_full/14block_cross_lagged_long_prepare.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/14block_cross_lagged_long_prepare.R` 文件头注释
 
 #### `cross_lagged_mediation`
-- 路径: `Blocks/54_cross_lagged_full/03block_cross_lagged_mediation.R`
+- 路径: `Blocks/54_cross_lagged/03block_cross_lagged_mediation.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/03block_cross_lagged_mediation.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/03block_cross_lagged_mediation.R` 文件头注释
 
 #### `cross_lagged_mediation_bootstrap`
-- 路径: `Blocks/54_cross_lagged_full/07block_cross_lagged_mediation_bootstrap.R`
+- 路径: `Blocks/54_cross_lagged/07block_cross_lagged_mediation_bootstrap.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/07block_cross_lagged_mediation_bootstrap.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/07block_cross_lagged_mediation_bootstrap.R` 文件头注释
 
 #### `cross_lagged_meta_merge`
-- 路径: `Blocks/54_cross_lagged_full/12block_cross_lagged_meta_merge.R`
+- 路径: `Blocks/54_cross_lagged/12block_cross_lagged_meta_merge.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/12block_cross_lagged_meta_merge.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/12block_cross_lagged_meta_merge.R` 文件头注释
 
 #### `cross_lagged_network`
-- 路径: `Blocks/54_cross_lagged_full/17block_cross_lagged_network.R`
+- 路径: `Blocks/54_cross_lagged/17block_cross_lagged_network.R`
 - 用途: ##############################################################################
 - 前置: `require_data = ctx$data$longitudinal_wide_clpn %||% longitudinal_wide`
-- 回读: `Blocks/54_cross_lagged_full/17block_cross_lagged_network.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/17block_cross_lagged_network.R` 文件头注释
 
 #### `cross_lagged_network_bootstrap`
-- 路径: `Blocks/54_cross_lagged_full/22block_cross_lagged_network_bootstrap.R`
+- 路径: `Blocks/54_cross_lagged/22block_cross_lagged_network_bootstrap.R`
 - 用途: ##############################################################################
 - config 节: `config$cross_lagged_network_bootstrap`
-- 回读: `Blocks/54_cross_lagged_full/22block_cross_lagged_network_bootstrap.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/22block_cross_lagged_network_bootstrap.R` 文件头注释
 
 #### `cross_lagged_panel_network`
-- 路径: `Blocks/54_cross_lagged_full/04block_cross_lagged_panel_network.R`
+- 路径: `Blocks/54_cross_lagged/04block_cross_lagged_panel_network.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/04block_cross_lagged_panel_network.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/04block_cross_lagged_panel_network.R` 文件头注释
 
 #### `cross_lagged_pooled_bind`
-- 路径: `Blocks/54_cross_lagged_full/13block_cross_lagged_pooled_bind.R`
+- 路径: `Blocks/54_cross_lagged/13block_cross_lagged_pooled_bind.R`
 - 用途: ##############################################################################
 - 前置: `require_ctx_results = ctx$results$cohort_imputed_list`; `require_ctx_results = Model2Factors（可选；缺则用 config 锁定名单）`
 - config 节: `config$cross_lagged_pooled_bind`
-- 回读: `Blocks/54_cross_lagged_full/13block_cross_lagged_pooled_bind.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/13block_cross_lagged_pooled_bind.R` 文件头注释
 
 #### `cross_lagged_sensitivity`
-- 路径: `Blocks/54_cross_lagged_full/10block_cross_lagged_sensitivity.R`
+- 路径: `Blocks/54_cross_lagged/10block_cross_lagged_sensitivity.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/10block_cross_lagged_sensitivity.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/10block_cross_lagged_sensitivity.R` 文件头注释
 
 #### `cross_lagged_subgroup`
-- 路径: `Blocks/54_cross_lagged_full/05block_cross_lagged_subgroup.R`
+- 路径: `Blocks/54_cross_lagged/05block_cross_lagged_subgroup.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/05block_cross_lagged_subgroup.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/05block_cross_lagged_subgroup.R` 文件头注释
 
 #### `cross_lagged_subgroup_extended`
-- 路径: `Blocks/54_cross_lagged_full/09block_cross_lagged_subgroup_extended.R`
+- 路径: `Blocks/54_cross_lagged/09block_cross_lagged_subgroup_extended.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/54_cross_lagged_full/09block_cross_lagged_subgroup_extended.R` 文件头注释
+- 回读: `Blocks/54_cross_lagged/09block_cross_lagged_subgroup_extended.R` 文件头注释
 
 
 ### `55_competing_risk_full/`
@@ -2699,80 +2873,152 @@
 - 回读: `Blocks/55_competing_risk_full/01block_competing_tyg_compute.R` 文件头注释
 
 
-### `56_ai_clinical_full/`
+### `56_ai_clinical_eval/`
 
 #### `ai_cases_prepare`
-- 路径: `Blocks/56_ai_clinical_full/01block_ai_cases_prepare.R`
+- 路径: `Blocks/56_ai_clinical_eval/01block_ai_cases_prepare.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/01block_ai_cases_prepare.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/01block_ai_cases_prepare.R` 文件头注释
 
 #### `ai_guideline_audit`
-- 路径: `Blocks/56_ai_clinical_full/03block_ai_guideline_audit.R`
+- 路径: `Blocks/56_ai_clinical_eval/03block_ai_guideline_audit.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/03block_ai_guideline_audit.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/03block_ai_guideline_audit.R` 文件头注释
 
 #### `ai_lab_interpret`
-- 路径: `Blocks/56_ai_clinical_full/08block_ai_lab_interpret.R`
+- 路径: `Blocks/56_ai_clinical_eval/08block_ai_lab_interpret.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/08block_ai_lab_interpret.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/08block_ai_lab_interpret.R` 文件头注释
 
 #### `ai_llm_evaluate`
-- 路径: `Blocks/56_ai_clinical_full/02block_ai_llm_evaluate.R`
+- 路径: `Blocks/56_ai_clinical_eval/02block_ai_llm_evaluate.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/02block_ai_llm_evaluate.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/02block_ai_llm_evaluate.R` 文件头注释
 
 #### `ai_llm_multimodel`
-- 路径: `Blocks/56_ai_clinical_full/06block_ai_llm_multimodel.R`
+- 路径: `Blocks/56_ai_clinical_eval/06block_ai_llm_multimodel.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/06block_ai_llm_multimodel.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/06block_ai_llm_multimodel.R` 文件头注释
 
 #### `ai_multiround_sim`
-- 路径: `Blocks/56_ai_clinical_full/05block_ai_multiround_sim.R`
+- 路径: `Blocks/56_ai_clinical_eval/05block_ai_multiround_sim.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/05block_ai_multiround_sim.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/05block_ai_multiround_sim.R` 文件头注释
 
 #### `ai_order_robustness`
-- 路径: `Blocks/56_ai_clinical_full/09block_ai_order_robustness.R`
+- 路径: `Blocks/56_ai_clinical_eval/09block_ai_order_robustness.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/09block_ai_order_robustness.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/09block_ai_order_robustness.R` 文件头注释
 
 #### `ai_reader_comparison`
-- 路径: `Blocks/56_ai_clinical_full/04block_ai_reader_comparison.R`
+- 路径: `Blocks/56_ai_clinical_eval/04block_ai_reader_comparison.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/04block_ai_reader_comparison.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/04block_ai_reader_comparison.R` 文件头注释
 
 #### `ai_reader_study`
-- 路径: `Blocks/56_ai_clinical_full/07block_ai_reader_study.R`
+- 路径: `Blocks/56_ai_clinical_eval/07block_ai_reader_study.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/56_ai_clinical_full/07block_ai_reader_study.R` 文件头注释
+- 回读: `Blocks/56_ai_clinical_eval/07block_ai_reader_study.R` 文件头注释
+
+
+### `57_crm/`
+
+#### `crm_cox_mortality`
+- 路径: `Blocks/57_crm/02block_crm_cox_mortality.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/02block_crm_cox_mortality.R` 文件头注释
+
+#### `crm_gout_strata`
+- 路径: `Blocks/57_crm/10block_crm_gout_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/10block_crm_gout_strata.R` 文件头注释
+
+#### `crm_mr_figures`
+- 路径: `Blocks/57_crm/09block_crm_mr_figures.R`
+- 用途: ##############################################################################
+- 典型位置: mr worker 末尾（mr_snp_screen → mr_twosample → mr_egger_presso →
+- 写出: ctx$results$crm_mr_figures（各结局 n_snps_harmonised、IVW/LOO 估计、图路径、 skipped_outcomes 及原因、mendelian helper 是否命中）
+- config 节: `config$dual_incidence_mr`, `config$project`
+- 回读: `Blocks/57_crm/09block_crm_mr_figures.R` 文件头注释
+
+#### `crm_multivariate_prognosis`
+- 路径: `Blocks/57_crm/13block_crm_multivariate_prognosis.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/13block_crm_multivariate_prognosis.R` 文件头注释
+
+#### `crm_nhanes_baseline_weighted`
+- 路径: `Blocks/57_crm/03block_crm_nhanes_baseline_weighted.R`
+- 用途: ##############################################################################
+- 典型位置: crm_nhanes_derive → crm_nhanes_flowchart → crm_nhanes_baseline_weighted → ...
+- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
+- 写出: ctx$results$crm_nhanes_baseline_weighted
+- config 节: `config$crm_nhanes_baseline_weighted`, `config$nhanes`
+- 回读: `Blocks/57_crm/03block_crm_nhanes_baseline_weighted.R` 文件头注释
+
+#### `crm_nhanes_cox_pub`
+- 路径: `Blocks/57_crm/06block_crm_nhanes_cox_pub.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/06block_crm_nhanes_cox_pub.R` 文件头注释
+
+#### `crm_nhanes_derive`
+- 路径: `Blocks/57_crm/01block_crm_nhanes_derive.R`
+- 用途: ##############################################################################
+- config 节: `config$crm_nhanes_pub`
+- 回读: `Blocks/57_crm/01block_crm_nhanes_derive.R` 文件头注释
+
+#### `crm_nhanes_km_pub`
+- 路径: `Blocks/57_crm/04block_crm_nhanes_km_pub.R`
+- 用途: ##############################################################################
+- 典型位置: crm_nhanes_derive → ... → crm_nhanes_km_pub
+- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
+- 写出: ctx$results$crm_nhanes_km_pub
+- config 节: `config$crm_nhanes_km_pub`
+- 回读: `Blocks/57_crm/04block_crm_nhanes_km_pub.R` 文件头注释
+
+#### `crm_nhanes_ordinal_pub`
+- 路径: `Blocks/57_crm/05block_crm_nhanes_ordinal_pub.R`
+- 用途: ##############################################################################
+- 典型位置: crm_nhanes_derive → ... → crm_nhanes_ordinal_pub（Table 2）→ crm_nhanes_cox_pub → ...
+- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
+- 写出: ctx$results$crm_nhanes_ordinal_pub（每个暴露×模型的 tidy 系数、gout_available、 analytic_n、可选 thin57_comparison）
+- config 节: `config$crm_nhanes_ordinal_pub`, `config$nhanes`
+- 回读: `Blocks/57_crm/05block_crm_nhanes_ordinal_pub.R` 文件头注释
+
+#### `crm_nhanes_rcs_pub`
+- 路径: `Blocks/57_crm/07block_crm_nhanes_rcs_pub.R`
+- 用途: ##############################################################################
+- 典型位置: ... → crm_nhanes_cox_pub → crm_nhanes_rcs_pub（Figure 3）→ crm_nhanes_pub_align
+- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
+- 写出: ctx$results$crm_nhanes_rcs_pub（各分层曲线数据、P_overall/P_nonlinear、 skipped_strata、可选 thin57_comparison）
+- config 节: `config$crm_nhanes_rcs_pub`, `config$nhanes`
+- 回读: `Blocks/57_crm/07block_crm_nhanes_rcs_pub.R` 文件头注释
+
+#### `crm_nhanes_subgroup_supp`
+- 路径: `Blocks/57_crm/10block_crm_nhanes_subgroup_supp.R`
+- 用途: ##############################################################################
+- 典型位置: obs_strata worker：crm_gout_strata → crm_nhanes_subgroup_supp
+- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
+- 写出: ctx$results$crm_nhanes_subgroup_supp（tidy 长表、各亚组 analytic_n、跳过记录）
+- config 节: `config$crm_nhanes_subgroup_supp`, `config$nhanes`
+- 回读: `Blocks/57_crm/10block_crm_nhanes_subgroup_supp.R` 文件头注释
+
+#### `crm_nhanes_weighted`
+- 路径: `Blocks/57_crm/09block_crm_nhanes_weighted.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/09block_crm_nhanes_weighted.R` 文件头注释
+
+#### `crm_ordinal_logistic`
+- 路径: `Blocks/57_crm/01block_crm_ordinal_logistic.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/01block_crm_ordinal_logistic.R` 文件头注释
+
+#### `crm_rcs_sua`
+- 路径: `Blocks/57_crm/03block_crm_rcs_sua.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/57_crm/03block_crm_rcs_sua.R` 文件头注释
 
 
 ### `57_dual_incidence_mr_full/`
-
-#### `crm_cox_mortality`
-- 路径: `Blocks/57_dual_incidence_mr_full/02block_crm_cox_mortality.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/57_dual_incidence_mr_full/02block_crm_cox_mortality.R` 文件头注释
-
-#### `crm_gout_strata`
-- 路径: `Blocks/57_dual_incidence_mr_full/10block_crm_gout_strata.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/57_dual_incidence_mr_full/10block_crm_gout_strata.R` 文件头注释
-
-#### `crm_nhanes_weighted`
-- 路径: `Blocks/57_dual_incidence_mr_full/09block_crm_nhanes_weighted.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/57_dual_incidence_mr_full/09block_crm_nhanes_weighted.R` 文件头注释
-
-#### `crm_ordinal_logistic`
-- 路径: `Blocks/57_dual_incidence_mr_full/01block_crm_ordinal_logistic.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/57_dual_incidence_mr_full/01block_crm_ordinal_logistic.R` 文件头注释
-
-#### `crm_rcs_sua`
-- 路径: `Blocks/57_dual_incidence_mr_full/03block_crm_rcs_sua.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/57_dual_incidence_mr_full/03block_crm_rcs_sua.R` 文件头注释
 
 #### `mr_egger_presso`
 - 路径: `Blocks/57_dual_incidence_mr_full/07block_mr_egger_presso.R`
@@ -2800,85 +3046,113 @@
 - 回读: `Blocks/57_dual_incidence_mr_full/04block_mr_twosample.R` 文件头注释
 
 
-### `58_medication_regimen_full/`
+### `57_mr/`
+
+#### `easymr_gwas_search`
+- 路径: `Blocks/57_mr/02block_easymr_gwas_search.R`
+- 用途: ##############################################################################
+- 典型位置: 下载数据之前单独跑。不调用 easyMR，也不插入发病/预后主链
+- 前置: `require_summary_stats = TRUE, # 只要目录里给了 FTP 汇总统计的研究`
+- config 节: `config$easymr_gwas_search`
+- 回读: `Blocks/57_mr/02block_easymr_gwas_search.R` 文件头注释
+
+#### `easymr_ieu`
+- 路径: `Blocks/57_mr/03block_easymr_ieu.R`
+- 用途: ##############################################################################
+- 典型位置: 还没有本地 GWAS 文件时。不插入发病/预后主链
+- config 节: `config$easymr_ieu`
+- 回读: `Blocks/57_mr/03block_easymr_ieu.R` 文件头注释
+
+#### `easymr_twosample`
+- 路径: `Blocks/57_mr/01block_easymr_twosample.R`
+- 用途: ##############################################################################
+- 典型位置: 数据已下载之后单独跑，不插入发病/预后主链
+- config 节: `config$easymr`
+- 回读: `Blocks/57_mr/01block_easymr_twosample.R` 文件头注释
+
+
+### `58_medication_regimen/`
 
 #### `medication_chemo_strata`
-- 路径: `Blocks/58_medication_regimen_full/04block_medication_chemo_strata.R`
+- 路径: `Blocks/58_medication_regimen/04block_medication_chemo_strata.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/58_medication_regimen_full/04block_medication_chemo_strata.R` 文件头注释
+- 回读: `Blocks/58_medication_regimen/04block_medication_chemo_strata.R` 文件头注释
 
 #### `medication_composite_risk`
-- 路径: `Blocks/58_medication_regimen_full/01block_medication_composite_risk.R`
+- 路径: `Blocks/58_medication_regimen/01block_medication_composite_risk.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/58_medication_regimen_full/01block_medication_composite_risk.R` 文件头注释
+- 回读: `Blocks/58_medication_regimen/01block_medication_composite_risk.R` 文件头注释
 
 #### `medication_descriptive`
-- 路径: `Blocks/58_medication_regimen_full/02block_medication_descriptive.R`
+- 路径: `Blocks/58_medication_regimen/02block_medication_descriptive.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/58_medication_regimen_full/02block_medication_descriptive.R` 文件头注释
+- 回读: `Blocks/58_medication_regimen/02block_medication_descriptive.R` 文件头注释
 
 #### `medication_km_treatment`
-- 路径: `Blocks/58_medication_regimen_full/03block_medication_km_treatment.R`
+- 路径: `Blocks/58_medication_regimen/03block_medication_km_treatment.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/58_medication_regimen_full/03block_medication_km_treatment.R` 文件头注释
+- 回读: `Blocks/58_medication_regimen/03block_medication_km_treatment.R` 文件头注释
+
+#### `medication_stepp_strata`
+- 路径: `Blocks/58_medication_regimen/06block_medication_stepp_strata.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/58_medication_regimen/06block_medication_stepp_strata.R` 文件头注释
+
+#### `medication_trial_comparisons`
+- 路径: `Blocks/58_medication_regimen/05block_medication_trial_comparisons.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/58_medication_regimen/05block_medication_trial_comparisons.R` 文件头注释
+
+
+### `58_medication_regimen_full/`
 
 #### `medication_literature_targets`
 - 路径: `Blocks/58_medication_regimen_full/07block_medication_literature_targets.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/58_medication_regimen_full/07block_medication_literature_targets.R` 文件头注释
 
-#### `medication_stepp_strata`
-- 路径: `Blocks/58_medication_regimen_full/06block_medication_stepp_strata.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/58_medication_regimen_full/06block_medication_stepp_strata.R` 文件头注释
 
-#### `medication_trial_comparisons`
-- 路径: `Blocks/58_medication_regimen_full/05block_medication_trial_comparisons.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/58_medication_regimen_full/05block_medication_trial_comparisons.R` 文件头注释
-
-
-### `59_markov_cognitive_full/`
+### `59_markov/`
 
 #### `markov_apoe_le_difference`
-- 路径: `Blocks/59_markov_cognitive_full/07block_markov_apoe_le_difference.R`
+- 路径: `Blocks/59_markov/07block_markov_apoe_le_difference.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/07block_markov_apoe_le_difference.R` 文件头注释
+- 回读: `Blocks/59_markov/07block_markov_apoe_le_difference.R` 文件头注释
 
 #### `markov_apoe_lifestyle`
-- 路径: `Blocks/59_markov_cognitive_full/04block_markov_apoe_lifestyle.R`
+- 路径: `Blocks/59_markov/04block_markov_apoe_lifestyle.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/04block_markov_apoe_lifestyle.R` 文件头注释
+- 回读: `Blocks/59_markov/04block_markov_apoe_lifestyle.R` 文件头注释
 
 #### `markov_life_expectancy`
-- 路径: `Blocks/59_markov_cognitive_full/03block_markov_life_expectancy.R`
+- 路径: `Blocks/59_markov/03block_markov_life_expectancy.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/03block_markov_life_expectancy.R` 文件头注释
+- 回读: `Blocks/59_markov/03block_markov_life_expectancy.R` 文件头注释
 
 #### `markov_life_table_figure`
-- 路径: `Blocks/59_markov_cognitive_full/06block_markov_life_table_figure.R`
+- 路径: `Blocks/59_markov/06block_markov_life_table_figure.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/06block_markov_life_table_figure.R` 文件头注释
+- 回读: `Blocks/59_markov/06block_markov_life_table_figure.R` 文件头注释
 
 #### `markov_msm_bootstrap`
-- 路径: `Blocks/59_markov_cognitive_full/05block_markov_msm_bootstrap.R`
+- 路径: `Blocks/59_markov/05block_markov_msm_bootstrap.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/05block_markov_msm_bootstrap.R` 文件头注释
+- 回读: `Blocks/59_markov/05block_markov_msm_bootstrap.R` 文件头注释
 
 #### `markov_msm_fit`
-- 路径: `Blocks/59_markov_cognitive_full/02block_markov_msm_fit.R`
+- 路径: `Blocks/59_markov/02block_markov_msm_fit.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/02block_markov_msm_fit.R` 文件头注释
+- 回读: `Blocks/59_markov/02block_markov_msm_fit.R` 文件头注释
 
 #### `markov_sensitivity_glmm`
-- 路径: `Blocks/59_markov_cognitive_full/08block_markov_sensitivity_glmm.R`
+- 路径: `Blocks/59_markov/08block_markov_sensitivity_glmm.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/08block_markov_sensitivity_glmm.R` 文件头注释
+- 回读: `Blocks/59_markov/08block_markov_sensitivity_glmm.R` 文件头注释
 
 #### `markov_state_prep`
-- 路径: `Blocks/59_markov_cognitive_full/01block_markov_state_prep.R`
+- 路径: `Blocks/59_markov/01block_markov_state_prep.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/59_markov_cognitive_full/01block_markov_state_prep.R` 文件头注释
+- 回读: `Blocks/59_markov/01block_markov_state_prep.R` 文件头注释
 
 
 ### `60_cdc_wonder_cits_full/`
@@ -2924,52 +3198,98 @@
 - 回读: `Blocks/60_cdc_wonder_cits_full/07block_cits_sensitivity_extended.R` 文件头注释
 
 
-### `61_network_temperature_full/`
+### `61_network_temperature/`
 
 #### `network_temp_centrality`
-- 路径: `Blocks/61_network_temperature_full/07block_network_temp_centrality.R`
+- 路径: `Blocks/61_network_temperature/07block_network_temp_centrality.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/07block_network_temp_centrality.R` 文件头注释
+- 回读: `Blocks/61_network_temperature/07block_network_temp_centrality.R` 文件头注释
 
 #### `network_temp_cohort_summary`
-- 路径: `Blocks/61_network_temperature_full/08block_network_temp_cohort_summary.R`
+- 路径: `Blocks/61_network_temperature/08block_network_temp_cohort_summary.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/08block_network_temp_cohort_summary.R` 文件头注释
+- 回读: `Blocks/61_network_temperature/08block_network_temp_cohort_summary.R` 文件头注释
 
 #### `network_temp_compute`
-- 路径: `Blocks/61_network_temperature_full/02block_network_temp_compute.R`
+- 路径: `Blocks/61_network_temperature/02block_network_temp_compute.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/02block_network_temp_compute.R` 文件头注释
+- 回读: `Blocks/61_network_temperature/02block_network_temp_compute.R` 文件头注释
 
 #### `network_temp_ggm_fit`
-- 路径: `Blocks/61_network_temperature_full/05block_network_temp_ggm_fit.R`
+- 路径: `Blocks/61_network_temperature/05block_network_temp_ggm_fit.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/05block_network_temp_ggm_fit.R` 文件头注释
+- 回读: `Blocks/61_network_temperature/05block_network_temp_ggm_fit.R` 文件头注释
+
+#### `network_temp_mixed_model`
+- 路径: `Blocks/61_network_temperature/06block_network_temp_mixed_model.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/61_network_temperature/06block_network_temp_mixed_model.R` 文件头注释
+
+#### `network_temp_outcome_assoc`
+- 路径: `Blocks/61_network_temperature/04block_network_temp_outcome_assoc.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/61_network_temperature/04block_network_temp_outcome_assoc.R` 文件头注释
+
+#### `network_temp_prepare_long`
+- 路径: `Blocks/61_network_temperature/01block_network_temp_prepare_long.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/61_network_temperature/01block_network_temp_prepare_long.R` 文件头注释
+
+#### `network_temp_trajectory`
+- 路径: `Blocks/61_network_temperature/03block_network_temp_trajectory.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/61_network_temperature/03block_network_temp_trajectory.R` 文件头注释
+
+
+### `61_network_temperature_full/`
 
 #### `network_temp_literature_validate`
 - 路径: `Blocks/61_network_temperature_full/09block_network_temp_literature_validate.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/61_network_temperature_full/09block_network_temp_literature_validate.R` 文件头注释
 
-#### `network_temp_mixed_model`
-- 路径: `Blocks/61_network_temperature_full/06block_network_temp_mixed_model.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/06block_network_temp_mixed_model.R` 文件头注释
 
-#### `network_temp_outcome_assoc`
-- 路径: `Blocks/61_network_temperature_full/04block_network_temp_outcome_assoc.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/04block_network_temp_outcome_assoc.R` 文件头注释
+### `62_sem/`
 
-#### `network_temp_prepare_long`
-- 路径: `Blocks/61_network_temperature_full/01block_network_temp_prepare_long.R`
+#### `sem_chain_mediation`
+- 路径: `Blocks/62_sem/05block_sem_chain_mediation.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/01block_network_temp_prepare_long.R` 文件头注释
+- 回读: `Blocks/62_sem/05block_sem_chain_mediation.R` 文件头注释
 
-#### `network_temp_trajectory`
-- 路径: `Blocks/61_network_temperature_full/03block_network_temp_trajectory.R`
+#### `sem_cox_baseline`
+- 路径: `Blocks/62_sem/03block_sem_cox_baseline.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/61_network_temperature_full/03block_network_temp_trajectory.R` 文件头注释
+- 回读: `Blocks/62_sem/03block_sem_cox_baseline.R` 文件头注释
+
+#### `sem_cox_chain_mediation`
+- 路径: `Blocks/62_sem/08block_sem_cox_chain_mediation.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/62_sem/08block_sem_cox_chain_mediation.R` 文件头注释
+
+#### `sem_data_prep`
+- 路径: `Blocks/62_sem/01block_sem_data_prep.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/62_sem/01block_sem_data_prep.R` 文件头注释
+
+#### `sem_descriptive`
+- 路径: `Blocks/62_sem/02block_sem_descriptive.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/62_sem/02block_sem_descriptive.R` 文件头注释
+
+#### `sem_path_lavaan`
+- 路径: `Blocks/62_sem/04block_sem_path_lavaan.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/62_sem/04block_sem_path_lavaan.R` 文件头注释
+
+#### `sem_sensitivity`
+- 路径: `Blocks/62_sem/07block_sem_sensitivity.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/62_sem/07block_sem_sensitivity.R` 文件头注释
+
+#### `sem_stratified`
+- 路径: `Blocks/62_sem/06block_sem_stratified.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/62_sem/06block_sem_stratified.R` 文件头注释
 
 
 ### `62_sem_chain_mediation_full/`
@@ -2980,131 +3300,94 @@
 - config 节: `config$sem_cfa_discriminant`
 - 回读: `Blocks/62_sem_chain_mediation_full/10block_sem_cfa_discriminant.R` 文件头注释
 
-#### `sem_chain_mediation`
-- 路径: `Blocks/62_sem_chain_mediation_full/05block_sem_chain_mediation.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/05block_sem_chain_mediation.R` 文件头注释
-
-#### `sem_cox_baseline`
-- 路径: `Blocks/62_sem_chain_mediation_full/03block_sem_cox_baseline.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/03block_sem_cox_baseline.R` 文件头注释
-
-#### `sem_cox_chain_mediation`
-- 路径: `Blocks/62_sem_chain_mediation_full/08block_sem_cox_chain_mediation.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/08block_sem_cox_chain_mediation.R` 文件头注释
-
-#### `sem_data_prep`
-- 路径: `Blocks/62_sem_chain_mediation_full/01block_sem_data_prep.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/01block_sem_data_prep.R` 文件头注释
-
-#### `sem_descriptive`
-- 路径: `Blocks/62_sem_chain_mediation_full/02block_sem_descriptive.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/02block_sem_descriptive.R` 文件头注释
-
 #### `sem_literature_validate`
 - 路径: `Blocks/62_sem_chain_mediation_full/09block_sem_literature_validate.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/62_sem_chain_mediation_full/09block_sem_literature_validate.R` 文件头注释
 
-#### `sem_path_lavaan`
-- 路径: `Blocks/62_sem_chain_mediation_full/04block_sem_path_lavaan.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/04block_sem_path_lavaan.R` 文件头注释
 
-#### `sem_sensitivity`
-- 路径: `Blocks/62_sem_chain_mediation_full/07block_sem_sensitivity.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/07block_sem_sensitivity.R` 文件头注释
-
-#### `sem_stratified`
-- 路径: `Blocks/62_sem_chain_mediation_full/06block_sem_stratified.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/62_sem_chain_mediation_full/06block_sem_stratified.R` 文件头注释
-
-
-### `63_ai_medical_qa_full/`
+### `63_ai_medical_qa/`
 
 #### `ai_qa_cot_eval`
-- 路径: `Blocks/63_ai_medical_qa_full/02block_ai_qa_cot_eval.R`
+- 路径: `Blocks/63_ai_medical_qa/02block_ai_qa_cot_eval.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/02block_ai_qa_cot_eval.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/02block_ai_qa_cot_eval.R` 文件头注释
 
 #### `ai_qa_dataset_summary`
-- 路径: `Blocks/63_ai_medical_qa_full/05block_ai_qa_dataset_summary.R`
+- 路径: `Blocks/63_ai_medical_qa/05block_ai_qa_dataset_summary.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/05block_ai_qa_dataset_summary.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/05block_ai_qa_dataset_summary.R` 文件头注释
 
 #### `ai_qa_model_ranking`
-- 路径: `Blocks/63_ai_medical_qa_full/06block_ai_qa_model_ranking.R`
+- 路径: `Blocks/63_ai_medical_qa/06block_ai_qa_model_ranking.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/06block_ai_qa_model_ranking.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/06block_ai_qa_model_ranking.R` 文件头注释
 
 #### `ai_qa_prepare`
-- 路径: `Blocks/63_ai_medical_qa_full/01block_ai_qa_prepare.R`
+- 路径: `Blocks/63_ai_medical_qa/01block_ai_qa_prepare.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/01block_ai_qa_prepare.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/01block_ai_qa_prepare.R` 文件头注释
 
 #### `ai_qa_prompt_compare`
-- 路径: `Blocks/63_ai_medical_qa_full/03block_ai_qa_prompt_compare.R`
+- 路径: `Blocks/63_ai_medical_qa/03block_ai_qa_prompt_compare.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/03block_ai_qa_prompt_compare.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/03block_ai_qa_prompt_compare.R` 文件头注释
 
 #### `ai_qa_prompt_templates`
-- 路径: `Blocks/63_ai_medical_qa_full/07block_ai_qa_prompt_templates.R`
+- 路径: `Blocks/63_ai_medical_qa/07block_ai_qa_prompt_templates.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/07block_ai_qa_prompt_templates.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/07block_ai_qa_prompt_templates.R` 文件头注释
 
 #### `ai_qa_statistics`
-- 路径: `Blocks/63_ai_medical_qa_full/04block_ai_qa_statistics.R`
+- 路径: `Blocks/63_ai_medical_qa/04block_ai_qa_statistics.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/04block_ai_qa_statistics.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/04block_ai_qa_statistics.R` 文件头注释
 
 #### `ai_qa_table4_validate`
-- 路径: `Blocks/63_ai_medical_qa_full/08block_ai_qa_table4_validate.R`
+- 路径: `Blocks/63_ai_medical_qa/08block_ai_qa_table4_validate.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/63_ai_medical_qa_full/08block_ai_qa_table4_validate.R` 文件头注释
+- 回读: `Blocks/63_ai_medical_qa/08block_ai_qa_table4_validate.R` 文件头注释
+
+
+### `64_causal_forest/`
+
+#### `cftraj_causal_forest`
+- 路径: `Blocks/64_causal_forest/05block_cftraj_causal_forest.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/64_causal_forest/05block_cftraj_causal_forest.R` 文件头注释
+
+#### `cftraj_circs_compute`
+- 路径: `Blocks/64_causal_forest/01block_cftraj_circs_compute.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/64_causal_forest/01block_cftraj_circs_compute.R` 文件头注释
+
+#### `cftraj_multinomial`
+- 路径: `Blocks/64_causal_forest/04block_cftraj_multinomial.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/64_causal_forest/04block_cftraj_multinomial.R` 文件头注释
+
+#### `cftraj_sensitivity`
+- 路径: `Blocks/64_causal_forest/07block_cftraj_sensitivity.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/64_causal_forest/07block_cftraj_sensitivity.R` 文件头注释
+
+#### `cftraj_subgroup_viz`
+- 路径: `Blocks/64_causal_forest/06block_cftraj_subgroup_viz.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/64_causal_forest/06block_cftraj_subgroup_viz.R` 文件头注释
+
+#### `cftraj_wide_to_long`
+- 路径: `Blocks/64_causal_forest/02block_cftraj_wide_to_long.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/64_causal_forest/02block_cftraj_wide_to_long.R` 文件头注释
 
 
 ### `64_causal_forest_trajectory_full/`
-
-#### `cftraj_causal_forest`
-- 路径: `Blocks/64_causal_forest_trajectory_full/05block_cftraj_causal_forest.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/05block_cftraj_causal_forest.R` 文件头注释
-
-#### `cftraj_circs_compute`
-- 路径: `Blocks/64_causal_forest_trajectory_full/01block_cftraj_circs_compute.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/01block_cftraj_circs_compute.R` 文件头注释
-
-#### `cftraj_multinomial`
-- 路径: `Blocks/64_causal_forest_trajectory_full/04block_cftraj_multinomial.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/04block_cftraj_multinomial.R` 文件头注释
-
-#### `cftraj_sensitivity`
-- 路径: `Blocks/64_causal_forest_trajectory_full/07block_cftraj_sensitivity.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/07block_cftraj_sensitivity.R` 文件头注释
-
-#### `cftraj_subgroup_viz`
-- 路径: `Blocks/64_causal_forest_trajectory_full/06block_cftraj_subgroup_viz.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/06block_cftraj_subgroup_viz.R` 文件头注释
 
 #### `cftraj_trajectory_validate`
 - 路径: `Blocks/64_causal_forest_trajectory_full/09block_cftraj_trajectory_validate.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/64_causal_forest_trajectory_full/09block_cftraj_trajectory_validate.R` 文件头注释
-
-#### `cftraj_wide_to_long`
-- 路径: `Blocks/64_causal_forest_trajectory_full/02block_cftraj_wide_to_long.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/64_causal_forest_trajectory_full/02block_cftraj_wide_to_long.R` 文件头注释
 
 
 ### `65_incidence_prepost_full/`
@@ -3150,148 +3433,208 @@
 - 回读: `Blocks/65_incidence_prepost_full/07block_prepost_visualize.R` 文件头注释
 
 
-### `66_target_trial_full/`
+### `66_target_trial/`
 
 #### `tte_bootstrap_ci`
-- 路径: `Blocks/66_target_trial_full/09block_tte_bootstrap_ci.R`
+- 路径: `Blocks/66_target_trial/09block_tte_bootstrap_ci.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/09block_tte_bootstrap_ci.R` 文件头注释
+- 回读: `Blocks/66_target_trial/09block_tte_bootstrap_ci.R` 文件头注释
 
 #### `tte_data_prep`
-- 路径: `Blocks/66_target_trial_full/01block_tte_data_prep.R`
+- 路径: `Blocks/66_target_trial/01block_tte_data_prep.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/01block_tte_data_prep.R` 文件头注释
+- 回读: `Blocks/66_target_trial/01block_tte_data_prep.R` 文件头注释
 
 #### `tte_descriptive`
-- 路径: `Blocks/66_target_trial_full/02block_tte_descriptive.R`
+- 路径: `Blocks/66_target_trial/02block_tte_descriptive.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/02block_tte_descriptive.R` 文件头注释
+- 回读: `Blocks/66_target_trial/02block_tte_descriptive.R` 文件头注释
+
+#### `tte_pooled_logistic`
+- 路径: `Blocks/66_target_trial/04block_tte_pooled_logistic.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/66_target_trial/04block_tte_pooled_logistic.R` 文件头注释
+
+#### `tte_risk_difference`
+- 路径: `Blocks/66_target_trial/05block_tte_risk_difference.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/66_target_trial/05block_tte_risk_difference.R` 文件头注释
+
+#### `tte_sensitivity`
+- 路径: `Blocks/66_target_trial/07block_tte_sensitivity.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/66_target_trial/07block_tte_sensitivity.R` 文件头注释
+
+#### `tte_stratified`
+- 路径: `Blocks/66_target_trial/06block_tte_stratified.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/66_target_trial/06block_tte_stratified.R` 文件头注释
+
+#### `tte_weighting`
+- 路径: `Blocks/66_target_trial/03block_tte_weighting.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/66_target_trial/03block_tte_weighting.R` 文件头注释
+
+
+### `66_target_trial_full/`
 
 #### `tte_literature_validate`
 - 路径: `Blocks/66_target_trial_full/08block_tte_literature_validate.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/66_target_trial_full/08block_tte_literature_validate.R` 文件头注释
 
-#### `tte_pooled_logistic`
-- 路径: `Blocks/66_target_trial_full/04block_tte_pooled_logistic.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/04block_tte_pooled_logistic.R` 文件头注释
 
-#### `tte_risk_difference`
-- 路径: `Blocks/66_target_trial_full/05block_tte_risk_difference.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/05block_tte_risk_difference.R` 文件头注释
+### `67_transformer/`
 
-#### `tte_sensitivity`
-- 路径: `Blocks/66_target_trial_full/07block_tte_sensitivity.R`
+#### `trf_calibration`
+- 路径: `Blocks/67_transformer/04block_trf_calibration.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/07block_tte_sensitivity.R` 文件头注释
+- 回读: `Blocks/67_transformer/04block_trf_calibration.R` 文件头注释
 
-#### `tte_stratified`
-- 路径: `Blocks/66_target_trial_full/06block_tte_stratified.R`
+#### `trf_causal_discovery`
+- 路径: `Blocks/67_transformer/09block_trf_causal_discovery.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/06block_tte_stratified.R` 文件头注释
+- 回读: `Blocks/67_transformer/09block_trf_causal_discovery.R` 文件头注释
 
-#### `tte_weighting`
-- 路径: `Blocks/66_target_trial_full/03block_tte_weighting.R`
+#### `trf_data_prep`
+- 路径: `Blocks/67_transformer/01block_trf_data_prep.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/66_target_trial_full/03block_tte_weighting.R` 文件头注释
+- 回读: `Blocks/67_transformer/01block_trf_data_prep.R` 文件头注释
+
+#### `trf_early_detection`
+- 路径: `Blocks/67_transformer/05block_trf_early_detection.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/05block_trf_early_detection.R` 文件头注释
+
+#### `trf_external_val`
+- 路径: `Blocks/67_transformer/06block_trf_external_val.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/06block_trf_external_val.R` 文件头注释
+
+#### `trf_feature_reduce`
+- 路径: `Blocks/67_transformer/02block_trf_feature_reduce.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/02block_trf_feature_reduce.R` 文件头注释
+
+#### `trf_multicenter_val`
+- 路径: `Blocks/67_transformer/10block_trf_multicenter_val.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/10block_trf_multicenter_val.R` 文件头注释
+
+#### `trf_sensitivity`
+- 路径: `Blocks/67_transformer/07block_trf_sensitivity.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/07block_trf_sensitivity.R` 文件头注释
+
+#### `trf_train_eval`
+- 路径: `Blocks/67_transformer/03block_trf_train_eval.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/03block_trf_train_eval.R` 文件头注释
+
+#### `tst_calibration_dca`
+- 路径: `Blocks/67_transformer/07block_tst_calibration_dca.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/07block_tst_calibration_dca.R` 文件头注释
+
+#### `tst_cohort`
+- 路径: `Blocks/67_transformer/01block_tst_cohort.R`
+- 用途: ##############################################################################
+- config 节: `config$data`, `config$tst_cohort`
+- 回读: `Blocks/67_transformer/01block_tst_cohort.R` 文件头注释
+
+#### `tst_external`
+- 路径: `Blocks/67_transformer/09block_tst_external.R`
+- 用途: ##############################################################################
+- config 节: `config$tst_stroke`
+- 回读: `Blocks/67_transformer/09block_tst_external.R` 文件头注释
+
+#### `tst_landmark`
+- 路径: `Blocks/67_transformer/03block_tst_landmark.R`
+- 用途: ##############################################################################
+- config 节: `config$tst_landmark`, `config$tst_stroke`
+- 回读: `Blocks/67_transformer/03block_tst_landmark.R` 文件头注释
+
+#### `tst_repo_a1`
+- 路径: `Blocks/67_transformer/05block_tst_repo_a1.R`
+- 用途: ##############################################################################
+- config 节: `config$tst_stroke`
+- 回读: `Blocks/67_transformer/05block_tst_repo_a1.R` 文件头注释
+
+#### `tst_shap`
+- 路径: `Blocks/67_transformer/08block_tst_shap.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/08block_tst_shap.R` 文件头注释
+
+#### `tst_split`
+- 路径: `Blocks/67_transformer/04block_tst_split.R`
+- 用途: ##############################################################################
+- config 节: `config$tst_stroke`
+- 回读: `Blocks/67_transformer/04block_tst_split.R` 文件头注释
+
+#### `tst_timeseries`
+- 路径: `Blocks/67_transformer/02block_tst_timeseries.R`
+- 用途: ##############################################################################
+- config 节: `config$data`, `config$tst_stroke`, `config$tst_timeseries`
+- 回读: `Blocks/67_transformer/02block_tst_timeseries.R` 文件头注释
+
+#### `tst_train_eval`
+- 路径: `Blocks/67_transformer/06block_tst_train_eval.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/67_transformer/06block_tst_train_eval.R` 文件头注释
 
 
 ### `67_transformer_shortseq_full/`
-
-#### `trf_calibration`
-- 路径: `Blocks/67_transformer_shortseq_full/04block_trf_calibration.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/04block_trf_calibration.R` 文件头注释
-
-#### `trf_causal_discovery`
-- 路径: `Blocks/67_transformer_shortseq_full/09block_trf_causal_discovery.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/09block_trf_causal_discovery.R` 文件头注释
-
-#### `trf_data_prep`
-- 路径: `Blocks/67_transformer_shortseq_full/01block_trf_data_prep.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/01block_trf_data_prep.R` 文件头注释
-
-#### `trf_early_detection`
-- 路径: `Blocks/67_transformer_shortseq_full/05block_trf_early_detection.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/05block_trf_early_detection.R` 文件头注释
-
-#### `trf_external_val`
-- 路径: `Blocks/67_transformer_shortseq_full/06block_trf_external_val.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/06block_trf_external_val.R` 文件头注释
-
-#### `trf_feature_reduce`
-- 路径: `Blocks/67_transformer_shortseq_full/02block_trf_feature_reduce.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/02block_trf_feature_reduce.R` 文件头注释
 
 #### `trf_literature_validate`
 - 路径: `Blocks/67_transformer_shortseq_full/08block_trf_literature_validate.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/67_transformer_shortseq_full/08block_trf_literature_validate.R` 文件头注释
 
-#### `trf_multicenter_val`
-- 路径: `Blocks/67_transformer_shortseq_full/10block_trf_multicenter_val.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/10block_trf_multicenter_val.R` 文件头注释
 
-#### `trf_sensitivity`
-- 路径: `Blocks/67_transformer_shortseq_full/07block_trf_sensitivity.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/07block_trf_sensitivity.R` 文件头注释
+### `68_dual_change_score/`
 
-#### `trf_train_eval`
-- 路径: `Blocks/67_transformer_shortseq_full/03block_trf_train_eval.R`
+#### `dcs_bivariate_dcsm`
+- 路径: `Blocks/68_dual_change_score/03block_dcs_bivariate_dcsm.R`
 - 用途: ##############################################################################
-- 回读: `Blocks/67_transformer_shortseq_full/03block_trf_train_eval.R` 文件头注释
+- 回读: `Blocks/68_dual_change_score/03block_dcs_bivariate_dcsm.R` 文件头注释
+
+#### `dcs_data_prep`
+- 路径: `Blocks/68_dual_change_score/01block_dcs_data_prep.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/68_dual_change_score/01block_dcs_data_prep.R` 文件头注释
+
+#### `dcs_depression_to_memory`
+- 路径: `Blocks/68_dual_change_score/04block_dcs_depression_to_memory.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/68_dual_change_score/04block_dcs_depression_to_memory.R` 文件头注释
+
+#### `dcs_descriptive`
+- 路径: `Blocks/68_dual_change_score/02block_dcs_descriptive.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/68_dual_change_score/02block_dcs_descriptive.R` 文件头注释
+
+#### `dcs_memory_to_depression`
+- 路径: `Blocks/68_dual_change_score/05block_dcs_memory_to_depression.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/68_dual_change_score/05block_dcs_memory_to_depression.R` 文件头注释
+
+#### `dcs_sensitivity`
+- 路径: `Blocks/68_dual_change_score/07block_dcs_sensitivity.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/68_dual_change_score/07block_dcs_sensitivity.R` 文件头注释
+
+#### `dcs_verbal_fluency`
+- 路径: `Blocks/68_dual_change_score/06block_dcs_verbal_fluency.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/68_dual_change_score/06block_dcs_verbal_fluency.R` 文件头注释
 
 
 ### `68_dual_change_score_full/`
-
-#### `dcs_bivariate_dcsm`
-- 路径: `Blocks/68_dual_change_score_full/03block_dcs_bivariate_dcsm.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/03block_dcs_bivariate_dcsm.R` 文件头注释
-
-#### `dcs_data_prep`
-- 路径: `Blocks/68_dual_change_score_full/01block_dcs_data_prep.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/01block_dcs_data_prep.R` 文件头注释
-
-#### `dcs_depression_to_memory`
-- 路径: `Blocks/68_dual_change_score_full/04block_dcs_depression_to_memory.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/04block_dcs_depression_to_memory.R` 文件头注释
-
-#### `dcs_descriptive`
-- 路径: `Blocks/68_dual_change_score_full/02block_dcs_descriptive.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/02block_dcs_descriptive.R` 文件头注释
 
 #### `dcs_literature_validate`
 - 路径: `Blocks/68_dual_change_score_full/08block_dcs_literature_validate.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/68_dual_change_score_full/08block_dcs_literature_validate.R` 文件头注释
-
-#### `dcs_memory_to_depression`
-- 路径: `Blocks/68_dual_change_score_full/05block_dcs_memory_to_depression.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/05block_dcs_memory_to_depression.R` 文件头注释
-
-#### `dcs_sensitivity`
-- 路径: `Blocks/68_dual_change_score_full/07block_dcs_sensitivity.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/07block_dcs_sensitivity.R` 文件头注释
-
-#### `dcs_verbal_fluency`
-- 路径: `Blocks/68_dual_change_score_full/06block_dcs_verbal_fluency.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/68_dual_change_score_full/06block_dcs_verbal_fluency.R` 文件头注释
 
 
 ### `69_ipw_diabetes_stroke_full/`
@@ -3332,15 +3675,6 @@
 - config 节: `config$ipw_literature_targets`
 - 回读: `Blocks/69_ipw_diabetes_stroke_full/06block_ipw_literature_targets.R` 文件头注释
 
-#### `ipw_overlap_weights`
-- 路径: `Blocks/69_ipw_diabetes_stroke_full/04block_ipw_overlap_weights.R`
-- 用途: ##############################################################################
-- 典型位置: iptw_balance → ... → cox_binary → ipw_overlap_weights
-- 前置: `require_data = ctx$data$iptw_weighted %||% ctx$data$imputed %||% ctx$data$cleaned`; `require_results = ctx$results$iptw_ps_covariates（可选；来自 34_IPTW/01block_iptw_balance）`
-- 写出: ctx$results$ipw_overlap_weights（PS、重叠权重、Cox HR/CI/P）
-- config 节: `config$ipw_overlap_weights`
-- 回读: `Blocks/69_ipw_diabetes_stroke_full/04block_ipw_overlap_weights.R` 文件头注释
-
 #### `ipw_pub_export`
 - 路径: `Blocks/69_ipw_diabetes_stroke_full/07block_ipw_pub_export.R`
 - 用途: ##############################################################################
@@ -3350,67 +3684,29 @@
 - config 节: `config$ipw_pub_export`, `config$project`
 - 回读: `Blocks/69_ipw_diabetes_stroke_full/07block_ipw_pub_export.R` 文件头注释
 
-#### `ipw_subgroup_km_pub`
-- 路径: `Blocks/69_ipw_diabetes_stroke_full/05block_ipw_subgroup_km_pub.R`
-- 用途: ##############################################################################
-- 前置: `require_data = ctx$data$iptw_weighted（须先 iptw_balance）`
-- 回读: `Blocks/69_ipw_diabetes_stroke_full/05block_ipw_subgroup_km_pub.R` 文件头注释
 
-#### `ipw_surv_calibration_roc`
-- 路径: `Blocks/69_ipw_diabetes_stroke_full/08block_ipw_surv_calibration_roc.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/69_ipw_diabetes_stroke_full/08block_ipw_surv_calibration_roc.R` 文件头注释
+### `69_periop_waveform/`
 
-#### `ipw_weighted_km_pub`
-- 路径: `Blocks/69_ipw_diabetes_stroke_full/03block_ipw_weighted_km_pub.R`
+#### `hypoxemia_case_hemodynamics`
+- 路径: `Blocks/69_periop_waveform/02block_hypoxemia_case_hemodynamics.R`
 - 用途: ##############################################################################
-- 典型位置: iptw_balance → iptw_association → ipw_diabetes_flowchart → ipw_weighted_km_pub
-- 前置: `require_data = ctx$data$iptw_weighted（须先运行 34_IPTW/01block_iptw_balance）`; `require_results = ctx$results$iptw_weight_col（可选；缺省回退 "weight"）`
-- 写出: ctx$results$ipw_weighted_km_pub（加权/未加权 Cox HR、95% CI、P，pub_format_p 格式化）
-- config 节: `config$ipw_weighted_km_pub`, `config$survival`
-- 回读: `Blocks/69_ipw_diabetes_stroke_full/03block_ipw_weighted_km_pub.R` 文件头注释
+- 典型位置: baseline_binary 之后
+- 回读: `Blocks/69_periop_waveform/02block_hypoxemia_case_hemodynamics.R` 文件头注释
+
+#### `hypoxemia_duration_hist`
+- 路径: `Blocks/69_periop_waveform/01block_hypoxemia_duration_hist.R`
+- 用途: ##############################################################################
+- 典型位置: baseline_binary 之后（描述性；不依赖插补特征）
+- 回读: `Blocks/69_periop_waveform/01block_hypoxemia_duration_hist.R` 文件头注释
 
 
 ### `70_crm_nhanes_pub/`
-
-#### `crm_mr_figures`
-- 路径: `Blocks/70_crm_nhanes_pub/09block_crm_mr_figures.R`
-- 用途: ##############################################################################
-- 典型位置: mr worker 末尾（mr_snp_screen → mr_twosample → mr_egger_presso →
-- 写出: ctx$results$crm_mr_figures（各结局 n_snps_harmonised、IVW/LOO 估计、图路径、 skipped_outcomes 及原因、mendelian helper 是否命中）
-- config 节: `config$dual_incidence_mr`, `config$project`
-- 回读: `Blocks/70_crm_nhanes_pub/09block_crm_mr_figures.R` 文件头注释
 
 #### `crm_mr_literature`
 - 路径: `Blocks/70_crm_nhanes_pub/11block_crm_mr_literature.R`
 - 用途: ##############################################################################
 - 前置: `require_packages = TwoSampleMR, MendelianRandomization, MRPRESSO, data.table,`; `require_files = dual_incidence_mr$gwas_exposure_path（尿酸 GWAS .tsv.gz）`; `require_plink = dual_incidence_mr$plink_bin + ld_bfile（1000G EUR）`
 - 回读: `Blocks/70_crm_nhanes_pub/11block_crm_mr_literature.R` 文件头注释
-
-#### `crm_multivariate_prognosis`
-- 路径: `Blocks/70_crm_nhanes_pub/13block_crm_multivariate_prognosis.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/70_crm_nhanes_pub/13block_crm_multivariate_prognosis.R` 文件头注释
-
-#### `crm_nhanes_baseline_weighted`
-- 路径: `Blocks/70_crm_nhanes_pub/03block_crm_nhanes_baseline_weighted.R`
-- 用途: ##############################################################################
-- 典型位置: crm_nhanes_derive → crm_nhanes_flowchart → crm_nhanes_baseline_weighted → ...
-- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
-- 写出: ctx$results$crm_nhanes_baseline_weighted
-- config 节: `config$crm_nhanes_baseline_weighted`, `config$nhanes`
-- 回读: `Blocks/70_crm_nhanes_pub/03block_crm_nhanes_baseline_weighted.R` 文件头注释
-
-#### `crm_nhanes_cox_pub`
-- 路径: `Blocks/70_crm_nhanes_pub/06block_crm_nhanes_cox_pub.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/70_crm_nhanes_pub/06block_crm_nhanes_cox_pub.R` 文件头注释
-
-#### `crm_nhanes_derive`
-- 路径: `Blocks/70_crm_nhanes_pub/01block_crm_nhanes_derive.R`
-- 用途: ##############################################################################
-- config 节: `config$crm_nhanes_pub`
-- 回读: `Blocks/70_crm_nhanes_pub/01block_crm_nhanes_derive.R` 文件头注释
 
 #### `crm_nhanes_flowchart`
 - 路径: `Blocks/70_crm_nhanes_pub/02block_crm_nhanes_flowchart.R`
@@ -3420,24 +3716,6 @@
 - 写出: ctx$results$crm_nhanes_flowchart
 - config 节: `config$crm_nhanes_flowchart`
 - 回读: `Blocks/70_crm_nhanes_pub/02block_crm_nhanes_flowchart.R` 文件头注释
-
-#### `crm_nhanes_km_pub`
-- 路径: `Blocks/70_crm_nhanes_pub/04block_crm_nhanes_km_pub.R`
-- 用途: ##############################################################################
-- 典型位置: crm_nhanes_derive → ... → crm_nhanes_km_pub
-- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
-- 写出: ctx$results$crm_nhanes_km_pub
-- config 节: `config$crm_nhanes_km_pub`
-- 回读: `Blocks/70_crm_nhanes_pub/04block_crm_nhanes_km_pub.R` 文件头注释
-
-#### `crm_nhanes_ordinal_pub`
-- 路径: `Blocks/70_crm_nhanes_pub/05block_crm_nhanes_ordinal_pub.R`
-- 用途: ##############################################################################
-- 典型位置: crm_nhanes_derive → ... → crm_nhanes_ordinal_pub（Table 2）→ crm_nhanes_cox_pub → ...
-- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
-- 写出: ctx$results$crm_nhanes_ordinal_pub（每个暴露×模型的 tidy 系数、gout_available、 analytic_n、可选 thin57_comparison）
-- config 节: `config$crm_nhanes_ordinal_pub`, `config$nhanes`
-- 回读: `Blocks/70_crm_nhanes_pub/05block_crm_nhanes_ordinal_pub.R` 文件头注释
 
 #### `crm_nhanes_pub_align`
 - 路径: `Blocks/70_crm_nhanes_pub/08block_crm_nhanes_pub_align.R`
@@ -3453,49 +3731,8 @@
 - config 节: `config$crm_nhanes_pub_deliverables`, `config$study_batch`
 - 回读: `Blocks/70_crm_nhanes_pub/12block_crm_nhanes_pub_deliverables.R` 文件头注释
 
-#### `crm_nhanes_rcs_pub`
-- 路径: `Blocks/70_crm_nhanes_pub/07block_crm_nhanes_rcs_pub.R`
-- 用途: ##############################################################################
-- 典型位置: ... → crm_nhanes_cox_pub → crm_nhanes_rcs_pub（Figure 3）→ crm_nhanes_pub_align
-- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
-- 写出: ctx$results$crm_nhanes_rcs_pub（各分层曲线数据、P_overall/P_nonlinear、 skipped_strata、可选 thin57_comparison）
-- config 节: `config$crm_nhanes_rcs_pub`, `config$nhanes`
-- 回读: `Blocks/70_crm_nhanes_pub/07block_crm_nhanes_rcs_pub.R` 文件头注释
-
-#### `crm_nhanes_subgroup_supp`
-- 路径: `Blocks/70_crm_nhanes_pub/10block_crm_nhanes_subgroup_supp.R`
-- 用途: ##############################################################################
-- 典型位置: obs_strata worker：crm_gout_strata → crm_nhanes_subgroup_supp
-- 前置: `require_data = ctx$data$cleaned %||% ctx$data$raw（须先运行 crm_nhanes_derive）`
-- 写出: ctx$results$crm_nhanes_subgroup_supp（tidy 长表、各亚组 analytic_n、跳过记录）
-- config 节: `config$crm_nhanes_subgroup_supp`, `config$nhanes`
-- 回读: `Blocks/70_crm_nhanes_pub/10block_crm_nhanes_subgroup_supp.R` 文件头注释
-
 
 ### `71_two_stage_transformer_stroke/`
-
-#### `tst_calibration_dca`
-- 路径: `Blocks/71_two_stage_transformer_stroke/07block_tst_calibration_dca.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/71_two_stage_transformer_stroke/07block_tst_calibration_dca.R` 文件头注释
-
-#### `tst_cohort`
-- 路径: `Blocks/71_two_stage_transformer_stroke/01block_tst_cohort.R`
-- 用途: ##############################################################################
-- config 节: `config$data`, `config$tst_cohort`
-- 回读: `Blocks/71_two_stage_transformer_stroke/01block_tst_cohort.R` 文件头注释
-
-#### `tst_external`
-- 路径: `Blocks/71_two_stage_transformer_stroke/09block_tst_external.R`
-- 用途: ##############################################################################
-- config 节: `config$tst_stroke`
-- 回读: `Blocks/71_two_stage_transformer_stroke/09block_tst_external.R` 文件头注释
-
-#### `tst_landmark`
-- 路径: `Blocks/71_two_stage_transformer_stroke/03block_tst_landmark.R`
-- 用途: ##############################################################################
-- config 节: `config$tst_landmark`, `config$tst_stroke`
-- 回读: `Blocks/71_two_stage_transformer_stroke/03block_tst_landmark.R` 文件头注释
 
 #### `tst_literature_validate`
 - 路径: `Blocks/71_two_stage_transformer_stroke/10block_tst_literature_validate.R`
@@ -3509,39 +3746,11 @@
 - config 节: `config$project`, `config$tst_pub_export`
 - 回读: `Blocks/71_two_stage_transformer_stroke/11block_tst_pub_export.R` 文件头注释
 
-#### `tst_repo_a1`
-- 路径: `Blocks/71_two_stage_transformer_stroke/05block_tst_repo_a1.R`
-- 用途: ##############################################################################
-- config 节: `config$tst_stroke`
-- 回读: `Blocks/71_two_stage_transformer_stroke/05block_tst_repo_a1.R` 文件头注释
-
-#### `tst_shap`
-- 路径: `Blocks/71_two_stage_transformer_stroke/08block_tst_shap.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/71_two_stage_transformer_stroke/08block_tst_shap.R` 文件头注释
-
-#### `tst_split`
-- 路径: `Blocks/71_two_stage_transformer_stroke/04block_tst_split.R`
-- 用途: ##############################################################################
-- config 节: `config$tst_stroke`
-- 回读: `Blocks/71_two_stage_transformer_stroke/04block_tst_split.R` 文件头注释
-
 #### `tst_summary_results`
 - 路径: `Blocks/71_two_stage_transformer_stroke/12block_tst_summary_results.R`
 - 用途: ##############################################################################
 - config 节: `config$tst_stroke`
 - 回读: `Blocks/71_two_stage_transformer_stroke/12block_tst_summary_results.R` 文件头注释
-
-#### `tst_timeseries`
-- 路径: `Blocks/71_two_stage_transformer_stroke/02block_tst_timeseries.R`
-- 用途: ##############################################################################
-- config 节: `config$data`, `config$tst_stroke`, `config$tst_timeseries`
-- 回读: `Blocks/71_two_stage_transformer_stroke/02block_tst_timeseries.R` 文件头注释
-
-#### `tst_train_eval`
-- 路径: `Blocks/71_two_stage_transformer_stroke/06block_tst_train_eval.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/71_two_stage_transformer_stroke/06block_tst_train_eval.R` 文件头注释
 
 
 ### `72_incidence_prognosis_two_stage/`
@@ -3612,6 +3821,112 @@
 - 回读: `Blocks/73_ml_nafld_cm/03block_ml_nafld_score_compare.R` 文件头注释
 
 
+### `74_glide_sol/`
+
+#### `glide_appendix_tables`
+- 路径: `Blocks/74_glide_sol/09block_glide_appendix_tables.R`
+- 用途: glide_appendix_tables — GLIDE-SOL: appendix tables
+- 回读: `Blocks/74_glide_sol/09block_glide_appendix_tables.R` 文件头注释
+
+#### `glide_domain_inputs`
+- 路径: `Blocks/74_glide_sol/02block_glide_domain_inputs.R`
+- 用途: glide_domain_inputs — GLIDE-SOL: domain inputs
+- 回读: `Blocks/74_glide_sol/02block_glide_domain_inputs.R` 文件头注释
+
+#### `glide_fetch_stations`
+- 路径: `Blocks/74_glide_sol/01block_glide_fetch_stations.R`
+- 用途: glide_fetch_stations — GLIDE-SOL: fetch stations
+- 回读: `Blocks/74_glide_sol/01block_glide_fetch_stations.R` 文件头注释
+
+#### `glide_figures_all`
+- 路径: `Blocks/74_glide_sol/08block_glide_figures_all.R`
+- 用途: glide_figures_all — GLIDE-SOL: figures
+- 回读: `Blocks/74_glide_sol/08block_glide_figures_all.R` 文件头注释
+
+#### `glide_meteo_forcing`
+- 路径: `Blocks/74_glide_sol/04block_glide_meteo_forcing.R`
+- 用途: glide_meteo_forcing — GLIDE-SOL: meteo forcing
+- 回读: `Blocks/74_glide_sol/04block_glide_meteo_forcing.R` 文件头注释
+
+#### `glide_pub_finalize`
+- 路径: `Blocks/74_glide_sol/10block_glide_pub_finalize.R`
+- 用途: glide_pub_finalize — GLIDE-SOL: pub finalize
+- 回读: `Blocks/74_glide_sol/10block_glide_pub_finalize.R` 文件头注释
+
+#### `glide_solweig_run`
+- 路径: `Blocks/74_glide_sol/05block_glide_solweig_run.R`
+- 用途: glide_solweig_run — GLIDE-SOL: SOLWEIG run
+- 回读: `Blocks/74_glide_sol/05block_glide_solweig_run.R` 文件头注释
+
+#### `glide_station_extract`
+- 路径: `Blocks/74_glide_sol/06block_glide_station_extract.R`
+- 用途: glide_station_extract — GLIDE-SOL: station extract
+- 回读: `Blocks/74_glide_sol/06block_glide_station_extract.R` 文件头注释
+
+#### `glide_validate_metrics`
+- 路径: `Blocks/74_glide_sol/07block_glide_validate_metrics.R`
+- 用途: glide_validate_metrics — GLIDE-SOL: validate metrics
+- 回读: `Blocks/74_glide_sol/07block_glide_validate_metrics.R` 文件头注释
+
+#### `glide_wind_coeff`
+- 路径: `Blocks/74_glide_sol/03block_glide_wind_coeff.R`
+- 用途: glide_wind_coeff — GLIDE-SOL: wind coefficients
+- 回读: `Blocks/74_glide_sol/03block_glide_wind_coeff.R` 文件头注释
+
+
+### `74_pa_lmm/`
+
+#### `pamob_cognition_long`
+- 路径: `Blocks/74_pa_lmm/03block_pamob_cognition_long.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/03block_pamob_cognition_long.R` 文件头注释
+
+#### `pamob_contrast_preset`
+- 路径: `Blocks/74_pa_lmm/07block_pamob_contrast_preset.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/07block_pamob_contrast_preset.R` 文件头注释
+
+#### `pamob_lmm_episodic`
+- 路径: `Blocks/74_pa_lmm/06block_pamob_lmm_episodic.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/06block_pamob_lmm_episodic.R` 文件头注释
+
+#### `pamob_lmm_global`
+- 路径: `Blocks/74_pa_lmm/05block_pamob_lmm_global.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/05block_pamob_lmm_global.R` 文件头注释
+
+#### `pamob_panel_fig4`
+- 路径: `Blocks/74_pa_lmm/16block_pamob_panel_fig4.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/16block_pamob_panel_fig4.R` 文件头注释
+
+#### `pamob_sensitivity_charls`
+- 路径: `Blocks/74_pa_lmm/09block_pamob_sensitivity_charls.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/09block_pamob_sensitivity_charls.R` 文件头注释
+
+#### `pamob_sensitivity_nhanes`
+- 路径: `Blocks/74_pa_lmm/17block_pamob_sensitivity_nhanes.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/17block_pamob_sensitivity_nhanes.R` 文件头注释
+
+#### `pamob_svy_dsst`
+- 路径: `Blocks/74_pa_lmm/14block_pamob_svy_dsst.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/14block_pamob_svy_dsst.R` 文件头注释
+
+#### `pamob_svy_nfl`
+- 路径: `Blocks/74_pa_lmm/15block_pamob_svy_nfl.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/15block_pamob_svy_nfl.R` 文件头注释
+
+#### `pamob_traj_plot`
+- 路径: `Blocks/74_pa_lmm/08block_pamob_traj_plot.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/74_pa_lmm/08block_pamob_traj_plot.R` 文件头注释
+
+
 ### `74_pa_mobility_cognitive_full/`
 
 #### `pamob_assemble_charls`
@@ -3624,21 +3939,6 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/74_pa_mobility_cognitive_full/12block_pamob_assemble_nhanes.R` 文件头注释
 
-#### `pamob_baseline_charls`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/04block_pamob_baseline_charls.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/04block_pamob_baseline_charls.R` 文件头注释
-
-#### `pamob_baseline_nhanes`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/13block_pamob_baseline_nhanes.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/13block_pamob_baseline_nhanes.R` 文件头注释
-
-#### `pamob_cognition_long`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/03block_pamob_cognition_long.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/03block_pamob_cognition_long.R` 文件头注释
-
 #### `pamob_concept_fig1`
 - 路径: `Blocks/74_pa_mobility_cognitive_full/11block_pamob_concept_fig1.R`
 - 用途: ##############################################################################
@@ -3648,11 +3948,6 @@
 - 路径: `Blocks/74_pa_mobility_cognitive_full/19block_pamob_contextual_inventory.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/74_pa_mobility_cognitive_full/19block_pamob_contextual_inventory.R` 文件头注释
-
-#### `pamob_contrast_preset`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/07block_pamob_contrast_preset.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/07block_pamob_contrast_preset.R` 文件头注释
 
 #### `pamob_feasibility`
 - 路径: `Blocks/74_pa_mobility_cognitive_full/01block_pamob_feasibility.R`
@@ -3664,74 +3959,34 @@
 - 用途: ##############################################################################
 - 回读: `Blocks/74_pa_mobility_cognitive_full/10block_pamob_flowchart.R` 文件头注释
 
-#### `pamob_lmm_episodic`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/06block_pamob_lmm_episodic.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/06block_pamob_lmm_episodic.R` 文件头注释
-
-#### `pamob_lmm_global`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/05block_pamob_lmm_global.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/05block_pamob_lmm_global.R` 文件头注释
-
-#### `pamob_panel_fig4`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/16block_pamob_panel_fig4.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/16block_pamob_panel_fig4.R` 文件头注释
-
 #### `pamob_pub_export`
 - 路径: `Blocks/74_pa_mobility_cognitive_full/18block_pamob_pub_export.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/74_pa_mobility_cognitive_full/18block_pamob_pub_export.R` 文件头注释
 
-#### `pamob_sensitivity_charls`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/09block_pamob_sensitivity_charls.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/09block_pamob_sensitivity_charls.R` 文件头注释
 
-#### `pamob_sensitivity_nhanes`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/17block_pamob_sensitivity_nhanes.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/17block_pamob_sensitivity_nhanes.R` 文件头注释
-
-#### `pamob_svy_dsst`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/14block_pamob_svy_dsst.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/14block_pamob_svy_dsst.R` 文件头注释
-
-#### `pamob_svy_nfl`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/15block_pamob_svy_nfl.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/15block_pamob_svy_nfl.R` 文件头注释
-
-#### `pamob_traj_plot`
-- 路径: `Blocks/74_pa_mobility_cognitive_full/08block_pamob_traj_plot.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/74_pa_mobility_cognitive_full/08block_pamob_traj_plot.R` 文件头注释
-
-
-### `75_osteo_dxa_qct/`
+### `75_dxa_qct/`
 
 #### `diagnostic_vs_fracture`
-- 路径: `Blocks/75_osteo_dxa_qct/02block_diagnostic_vs_fracture.R`
+- 路径: `Blocks/75_dxa_qct/02block_diagnostic_vs_fracture.R`
 - 用途: ##############################################################################
 - 典型位置: dxa_qct_agreement 之后；modality_discordance_profile 之前
 - config 节: `config$diagnostic_vs_fracture`
-- 回读: `Blocks/75_osteo_dxa_qct/02block_diagnostic_vs_fracture.R` 文件头注释
+- 回读: `Blocks/75_dxa_qct/02block_diagnostic_vs_fracture.R` 文件头注释
 
 #### `dxa_qct_agreement`
-- 路径: `Blocks/75_osteo_dxa_qct/01block_dxa_qct_agreement.R`
+- 路径: `Blocks/75_dxa_qct/01block_dxa_qct_agreement.R`
 - 用途: ##############################################################################
 - 典型位置: imputation / baseline_binary 之后；diagnostic_vs_fracture 之前
 - config 节: `config$dxa_qct_agreement`
-- 回读: `Blocks/75_osteo_dxa_qct/01block_dxa_qct_agreement.R` 文件头注释
+- 回读: `Blocks/75_dxa_qct/01block_dxa_qct_agreement.R` 文件头注释
 
 #### `modality_discordance_profile`
-- 路径: `Blocks/75_osteo_dxa_qct/03block_modality_discordance_profile.R`
+- 路径: `Blocks/75_dxa_qct/03block_modality_discordance_profile.R`
 - 用途: ##############################################################################
 - 典型位置: diagnostic_vs_fracture 之后
 - config 节: `config$modality_discordance_profile`
-- 回读: `Blocks/75_osteo_dxa_qct/03block_modality_discordance_profile.R` 文件头注释
+- 回读: `Blocks/75_dxa_qct/03block_modality_discordance_profile.R` 文件头注释
 
 
 ### `76_cum_egdr_kmeans_ckm_full/`
@@ -3750,11 +4005,6 @@
 - 路径: `Blocks/76_cum_egdr_kmeans_ckm_full/01block_ckm_stroke_data_ingest.R`
 - 用途: ##############################################################################
 - 回读: `Blocks/76_cum_egdr_kmeans_ckm_full/01block_ckm_stroke_data_ingest.R` 文件头注释
-
-#### `cum_exposure_build`
-- 路径: `Blocks/76_cum_egdr_kmeans_ckm_full/02block_cum_exposure_build.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/76_cum_egdr_kmeans_ckm_full/02block_cum_exposure_build.R` 文件头注释
 
 #### `logistic_cum_index_bundle`
 - 路径: `Blocks/76_cum_egdr_kmeans_ckm_full/05block_logistic_cum_index_bundle.R`
@@ -3903,104 +4153,24 @@
 - 回读: `Blocks/78_database_pooling_full/05block_dbpool_train_eval.R` 文件头注释
 
 
-### `79_sleep_dyslipid_prognosis_full/`
-
-#### `bayesian_mediation_horizon`
-- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/05block_bayesian_mediation_horizon.R`
-- 用途: ##############################################################################
-- 典型位置: survival_fixed_horizon 之后
-- config 节: `config$prognosis_v2`
-- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/05block_bayesian_mediation_horizon.R` 文件头注释
-
-#### `horizon_roc_youden`
-- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/04block_horizon_roc_youden.R`
-- 用途: ##############################################################################
-- 典型位置: survival_fixed_horizon 之后（依赖 event_h）
-- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/04block_horizon_roc_youden.R` 文件头注释
+### `79_sleep_dyslipid/`
 
 #### `sleep_duration_range`
-- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/02block_sleep_duration_range.R`
+- 路径: `Blocks/79_sleep_dyslipid/02block_sleep_duration_range.R`
 - 用途: ##############################################################################
 - 典型位置: sleep_dyslipid_cohort 之后
 - config 节: `config$prognosis_v2`
-- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/02block_sleep_duration_range.R` 文件头注释
+- 回读: `Blocks/79_sleep_dyslipid/02block_sleep_duration_range.R` 文件头注释
 
 #### `sleep_dyslipid_cohort`
-- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/01block_sleep_dyslipid_cohort.R`
+- 路径: `Blocks/79_sleep_dyslipid/01block_sleep_dyslipid_cohort.R`
 - 用途: ##############################################################################
 - 典型位置: 预后 2.0 第一步（不替换旧 survival dual-batch）
 - config 节: `config$prognosis_v2`
-- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/01block_sleep_dyslipid_cohort.R` 文件头注释
-
-#### `survival_fixed_horizon`
-- 路径: `Blocks/79_sleep_dyslipid_prognosis_full/03block_survival_fixed_horizon.R`
-- 用途: ##############################################################################
-- 典型位置: sleep_duration_range 之后
-- config 节: `config$prognosis_v2`
-- 回读: `Blocks/79_sleep_dyslipid_prognosis_full/03block_survival_fixed_horizon.R` 文件头注释
-
-
-### `80_easymr_full/`
-
-#### `easymr_gwas_search`
-- 路径: `Blocks/80_easymr_full/02block_easymr_gwas_search.R`
-- 用途: ##############################################################################
-- 典型位置: 下载数据之前单独跑。不调用 easyMR，也不插入发病/预后主链
-- 前置: `require_summary_stats = TRUE, # 只要目录里给了 FTP 汇总统计的研究`
-- config 节: `config$easymr_gwas_search`
-- 回读: `Blocks/80_easymr_full/02block_easymr_gwas_search.R` 文件头注释
-
-#### `easymr_ieu`
-- 路径: `Blocks/80_easymr_full/03block_easymr_ieu.R`
-- 用途: ##############################################################################
-- 典型位置: 还没有本地 GWAS 文件时。不插入发病/预后主链
-- config 节: `config$easymr_ieu`
-- 回读: `Blocks/80_easymr_full/03block_easymr_ieu.R` 文件头注释
-
-#### `easymr_twosample`
-- 路径: `Blocks/80_easymr_full/01block_easymr_twosample.R`
-- 用途: ##############################################################################
-- 典型位置: 数据已下载之后单独跑，不插入发病/预后主链
-- config 节: `config$easymr`
-- 回读: `Blocks/80_easymr_full/01block_easymr_twosample.R` 文件头注释
+- 回读: `Blocks/79_sleep_dyslipid/01block_sleep_dyslipid_cohort.R` 文件头注释
 
 
 ### `81_clhls_symptom_network_full/`
-
-#### `clhls_bridge`
-- 路径: `Blocks/81_clhls_symptom_network_full/05block_clhls_bridge.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/05block_clhls_bridge.R` 文件头注释
-
-#### `clhls_centrality`
-- 路径: `Blocks/81_clhls_symptom_network_full/03block_clhls_centrality.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/03block_clhls_centrality.R` 文件头注释
-
-#### `clhls_network`
-- 路径: `Blocks/81_clhls_symptom_network_full/02block_clhls_network.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/02block_clhls_network.R` 文件头注释
-
-#### `clhls_network_pub`
-- 路径: `Blocks/81_clhls_symptom_network_full/09block_clhls_network_pub.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/09block_clhls_network_pub.R` 文件头注释
-
-#### `clhls_sex`
-- 路径: `Blocks/81_clhls_symptom_network_full/06block_clhls_sex.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/06block_clhls_sex.R` 文件头注释
-
-#### `clhls_sex_nct`
-- 路径: `Blocks/81_clhls_symptom_network_full/07block_clhls_sex_nct.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/07block_clhls_sex_nct.R` 文件头注释
-
-#### `clhls_stability`
-- 路径: `Blocks/81_clhls_symptom_network_full/08block_clhls_stability.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/08block_clhls_stability.R` 文件头注释
 
 #### `clhls_symptom_ingest`
 - 路径: `Blocks/81_clhls_symptom_network_full/01block_clhls_symptom_ingest.R`
@@ -4008,11 +4178,6 @@
 - 典型位置: data_clean → column_mapping → imputation 之后。
 - config 节: `config$clhls_network`
 - 回读: `Blocks/81_clhls_symptom_network_full/01block_clhls_symptom_ingest.R` 文件头注释
-
-#### `clhls_weighted`
-- 路径: `Blocks/81_clhls_symptom_network_full/04block_clhls_weighted.R`
-- 用途: ##############################################################################
-- 回读: `Blocks/81_clhls_symptom_network_full/04block_clhls_weighted.R` 文件头注释
 
 
 ### `82_trajectory_incidence_joint/`
@@ -4086,11 +4251,217 @@ joint_trajectory = list(
 - config 节: `config$latent_profile`
 - 回读: `Blocks/83_latent_profile/01block_latent_profile_tidylpa.R` 文件头注释
 
+
+### `bkmr/`
+
+#### `bkmr_analysis`
+- 路径: `Blocks/35_environment/bkmr/02block_bkmr_analysis.R`
+- 用途: ##############################################################################
+- 典型位置: bkmr_fit → bkmr_analysis
+- 前置: `require_ctx_results = fit_bkmr, bkmr_Z, bkmr_y, bkmr_X`
+- config 节: `config$bkmr_analysis`
+- 回读: `Blocks/35_environment/bkmr/02block_bkmr_analysis.R` 文件头注释
+
+#### `bkmr_fit`
+- 路径: `Blocks/35_environment/bkmr/01block_bkmr_fit.R`
+- 用途: ##############################################################################
+- 典型位置: wqs_environment → bkmr_fit → bkmr_analysis
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
+- config 节: `config$bkmr_fit`, `config$data`
+- 回读: `Blocks/35_environment/bkmr/01block_bkmr_fit.R` 文件头注释
+
+
+### `descriptive/`
+
+#### `environment_characteristics`
+- 路径: `Blocks/35_environment/descriptive/02block_environment_characteristics.R`
+- 用途: ##############################################################################
+- 典型位置: process_environment_data → environment_characteristics
+- 前置: `require_ctx_results = environment_process_stats（由 process_environment_data 写入）`
+- config 节: `config$environment_characteristics`
+- 回读: `Blocks/35_environment/descriptive/02block_environment_characteristics.R` 文件头注释
+
+#### `voc_correlation`
+- 路径: `Blocks/35_environment/descriptive/01block_voc_correlation.R`
+- 用途: ##############################################################################
+- 典型位置: process_environment_data → voc_correlation
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
+- config 节: `config$voc_correlation`
+- 回读: `Blocks/35_environment/descriptive/01block_voc_correlation.R` 文件头注释
+
+
+### `glm/`
+
+#### `ers_elastic_net`
+- 路径: `Blocks/35_environment/glm/02block_ers_elastic_net.R`
+- 用途: ##############################################################################
+- config 节: `config$ers_elastic_net`
+- 回读: `Blocks/35_environment/glm/02block_ers_elastic_net.R` 文件头注释
+
+#### `glm_environment_quartile`
+- 路径: `Blocks/35_environment/glm/01block_glm_environment_quartile.R`
+- 用途: ##############################################################################
+- 典型位置: lasso_environment_voc → glm_environment_quartile
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs # 上游 lasso_environment_voc 写入`
+- config 节: `config$data`, `config$glm_environment_quartile`
+- 回读: `Blocks/35_environment/glm/01block_glm_environment_quartile.R` 文件头注释
+
+
+### `omics/`
+
+#### `env_gsea`
+- 路径: `Blocks/35_environment/omics/01block_env_omics_suite.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/omics/01block_env_omics_suite.R` 文件头注释
+
+#### `env_ml_gene_screen`
+- 路径: `Blocks/35_environment/omics/01block_env_omics_suite.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/omics/01block_env_omics_suite.R` 文件头注释
+
+#### `env_mr_docking`
+- 路径: `Blocks/35_environment/omics/01block_env_omics_suite.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/omics/01block_env_omics_suite.R` 文件头注释
+
+#### `env_network_toxicology`
+- 路径: `Blocks/35_environment/omics/01block_env_omics_suite.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/omics/01block_env_omics_suite.R` 文件头注释
+
+#### `env_scrna_summary`
+- 路径: `Blocks/35_environment/omics/01block_env_omics_suite.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/omics/01block_env_omics_suite.R` 文件头注释
+
+
+### `prep/`
+
+#### `environment_lod_screen`
+- 路径: `Blocks/35_environment/prep/07block_environment_lod_screen.R`
+- 用途: ##############################################################################
+- 典型位置: column_mapping → environment_lod_screen → imputation
+- 回读: `Blocks/35_environment/prep/07block_environment_lod_screen.R` 文件头注释
+
+#### `environment_subgroup_search`
+- 路径: `Blocks/35_environment/prep/05block_environment_subgroup_search.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/prep/05block_environment_subgroup_search.R` 文件头注释
+
+#### `environment_voc_clinical_gate`
+- 路径: `Blocks/35_environment/prep/02block_environment_voc_clinical_gate.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/prep/02block_environment_voc_clinical_gate.R` 文件头注释
+
+#### `environment_voc_corrplot`
+- 路径: `Blocks/35_environment/prep/08block_environment_voc_corrplot.R`
+- 用途: ##############################################################################
+- 典型位置: multicollinearity_nhanes_final → environment_voc_corrplot → environment_voc_clinical_gate
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx = voc_columns（来自 environment_lod_screen）`
+- config 节: `config$environment_corrplot`
+- 回读: `Blocks/35_environment/prep/08block_environment_voc_corrplot.R` 文件头注释
+
+#### `environment_voc_extreme_trim`
+- 路径: `Blocks/35_environment/prep/06block_environment_voc_extreme_trim.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/prep/06block_environment_voc_extreme_trim.R` 文件头注释
+
+#### `environment_voc_log_transform`
+- 路径: `Blocks/35_environment/prep/00block_environment_voc_log_transform.R`
+- 用途: ##############################################################################
+- config 节: `config$environment_voc_log_transform`
+- 回读: `Blocks/35_environment/prep/00block_environment_voc_log_transform.R` 文件头注释
+
+#### `exwas_gastric_assemble`
+- 路径: `Blocks/35_environment/prep/09block_exwas_gastric_assemble.R`
+- 用途: ##############################################################################
+- 典型位置: exwas_gastric_assemble → exwas_unweighted → ers_elastic_net
+- config 节: `config$exwas_gastric_assemble`
+- 回读: `Blocks/35_environment/prep/09block_exwas_gastric_assemble.R` 文件头注释
+
+#### `prepare_environment_dkd_data`
+- 路径: `Blocks/35_environment/prep/00block_prepare_environment_dkd_data.R`
+- 用途: ##############################################################################
+- 典型位置: 第一步（在 data_clean 之前）
+- 回读: `Blocks/35_environment/prep/00block_prepare_environment_dkd_data.R` 文件头注释
+
+#### `process_environment_data`
+- 路径: `Blocks/35_environment/prep/01block_process_environment_data.R`
+- 用途: ##############################################################################
+- 典型位置: column_mapping → process_environment_data → logistic_environment_glm
+- 前置: `require_data = ctx$data$mapped %||% ctx$data$cleaned`
+- config 节: `config$environment_process`
+- 回读: `Blocks/35_environment/prep/01block_process_environment_data.R` 文件头注释
+
+#### `remove_outliers`
+- 路径: `Blocks/35_environment/prep/02block_remove_outliers.R`
+- 用途: ##############################################################################
+- 典型位置: imputation / process_environment_data → remove_outliers → 分析 block
+- 前置: `require_data = ctx$data[[data_slot]]（优先 imputed，回退 cleaned）`
+- config 节: `config$remove_outliers`
+- 回读: `Blocks/35_environment/prep/02block_remove_outliers.R` 文件头注释
+
+#### `table1_summary`
+- 路径: `Blocks/35_environment/prep/03block_table1_summary.R`
+- 用途: ##############################################################################
+- config 节: `config$table1_summary`
+- 回读: `Blocks/35_environment/prep/03block_table1_summary.R` 文件头注释
+
+
+### `qgcomp/`
+
+#### `qgcomp_environment`
+- 路径: `Blocks/35_environment/qgcomp/01block_qgcomp_environment.R`
+- 用途: ##############################################################################
+- 典型位置: glm_environment_quartile → qgcomp_environment
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
+- config 节: `config$data`, `config$qgcomp_environment`
+- 回读: `Blocks/35_environment/qgcomp/01block_qgcomp_environment.R` 文件头注释
+
+
+### `single/`
+
+#### `environment_single_exposure_transform`
+- 路径: `Blocks/35_environment/single/01block_environment_single_exposure_transform.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/single/01block_environment_single_exposure_transform.R` 文件头注释
+
+#### `exwas_unweighted`
+- 路径: `Blocks/35_environment/single/02block_exwas_unweighted.R`
+- 用途: ##############################################################################
+- config 节: `config$exwas_unweighted`
+- 回读: `Blocks/35_environment/single/02block_exwas_unweighted.R` 文件头注释
+
+
+### `target/`
+
+#### `environment_target_enrichment`
+- 路径: `Blocks/35_environment/target/01block_environment_target_enrichment.R`
+- 用途: ##############################################################################
+- 回读: `Blocks/35_environment/target/01block_environment_target_enrichment.R` 文件头注释
+
+
+### `wqs/`
+
+#### `wqs_environment`
+- 路径: `Blocks/35_environment/wqs/01block_wqs_environment.R`
+- 用途: ##############################################################################
+- 典型位置: glm_environment_quartile → wqs_environment
+- 前置: `require_data = ctx$data$imputed %||% ctx$data$cleaned`; `require_ctx_results = select_vocs_final（或 select_vocs）`
+- config 节: `config$data`, `config$wqs_environment`
+- 回读: `Blocks/35_environment/wqs/01block_wqs_environment.R` 文件头注释
+
+#### `wqs_exwas_fixed`
+- 路径: `Blocks/35_environment/wqs/02block_wqs_exwas_fixed.R`
+- 用途: ##############################################################################
+- config 节: `config$wqs_exwas_fixed`
+- 回读: `Blocks/35_environment/wqs/02block_wqs_exwas_fixed.R` 文件头注释
+
 <!-- END AUTO:block_cards -->
 
 <!-- BEGIN AUTO:id_list -->
 ## 9. 全量 register_block 列表（AUTO）
 
-`ROC`, `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate`, `ai_reader_comparison`, `ai_reader_study`, `analysis_exclusion`, `attrition_flowchart`, `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_mediation_horizon`, `bayesian_outcome_validate`, `bayesian_roc_calibration`, `bkmr_analysis`, `bkmr_fit`, `boxplot`, `cart_decision_path`, `cdc_wonder_fetch`, `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long`, `chord_diagram`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended`, `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, `clhls_weighted`, `clinical_threshold_dca`, `column_mapping`, `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, `competing_mixed_cox`, `competing_models_123`, `competing_models_123_death`, `competing_ph_calibration`, `competing_pub_export`, `competing_rcs`, `competing_stratified`, `competing_supp_tables`, `competing_trajectory_cluster`, `competing_tyg_compute`, `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_profile_batch`, `complex_network_publication_tables`, `composite_risk_cox`, `correlation`, `cox_binary`, `cox_interaction`, `cox_ml_continuous_batch`, `cox_multi_horizon`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_subphenotype`, `cox_tertile`, `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, `crm_nhanes_ordinal_pub`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables`, `crm_nhanes_rcs_pub`, `crm_nhanes_subgroup_supp`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, `cross_lagged_frailty_transition`, `cross_lagged_km`, `cross_lagged_long_prepare`, `cross_lagged_mediation`, `cross_lagged_mediation_bootstrap`, `cross_lagged_meta_merge`, `cross_lagged_network`, `cross_lagged_network_bootstrap`, `cross_lagged_panel_network`, `cross_lagged_pooled_bind`, `cross_lagged_sensitivity`, `cross_lagged_subgroup`, `cross_lagged_subgroup_extended`, `cum_exposure_build`, `cutoff`, `data_clean`, `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, `dbpool_train_eval`, `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency`, `derived_grouping`, `diagnostic_vs_fracture`, `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize`, `dxa_qct_agreement`, `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change`, `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample`, `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary`, `environment_characteristics`, `environment_lod_screen`, `environment_single_exposure_transform`, `environment_subgroup_search`, `environment_target_enrichment`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `ers_elastic_net`, `exwas_gastric_assemble`, `exwas_unweighted`, `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, `feature_selection_venn`, `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, `gallstone_roc_cal_boot`, `gallstone_subgroup_sex`, `gallstone_table1`, `gallstone_train_split`, `gallstone_uv_covariate_screen`, `glm_environment_quartile`, `horizon_roc_youden`, `imputation`, `index`, `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `iptw_association`, `iptw_balance`, `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub`, `km_binary`, `km_continuous_router`, `km_strata`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `lasso_environment_voc`, `latent_profile_tidylpa`, `lca`, `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_cum_index_bundle`, `logistic_environment_glm`, `logistic_nomogram`, `logistic_quartile_clogit`, `logistic_quartile_glm`, `logistic_quartile_glm_rcs`, `logistic_quartile_iptw_weighted`, `logistic_quartile_nhanes_weighted`, `logistic_quartile_nhanes_weighted_rcs`, `logistic_quintile_clogit`, `logistic_quintile_glm`, `logistic_quintile_glm_rcs`, `logistic_rcs_cutoff_nhanes_weighted`, `logistic_sextile_clogit`, `logistic_sextile_glm`, `logistic_subphenotype`, `logistic_tertile_clogit`, `logistic_tertile_glm`, `logistic_tertile_glm_rcs`, `logistic_tertile_iptw_weighted`, `logistic_tertile_nhanes_weighted`, `logistic_tertile_nhanes_weighted_rcs`, `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons`, `ml_adaboost`, `ml_aggregate`, `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_catboost`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_gbdt`, `ml_gbmsurv`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_knn`, `ml_lightgbm`, `ml_logistic`, `ml_logistic_multi_index_bundle`, `ml_mboost_cox`, `ml_mlp`, `ml_models_bundle`, `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare`, `ml_naive_bayes`, `ml_realmlp`, `ml_realtabpfn_2_5`, `ml_rf`, `ml_ridge_cox`, `ml_rsf`, `ml_rsvm`, `ml_stratified_reference_profile`, `ml_survivalsvm`, `ml_tablcl_v2`, `ml_tabpfn`, `ml_tabpfnv2`, `ml_tcf_balance_scale`, `ml_tcf_sklearn_external`, `ml_tcf_sklearn_rscv`, `ml_topsis_fusion`, `ml_vif_train_test`, `ml_xgboost`, `ml_xgbsurv`, `modality_discordance_profile`, `model1_scheme_cascade`, `modmed_data_prep`, `modmed_mediation_batch`, `modmed_moderated_mediation`, `modmed_moderation`, `modmed_simple_slopes`, `modmed_spearman`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample`, `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen`, `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess`, `multimorbidity_baseline_category`, `multimorbidity_cognition_zscore`, `multimorbidity_define_exposures`, `multimorbidity_empirical_transition`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_gee_trajectory`, `multimorbidity_graphical_abstract`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sankey_transition`, `multimorbidity_sensitivity_suite`, `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized`, `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory`, `obj`, `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, `pamob_feasibility`, `pamob_flowchart`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_pub_export`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, `pamob_svy_nfl`, `pamob_traj_plot`, `parallel_competing_mediation`, `performance_ml`, `plot_cutoff`, `plot_histogram`, `prepare_environment_dkd_data`, `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize`, `process_environment_data`, `prognosis_outcome_landmark`, `psychometrics_scale_score`, `qgcomp_environment`, `rcs_ckm_strata_panels`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_prognosis`, `rcs_prognosis_by_group`, `rcs_sofa_horizon`, `remove_outliers`, `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile`, `sem_cfa_discriminant`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified`, `sensitivity_cox_mice_bundle`, `sensitivity_scenarios`, `shap`, `shap_glm`, `shiny_dynnom`, `shiny_ml_app`, `simple_ROC`, `skew_log1p`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `stepp_prognosis`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_iptw_weighted`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `subtype_viz`, `supplementary_ml`, `survival_fixed_horizon`, `table1_by_class_ckm`, `table1_summary`, `table3_class_subgroup_forests`, `threshold_logistic`, `tj_cox_rubin`, `tj_data_ingest`, `tj_finegray_rubin`, `tj_gbmtm_fit`, `tj_pub_export`, `tj_sensitivity`, `tj_subgroup`, `train_validation`, `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_chisq`, `trajectory_creatinine_pct`, `trajectory_dynpred`, `trajectory_dynpred_individual`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_pamm`, `trajectory_piecewise_cox`, `trajectory_plot_gbmt`, `trajectory_plot_jlcm`, `trajectory_prepare_wide_rdata`, `trajectory_subgroup_class`, `trajectory_weibull_compare`, `trajectory_wide_to_long`, `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, `trf_sensitivity`, `trf_train_eval`, `trim_index_extreme`, `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, `tst_split`, `tst_summary_results`, `tst_timeseries`, `tst_train_eval`, `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting`, `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis`, `unsupervised_clustering_table`, `voc_correlation`, `wqs_environment`, `wqs_exwas_fixed`
+`ROC`, `ai_cases_prepare`, `ai_guideline_audit`, `ai_lab_interpret`, `ai_llm_evaluate`, `ai_llm_multimodel`, `ai_multiround_sim`, `ai_order_robustness`, `ai_qa_cot_eval`, `ai_qa_dataset_summary`, `ai_qa_model_ranking`, `ai_qa_prepare`, `ai_qa_prompt_compare`, `ai_qa_prompt_templates`, `ai_qa_statistics`, `ai_qa_table4_validate`, `ai_reader_comparison`, `ai_reader_study`, `analysis_exclusion`, `attrition_flowchart`, `baseline_binary`, `baseline_multiclass`, `baseline_nhanes`, `baseline_node_means`, `baseline_quartile_table1`, `baseline_trajectory_table1`, `baseline_two_arm_means`, `baseline_two_group_means`, `bayesian_bodn`, `bayesian_body_clock`, `bayesian_bsc_aging`, `bayesian_bsc_clocks`, `bayesian_health_octo_suite`, `bayesian_mediation_horizon`, `bayesian_outcome_validate`, `bayesian_roc_calibration`, `bkmr_analysis`, `bkmr_fit`, `boxplot`, `boxplot_train_validation`, `cart_decision_path`, `cdc_wonder_fetch`, `cftraj_causal_forest`, `cftraj_circs_compute`, `cftraj_lcmm_episodic`, `cftraj_lcmm_fit`, `cftraj_multinomial`, `cftraj_sensitivity`, `cftraj_subgroup_viz`, `cftraj_trajectory_validate`, `cftraj_wide_to_long`, `chord_diagram`, `cits_aggregate_monthly`, `cits_model_fit`, `cits_model_full`, `cits_plot`, `cits_publication_tables`, `cits_sensitivity`, `cits_sensitivity_extended`, `ckm_attrition_flowchart`, `ckm_pub_finalize`, `ckm_stroke_data_ingest`, `clhls_bridge`, `clhls_centrality`, `clhls_network`, `clhls_network_pub`, `clhls_sex`, `clhls_sex_nct`, `clhls_stability`, `clhls_symptom_ingest`, `clhls_weighted`, `clinical_threshold_dca`, `column_mapping`, `competing_baseline_quartile`, `competing_baseline_trajectory`, `competing_cif_plot`, `competing_cox_sensitivity`, `competing_finegray`, `competing_flowchart`, `competing_index_exposure`, `competing_lmm_trajectory`, `competing_mixed_cox`, `competing_models_123`, `competing_models_123_death`, `competing_ph_calibration`, `competing_pub_export`, `competing_rcs`, `competing_stratified`, `competing_supp_tables`, `competing_trajectory_cluster`, `competing_tyg_compute`, `complex_network_bootnet`, `complex_network_covariate_residual`, `complex_network_descriptive`, `complex_network_ggm`, `complex_network_profile_batch`, `complex_network_publication_tables`, `composite_risk_cox`, `composite_risk_cox_lp`, `correlation`, `correlation_biomarker_grid`, `cox_allcause_sensitivity`, `cox_binary`, `cox_frailty_baseline`, `cox_interaction`, `cox_mixed_effects`, `cox_ml_continuous_batch`, `cox_multi_horizon`, `cox_multi_predictor_loop`, `cox_quartile`, `cox_quintile`, `cox_sextile`, `cox_simple_continuous`, `cox_subphenotype`, `cox_tertile`, `cox_tertile_baseline_wrapper`, `cox_tertile_continuous`, `crm_cox_mortality`, `crm_gout_strata`, `crm_mr_figures`, `crm_mr_literature`, `crm_multivariate_prognosis`, `crm_nhanes_baseline_weighted`, `crm_nhanes_cox_pub`, `crm_nhanes_derive`, `crm_nhanes_flowchart`, `crm_nhanes_km_pub`, `crm_nhanes_ordinal_pub`, `crm_nhanes_pub_align`, `crm_nhanes_pub_deliverables`, `crm_nhanes_rcs_pub`, `crm_nhanes_subgroup_supp`, `crm_nhanes_weighted`, `crm_ordinal_logistic`, `crm_rcs_sua`, `cross_lagged_biomarker_cor`, `cross_lagged_change_logistic`, `cross_lagged_corr_table`, `cross_lagged_country_year_bar`, `cross_lagged_cox_frailty`, `cross_lagged_fi_compute`, `cross_lagged_fig1_group`, `cross_lagged_forest_or`, `cross_lagged_frailty_transition`, `cross_lagged_km`, `cross_lagged_long_prepare`, `cross_lagged_mediation`, `cross_lagged_mediation_bootstrap`, `cross_lagged_meta_merge`, `cross_lagged_network`, `cross_lagged_network_bootstrap`, `cross_lagged_panel_network`, `cross_lagged_pooled_bind`, `cross_lagged_sensitivity`, `cross_lagged_subgroup`, `cross_lagged_subgroup_extended`, `cum_exposure_build`, `cutoff`, `data_clean`, `dbpool_batch_finalize`, `dbpool_cohort_ingest`, `dbpool_labels`, `dbpool_metrics`, `dbpool_preprocess`, `dbpool_pub_figures`, `dbpool_pub_tables`, `dbpool_split`, `dbpool_train_eval`, `dcs_bivariate_dcsm`, `dcs_data_prep`, `dcs_depression_to_memory`, `dcs_descriptive`, `dcs_literature_validate`, `dcs_memory_to_depression`, `dcs_sensitivity`, `dcs_verbal_fluency`, `derived_grouping`, `diagnostic_vs_fracture`, `dual_db_column_harmonize`, `dual_db_covariate_harmonize`, `dual_db_logistic_branch_harmonize`, `dual_db_logistic_main_table_realign`, `dual_db_logistic_scheme_harmonize`, `dxa_qct_agreement`, `dynamic_causal_analysis_filter`, `dynamic_causal_cox_baseline`, `dynamic_causal_cox_total`, `dynamic_causal_index_compute`, `dynamic_causal_meta_merge`, `dynamic_causal_rcs_change`, `easymr_gwas_search`, `easymr_ieu`, `easymr_twosample`, `env_gsea`, `env_ml_gene_screen`, `env_mr_docking`, `env_network_toxicology`, `env_scrna_summary`, `environment_characteristics`, `environment_lod_screen`, `environment_single_exposure_transform`, `environment_subgroup_search`, `environment_target_enrichment`, `environment_voc_clinical_gate`, `environment_voc_corrplot`, `environment_voc_extreme_trim`, `environment_voc_log_transform`, `ers_elastic_net`, `exwas_gastric_assemble`, `exwas_unweighted`, `feature_selection_bagged_trees`, `feature_selection_bayesian`, `feature_selection_boruta`, `feature_selection_consensus`, `feature_selection_entropy_stepwise`, `feature_selection_lasso`, `feature_selection_lasso_cox`, `feature_selection_lvq`, `feature_selection_random_forest`, `feature_selection_venn`, `forest_or_subgroup`, `gallstone_assoc_or_panels`, `gallstone_data_ingest`, `gallstone_dca_cic`, `gallstone_flowchart`, `gallstone_lasso_onese`, `gallstone_mv_nomogram`, `gallstone_pub_finalize`, `gallstone_rcs_panels`, `gallstone_roc_cal_boot`, `gallstone_subgroup_sex`, `gallstone_table1`, `gallstone_train_split`, `gallstone_uv_covariate_screen`, `glide_appendix_tables`, `glide_domain_inputs`, `glide_fetch_stations`, `glide_figures_all`, `glide_meteo_forcing`, `glide_pub_finalize`, `glide_solweig_run`, `glide_station_extract`, `glide_validate_metrics`, `glide_wind_coeff`, `glm_environment_quartile`, `horizon_roc_youden`, `hypoxemia_case_hemodynamics`, `hypoxemia_duration_hist`, `imputation`, `index`, `ip_cohort_sle_aki`, `ip_stage2_cohort_28d`, `iptw_association`, `iptw_balance`, `ipw_alteplase_exposure`, `ipw_diabetes_exposure`, `ipw_diabetes_flowchart`, `ipw_jin_composite_risk`, `ipw_literature_targets`, `ipw_overlap_weights`, `ipw_pub_export`, `ipw_subgroup_km_pub`, `ipw_surv_calibration_roc`, `ipw_weighted_km_pub`, `km_binary`, `km_by_treatment`, `km_chemo_treatment_strata`, `km_continuous_router`, `km_frailty_strata`, `km_strata`, `kmeans_elbow_bivar`, `kmeans_trajectory_panels`, `lasso_environment_voc`, `latent_profile_tidylpa`, `lca`, `logistic_binary_clogit`, `logistic_binary_glm`, `logistic_binary_glm_rcs`, `logistic_binary_iptw_weighted`, `logistic_binary_nhanes_weighted`, `logistic_binary_nhanes_weighted_rcs`, `logistic_cum_index_bundle`, `logistic_environment_glm`, `logistic_nomogram`, `logistic_ordinal_polr`, `logistic_quartile_clogit`, `logistic_quartile_glm`, `logistic_quartile_glm_rcs`, `logistic_quartile_iptw_weighted`, `logistic_quartile_nhanes_weighted`, `logistic_quartile_nhanes_weighted_rcs`, `logistic_quintile_clogit`, `logistic_quintile_glm`, `logistic_quintile_glm_rcs`, `logistic_rcs_cutoff_nhanes_weighted`, `logistic_sextile_clogit`, `logistic_sextile_glm`, `logistic_subphenotype`, `logistic_tertile_clogit`, `logistic_tertile_glm`, `logistic_tertile_glm_rcs`, `logistic_tertile_iptw_weighted`, `logistic_tertile_nhanes_weighted`, `logistic_tertile_nhanes_weighted_rcs`, `logistic_univariable_or`, `markov_apoe_le_difference`, `markov_apoe_lifestyle`, `markov_life_expectancy`, `markov_life_table_figure`, `markov_msm_bootstrap`, `markov_msm_fit`, `markov_sensitivity_glmm`, `markov_state_prep`, `mediation_bootstrap_ci`, `mediation_chain_bootstrap`, `mediation_chain_cox`, `mediation_cox_chain`, `mediation_ers_environment`, `mediation_incidence`, `mediation_longitudinal`, `mediation_nhanes_weighted`, `mediation_prognosis`, `mediation_subgroup_router`, `medication_chemo_strata`, `medication_composite_risk`, `medication_descriptive`, `medication_km_treatment`, `medication_literature_targets`, `medication_stepp_strata`, `medication_trial_comparisons`, `ml_adaboost`, `ml_aggregate`, `ml_assoc_bundle`, `ml_assoc_covariate_resolve`, `ml_catboost`, `ml_cm_feature_spaces`, `ml_cm_nested_cv`, `ml_cm_score_compare`, `ml_coxboost`, `ml_dt`, `ml_enet`, `ml_enet_cox`, `ml_eval_external`, `ml_feature_selection_bundle`, `ml_gbdt`, `ml_gbmsurv`, `ml_id_deduplicate`, `ml_inherit_primary_features`, `ml_knn`, `ml_lightgbm`, `ml_logistic`, `ml_logistic_multi_index_bundle`, `ml_mboost_cox`, `ml_mlp`, `ml_models_bundle`, `ml_nafld_external_bridge`, `ml_nafld_feature_spaces`, `ml_nafld_nested_cv`, `ml_nafld_omics_display`, `ml_nafld_pub_finalize`, `ml_nafld_score_compare`, `ml_naive_bayes`, `ml_realmlp`, `ml_realtabpfn_2_5`, `ml_rf`, `ml_ridge_cox`, `ml_rsf`, `ml_rsvm`, `ml_stratified_reference_profile`, `ml_survivalsvm`, `ml_tablcl_v2`, `ml_tabpfn`, `ml_tabpfnv2`, `ml_tcf_balance_scale`, `ml_tcf_sklearn_external`, `ml_tcf_sklearn_rscv`, `ml_topsis_fusion`, `ml_variable_heatmap`, `ml_vif_train_test`, `ml_xgboost`, `ml_xgbsurv`, `modality_discordance_profile`, `model1_scheme_cascade`, `modmed_data_prep`, `modmed_mediation_batch`, `modmed_moderated_mediation`, `modmed_moderation`, `modmed_simple_slopes`, `modmed_spearman`, `mr_egger_presso`, `mr_pleiotropy`, `mr_sensitivity`, `mr_snp_screen`, `mr_twosample`, `multicollinearity`, `multicollinearity_final`, `multicollinearity_nhanes_final`, `multicollinearity_nhanes_screen`, `multicollinearity_screen`, `multimodal_dl_shap`, `multimodal_early_fusion`, `multimodal_omics_preprocess`, `multimorbidity_baseline_category`, `multimorbidity_cognition_zscore`, `multimorbidity_define_exposures`, `multimorbidity_empirical_transition`, `multimorbidity_gee_cognition`, `multimorbidity_gee_interaction`, `multimorbidity_gee_stratified`, `multimorbidity_gee_trajectory`, `multimorbidity_graphical_abstract`, `multimorbidity_kml3d_trajectory`, `multimorbidity_sankey_transition`, `multimorbidity_sensitivity_suite`, `multimorbidity_table1_fig1`, `multivariate_covariate_resolve`, `multivariate_incidence_binary`, `multivariate_incidence_harmonized`, `multivariate_incidence_multiclass`, `multivariate_nhanes`, `multivariate_nhanes_harmonized`, `multivariate_prognosis`, `multivariate_prognosis_harmonized`, `network_temp_centrality`, `network_temp_cohort_summary`, `network_temp_compute`, `network_temp_ggm_fit`, `network_temp_literature_validate`, `network_temp_mixed_model`, `network_temp_outcome_assoc`, `network_temp_prepare_long`, `network_temp_trajectory`, `obj`, `pamob_assemble_charls`, `pamob_assemble_nhanes`, `pamob_baseline_charls`, `pamob_baseline_nhanes`, `pamob_cognition_long`, `pamob_concept_fig1`, `pamob_contextual_inventory`, `pamob_contrast_preset`, `pamob_feasibility`, `pamob_flowchart`, `pamob_lmm_episodic`, `pamob_lmm_global`, `pamob_panel_fig4`, `pamob_pub_export`, `pamob_sensitivity_charls`, `pamob_sensitivity_nhanes`, `pamob_svy_dsst`, `pamob_svy_nfl`, `pamob_traj_plot`, `parallel_competing_mediation`, `performance_ml`, `plot_cutoff`, `plot_histogram`, `prepare_environment_dkd_data`, `prepost_data_prep`, `prepost_descriptive`, `prepost_domain_slopes`, `prepost_literature_validate`, `prepost_lmm_fit`, `prepost_sensitivity`, `prepost_subgroup_age`, `prepost_visualize`, `process_environment_data`, `prognosis_outcome_landmark`, `psychometrics_scale_score`, `qgcomp_environment`, `rcs_after_analysis_filter`, `rcs_ckm_strata_panels`, `rcs_incidence`, `rcs_iptw_weighted`, `rcs_nhanes`, `rcs_ns_continuous`, `rcs_ns_exposure`, `rcs_prognosis`, `rcs_prognosis_by_group`, `rcs_sofa_horizon`, `remove_outliers`, `segmented_cox_binary`, `segmented_cox_quartile`, `segmented_cox_quintile`, `segmented_cox_tertile`, `sem_cfa_discriminant`, `sem_chain_mediation`, `sem_cox_baseline`, `sem_cox_chain_mediation`, `sem_data_prep`, `sem_descriptive`, `sem_literature_validate`, `sem_path_lavaan`, `sem_sensitivity`, `sem_stratified`, `sensitivity_cox_mice_bundle`, `sensitivity_multi_scenario_cox`, `sensitivity_scenarios`, `shap`, `shap_dl_mlp`, `shap_glm`, `shiny_dynnom`, `shiny_ml_app`, `simple_ROC`, `skew_log1p`, `sleep_duration_range`, `sleep_dyslipid_cohort`, `stepp_prognosis`, `stepp_treatment_strata`, `subgroup_cox_basic`, `subgroup_cox_binary_strata`, `subgroup_cox_extended`, `subgroup_cox_strata`, `subgroup_environment_or`, `subgroup_incidence`, `subgroup_incidence_continuous`, `subgroup_incidence_diff_by_db`, `subgroup_iptw_weighted`, `subgroup_lm_age_interaction`, `subgroup_nhanes_weighted`, `subgroup_prognosis`, `subgroup_treatment_forest`, `subtype_viz`, `supplementary_ml`, `survival_fixed_horizon`, `table1_by_class_ckm`, `table1_summary`, `table3_class_subgroup_forests`, `threshold_logistic`, `tj_cox_rubin`, `tj_data_ingest`, `tj_finegray_rubin`, `tj_gbmtm_fit`, `tj_pub_export`, `tj_sensitivity`, `tj_subgroup`, `train_validation`, `trajectory_baseline_by_class`, `trajectory_calc_28d_index`, `trajectory_chisq`, `trajectory_creatinine_pct`, `trajectory_dynpred`, `trajectory_dynpred_individual`, `trajectory_gbmt`, `trajectory_jlcm`, `trajectory_jlcm_discovery_validate`, `trajectory_km_class`, `trajectory_lcmm_external_validate`, `trajectory_lcmm_fit`, `trajectory_lcmm_mpcmp_plot`, `trajectory_outcome_adjusted`, `trajectory_outcome_models`, `trajectory_pamm`, `trajectory_piecewise_cox`, `trajectory_plot_gbmt`, `trajectory_plot_gbmt_priori`, `trajectory_plot_gbmt_priori_mean_ci`, `trajectory_plot_jlcm`, `trajectory_prepare_wide_rdata`, `trajectory_subgroup_class`, `trajectory_weibull_compare`, `trajectory_wide_to_long`, `trf_calibration`, `trf_causal_discovery`, `trf_data_prep`, `trf_early_detection`, `trf_external_val`, `trf_feature_reduce`, `trf_literature_validate`, `trf_multicenter_val`, `trf_sensitivity`, `trf_train_eval`, `trim_index_extreme`, `tst_calibration_dca`, `tst_cohort`, `tst_external`, `tst_landmark`, `tst_literature_validate`, `tst_pub_export`, `tst_repo_a1`, `tst_shap`, `tst_split`, `tst_summary_results`, `tst_timeseries`, `tst_train_eval`, `tte_bootstrap_ci`, `tte_data_prep`, `tte_descriptive`, `tte_literature_validate`, `tte_pooled_logistic`, `tte_risk_difference`, `tte_sensitivity`, `tte_stratified`, `tte_weighting`, `univariate_incidence_binary`, `univariate_incidence_multiclass`, `univariate_nhanes`, `univariate_prognosis`, `unsupervised_clustering_table`, `voc_correlation`, `wqs_environment`, `wqs_exwas_fixed`
 
 <!-- END AUTO:id_list -->

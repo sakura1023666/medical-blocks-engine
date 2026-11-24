@@ -154,6 +154,20 @@ pub_write_software_versions <- function(index_root, project_root = NULL, config 
       exclude <- unique(c(exclude, "survival", "survminer", "cmprsk", "mediation"))
       extra <- unique(c(extra, "forestploter", "glmnet", "pROC", "car"))
     }
+    ## ML 分类器 / SHAP / Shiny：必须登记版本（防 Methods_software_versions 只剩 15 包）
+    is_ml_kind <- identical(mk, "ml") ||
+      !is.null(config$ml_batch) ||
+      !is.null(config$ml_models) ||
+      isTRUE((config$shiny_ml_app %||% list())$enable)
+    if (isTRUE(is_ml_kind) && !isTRUE(is_tcf)) {
+      extra <- unique(c(
+        extra,
+        "xgboost", "lightgbm", "randomForest", "kernlab", "e1071", "rpart",
+        "bonsai", "parsnip", "recipes", "workflows", "tune", "dials",
+        "yardstick", "rsample", "shapviz", "fastshap", "shiny", "tidymodels",
+        "glmnet", "pROC", "forestploter"
+      ))
+    }
   }
   info <- pub_collect_software_versions(extra_pkgs = extra, exclude_pkgs = exclude)
   lines <- c(

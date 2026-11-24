@@ -124,14 +124,21 @@
     if (!is.null(models_list$models)) return(.tlcev_pick_model(models_list$models, prefer_ng))
   }
   ngs <- as.integer(sub("^m", "", mkeys))
-  if (!is.null(prefer_ng) && length(prefer_ng) && paste0("m", prefer_ng) %in% mkeys) {
+  prefer_ng <- suppressWarnings(as.integer(prefer_ng)[1L])
+  if (is.finite(prefer_ng) && paste0("m", prefer_ng) %in% mkeys) {
     m <- models_list[[paste0("m", prefer_ng)]]
-    if (inherits(m, "Jointlcmm")) return(list(model = m, ng = as.integer(prefer_ng)))
+    if (inherits(m, "Jointlcmm")) return(list(model = m, ng = prefer_ng))
     if (is.list(m) && inherits(m$best, "Jointlcmm"))
-      return(list(model = m$best, ng = as.integer(prefer_ng)))
+      return(list(model = m$best, ng = prefer_ng))
   }
-  # pick max ng available with Jointlcmm
-  for (g in sort(ngs, decreasing = TRUE)) {
+  # 禁止默认 max ng（会把发现集 optimal=3 误用成 m6）
+  # 回退顺序：optimal_ng 属性 → m2 → 最小可用 ng
+  attr_ng <- suppressWarnings(as.integer(attr(models_list, "optimal_ng")[1L]))
+  if (is.finite(attr_ng) && paste0("m", attr_ng) %in% mkeys) {
+    m <- models_list[[paste0("m", attr_ng)]]
+    if (inherits(m, "Jointlcmm")) return(list(model = m, ng = attr_ng))
+  }
+  for (g in sort(ngs, decreasing = FALSE)) {
     m <- models_list[[paste0("m", g)]]
     if (inherits(m, "Jointlcmm")) return(list(model = m, ng = g))
     if (is.list(m) && inherits(m$best, "Jointlcmm")) return(list(model = m$best, ng = g))
@@ -196,6 +203,29 @@ block_trajectory_lcmm_external_validate <- function(ctx, ...) {
   }
   prefer_ng <- bl$prefer_ng %||% ctx$config$trajectory_jlcm$prefer_final_ng %||%
     ctx$results$trajectory_jlcm_selected_ng[[Index]] %||% NULL
+  # 发现集落盘的 optimal_ng_*.txt（与 Table2 选类一致）优先于 max-ng 回退
+  if (is.null(prefer_ng) || !is.finite(suppressWarnings(as.integer(prefer_ng)[1L]))) {
+    opt_cands <- c(
+      file.path(dirname(model_file), "Tables", "Summary", paste0("optimal_ng_", Index, ".txt")),
+      file.path(dirname(dirname(model_file)), "Tables", "Summary", paste0("optimal_ng_", Index, ".txt")),
+      file.path(dirname(model_file), paste0("optimal_ng_", Index, ".txt"))
+    )
+    # 常见：Data/D01_*.RData → 同级 ../Tables/Summary
+    opt_cands <- c(
+      opt_cands,
+      file.path(dirname(dirname(model_file)), "Tables", "Summary", paste0("optimal_ng_", Index, ".txt")),
+      file.path(dirname(dirname(dirname(model_file))), "Tables", "Summary", paste0("optimal_ng_", Index, ".txt"))
+    )
+    for (op in unique(opt_cands)) {
+      if (!file.exists(op)) next
+      og <- suppressWarnings(as.integer(trimws(readLines(op, warn = FALSE)[1L])))
+      if (is.finite(og) && og >= 2L) {
+        prefer_ng <- og
+        cli::cli_alert_info("外验 prefer_ng 取自发现集 {.file {basename(op)}} = {og}")
+        break
+      }
+    }
+  }
   picked <- .tlcev_pick_model(models_obj, prefer_ng = prefer_ng)
   if (is.null(picked)) stop("无法从发现集文件提取 Jointlcmm 对象", call. = FALSE)
   dev_mod <- picked$model

@@ -222,11 +222,21 @@
     roc_auc = "ROC AUC", auc = "ROC AUC", c_index = "C-index",
     kap = "Kappa", sens = "Sensitivity", spec = "Specificity",
     accuracy = "Accuracy", f_meas = "F1", mcc = "MCC",
-    brier = "Brier", brier_score = "Brier"
+    brier = "Brier", brier_score = "Brier",
+    j_index = "Youden J", bal_accuracy = "Balanced accuracy",
+    detection_prevalence = "Detection prevalence",
+    ppv = "PPV", npv = "NPV", precision = "Precision", recall = "Recall",
+    pr_auc = "PR AUC", log_loss = "Log-loss"
   )
   eval_df$.metric_lab <- unname(metric_lab[tolower(as.character(eval_df$.metric))])
   miss <- is.na(eval_df$.metric_lab) | !nzchar(eval_df$.metric_lab)
-  eval_df$.metric_lab[miss] <- as.character(eval_df$.metric[miss])
+  ## 禁下划线：未知指标也 scrub 成展示名，禁止把 j_index 等原样上轴
+  raw_miss <- as.character(eval_df$.metric[miss])
+  eval_df$.metric_lab[miss] <- if (exists("pipeline_display_label", mode = "function")) {
+    vapply(raw_miss, function(x) as.character(pipeline_display_label(x))[1L], character(1L))
+  } else {
+    gsub("_", " ", raw_miss, fixed = TRUE)
+  }
   p <- ggplot2::ggplot(
     eval_df,
     ggplot2::aes(x = .data$.metric_lab, y = .data$.estimate, color = .data$model)
