@@ -228,12 +228,14 @@ sw <- list(survey_weight = wcol, survey_psu = "SDMVPSU", survey_strata = "SDMVST
 p_nl <- exwas_tox_ers_rcs_note(assoc$data, covars_m2, sw, file.path(out, "Figure_4_RCS_note.txt"))
 exwas_log("RCS p_nonlinear≈", signif(p_nl, 4))
 
-# 6) WQS（原文 q=4；bootstrap 可用 --wqs-boot，默认 200 求速度）
-if (length(hit_cols) >= 2L && requireNamespace("gWQS", quietly = TRUE)) {
+# 6) WQS（对齐 Dong Fig7/S7：筛后大面板进混合，非仅 FDR 命中；q=4；b 可用 --wqs-boot）
+wqs_pool <- unique(c(ers_pool, hit_cols))
+wqs_pool <- intersect(wqs_pool, names(assoc$data))
+if (length(wqs_pool) >= 2L && requireNamespace("gWQS", quietly = TRUE)) {
   options(future.globals.maxSize = Inf)
   dd <- assoc$data
-  # WQS：多周期命中跨面板 → 与 ERS 同口径剔高缺失后中位数填补
-  miss_w <- vapply(hit_cols, function(nm) mean(!is.finite(exwas_to_num(dd[[nm]]))), numeric(1))
+  # 多周期跨面板：剔缺失率过高者后中位数填补（与 ERS 操作层同精神）
+  miss_w <- vapply(wqs_pool, function(nm) mean(!is.finite(exwas_to_num(dd[[nm]]))), numeric(1))
   mix_cols <- names(miss_w)[is.finite(miss_w) & miss_w <= 0.55]
   if (length(mix_cols) < 2L) mix_cols <- intersect(ers_fit$selected, names(dd))
   cols_w <- unique(c("DN", mix_cols, covars_m2))
@@ -249,8 +251,7 @@ if (length(hit_cols) >= 2L && requireNamespace("gWQS", quietly = TRUE)) {
   }
   dw <- dw[stats::complete.cases(dw), , drop = FALSE]
   hit_cols_wqs <- mix_cols
-  exwas_log("WQS mix 列=", length(hit_cols_wqs), " n=", nrow(dw))
-  # 方向：泛癌命中 OR 多为 >1 → 先正向；前列腺粗命中曾多为 <1 → 再试负向
+  exwas_log("WQS mix 列=", length(hit_cols_wqs), " (full screened panel) n=", nrow(dw))
   fml <- stats::as.formula(
     paste("DN ~ wqs", if (length(intersect(covars_m2, names(dw)))) {
       paste("+", paste(intersect(covars_m2, names(dw)), collapse = "+"))
@@ -284,7 +285,8 @@ if (length(hit_cols) >= 2L && requireNamespace("gWQS", quietly = TRUE)) {
     writeLines(
       c(
         "gWQS complementary mixture; no native survey design (paper same package).",
-        paste0("q=4; b=", opt$wqs_boot, "; mix=ExWAS FDR hits; seed=123456"),
+        paste0("q=4; b=", opt$wqs_boot, "; mix=full screened toxicant panel (Dong Fig7/S7); seed=123456"),
+        paste0("n_mix=", length(hit_cols_wqs), "; FDR-hit subset size=", length(hit_cols)),
         "ERS logistic uses WTSA2YR survey weights."
       ),
       file.path(out, "WQS_weight_note.txt")
@@ -292,7 +294,7 @@ if (length(hit_cols) >= 2L && requireNamespace("gWQS", quietly = TRUE)) {
     exwas_log("WQS 完成")
   }
 } else {
-  writeLines("gWQS unavailable or <2 hits", file.path(out, "WQS_not_fit.txt"))
+  writeLines("gWQS unavailable or <2 mix columns", file.path(out, "WQS_not_fit.txt"))
 }
 
 # 7) 探索性中介：对齐 Dong — mediation::mediate B=1000（风险差）；癌症 6 中介非牙周照搬

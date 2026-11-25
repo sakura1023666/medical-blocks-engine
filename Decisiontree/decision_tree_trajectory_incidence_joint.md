@@ -18,7 +18,7 @@
 | Q3 | 主分析 = Cox（发病时间/中点随访）；logistic 不冒充；轨迹定类**不做插补**（操作层锁 master），推断 Cox 走 **MICE m≥5 + Rubin** |
 | Q4 | Model1–4 序贯递进（文献四段式）；协变量成分/疾病泄漏硬排除 |
 | Q5 | 亚组 = 分层 HR + **LRT 交互 P**（跨插补平均 χ²）；年龄二分类切点病种依据 |
-| Q6 | 敏感性 ≥9 项：前 2 年剔除、排除 DM/HBP、完整病例、药物排除、后验概率加权、时间尺度 |
+| Q6 | 敏感性 = 文献九项**全覆盖**（引擎 11 个 item）：前 2 年剔除、**Fine-Gray non-CVD 死亡（Table 4）**、排除 DM/HBP、完整病例、药物排除、后验概率加权、**区间删失 cloglog（S8，访视窗）**、线性/三次时间函数、**中位数交叉分类（S10）**；轨迹组间 **BH-FDR**（p_bh 列） |
 | Q7 | PH  Schoenfeld；违则 Limitations；判别（ΔC/NRI/IDI）另表 |
 | Q8 | 发表键：Fig1 纳排诚实分项（年龄+成分缺失 n）、Fig2 KM、Fig3 AIC/BIC+轨迹面板、Fig4/5 森林、Table1-3+S*；数字单一出处 |
 
@@ -47,9 +47,14 @@ master + grp_* 固定类别列
   │    竞争事件者 ftime 用 death_time_col（缺则沿用结局 time，Methods 如实说明）；
   │    每套 complete cmprsk::crr → mi_rubin_pool_estimates 合并（m≥5 铁律）；
   │    cmprsk 缺失回退 cause-specific Cox 并在 method 列写明（禁止冒充 Fine-Gray）。
+  │    竞争事件语义（文献敏感性②= non-CVD death）三档，Table 4 脚注 + Methods 自动写明所用口径：
+  │      a) competing_risk$death_cause_icd_col + main_cause_regex → ICD 判主结局死因（严格复现）
+  │      b) 无死因列 → 「未报告主结局事件的死亡」近似 non-CVD death（引擎自证计数）
+  │      c) competing_is_all_cause=TRUE → 明示全因死亡（禁止与文献口径混淆）
   ▼
   │  tj_subgroup      分层 Cox（剔分层变量自身）+ LRT 交互 χ² 跨套平均 → HR, P-int
-  │  tj_sensitivity   S0/S1/S3/S4/S5/S6/S7(PP加权)/S9a/S9b；Rubin 或完整病例
+  │  tj_sensitivity   S0/S1/S3/S4/S5/S6/S7(PP加权)/S8(cloglog 区间删失)/S9a/S9b/S10(交叉分类)；
+  │                    Rubin 或完整病例；p_bh = 跨轨迹组 BH-FDR（文献口径）
   ▼
   │  tj_pub_export    Table1(按类基线) / Table2(Cox) / Table3(亚组) / Table4(Fine-Gray, 有 tj_fg 时) / S*
   │                    Fig1 flowchart / Fig2 KM / Fig3 AIC-BIC+轨迹 / Fig4 森林

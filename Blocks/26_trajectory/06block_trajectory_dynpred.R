@@ -30,6 +30,9 @@
 #    config$trajectory$jlcm$survival_offset          — 生存概率映射下界偏移
 #    config$trajectory$jlcm$survival_scale           — 生存概率映射高度比例
 #    config$plot$font_family
+#    config$trajectory_dynpred$pred_scale            — "survival"|"mortality"（副轴）
+#    ctx$results$trajectory_dynpred_newdata[[Index]] — 外验覆盖：
+#         list(model_data_final=, class_df=data.frame(subject_id_num,class))
 #
 #  输出：
 #    Figures/Figure_Dynpred_{Index}_D{D}.pdf  — 每个 Index×ng 一张 PDF
@@ -67,7 +70,8 @@ block_trajectory_dynpred <- function(ctx, ...) {
   index_vars       <- traj_cfg$index_vars %||% stop("trajectory$index_vars 未配置。")
   cycle            <- as.numeric(traj_cfg$cycle         %||% 28)
   assessment_times <- as.numeric(jlcm_cfg$assessment_times %||% c(4, 7, 14, 21))
-  ndraws           <- as.integer(jlcm_cfg$ndraws        %||% 2000L)
+  # 发表重绘默认 200；正式大批量可在 config 提到 2000
+  ndraws           <- as.integer(jlcm_cfg$ndraws        %||% 200L)
   dyn_width        <- jlcm_cfg$dynpred_width            %||% 12
   dyn_height       <- jlcm_cfg$dynpred_height           %||% 8
   surv_offset      <- jlcm_cfg$survival_offset          %||% 0.02
@@ -116,6 +120,17 @@ block_trajectory_dynpred <- function(ctx, ...) {
       cli::cli_alert_warning("{Index}: 模型或 model_data_final 不可用，跳过"); next
     }
 
+    # 外验/重绘：可覆盖 newdata + 类别（发现模型仍用 models_raw）
+    ov <- ctx$results$trajectory_dynpred_newdata[[Index]]
+    if (is.list(ov)) {
+      if (is.data.frame(ov$model_data_final)) {
+        model_data_final <- ov$model_data_final
+        cli::cli_alert_info(
+          "dynpred [{Index}]: 使用覆盖 model_data_final（n={nrow(model_data_final)}）"
+        )
+      }
+    }
+
     # ── 选择目标模型（优先 JLCM 自动选定的最优 ng）────────────────────────────
     prefer_ng <- if (!is.null(jlcm_cfg$prefer_ng)) {
       as.integer(jlcm_cfg$prefer_ng)
@@ -150,19 +165,31 @@ block_trajectory_dynpred <- function(ctx, ...) {
     ng_use <- final_model$ng
     cli::cli_alert_info("使用模型 ng={ng_use}，conv={final_model$conv %||% NA}")
 
-    # ── 提取类别：优先双库 align maps（Class1=低位主类），禁止再 majority-swap
-    pprob_df    <- as.data.frame(final_model$pprob)
-    swap_map    <- if (exists("trajectory_resolve_class_map", mode = "function")) {
-      trajectory_resolve_class_map(pprob_df$class, cfg, Index, source = "raw")
-    } else if (exists("trajectory_class_swap_map", mode = "function")) {
-      trajectory_class_swap_map(pprob_df$class)
+    # ── 提取类别：优先外验 class_df；否则发现集 pprob（可 swap）
+    if (is.list(ov) && is.data.frame(ov$class_df) &&
+        all(c("subject_id_num", "class") %in% names(ov$class_df))) {
+      class_df <- ov$class_df[, c("subject_id_num", "class"), drop = FALSE]
+      class_df$subject_id_num <- as.integer(class_df$subject_id_num)
+      class_df$class <- as.integer(class_df$class)
+      class_df <- class_df[!is.na(class_df$subject_id_num) & !is.na(class_df$class), , drop = FALSE]
+      all_classes <- sort(unique(class_df$class))
+      cli::cli_alert_info(
+        "dynpred [{Index}]: 使用覆盖 class_df（n={nrow(class_df)}, classes={paste(all_classes, collapse=',')}）"
+      )
     } else {
-      NULL
+      pprob_df    <- as.data.frame(final_model$pprob)
+      swap_map    <- if (exists("trajectory_resolve_class_map", mode = "function")) {
+        trajectory_resolve_class_map(pprob_df$class, cfg, Index, source = "raw")
+      } else if (exists("trajectory_class_swap_map", mode = "function")) {
+        trajectory_class_swap_map(pprob_df$class)
+      } else {
+        NULL
+      }
+      if (!is.null(swap_map))
+        pprob_df$class <- trajectory_apply_class_swap(pprob_df$class, swap_map)
+      all_classes <- sort(unique(pprob_df$class))
+      class_df    <- pprob_df[, c("subject_id_num", "class")]
     }
-    if (!is.null(swap_map))
-      pprob_df$class <- trajectory_apply_class_swap(pprob_df$class, swap_map)
-    all_classes <- sort(unique(pprob_df$class))
-    class_df    <- pprob_df[, c("subject_id_num", "class")]
 
     # ── 合并类别到模型数据 ────────────────────────────────────────────────────
     model_data_with_class <- model_data_final |>
@@ -202,6 +229,24 @@ block_trajectory_dynpred <- function(ctx, ...) {
     dyn_rows <- list()
     unify_time_var    <- "time_day"
     unify_outcome_var <- "scr_std"
+
+    # ns(df=2) 在 landmark 过早（如 day2 且 time 从 1 起）会结点崩溃；先剔除
+    n_unique_le <- vapply(assessment_times, function(t) {
+      length(unique(model_data_final[[unify_time_var]][
+        is.finite(model_data_final[[unify_time_var]]) &
+          model_data_final[[unify_time_var]] <= t
+      ]))
+    }, integer(1))
+    keep_lm <- n_unique_le >= 3L
+    if (any(!keep_lm)) {
+      cli::cli_alert_warning(
+        "跳过 landmark={paste(assessment_times[!keep_lm], collapse=',')}d（≤landmark 的 time 唯一点 <3，ns 不可估）"
+      )
+      assessment_times <- assessment_times[keep_lm]
+    }
+    if (!length(assessment_times)) {
+      cli::cli_alert_danger("{Index}: 无可用 landmark，跳过"); next
+    }
 
     for (assess_t in assessment_times) {
       cli::cli_h2("landmark = {assess_t}d")
@@ -309,15 +354,39 @@ block_trajectory_dynpred <- function(ctx, ...) {
       y_max <- as.numeric(yl_cfg[2L])
     }
 
-    # 生存概率显示范围
-    pred_vals <- dyn_df$surv[!is.na(dyn_df$surv)]
+    # 副轴：survival（默认）或 mortality（对齐 fcimb Fig3/4 Predicted mortality risk）
+    pred_scale <- tolower(as.character(
+      dyn_bl$pred_scale %||% jlcm_cfg$pred_scale %||% "survival"
+    )[1L])
+    use_mort <- identical(pred_scale, "mortality")
+    pred_metric <- if (use_mort) {
+      dyn_df %>%
+        dplyr::mutate(
+          pred = 1 - surv,
+          pred_lo = if (!all(is.na(surv_hi))) 1 - surv_hi else NA_real_,
+          pred_hi = if (!all(is.na(surv_lo))) 1 - surv_lo else NA_real_
+        )
+    } else {
+      dyn_df %>%
+        dplyr::mutate(pred = surv, pred_lo = surv_lo, pred_hi = surv_hi)
+    }
+    pred_vals <- pred_metric$pred[!is.na(pred_metric$pred)]
+    if (!length(pred_vals)) {
+      cli::cli_alert_warning("{Index}: dynpred 预测值全空，跳过绘图"); next
+    }
     pred_min  <- max(0, min(pred_vals) - diff(range(pred_vals)) * 0.05)
     pred_max  <- min(1, max(pred_vals) + diff(range(pred_vals)) * 0.05)
+    if (use_mort) {
+      # 文献式：副轴从低风险到高风险，至少覆盖到可见差异
+      pred_min <- 0
+      pred_max <- max(pred_max, 0.25, quantile(pred_vals, 0.98, na.rm = TRUE) * 1.05)
+      pred_max <- min(1, pred_max)
+    }
 
-    # 生存概率 → 主坐标轴映射
+    # 预测指标 → 主坐标轴映射
     s_min_y <- y_min + surv_offset * (y_max - y_min)
     s_max_y <- min(y_max, y_min + (surv_offset + surv_scale) * (y_max - y_min))
-    map_surv <- function(p)
+    map_pred <- function(p)
       s_min_y + (pmin(pmax(p, pred_min), pred_max) - pred_min) /
         (pred_max - pred_min) * (s_max_y - s_min_y)
 
@@ -335,15 +404,24 @@ block_trajectory_dynpred <- function(ctx, ...) {
       dplyr::mutate(class_label = factor(class_label, levels = class_levels))
 
     # 预测数据（映射到主坐标轴）
-    pred_plot <- dyn_df |>
+    pred_plot <- pred_metric |>
       dplyr::mutate(
         time_abs    = landmark + horizon,
         class_label = factor(class_label, levels = class_levels),
-        mapped_surv = map_surv(surv),
-        mapped_lo   = if (!all(is.na(surv_lo))) map_surv(surv_lo) else NA_real_,
-        mapped_hi   = if (!all(is.na(surv_hi))) map_surv(surv_hi) else NA_real_
+        mapped_pred = map_pred(pred),
+        mapped_lo   = if (!all(is.na(pred_lo))) map_pred(pred_lo) else NA_real_,
+        mapped_hi   = if (!all(is.na(pred_hi))) map_pred(pred_hi) else NA_real_
       ) |>
-      dplyr::filter(!is.na(mapped_surv))
+      dplyr::filter(!is.na(mapped_pred))
+
+    # 面板标签 a/b/c/d（文献 Fig3/4）
+    lm_levels <- as.character(assessment_times)
+    lm_labs <- setNames(
+      paste0("(", letters[seq_along(assessment_times)], ") Landmark ", assessment_times, " d"),
+      lm_levels
+    )
+
+    sec_name <- if (use_mort) "Predicted mortality risk" else "Survival Probability"
 
     # ── 绘图 ─────────────────────────────────────────────────────────────────
     p <- ggplot2::ggplot() +
@@ -364,7 +442,7 @@ block_trajectory_dynpred <- function(ctx, ...) {
       ) +
       ggplot2::geom_line(
         data = pred_plot,
-        ggplot2::aes(x = time_abs, y = mapped_surv, color = class_label),
+        ggplot2::aes(x = time_abs, y = mapped_pred, color = class_label),
         linewidth = 1.2
       ) +
       ggplot2::geom_ribbon(
@@ -375,7 +453,7 @@ block_trajectory_dynpred <- function(ctx, ...) {
       ) +
       ggplot2::facet_wrap(
         ~ assessment_time,
-        labeller = ggplot2::as_labeller(function(x) paste0("Landmark ", x, " d"))
+        labeller = ggplot2::as_labeller(lm_labs)
       ) +
       ggplot2::scale_x_continuous(
         name   = "Day",
@@ -388,8 +466,8 @@ block_trajectory_dynpred <- function(ctx, ...) {
         sec.axis = ggplot2::sec_axis(
           trans  = ~ (. - s_min_y) / (s_max_y - s_min_y) *
             (pred_max - pred_min) + pred_min,
-          name   = "Survival Probability",
-          breaks = seq(round(pred_min, 2), round(pred_max, 2), by = 0.05),
+          name   = sec_name,
+          breaks = pretty(c(pred_min, pred_max), n = 5),
           labels = scales::percent_format(accuracy = 1)
         )
       ) +

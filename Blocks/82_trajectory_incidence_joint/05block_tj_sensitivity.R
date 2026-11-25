@@ -95,6 +95,10 @@ block_tj_sensitivity <- function(ctx, ...) {
   # 交叉分类四格：把 <compA>×<compB> 中位切点标签（T1=双低参照）预写入 df 临时列，
   # fit_hr 以该列为暴露即可通用复用（Rubin / 完整病例逻辑同主分析）。
   make_cc_col <- function(sys, cols, name) {
+    if (length(cols) < 2L) {
+      cli::cli_alert_info("S10/{sys}: 单指标体系无交叉分类，跳过")
+      return(NULL)
+    }
     ok <- cols %in% names(df)
     if (!all(ok)) { cli::cli_alert_info("S10/{sys}: 缺成分列 {paste(cols[!ok], collapse=', ')}，跳过"); return(NULL) }
     A <- as.numeric(df[[cols[1]]]); B <- as.numeric(df[[cols[2]]])
@@ -165,7 +169,12 @@ block_tj_sensitivity <- function(ctx, ...) {
                                  "S5_complete_case","S6_exclude_glucose_lipid_med","S7_PP_weighted",
                                  "S8_cloglog_interval",
                                  "S9a_linear_time","S9b_cubic_time","S10_cross_class")
-  tw <- as.numeric(bl$exclude_first_years %||% 2) * 12
+  tw <- if (!is.null(sens_cfg$exclude_first_window)) {
+    as.numeric(sens_cfg$exclude_first_window)     # 与结局时间同单位（周/月均可）
+  } else as.numeric(bl$exclude_first_years %||% 2) * 12
+  # 排除条件列：缺列 -> 全 NA（= 该步不排除任何人，日志/表注如实；禁止静默空集假跳过）
+  colv <- function(cn) if (cn %in% names(df)) suppressWarnings(as.numeric(df[[cn]]))
+                       else rep(NA_real_, nrow(df))
   cc_cols <- intersect(unlist(models, use.names = FALSE), names(df))
   cc_cols <- setdiff(cc_cols, c(id_col))
   cc <- if (length(cc_cols)) which(stats::complete.cases(df[, cc_cols, drop = FALSE])) else integer(0)
@@ -203,13 +212,13 @@ block_tj_sensitivity <- function(ctx, ...) {
       tryCatch(switch(item,
         S0_main = add(item, fit_hr(all_idx, gv, covs_all)),
         S1_exclude_first2y = add(item, fit_hr(which(oc_e == 0 | oc_t >= tw), gv, covs_all)),
-        S3_exclude_DM = add(item, fit_hr(which(is.na(df$dm_d) | df$dm_d == 0), gv, covs_all)),
-        S4_exclude_HBP = add(item, fit_hr(which(is.na(df$hbp_d) | df$hbp_d == 0), gv, covs_all)),
+        S3_exclude_DM = add(item, { dm <- colv("dm_d"); fit_hr(which(is.na(dm) | dm == 0), gv, covs_all) }),
+        S4_exclude_HBP = add(item, { hb <- colv("hbp_d"); fit_hr(which(is.na(hb) | hb == 0), gv, covs_all) }),
         S5_complete_case = if (length(cc) > 30) add(item, fit_hr(cc, gv, covs_all, use_cc = TRUE)) else NULL,
-        S6_exclude_glucose_lipid_med = add(item, fit_hr(which(
-          (is.na(df$chol_med_w3) | df$chol_med_w3 == 0) &
-          (is.na(df$dmmed) | df$dmmed == 0) &
-          (is.na(df$insulin) | df$insulin == 0)), gv, covs_all)),
+        S6_exclude_glucose_lipid_med = add(item, {
+          cm <- colv("chol_med_w3"); dm2 <- colv("dmmed"); in2 <- colv("insulin")
+          fit_hr(which((is.na(cm) | cm == 0) & (is.na(dm2) | dm2 == 0) &
+                         (is.na(in2) | in2 == 0)), gv, covs_all) }),
         S7_PP_weighted = if (!is.null(pp)) add(item, fit_hr(
           all_idx, gv, covs_all, wfun = function(d) {
             lv <- as.integer(sub("^T", "", d[[gv]]))

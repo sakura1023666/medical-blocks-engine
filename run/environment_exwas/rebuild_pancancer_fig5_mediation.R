@@ -268,16 +268,25 @@ writeLines(c(
   "样本量：各中介 n 见图面；选型见 reports/mediation_cancer_four_mediators_rationale.md。"
 ), file.path(fig_md, "Figure 5. Mediation clinical biomarkers.md"))
 
-# ---- 5) medsens → Figure S4 ----
+# ---- 5) medsens → Figure S4（对齐 Dong Supp Fig4：每中介一行 4 格）----
+# 每行：ACME0(ρ) | ACME1(ρ) | ACME0(R²) | ACME1(R²)；算法同 mediation::medsens
 s4_path <- file.path(fig_pdf, "Figure S4. Mediation sensitivity.pdf")
+# 撤旧拆分稿，避免交付双份
+old_s4b <- file.path(fig_pdf, "Figure S4b. Mediation sensitivity R2.pdf")
+if (file.exists(old_s4b)) file.remove(old_s4b)
 if (!skip_medsens) {
-  exwas_log("medsens for Figure S4 …")
+  exwas_log("medsens for Figure S4 (Dong 4-col layout) …")
+  saveRDS(med_objs, file.path(out_ds, "mediate_objects_fig5.rds"))
   sens_ok <- list()
   for (med in names(med_objs)) {
     exwas_log("medsens ", med)
     s <- tryCatch(
-      mediation::medsens(med_objs[[med]], rho.by = 0.1, effect.type = "indirect",
-                         sims = min(100L, as.integer(sims))),
+      mediation::medsens(
+        med_objs[[med]],
+        rho.by = 0.1,
+        effect.type = "indirect",
+        sims = min(200L, as.integer(sims))
+      ),
       error = function(e) e
     )
     if (inherits(s, "error")) {
@@ -286,65 +295,78 @@ if (!skip_medsens) {
     }
     sens_ok[[med]] <- s
   }
+  saveRDS(sens_ok, file.path(out_ds, "medsens_objects_fig5.rds"))
   if (length(sens_ok)) {
     n <- length(sens_ok)
-    ncol <- 2L
-    nrow_g <- as.integer(ceiling(n / ncol))
-    grDevices::cairo_pdf(s4_path, width = 10, height = 3.4 * nrow_g, family = "serif")
-    op <- par(mfrow = c(nrow_g, ncol), mar = c(4, 4, 2.5, 1), family = "serif")
+    # 每中介 4 面板；行=中介
+    grDevices::cairo_pdf(s4_path, width = 11.5, height = max(8.5, 2.35 * n), family = "serif")
+    op <- par(
+      mfrow = c(n, 4L),
+      mar = c(3.6, 3.8, 2.2, 0.6),
+      oma = c(0.2, 2.4, 1.6, 0.2),
+      family = "serif",
+      ask = FALSE
+    )
     on.exit(par(op), add = TRUE)
+    row_labs <- character(0)
     for (nm in names(sens_ok)) {
       lab <- if (nm %in% names(med_disp)) med_disp[[nm]] else nm
+      row_labs <- c(row_labs, lab)
+      # plot.medsens：二分类结局每次画 ACME0+ACME1 两格；勿自设 main
       tryCatch(
-        plot(sens_ok[[nm]], sens.par = "rho", main = paste0(lab, " (rho)"),
-             xlab = expression(rho), ylab = "ACME"),
+        plot(sens_ok[[nm]], sens.par = "rho", ask = FALSE),
         error = function(e) {
+          plot.new(); title(main = paste0(lab, " rho failed"))
           plot.new()
-          title(main = paste0(lab, " (rho plot failed)"))
+        }
+      )
+      tryCatch(
+        plot(
+          sens_ok[[nm]],
+          sens.par = "R2",
+          r.type = "total",
+          sign.prod = "positive",
+          ask = FALSE
+        ),
+        error = function(e) {
+          plot.new(); title(main = paste0(lab, " R2 failed"))
+          plot.new()
         }
       )
     }
-    if (n < nrow_g * ncol) {
-      for (k in seq_len(nrow_g * ncol - n)) plot.new()
-    }
-    grDevices::dev.off()
-    s4b <- file.path(out_ds, "fig5_panels")
-    dir.create(s4b, recursive = TRUE, showWarnings = FALSE)
-    grDevices::cairo_pdf(
-      file.path(s4b, "Figure_S4_medsens_R2.pdf"),
-      width = 10, height = 3.4 * nrow_g, family = "serif"
-    )
-    par(mfrow = c(nrow_g, ncol), mar = c(4, 4, 2.5, 1), family = "serif")
-    for (nm in names(sens_ok)) {
-      lab <- if (nm %in% names(med_disp)) med_disp[[nm]] else nm
-      tryCatch(
-        plot(sens_ok[[nm]], sens.par = "R2", r.type = "total", sign.prod = "positive",
-             main = paste0(lab, " (R2)")),
-        error = function(e) {
-          plot.new()
-          title(main = paste0(lab, " (R2 unavailable)"))
-        }
+    for (i in seq_along(row_labs)) {
+      mtext(
+        row_labs[[i]],
+        side = 2, outer = TRUE, line = 0.6, cex = 0.85, font = 2, las = 0,
+        at = 1 - (i - 0.5) / n
       )
     }
-    if (n < nrow_g * ncol) for (k in seq_len(nrow_g * ncol - n)) plot.new()
-    grDevices::dev.off()
-    file.copy(
-      file.path(s4b, "Figure_S4_medsens_R2.pdf"),
-      file.path(fig_pdf, "Figure S4b. Mediation sensitivity R2.pdf"),
-      overwrite = TRUE
+    mtext(
+      "Figure S4. Sensitivity analysis for mediation (medsens)",
+      side = 3, outer = TRUE, line = 0.35, cex = 1.05, font = 2
     )
+    grDevices::dev.off()
+    # 旁路底稿（归档，不进交付）
+    s4_arch <- file.path(out_ds, "fig5_panels")
+    dir.create(s4_arch, recursive = TRUE, showWarnings = FALSE)
+    file.copy(s4_path, file.path(s4_arch, basename(s4_path)), overwrite = TRUE)
     writeLines(c(
       "# Figure S4. Mediation sensitivity",
       "",
       "## 图面说明",
-      "mediation::medsens 对 4 个 IDE 显著临床中介的未测混杂敏感性。",
-      "主图：ACME 随 residual correlation ρ 变化；旁路 Figure S4b 为 R² 表面（若可估）。",
-      "与 Dong Supplementary Figure 4 角色对齐；定位 exploratory。",
+      "对齐 Dong Supplementary Figure 4：每个中介一行、四列——",
+      "ACME0(ρ)、ACME1(ρ)、ACME0(R² total, sgn+)、ACME1(R²)。",
+      paste0("中介（本队列 IDE 显著临床四项，非原文牙周炎症六项）：",
+             paste(vapply(names(sens_ok), function(z) if (z %in% names(med_disp)) med_disp[[z]] else z, ""),
+                   collapse = "; "), "。"),
+      "算法与原文相同：R mediation::medsens（未测混杂敏感性）；数值因暴露/结局/中介不同而不同。",
+      "exploratory。",
       "",
       "## 分析上下文",
-      paste0("中介=", paste(names(sens_ok), collapse = ","), "; treat=ERS_IQR; outcome=pan-cancer.")
+      paste0("treat=ERS_IQR; outcome=pan-cancer; Model2=", paste(covars_m2, collapse = "+"),
+             "; medsens sims<=200.")
     ), file.path(fig_md, "Figure S4. Mediation sensitivity.md"))
-    exwas_log("wrote Figure S4")
+    exwas_log("wrote Figure S4 Dong-layout n_mediators=", n)
   } else {
     writeLines(
       "medsens failed for all mediators; see log.",

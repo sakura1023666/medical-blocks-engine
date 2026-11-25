@@ -198,6 +198,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     mv[mv %in% c("Married", "Partnered")] <- "Married"
     data$Marital <- factor(mv, levels = c("Single", "Married"))
   }
+  # 空字符串分类水平只在表展示层跳过，不在此 blank→NA（会改 UV 与 Model2/3）
   data
 }
 
@@ -652,20 +653,13 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   if (e_outlier > 0L) {
     excl2 <- paste0(excl2, "Extreme Wave 4 outlier\n(n=%s)")
     attr_list$e5 <- as.integer(e_outlier)
-    note1 <- sprintf(
-      "Note: inclusion Age \u2265 50; final analytic N=%s for %s. One pre-specified extreme Wave 4 value was excluded. The participant identifier is not shown.",
-      format(n_all, big.mark = ","), ix_lab
-    )
   } else {
     steps_remain <- steps_remain[1:5]
     steps_excl <- steps_excl[1:5]
     step_labs <- step_labs[1:5]
     excl_labs <- excl_labs[1:5]
-    note1 <- sprintf(
-      "Note: inclusion Age \u2265 50; final analytic N=%s for %s (ELSA Waves 4-6 exposure; Wave 8 incident osteoporosis).",
-      format(n_all, big.mark = ","), ix_lab
-    )
   }
+  # Fig1 默认无图底脚注；Age≥50 / 终步 N / 暴露时点写 Methods 与 image_information
   ckm_stroke_fig1_flowchart(
     file.path(fig_dir, "Figure 1. Inclusion exclusion flowchart.pdf"),
     attrition = attr_list,
@@ -674,7 +668,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     excl1_lab = "Excluded: missing Wave 6 or\nWave 8 interview (n=%s)",
     eligible_lab = "Present in Waves 6 and 8\n(n=%s)",
     excl2_lab = excl2,
-    note = note1,
+    note = NULL,
     width = 8.8, height = 7.6
   )
   .internal <- file.path(pp$summary, "_internal")
@@ -1053,7 +1047,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     prune = TRUE
   )
 
-  # 引擎级中期（客户 vivili；不写日期）→ 再 prune 白名单
+  # 引擎级中期（客户默认故墙，可读 config$cum_egdr_kmeans$midterm_client；不写日期）→ 再 prune
   message("  midterm PDF...")
   .formula_lines <- {
     .known <- c(
@@ -1073,7 +1067,8 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     if (!is.null(expr) && nzchar(expr)) out <- c(out, sprintf("%s = %s", ix_lab, expr))
     c(out, sprintf("累计 %s = ((%s W4 + %s W6)/2) × 4", ix_lab, ix_lab, ix_lab))
   }
-  .mid_client <- "vivili"
+  .mid_client <- "故墙"
+  .mid_no_date <- TRUE
   if (file.exists(.cfg_path)) {
     .cfg_env2 <- new.env(parent = globalenv())
     tryCatch(sys.source(.cfg_path, envir = .cfg_env2), error = function(e) NULL)
@@ -1082,6 +1077,12 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       if (!is.null(.ck2$cum_egdr_kmeans$midterm_client)) {
         .mid_client <- as.character(.ck2$cum_egdr_kmeans$midterm_client)[1L]
       }
+      if (!is.null(.ck2$cum_egdr_kmeans$midterm_no_date)) {
+        .mid_no_date <- isTRUE(.ck2$cum_egdr_kmeans$midterm_no_date)
+      }
+      if (is.list(.ck2$pub_digits) && length(.ck2$pub_digits)) {
+        options(pipeline.pub_digits = .ck2$pub_digits)
+      }
     }
   }
   .mid_pdf <- tryCatch(
@@ -1089,7 +1090,7 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       summary_root = sr,
       index_lab = ix_lab,
       client = .mid_client,
-      no_date = TRUE,
+      no_date = .mid_no_date,
       formula_lines = .formula_lines,
       model2_covars = locked_m2,
       model3_covars = locked_m3,

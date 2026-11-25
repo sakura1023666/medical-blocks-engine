@@ -357,10 +357,38 @@ ckm_stroke_class_display_labels <- function(
 # -----------------------------------------------------------------------------
 # Formatting（对标 Wang 2026 CVD 25:78；OR 三位为引擎铁律）
 # -----------------------------------------------------------------------------
-# Wang 原文：OR/CI 多为 2 位；P 为 3 位或 <0.001；Table1 mean(SD) 多为 2 位；% 多为 1 位。
-# 本引擎 OR/HR/CI **固定 3 位**（含尾随 0），避免两位把相近模型收成同一字符串。
+# 发表位数（引擎级，对标既往轨迹/关联文献 + 全项目 pub_digits 铁律）：
+#   OR/HR/CI = 3 位（含尾随 0；两位易把相邻模型收成同一字符串）
+#   P = 3 位或 <0.001
+#   Table1 mean(SD) = 2 位；分类 % = 1 位；人数千分位逗号
+# 可被 options(pipeline.pub_digits) / config$pub_digits 覆盖 est/p；desc/pct 本套默认保持上表。
 ckm_stroke_pub_digits <- function() {
-  list(est = 3L, p = 3L, desc = 2L, pct = 1L, cutoff = 3L)
+  base <- list(est = 3L, p = 3L, desc = 2L, pct = 1L, cutoff = 3L, int_big_mark = TRUE)
+  ov <- getOption("pipeline.pub_digits", default = NULL)
+  if (is.list(ov) && length(ov)) {
+    for (nm in intersect(names(ov), names(base))) {
+      if (!is.null(ov[[nm]]) && !is.na(ov[[nm]][1L])) base[[nm]] <- ov[[nm]][1L]
+    }
+  }
+  base
+}
+#' 分类列空字符串 / 纯空白水平 → NA（防 Table1/Table3 出现无标签行）
+ckm_stroke_blank_to_na <- function(x) {
+  if (is.null(x)) return(x)
+  if (is.factor(x)) {
+    xc <- as.character(x)
+    blank <- !is.na(xc) & !nzchar(trimws(xc))
+    if (any(blank)) xc[blank] <- NA_character_
+    keep <- levels(x)
+    keep <- keep[nzchar(trimws(as.character(keep)))]
+    return(factor(xc, levels = if (length(keep)) keep else unique(stats::na.omit(xc))))
+  }
+  if (is.character(x)) {
+    blank <- !is.na(x) & !nzchar(trimws(x))
+    if (any(blank)) x[blank] <- NA_character_
+    return(x)
+  }
+  x
 }
 ckm_stroke_fmt_p <- function(p) {
   if (length(p) != 1L || is.na(p)) return("")
@@ -383,11 +411,23 @@ ckm_stroke_fmt_or_tilde <- function(est, lo, hi, digits = 3L) {
 ckm_stroke_mean_sd <- function(x) {
   x <- as.numeric(x); x <- x[is.finite(x)]
   if (!length(x)) return("")
-  sprintf("%.2f (%.2f)", mean(x), stats::sd(x))
+  dig <- as.integer(ckm_stroke_pub_digits()$desc %||% 2L)[1L]
+  sprintf(paste0("%.", dig, "f (%.", dig, "f)"), mean(x), stats::sd(x))
 }
 ckm_stroke_n_pct <- function(n, den) {
   if (!is.finite(den) || den <= 0) return("")
-  sprintf("%d (%.1f)", as.integer(n), 100 * n / den)
+  pct_dig <- as.integer(ckm_stroke_pub_digits()$pct %||% 1L)[1L]
+  n_i <- as.integer(n)[1L]
+  n_txt <- if (isTRUE(ckm_stroke_pub_digits()$int_big_mark %||% TRUE)) {
+    if (exists("pub_format_int", mode = "function")) {
+      pub_format_int(n_i)
+    } else {
+      format(n_i, big.mark = ",", scientific = FALSE, trim = TRUE)
+    }
+  } else {
+    as.character(n_i)
+  }
+  sprintf(paste0("%s (%.", pct_dig, "f)"), n_txt, 100 * as.numeric(n) / as.numeric(den))
 }
 ckm_stroke_events_cell <- function(y) {
   y <- as.integer(y == 1L)
@@ -468,6 +508,8 @@ ckm_stroke_prepare_forest_groups <- function(
       )
     }
   }
+  # 注意：空字符串水平只在表展示层跳过（.cat_block / Table3 水平循环），
+  # 勿在此 blank→NA，否则会改变 UV P 与 Model2/3 锁定集。
   df
 }
 
@@ -549,11 +591,18 @@ ckm_stroke_build_table1_by_class <- function(
     .row_shell(lab, overall, by, ckm_stroke_fmt_p(pv))
   }
   .cat_block <- function(lab, x) {
+    x <- ckm_stroke_blank_to_na(x)
     x <- factor(x)
+    levs <- levels(x)
+    levs <- levs[!is.na(levs) & nzchar(trimws(levs))]
+    if (!length(levs)) {
+      return(.empty_row(lab, ""))
+    }
+    x <- factor(as.character(x), levels = levs)
     pv <- tryCatch(suppressWarnings(stats::chisq.test(table(x, cls))$p.value),
                    error = function(e) NA_real_)
     rows <- list(.empty_row(lab, ckm_stroke_fmt_p(pv)))
-    for (lvx in levels(x)) {
+    for (lvx in levs) {
       n_o <- sum(as.character(x) == lvx, na.rm = TRUE)
       den_o <- sum(!is.na(x))
       by <- vapply(levels_cls, function(lv) {
@@ -1471,8 +1520,9 @@ ckm_stroke_build_table3_subgroup <- function(
     cov_base <- setdiff(models$Model3, .cov_drop(sg$var))
     pint <- ckm_stroke_lrt_pint(data_sg, class_col, sg$var, cov_base,
                                 is_hr = FALSE, outcome = outcome)
+    # 仅跳过无标签水平行；不把空串改成 NA（以免改 UV/调整集）
     levs <- levels(factor(data_sg[[sg$var]]))
-    levs <- levs[!is.na(levs)]
+    levs <- levs[!is.na(levs) & nzchar(trimws(levs))]
     level_rows <- list()
     sem_of <- function(cl) {
       hit <- names(cmap$map)[cmap$map == cl]
@@ -1569,7 +1619,7 @@ ckm_stroke_build_table_s2_long <- function(
       check.names = FALSE, stringsAsFactors = FALSE
     )
     levs <- levels(factor(data_sg[[sg$var]]))
-    levs <- levs[!is.na(levs)]
+    levs <- levs[!is.na(levs) & nzchar(trimws(levs))]
     n_assigned <- 0L
     for (lv in levs) {
       dsub <- .ckm_level_subset(data_sg, sg$var, lv)
@@ -1609,7 +1659,9 @@ ckm_stroke_build_table_s2_long <- function(
         )
       }
     }
-    n_obs <- sum(!is.na(data_sg[[sg$var]]))
+    # 与展示水平一致：空字符串 / 纯空白不计入 non-missing（此类水平已跳过）
+    .sg_chr <- as.character(data_sg[[sg$var]])
+    n_obs <- sum(!is.na(.sg_chr) & nzchar(trimws(.sg_chr)))
     if (n_assigned != n_obs) {
       stop(sprintf(
         "Table S2 stratum N for %s sums to %d, non-missing N is %d",
@@ -1837,7 +1889,8 @@ ckm_stroke_fig1_flowchart <- function(
     excl1_lab = "Excluded: incomplete CKM-stage\n(0\u20134) data (n=%s)",
     eligible_lab = "Eligible with CKM stages 0\u20134\n(n=%s)",
     excl2_lab = NULL,
-    note = "Note: denominators follow project construction (final N=4,983), not verbatim paper N=5,248.",
+    # 默认无图底脚注（全项目 attrition 铁律）；纳排口径写 Methods / image_information
+    note = NULL,
     width = 8.8, height = 7.6) {
   .ff <- if (exists("pipeline_pdf_device", mode = "function")) {
     pipeline_pdf_device(outfile, width = width, height = height)
@@ -2928,6 +2981,24 @@ ckm_stroke_finalize_summary_delivery <- function(
     } else {
       unlink(file.path(fig_dir, c("png", "tiff")), recursive = TRUE, force = TRUE)
     }
+    # 铁律：Figures 根目录不得残留平铺 Figure*.pdf（只留 pdf/ + image_information/）
+    .flat_fig <- list.files(fig_dir, pattern = "^Figure.*\\.(pdf|png|tiff)$",
+                            full.names = TRUE, ignore.case = TRUE)
+    .flat_fig <- .flat_fig[!dir.exists(.flat_fig)]
+    if (length(.flat_fig)) {
+      .arch <- file.path(dirname(sr), paste0(basename(sr), "_delivery_workspace"),
+                         paste0("flat_figures_root_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+      dir.create(.arch, recursive = TRUE, showWarnings = FALSE)
+      for (.ff in .flat_fig) {
+        # pdf/ 已有同名则只归档根目录副本；否则先补进 pdf/ 再归档
+        .dest_pdf <- file.path(fig_dir, "pdf", basename(.ff))
+        if (grepl("\\.pdf$", .ff, ignore.case = TRUE) && !file.exists(.dest_pdf)) {
+          dir.create(dirname(.dest_pdf), recursive = TRUE, showWarnings = FALSE)
+          file.copy(.ff, .dest_pdf, overwrite = FALSE)
+        }
+        file.rename(.ff, file.path(.arch, basename(.ff)))
+      }
+    }
   }
   # 图文件名禁下划线（展示层）
   if (dir.exists(fig_dir) && exists("pipeline_display_no_underscore", mode = "function")) {
@@ -2987,7 +3058,7 @@ ckm_stroke_finalize_summary_delivery <- function(
 ckm_stroke_write_midterm_report <- function(
     summary_root,
     index_lab,
-    client = "vivili",
+    client = "故墙",
     no_date = TRUE,
     formula_lines = character(0),
     model2_covars = character(0),
@@ -3000,8 +3071,8 @@ ckm_stroke_write_midterm_report <- function(
   stopifnot(dir.exists(sr))
   ix <- as.character(index_lab %||% "index")[1L]
   ix <- if (exists("pipeline_display_label", mode = "function")) pipeline_display_label(ix) else gsub("_", " ", ix, fixed = TRUE)
-  client <- as.character(client %||% "vivili")[1L]
-  if (!nzchar(client)) client <- "vivili"
+  client <- as.character(client %||% "故墙")[1L]
+  if (!nzchar(client)) client <- "故墙"
   info <- file.path(sr, "项目信息-中期.md")
   formula_txt <- if (length(formula_lines)) paste(formula_lines, collapse = "；") else sprintf("%s（见 Methods）", ix)
   .info_lines <- c(
@@ -3015,14 +3086,43 @@ ckm_stroke_write_midterm_report <- function(
     sprintf("数据集: %s", database),
     "类型: 中期分析结果",
     sprintf("指标计算公式: %s", formula_txt),
+    # 填「无」→ midterm engine 封面/文末均不写分析日期（勿留空，否则回退系统当天）
     if (isTRUE(no_date)) "分析日期: 无" else NULL,
     if (isTRUE(no_date)) "日期: 无" else NULL,
     ""
   )
-  # 必须 UTF-8 落盘；useBytes=TRUE 会写坏中文 → 封面退化成「与的/横断面」并冒出日期
-  .con <- file(info, open = "wt", encoding = "UTF-8")
-  writeLines(.info_lines, .con, useBytes = FALSE)
-  close(.con)
+  # 必须无 BOM 的 UTF-8。R file(encoding=) 在 WSL/挂载盘上偶发写空或乱码，
+  # → parse 空字段 → 封面「与的/横断面」+ 冒出日期。UTF-8 bytes 直写并回读校验。
+  .txt_body <- paste(enc2utf8(as.character(.info_lines)), collapse = "\n")
+  if (!grepl("\n$", .txt_body)) .txt_body <- paste0(.txt_body, "\n")
+  writeBin(charToRaw(.txt_body), info)
+  # Python 回读校验（R 对中文 UTF-8 正则在挂载盘上不可靠）
+  .py_v <- Sys.which("python3")
+  if (!nzchar(.py_v)) .py_v <- Sys.which("python")
+  .helper <- file.path(
+    Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."),
+    "python", "ckm_midterm_validate_info.py"
+  )
+  if (!file.exists(.helper)) {
+    stop("missing python/ckm_midterm_validate_info.py", call. = FALSE)
+  }
+  .st_v <- tryCatch(
+    system2(
+      .py_v,
+      c(.helper, info, if (isTRUE(no_date)) "--no-date" else NULL),
+      stdout = TRUE, stderr = TRUE
+    ),
+    error = function(e) structure(conditionMessage(e), status = 1L)
+  )
+  .v_ok <- is.null(attr(.st_v, "status")) || identical(as.integer(attr(.st_v, "status")), 0L)
+  if (!isTRUE(.v_ok)) {
+    stop(
+      "midterm 项目信息-中期.md 回读失败（空字段会导致封面「与的/横断面」）: ",
+      paste(utils::tail(.st_v, 8), collapse = " | "),
+      call. = FALSE
+    )
+  }
+  message("  midterm 项目信息 ", paste(utils::tail(.st_v, 1), collapse = ""))
   # 最小 content.json：由表图文件名驱动；数字在 build 前由 inspect dump 校验
   tabs <- list.files(file.path(sr, "Tables"), pattern = "\\.xlsx$", full.names = FALSE)
   figs <- character(0)
@@ -3126,27 +3226,79 @@ ckm_stroke_write_midterm_report <- function(
       gsub("、", "-", methods_lab)
     )
   )
-  # 交付根只留一份中期：先清旧 *中期*.pdf
-  .old_mid <- list.files(sr, pattern = "\u4e2d\u671f", full.names = TRUE)
+  # 交付根只留一份中期：只清旧 *中期*.pdf（切勿用裸「中期」匹配，会误删 项目信息-中期.md
+  # → build 时项目信息缺失 → 封面退化成「与的/横断面」并冒出系统日期）
+  .old_mid <- list.files(sr, pattern = "\u4e2d\u671f.*\\.pdf$", full.names = TRUE, ignore.case = TRUE)
   if (length(.old_mid)) {
     unlink(.old_mid, force = TRUE)
   }
   py <- Sys.which("python3")
   if (!nzchar(py)) py <- Sys.which("python")
-  # inspect / build：勿对每个参数 shQuote（引号会进 argv，导致 --project 找不到、封面退回默认「横断面」且写出日期）
-  try(
-    system2(py, c(eng, "--inspect", "--project", sr), stdout = TRUE, stderr = TRUE),
-    silent = TRUE
+  # 【success】等中文路径经 system2 argv 偶发丢项目信息 → 封面「与的/横断面」+日期。
+  # 统一经 python/ckm_midterm_build.py 用环境变量传路径。
+  .launcher <- file.path(
+    Sys.getenv("MEDICAL_BLOCKS_ROOT", unset = "."),
+    "python", "ckm_midterm_build.py"
   )
-  st <- system2(
-    py,
-    c(eng, "--build", "--project", sr, "--content", cj, "--out", out_pdf),
-    stdout = TRUE, stderr = TRUE
-  )
+  if (!file.exists(.launcher)) {
+    stop("missing python/ckm_midterm_build.py", call. = FALSE)
+  }
+  .run_mid <- function(mode) {
+    # 只临时 setenv 四个路径键；勿把 Sys.getenv() 整包塞进 system2(env=)
+    # （Cursor/沙箱环境变量含括号 JSON，会触发 sh Syntax error）
+    .old <- Sys.getenv(c(
+      "CKM_MIDTERM_ENGINE", "CKM_MIDTERM_PROJECT",
+      "CKM_MIDTERM_CONTENT", "CKM_MIDTERM_OUT"
+    ), unset = NA_character_)
+    on.exit({
+      for (nm in names(.old)) {
+        if (is.na(.old[[nm]])) Sys.unsetenv(nm) else do.call(Sys.setenv, setNames(list(.old[[nm]]), nm))
+      }
+    }, add = TRUE)
+    Sys.setenv(
+      CKM_MIDTERM_ENGINE = eng,
+      CKM_MIDTERM_PROJECT = sr,
+      CKM_MIDTERM_CONTENT = cj,
+      CKM_MIDTERM_OUT = out_pdf
+    )
+    system2(py, c(.launcher, mode), stdout = TRUE, stderr = TRUE)
+  }
+  try(.run_mid("inspect"), silent = TRUE)
+  st <- .run_mid("build")
   ok <- file.exists(out_pdf)
   if (!ok) warning("midterm build failed: ", paste(utils::tail(st, 40), collapse = "\n"))
-  # 再建后兜底：只保留本次 out_pdf
-  .left_mid <- setdiff(list.files(sr, pattern = "\u4e2d\u671f", full.names = TRUE), out_pdf)
+  # 封面硬检：禁止「与的 / 横断面」退化稿；no_date 时禁止「分析日期」
+  if (isTRUE(ok)) {
+    .pdftotext <- Sys.which("pdftotext")
+    if (nzchar(.pdftotext)) {
+      .cover <- tryCatch(
+        paste(system2(.pdftotext, c("-f", "1", "-l", "1", "-layout", out_pdf, "-"),
+                      stdout = TRUE, stderr = FALSE), collapse = "\n"),
+        error = function(e) ""
+      )
+      .bad <- character(0)
+      if (grepl("与的", .cover, fixed = TRUE)) .bad <- c(.bad, "与的")
+      if (grepl("横断面相关性分析", .cover, fixed = TRUE)) .bad <- c(.bad, "横断面相关性分析")
+      if (isTRUE(no_date) && grepl("分析日期", .cover, fixed = TRUE)) .bad <- c(.bad, "分析日期")
+      if (!grepl(ix, .cover, fixed = TRUE) && !grepl(as.character(index_lab)[1L], .cover, fixed = TRUE)) {
+        .bad <- c(.bad, "missing index on cover")
+      }
+      if (length(.bad)) {
+        warning(
+          "midterm cover FAIL (", paste(.bad, collapse = ", "),
+          "). First page:\n", substr(.cover, 1L, 400L)
+        )
+        ok <- FALSE
+      } else {
+        message("  midterm cover OK (no 与的/横断面", if (isTRUE(no_date)) "; no 分析日期" else "", ")")
+      }
+    }
+  }
+  # 再建后兜底：只保留本次 out_pdf（同样只匹配 PDF）
+  .left_mid <- setdiff(
+    list.files(sr, pattern = "\u4e2d\u671f.*\\.pdf$", full.names = TRUE, ignore.case = TRUE),
+    out_pdf
+  )
   if (length(.left_mid)) unlink(.left_mid, force = TRUE)
   # prune：移走 content/dump/项目信息
   if (exists("pub_prune_delivery_root", mode = "function")) {

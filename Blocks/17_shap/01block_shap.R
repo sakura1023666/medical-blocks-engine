@@ -366,12 +366,16 @@
   colnames(X_sub) <- unname(map[cn])
   sv_sub <- sv[, cn, drop = FALSE]
   colnames(sv_sub) <- unname(map[cn])
+  base_keep <- tryCatch(shp$baseline, error = function(e) NULL)
   out <- tryCatch(
     shapviz::shapviz(sv_sub, X = X_sub),
     error = function(e) shapviz::shapviz(as.matrix(sv_sub), X = X_sub)
   )
+  ## Recreating shapviz() drops baseline (defaults to 0) — restore after rename.
+  if (!is.null(base_keep)) out$baseline <- base_keep
   attr(out, "shap_method") <- attr(shp, "shap_method")
   attr(out, "shap_tag") <- attr(shp, "shap_tag")
+  attr(out, "shap_sign_flipped") <- attr(shp, "shap_sign_flipped")
   # 先按旧列名子集，再改展示名，避免 rename 后字符下标失效
   if (!is.null(X_mat) && (is.matrix(X_mat) || is.data.frame(X_mat))) {
     keepm <- intersect(colnames(X_mat), cn)
@@ -1478,7 +1482,7 @@
       X_df <- X_df[, keep, drop = FALSE]
     }
   }
-  tryCatch(
+  out <- tryCatch(
     shapviz::shapviz(eng, X_pred = X_mat, X = X_df),
     error = function(e) {
       stop(
@@ -1489,6 +1493,12 @@
       )
     }
   )
+  if (exists(".shap_align_shapviz_to_analysis_group", mode = "function")) {
+    out <- .shap_align_shapviz_to_analysis_group(
+      out, wf = wf, eng = eng, X_mat = X_mat
+    )
+  }
+  out
 }
 
 .shap_match_pred_cols <- function(want, pred_cols) {

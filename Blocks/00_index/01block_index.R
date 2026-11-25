@@ -233,12 +233,9 @@
     list(name = "UAR",
          expr = "Uric_Acid / Albumin",
          digits = 4),
-    # ClAR / KAR 等电解质–白蛋白比（文献同轴筛选用）
+    # ClAR 等电解质–白蛋白比（文献同轴筛选用；KAR 无定名文献，已撤出指标库）
     list(name = "ClAR",
          expr = "Chloride / Albumin",
-         digits = 4),
-    list(name = "KAR",
-         expr = "Potassium / Albumin",
          digits = 4),
     # AlbCr = Albumin/Creatinine（CAR 倒数；营养–肾轴）
     list(name = "AlbCr",

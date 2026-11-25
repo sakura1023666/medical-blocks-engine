@@ -1,0 +1,16 @@
+[exwas] ==== redraw Fig S6 linkET (Dong style) ====
+[exwas] S6 n=11094 p toxicants=63
+[exwas] 相关矩阵维数=63；有限相关对数=1875
+Warning message:
+`aes_()` was deprecated in ggplot2 3.0.0.
+ℹ Please use tidy evaluation idioms with `aes()`
+ℹ The deprecated feature was likely used in the linkET package.
+  Please report the issue at <https://github.com/Hy4m/linkET/issues>. 
+Warning message:
+Using the `size` aesthetic in this geom was deprecated in ggplot2 3.4.0.
+ℹ Please use `linewidth` in the `default_aes` field and elsewhere instead.
+ℹ The deprecated feature was likely used in the linkET package.
+  Please report the issue at <https://github.com/Hy4m/linkET/issues>. 
+[exwas] 写完 /mnt/g/02block_result/58_cancer/environment_41380607/summary_results/Figures/pdf/Figure S6. Smoke toxicant correlation.pdf
+[exwas] 显著连线 P<0.05: 56/63 method=pearson_linkET_style
+[exwas] DONE

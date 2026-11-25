@@ -18,7 +18,7 @@ block_competing_baseline_trajectory <- function(ctx, ...) {
     return(ctx)
   }
   vars <- .competing_baseline_all_vars(data, cfg, bl, index_var, group_var)
-  tab <- .competing_baseline_table(data, group_var, vars)
+  tab <- .competing_baseline_table(data, group_var, vars, index_var = index_var, bl = bl)
   out_dir <- file.path(cfg$project$output_dir %||% "Output", "Tables")
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   utils::write.csv(tab, file.path(out_dir, paste0("Table3_Baseline_", index_var, "_Trajectory.csv")),

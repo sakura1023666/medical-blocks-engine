@@ -1,0 +1,16 @@
+[exwas] ==== replace S5/S7 with survey-weighted ExWAS ====
+[exwas] data=/mnt/g/02block_result/58_cancer/environment_41380607/data
+[exwas] root=/mnt/g/02block_result/58_cancer/environment_41380607
+[exwas] N=11098 exposures=63 covars=Age,Gender,Race,Education,Marital_Status,PIR_cat,BMI_cat,Alcohol_drinking,eGFR
+[exwas] survey-weighted mice ExWAS m=5 …
+[exwas] MICE 拟合 m=5 maxit=5 列=Age,Gender,Race,Education,Marital_Status,PIR_cat,BMI_cat,Alcohol_drinking,eGFR
+[exwas] MICE complete 1/5 ExWAS 完成
+[exwas] MICE complete 5/5 ExWAS 完成
+[exwas] Rubin df_complete(survey degf)=109
+[exwas] weighted FDR q<0.05=10 nominal P<0.05=19
+[exwas] Main unweighted FDR hits=19; weighted FDR hits=10; overlap=9; weighted-only=1; main-only=10.
+[1] TRUE
+[exwas] 写完 /mnt/g/02block_result/58_cancer/environment_41380607/summary_results/Tables/Table S7. ExWAS survey-weighted.csv
+[exwas] 写完 /mnt/g/02block_result/58_cancer/environment_41380607/summary_results/Figures/pdf/Figure S5. ExWAS survey-weighted.pdf
+[exwas] 旧完整病例产物归档至 /mnt/g/02block_result/58_cancer/environment_41380607/summary_results_delivery_workspace/archived_complete_case_S5_S7
+[exwas] DONE

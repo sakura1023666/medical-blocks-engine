@@ -77,7 +77,7 @@ config <- list(
     id_column = "id",
     waves = c(2, 4, 6),                # 轨迹测量波（对照文献随访波次）
     wave_suffix = "_w",
-    recompute_indices = TRUE,          # 用 00_index 公式按波重算复合指标
+    recompute_indices = TRUE,          # 用 00_index 公式按波重算；master 已含 <IX>_w<k> 列时置 FALSE
     age_filter = "age >= 50",          # 人群门控（依据文献纳排；换病种必查并注释）
 
     # 指标体系：每个体系 = 一联合轨迹对（多指标课题默认多对，逐对出图）

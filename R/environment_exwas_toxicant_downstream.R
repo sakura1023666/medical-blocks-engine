@@ -241,10 +241,56 @@ exwas_tox_draw_fig5_mediation <- function(tab, path, outcome_lab = "Pan-cancer",
   invisible(path)
 }
 
+# 协变量 → 设计矩阵（因子展开；连续列保留）。供 ERS 与毒物一并进网（对齐 Dong S5）
+exwas_tox_ers_covar_mm <- function(df, covariates, age_cut = 65L) {
+  covariates <- intersect(as.character(covariates), names(df))
+  if (!length(covariates)) {
+    return(list(X = NULL, names = character(0), labels = character(0)))
+  }
+  pieces <- list()
+  lab_map <- character(0)
+  for (nm in covariates) {
+    if (identical(nm, "Age") || identical(nm, "Age_num")) {
+      age <- exwas_to_num(df[[nm]])
+      cn <- paste0("Age (>=", as.integer(age_cut), ")")
+      pieces[[cn]] <- as.numeric(is.finite(age) & age >= as.integer(age_cut))
+      lab_map[[cn]] <- cn
+      next
+    }
+    v <- df[[nm]]
+    if (is.factor(v) || is.character(v) || is.logical(v)) {
+      f <- factor(as.character(v))
+      if (nlevels(f) < 2L) next
+      # 全水平 0/1（含参照）：对齐 Dong S5 Sex(Female)+Sex(Male) 两行
+      # α=0.9 含 L2，弹性网络可稳住与截距的共线；禁止 drop-first
+      mm <- stats::model.matrix(~ f - 1)
+      colnames(mm) <- paste0(nm, " (", levels(f), ")")
+      for (j in seq_len(ncol(mm))) {
+        pieces[[colnames(mm)[j]]] <- as.numeric(mm[, j])
+        lab_map[[colnames(mm)[j]]] <- colnames(mm)[j]
+      }
+    } else {
+      pieces[[nm]] <- exwas_to_num(v)
+      lab_map[[nm]] <- nm
+    }
+  }
+  if (!length(pieces)) {
+    return(list(X = NULL, names = character(0), labels = character(0)))
+  }
+  Xc <- do.call(cbind, pieces)
+  storage.mode(Xc) <- "double"
+  list(X = Xc, names = colnames(Xc), labels = unname(lab_map[colnames(Xc)]))
+}
+
 # Adaptive elastic-net（Dong 2026：gcdnet 主路径；11 α × 50 λ；5-fold；Z-score）
-# 原文：α∈[0,1]×11，λ 网格 50 点，bootstrap 入选频率；连续暴露 Z-score，二分类 0/1
+# 原文：毒物 + 协变量一并进网；S5 报纳入频率；ERS 计分只用毒物非零系数
+# α∈[0,1]×11，λ 网格 50 点，bootstrap 入选频率；连续暴露 Z-score，二分类 0/1
 exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
+                                        covariates = character(0),
+                                        age_cut = 65L,
                                         alphas = seq(0, 1, length.out = 11),
+                                        force_alpha = NULL,
+                                        covar_penalty = 0.01,
                                         nfolds = 5L, seed = 123456L,
                                         n_boot = 200L,
                                         use_gcdnet = TRUE,
@@ -268,10 +314,13 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
   if (length(keep_x) < 2L) {
     stop("ERS 可用暴露<2（max_miss=", max_miss, "）", call. = FALSE)
   }
-  need <- unique(c(y, keep_x))
+  covars_in <- intersect(as.character(covariates), names(df))
+  need <- unique(c(y, keep_x, covars_in))
   dd <- df[, need, drop = FALSE]
-  for (nm in names(dd)) dd[[nm]] <- exwas_to_num(dd[[nm]])
-  dd <- dd[is.finite(dd[[y]]), , drop = FALSE]
+  dd <- dd[is.finite(exwas_to_num(dd[[y]])), , drop = FALSE]
+  dd[[y]] <- as.numeric(exwas_to_num(dd[[y]]) == 1L)
+  # 暴露：数值化 + 可选中位数填补
+  for (nm in keep_x) dd[[nm]] <- exwas_to_num(dd[[nm]])
   if (isTRUE(impute_exposures)) {
     for (nm in keep_x) {
       v <- dd[[nm]]
@@ -281,7 +330,24 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
       dd[[nm]] <- v
     }
   }
-  dd <- dd[stats::complete.cases(dd), , drop = FALSE]
+  # 协变量：类别保留 factor；连续数值化；Age 留给 mm 函数
+  for (nm in setdiff(covars_in, c("Age", "Age_num"))) {
+    if (is.numeric(dd[[nm]]) || inherits(dd[[nm]], "integer")) {
+      dd[[nm]] <- exwas_to_num(dd[[nm]])
+    } else {
+      dd[[nm]] <- factor(as.character(dd[[nm]]))
+    }
+  }
+  # 完整病例：暴露已填补；协变量若 NA 则剔行
+  if (length(covars_in)) {
+    ok_cov <- stats::complete.cases(dd[, covars_in, drop = FALSE])
+    # Age 允许用数值列判完整
+    if ("Age" %in% covars_in) {
+      ok_cov <- ok_cov & is.finite(exwas_to_num(dd$Age))
+    }
+    dd <- dd[ok_cov, , drop = FALSE]
+  }
+  dd <- dd[stats::complete.cases(dd[, keep_x, drop = FALSE]), , drop = FALSE]
   if (nrow(dd) < 80L || sum(dd[[y]] == 1) < 15L) {
     stop("ERS 建模样本量不足: n=", nrow(dd), " events=", sum(dd[[y]] == 1), call. = FALSE)
   }
@@ -295,20 +361,56 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
   }, logical(1))
   center <- setNames(rep(0, length(exposures)), exposures)
   scalev <- setNames(rep(1, length(exposures)), exposures)
-  X <- Xraw
+  Xe <- Xraw
   for (nm in exposures) {
     if (isTRUE(is_bin[[nm]])) {
-      # keep 0/1
-      X[, nm] <- Xraw[, nm]
+      Xe[, nm] <- Xraw[, nm]
     } else {
       mu <- mean(Xraw[, nm], na.rm = TRUE)
       sdv <- stats::sd(Xraw[, nm], na.rm = TRUE)
       if (!is.finite(sdv) || sdv == 0) sdv <- 1
       center[[nm]] <- mu
       scalev[[nm]] <- sdv
-      X[, nm] <- (Xraw[, nm] - mu) / sdv
+      Xe[, nm] <- (Xraw[, nm] - mu) / sdv
     }
   }
+  cov_mm <- exwas_tox_ers_covar_mm(dd, covars_in, age_cut = age_cut)
+  if (!is.null(cov_mm$X) && ncol(cov_mm$X) > 0L) {
+    # 协变量列：连续标准化；哑变量保持 0/1
+    Xc <- cov_mm$X
+    for (j in seq_len(ncol(Xc))) {
+      cn <- colnames(Xc)[j]
+      u <- unique(Xc[, j][is.finite(Xc[, j])])
+      if (length(u) <= 2L) next
+      mu <- mean(Xc[, j], na.rm = TRUE)
+      sdv <- stats::sd(Xc[, j], na.rm = TRUE)
+      if (!is.finite(sdv) || sdv == 0) sdv <- 1
+      center[cn] <- mu
+      scalev[cn] <- sdv
+      is_bin[cn] <- FALSE
+      Xc[, j] <- (Xc[, j] - mu) / sdv
+    }
+    for (cn in colnames(Xc)) {
+      if (is.na(is_bin[cn]) || is.null(is_bin[cn])) is_bin[cn] <- TRUE
+    }
+    X <- cbind(Xe, Xc)
+    exwas_log(
+      "ERS 进网：毒物=", ncol(Xe), " + 协变量列=", ncol(Xc),
+      "（", paste(utils::head(colnames(Xc), 8), collapse = ", "),
+      if (ncol(Xc) > 8) "..." else "", "）"
+    )
+  } else {
+    X <- Xe
+    exwas_log("ERS 进网：仅毒物=", ncol(Xe), "（未并入协变量）")
+  }
+  x_names <- colnames(X)
+  tox_names <- exposures
+  cov_names <- setdiff(x_names, tox_names)
+  var_type <- setNames(
+    ifelse(x_names %in% tox_names, "toxicant", "covariate"),
+    x_names
+  )
+
   set.seed(as.integer(seed))
   # glmnet/gcdnet 惯例：λ 递减序列（原文 0.001–100，此处按对数等距递减）
   lambda_seq <- exp(seq(log(as.numeric(lambda_max)), log(as.numeric(lambda_min)),
@@ -354,6 +456,19 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
   )
   best <- NULL
   cv_by_alpha <- list()
+  # 协变量轻惩罚（默认 pf=0.01）：人口学倾向保留，但仍让毒物有空间（对齐 Dong S5 长表）
+  # 若 covar_penalty=0 则完全不惩罚；=1 则与毒物等权
+  pf_stage1 <- setNames(rep(1, length(x_names)), x_names)
+  covar_pf <- as.numeric(covar_penalty)[1]
+  if (!is.finite(covar_pf) || covar_pf < 0) covar_pf <- 0.01
+  if (length(cov_names)) {
+    pf_stage1[cov_names] <- covar_pf
+    exwas_log(
+      "ERS 协变量 penalty.factor=", covar_pf, "（", length(cov_names), " 列）: ",
+      paste(utils::head(cov_names, 8), collapse = ", "),
+      if (length(cov_names) > 8) "..." else ""
+    )
+  }
 
   if (use_g) {
     for (i in seq_along(alphas)) {
@@ -363,6 +478,7 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
         gcdnet::cv.gcdnet(
           X, yy, method = "logit", lambda = lambda_seq, lambda2 = l2,
           nfolds = as.integer(nfolds), pred.loss = "loss",
+          pf = as.numeric(pf_stage1),
           standardize = FALSE, intercept = TRUE
         ),
         error = function(e) NULL
@@ -389,8 +505,11 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
     for (i in seq_along(alphas)) {
       a <- alphas[[i]]
       cv <- tryCatch(
-        glmnet::cv.glmnet(X, yy, family = "binomial", alpha = a,
-                          lambda = lambda_seq, nfolds = as.integer(nfolds)),
+        glmnet::cv.glmnet(
+          X, yy, family = "binomial", alpha = a,
+          lambda = lambda_seq, nfolds = as.integer(nfolds),
+          penalty.factor = as.numeric(pf_stage1)
+        ),
         error = function(e) NULL
       )
       if (is.null(cv)) next
@@ -405,30 +524,72 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
     }
   }
   if (is.null(best)) stop("elastic-net CV 失败", call. = FALSE)
+  # 可锁定 α（Dong Methods 报告 α=0.9）；否则用 CV 最小 deviance
+  if (!is.null(force_alpha) && is.finite(as.numeric(force_alpha)[1])) {
+    fa <- as.numeric(force_alpha)[1]
+    i_fa <- which.min(abs(as.numeric(alphas) - fa))
+    a_fa <- as.numeric(alphas)[[i_fa]]
+    cv_fa <- cv_by_alpha[[as.character(a_fa)]]
+    if (is.null(cv_fa) && length(cv_by_alpha)) {
+      # glmnet 路径可能只用 best$engine；回退按 alpha_path
+      cv_fa <- NULL
+    }
+    if (!is.null(cv_fa)) {
+      exwas_log(
+        "ERS 锁定 α=", a_fa, "（force_alpha=", fa, "；CV 最优 α=", best$alpha,
+        ", cvm=", signif(best$dev, 4), "）"
+      )
+      best <- list(
+        alpha = a_fa,
+        lambda2 = .alpha_to_lambda2(a_fa),
+        cv = cv_fa,
+        dev = as.numeric(alpha_path$cvm[i_fa]),
+        engine = best$engine
+      )
+    } else if (identical(best$engine, "glmnet")) {
+      # glmnet 未缓存各 α：重跑锁定 α
+      cv_fa <- tryCatch(
+        glmnet::cv.glmnet(
+          X, yy, family = "binomial", alpha = a_fa,
+          lambda = lambda_seq, nfolds = as.integer(nfolds),
+          penalty.factor = as.numeric(pf_stage1)
+        ),
+        error = function(e) NULL
+      )
+      if (!is.null(cv_fa)) {
+        exwas_log("ERS 锁定 α=", a_fa, "（glmnet 重拟合）")
+        best <- list(alpha = a_fa, lambda2 = NA_real_, cv = cv_fa,
+                     dev = min(cv_fa$cvm), engine = "glmnet")
+      }
+    } else {
+      exwas_log("ERS force_alpha=", fa, " 无对应 CV，沿用最优 α=", best$alpha)
+    }
+  }
   engine1 <- if (!is.null(best$engine)) best$engine else "gcdnet"
 
-  # adaptive weights from stage-1
-  b1_abs <- setNames(rep(0, length(exposures)), exposures)
+  # adaptive weights from stage-1（全设计矩阵列：毒物+协变量）
+  b1_abs <- setNames(rep(0, length(x_names)), x_names)
   if (identical(engine1, "gcdnet")) {
     v1 <- .gcdnet_coef_vec(best$cv)
     if (!is.null(v1) && length(v1)) {
-      nm <- intersect(setdiff(names(v1), "(Intercept)"), exposures)
+      nm <- intersect(setdiff(names(v1), "(Intercept)"), x_names)
       if (length(nm)) b1_abs[nm] <- abs(as.numeric(v1[nm]))
     }
   } else {
     b1m <- as.matrix(coef(best$cv, s = "lambda.min"))
     rn <- setdiff(rownames(b1m), "(Intercept)")
-    rn <- intersect(rn, exposures)
+    rn <- intersect(rn, x_names)
     if (length(rn)) b1_abs[rn] <- abs(as.numeric(b1m[rn, 1]))
   }
-  # 若 stage-1 全零，adaptive 退化为等权（仍可跑 stage-2）
-  if (!any(b1_abs > 0)) b1_abs[] <- 1
+  # adaptive 权重只作用在毒物上；协变量保持轻惩罚（同 stage-1）
+  if (!any(b1_abs[tox_names] > 0)) b1_abs[tox_names] <- 1
   pf <- 1 / pmax(b1_abs, 1e-6)
+  if (length(cov_names)) pf[cov_names] <- covar_pf
 
   # stage-2 adaptive at best alpha
   gcdnet_used <- FALSE
   cv2 <- NULL
-  beta <- numeric(0)
+  beta_all <- numeric(0)
   if (identical(engine1, "gcdnet") || use_g) {
     l2 <- .alpha_to_lambda2(best$alpha)
     cv2 <- tryCatch(
@@ -443,8 +604,8 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
       v2 <- .gcdnet_coef_vec(cv2)
       if (!is.null(v2)) {
         sel <- setdiff(names(v2)[is.finite(v2) & abs(v2) > 0], "(Intercept)")
-        sel <- intersect(sel, exposures)
-        beta <- v2[sel]
+        sel <- intersect(sel, x_names)
+        beta_all <- v2[sel]
         gcdnet_used <- TRUE
       }
     }
@@ -459,17 +620,22 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
     )
     coefs <- as.matrix(coef(cv2, s = "lambda.min"))
     sel <- setdiff(rownames(coefs)[abs(coefs[, 1]) > 0], "(Intercept)")
-    beta <- coefs[sel, 1]
+    sel <- intersect(sel, x_names)
+    beta_all <- setNames(as.numeric(coefs[sel, 1]), sel)
   }
-  if (!length(beta)) stop("ERS 未选出任何暴露", call. = FALSE)
+  # ERS 计分：只用毒物系数（对齐原文「优先毒物构成 ERS」；协变量仅进网调整/进 S5）
+  beta <- beta_all[intersect(names(beta_all), tox_names)]
+  if (!length(beta)) stop("ERS 未选出任何毒物暴露（协变量可能吸干系数）", call. = FALSE)
 
   lam_final <- as.numeric(cv2$lambda.min)
   if (!is.finite(lam_final)) lam_final <- as.numeric(lambda_seq[length(lambda_seq)])
 
-  # Bootstrap 入选频率（固定主分析最优 α/λ2，在 bootstrap 样本上拟合路径，
-  # 取与主分析 lambda.min 最近的系数；对齐原文 B=1000 稳定性评估，避免每次全 CV）
+  # Bootstrap 入选频率（全变量，对齐 Dong S5）
   n_boot <- as.integer(n_boot)
-  inc <- setNames(integer(length(exposures)), exposures)
+  inc <- setNames(integer(length(x_names)), x_names)
+  coef_sum <- setNames(rep(0, length(x_names)), x_names)
+  coef_sumsq <- setNames(rep(0, length(x_names)), x_names)
+  n_ok_boot <- 0L
   lam_star <- as.numeric(lam_final)
   l2_star <- .alpha_to_lambda2(best$alpha)
   if (n_boot > 0L) {
@@ -478,46 +644,65 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
       Xb <- X[idx, , drop = FALSE]
       yb <- yy[idx]
       if (length(unique(yb)) < 2L) next
+      vec_b <- NULL
       if (gcdnet_used) {
         fitb <- tryCatch(
           gcdnet::gcdnet(
             Xb, yb, method = "logit", lambda = lambda_seq, lambda2 = l2_star,
-            pf = pf, standardize = FALSE, intercept = TRUE
+            pf = as.numeric(pf), standardize = FALSE, intercept = TRUE
           ),
           error = function(e) NULL
         )
         if (is.null(fitb)) next
-        vec <- .gcdnet_coef_vec(list(gcdnet.fit = fitb, lambda.min = lam_star))
-        if (is.null(vec)) next
-        sb <- intersect(setdiff(names(vec)[is.finite(vec) & abs(vec) > 0], "(Intercept)"), exposures)
+        vec_b <- .gcdnet_coef_vec(list(gcdnet.fit = fitb, lambda.min = lam_star))
       } else {
         fitb <- tryCatch(
           glmnet::glmnet(
             Xb, yb, family = "binomial", alpha = best$alpha,
-            lambda = lambda_seq, penalty.factor = pf
+            lambda = lambda_seq, penalty.factor = as.numeric(pf)
           ),
           error = function(e) NULL
         )
         if (is.null(fitb)) next
         cb <- as.matrix(stats::coef(fitb, s = lam_star))
-        sb <- intersect(setdiff(rownames(cb)[abs(cb[, 1]) > 0], "(Intercept)"), exposures)
+        vec_b <- setNames(as.numeric(cb[, 1]), rownames(cb))
       }
+      if (is.null(vec_b)) next
+      n_ok_boot <- n_ok_boot + 1L
+      sb <- intersect(setdiff(names(vec_b)[is.finite(vec_b) & abs(vec_b) > 0], "(Intercept)"), x_names)
       inc[sb] <- inc[sb] + 1L
+      for (nm in x_names) {
+        bv <- if (nm %in% names(vec_b)) as.numeric(vec_b[[nm]]) else 0
+        if (!is.finite(bv)) bv <- 0
+        coef_sum[[nm]] <- coef_sum[[nm]] + bv
+        coef_sumsq[[nm]] <- coef_sumsq[[nm]] + bv * bv
+      }
       if (b %% 100L == 0L) {
         exwas_log("ERS bootstrap ", b, "/", n_boot)
       }
     }
   }
+  denom <- max(n_ok_boot, 1L)
+  mean_coef <- coef_sum / denom
+  var_coef <- pmax(coef_sumsq / denom - mean_coef * mean_coef, 0)
+  sd_coef <- sqrt(var_coef)
   freq <- data.frame(
-    exposure = exposures,
-    inclusion_n = as.integer(inc[exposures]),
-    inclusion_freq = as.numeric(inc[exposures]) / max(n_boot, 1L),
-    selected_final = exposures %in% names(beta),
-    coef = unname(beta[match(exposures, names(beta))]),
-    is_binary = unname(is_bin[exposures]),
+    variable = x_names,
+    var_type = unname(var_type[x_names]),
+    inclusion_n = as.integer(inc[x_names]),
+    inclusion_freq = as.numeric(inc[x_names]) / max(n_boot, 1L),
+    mean_coefficient = unname(mean_coef[x_names]),
+    coefficient_sd = unname(sd_coef[x_names]),
+    selected_final = x_names %in% names(beta_all),
+    selected_in_ERS = x_names %in% names(beta),
+    coef_final = unname(beta_all[match(x_names, names(beta_all))]),
+    is_binary = unname(vapply(x_names, function(nm) isTRUE(is_bin[[nm]]), logical(1))),
     stringsAsFactors = FALSE
   )
-  freq <- freq[order(-freq$inclusion_freq, -freq$selected_final), ]
+  # 兼容旧列名
+  freq$exposure <- freq$variable
+  freq$coef <- freq$coef_final
+  freq <- freq[order(-freq$inclusion_freq, freq$var_type != "covariate", -freq$selected_final), ]
 
   list(
     alpha = best$alpha,
@@ -525,17 +710,25 @@ exwas_tox_fit_adaptive_enet <- function(df, y, exposures,
     lambda2 = .alpha_to_lambda2(best$alpha),
     selected = names(beta),
     beta = beta,
+    beta_all = beta_all,
     freq = freq,
     n_model = nrow(dd),
     n_events = sum(yy == 1),
     gcdnet_used = gcdnet_used,
     n_boot = n_boot,
+    n_boot_ok = n_ok_boot,
     alpha_path = alpha_path,
     cv_final = cv2,
-    center = center,
-    scale = scalev,
-    is_binary = is_bin,
-    lambda_seq = lambda_seq
+    center = center[tox_names],
+    scale = scalev[tox_names],
+    is_binary = is_bin[tox_names],
+    center_all = center,
+    scale_all = scalev,
+    is_binary_all = is_bin,
+    lambda_seq = lambda_seq,
+    covariates = covars_in,
+    covar_columns = cov_names,
+    age_cut = as.integer(age_cut)
   )
 }
 

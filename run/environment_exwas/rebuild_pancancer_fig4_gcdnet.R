@@ -110,12 +110,30 @@ writeLines(
   file.path(out_ds, "Model2_selection_path.txt")
 )
 
-# display / family maps
-t2 <- openxlsx::read.xlsx(
-  file.path(tab_dir, "Table 2. ExWAS toxicant associations.xlsx"), sheet = "ExWAS_full"
+# display / family maps（Dong 宽表 Table2 无 ExWAS_full sheet；优先 long CSV）
+t2_csv <- file.path(
+  BASE, "Output_pancancer_paperflow_UCR_WTSA_full_pub", "Tables",
+  "Table 2. ExWAS toxicant associations.csv"
 )
-disp <- setNames(gsub("_", " ", as.character(t2$exposure_name)), t2$exposure)
+t2_xlsx <- file.path(tab_dir, "Table 2. ExWAS toxicant associations.xlsx")
+t2 <- NULL
+if (file.exists(t2_csv)) {
+  t2 <- utils::read.csv(t2_csv, stringsAsFactors = FALSE, check.names = FALSE)
+}
+if (is.null(t2) && file.exists(t2_xlsx)) {
+  shs <- tryCatch(openxlsx::getSheetNames(t2_xlsx), error = function(e) character(0))
+  if ("ExWAS_full" %in% shs) {
+    t2 <- openxlsx::read.xlsx(t2_xlsx, sheet = "ExWAS_full")
+  }
+}
 fam_map <- utils::read.csv(file.path(BASE, "data/toxicant_family_map.csv"), stringsAsFactors = FALSE)
+if (!is.null(t2) && all(c("exposure", "exposure_name") %in% names(t2))) {
+  disp <- setNames(gsub("_", " ", as.character(t2$exposure_name)), t2$exposure)
+} else {
+  disp <- setNames(as.character(fam_map$Exposure), paste0(fam_map$Labels, "_ln"))
+  disp_bin <- setNames(as.character(fam_map$Exposure), paste0(fam_map$Labels, "_bin"))
+  disp <- c(disp, disp_bin)
+}
 mp <- stats::setNames(fam_map$Family, fam_map$Labels)
 fam_cols <- c(
   "Acrylamide & Glycidamide" = "#1f4e79", "Aromatic Amines" = "#5b9bd5",
@@ -138,12 +156,28 @@ if (isTRUE(reuse_ers) && file.exists(ers_rds)) {
             " gcdnet=", ers_fit$gcdnet_used,
             " B=", n_boot)
 } else {
-  exwas_log("ERS gcdnet full-pool bootstrap B=", n_boot, " (this can take a while)")
+  # 对齐 Dong S5 形态：毒物 + 协变量一并进网；
+  # 协变量 = 本课题已锁定 Model2（UV→VIF→stepwise），不再另加 Age/牙科等
+  ers_covars <- intersect(covars_m2, names(df))
+  if (!length(ers_covars)) {
+    stop("ERS 进网协变量为空：请先完成 Model2 筛选", call. = FALSE)
+  }
+  exwas_log(
+    "ERS gcdnet full-pool + Model2 covars bootstrap B=", n_boot,
+    " covars=", paste(ers_covars, collapse = "+"),
+    " (this can take a while)"
+  )
   t0 <- Sys.time()
   # λ 下界放宽到 1e-5：原文网格常把 λ.min 钉在边界，CV 曲线几乎水平；
   # 放宽后 Fig4B/C 才能出现可见的 α/λ 权衡（仍覆盖原文 1e-3–1e2）
+  # force_alpha=0.9：对齐 Dong Methods（α=0.9）；CV 常偏向 α=1 导致 S5 毒物过稀
+  # covar_penalty=0.01：轻惩罚保留人口学，同时不挤掉毒物（硬 pf=0 会使 S5 只剩 2–3 个毒物）
   ers_fit <- exwas_tox_fit_adaptive_enet(
     df, "DN", ers_pool,
+    covariates = ers_covars,
+    age_cut = 65L,
+    force_alpha = 0.9,
+    covar_penalty = 0.01,
     n_boot = as.integer(n_boot),
     seed = 123456L,
     use_gcdnet = TRUE,
@@ -154,10 +188,11 @@ if (isTRUE(reuse_ers) && file.exists(ers_rds)) {
     impute_exposures = TRUE
   )
   exwas_log("ERS done in ", signif(as.numeric(difftime(Sys.time(), t0, units = "mins")), 3),
-            " min; selected=", length(ers_fit$selected),
+            " min; selected_tox=", length(ers_fit$selected),
             " alpha=", signif(ers_fit$alpha, 3),
             " lambda=", signif(ers_fit$lambda, 3),
-            " gcdnet=", ers_fit$gcdnet_used)
+            " gcdnet=", ers_fit$gcdnet_used,
+            " covar_cols=", length(ers_fit$covar_columns))
 }
 
 df$ERS <- exwas_tox_score_ers(
@@ -196,7 +231,7 @@ utils::write.csv(
   file.path(out_ds, "Table_S0_hit_pool.csv"), row.names = FALSE
 )
 
-# delivery Table S5 workbook
+# 内部多 sheet 底稿 → _downstream；交付 S5 走 Dong 三线表脚本
 wb5 <- openxlsx::createWorkbook()
 openxlsx::addWorksheet(wb5, "Bootstrap_inclusion")
 openxlsx::writeData(wb5, "Bootstrap_inclusion", ers_fit$freq)
@@ -217,13 +252,20 @@ openxlsx::writeData(
 )
 openxlsx::addWorksheet(wb5, "Alpha_path")
 openxlsx::writeData(wb5, "Alpha_path", ers_fit$alpha_path)
-sty <- openxlsx::createStyle(fontName = "Times New Roman", fontSize = 11)
-for (sh in openxlsx::sheets(wb5)) {
-  openxlsx::addStyle(wb5, sh, sty, rows = 1:200, cols = 1:20, gridExpand = TRUE, stack = TRUE)
-}
 openxlsx::saveWorkbook(
-  wb5, file.path(tab_dir, "Table S5. ERS bootstrap inclusion and selection.xlsx"), overwrite = TRUE
+  wb5, file.path(out_ds, "Table_S5_ERS_workbook_internal.xlsx"), overwrite = TRUE
 )
+s5_script <- file.path(ROOT, "run/environment_exwas/rebuild_pancancer_table_s5_dong_style.R")
+if (file.exists(s5_script)) {
+  exwas_log("render delivery Table S5 Dong layout")
+  status <- system2("Rscript", s5_script, stdout = TRUE, stderr = TRUE)
+  if (!is.null(attr(status, "status")) && attr(status, "status") != 0) {
+    warning("Table S5 Dong rebuild failed: ", paste(utils::tail(status, 5), collapse = " | "))
+  }
+} else {
+  warning("缺少 ", s5_script, "；交付 S5 未按 Dong 三线表重写")
+}
+sty <- openxlsx::createStyle(fontName = "Times New Roman", fontSize = 11)
 
 # Model2 选型审计表（DAG→UV→VIF→stepwise）
 wb_m2 <- openxlsx::createWorkbook()
@@ -298,14 +340,23 @@ exwas_log("Model1 OR=", signif(assoc$table$OR[1], 4),
   data.frame(OR = one$OR, lo = one$lo, hi = one$hi, p = one$p,
              adjusted = length(cv_ok) > 0, stringsAsFactors = FALSE)
 }
-use$age60 <- ifelse(exwas_to_num(use$Age) < 60, "<60", ">=60")
+age_cut <- 65L
+use$age_band <- ifelse(
+  exwas_to_num(use$Age) < age_cut,
+  paste0("<", age_cut),
+  paste0(">=", age_cut)
+)
 use$sex <- if ("Gender" %in% names(use)) as.character(use$Gender) else NA_character_
 strata_list <- list(
   Overall = list(idx = rep(TRUE, nrow(use)), drop = character(0)),
   Male = list(idx = grepl("Male|^M", use$sex), drop = "Gender"),
-  Female = list(idx = grepl("Female|^F", use$sex), drop = "Gender"),
-  Age_lt60 = list(idx = use$age60 == "<60", drop = "Age"),
-  Age_ge60 = list(idx = use$age60 == ">=60", drop = "Age")
+  Female = list(idx = grepl("Female|^F", use$sex), drop = "Gender")
+)
+strata_list[[paste0("Age_lt", age_cut)]] <- list(
+  idx = use$age_band == paste0("<", age_cut), drop = "Age"
+)
+strata_list[[paste0("Age_ge", age_cut)]] <- list(
+  idx = use$age_band == paste0(">=", age_cut), drop = "Age"
 )
 if ("Alcohol_drinking" %in% names(use)) {
   al <- as.character(use$Alcohol_drinking)

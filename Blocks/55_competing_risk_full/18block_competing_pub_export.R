@@ -82,29 +82,8 @@ block_competing_pub_export <- function(ctx, ...) {
     )
   }
 
-  # Table S1：优先从 imputation 步骤原件复制，禁止二次扁平改写
-  s1_dst <- file.path(tab_dir, sprintf(
-    "Table S1-%s. Baseline characteristics of patients before and after multiple imputation.xlsx", db
-  ))
-  s1_src <- c(
-    list.files(file.path(out_root, "step06_imputation", "Tables"),
-               pattern = "Table S1.*before and after multiple imputation\\.xlsx$",
-               full.names = TRUE, ignore.case = TRUE),
-    list.files(file.path(dirname(out_root), "step06_imputation", "Tables"),
-               pattern = "Table S1.*before and after multiple imputation\\.xlsx$",
-               full.names = TRUE, ignore.case = TRUE),
-    list.files(tab_dir, pattern = "Table S1.*before and after multiple imputation\\.xlsx$",
-               full.names = TRUE, ignore.case = TRUE)
-  )
-  s1_src <- s1_src[file.exists(s1_src)]
-  # 选体积最大的原件（插补块 SCI 原件通常更大且无二次表头）
-  if (length(s1_src)) {
-    s1_pick <- s1_src[which.max(file.info(s1_src)$size)]
-    if (!identical(normalizePath(s1_pick, mustWork = FALSE),
-                   normalizePath(s1_dst, mustWork = FALSE))) {
-      file.copy(s1_pick, s1_dst, overwrite = TRUE)
-    }
-  }
+  # 定稿 Tables 对齐 Lai：仅 Table 1–4 + Table S1–S6
+  # （不交 Table S1 插补前后 / UV / VIF / 中间 CSV）
 
   # ---- Figure 1 ----
   fig1 <- file.path(fig_dir, sprintf("Figure 1-%s. Flowchart of patient selection.pdf", db))
@@ -259,43 +238,88 @@ block_competing_pub_export <- function(ctx, ...) {
     error = function(e) cli::cli_alert_warning("Fig9 failed: {e$message}")
   )
 
-  # 补充缺失图
-  miss_cands <- list.files(fig_dir, pattern = "Missing|missing", full.names = TRUE)
-  if (length(miss_cands)) {
-    dst <- file.path(fig_dir, sprintf("Figure S1-%s. Missing value overview.pdf", db))
-    src_n <- normalizePath(miss_cands[1], mustWork = FALSE)
-    if (!identical(src_n, normalizePath(dst, mustWork = FALSE)))
-      file.copy(miss_cands[1], dst, overwrite = TRUE)
+  # 竞争风险定稿只交主文 Figure 1–9（对齐 Lai）；不要 Missing/LASSO/RF 等 Figure S*
+  .competing_purge_supp_figs <- function(dir) {
+    if (!dir.exists(dir)) return(invisible(NULL))
+    fs <- list.files(dir, full.names = TRUE, recursive = FALSE)
+    if (!length(fs)) return(invisible(NULL))
+    bn <- basename(fs)
+    drop <- grepl(
+      "(?i)(^Figure\\s*S|Missing\\s*value|LassoGenes|LassoModel|Random\\s*forest|S2[A-G]\\.)",
+      bn,
+      perl = TRUE
+    )
+    # 根目录非 Figure N- 的散落 PDF 一并清
+    drop <- drop | (grepl("(?i)\\.pdf$", bn, perl = TRUE) & !grepl("^Figure [0-9]+-", bn))
+    drop <- drop | (grepl("(?i)\\.md$", bn, perl = TRUE) & grepl("(?i)(^Figure\\s*S|Lasso|Missing|Random\\s*forest)", bn, perl = TRUE))
+    if (any(drop)) unlink(fs[drop])
   }
+  .competing_purge_supp_figs(fig_dir)
+  .competing_purge_supp_figs(file.path(fig_dir, "pdf"))
+  .competing_purge_supp_figs(file.path(fig_dir, "image_information"))
 
-  # 清理非文献命名图
+  # 清理非文献命名图（仅保留 Figure 1–9-…）
   junk <- list.files(fig_dir, full.names = TRUE)
-  keep <- grepl("^Figure [0-9]+-", basename(junk)) | grepl("^Figure S[0-9]+-", basename(junk))
+  keep <- grepl("^Figure [0-9]+-", basename(junk)) | dir.exists(junk)
   unlink(junk[!keep])
 
-  figs <- sort(list.files(fig_dir, pattern = "^Figure [0-9S]", full.names = FALSE))
-  tabs <- sort(list.files(tab_dir, pattern = "^(Table |Supplementary Material )", full.names = FALSE))
+  # 交付 Tables 白名单（Lai 主文 + MOESM1–6）；其余移到同级 *_delivery_workspace
+  .competing_prune_delivery_tables <- function(tab_dir, index_var, db) {
+    keep_re <- paste0(
+      "^(",
+      "Table [1-4]-", db, "\\.",
+      "|Table S[1-6]-", db, "\\.",
+      ")"
+    )
+    fs <- list.files(tab_dir, full.names = TRUE, recursive = FALSE)
+    fs <- fs[file.exists(fs) & !dir.exists(fs)]
+    if (!length(fs)) return(invisible(character(0)))
+    bn <- basename(fs)
+    keep <- grepl(keep_re, bn, perl = TRUE) & grepl("\\.xlsx$", bn, ignore.case = TRUE)
+    drop <- fs[!keep]
+    if (length(drop)) {
+      unit_root <- dirname(tab_dir)
+      ws <- file.path(
+        dirname(unit_root),
+        paste0(basename(unit_root), "_delivery_workspace"),
+        "Tables_internal"
+      )
+      dir.create(ws, recursive = TRUE, showWarnings = FALSE)
+      for (p in drop) {
+        dest <- file.path(ws, basename(p))
+        if (file.exists(dest)) unlink(dest)
+        file.rename(p, dest)
+      }
+      cli::cli_alert_info("Tables 定稿白名单：移出 {length(drop)} 个非交付文件 → {ws}")
+    }
+    invisible(bn[keep])
+  }
+  tabs_kept <- .competing_prune_delivery_tables(tab_dir, index_var, db)
+
+  figs <- sort(list.files(fig_dir, pattern = "^Figure [0-9]+-", full.names = FALSE))
+  tabs <- sort(list.files(tab_dir, pattern = "^(Table [1-4]-|Table S[1-6]-)", full.names = FALSE))
+  tabs <- tabs[grepl("\\.xlsx$", tabs, ignore.case = TRUE)]
   tabs <- tabs[file.exists(file.path(tab_dir, tabs)) & !dir.exists(file.path(tab_dir, tabs))]
+
+  # Manifest / 协变量说明不进交付 Tables，写到 delivery_workspace
+  unit_root <- dirname(tab_dir)
+  ws_meta <- file.path(dirname(unit_root), paste0(basename(unit_root), "_delivery_workspace"))
+  dir.create(ws_meta, recursive = TRUE, showWarnings = FALSE)
   utils::write.csv(
     data.frame(type = c(rep("Figure", length(figs)), rep("Table", length(tabs))), file = c(figs, tabs)),
-    file.path(tab_dir, "00_Literature_Output_Manifest.csv"), row.names = FALSE
+    file.path(ws_meta, "00_Literature_Output_Manifest.csv"), row.names = FALSE
   )
-
-  # 写出协变量说明（发表版；调试信息另存）
   writeLines(
     c(footnote_dual,
       sprintf("trajectory: method=%s; optimal_K=%s; labels=%s",
               traj_info$method %||% "NA",
               traj_info$optimal_K %||% "NA",
               paste(traj_info$labels %||% character(0), collapse = ", "))),
-    file.path(tab_dir, "00_Model_Covariates.txt")
+    file.path(ws_meta, "00_Model_Covariates.txt")
   )
   dbg <- ctx$results$competing_model_covs$footnote_debug %||% ""
   if (nzchar(as.character(dbg)[1L])) {
-    writeLines(
-      as.character(dbg),
-      file.path(tab_dir, "00_Model_Covariates_debug.txt")
-    )
+    writeLines(as.character(dbg), file.path(ws_meta, "00_Model_Covariates_debug.txt"))
   }
 
   ctx$results$competing_pub_export <- list(

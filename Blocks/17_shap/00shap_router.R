@@ -132,7 +132,90 @@
   )
 }
 
-.shap_build_tree_shapviz <- function(wf, X_mat, X_df) {
+## Binary TreeSHAP / xgboost engine probability often equals P(first factor level).
+## Publication SHAP must explain P(analysis_group). Flip signs when they disagree.
+.shap_flip_shapviz_signs <- function(shp) {
+  if (is.null(shp) || !requireNamespace("shapviz", quietly = TRUE)) return(shp)
+  S <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+  X <- tryCatch(shapviz::get_feature_values(shp), error = function(e) NULL)
+  if (is.null(S) || is.null(X)) return(shp)
+  if (is.data.frame(S)) S <- as.matrix(S)
+  base <- tryCatch(as.numeric(shp$baseline)[1L], error = function(e) NA_real_)
+  if (!is.finite(base)) base <- 0
+  out <- tryCatch(
+    shapviz::shapviz(-S, X = X),
+    error = function(e) shapviz::shapviz(as.matrix(-S), X = X)
+  )
+  out$baseline <- -base
+  attrs <- names(attributes(shp))
+  for (a in setdiff(attrs, names(attributes(out)))) {
+    attr(out, a) <- attr(shp, a)
+  }
+  attr(out, "shap_sign_flipped") <- TRUE
+  out
+}
+
+.shap_align_shapviz_to_analysis_group <- function(shp, wf = NULL, ctx = NULL,
+                                                  eng = NULL, X_mat = NULL) {
+  if (is.null(shp)) return(shp)
+  ana <- trimws(as.character(
+    ctx$config$project$analysis_group %||%
+      ctx$config$project$disease %||%
+      "Case"
+  )[1L])
+  lv <- NULL
+  if (!is.null(wf) && .shap_is_workflow_like(wf)) {
+    fp <- tryCatch(
+      if (inherits(wf, "workflow")) workflows::extract_fit_parsnip(wf) else wf,
+      error = function(e) NULL
+    )
+    lv <- tryCatch(as.character(fp$lvl), error = function(e) NULL)
+  }
+  ## Primary rule: engine/shapviz explains first factor level → flip if analysis_group is not that level
+  if (length(lv) >= 2L && nzchar(ana) && !identical(ana, lv[[1L]]) && ana %in% lv) {
+    cli::cli_alert_info(
+      "block_shap: TreeSHAP 对齐到 analysis_group='{ana}'（引擎正类为 '{lv[[1]]}'），SHAP 符号已翻转。"
+    )
+    return(.shap_flip_shapviz_signs(shp))
+  }
+  ## Fallback: correlate f(x) with engine response vs complement
+  if (!is.null(eng) && !is.null(X_mat) && inherits(eng, "xgb.Booster")) {
+    S <- tryCatch(shapviz::get_shap_values(shp), error = function(e) NULL)
+    if (!is.null(S)) {
+      if (is.data.frame(S)) S <- as.matrix(S)
+      base <- tryCatch(as.numeric(shp$baseline)[1L], error = function(e) 0)
+      if (!is.finite(base)) base <- 0
+      fx <- as.numeric(rowSums(S) + base)
+      p_eng <- tryCatch(
+        as.numeric(stats::predict(eng, newdata = X_mat, type = "response")),
+        error = function(e) NULL
+      )
+      if (!is.null(p_eng) && length(p_eng) == length(fx)) {
+        logit <- function(p) {
+          p <- pmax(pmin(as.numeric(p), 1 - 1e-7), 1e-7)
+          log(p / (1 - p))
+        }
+        ok <- is.finite(fx) & is.finite(p_eng) & p_eng > 0 & p_eng < 1
+        if (sum(ok) >= 30L) {
+          r1 <- suppressWarnings(stats::cor(fx[ok], logit(p_eng[ok])))
+          r0 <- suppressWarnings(stats::cor(fx[ok], logit(1 - p_eng[ok])))
+          ## If SHAP tracks engine p but analysis_group matches the complement
+          ## (engine mean ≈ non-event prevalence), flip.
+          if (is.finite(r1) && is.finite(r0) && r1 > 0.9 && r0 < -0.9 &&
+              mean(p_eng[ok]) < 0.5 && length(lv) >= 2L && identical(ana, lv[[2L]])) {
+            cli::cli_alert_info(
+              "block_shap: TreeSHAP 与引擎 P(第1水平) 同向且 analysis_group 为第2水平，SHAP 符号已翻转。"
+            )
+            return(.shap_flip_shapviz_signs(shp))
+          }
+        }
+      }
+    }
+  }
+  shp
+}
+
+.shap_build_tree_shapviz <- function(wf, X_mat, X_df, ctx = NULL) {
   if (!requireNamespace("shapviz", quietly = TRUE)) {
     stop("需要 shapviz 包。", call. = FALSE)
   }
@@ -147,6 +230,7 @@
       error = function(e) e
     )
     if (!inherits(out, "error")) {
+      out <- .shap_align_shapviz_to_analysis_group(out, wf = wf, ctx = ctx)
       attr(out, "shap_method") <- "tree_shapviz"
       return(out)
     }
@@ -158,13 +242,17 @@
       error = function(e) e
     )
     if (!inherits(ts_out, "error")) {
+      ts_out <- .shap_align_shapviz_to_analysis_group(ts_out, wf = wf, ctx = ctx)
       attr(ts_out, "shap_method") <- "treeshap_ranger"
       return(ts_out)
     }
     stop("ranger TreeSHAP 不可用: ", ts_out$message, call. = FALSE)
   }
   aligned <- .shap_align_xgb_features(eng, X_mat, X_df)
-  shapviz::shapviz(eng, X_pred = aligned$X_mat, X = aligned$X_df)
+  out <- shapviz::shapviz(eng, X_pred = aligned$X_mat, X = aligned$X_df)
+  .shap_align_shapviz_to_analysis_group(
+    out, wf = wf, ctx = ctx, eng = eng, X_mat = aligned$X_mat
+  )
 }
 
 .shap_build_catboost_native <- function(wf, X_mat, X_df) {
@@ -715,7 +803,7 @@
 
   .do_compute <- function(m) {
     switch(m,
-      tree_shapviz = .shap_build_tree_shapviz(wf, X_mat, X_df),
+      tree_shapviz = .shap_build_tree_shapviz(wf, X_mat, X_df, ctx = ctx),
       catboost_native = .shap_build_catboost_native(wf, X_mat, X_df),
       linear_coef = .shap_build_linear_coef(wf, X_df),
       kernel_fastshap = .shap_build_kernel_fastshap(wf, X_df, sh_cfg),

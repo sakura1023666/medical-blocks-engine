@@ -8,8 +8,8 @@ Liu et al. Cardiovasc Diabetol 2026）。**下一「双指标联合轨迹 → �
 
 | 能力 | 入口 |
 |---|---|
-| 六块流水线 | `Blocks/82_trajectory_incidence_joint/01–06block_tj_*.R` |
-| register_block 名 | `tj_data_ingest` → `tj_gbmtm_fit` → `imputation` → `tj_cox_rubin` → `tj_subgroup` → `tj_sensitivity` → `tj_pub_export` |
+| 七块流水线 | `Blocks/82_trajectory_incidence_joint/01–07block_tj_*.R` |
+| register_block 名 | `tj_data_ingest` → `tj_gbmtm_fit` → `imputation` → `tj_cox_rubin` → [`tj_finegray_rubin`] → `tj_subgroup` → `tj_sensitivity` → `tj_pub_export` |
 | GBMTM 内核 | `R/gbmtm_core.R`（`gbmtm_to_long/select/label`；AIC/BIC + AvePP/最小类软门控） |
 | 公共 helper | `R/literature_trajectory_joint.R`（波次指标重算 / Rubin 向量 / KM / 森林 / 轨迹面板 / Table1 按类） |
 | config 模板 | `configs/templates/config_trajectory_incidence_joint.template.R` |
@@ -79,3 +79,40 @@ Liu et al. Cardiovasc Diabetol 2026）。**下一「双指标联合轨迹 → �
 - 穷举 combn 指标对不经 Gate 2 / 用户确认
 - pipeline 漏 `imputation` 块后用 complete#1 Cox 交差
 - 换病种照抄 ELSA `model_sets`（bpmed/fvc 等列不存在须裁剪）
+
+## 2026-11-24/25 增补：文献九项敏感性全复现 + FDR + 竞争语义三档
+
+对标 Liu et al. Cardiovasc Diabetol 2026;25:207 补全（`都补全！！！！！一切按照正确的来`）。
+**下一课题直接走引擎**，禁止再在课题目录补敏感性。
+
+| 能力 | 入口 |
+|---|---|
+| S8 区间删失 cloglog | `05block_tj_sensitivity.R` → `S8_cloglog_interval`；`tj_interval_windows`（优先 `outcome$primary$visit_time_cols` 真实访视窗，缺则 `interval_half_months` 对称近似）+ `tj_cloglog_fit`（`survreg(dist="weibull")`，`HR=exp(-coef/scale)`，delta 法方差）；`image_information` 标注 `interval censored (L, R]` |
+| S10 基线中位数交叉分类 | `05block_tj_sensitivity.R` → `S10_cross_class`；A/B 各按 master 中位数四分 → T1 双低（参照）…T4 双高；表注 `median cross-classification; reference = double-low` |
+| BH-FDR（轨迹组间） | `05block_tj_sensitivity.R` 尾部 `p.adjust(method="BH")`，按 `system×analysis` 分组；Table S1 输出 `P (FDR-adjusted)` + 脚注 |
+| 竞争事件语义三档 | `07block_tj_finegray_rubin.R`：a) `death_cause_icd_col`+`main_cause_regex`（严格 non-CVD）；b) 无 ICD → 未报告主事件的死亡近似（自证计数）；c) `competing_is_all_cause=TRUE` 明示全因。文案落 `ctx$results$tj_fg_note` → Table 4 脚注 + Methods |
+| 语义告警 | `07block_tj_finegray_rubin.R` 开头：死亡者>0 且全部已报告主结局事件 → warning「竞争组近空，Fine-Gray≈Cox」 |
+| 缺列诚实 | S3/S4/S6 排除列缺失 → `colv()` 全 NA = 不排除任何人（表注/日志如实），禁止静默空集假跳过 |
+
+**`.pub_col_kind` 修复（`R/utils.R`，全项目受益）**：`"Sensitivity analysis"` 等标签列曾被
+`^(…|sensitivity|…)\b` 误判成概率列，Table S1 分析名单元格整列打 `NE`。修复=正则判定前先过
+标签列例外（`sensitivity analysis|analysis|variable|indicator|term|feature|characteristic`）。
+
+**模板/接口接线**（新课题默认开 S8/S10）：
+`outcome$primary$visit_time_cols`、`competing_risk$death_cause_icd_col/main_cause_regex/competing_is_all_cause`、
+sensitivity `items` 含 `S8_cloglog_interval`/`S10_cross_class` + `interval_half_months`；
+`exclude_from_mice_cols` 补死因组与访视月列。
+5006 `templates/config_trajectory_incidence_joint_competing.template.R`（**非** plain——
+run_study 对 plain 模板强制覆盖 competing 三件套）与 `studies/_template_trajinc/config.R` 已同步；
+2203 接口 md5 与 5006 一致。`recompute_indices`：master 已含 `<IX>_w<k>` 时置 FALSE。
+
+**2203 全链冒烟通过**（2026-11-25，N=400 富化数据，m=5）：
+- 8 blocks、18.6s、`【success】`；S1 = **11 项 / 42 行 / NA p=0**；FDR 列 42/47 非空（余为注脚行）
+- Table 4：`Fine-Gray (crr), Rubin m-pooled (5/5)`；Events=76、Competing=29（ICD 口径）；
+  脚注含 `NOT matching /^I/ (23 cvd-cause deaths … censored conservatively)`
+- Methods：`Competing-risk semantics (Table 4, Fine-Gray): non-CVD death by underlying cause …`
+- QC：Layer A **STRUCT_OK**、A3 下划线 PASS、A4 字体 PASS；交付 8 表白名单干净
+
+**验证坑**：`sshpass ssh host 'grep …'` 类复合命令里本地 shell 会把带空格的变量串当多参数——
+比对 MD5 用「一次 ssh 收全部远端和 → 本地逐行比对」；`| md5sum` 接 `cat` 在 Rscript 后会触发
+SIGPIPE 停止执行，校验语句拆开跑。

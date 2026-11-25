@@ -157,7 +157,13 @@ config <- list(
 
   trajectory_plot_jlcm = list(index_vars = NULL, use_optimal_class_ng = TRUE, cycle = 28L, pause_enable = FALSE),
   trajectory_km_class = list(index_vars = NULL),
-  trajectory_dynpred = list(index_vars = NULL, cycle = 28L, jlcm = list(prefer_ng = NULL, assessment_times = c(4, 7, 14, 21))),
+  # 对齐 fcimb Fig3/4：landmark 2/5/7/12；副轴 Predicted mortality risk；ng=3
+  trajectory_dynpred = list(
+    index_vars = NULL, cycle = 28L,
+    pred_scale = "mortality",
+    # day2 在 time_day=1..28 + ns(df=2) 下不可估（仅 1–2 两日）；最早稳定 landmark=3
+    jlcm = list(prefer_ng = 3L, assessment_times = c(3, 5, 7, 12), ndraws = 200L)
+  ),
   trajectory_dynpred_individual = list(index_vars = NULL, jlcm_ng = NULL),
   trajectory_piecewise_cox = list(index_vars = NULL, max_followup = 28L),
   trajectory_weibull_compare = list(index_vars = NULL, landmarks = 4:14, jlcm_ng = NULL),
@@ -184,7 +190,8 @@ config <- list(
     lock_thresholds_from_discovery = TRUE,
     validation_apply_locked = TRUE,
     export_figures = TRUE,
-    plot_landmarks = c(2, 4, 7, 14)
+    # 对齐 fcimb Fig5b：Days=2/5/12（PAMM 对 tend 平滑可估 day2）
+    plot_landmarks = c(2, 5, 12)
   ),
 
   trajectory_pub = list(

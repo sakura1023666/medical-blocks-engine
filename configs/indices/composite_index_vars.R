@@ -31,7 +31,6 @@
   "CaAR",         # CalciumTotal / Albumin（总钙；非离子钙）
   "UAR",          # Uric_Acid / Albumin
   "ClAR",         # Chloride / Albumin
-  "KAR",          # Potassium / Albumin
   "AlbCr",        # Albumin / Creatinine
   "LymWBC",       # Lymphocytes / WBC
   "PHAR",         # PH / Albumin

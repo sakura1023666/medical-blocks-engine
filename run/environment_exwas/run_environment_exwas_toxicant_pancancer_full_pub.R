@@ -313,16 +313,17 @@ sex_f <- if ("Gender" %in% names(df)) {
 } else {
   exwas_to_num(df$RIAGENDR) == 2
 }
-age60 <- exwas_to_num(df$Age) < 60
+age_cut <- 65L
+age_lt <- exwas_to_num(df$Age) < age_cut
 st_male <- run_stratum(which(!sex_f), "Male")
 st_female <- run_stratum(which(sex_f), "Female")
-st_lt60 <- run_stratum(which(age60), "Age_lt60")
-st_ge60 <- run_stratum(which(!age60), "Age_ge60")
-st_all <- rbind(st_male, st_female, st_lt60, st_ge60)
+st_lt_age <- run_stratum(which(age_lt), paste0("Age_lt", age_cut))
+st_ge_age <- run_stratum(which(!age_lt), paste0("Age_ge", age_cut))
+st_all <- rbind(st_male, st_female, st_lt_age, st_ge_age)
 if (!is.null(st_all) && nrow(st_all)) {
   utils::write.csv(st_all, file.path(tab_dir, "Table S3. ExWAS stratified by sex.csv"), row.names = FALSE)
   utils::write.csv(
-    st_all[st_all$stratum %in% c("Age_lt60", "Age_ge60"), ],
+    st_all[st_all$stratum %in% c(paste0("Age_lt", age_cut), paste0("Age_ge", age_cut)), ],
     file.path(tab_dir, "Table S4. ExWAS stratified by age.csv"), row.names = FALSE
   )
   if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -341,7 +342,7 @@ if (!is.null(st_all) && nrow(st_all)) {
             "Figure 3. Stratified ExWAS by sex",
             file.path(fig_dir, "pdf", "Figure 3. Stratified ExWAS by sex and age.pdf"))
     # overwrite with 2x2 if age also available
-    if (!is.null(st_lt60)) {
+    if (!is.null(st_lt_age)) {
       p3 <- ggplot2::ggplot(
         st_all,
         ggplot2::aes(x = log(pmax(OR, 1e-12)), y = -log10(pmax(p, 1e-300)),
@@ -360,7 +361,7 @@ if (!is.null(st_all) && nrow(st_all)) {
       .write_md(
         file.path(fig_dir, "image_information", "Figure 3. Stratified ExWAS by sex and age.md"),
         "Figure 3. Stratified ExWAS by sex and age",
-        "四面板：Male / Female / Age<60 / Age>=60；红点 FDR q<0.05。",
+        sprintf("四面板：Male / Female / Age<%d / Age>=%d；红点 FDR q<0.05。", age_cut, age_cut),
         paste0("同主分析协变量；分析集 N=", nrow(df), "。")
       )
     }
@@ -383,23 +384,43 @@ if ("family" %in% names(tab2) || length(fam_map)) {
   utils::write.csv(t2, file.path(tab_dir, "Table S2. Familywise FDR ExWAS.csv"), row.names = FALSE)
 }
 
-# S7 unimputed = complete-case glm with same covars (no mice)
-s7 <- exwas_run_unweighted(df, "DN", scr$keep, covars_full)
-s7$exposure_name <- disp_of(sub("_(ln|bin)$", "", s7$exposure))
-utils::write.csv(s7, file.path(tab_dir, "Table S7. ExWAS without imputation.csv"), row.names = FALSE)
+# S7/S5：调查加权 ExWAS（Dong 主 ExWAS 刻意不加权；替代原完整病例无插补）
+# 细脚本：run/environment_exwas/rerun_pancancer_s5_survey_weighted.R
+if (!all(c("WTSA2YR", "SDMVPSU", "SDMVSTRA_cyc") %in% names(df))) {
+  stop("缺调查设计列，无法跑加权 ExWAS 敏感性", call. = FALSE)
+}
+wmap <- stats::setNames(rep("WTSA2YR", length(scr$keep)), scr$keep)
+s7_fit <- exwas_run_survey_mice(
+  df, "DN", scr$keep, covars_full, weight_map = wmap,
+  families = NULL, energy_col = NULL, diet_impute_cols = NULL,
+  m = 5L, maxit = 5L, seed = 123456L,
+  psu = "SDMVPSU", strata = "SDMVSTRA_cyc"
+)
+s7 <- s7_fit$table
+s7$exposure_raw <- sub("_(ln|bin)$", "", s7$exposure)
+s7$exposure_name <- disp_of(s7$exposure_raw)
+s7$family <- unname(fam_map[s7$exposure_raw])
+s7$q <- exwas_fdr(s7$p)
+utils::write.csv(s7, file.path(tab_dir, "Table S7. ExWAS survey-weighted.csv"), row.names = FALSE)
 if (requireNamespace("ggplot2", quietly = TRUE)) {
   s7$sig <- is.finite(s7$q) & s7$q < 0.05
-  p5 <- ggplot2::ggplot(s7, ggplot2::aes(x = log(pmax(OR, 1e-12)), y = -log10(pmax(p, 1e-300)), color = sig)) +
+  p5 <- ggplot2::ggplot(s7, ggplot2::aes(x = OR, y = -log10(pmax(p, 1e-300)), color = sig)) +
+    ggplot2::geom_vline(xintercept = 1, linetype = 2, color = "grey55") +
+    ggplot2::geom_hline(yintercept = -log10(0.05), linetype = 2, color = "grey55") +
     ggplot2::geom_point(alpha = 0.85) +
     ggplot2::scale_color_manual(values = c(`FALSE` = "grey55", `TRUE` = "#B2182B")) +
     ggplot2::theme_bw(base_family = "serif") +
-    ggplot2::labs(title = "Figure S5. ExWAS without imputation", x = "log(OR)", y = expression(-log[10](p)))
-  ggplot2::ggsave(file.path(fig_dir, "pdf", "Figure S5. ExWAS without imputation.pdf"), p5, width = 8, height = 5.5)
+    ggplot2::labs(
+      title = "Figure S5. ExWAS survey-weighted",
+      subtitle = sprintf("WTSA2YR; MICE m=5; FDR hits=%d", sum(s7$sig, na.rm = TRUE)),
+      x = "OR per IQR", y = expression(-log[10](p))
+    )
+  ggplot2::ggsave(file.path(fig_dir, "pdf", "Figure S5. ExWAS survey-weighted.pdf"), p5, width = 9, height = 6.6)
   .write_md(
-    file.path(fig_dir, "image_information", "Figure S5. ExWAS without imputation.md"),
-    "Figure S5. ExWAS without imputation",
-    paste0("完整病例、无 mice；FDR 命中数=", sum(s7$sig, na.rm = TRUE), "。"),
-    paste0("N 完整病例随暴露变化；主分析为 mice m=5。")
+    file.path(fig_dir, "image_information", "Figure S5. ExWAS survey-weighted.md"),
+    "Figure S5. ExWAS survey-weighted",
+    paste0("Dong 主 ExWAS 不加权；本敏感性为调查加权。FDR 命中=", sum(s7$sig, na.rm = TRUE), "。"),
+    "替代原完整病例无插补 S5；协变量同主分析。"
   )
 }
 
@@ -516,38 +537,14 @@ plot_cor(scr$keep, "Figure S2. Correlation among screened toxicants",
   "热图为分析物两两 Pearson 相关（完整病例）。",
   paste0("分析集 N=", nrow(df), "；暴露=", length(scr$keep), "。")
 )
-# S6 smoke vs toxicants
-if ("Smoke" %in% names(df) && requireNamespace("ggplot2", quietly = TRUE)) {
-  smn <- as.numeric(factor(as.character(df$Smoke)))
-  cors <- vapply(scr$keep, function(x) {
-    xx <- exwas_to_num(df[[x]])
-    ok <- is.finite(xx) & is.finite(smn)
-    if (sum(ok) < 50L) return(NA_real_)
-    stats::cor(xx[ok], smn[ok])
-  }, numeric(1))
-  cd <- data.frame(
-    exposure = scr$keep,
-    exposure_name = disp_of(sub("_(ln|bin)$", "", scr$keep)),
-    r_smoke = as.numeric(cors),
-    stringsAsFactors = FALSE
-  )
-  cd <- cd[is.finite(cd$r_smoke), ]
-  cd <- cd[order(cd$r_smoke), ]
-  utils::write.csv(cd, file.path(tab_dir, "Table_S_smoke_toxicant_correlation.csv"), row.names = FALSE)
-  p6 <- ggplot2::ggplot(cd, ggplot2::aes(x = reorder(exposure_name, r_smoke), y = r_smoke)) +
-    ggplot2::geom_col(fill = "#2166AC") +
-    ggplot2::coord_flip() +
-    ggplot2::theme_bw(base_size = 8, base_family = "serif") +
-    ggplot2::labs(title = "Figure S6. Correlation of Smoke with toxicants", x = NULL, y = "Pearson r")
-  ggplot2::ggsave(file.path(fig_dir, "pdf", "Figure S6. Smoke toxicant correlation.pdf"),
-                  p6, width = 8, height = 10)
-  .write_md(
-    file.path(fig_dir, "image_information", "Figure S6. Smoke toxicant correlation.md"),
-    "Figure S6. Smoke toxicant correlation",
-    "条形=各毒物与吸烟状态编码的 Pearson r。",
-    "主 ExWAS 不含 Smoke；本图为敏感性语境。"
-  )
-}
+# S6：Dong linkET 风格（毒物三角热图 + Smoke 连线）；专用脚本，避免条形图
+exwas_log("Figure S6 → redraw_pancancer_fig_s6_linket.R")
+st6 <- system2(
+  "Rscript",
+  c(file.path(root, "run/environment_exwas/redraw_pancancer_fig_s6_linket.R")),
+  stdout = TRUE, stderr = TRUE
+)
+exwas_log(paste(utils::tail(st6, 5), collapse = " | "))
 
 # ---------- Figure S1 DAG（示意）----------
 if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -693,15 +690,20 @@ if (requireNamespace("ggplot2", quietly = TRUE) && file.exists(file.path(down_di
 
 # Fig4F / FigS3 ERS subgroup forest
 if (requireNamespace("ggplot2", quietly = TRUE) && exists("use") && is.data.frame(use) && "ERS_IQR" %in% names(use)) {
-  use$age60 <- ifelse(exwas_to_num(use$Age) < 60, "<60", ">=60")
+  age_cut <- 65L
+  use$age_band <- ifelse(
+    exwas_to_num(use$Age) < age_cut,
+    paste0("<", age_cut),
+    paste0(">=", age_cut)
+  )
   use$sex <- if ("Gender" %in% names(use)) as.character(use$Gender) else NA_character_
   strata_list <- list(
     Overall = rep(TRUE, nrow(use)),
     Male = grepl("Male|^M", use$sex),
-    Female = grepl("Female|^F", use$sex),
-    Age_lt60 = use$age60 == "<60",
-    Age_ge60 = use$age60 == ">=60"
+    Female = grepl("Female|^F", use$sex)
   )
+  strata_list[[paste0("Age_lt", age_cut)]] <- use$age_band == paste0("<", age_cut)
+  strata_list[[paste0("Age_ge", age_cut)]] <- use$age_band == paste0(">=", age_cut)
   if ("Alcohol_drinking" %in% names(use)) {
     al <- as.character(use$Alcohol_drinking)
     strata_list$Alcohol_yes <- grepl("Yes|yes|饮", al)

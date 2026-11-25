@@ -242,18 +242,36 @@ tj_km_pdf <- function(df, gv, ev, tm, out_pdf, title, fam, time_unit_lab = "Foll
   d <- d[!is.na(d$.tm) & d$.tm > 0, , drop = FALSE]
   d[[gv]] <- factor(d[[gv]])
   if (nlevels(d[[gv]]) < 2) return(invisible(FALSE))
-  sfit <- survival::survfit(eval(stats::as.formula(
-    paste0("survival::Surv(.tm, .ev) ~ ", gv))), data = d)
-  lr <- survival::survdiff(eval(stats::as.formula(
-    paste0("survival::Surv(.tm, .ev) ~ ", gv))), data = d)
+  # 预构造 formula 对象并用 bquote 内联进调用（勿直接 survfit(km_fml)）：
+  # survfit 会在 sfit$call 保存未求值表达式；若 call 里只是变量名（symbol），
+  # ggsurvplot 内部对 call$formula 再取 [[2]] 会报
+  # "object of type 'symbol' is not subsettable"，被 tryCatch 吞掉后
+  # 跌回无风险表回退分支（旧 KM 图 P0：缺 Number at risk + 图上 NA）。
+  km_fml <- stats::as.formula(paste0("survival::Surv(.tm, .ev) ~ ", gv))
+  sfit <- eval(bquote(survival::survfit(.(km_fml), data = d)))
+  lr <- survival::survdiff(km_fml, data = d)
   pval <- stats::pchisq(lr$chisq, df = length(lr$n) - 1, lower.tail = FALSE)
   cols <- scales::hue_pal()(nlevels(d[[gv]]))
+  # 展示名：图例与风险表行名去掉 "grp_NLR=" 编程前缀（禁下划线、禁列名上图）
+  .sfit_strata_lab <- function(sf) {
+    nm <- names(sf$strata)
+    if (is.null(nm) || !length(nm)) return(nm)
+    cleaned <- sub("^[^=]*=", "", nm)
+    if (exists("pipeline_display_label", mode = "function")) {
+      cleaned <- tryCatch(pipeline_display_label(cleaned), error = function(e) cleaned)
+    }
+    cleaned
+  }
+  sl <- .sfit_strata_lab(sfit)
+  if (!is.null(sl) && length(sl) == length(sfit$strata)) {
+    names(sfit$strata) <- sl
+  }
   if (requireNamespace("survminer", quietly = TRUE)) {
     p <- tryCatch(survminer::ggsurvplot(
       sfit, data = d, risk.table = TRUE, palette = cols,
       xlab = time_unit_lab, ylab = "Survival probability",
       legend.title = "", ggtheme = tj_theme(fam)),
-      error = function(e) NULL)
+      error = function(e) {message("tj_km_pdf survminer ERR: ", conditionMessage(e)); NULL})
     if (!is.null(p)) {
       if (exists("pipeline_pdf_device", mode = "function")) {
         pipeline_pdf_device(out_pdf, 6.4, 5.4, family = fam)
@@ -335,7 +353,8 @@ tj_traj_panel <- function(fitobj, ind, out_pdf, fam, panel_title) {
 }
 
 #' 基线按轨迹类别 Table1（连续 mean(SD)/中位 IQR + 分类 n(%) + P）
-tj_table1_by_class <- function(df, gv, cont_vars, cat_vars, class_order = NULL) {
+tj_table1_by_class <- function(df, gv, cont_vars, cat_vars, class_order = NULL,
+                               var_labels = NULL) {
   lv <- class_order %||% sort(unique(as.character(df[[gv]])))
   df[[gv]] <- factor(df[[gv]], levels = lv)
   one <- function(i) {
@@ -366,8 +385,13 @@ tj_table1_by_class <- function(df, gv, cont_vars, cat_vars, class_order = NULL) 
       suppressWarnings(tryCatch(stats::kruskal.test(x ~ g)$p.value, error = function(e) NA_real_))
     }
   }, numeric(1))
+  .vlab <- function(v) {
+    if (!is.null(var_labels) && v %in% names(var_labels)) return(var_labels[[v]])
+    if (exists("pipeline_display_label", mode = "function")) pipeline_display_label(v)
+    else gsub("[_.]", " ", v)
+  }
   df_out <- data.frame(
-    Variable = vapply(vars, function(v) gsub("_", " ", v), character(1)),
+    Variable = vapply(vars, .vlab, character(1)),
     check.names = FALSE)
   df_out[[paste0("Overall (n=", nrow(df), ")")]] <- vapply(vars, function(v)
     if (v %in% names(allc)) allc[[v]] else "", character(1))

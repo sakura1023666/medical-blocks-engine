@@ -18,7 +18,7 @@ alwaysApply: true
 | Methods 软件版本 txt + 表脚注 | `ckm_stroke_write_software_versions` / `ckm_stroke_software_footnote` |
 | 交付收口（Methods md + 软件 txt + 禁下划线/Times scrub + 白名单 PDF-only） | `ckm_stroke_finalize_summary_delivery`（`pub_delivery_scrub_display`；默认不交 png/tiff） |
 | 按指标锁定全文调整集 | `config$cum_egdr_kmeans$force_adjust_by_index` → `ckm_stroke_model_sets` / rebuild |
-| 引擎级中期（客户名可配；可关日期） | `ckm_stroke_write_midterm_report`（rebuild 末自动；`midterm_client` / `分析日期: 无`） |
+| 引擎级中期（客户名可配；可关日期） | `ckm_stroke_write_midterm_report`（rebuild 末自动；默认 `midterm_client=故墙`，`midterm_no_date=TRUE` → 封面无分析日期） |
 | Fig1 底部分叉按实际 k | `ckm_stroke_fig1_flowchart`（只画 n>0 的 Class；k=3 不留 Class4） |
 | rebuild 末结构 QC | `rebuild_publication_elsa_osteoporosis.R` → `pub_qc_run_after_project`（`MEDICAL_BLOCKS_AUTO_PUB_QC=0` 可关） |
 | Table1 章节加粗 | `ckm_stroke_style_table1_xlsx` |

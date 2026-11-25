@@ -153,14 +153,194 @@
   )
 }
 
+.tpamm_fill_expo_locf <- function(x) {
+  ok <- which(is.finite(x))
+  if (!length(ok)) return(x)
+  for (i in seq_along(x)) {
+    if (is.finite(x[i])) next
+    j <- ok[ok <= i]
+    if (length(j)) x[i] <- x[max(j)]
+    else {
+      j <- ok[ok >= i]
+      if (length(j)) x[i] <- x[min(j)]
+    }
+  }
+  x
+}
+
+.tpamm_build_ped <- function(surv_df, long, id_col, covs, cuts, max_fu) {
+  # 稳健路径：先 as_ped(生存)，再按 tend→time_day 合并时变暴露（避免 concurrent 行数错位）
+  common <- intersect(as.character(surv_df[[id_col]]), unique(as.character(long[[id_col]])))
+  surv_df <- surv_df[as.character(surv_df[[id_col]]) %in% common, , drop = FALSE]
+  long <- long[as.character(long[[id_col]]) %in% common, , drop = FALSE]
+  long <- long[!duplicated(long[, c(id_col, "time_day")]), , drop = FALSE]
+  ped <- pammtools::as_ped(
+    data = surv_df,
+    formula = survival::Surv(time, status) ~ .,
+    cut = cuts,
+    id = id_col
+  )
+  ped <- as.data.frame(ped)
+  ped$time_day <- pmax(1L, as.integer(round(as.numeric(ped$tend))))
+  ped$time_day[ped$time_day > as.integer(max_fu)] <- as.integer(max_fu)
+  ped <- merge(ped, long[, c(id_col, "time_day", "expo"), drop = FALSE],
+               by = c(id_col, "time_day"), all.x = TRUE)
+  ped <- ped[order(ped[[id_col]], ped$tend), , drop = FALSE]
+  ped$expo <- ave(ped$expo, ped[[id_col]], FUN = .tpamm_fill_expo_locf)
+  ped <- ped[is.finite(ped$expo) & is.finite(ped$offset), , drop = FALSE]
+  ped
+}
+
 .tpamm_fit_smooth <- function(ped, covs) {
-  # s(tend) + s(expo) + ti(tend, expo) ; optional linear covariates
+  # pammtools::as_ped 的 offset 已是 log(dt)；禁止再 log(offset)（会 NaN → GAM 失败）
   rhs_cov <- if (length(covs)) paste("+", paste(covs, collapse = " + ")) else ""
   fml <- stats::as.formula(paste0(
-    "ped_status ~ s(tend) + s(expo, k = 10) + ti(tend, expo, k = c(5, 5))",
+    "ped_status ~ s(tend, k = 8) + s(expo, k = 10) + ti(tend, expo, k = c(5, 5))",
     rhs_cov
   ))
-  mgcv::gam(fml, data = ped, family = stats::poisson(), offset = log(ped$offset), method = "REML")
+  mgcv::gam(fml, data = ped, family = stats::poisson(), offset = ped$offset, method = "REML")
+}
+
+.tpamm_predict_hr <- function(fit, nd, nd_ref, covs, ped) {
+  for (cv in covs) {
+    if (!cv %in% names(nd)) {
+      if (is.numeric(ped[[cv]])) {
+        med <- stats::median(as.numeric(ped[[cv]]), na.rm = TRUE)
+        nd[[cv]] <- med
+        nd_ref[[cv]] <- med
+      } else {
+        tab <- sort(table(ped[[cv]]), decreasing = TRUE)
+        nd[[cv]] <- names(tab)[1L]
+        nd_ref[[cv]] <- names(tab)[1L]
+      }
+    }
+  }
+  if (!"offset" %in% names(nd)) nd$offset <- 0
+  if (!"offset" %in% names(nd_ref)) nd_ref$offset <- 0
+  pr <- stats::predict(fit, newdata = nd, type = "link", se.fit = TRUE)
+  pr0 <- as.numeric(stats::predict(fit, newdata = nd_ref, type = "link"))
+  data.frame(
+    fit = as.numeric(pr$fit),
+    se = as.numeric(pr$se.fit),
+    hr = exp(as.numeric(pr$fit) - pr0),
+    hr_lo = exp(as.numeric(pr$fit) - pr0 - 1.96 * as.numeric(pr$se.fit)),
+    hr_hi = exp(as.numeric(pr$fit) - pr0 + 1.96 * as.numeric(pr$se.fit)),
+    stringsAsFactors = FALSE
+  )
+}
+
+.tpamm_draw_fcimb_panels <- function(fit, ped, covs, Index, thr, landmarks, expo_levels,
+                                     out_pdf, width = 10, height = 8) {
+  # 对齐 fcimb Fig5/6：(a) HR~expo (b) 分层 landmark (c) HR~day (d) 分层 expo
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("trajectory_pamm 作图需要 ggplot2", call. = FALSE)
+  }
+  covs <- intersect(covs, names(ped))
+  ref_expo <- as.numeric(stats::median(ped$expo, na.rm = TRUE))
+  ref_day <- as.numeric(stats::median(ped$tend, na.rm = TRUE))
+  expo_grid <- seq(
+    as.numeric(stats::quantile(ped$expo, 0.02, na.rm = TRUE)),
+    as.numeric(stats::quantile(ped$expo, 0.98, na.rm = TRUE)),
+    length.out = 80L
+  )
+  day_grid <- seq(1, max(ped$tend, na.rm = TRUE), by = 0.5)
+  landmarks <- as.numeric(landmarks)
+  landmarks <- landmarks[is.finite(landmarks)]
+  if (!length(expo_levels) || all(!is.finite(as.numeric(expo_levels)))) {
+    expo_levels <- as.numeric(stats::quantile(ped$expo, c(0.1, 0.5, 0.9), na.rm = TRUE))
+  }
+  expo_levels <- as.numeric(expo_levels)
+  names(expo_levels) <- paste0(Index, " = ", signif(expo_levels, 3))
+
+  # (a) overall at ref_day
+  nd_a <- data.frame(tend = ref_day, expo = expo_grid)
+  nd_a0 <- data.frame(tend = ref_day, expo = ref_expo)
+  ha <- .tpamm_predict_hr(fit, nd_a, nd_a0, covs, ped)
+  df_a <- cbind(nd_a, ha)
+
+  # (b) by landmark
+  df_b <- do.call(rbind, lapply(landmarks, function(lm) {
+    nd <- data.frame(tend = lm, expo = expo_grid)
+    nd0 <- data.frame(tend = lm, expo = ref_expo)
+    cbind(nd, .tpamm_predict_hr(fit, nd, nd0, covs, ped),
+          landmark = paste0("Days = ", lm))
+  }))
+
+  # (c) time-varying at ref expo
+  nd_c <- data.frame(tend = day_grid, expo = ref_expo)
+  nd_c0 <- data.frame(tend = min(day_grid), expo = ref_expo)
+  hc <- .tpamm_predict_hr(fit, nd_c, nd_c0, covs, ped)
+  df_c <- cbind(nd_c, hc)
+
+  # (d) by expo level
+  df_d <- do.call(rbind, lapply(seq_along(expo_levels), function(i) {
+    xv <- expo_levels[[i]]
+    nd <- data.frame(tend = day_grid, expo = xv)
+    nd0 <- data.frame(tend = min(day_grid), expo = ref_expo)
+    cbind(nd, .tpamm_predict_hr(fit, nd, nd0, covs, ped),
+          expo_lab = names(expo_levels)[i])
+  }))
+
+  cols_lm <- c("#009E73", "#E69F00", "#CC79A7", "#56B4E9", "#0072B2")
+  cols_ex <- cols_lm
+  theme_p <- ggplot2::theme_classic(base_size = 11) +
+    ggplot2::theme(
+      legend.position = "top",
+      plot.title = ggplot2::element_text(face = "bold", size = 10),
+      axis.title = ggplot2::element_text(size = 10)
+    )
+
+  p_a <- ggplot2::ggplot(df_a, ggplot2::aes(expo, hr)) +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = hr_lo, ymax = hr_hi), fill = "#E69F00", alpha = 0.25) +
+    ggplot2::geom_line(color = "#E69F00", linewidth = 1) +
+    ggplot2::geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
+    ggplot2::labs(
+      title = "(a) Adjusted relationship between time-varying exposure and mortality",
+      x = Index, y = "HR for in-hospital mortality"
+    ) + theme_p
+
+  p_b <- ggplot2::ggplot(df_b, ggplot2::aes(expo, hr, color = landmark, fill = landmark)) +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = hr_lo, ymax = hr_hi), alpha = 0.15, color = NA) +
+    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
+    ggplot2::scale_color_manual(values = cols_lm[seq_along(unique(df_b$landmark))]) +
+    ggplot2::scale_fill_manual(values = cols_lm[seq_along(unique(df_b$landmark))]) +
+    ggplot2::labs(
+      title = "(b) Stratified by landmark time points",
+      x = Index, y = "HR for in-hospital mortality", color = NULL, fill = NULL
+    ) + theme_p
+
+  p_c <- ggplot2::ggplot(df_c, ggplot2::aes(tend, hr)) +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = hr_lo, ymax = hr_hi), fill = "#E69F00", alpha = 0.25) +
+    ggplot2::geom_line(color = "#E69F00", linewidth = 1) +
+    ggplot2::geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
+    ggplot2::labs(
+      title = "(c) Time-varying effect of exposure on mortality",
+      x = "Days", y = "HR for in-hospital mortality"
+    ) + theme_p
+
+  p_d <- ggplot2::ggplot(df_d, ggplot2::aes(tend, hr, color = expo_lab, fill = expo_lab)) +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = hr_lo, ymax = hr_hi), alpha = 0.12, color = NA) +
+    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
+    ggplot2::scale_color_manual(values = cols_ex[seq_along(unique(df_d$expo_lab))]) +
+    ggplot2::scale_fill_manual(values = cols_ex[seq_along(unique(df_d$expo_lab))]) +
+    ggplot2::labs(
+      title = "(d) Stratified by exposure levels",
+      x = "Days", y = "HR for in-hospital mortality", color = NULL, fill = NULL
+    ) + theme_p
+
+  if (requireNamespace("patchwork", quietly = TRUE)) {
+    pp <- (p_a | p_b) / (p_c | p_d)
+  } else {
+    # fallback: save 4-page pdf
+    grDevices::pdf(out_pdf, width = width, height = height / 2)
+    print(p_a); print(p_b); print(p_c); print(p_d)
+    grDevices::dev.off()
+    return(invisible(out_pdf))
+  }
+  ggplot2::ggsave(out_pdf, pp, width = width, height = height, device = grDevices::cairo_pdf)
+  invisible(out_pdf)
 }
 
 block_trajectory_pamm <- function(ctx, ...) {
@@ -294,42 +474,23 @@ block_trajectory_pamm <- function(ctx, ...) {
     )
   }
 
-  long2 <- merge(long, surv_df[, c(id_col, covs), drop = FALSE], by = id_col, all.x = TRUE)
-  # as_ped with concurrent exposure: use ped toolkit
-  ped <- tryCatch({
-    pammtools::as_ped(
-      data = list(surv_df, long2),
-      formula = stats::as.formula(paste0(
-        "Surv(time, status) ~ . + concurrent(expo, tz_var = \"time_day\")",
-        if (length(covs)) paste0(" + ", paste(covs, collapse = " + ")) else ""
-      )),
-      cut = cuts,
-      id = id_col
-    )
-  }, error = function(e) {
-    cli::cli_alert_warning("as_ped concurrent 失败，回退静态基线暴露: {conditionMessage(e)}")
-    NULL
-  })
-
-  if (is.null(ped)) {
-    # fallback: use day-1 exposure as baseline covariate in PED
-    d1 <- long[long$time_day == 1L, c(id_col, "expo"), drop = FALSE]
-    sdf <- merge(surv_df, d1, by = id_col, all.x = TRUE)
-    ped <- tryCatch(
-      pammtools::as_ped(
-        data = sdf,
-        formula = stats::as.formula(paste0(
-          "Surv(time, status) ~ expo",
-          if (length(covs)) paste0(" + ", paste(covs, collapse = " + ")) else ""
-        )),
-        cut = cuts,
-        id = id_col
-      ),
-      error = function(e) {
-        stop("trajectory_pamm as_ped 静态回退仍失败: ", conditionMessage(e), call. = FALSE)
-      }
-    )
+  # 数值协变量（因子进 GAM 易炸）
+  for (cv in covs) {
+    if (!is.numeric(surv_df[[cv]])) {
+      surv_df[[cv]] <- suppressWarnings(as.numeric(as.character(surv_df[[cv]])))
+    }
   }
+  covs <- covs[vapply(covs, function(cv) is.numeric(surv_df[[cv]]), logical(1))]
+
+  ped <- tryCatch(
+    .tpamm_build_ped(surv_df, long, id_col, covs, cuts, max_fu),
+    error = function(e) {
+      cli::cli_alert_danger("trajectory_pamm PED 构建失败: {conditionMessage(e)}")
+      NULL
+    }
+  )
+  if (is.null(ped) || !nrow(ped))
+    stop("trajectory_pamm: PED 为空", call. = FALSE)
 
   fit <- tryCatch(.tpamm_fit_smooth(ped, intersect(covs, names(ped))), error = function(e) {
     cli::cli_alert_danger("trajectory_pamm GAM 失败: {conditionMessage(e)}")
@@ -343,40 +504,33 @@ block_trajectory_pamm <- function(ctx, ...) {
   utils::write.csv(bur, file.path(out_tab, paste0("Table_PAMM_burden_HR_", Index, ".csv")),
                    row.names = FALSE)
 
-  # figure: predicted log-hazard vs expo at selected landmarks
   fig_dir <- file.path(ctx$output_dir_figures %||% file.path(ctx$config$project$output_dir, "Figures"))
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
-  if (!is.null(fit) && isTRUE(bl$export_figures %||% TRUE)) {
-    landmarks <- as.numeric(bl$plot_landmarks %||% c(2, 4, 7, 14))
-    expo_grid <- seq(
-      as.numeric(stats::quantile(long$expo, 0.02, na.rm = TRUE)),
-      as.numeric(stats::quantile(long$expo, 0.98, na.rm = TRUE)),
-      length.out = 80L
+  # 落盘 gam 供重绘
+  if (!is.null(fit)) {
+    saveRDS(
+      list(gam = fit, ped_n = nrow(ped), covs = intersect(covs, names(ped)),
+           thr = thr, Index = Index, is_discovery = is_disc),
+      file.path(out_tab, paste0("PAMM_gam_", Index, ".rds"))
     )
-    pdf_path <- file.path(fig_dir, paste0("Figure_PAMM_", Index, ".pdf"))
-    grDevices::pdf(pdf_path, width = 10, height = 8)
-    graphics::par(mfrow = c(2, 2), family = "serif")
-    for (lm in landmarks) {
-      nd <- data.frame(tend = lm, expo = expo_grid, offset = 1)
-      for (cv in intersect(covs, names(ped))) {
-        if (is.numeric(ped[[cv]])) nd[[cv]] <- stats::median(ped[[cv]], na.rm = TRUE)
-        else {
-          tab <- sort(table(ped[[cv]]), decreasing = TRUE)
-          nd[[cv]] <- names(tab)[1L]
-        }
-      }
-      pr <- tryCatch(
-        as.numeric(stats::predict(fit, newdata = nd, type = "link")),
-        error = function(e) rep(NA_real_, nrow(nd))
+  }
+
+  if (!is.null(fit) && isTRUE(bl$export_figures %||% TRUE)) {
+    landmarks <- as.numeric(bl$plot_landmarks %||% c(3, 5, 12))
+    # day2 与 dynpred 同理可留；PAMM 对 tend 平滑通常可估
+    expo_levels <- as.numeric(bl$plot_expo_levels %||%
+      stats::quantile(ped$expo, c(0.1, 0.5, 0.9), na.rm = TRUE))
+    pdf_path <- file.path(fig_dir, paste0("Figure PAMM ", Index, " fcimb panels.pdf"))
+    tryCatch({
+      .tpamm_draw_fcimb_panels(
+        fit = fit, ped = ped, covs = intersect(covs, names(ped)),
+        Index = Index, thr = thr, landmarks = landmarks,
+        expo_levels = expo_levels, out_pdf = pdf_path
       )
-      graphics::plot(
-        expo_grid, pr, type = "l", lwd = 2, xlab = Index,
-        ylab = "log hazard (PAMM)", main = paste0("Landmark day ", lm)
-      )
-      graphics::abline(v = c(thr$lo, thr$hi), lty = 2, col = "gray40")
-    }
-    grDevices::dev.off()
-    cli::cli_alert_success("trajectory_pamm 图已写: {.file {basename(pdf_path)}}")
+      cli::cli_alert_success("trajectory_pamm 图已写: {.file {basename(pdf_path)}}")
+    }, error = function(e) {
+      cli::cli_alert_warning("trajectory_pamm 作图失败: {conditionMessage(e)}")
+    })
   }
 
   ctx$results$trajectory_pamm[[Index]] <- list(
@@ -384,6 +538,7 @@ block_trajectory_pamm <- function(ctx, ...) {
     burden_hr = bur,
     gam = fit,
     n_long = nrow(long),
+    n_ped = if (!is.null(ped)) nrow(ped) else NA_integer_,
     is_discovery = is_disc
   )
   cli::cli_alert_success("trajectory_pamm [{Index}] 完成（discovery={is_disc}）")

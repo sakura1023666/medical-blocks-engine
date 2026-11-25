@@ -101,7 +101,10 @@ config <- list(
     # 文献 Methods：Model1 未校正；Model2 年龄/性别/婚姻；Model3 +BMI/教育/吸烟饮酒/eGFR/血脂异常/糖尿病
     model2 = c("Age", "Gender", "Marital"),
     model3 = c("Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",
-               "eGFR", "Dyslipidemia", "Diabetes")
+               "eGFR", "Dyslipidemia", "Diabetes"),
+    # 中期封面客户名；分析日期填「无」→ 封面不写日期
+    midterm_client = "故墙",
+    midterm_no_date = TRUE
   ),
 
   analysis_exclusion = list(
@@ -160,7 +163,8 @@ config <- list(
   multicollinearity_screen = list(enable = FALSE),
   multicollinearity_final = list(enable = FALSE),
 
-  pub_digits = list(est = 3L, p = 3L, desc = 3L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"),
+  # OR/HR/CI 3位；P 3位或 <0.001；Table1 mean(SD) 引擎默认 2位；% 1位；人数千分位
+  pub_digits = list(est = 3L, p = 3L, desc = 2L, pct = 1L, cutoff = 3L, int_big_mark = TRUE, desc_trim = TRUE, p_style = "fixed"),
 
   study_batch = list(
     output_base = .batch_project_root,

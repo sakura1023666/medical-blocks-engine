@@ -120,7 +120,7 @@ config <- list(
     event_var = "competing_primary_event",
     index_var = "NLR"
   ),
-  incidence_batch = list(trim_quantile = 0.01),
+  incidence_batch = list(trim_quantile = 0),
 
   univariate_prognosis = list(
     sig_cutoff = 0.05,
@@ -187,7 +187,7 @@ config <- list(
     demographic_vars = c("Age", "Gender", "Race", "BMI"),
     baseline_vars = c("Age", "Gender", "Race", "BMI", "Hypertension", "CHD",
                       "Smoking", "Drinking"),
-    trim_quantile = 0.01,
+    trim_quantile = 0,
     model3_sig_search = TRUE,
     model3_sig_horizon = 28L,
     model3_sig_cutoff = 0.05,
@@ -215,7 +215,7 @@ config <- list(
     rename_on_finish = TRUE,
     worker_script = "run/study/run_study_batch_worker.R",
     shared_ck_alias = "trajectory_calc_28d_index",
-    trim_quantile = 0.01
+    trim_quantile = 0
   ),
 
   feishu = list(enable = FALSE)

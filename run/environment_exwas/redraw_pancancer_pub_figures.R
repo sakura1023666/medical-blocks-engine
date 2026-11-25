@@ -280,9 +280,20 @@ message("Fig2 xlim = [", paste(round(xlim, 3), collapse = ", "), "]; OR data = [
 
 # ============================================================================
 # Figure 3 stratified — Dong Fig.3 style (OR + family + free scales)
+# 交付 S3/S4 为 Dong 宽表；读 Output long.bak
 # ============================================================================
-s3 <- read_xlsx_df(file.path(tab_dir, "Table S3. ExWAS stratified by sex.xlsx"))
-s4 <- read_xlsx_df(file.path(tab_dir, "Table S4. ExWAS stratified by age.xlsx"))
+.src_pub_tab <- file.path(src_pub, "Tables")
+s3_long <- file.path(.src_pub_tab, "Table S3. ExWAS stratified by sex_long.bak.csv")
+s4_long <- file.path(.src_pub_tab, "Table S4. ExWAS stratified by age_long.bak.csv")
+if (file.exists(s3_long) && file.exists(s4_long)) {
+  s3 <- utils::read.csv(s3_long, stringsAsFactors = FALSE, check.names = FALSE)
+  s4 <- utils::read.csv(s4_long, stringsAsFactors = FALSE, check.names = FALSE)
+  s3 <- s3[s3$stratum %in% c("Male", "Female"), , drop = FALSE]
+  s4 <- s4[grepl("^Age_(lt|ge)", as.character(s4$stratum)), , drop = FALSE]
+} else {
+  s3 <- read_xlsx_df(file.path(tab_dir, "Table S3. ExWAS stratified by sex.xlsx"))
+  s4 <- read_xlsx_df(file.path(tab_dir, "Table S4. ExWAS stratified by age.xlsx"))
+}
 st <- rbind(s3, s4)
 st <- st[!duplicated(paste(st$stratum, st$exposure)), , drop = FALSE]
 st$OR <- as.numeric(st$OR)
@@ -302,12 +313,17 @@ if (exists("mp") && length(mp)) {
 st$family[is.na(st$family) | !nzchar(as.character(st$family))] <- "Other"
 present3 <- intersect(names(fam_cols), unique(st$family))
 st$family <- factor(st$family, levels = present3)
+# 兼容历史 Age_lt60 与现行 Age_lt65（定稿切点 65）
+st$stratum[st$stratum %in% c("Age_lt60", "Age_lt65")] <- "Age_lt"
+st$stratum[st$stratum %in% c("Age_ge60", "Age_ge65")] <- "Age_ge"
+age_cut_lab <- 65L
 st$panel <- factor(
   st$stratum,
-  levels = c("Male", "Female", "Age_lt60", "Age_ge60"),
+  levels = c("Male", "Female", "Age_lt", "Age_ge"),
   labels = c(
     "Stratification by sex (Male)", "Stratification by sex (Female)",
-    "Stratification by age (<60 years)", "Stratification by age (\u226560 years)"
+    sprintf("Stratification by age (<%d years)", age_cut_lab),
+    sprintf("Stratification by age (\u2265%d years)", age_cut_lab)
   )
 )
 st$lab <- ""
@@ -447,50 +463,129 @@ if (nrow(med)) {
   save_pdf(p5, file.path(fig_pdf, "Figure 5. Mediation inflammatory biomarkers.pdf"), w = 7.5, h = 5)
 }
 
-# S5 unimputed volcano
-s7 <- read_xlsx_df(file.path(tab_dir, "Table S7. ExWAS without imputation.xlsx"))
-s7$sig <- is.finite(as.numeric(s7$q)) & as.numeric(s7$q) < 0.05
-p_s5 <- ggplot(s7, aes(x = log(pmax(as.numeric(OR), 1e-12)), y = -log10(pmax(as.numeric(p), 1e-300)), color = sig)) +
-  geom_vline(xintercept = 0, linetype = 2, color = "grey75") +
-  geom_point(size = 1.8, alpha = 0.9) +
-  scale_color_manual(values = c(`FALSE` = col_ns, `TRUE` = col_sig),
-                     labels = c("q \u2265 0.05", "q < 0.05"), name = NULL) +
-  labs(title = "Sensitivity ExWAS without multiple imputation",
-       x = "log(OR per IQR)", y = expression(-log[10](P))) +
-  theme_pub(11) + theme(legend.position = "bottom")
-save_pdf(p_s5, file.path(fig_pdf, "Figure S5. ExWAS without imputation.pdf"), w = 7.5, h = 5.5)
-
-# S6 smoke corr
-sm <- tryCatch(read_xlsx_df(file.path(src_pub, "Tables", "Table_S_smoke_toxicant_correlation.csv")), error = function(e) NULL)
-# csv may not be xlsx — read csv from full_pub
-sm_path <- file.path(src_pub, "Tables", "Table_S_smoke_toxicant_correlation.csv")
-if (!file.exists(sm_path)) sm_path <- file.path(root, "Output_pancancer_paperflow_UCR_WTSA_full_pub", "Tables", "Table_S_smoke_toxicant_correlation.csv")
-if (file.exists(sm_path)) {
-  sm <- utils::read.csv(sm_path, stringsAsFactors = FALSE)
-  sm <- sm[is.finite(sm$r_smoke), ]
-  sm$exposure_name <- as.character(sm$exposure_name)
-  p_s6 <- ggplot(sm, aes(x = reorder(exposure_name, r_smoke), y = r_smoke)) +
-    geom_col(fill = col_accent, width = 0.75) +
-    coord_flip() +
-    labs(title = "Correlation between smoking status and environmental toxicants",
-         x = NULL, y = "Pearson r") +
-    theme_pub(9) + theme(panel.grid.major.y = element_blank())
-  save_pdf(p_s6, file.path(fig_pdf, "Figure S6. Smoke toxicant correlation.pdf"), w = 7.5, h = 9)
+# S5：调查加权 ExWAS（Dong 主文 ExWAS 为不加权；已替换原完整病例无插补敏感性）
+s7_csv <- file.path(tab_dir, "Table S7. ExWAS survey-weighted.csv")
+if (!file.exists(s7_csv)) s7_csv <- file.path(src_pub, "Tables", "Table S7. ExWAS survey-weighted.csv")
+if (!file.exists(s7_csv)) stop("缺少 Table S7. ExWAS survey-weighted.csv", call. = FALSE)
+s7 <- utils::read.csv(s7_csv, stringsAsFactors = FALSE)
+s7$OR <- as.numeric(s7$OR)
+s7$p <- as.numeric(s7$p)
+s7$q <- as.numeric(s7$q)
+s7$logp <- -log10(pmax(s7$p, 1e-300))
+s7$sig_q <- is.finite(s7$q) & s7$q < 0.05
+s7$sig_p <- is.finite(s7$p) & s7$p < 0.05
+s7$exposure_name <- gsub("_", " ", as.character(
+  if ("exposure_name" %in% names(s7)) s7$exposure_name else s7$exposure
+))
+raw7 <- sub("_(ln|bin)$", "", as.character(s7$exposure))
+if (file.exists(fam_csv)) {
+  fam_map7 <- utils::read.csv(fam_csv, stringsAsFactors = FALSE)
+  mp7 <- stats::setNames(fam_map7$Family, fam_map7$Labels)
+  s7$family <- unname(mp7[raw7])
 }
+if (!"family" %in% names(s7) || all(is.na(s7$family))) s7$family <- "Other"
+s7$family[is.na(s7$family) | !nzchar(s7$family)] <- "Other"
+present7 <- intersect(fam_levels, unique(s7$family))
+s7$family <- factor(s7$family, levels = present7)
+# 标注：优先 q<0.05；若无则标 p<0.05 中按 p 最优的若干（完整病例常见无 FDR 过线）
+lab_idx7 <- which(s7$sig_q)
+if (!length(lab_idx7)) {
+  lab_idx7 <- which(s7$sig_p)
+  if (length(lab_idx7) > 12L) {
+    lab_idx7 <- lab_idx7[order(s7$p[lab_idx7])][seq_len(12L)]
+  }
+} else if (length(lab_idx7) > 14L) {
+  lab_idx7 <- lab_idx7[order(s7$q[lab_idx7], s7$p[lab_idx7])][seq_len(14L)]
+}
+s7$lab <- ""
+s7$lab[lab_idx7] <- s7$exposure_name[lab_idx7]
+or_rng7 <- range(s7$OR[is.finite(s7$OR)], na.rm = TRUE)
+pad7 <- max(0.03, diff(or_rng7) * 0.08)
+xlim7 <- c(or_rng7[1] - pad7, or_rng7[2] + pad7)
+n_q7 <- sum(s7$sig_q, na.rm = TRUE)
+n_p7 <- sum(s7$sig_p, na.rm = TRUE)
+p_s5 <- ggplot(s7, aes(x = OR, y = logp, color = family)) +
+  geom_vline(xintercept = 1, linetype = 2, color = "grey55", linewidth = 0.45) +
+  geom_hline(yintercept = -log10(0.05), linetype = 2, color = "grey55", linewidth = 0.45) +
+  geom_point(size = 2.2, alpha = 0.92) +
+  scale_color_manual(values = fam_cols[present7], name = NULL, drop = FALSE) +
+  scale_x_continuous(limits = xlim7, breaks = pretty(xlim7, n = 6), expand = c(0.02, 0)) +
+  coord_cartesian(clip = "off") +
+  labs(
+    title = "Sensitivity analysis: survey-weighted ExWAS",
+    subtitle = sprintf(
+      "WTSA2YR complex survey; covariates MICE m=5 Rubin (Dong main ExWAS was unweighted). FDR q<0.05: %d; P<0.05: %d.",
+      n_q7, n_p7
+    ),
+    x = "Odds ratio (per IQR)",
+    y = expression(-log[10](P-value))
+  ) +
+  theme_pub(11) +
+  theme(
+    legend.position = "top",
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.35, "cm")
+  ) +
+  guides(color = guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size = 2.5)))
+if (requireNamespace("ggrepel", quietly = TRUE) && any(nzchar(s7$lab))) {
+  p_s5 <- p_s5 + ggrepel::geom_text_repel(
+    data = subset(s7, lab != ""),
+    aes(label = lab),
+    size = 3.0, family = .font, fontface = "bold",
+    max.overlaps = 30, box.padding = 0.35, point.padding = 0.2,
+    segment.color = "grey60", segment.size = 0.3, seed = 42, show.legend = FALSE
+  )
+}
+save_pdf(p_s5, file.path(fig_pdf, "Figure S5. ExWAS survey-weighted.pdf"), w = 9.0, h = 6.6)
+write_md(
+  "Figure S5. ExWAS survey-weighted",
+  paste0(
+    "Dong 主 ExWAS 为不加权；本敏感性为调查加权 ExWAS（WTSA2YR + SDMVPSU + 周期×层）。",
+    "协变量仍 MICE m=5 + Rubin，与主分析同规格。版式：横轴 OR、族着色。",
+    sprintf("FDR q<0.05=%d；名义 P<0.05=%d。", n_q7, n_p7),
+    "已替换原「完整病例无插补」S5。"
+  ),
+  "敏感性（原文未做）；泛癌；权重 WTSA2YR；协变量同主 ExWAS（无 Smoke）。"
+)
 
-# S7 WQS
-wqs <- read_xlsx_df(file.path(tab_dir, "Table S14. WQS mixture weights and coefficients.xlsx"), sheet = "Weights")
-nm_col <- if ("mix_name" %in% names(wqs)) "mix_name" else names(wqs)[1]
-w_col <- if ("mean_weight" %in% names(wqs)) "mean_weight" else names(wqs)[2]
-wqs$lab <- gsub("_", " ", sub("_(ln|bin)$", "", as.character(wqs[[nm_col]])))
-p_s7 <- ggplot(wqs, aes(x = reorder(lab, .data[[w_col]]), y = .data[[w_col]])) +
-  geom_col(fill = "#1B7837", width = 0.75) +
-  coord_flip() +
-  labs(title = "Relative contribution weights of toxicants in the WQS mixture",
-       subtitle = "gWQS; q = 4; bootstrap = 1000; candidates = ExWAS FDR hits",
-       x = NULL, y = "Weight") +
-  theme_pub(10) + theme(panel.grid.major.y = element_blank())
-save_pdf(p_s7, file.path(fig_pdf, "Figure S7. WQS weights.pdf"), w = 7.5, h = 5.5)
+# S6：Dong linkET 风格（毒物三角热图 + Smoke 连线）；勿再画条形图
+message("Figure S6 linkET → redraw_pancancer_fig_s6_linket.R")
+sys_s6 <- file.path(
+  "/mnt/e/01block/01Block-new-Final/run/environment_exwas",
+  "redraw_pancancer_fig_s6_linket.R"
+)
+st_s6 <- system2("Rscript", c(sys_s6), stdout = TRUE, stderr = TRUE)
+message(paste(utils::tail(st_s6, 8), collapse = "\n"))
+
+# S7 WQS：优先专用全面板脚本产物；勿再用 FDR-only 短名单
+message("Figure S7 WQS → redraw via rerun_pancancer_wqs_full_panel_s7.R if weights stale")
+wqs_csv <- file.path(tab_dir, "Table S14. WQS mixture weights.csv")
+if (!file.exists(wqs_csv)) wqs_csv <- file.path(src_pub, "_downstream", "Table_WQS_weights.csv")
+if (file.exists(wqs_csv)) {
+  wqs <- utils::read.csv(wqs_csv, stringsAsFactors = FALSE)
+  w_col <- if ("mean_weight" %in% names(wqs)) "mean_weight" else names(wqs)[vapply(wqs, is.numeric, logical(1))][1]
+  if ("exposure_name" %in% names(wqs)) {
+    wqs$lab <- as.character(wqs$exposure_name)
+  } else {
+    nm_col <- if ("mix_name" %in% names(wqs)) "mix_name" else names(wqs)[1]
+    wqs$lab <- gsub("_", " ", sub("_(ln|bin)$", "", as.character(wqs[[nm_col]])))
+  }
+  wqs <- wqs[is.finite(wqs[[w_col]]), ]
+  wqs <- wqs[order(wqs[[w_col]]), ]
+  h7 <- max(8.5, 0.14 * nrow(wqs) + 1.5)
+  p_s7 <- ggplot(wqs, aes(x = .data[[w_col]], y = reorder(lab, .data[[w_col]]), fill = .data[[w_col]])) +
+    geom_col(width = 0.85) +
+    scale_fill_gradientn(colours = c("#DEEBF7", "#9ECAE1", "#4292C6", "#2171B5", "#08306B"), guide = "none") +
+    labs(
+      title = "Relative contribution weights of individual environmental toxicants",
+      subtitle = sprintf("gWQS; q=4; bootstrap=1000; full screened panel (n=%d)", nrow(wqs)),
+      x = "Weight", y = NULL
+    ) +
+    theme_pub(9) + theme(panel.grid.major.y = element_blank(), axis.text.y = element_text(size = 6.5))
+  save_pdf(p_s7, file.path(fig_pdf, "Figure S7. WQS weights.pdf"), w = 7.2, h = h7)
+} else {
+  message("缺 WQS weights csv，跳过 S7；请先跑 rerun_pancancer_wqs_full_panel_s7.R")
+}
 
 # S1 DAG：专用脚本（圆形节点+有向边，对齐 Dong Supp Fig1）
 message("Figure S1 DAG → redraw_pancancer_fig_s1_dag.R")
@@ -639,21 +734,7 @@ if (length(panel_paths) >= 2L) {
   message("wrote ", out4)
 }
 
-# S4 sensitivity one-page clean
-grDevices::cairo_pdf(file.path(fig_pdf, "Figure S4. Mediation sensitivity.pdf"),
-                     width = 8.5, height = 6, family = .font)
-grid.newpage()
-grid.text("Figure S4. Sensitivity considerations for mediation analysis",
-          x = 0.5, y = 0.9, gp = gpar(fontsize = 13, fontface = "bold", fontfamily = .font))
-txt <- paste(
-  "Dong et al. reported formal mediation sensitivity surfaces (unmeasured confounding).",
-  "In this pan-cancer delivery, mediation is exploratory (product method; Table S6 / Figure 5).",
-  "Cross-sectional NHANES cannot establish temporal order (Exposure -> Mediator -> Outcome).",
-  "Interpretation is associative; residual confounding (e.g., unmeasured lifestyle) remains possible.",
-  sep = "\n\n"
-)
-grid.text(txt, x = 0.08, y = 0.55, just = c("left", "center"),
-          gp = gpar(fontsize = 11, fontfamily = .font))
-grDevices::dev.off()
+# Figure S4 由 rebuild_pancancer_fig5_mediation.R / redraw_pancancer_fig_s4_medsens.R
+# 按 Dong Supp Fig4（medsens ρ + R² 四列拼图）写出；此处禁止再覆盖成纯文字页。
 
 message("DONE redraw -> ", fig_pdf)

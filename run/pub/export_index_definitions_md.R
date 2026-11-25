@@ -59,7 +59,7 @@ zh_name <- c(
   VLDL = "极低密度脂蛋白胆固醇（估算）", GAR = "葡萄糖/白蛋白比值", LactAlb = "乳酸/白蛋白比值",
   NAR = "中性粒细胞/白蛋白比值", WAR = "白细胞/白蛋白比值", NaAR = "钠/白蛋白比值",
   CaAR = "总钙/白蛋白比值", UAR = "尿酸/白蛋白比值", ClAR = "氯/白蛋白比值",
-  KAR = "钾/白蛋白比值", AlbCr = "白蛋白/肌酐比值", LymWBC = "淋巴细胞/白细胞比值",
+  AlbCr = "白蛋白/肌酐比值", LymWBC = "淋巴细胞/白细胞比值",
   PHAR = "pH/白蛋白比值", RDWPLT = "RDW/血小板比值", CaNa = "总钙/钠比值",
   SAR = "肌酐比值（预计算）", CrCV = "肌酐变异系数（预计算）", GV = "血糖变异（预计算）",
   Potassium_FR = "钾首次/基线比", Potassium_CV = "钾变异系数", Platelet_FR = "血小板首次/基线比",
@@ -100,7 +100,7 @@ category_of <- function(nm) {
                 "LymWBC", "RDWPLT")) {
     return("血液学")
   }
-  if (nm %in% c("GAR", "LactAlb", "NAR", "WAR", "NaAR", "CaAR", "UAR", "ClAR", "KAR",
+  if (nm %in% c("GAR", "LactAlb", "NAR", "WAR", "NaAR", "CaAR", "UAR", "ClAR",
                 "PHAR", "CaNa", "GV", "Potassium_FR", "Potassium_CV", "Platelet_FR",
                 "Platelet_CV", "Glucose_first", "Glucose_mean", "WBC_first", "WBC_CV",
                 "Sodium_mean", "Sodium_CV", "Hemoglobin_CV", "Albumin_CV", "Lactate_CV")) {

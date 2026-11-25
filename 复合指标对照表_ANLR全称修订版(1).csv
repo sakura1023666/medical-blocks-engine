@@ -103,7 +103,6 @@ NaAR,Sodium-to-Albumin Ratio,钠/白蛋白比值,炎症类,Sodium / Albumin,mmol
 CaAR,Calcium-to-Albumin Ratio,总钙/白蛋白比值,炎症类,CalciumTotal / Albumin,mg/dL per g/dL
 UAR,Uric Acid-to-Albumin Ratio,尿酸/白蛋白比值,其他,Uric_Acid / Albumin,mg/dL per g/dL
 ClAR,Chloride-to-Albumin Ratio,氯/白蛋白比值,其他,Chloride / Albumin,mmol/L per g/dL
-KAR,Potassium-to-Albumin Ratio,钾/白蛋白比值,其他,Potassium / Albumin,mmol/L per g/dL
 PHAR,pH-to-Albumin Ratio,pH/白蛋白比值,其他,PH / Albumin,per g/dL
 CaNa,Calcium-to-Sodium Ratio,总钙/钠比值,其他,CalciumTotal / Sodium,mg/dL per mmol/L
 GV,Glucose Variability (precomputed),血糖变异系数（预计算）,其他,GV,%

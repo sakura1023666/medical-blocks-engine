@@ -97,6 +97,29 @@ block_tj_finegray_rubin <- function(ctx, ...) {
   }
   ctx$results$tj_fg_note <- cr_note
 
+  # g4b 语义告警（2026-11-25）：死亡者>0 但无一人可作为竞争事件
+  # （全部死亡同时带主结局事件，或 ICD 口径下全被判为主结局死因）
+  # → Fine-Gray 会退化为≈ cause-specific Cox；须让用户知情，考虑放宽 ICD 或声明全因。
+  tryCatch({
+    dv0 <- suppressWarnings(as.integer(df[[death_col]]))
+    n_dead <- sum(dv0 == 1L, na.rm = TRUE)
+    ev0 <- NULL
+    if (!is.null(d_comp_lgl)) {
+      n_comp <- sum(d_comp_lgl, na.rm = TRUE)
+    } else {
+      prim_v <- ctx$results[[paste0("tj_outcome_", outcomes[1])]]
+      ev0 <- if (!is.null(prim_v)) as.integer(prim_v$event) else rep(0L, nrow(df))
+      n_comp <- sum(dv0 == 1L & as.integer(ev0) != 1L, na.rm = TRUE)
+    }
+    if (n_dead > 0L && n_comp == 0L) {
+      cli::cli_alert_warning(paste0(
+        "tj_finegray_rubin: ", n_dead, " 例死亡中 0 例构成竞争事件",
+        "（死亡者均同时报告主结局事件或被 ICD 判为主结局死因）。",
+        "Fine-Gray 将退化为≈ cause-specific Cox —— 请复核 main_cause_regex 口径",
+        "或设 competing_is_all_cause=TRUE 明示全因死亡。"))
+    }
+  }, error = function(e) invisible(NULL))
+
   out_root <- file.path(ctx$config$project$output_dir %||% "Output")
   fg_dir <- file.path(out_root, "results", "finegray")
   dir.create(fg_dir, showWarnings = FALSE, recursive = TRUE)

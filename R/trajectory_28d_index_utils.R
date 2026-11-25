@@ -48,7 +48,12 @@ trajectory_28d_load_index_definitions <- function(root = getwd()) {
     Fibrinogen       = c("labfibrinogen"),
     Sodium           = c("labsodium"),
     AnionGap         = c("labaniongap"),
-    HbA1c            = c("laba1c")
+    HbA1c            = c("laba1c"),
+    Lactate          = c("lablactate"),
+    INR              = c("labinr"),
+    MCH              = c("labmch"),
+    MCV              = c("labmcv"),
+    MCHC             = c("labmchc")
   )
 }
 
@@ -58,25 +63,140 @@ trajectory_28d_load_index_definitions <- function(root = getwd()) {
     file.path(root, p)
 }
 
+# eICU 长表 item → lab{d}_* 后缀（与 MIMIC 宽表列名对齐）
+.trajectory_28d_eicu_long_item_map <- function() {
+  c(
+    "WBC x 1000" = "labwbc",
+    "RBC" = "labrbc",
+    "-polys" = "labpolys",
+    "-lymphs" = "lablymphocytes",
+    "platelets x 1000" = "labplateletcount",
+    "Hgb" = "labhgb",
+    "RDW" = "labrdw",
+    "Hct" = "labhct",
+    "MCH" = "labmch",
+    "MCV" = "labmcv",
+    "MCHC" = "labmchc",
+    "albumin" = "labalbumin",
+    "total protein" = "labtotalprotein",
+    "sodium" = "labsodium",
+    "potassium" = "labpotassium",
+    "glucose" = "labglucose",
+    "bedside glucose" = "labbedglucose",
+    "creatinine" = "labcreatinine",
+    "BUN" = "labbun",
+    "AST (SGOT)" = "labast",
+    "ALT (SGPT)" = "labalt",
+    "total bilirubin" = "labtotalbilirubin",
+    "triglycerides" = "labtg",
+    "HDL" = "labhdl",
+    "LDL" = "labldl",
+    "total cholesterol" = "labtc",
+    "anion gap" = "labaniongap",
+    "uric acid" = "laburicacid",
+    "fibrinogen" = "labfibrinogen",
+    "lactate" = "lablactate",
+    "LDH" = "labldh",
+    "CRP" = "labcrp",
+    "PT - INR" = "labinr"
+  )
+}
+
+.trajectory_28d_is_long_lab <- function(nms) {
+  has_long <- all(c("item", "day") %in% nms) &&
+    any(c("median", "mean", "value") %in% nms)
+  has_wide <- any(grepl("^lab[0-9]+_", nms))
+  isTRUE(has_long) && !isTRUE(has_wide)
+}
+
+.trajectory_28d_long_to_wide <- function(long_dt, id_col, days = NULL,
+                                         value_prefer = c("median", "mean", "value")) {
+  if (!requireNamespace("data.table", quietly = TRUE))
+    stop("eICU 长表 pivot 需要 data.table", call. = FALSE)
+  data.table::setDT(long_dt)
+  imap <- .trajectory_28d_eicu_long_item_map()
+  want <- names(imap)
+  long_dt[[id_col]] <- as.character(long_dt[[id_col]])
+  long_dt <- long_dt[long_dt$item %in% want]
+  if (!nrow(long_dt)) stop("eICU 长表过滤 item 后为空（无匹配映射）", call. = FALSE)
+  long_dt$day <- suppressWarnings(as.integer(long_dt$day))
+  long_dt <- long_dt[is.finite(long_dt$day) & long_dt$day >= 1L]
+  if (!is.null(days) && length(days)) {
+    days <- as.integer(days)
+    long_dt <- long_dt[long_dt$day %in% days]
+  }
+  if (!nrow(long_dt)) stop("eICU 长表按天后为空", call. = FALSE)
+
+  val_col <- NULL
+  for (cand in value_prefer) {
+    if (cand %in% names(long_dt)) {
+      val_col <- cand
+      break
+    }
+  }
+  if (is.null(val_col))
+    stop("eICU 长表缺少 median/mean/value 列", call. = FALSE)
+
+  long_dt$sfx <- unname(imap[as.character(long_dt$item)])
+  long_dt <- long_dt[!is.na(long_dt$sfx)]
+  long_dt$col <- paste0("lab", as.integer(long_dt$day), "_", long_dt$sfx)
+  long_dt$val <- suppressWarnings(as.numeric(long_dt[[val_col]]))
+
+  wide <- data.table::dcast(
+    long_dt,
+    stats::as.formula(paste(id_col, "~ col")),
+    value.var = "val",
+    fun.aggregate = function(z) {
+      z <- z[is.finite(z)]
+      if (!length(z)) NA_real_ else as.numeric(stats::median(z))
+    }
+  )
+  cli::cli_alert_success(
+    "eICU 长表 → 宽表：{nrow(wide)} 人 × {ncol(wide)} 列（value={val_col}）"
+  )
+  wide
+}
+
 # ── 合并实验室 CSV ────────────────────────────────────────────────────────────
-trajectory_28d_merge_lab_csvs <- function(files, id_col = "subject_id") {
+# 支持 MIMIC 宽表（lab{d}_*）与 eICU 长表（item/day/median）自动检测并 pivot。
+trajectory_28d_merge_lab_csvs <- function(files, id_col = "subject_id",
+                                          restrict_ids = NULL, days = NULL) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("trajectory_28d_merge_lab_csvs 需要 data.table 包", call. = FALSE)
   files <- unique(as.character(files))
   files <- files[file.exists(files)]
   if (!length(files)) stop("未找到任何实验室 CSV 文件", call. = FALSE)
 
+  restrict_ids <- if (!is.null(restrict_ids) && length(restrict_ids))
+    unique(as.character(restrict_ids)) else NULL
+
   dt <- NULL
+  long_chunks <- list()
   for (f in files) {
     chunk <- data.table::fread(f, showProgress = FALSE)
     if (!id_col %in% names(chunk)) {
       cli::cli_alert_warning("跳过 {basename(f)}：缺少 ID 列 {id_col}")
       next
     }
-    # 去掉单位列
-    uom_cols <- grep("_uom$", names(chunk), value = TRUE)
-    if (length(uom_cols)) chunk <- chunk[, !..uom_cols]
     chunk[[id_col]] <- as.character(chunk[[id_col]])
+    if (!is.null(restrict_ids)) {
+      chunk <- chunk[chunk[[id_col]] %in% restrict_ids]
+    }
+    if (!nrow(chunk)) {
+      cli::cli_alert_warning("跳过 {basename(f)}：ID 过滤后为空")
+      next
+    }
+
+    if (.trajectory_28d_is_long_lab(names(chunk))) {
+      cli::cli_alert_info("检测到长表实验室：{basename(f)}（{nrow(chunk)} 行）")
+      long_chunks[[length(long_chunks) + 1L]] <- chunk
+      next
+    }
+
+    # 宽表路径：去掉单位列后按列并入
+    uom_cols <- grep("_uom$", names(chunk), value = TRUE)
+    if (length(uom_cols)) chunk <- chunk[, !uom_cols, with = FALSE]
+    data.table::setDT(chunk)
     if (is.null(dt)) {
       dt <- chunk
     } else {
@@ -87,9 +207,26 @@ trajectory_28d_merge_lab_csvs <- function(files, id_col = "subject_id") {
       }
     }
   }
+
+  if (length(long_chunks)) {
+    long_all <- data.table::rbindlist(long_chunks, use.names = TRUE, fill = TRUE)
+    wide_long <- .trajectory_28d_long_to_wide(long_all, id_col = id_col, days = days)
+    if (is.null(dt)) {
+      dt <- wide_long
+    } else {
+      # 同 ID 宽表列合并（极少见：混用长/宽源）
+      extra <- setdiff(names(wide_long), names(dt))
+      if (length(extra)) {
+        dt <- merge(dt, wide_long[, c(id_col, extra), with = FALSE],
+                    by = id_col, all = TRUE)
+      }
+    }
+  }
+
   if (is.null(dt) || !nrow(dt)) stop("实验室 CSV 合并后为空", call. = FALSE)
   if (anyDuplicated(dt[[id_col]])) {
     n_dup <- sum(duplicated(dt[[id_col]]))
+    # 长表 pivot 后不应再有重复；宽表残留重复仍保留首行
     cli::cli_alert_warning("实验室宽表 {id_col} 存在重复行 {n_dup} 条，保留首行")
     dt <- dt[!duplicated(dt[[id_col]]), ]
   }
@@ -331,7 +468,13 @@ trajectory_28d_compute_all <- function(lab_sources, index_vars, output_dir,
   lab_restrict_ids <- id_sets$lab_ids
   if (!length(lab_restrict_ids)) lab_restrict_ids <- baseline_ids
 
-  lab_df <- trajectory_28d_merge_lab_csvs(files, id_col = lab_id_col)
+  # 长表在 merge 内按 ID/day pivot；宽表仍可在合并后再滤一次
+  lab_df <- trajectory_28d_merge_lab_csvs(
+    files,
+    id_col = lab_id_col,
+    restrict_ids = if (length(lab_restrict_ids)) lab_restrict_ids else NULL,
+    days = days
+  )
   lab_df[[lab_id_col]] <- as.character(lab_df[[lab_id_col]])
   if (length(lab_restrict_ids)) {
     lab_df <- lab_df[lab_df[[lab_id_col]] %in% lab_restrict_ids, , drop = FALSE]

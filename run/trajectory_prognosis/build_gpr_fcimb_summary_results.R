@@ -1,10 +1,10 @@
 #!/usr/bin/env Rscript
 # GPR → summary_results，图/表按 fcimb-16-1871653 主文顺序重排
 #
-# 文献主文：
-#   Fig1 轨迹类 | Fig2 KM | Fig3 动态预测 | Fig4 动/静对比 | Fig5/6 PAMM
-#   Table1 双库基线；S1–S11 见 data sheet
-# 本课题可用产物映射；PAMM 无 PDF 时 Fig5/6 用切点搜索 + 亚组顶替并在 MANIFEST 注明。
+# 文献主文（fcimb-16-1871653）：
+#   Fig1 轨迹类 | Fig2 landmark KM | Fig3 发现集动态预测 | Fig4 外验动态预测
+#   Fig5/6 PAMM 时变关联四面板；动/静 AUC 为补充图（非 Fig4）
+# 本课题：Fig3=MIMIC dynpred，Fig4=eICU dynpred，Fig5/6=PAMM 四面板。
 #
 # Usage:
 #   Rscript run/trajectory_prognosis/build_gpr_fcimb_summary_results.R \
@@ -116,9 +116,30 @@ src_km_m   <- .find1(file.path(mimic_f, "Figure S2-MIMIC. Kaplan Meier survival 
                      prefer = "Figure S2-MIMIC\\. Kaplan|Figure KM TrajectoryClass GPR")
 src_km_e   <- .find1(file.path(eicu_f, "Figure S2-eICU. Kaplan Meier survival by trajectory class.pdf"),
                      prefer = "eicu.*Figure KM TrajectoryClass|Figure S2-eICU")
-src_dyn    <- .find1(file.path(mimic_f, "Figure 3-MIMIC. Dynamic prediction of GPR trajectory.pdf"))
-src_ind    <- .find1(file.path(mimic_f, "Figure 4-MIMIC. Individual dynamic prediction.pdf"))
-src_auc    <- .find1(file.path(mimic_f, "Figure S5-MIMIC. Weibull dynamic model comparison AUC.pdf"))
+src_dyn_m  <- .find1(
+  file.path(mimic_f, "Figure 3-MIMIC. Dynamic prediction of GPR trajectory.pdf"),
+  file.path(mimic_f, "Figure Dynpred GPR D3.pdf"),
+  prefer = "mimic.*Figure_Dynpred_GPR|mimic.*Dynamic prediction of GPR"
+)
+src_dyn_e  <- .find1(
+  file.path(eicu_f, "Figure 4-eICU. Dynamic prediction of GPR trajectory.pdf"),
+  file.path(eicu_f, "Figure Dynpred GPR D3.pdf"),
+  prefer = "eicu.*Figure_Dynpred_GPR|eicu.*Dynamic prediction of GPR|Figure 4-eICU"
+)
+src_pamm_m <- .find1(
+  file.path(mimic_f, "Figure 5-MIMIC. PAMM time-varying association.pdf"),
+  file.path(mimic_f, "Figure PAMM GPR fcimb panels.pdf"),
+  prefer = "mimic.*Figure PAMM|mimic.*PAMM.*fcimb|Figure_PAMM_GPR"
+)
+src_pamm_e <- .find1(
+  file.path(eicu_f, "Figure 6-eICU. PAMM time-varying association.pdf"),
+  file.path(eicu_f, "Figure PAMM GPR fcimb panels.pdf"),
+  prefer = "eicu.*Figure PAMM|eicu.*PAMM.*fcimb"
+)
+src_ind    <- .find1(file.path(mimic_f, "Figure 4-MIMIC. Individual dynamic prediction.pdf"),
+                     prefer = "Individual dynamic prediction")
+src_auc    <- .find1(file.path(mimic_f, "Figure S5-MIMIC. Weibull dynamic model comparison AUC.pdf"),
+                     prefer = "Weibull dynamic model comparison AUC")
 src_cut    <- .find1(file.path(index_root, "Figures/pdf/Figure S3. Piecewise Cox cut point search.pdf"),
                      file.path(mimic_f, "Figure S3-MIMIC. Piecewise Cox cut point search.pdf"))
 src_sub_m  <- .find1(file.path(mimic_f, "Figure S4-MIMIC. Subgroup analysis by trajectory class.pdf"))
@@ -167,14 +188,23 @@ if (!fig2_ok) {
   cli::cli_alert_warning("landmark Fig2 未写出，回退双库普通 KM 竖拼")
   .stack2(src_km_m, src_km_e, fig2_dest)
 }
-# Fig3 = 动态预测
-.safe_copy(src_dyn, file.path(.pdf, "Figure 3. Dynamic prediction of GPR trajectory.pdf"))
-# Fig4 = 动/静 AUC（对齐文献 Fig4）
-.safe_copy(src_auc, file.path(.pdf, "Figure 4. Dynamic versus static prediction AUC.pdf"))
-# Fig5 = 个体动态预测（文献 Fig5 为 PAMM；本指标无 PAMM PDF，用个体预测顶替并记 MANIFEST）
-.safe_copy(src_ind, file.path(.pdf, "Figure 5. Individual dynamic prediction.pdf"))
-# Fig6 = 亚组双库（文献 Fig6 为外验 PAMM；无图时用亚组森林）
-.stack2(src_sub_m, src_sub_e, file.path(.pdf, "Figure 6. Subgroup analysis by trajectory class.pdf"))
+# Fig3 = 发现集动态预测（MIMIC）；Fig4 = 外验同构（eICU）——对齐文献，非 AUC
+.safe_copy(src_dyn_m, file.path(.pdf, "Figure 3. Dynamic prediction of GPR trajectory.pdf"))
+.safe_copy(src_dyn_e, file.path(.pdf, "Figure 4. Dynamic prediction of GPR trajectory.pdf"))
+# Fig5/6 = PAMM 时变关联四面板（发现/外验）；缺图时回退个体预测/亚组并记 MANIFEST
+fig5_ok <- .safe_copy(src_pamm_m, file.path(.pdf, "Figure 5. PAMM time-varying association.pdf"))
+fig6_ok <- .safe_copy(src_pamm_e, file.path(.pdf, "Figure 6. PAMM time-varying association.pdf"))
+if (!isTRUE(fig5_ok)) {
+  cli::cli_alert_warning("Fig5 PAMM 缺失，回退个体动态预测")
+  .safe_copy(src_ind, file.path(.pdf, "Figure 5. Individual dynamic prediction.pdf"))
+}
+if (!isTRUE(fig6_ok)) {
+  cli::cli_alert_warning("Fig6 PAMM 缺失，回退亚组森林")
+  .stack2(src_sub_m, src_sub_e, file.path(.pdf, "Figure 6. Subgroup analysis by trajectory class.pdf"))
+}
+# 个体预测 / 亚组改附图
+.safe_copy(src_ind, file.path(.pdf, "Figure S9. Individual dynamic prediction.pdf"))
+.stack2(src_sub_m, src_sub_e, file.path(.pdf, "Figure S10. Subgroup analysis by trajectory class.pdf"))
 
 # Supp
 .stack2(src_flow_m, src_flow_e,
@@ -187,10 +217,12 @@ if (file.exists(root_flow) && file.info(root_flow)$size > 20000) {
 }
 .safe_copy(src_cut, file.path(.pdf, "Figure S2. Piecewise Cox cut point search.pdf"))
 .stack2(src_miss_m, src_miss_e, file.path(.pdf, "Figure S3. Missing value overview.pdf"))
-.safe_copy(src_cidx, file.path(.pdf, "Figure S4. Weibull dynamic model comparison C index.pdf"))
-.safe_copy(src_acc,  file.path(.pdf, "Figure S5. Weibull dynamic model comparison Accuracy.pdf"))
-.safe_copy(src_sens, file.path(.pdf, "Figure S6. Weibull dynamic model comparison Sensitivity.pdf"))
-.safe_copy(src_spec, file.path(.pdf, "Figure S7. Weibull dynamic model comparison Specificity.pdf"))
+# 动/静 AUC 降为附图（文献 Fig4 是外验 dynpred，不是 AUC）
+.safe_copy(src_auc,  file.path(.pdf, "Figure S4. Weibull dynamic model comparison AUC.pdf"))
+.safe_copy(src_cidx, file.path(.pdf, "Figure S5. Weibull dynamic model comparison C index.pdf"))
+.safe_copy(src_acc,  file.path(.pdf, "Figure S6. Weibull dynamic model comparison Accuracy.pdf"))
+.safe_copy(src_sens, file.path(.pdf, "Figure S7. Weibull dynamic model comparison Sensitivity.pdf"))
+.safe_copy(src_spec, file.path(.pdf, "Figure S8. Weibull dynamic model comparison Specificity.pdf"))
 
 # ── 表：对齐文献 Table1 + data sheet S 角色（能映射的尽量同号）──────────────
 .root_tab <- file.path(index_root, "Tables")
@@ -286,31 +318,34 @@ fig_notes <- list(
   ),
   "Figure 3. Dynamic prediction of GPR trajectory" = c(
     "## 图面说明",
-    "对齐文献 Figure 3：多 landmark 动态预测。",
+    "对齐文献 Figure 3：发现集多 landmark 动态预测（历史轨迹 + 预测死亡风险副轴）。",
+    "面板 Landmark 3/5/7/12 d（ICU 日索引从 day1 起时 day2 对 ns(df=2) 不可估，故最早为 day3）。",
     "",
     "## 分析上下文",
-    "发现集 MIMIC。"
+    "发现集 MIMIC-IV；暴露 GPR；结局 28 天院内死亡；副轴 = Predicted mortality risk。"
   ),
-  "Figure 4. Dynamic versus static prediction AUC" = c(
+  "Figure 4. Dynamic prediction of GPR trajectory" = c(
     "## 图面说明",
-    "对齐文献 Figure 4：动态 vs 静态模型时依 AUC。",
+    "对齐文献 Figure 4：外验集同构动态预测（发现集 JLCM 固定参数 + eICU newdata）。",
+    "面板与 Figure 3 相同 landmark；副轴 Predicted mortality risk。",
     "",
     "## 分析上下文",
-    "Weibull dynamic compare（AUC 面板）。"
+    "外验 eICU；类别来自外部 assignment；非动/静 AUC（AUC 见 Figure S4）。"
   ),
-  "Figure 5. Individual dynamic prediction" = c(
+  "Figure 5. PAMM time-varying association" = c(
     "## 图面说明",
-    "文献 Figure 5 为 PAMM 连续暴露–死亡曲面；本指标未导出 PAMM PDF，暂用个体动态预测顶替。",
+    "对齐文献 Figure 5：发现集 PAMM 四面板。",
+    "(a) 时变暴露–死亡 HR；(b) 按 landmark 分层；(c) 暴露时间效应；(d) 按暴露水平分层。",
     "",
     "## 分析上下文",
-    "AUTHOR_NOTE: PAMM 图缺，见表 S9/S10 负担 HR。"
+    "发现集 MIMIC；暴露 GPR；结局 28 天院内死亡；PAMM（pammtools + mgcv）。"
   ),
-  "Figure 6. Subgroup analysis by trajectory class" = c(
+  "Figure 6. PAMM time-varying association" = c(
     "## 图面说明",
-    "文献 Figure 6 为外验 PAMM；本指标用类别亚组森林（MIMIC/eICU）顶替。",
+    "对齐文献 Figure 6：外验集 PAMM 同构四面板（发现集锁定异常阈值）。",
     "",
     "## 分析上下文",
-    "AUTHOR_NOTE: PAMM 外验图缺。"
+    "外验 eICU；暴露 GPR；与 Figure 5 同一模型规格。"
   ),
   "Figure S1. Flowchart of patient selection" = c(
     "## 图面说明",
@@ -332,12 +367,13 @@ manifest <- c(
   "|---|---|---|",
   "| Figure 1. Trajectory… | Fig1 轨迹类 | MIMIC JLCM plot |",
   "| Figure 2. Kaplan Meier… | Fig2 KM | MIMIC+eICU 竖拼 |",
-  "| Figure 3. Dynamic prediction… | Fig3 动态预测 | MIMIC dynpred |",
-  "| Figure 4. Dynamic versus static… | Fig4 动/静 AUC | Weibull AUC |",
-  "| Figure 5. Individual… | Fig5 PAMM（缺）→个体预测顶替 | MIMIC individual |",
-  "| Figure 6. Subgroup… | Fig6 外验 PAMM（缺）→亚组顶替 | MIMIC+eICU subgroup |",
+  "| Figure 3. Dynamic prediction… | Fig3 发现集动态预测 | MIMIC dynpred mortality |",
+  "| Figure 4. Dynamic prediction… | Fig4 外验动态预测 | eICU dynpred（发现模型） |",
+  "| Figure 5. PAMM… | Fig5 发现集 PAMM 四面板 | MIMIC PAMM |",
+  "| Figure 6. PAMM… | Fig6 外验 PAMM 四面板 | eICU PAMM |",
   "| Figure S1. Flowchart… | Supp Fig1 纳排 | CONSORT 双栏 |",
   "| Figure S2. Piecewise Cox… | 分段切点（课题补充） | MIMIC cutsearch |",
+  "| Figure S4. …AUC | 动/静 AUC（非主文 Fig4） | Weibull AUC |",
   "| Table S3-MIMIC Metrics | Supp Table3 选类 | Table2 Metrics |",
   "| Table S4-MIMIC Posterior | Supp Table4 后验 | Table S8 Posterior |",
   "| Table S7-MIMIC HR | Supp Table7 时依 HR | Table3 HR |",
@@ -359,10 +395,11 @@ meth <- c(
   "",
   "- Figure 1: trajectory classes (derivation)",
   "- Figure 2: Kaplan–Meier by class (derivation + validation)",
-  "- Figure 3: dynamic prediction",
-  "- Figure 4: dynamic vs static AUC",
-  "- Figure 5–6: literature PAMM panels unavailable as PDF for this index; individual dynpred and subgroup forests are placed here as interim stand-ins (PAMM burden in Tables S9–S10)",
+  "- Figure 3: dynamic prediction (MIMIC derivation; mortality secondary axis; landmarks 3/5/7/12 d)",
+  "- Figure 4: dynamic prediction (eICU external; same landmarks; discovery JLCM fixed)",
+  "- Figure 5–6: PAMM time-varying association panels (derivation / external)",
   "- Figure S1: flowchart (literature Supplementary Figure 1)",
+  "- Figure S4: dynamic vs static AUC (supplement; not main-text Figure 4)",
   "",
   "Full mapping: reports/GPR_FIGURE_TABLE_MANIFEST_fcimb.md",
   "",

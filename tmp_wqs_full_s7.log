@@ -1,0 +1,7 @@
+[exwas] ==== WQS full screened panel → Fig S7 ====
+[exwas] WQS n=8026 mix=47 b=1000
+[exwas] gwqs b1_pos=TRUE …
+[exwas] 收敛 b1_pos=TRUE
+[exwas] 顶5: Cesium=0.218; Napthol_2=0.125; ATC=0.099; HEMA=0.091; Barium=0.076
+[exwas] 写完 /mnt/g/02block_result/58_cancer/environment_41380607/summary_results/Figures/pdf/Figure S7. WQS weights.pdf
+[exwas] DONE

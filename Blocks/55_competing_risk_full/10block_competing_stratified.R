@@ -7,7 +7,8 @@ block_competing_stratified <- function(ctx, ...) {
   data <- ctx$data$cleaned %||% ctx$data$raw %||% ctx$data$imputed
   if (is.null(data)) stop("competing_stratified: 无数据", call. = FALSE)
   if (!requireNamespace("survival", quietly = TRUE)) stop("请安装 survival", call. = FALSE)
-  if ("Age" %in% names(data)) data$Age_group <- ifelse(data$Age >= 75, "75+", "<75")
+  age_cut <- as.numeric((bl$age_cutoff %||% 65L)[1L]); if (!is.finite(age_cut) || age_cut <= 0) age_cut <- 65
+  if ("Age" %in% names(data)) data$Age_group <- ifelse(data$Age >= age_cut, paste0(age_cut, "+"), paste0("<", age_cut))
   strata <- bl$stratify_vars %||% c("Gender", "Age_group")
   time_var <- bl$time_var %||% "futime"
   event_col <- bl$event_type_col %||% "event_type"

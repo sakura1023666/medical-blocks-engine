@@ -120,19 +120,41 @@ col_fun <- circlize::colorRamp2(
   c("#67001F", "#B2182B", "#F7F7F7", "#4393C3", "#053061")
 )
 
-# 顶部族标：用 annotation block（竖排），矩阵保持连续（仅极细族间缝）
-n_per <- as.integer(table(fam))
+# 顶部族标：加高 annotation + clip；底部留白带；字只向上长
 fam_lv <- levels(fam)
+lab_gp <- grid::gpar(fontsize = 6, fontfamily = "sans")
+# 最长族名 ~43mm；底部约 1mm 窄缝，贴近热图上沿
+anno_h <- grid::unit(50, "mm")
+bottom_pad_mm <- 1
 top_anno <- ComplexHeatmap::HeatmapAnnotation(
-  foo = ComplexHeatmap::anno_block(
+  Family = ComplexHeatmap::anno_block(
     gp = grid::gpar(fill = NA, col = NA, lwd = 0),
     labels = fam_lv,
-    labels_gp = grid::gpar(fontsize = 7.5, fontfamily = "sans"),
-    labels_rot = 90,
-    labels_offset = grid::unit(2, "mm"),
-    height = grid::unit(22, "mm")
+    height = anno_h,
+    panel_fun = function(index, level) {
+      grid::pushViewport(grid::viewport(clip = "on"))
+      # 底部白带：与热图隔开，竖字不压进格子
+      grid::grid.rect(
+        x = grid::unit(0.5, "npc"),
+        y = grid::unit(0, "npc"),
+        width = grid::unit(1, "npc"),
+        height = grid::unit(bottom_pad_mm, "mm"),
+        just = c("center", "bottom"),
+        gp = grid::gpar(fill = "white", col = NA)
+      )
+      grid::grid.text(
+        as.character(level),
+        x = grid::unit(0.5, "npc"),
+        y = grid::unit(bottom_pad_mm + 1, "mm"),
+        rot = 90,
+        just = "left",
+        gp = lab_gp
+      )
+      grid::popViewport()
+    }
   ),
-  which = "column"
+  which = "column",
+  show_annotation_name = FALSE
 )
 
 ht <- ComplexHeatmap::Heatmap(
@@ -153,8 +175,8 @@ ht <- ComplexHeatmap::Heatmap(
   top_annotation = top_anno,
   border = TRUE,
   rect_gp = grid::gpar(col = NA),
-  width = grid::unit(15, "cm"),
-  height = grid::unit(15, "cm"),
+  width = grid::unit(14.5, "cm"),
+  height = grid::unit(14.5, "cm"),
   heatmap_legend_param = list(
     title = "",
     at = seq(-1, 1, by = 0.2),
@@ -166,10 +188,10 @@ ht <- ComplexHeatmap::Heatmap(
 )
 
 out <- file.path(fig_pdf, "Figure S2. Toxicant correlation.pdf")
-grDevices::cairo_pdf(out, width = 10.5, height = 10.2, family = "sans")
+grDevices::cairo_pdf(out, width = 10.5, height = 10.8, family = "sans")
 ComplexHeatmap::draw(
   ht,
-  padding = grid::unit(c(1, 1, 1, 1), "mm")
+  padding = grid::unit(c(2, 3, 3, 3), "mm")
 )
 grDevices::dev.off()
 message(

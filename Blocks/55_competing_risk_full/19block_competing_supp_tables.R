@@ -33,8 +33,16 @@
   # Race 多水平且稀疏，默认不进亚组（可用 config$competing_risk$supp_strata_vars 强制）
   prefer <- setdiff(prefer, c(exclude, "Age_group", "Race"))
   out <- character(0)
+  # 年龄切点：按本病（ICU AKI/CRRT）文献常用 65；可用 competing_risk$age_cutoff 覆盖
+  # （勿照搬 Lai 心衰 MOESM 的 80）
+  age_cut <- as.numeric((bl$age_cutoff %||% 65L)[1L])
+  if (!is.finite(age_cut) || age_cut <= 0) age_cut <- 65
   if ("Age" %in% names(data) && is.numeric(data$Age) && !"Age" %in% exclude) {
-    ag <- ifelse(data$Age >= 75, ">=75", "<75")
+    ag <- ifelse(
+      data$Age >= age_cut,
+      paste0("\u2265 ", age_cut),
+      paste0("< ", age_cut)
+    )
     if (min(table(ag, useNA = "no")) >= min_level_n) out <- c(out, "Age")
   }
   for (v in prefer) {
@@ -54,17 +62,25 @@
 }
 
 .competing_supp_subgroup <- function(data, time_var, event_col, exp_var, causes, strata_vars,
-                                     min_n = 30L) {
+                                     min_n = 30L, age_cutoff = 65L) {
   if (!requireNamespace("survival", quietly = TRUE)) return(data.frame(note = "no survival"))
   if (!exp_var %in% names(data)) return(data.frame(note = "no exposure"))
   data[[exp_var]] <- .competing_supp_trim(factor(data[[exp_var]]))
+  # n (%) 分母 = 暴露非缺失分析集（禁止用含暴露 NA 的全表 N，否则 % 严重偏低）
+  data <- data[!is.na(data[[exp_var]]), , drop = FALSE]
   rows <- list()
   n_total <- nrow(data)
   primary_nm <- names(causes)[1L]
+  age_cut <- as.numeric(age_cutoff)[1L]
+  if (!is.finite(age_cut) || age_cut <= 0) age_cut <- 65
 
   for (sg in strata_vars) {
     if (identical(sg, "Age") && "Age" %in% names(data) && is.numeric(data$Age)) {
-      data$Age_group <- ifelse(data$Age >= 75, ">=75", "<75")
+      data$Age_group <- ifelse(
+        data$Age >= age_cut,
+        paste0("\u2265 ", age_cut),
+        paste0("< ", age_cut)
+      )
       sg_use <- "Age_group"
       sg_name <- "Age"
     } else {
@@ -253,19 +269,25 @@ block_competing_supp_tables <- function(ctx, ...) {
     "补充表亚组={paste(strata_vars, collapse=', ')}; 骨架协变量={paste(skeleton, collapse=', ')}; 主事件={primary_lbl}"
   )
 
-  # ---- Supp1 / Supp5 亚组 ----
-  s1 <- .competing_supp_subgroup(data_h, time_var, event_col, exp_q, causes, strata_vars)
+  # ---- Table S1 / S5 亚组（年龄默认 65：ICU AKI/CRRT 文献常用老年界）----
+  age_cut <- as.numeric(bl$age_cutoff %||% 65L)[1L]
+  if (!is.finite(age_cut) || age_cut <= 0) age_cut <- 65
+  s1 <- .competing_supp_subgroup(
+    data_h, time_var, event_col, exp_q, causes, strata_vars, age_cutoff = age_cut
+  )
   .competing_write_supp_subgroup_xlsx(
-    file.path(out_dir, sprintf("Supplementary Material 1-%s. Subgroup analysis by quartile.xlsx", db)),
+    file.path(out_dir, sprintf("Table S1-%s. Subgroup analysis by quartile.xlsx", db)),
     s1, db = db, exposure_lab = "Quartile",
     outcome1 = primary_lbl, outcome2 = death_lbl
   )
 
   s5 <- if (exp_t %in% names(data_h)) {
-    .competing_supp_subgroup(data_h, time_var, event_col, exp_t, causes, strata_vars)
+    .competing_supp_subgroup(
+      data_h, time_var, event_col, exp_t, causes, strata_vars, age_cutoff = age_cut
+    )
   } else data.frame(note = "no trajectory")
   .competing_write_supp_subgroup_xlsx(
-    file.path(out_dir, sprintf("Supplementary Material 5-%s. Subgroup analysis by trajectory.xlsx", db)),
+    file.path(out_dir, sprintf("Table S5-%s. Subgroup analysis by trajectory.xlsx", db)),
     s5, db = db, exposure_lab = "Trajectory",
     outcome1 = primary_lbl, outcome2 = death_lbl
   )
@@ -288,7 +310,7 @@ block_competing_supp_tables <- function(ctx, ...) {
   )
   .competing_write_supp_models_xlsx(
     file.path(out_dir, sprintf(
-      "Supplementary Material 2-%s. Standard Cox by quartile (sensitivity).xlsx", db
+      "Table S2-%s. Standard Cox by quartile (sensitivity).xlsx", db
     )),
     sections = c(
       list(
@@ -321,7 +343,7 @@ block_competing_supp_tables <- function(ctx, ...) {
   if (isTRUE(export_extremes_supp)) {
     .competing_write_supp_models_xlsx(
       file.path(out_dir, sprintf(
-        "Supplementary Material 3-%s. Competing-risk Cox sensitivity (extremes handled).xlsx", db
+        "Table S3-%s. Competing-risk Cox sensitivity (extremes handled).xlsx", db
       )),
       sections = c(
         list(
@@ -345,13 +367,13 @@ block_competing_supp_tables <- function(ctx, ...) {
 
     old4 <- list.files(
       out_dir,
-      pattern = sprintf("^Supplementary Material 4-%s\\.", db),
+      pattern = sprintf("^Table S4-%s\\.", db),
       full.names = TRUE
     )
     if (length(old4)) unlink(old4)
     .competing_write_supp_models_xlsx(
       file.path(out_dir, sprintf(
-        "Supplementary Material 4-%s. Standard Cox sensitivity (extremes handled).xlsx", db
+        "Table S4-%s. Standard Cox sensitivity (extremes handled).xlsx", db
       )),
       sections = list(
         list(
@@ -372,13 +394,13 @@ block_competing_supp_tables <- function(ctx, ...) {
   } else {
     old34 <- list.files(
       out_dir,
-      pattern = sprintf("^Supplementary Material [34]-%s\\.", db),
+      pattern = sprintf("^Table S[34]-%s\\.", db),
       full.names = TRUE
     )
     if (length(old34)) {
       unlink(old34)
       cli::cli_alert_info(
-        "已跳过 Supp Mat 3/4（与 Supp2 Handle/No-handle 重复）；删除旧文件 {length(old34)} 个"
+        "已跳过 Table S3/S4（与 Supp2 Handle/No-handle 重复）；删除旧文件 {length(old34)} 个"
       )
     }
   }
@@ -418,7 +440,7 @@ block_competing_supp_tables <- function(ctx, ...) {
       horizons, cov_h, skeleton, bl, n_mi = 2L, method = "competing"
     )
     .competing_write_supp_models_xlsx(
-      file.path(out_dir, sprintf("Supplementary Material 6-%s. Standard Cox by trajectory.xlsx", db)),
+      file.path(out_dir, sprintf("Table S6-%s. Standard Cox by trajectory.xlsx", db)),
       sections = c(
         list(
           list(
@@ -442,7 +464,7 @@ block_competing_supp_tables <- function(ctx, ...) {
       horizons = horizons, model_ids = 1:3, covs_footnote = footnote
     )
   } else {
-    cli::cli_alert_warning("无轨迹变量 {exp_t}，跳过 Supplementary Material 6")
+    cli::cli_alert_warning("无轨迹变量 {exp_t}，跳过 Table S6")
   }
 
   # 中间拟合结果只留在 ctx$results，不往 Tables/ 落 csv
