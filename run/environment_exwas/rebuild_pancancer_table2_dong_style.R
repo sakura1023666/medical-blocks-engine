@@ -19,6 +19,7 @@ source(file.path(repo, "R/utils.R"))
 source(file.path(repo, "R/environment_exwas_core.R"))
 source(file.path(repo, "R/environment_exwas_aligned.R"))
 source(file.path(repo, "R/environment_exwas_toxicant.R"))
+source(file.path(repo, "run/environment_exwas/pancancer_model2_covars.R"))
 if (file.exists(file.path(repo, "R/pub_xlsx_surgical.R"))) {
   source(file.path(repo, "R/pub_xlsx_surgical.R"))
 }
@@ -48,15 +49,15 @@ person <- exwas_tox_drop_person_missing(
   raw_from_model = sub("_(ln|bin)$", "", scr$keep)
 )
 df <- person$data
-covars_full <- intersect(
-  c("Age", "Gender", "Race", "Education", "Marital_Status", "PIR_cat", "BMI_cat",
-    "Alcohol_drinking", "eGFR"),
-  names(df)
-)
+# Model2 = DAG→UV→VIF→stepwise 终末集（与 ERS/FigS1 同一套；禁止再用全量 Age 池）
+covars_m2 <- intersect(pancancer_model2_covars_from_path(root), names(df))
+if (!length(covars_m2)) covars_m2 <- intersect(pancancer_model2_final_default, names(df))
+covars_full <- covars_m2
 df <- exwas_aligned_as_model_frame(df, covars_full)
 df$DN <- as.integer(exwas_to_num(df$DN) == 1L)
 exposures <- scr$keep
-exwas_log("N=", nrow(df), " exposures=", length(exposures))
+exwas_log("N=", nrow(df), " exposures=", length(exposures),
+          " Model2=", paste(covars_m2, collapse = "+"))
 
 # 展示名 / 家族
 fam_path <- file.path(opt$data_dir, "toxicant_family_map.csv")
@@ -113,21 +114,18 @@ m1 <- exwas_run_unweighted(df, "DN", exposures, covars = character(0))
 m1$q <- exwas_fdr(m1$p)
 m1$raw <- sub("_(ln|bin)$", "", m1$exposure)
 
-# ---------- Model 2：复用已有小鼠插补主表；若无则现场重跑 ----------
-m2_path <- NULL
-for (p in m2_candidates) if (file.exists(p)) { m2_path <- p; break }
-if (is.null(m2_path)) {
-  # 再搜 screen 目录
-  cand <- Sys.glob(file.path(root, "**/Table_2_ExWAS_toxicant_screen.csv"))
-  if (length(cand)) m2_path <- cand[[1]]
-}
-if (!is.null(m2_path) && file.exists(m2_path)) {
-  exwas_log("Model2 复用 ", m2_path)
-  m2 <- utils::read.csv(m2_path, stringsAsFactors = FALSE, check.names = FALSE)
-} else {
-  exwas_log("Model2 现场 mice 重跑（较慢）…")
-  m2 <- exwas_run_unweighted_mice(df, "DN", exposures, covars_full, m = 5L, maxit = 5L, seed = 123456L)
-}
+# ---------- Model 2：必须按终末 5 协变量重跑 mice（旧 screen 含 Age，禁止复用）----------
+exwas_log("Model2 mice 重跑 covars=", paste(covars_m2, collapse = "+"), " …")
+m2 <- exwas_run_unweighted_mice(
+  df, "DN", exposures, covars_m2, m = 5L, maxit = 5L, seed = 123456L
+)
+# 落盘新 screen，供下游复用
+m2_out <- file.path(src_tab, "Table 2. ExWAS toxicant associations_model2_numeric.csv")
+utils::write.csv(m2, m2_out, row.names = FALSE)
+utils::write.csv(m2, file.path(src_tab, "Table 2. ExWAS toxicant associations_model2_numeric.bak.csv"), row.names = FALSE)
+hits <- m2[is.finite(m2$q) & m2$q < 0.05, , drop = FALSE]
+utils::write.csv(hits, file.path(src_tab, "Table 2b. ExWAS FDR hits.csv"), row.names = FALSE)
+exwas_log("Model2 FDR hits=", nrow(hits))
 if (!"exposure" %in% names(m2) && "Exposure" %in% names(m2)) m2$exposure <- m2$Exposure
 m2$raw <- sub("_(ln|bin)$", "", m2$exposure)
 if (!"q" %in% names(m2) && "q_value" %in% names(m2)) m2$q <- m2$q_value
@@ -220,9 +218,11 @@ footnotes <- c(
   "Median (IQR) is on the model scale (ln units for continuous; NA for dichotomized).",
   "Model 1: unadjusted logistic regression (complete cases for each exposure).",
   paste0(
-    "Model 2: adjusted for ", paste(covars_full, collapse = ", "),
+    "Model 2: adjusted for ",
+    paste(pancancer_model2_display_labs(covars_m2), collapse = ", "),
     "; covariates multiply imputed (m=5) and pooled by Rubin's rules; BH-FDR q-values."
   ),
+  pancancer_model2_footnote(covars_m2),
   "Bold Model 2 q < 0.05 indicates FDR-significant associations."
 )
 

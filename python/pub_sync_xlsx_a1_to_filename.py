@@ -66,15 +66,40 @@ def _a1_shared_index(sheet_xml: bytes) -> int | None:
     return None
 
 
+def _a1_inline_replace(sheet_bytes: bytes, new_title: str) -> tuple[bool, bytes]:
+    """A1 is inline string (openxlsx) -> swap <is><t> text in-place."""
+    from xml.etree import ElementTree as ET2
+    ns_main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    nsmap = {"m": ns_main}
+    ET2.register_namespace("", ns_main)
+    root = ET2.fromstring(sheet_bytes)
+    hit = False
+    for c in root.iter(f"{{{ns_main}}}c"):
+        if c.get("r") != "A1":
+            continue
+        if (c.get("t") or "") != "inlineStr":
+            return False, sheet_bytes
+        is_el = c.find("m:is", nsmap)
+        if is_el is None:
+            return False, sheet_bytes
+        t_el = is_el.find("m:t", nsmap)
+        if t_el is None:
+            return False, sheet_bytes
+        if t_el.text != new_title:
+            t_el.text = new_title
+            hit = True
+        break
+    if not hit:
+        return False, sheet_bytes
+    return True, ET2.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
 def sync_one(path: str, dry_run: bool = False) -> tuple[bool, str]:
     new_title = os.path.splitext(os.path.basename(path))[0]
     if not path.lower().endswith(".xlsx") or not os.path.isfile(path):
         return False, "skip"
     with zipfile.ZipFile(path, "r") as zin:
         names = zin.namelist()
-        if "xl/sharedStrings.xml" not in names:
-            return False, "no sharedStrings"
-        ss_xml = zin.read("xl/sharedStrings.xml")
         sheet_name = "xl/worksheets/sheet1.xml"
         if sheet_name not in names:
             sheets = [n for n in names if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")]
@@ -82,7 +107,28 @@ def sync_one(path: str, dry_run: bool = False) -> tuple[bool, str]:
                 return False, "no sheet"
             sheet_name = sorted(sheets)[0]
         sheet_xml = zin.read(sheet_name)
+        has_ss = "xl/sharedStrings.xml" in names
+        ss_xml = zin.read("xl/sharedStrings.xml") if has_ss else None
         other = {n: zin.read(n) for n in names if n not in (sheet_name, "xl/sharedStrings.xml")}
+
+    # 1) A1 as inlineStr：openxlsx 默认（无 sharedStrings.xml 或 t="inlineStr"）
+    hit_inline, new_sheet_inline = _a1_inline_replace(sheet_xml, new_title)
+    if hit_inline:
+        if dry_run:
+            return True, f"would set -> {new_title}"
+        tmp = path + ".tmp_title_sync"
+        with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+            for n, data in other.items():
+                zout.writestr(n, data)
+            zout.writestr(sheet_name, new_sheet_inline)
+            if has_ss:
+                zout.writestr("xl/sharedStrings.xml", ss_xml)
+        os.replace(tmp, path)
+        return True, f"set -> {new_title}"
+
+    # 2) A1 as sharedStrings index（旧路径）
+    if not has_ss:
+        return False, "no sharedStrings / no inlineStr A1"
 
     idx = _a1_shared_index(sheet_xml)
     root = ET.fromstring(ss_xml)

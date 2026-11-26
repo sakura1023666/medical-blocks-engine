@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize ICUAKI Allyn 4-arm mortality AUROC (test)."""
+"""Summarize ICUAKI 4-arm mortality AUROC (test)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -75,7 +75,7 @@ def main() -> None:
     df.to_csv(OUT / "allyn_mortality_auroc_long.csv", index=False)
 
     lines = [
-        "# ICUAKI Allyn 四臂结果（死亡 AUROC，test）",
+        "# ICUAKI 四臂结果（死亡 AUROC，test）",
         "",
         "| 臂 | amsterdam | eicu | hirid | mimic4 |",
         "|---|---:|---:|---:|---:|",
@@ -106,7 +106,7 @@ def main() -> None:
         "",
         f"**总判读**: {overall}。",
         "",
-        "口径: Allyn TPC；eICU/HiRID 训练未见；DN=1 ICU-AKI；DROP creatinine/urine_output。",
+        "口径: TPC；eICU/HiRID 训练未见；DN=1 ICU-AKI；DROP creatinine/urine_output。",
     ]
     (OUT / "allyn_results_summary.md").write_text("\n".join(lines), encoding="utf-8")
     print("\nverdict:", overall)

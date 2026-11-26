@@ -1,5 +1,5 @@
 #!/bin/bash
-# CSA-AKI 3-DB: MIMIC+eICU pool, INSPIRE external (no SICdb). Allyn full features.
+# CSA-AKI 3-DB: MIMIC+eICU pool, INSPIRE external (no SICdb). Full literature feature keep-list.
 set -u
 PY=/home/ps/miniconda3/envs/blendedlos/bin/python
 LOG=/mnt/sda/csaaki_gongqian_train/logs_mimic_eicu
@@ -28,7 +28,7 @@ unset DBPOOL_MAX_N_BATCH || true
 {
   echo "ARM=csaaki_mimic_eicu_3db"
   echo "DROP=$DBPOOL_DROP_TS"
-  echo "KEEP=Allyn keep=1 (no whitelist)"
+  echo "KEEP=literature keep=1 (no whitelist)"
   echo "train=MIMIC+eICU; external=INSPIRE (+train-DB holdouts); no SICdb"
   echo "units=csa3_expA_eicu_solo,csa3_expB_mimic_solo,csa3_expC_mimic2eicu_transfer,csa3_expD_pooled_mimic_eicu,csa3_model_benchmark"
 } > "$OUT/FEATURE_GATE.txt"

@@ -21,12 +21,18 @@
 #    pin_index_importance_top = FALSE, # TRUE：暴露/指标在 A/B 重要性图置顶（不改 SHAP 值）
 #    importance_pin_top   = NULL,       # 额外置顶变量，如 c("Preop_Cr")
 #    bee_color_low/high   = NULL,     # 蜂群渐变；NULL 用 shapviz 默认或随机预设
-#    font_family          = NULL
+#    font_family          = NULL,
+#    combine_layout       = "grid2x2", # 发表拼图：grid2x2 | abc_top | waterfall_top
+#    collapse_baked_dummies = TRUE    # recipe dummy→临床名；兼容旧键 collapse_recipe_dummies
 #  ),
 #  预后: 输出文件名带预后标注；SHAP 仍对 Group 二分类 workflow 解释
 #
+#  # ── 同目录依赖 ───────────────────────────────────────────────────────────
+#  source 00shap_router.R（算法+符号对齐）
+#  source 00shap_display_common.R（baked 折叠 + .shap_build_pub_combined_figure）
+#
 #  # ── 产出 ─────────────────────────────────────────────────────────────────
-#  Figures/Fig_SHAP_*.pdf、ctx$results$shap_*；源: Blocks/block_shap.R
+#  Figures/Fig_SHAP_*.pdf、ctx$results$shap_*；源: Blocks/17_shap/01block_shap.R
 ###############################################################################
 
 .shap_ml_tag_from_display <- function(display_name) {
@@ -1028,12 +1034,15 @@
     }
   }
 
+  base_keep <- tryCatch(shp$baseline, error = function(e) NULL)
   out_shp <- tryCatch(
     shapviz::shapviz(S_new, X = X_new),
     error = function(e) shapviz::shapviz(as.matrix(S_new), X = X_new)
   )
+  if (!is.null(base_keep)) out_shp$baseline <- base_keep
   attr(out_shp, "shap_method") <- attr(shp, "shap_method")
   attr(out_shp, "shap_tag") <- attr(shp, "shap_tag")
+  attr(out_shp, "shap_sign_flipped") <- attr(shp, "shap_sign_flipped")
   X_mat <- as.matrix(X_new)
   storage.mode(X_mat) <- "double"
   colnames(X_mat) <- venn_raw
@@ -1446,7 +1455,7 @@
   p
 }
 
-.shap_build_shapviz <- function(wf, X_mat, X_df) {
+.shap_build_shapviz <- function(wf, X_mat, X_df, ctx = NULL) {
   if (!requireNamespace("shapviz", quietly = TRUE)) {
     stop("block_shap 需要 shapviz 包。", call. = FALSE)
   }
@@ -1495,7 +1504,7 @@
   )
   if (exists(".shap_align_shapviz_to_analysis_group", mode = "function")) {
     out <- .shap_align_shapviz_to_analysis_group(
-      out, wf = wf, eng = eng, X_mat = X_mat
+      out, wf = wf, ctx = ctx, eng = eng, X_mat = X_mat
     )
   }
   out
@@ -1645,6 +1654,12 @@
 }
 if (file.exists(.shap_router_file)) {
   source(.shap_router_file, local = FALSE)
+}
+.shap_display_common_file <- sub(
+  "00shap_router\\.R$", "00shap_display_common.R", .shap_router_file
+)
+if (file.exists(.shap_display_common_file)) {
+  source(.shap_display_common_file, local = FALSE)
 }
 
 .shap_combine_panels <- function(named_plots, combine_order, font_family, label_size, rel_heights,
@@ -1847,6 +1862,22 @@ block_shap <- function(ctx, ...) {
       if (!is.null(collapsed$X_mat)) X_mat <- collapsed$X_mat
       pred_cols <- colnames(X_df)
       shap_method <- paste0(shap_method, "_venn_collapse")
+    }
+  }
+
+  # 非韦恩 / 仍残留 baked dummy：折叠为临床变量名（00shap_display_common）
+  if (.shap_cfg_collapse_baked_dummies(sh) &&
+      !grepl("venn_collapse|venn_xgb", shap_method)) {
+    collapsed_r <- .shap_collapse_shapviz_baked_dummies(shp, X_df, ctx)
+    if (isTRUE(collapsed_r$collapsed) && !is.null(collapsed_r$shp)) {
+      cli::cli_alert_info(
+        "block_shap: baked dummy 已折叠为临床特征 n={ncol(collapsed_r$X_df)}"
+      )
+      shp <- collapsed_r$shp
+      X_df <- collapsed_r$X_df
+      if (!is.null(collapsed_r$X_mat)) X_mat <- collapsed_r$X_mat
+      pred_cols <- colnames(X_df)
+      shap_method <- paste0(shap_method, "_baked_collapse")
     }
   }
 

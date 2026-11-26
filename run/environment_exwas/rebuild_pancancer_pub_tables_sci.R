@@ -82,11 +82,16 @@ exwas_log <- function(...) message("[exwas] ", paste0(..., collapse = ""))
 }
 
 # ---------- 归档非发表杂项 ----------
+# 交付只到 S12（对齐原文补充表号）；S12b/S13–S15 与裸 csv 一律归档
 junk_pat <- c(
   "^Table 0\\.",
   "^Table S0\\.",
   "^Table S0b\\.",
   "^Table S12b\\.",
+  "^Table S13\\.",
+  "^Table S14\\.",
+  "^Table S15\\.",
+  "^Table\\. ERS",
   "\\.csv$",
   "_summary\\.csv$"
 )
@@ -221,7 +226,7 @@ if (!is.null(s6p)) {
     "Table S6. Exploratory mediation between ERS and pan-cancer via clinical biomarkers",
     footnotes = c(
       "Exploratory mediation (R mediation package, 1000 bootstrap resamples); risk-difference scale.",
-      "Not a copy of the periodontitis inflammatory panel; cancer-adapted mediators."
+      "Mediators were selected by IDE significance under the locked Model 2 covariate set."
     )
   )
 }
@@ -300,91 +305,22 @@ if (!is.null(s11p)) {
   )
 }
 
-# ---------- S12 methods comparison ----------
-s12md <- file.path(src_tab, "Table S12. Methodological comparison.md")
-s12csv <- .find_csv("Table S12. Methodological comparison.csv")
-if (!is.null(s12csv)) {
-  s12 <- utils::read.csv(s12csv, stringsAsFactors = FALSE)
-  names(s12) <- .disp(names(s12))
-  .write_sci(s12, file.path(sum_tab, "Table S12. Methodological comparison.xlsx"),
-             "Table S12. Comparison of methodological approaches",
-             footnotes = "Cancer-adapted comparison with Dong et al. periodontitis ExWAS.")
-} else if (file.exists(s12md)) {
-  # keep a minimal placeholder table from md lines
-  lines <- readLines(s12md, warn = FALSE)
-  s12 <- data.frame(Item = lines[nzchar(lines)], stringsAsFactors = FALSE)
-  .write_sci(s12, file.path(sum_tab, "Table S12. Methodological comparison.xlsx"),
-             "Table S12. Comparison of methodological approaches")
+# ---------- S12 methods comparison（四列：Aspect / Previous / Current / Novelty）----------
+dong_s12 <- file.path(repo, "run/environment_exwas/rebuild_pancancer_table_s12_dong_style.R")
+if (file.exists(dong_s12)) {
+  exwas_log("Table S12 → four-column methodological comparison rebuild")
+  status_s12 <- system2("Rscript", dong_s12, stdout = TRUE, stderr = TRUE)
+  writeLines(status_s12)
+} else {
+  exwas_log("WARN: Table S12 rebuild script missing, skip")
 }
 
-# ---------- S13 ERS logistic ----------
-s13p <- .find_csv(c("Table. ERS weighted logistic Model1 Model2.csv"))
-if (is.null(s13p) && file.exists(file.path(down, "Table_ERS_logistic_weighted.csv"))) {
-  s13p <- file.path(down, "Table_ERS_logistic_weighted.csv")
-}
-if (!is.null(s13p)) {
-  s13 <- utils::read.csv(s13p, stringsAsFactors = FALSE)
-  if (all(c("OR", "lo", "hi") %in% names(s13))) {
-    s13$`OR (95% CI)` <- .fmt_or_ci(s13$OR, s13$lo, s13$hi)
-    s13$P <- .fmt_p(s13$p)
+# S13–S15 / S12b 不进交付（图注数据留在 Output/_downstream）；末尾再扫 junk_pat 归档残留
+for (bn in list.files(sum_tab)) {
+  if (any(vapply(junk_pat, function(p) grepl(p, bn), logical(1)))) {
+    file.rename(file.path(sum_tab, bn), file.path(arch, bn))
+    exwas_log("归档 ", bn)
   }
-  names(s13) <- .disp(names(s13))
-  .write_sci(
-    s13,
-    file.path(sum_tab, "Table S13. ERS weighted logistic Model1 Model2.xlsx"),
-    "Table S13. Survey-weighted logistic association of ERS with pan-cancer",
-    footnotes = c(
-      "Model 1: unadjusted; Model 2: Age, Gender, Race, Education, Marital status, PIR, BMI, Alcohol, eGFR.",
-      "Survey weights: WTSA2YR."
-    )
-  )
-}
-
-# ---------- S14 WQS ----------
-wqs_p <- file.path(down, "Table_WQS_weights.csv")
-if (!file.exists(wqs_p)) wqs_p <- file.path(src_tab, "Table. WQS mixture weights.csv")
-if (file.exists(wqs_p)) {
-  wqs <- utils::read.csv(wqs_p, stringsAsFactors = FALSE)
-  body <- data.frame(
-    Rank = if ("rank" %in% names(wqs)) wqs$rank else seq_len(nrow(wqs)),
-    Exposure = .disp(if ("exposure_name" %in% names(wqs)) wqs$exposure_name else wqs$mix_name),
-    Weight = sprintf("%.4f", as.numeric(wqs$mean_weight)),
-    stringsAsFactors = FALSE
-  )
-  body <- body[order(-as.numeric(wqs$mean_weight)), , drop = FALSE]
-  body$Rank <- seq_len(nrow(body))
-  coef_p <- file.path(down, "Table_WQS_coefficients.csv")
-  ft <- c(
-    "gWQS; q=4; bootstrap=1000; mixture = full screened toxicant panel (Dong Fig S7).",
-    sprintf("Sum of weights = %.3f.", sum(as.numeric(wqs$mean_weight), na.rm = TRUE))
-  )
-  path14 <- file.path(sum_tab, "Table S14. WQS mixture weights and coefficients.xlsx")
-  .write_sci(body, path14, "Table S14. WQS mixture weights of environmental toxicants", footnotes = ft)
-  if (file.exists(coef_p)) {
-    # append coefficients sheet via openxlsx
-    coef <- utils::read.csv(coef_p, stringsAsFactors = FALSE)
-    wb <- openxlsx::loadWorkbook(path14)
-    if (!"Coefficients" %in% names(wb)) openxlsx::addWorksheet(wb, "Coefficients")
-    openxlsx::writeData(wb, "Coefficients", coef)
-    # force Times on coef sheet
-    st <- openxlsx::createStyle(fontName = "Times New Roman", fontSize = 11)
-    openxlsx::addStyle(wb, "Coefficients", st, rows = 1:(nrow(coef) + 1), cols = 1:ncol(coef),
-                       gridExpand = TRUE, stack = TRUE)
-    openxlsx::saveWorkbook(wb, path14, overwrite = TRUE)
-  }
-}
-
-# ---------- S15 subgroup（若保留）----------
-s15p <- .find_csv(c("Table. ERS subgroup associations.csv"))
-if (!is.null(s15p)) {
-  s15 <- utils::read.csv(s15p, stringsAsFactors = FALSE)
-  names(s15) <- .disp(names(s15))
-  .write_sci(
-    s15,
-    file.path(sum_tab, "Table S15. ERS subgroup associations.xlsx"),
-    "Table S15. Subgroup associations of ERS with pan-cancer",
-    footnotes = "Survey-weighted logistic models within subgroups."
-  )
 }
 
 # ---------- 校验字体 ----------

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full Allyn-style Table 1 (vitals/labs/drugs) for ICUAKI via finalize_easl helpers."""
+"""Full Table 1 (vitals/labs/drugs) for ICUAKI via finalize_easl helpers."""
 from __future__ import annotations
 
 import os

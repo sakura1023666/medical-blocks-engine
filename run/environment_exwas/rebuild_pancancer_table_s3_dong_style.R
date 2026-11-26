@@ -174,7 +174,7 @@ title <- sprintf(
   format(as.integer(n_tot), big.mark = ",", trim = TRUE)
 )
 footnotes <- c(
-  "Adjusted logistic models within sex strata; covariates match Table 2 Model 2 (without Gender).",
+  "Adjusted logistic models within sex strata; covariates match Table 2 Model 2 without sex (race/ethnicity, poverty income ratio, alcohol use, eGFR).",
   "OR per IQR for log (ln) exposures; 2 categories = detectable vs undetectable.",
   "q-values: Benjamini–Hochberg FDR within each sex stratum.",
   sprintf("Analytic n: Male = %s; Female = %s.",

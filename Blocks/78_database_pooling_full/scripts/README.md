@@ -15,7 +15,7 @@
 | `finalize_easl_paper_pub.py` | 定稿 Table/Fig；末尾调 `run/dbpool/finalize_summary_delivery.R` |
 | `eval_liver_paper_ci.py` | DeLong AUROC / bootstrap MAPE CI |
 | `rebuild_table2_only.py` / `rebuild_table3_only.py` | Table 2 / 3 重建 |
-| `rebuild_table_s1_allyn.py` / `rebuild_table_s2_moesm2.py` | Table S1 / S2 重建（版式模板；勿把 Allyn/MOESM 字样写进客户 Methods） |
+| `rebuild_table_s1_allyn.py` / `rebuild_table_s2_moesm2.py` | Table S1 / S2 重建（内部模板脚本名；勿把文献专名/MOESM 字样写进客户 Methods） |
 | `adapt_realextraction_to_blendedlos.py` | RealExtraction → BlendedLoS 布局 |
 | `run_dbpool_experiment.py` | 按实验单元调 `../upstream/BlendedLoS` |
 | `build_blendedlos_hourly.py` | 长表 → 小时宽表 |

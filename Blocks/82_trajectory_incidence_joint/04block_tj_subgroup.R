@@ -166,10 +166,12 @@ block_tj_subgroup <- function(ctx, ...) {
       }
       li_vec <- as.integer(layers[[lname]] != levels(layers[[lname]])[1])
       pin <- fit_set(seq_len(nrow(df)), covs, gv, cls_lev, li_vec = li_vec)
-      if (length(pin$chis) >= 2 && pin$dfi > 0) {
+      # 输出门控按「有效 LR 个数」而非 m_sets：非 Rubin（m=1）也要能报交互 P
+      chis_ok <- pin$chis[is.finite(pin$chis) & pin$chis >= 0]
+      if (length(chis_ok) >= 1 && pin$dfi > 0) {
         pirows[[paste(sys, lname, sep="|")]] <- data.frame(
           system=sys, subgroup=lname,
-          p_interaction=signif(stats::pchisq(mean(pin$chis), df=pin$dfi, lower.tail=FALSE), 4),
+          p_interaction=signif(stats::pchisq(mean(chis_ok), df=pin$dfi, lower.tail=FALSE), 4),
           stringsAsFactors=FALSE)
       }
     }

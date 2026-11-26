@@ -51,7 +51,8 @@ exwas_tox_merge_inflam <- function(df, data_dir) {
 # TotalProtein / Albumin（营养-肝蛋白）；MCH（造血）；WHtR（中心性肥胖）
 # Creatinine 虽 IDE 显著但与 Model2 eGFR 同域，不入主文
 exwas_tox_cancer_mediators_default <- function() {
-  c("TotalProtein", "Albumin", "Mean_cell_hemoglobin", "WHtR")
+  # 当前锁定 ERS 下 IDE P<0.05 的临床中介（MCH/WHtR 重拟合后 NS 已撤）
+  c("TotalProtein", "Albumin")
 }
 
 # mediation::mediate + bootstrap（对齐 Dong：sims=1000；连续中介 lm / 二分类结局 glm）

@@ -39,6 +39,25 @@
   invisible(path)
 }
 
+.competing_scrub_footnote_display <- function(fn) {
+  fn <- as.character(fn %||% "")[1L]
+  if (!nzchar(fn)) return(fn)
+  toks <- unique(unlist(regmatches(
+    fn, gregexpr("[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+", fn, perl = TRUE)
+  )))
+  for (t in toks) {
+    lab <- if (exists("pipeline_display_label", mode = "function")) {
+      pipeline_display_label(t)
+    } else {
+      gsub("_", " ", t, fixed = TRUE)
+    }
+    if (nzchar(lab) && !identical(lab, t)) fn <- gsub(t, lab, fn, fixed = TRUE)
+  }
+  # 兜底：残留编程下划线改空格
+  fn <- gsub("([A-Za-z0-9])_([A-Za-z0-9])", "\\1 \\2", fn, perl = TRUE)
+  fn
+}
+
 .competing_cov_footnote <- function(ctx, dual_section = TRUE) {
   covs <- ctx$results$competing_model_covs
   fn <- if (!is.null(covs$footnote) && nzchar(as.character(covs$footnote)[1L])) {
@@ -55,7 +74,7 @@
     fn <- gsub("Model 2/5", "Model 2", fn, fixed = TRUE)
     fn <- gsub("Model 3/6", "Model 3", fn, fixed = TRUE)
   }
-  fn
+  .competing_scrub_footnote_display(fn)
 }
 
 #' Lai 风格多时点森林图；可选双段（Competing / Standard）与 Model1–6
@@ -66,8 +85,21 @@
                                       dual_section = FALSE) {
   dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
   title <- gsub("_", " ", title, fixed = TRUE)
-  pdf(outfile, width = 12.5, height = if (isTRUE(dual_section)) 10 else 8)
+  footnote <- if (!is.null(footnote)) .competing_scrub_footnote_display(footnote) else footnote
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family()
+  } else {
+    "serif"
+  }
+  # Times 系衬线；裸 pdf()+Helvetica 禁止（pub_times_new_roman）
+  .fh <- if (isTRUE(dual_section)) 12.5 else 10
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(outfile, width = 13.2, height = .fh)
+  } else {
+    grDevices::pdf(outfile, width = 13.2, height = .fh, family = .ff)
+  }
   on.exit(dev.off(), add = TRUE)
+  par(family = .ff)
   if (is.null(tab) || !nrow(tab) || !"HR" %in% names(tab)) {
     plot.new(); title(main = paste0(title, "\n(no data)")); return(invisible(NULL))
   }
@@ -236,7 +268,7 @@
       } else {
         format(signif(rr$p[1], 3), scientific = FALSE)
       }
-      text(0.5, y_at[i], p_txt, cex = 0.65)
+      text(0.5, y_at[i], p_txt, cex = 0.52)
     }
   }
   mtext(title, side = 3, outer = TRUE, line = -1.0, font = 2, cex = 0.95)
@@ -254,13 +286,28 @@
   invisible(NULL)
 }
 
+.competing_pdf_open <- function(outfile, width, height) {
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family()
+  } else {
+    "serif"
+  }
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(outfile, width = width, height = height)
+  } else {
+    grDevices::pdf(outfile, width = width, height = height, family = .ff)
+  }
+  par(family = .ff)
+  invisible(.ff)
+}
+
 #' Figure 3: 2×3 RCS（主事件 7/14/28 + 死亡 7/14/28），可带 Model3 协变量
 .competing_pub_rcs_grid <- function(data, index_var, time_var, event_col,
                                     primary, death, horizons = c(7, 14, 28),
                                     covs = character(0), title, outfile,
                                     primary_lab = "Diabetes") {
   dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
-  pdf(outfile, width = 11, height = 7.2)
+  .competing_pdf_open(outfile, width = 11, height = 7.2)
   on.exit(dev.off(), add = TRUE)
   op <- par(mfrow = c(2, 3), mar = c(4, 4, 2.5, 1))
   on.exit(par(op), add = TRUE)
@@ -328,13 +375,13 @@
   title <- gsub("_", " ", title, fixed = TRUE)
   d <- data[!is.na(data[[strata]]) & !is.na(data[[time_var]]) & !is.na(data[[event_col]]), , drop = FALSE]
   if (!nrow(d) || !is.finite(horizon) || horizon <= 0) {
-    pdf(outfile, width = 8, height = 6); plot.new(); title(main = paste0(title, "\n(no data)")); dev.off()
+    .competing_pdf_open(outfile, width = 8, height = 6); plot.new(); title(main = paste0(title, "\n(no data)")); dev.off()
     return(invisible(NULL))
   }
   d[[strata]] <- factor(gsub("_", " ", as.character(d[[strata]]), fixed = TRUE))
   groups <- levels(d[[strata]])
   if (!length(groups)) {
-    pdf(outfile, width = 8, height = 6); plot.new(); title(main = paste0(title, "\n(no strata)")); dev.off()
+    .competing_pdf_open(outfile, width = 8, height = 6); plot.new(); title(main = paste0(title, "\n(no strata)")); dev.off()
     return(invisible(NULL))
   }
   cols <- grDevices::hcl.colors(max(1L, length(groups)), "Dark 3")
@@ -388,7 +435,7 @@
   if (y_top < y_max * 1.05) y_top <- min(1, y_max * 1.15)
   if (y_top < 0.1) y_top <- 0.1
 
-  pdf(outfile, width = 8.8, height = 6.8)
+  .competing_pdf_open(outfile, width = 8.8, height = 6.8)
   on.exit(dev.off(), add = TRUE)
   # 风险表更矮更紧凑
   layout(matrix(c(1, 2, 3, 4), nrow = 2, byrow = TRUE),

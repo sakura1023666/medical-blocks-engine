@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mild-denoise Allyn pool train (mortality AUROC primary).
+# Mild-denoise literature feature pool train (mortality AUROC primary).
 set -euo pipefail
 ROOT=/mnt/sda/csaaki_gongqian_train
 BLENDED=/mnt/sda/BlendedICU/data/csaaki_gongqian_42151996/blendedlos_csaaki

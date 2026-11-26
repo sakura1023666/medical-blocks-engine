@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mild denoise of Allyn full pool, then same CSA-AKI TPC units as other arms.
+# Mild denoise of full literature feature pool, then same CSA-AKI TPC units as other arms.
 set -u
 PY=/home/ps/miniconda3/envs/blendedlos/bin/python
 LOG=/mnt/sda/csaaki_gongqian_train/logs_allyn_mild
@@ -33,7 +33,7 @@ mkdir -p "$OUT"
   echo "ARM=csaaki_allyn_mild_denoise"
   echo "DROP=$DBPOOL_DROP_TS"
   echo "KEEP=$DBPOOL_KEEP_TS"
-  echo "gates=Allyn keep=1 minus Cr/UO; drop meds not in BOTH train DBs (cov>=0.05); drop asymmetric train (max>=0.50 & min<0.05); NO UV/VIF/LASSO; NO ext/SMD hard gates"
+  echo "gates=literature keep=1 minus Cr/UO; drop meds not in BOTH train DBs (cov>=0.05); drop asymmetric train (max>=0.50 & min<0.05); NO UV/VIF/LASSO; NO ext/SMD hard gates"
 } > "$OUT/FEATURE_GATE.txt"
 "$PY" -c "import torch; assert torch.cuda.is_available(); print('cuda_ok', torch.cuda.get_device_name(0))"
 UNITS=(
@@ -50,4 +50,4 @@ for u in "${UNITS[@]}"; do
   echo "EXIT $u $ec $(date -Iseconds)" | tee -a "$LOG/master.log"
   if [ "$ec" -ne 0 ]; then echo "STOP_ON_FAIL $u" | tee -a "$LOG/master.log"; exit "$ec"; fi
 done
-echo "ALL_DONE_ALLYN_MILD $(date -Iseconds)" | tee -a "$LOG/master.log"
+echo "ALL_DONE_MILD_DENOISE $(date -Iseconds)" | tee -a "$LOG/master.log"

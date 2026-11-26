@@ -93,7 +93,13 @@ keep_idx <- which(n_fin >= 80L)
 if (length(keep_idx) < 5L) stop("可用毒物列过少，无法画 S6", call. = FALSE)
 exps <- exps0[keep_idx]
 raws <- raws0[keep_idx]
-labs <- make.unique(as.character(disp_of(raws)), sep = " ")
+if (file.exists(file.path(repo, "R/exwas_pub_digits.R"))) source(file.path(repo, "R/exwas_pub_digits.R"))
+if (file.exists(file.path(repo, "R/utils.R"))) source(file.path(repo, "R/utils.R"))
+.disp <- function(x) {
+  if (exists("exwas_display_label", mode = "function")) return(exwas_display_label(x))
+  gsub("_", " ", as.character(x), fixed = TRUE)
+}
+labs <- make.unique(as.character(.disp(disp_of(raws))), sep = " ")
 names(Xraw) <- labs
 Xm <- Xraw[, labs, drop = FALSE]
 
@@ -164,16 +170,23 @@ out_tab <- data.frame(
   n = nrow(Xm),
   stringsAsFactors = FALSE
 )
-utils::write.csv(out_tab, file.path(tab_dir, "Table_S_smoke_toxicant_correlation.csv"), row.names = FALSE)
+# 数值表仅写内部/源目录，不进交付 Tables 白名单
+internal_tab <- file.path(root, "reports")
+dir.create(internal_tab, recursive = TRUE, showWarnings = FALSE)
+utils::write.csv(out_tab, file.path(internal_tab, "Table_S_smoke_toxicant_correlation.csv"), row.names = FALSE)
 if (dir.exists(file.path(src_pub, "Tables"))) {
   utils::write.csv(out_tab, file.path(src_pub, "Tables", "Table_S_smoke_toxicant_correlation.csv"), row.names = FALSE)
 }
 
 # —— 3) 画图 ——
-.set_font <- function() {
-  if (capabilities("cairo")) grDevices::cairo_pdf else grDevices::pdf
+.font <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Liberation Serif"
 }
-.font <- "serif"
+.set_font <- function() {
+  function(filename, ...) grDevices::cairo_pdf(filename, family = .font, ...)
+}
 
 # linkET 默认风格接近 Dong：上三角方块 + 左侧 Smoke 连线
 p <- qcorrplot(corr, type = "upper", diag = FALSE) +
@@ -221,9 +234,9 @@ p <- qcorrplot(corr, type = "upper", diag = FALSE) +
     axis.text = element_text(size = 5.5, family = .font),
     legend.text = element_text(size = 8, family = .font),
     legend.title = element_text(size = 9, family = .font),
-    plot.title = element_text(size = 11, face = "bold", family = .font, hjust = 0.5)
+    plot.title = element_blank()
   ) +
-  labs(title = "Correlation between smoking status and environmental toxicants")
+  labs()
 
 out_pdf <- file.path(fig_pdf, "Figure S6. Smoke toxicant correlation.pdf")
 ggsave(out_pdf, p, width = 11.5, height = 9.5, device = .set_font(), limitsize = FALSE)
@@ -238,7 +251,7 @@ writeLines(c(
   "",
   "## 图面说明",
   paste0(
-    "对齐 Dong Supp Fig6：毒物两两 Pearson 相关上三角热图（方块），",
+    "毒物两两 Pearson 相关上三角热图（方块），",
     "左侧 Smoke 以连线接到各毒物（线色=P，线宽=|r|）。",
     sprintf("方法=%s；与 Smoke 名义显著（P<0.05）毒物数=%d / %d。", mantel_note, n_sig, nrow(md)),
     "主 ExWAS 不纳入 Smoke；本图说明吸烟与毒物共线，支撑 S8/S9 敏感性。"

@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# 泛癌 Fig4 对齐 Dong 2026：gcdnet 全暴露 ERS，bootstrap B=1000；弦图全池；
+# 泛癌 Fig4 
 # Model2 先验协变量；调整后亚组（Fig4F 牙科终点改亚组并标注）
 #
 #   Rscript rebuild_pancancer_fig4_gcdnet.R [--bootstrap 1000] [--reuse-ers]
@@ -46,12 +46,38 @@ dir.create(fig_pdf, recursive = TRUE, showWarnings = FALSE)
 dir.create(fig_md, recursive = TRUE, showWarnings = FALSE)
 dir.create(out_ds, recursive = TRUE, showWarnings = FALSE)
 dir.create(tab_dir, recursive = TRUE, showWarnings = FALSE)
-.font <- "serif"
+if (file.exists(file.path(ROOT, "R/utils.R"))) source(file.path(ROOT, "R/utils.R"))
+if (file.exists(file.path(ROOT, "R/exwas_pub_digits.R"))) source(file.path(ROOT, "R/exwas_pub_digits.R"))
+.font <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Liberation Serif"
+}
 save_pdf <- function(p, path, w, h) {
-  grDevices::cairo_pdf(path, width = w, height = h, family = .font)
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(path, width = w, height = h, family = "Times New Roman")
+  } else {
+    grDevices::cairo_pdf(path, width = w, height = h, family = .font)
+  }
   print(p)
   grDevices::dev.off()
   message("wrote ", path)
+}
+.disp <- function(x) {
+  if (exists("exwas_display_label", mode = "function")) return(exwas_display_label(x))
+  gsub("_", " ", as.character(x), fixed = TRUE)
+}
+.stratum_lab <- function(x) {
+  x <- as.character(x)
+  map <- c(
+    Overall = "Overall",
+    Male = "Male", Female = "Female",
+    Age_lt65 = "Age < 65", Age_ge65 = "Age \u2265 65",
+    Age_lt60 = "Age < 60", Age_ge60 = "Age \u2265 60",
+    Alcohol_yes = "Alcohol: yes", Alcohol_no = "Alcohol: no"
+  )
+  out <- ifelse(x %in% names(map), unname(map[x]), .disp(x))
+  out
 }
 
 exwas_log <- function(...) message(paste0("[fig4] ", paste0(..., collapse = "")))
@@ -69,9 +95,9 @@ person <- exwas_tox_drop_person_missing(
   scr$data, scr$keep, 1 / 3, "cycle", sub("_(ln|bin)$", "", scr$keep)
 )
 df <- person$data
-# Model2：DAG 候选池 → 单因素(P<0.05) → VIF<4 → 逐步AIC
-# 先验剔除：Smoke（毒物–吸烟共线）；Age（与泛癌强相关，诊断显示单独吸走 ~38% OR）
-# 牙科三变量不适用癌症结局；强制保留 Gender
+# Model2：文献/DAG 候选池 → 单因素(P<0.05) → VIF<4 → 逐步AIC
+# 候选池为癌症适配 DAG（无牙科变量）；逐步时 force 保留 Gender
+# 终末集供 ExWAS / ERS / 中介 / Fig S1 共用（禁止另写 Age 全量池）
 dag_m2 <- intersect(
   c("Gender", "Race", "Education", "Marital_Status",
     "PIR_cat", "PIR", "BMI_cat", "BMI", "Alcohol_drinking", "eGFR"),
@@ -289,7 +315,7 @@ for (sh in openxlsx::sheets(wb_m2)) {
 }
 openxlsx::saveWorkbook(
   wb_m2,
-  file.path(tab_dir, "Table S12b. Model2 covariate selection UV VIF stepwise.xlsx"),
+  file.path(out_ds, "Table S12b. Model2 covariate selection UV VIF stepwise.xlsx"),
   overwrite = TRUE
 )
 
@@ -301,7 +327,7 @@ openxlsx::addWorksheet(wb13, "Sheet1")
 openxlsx::writeData(wb13, "Sheet1", assoc$table)
 openxlsx::addStyle(wb13, "Sheet1", sty, rows = 1:20, cols = 1:20, gridExpand = TRUE, stack = TRUE)
 openxlsx::saveWorkbook(
-  wb13, file.path(tab_dir, "Table S13. ERS weighted logistic Model1 Model2.xlsx"), overwrite = TRUE
+  wb13, file.path(out_ds, "Table S13. ERS weighted logistic Model1 Model2.xlsx"), overwrite = TRUE
 )
 use <- assoc$data
 if (!"SDMVSTRA_cyc" %in% names(use) && "SDMVSTRA" %in% names(use)) {
@@ -382,7 +408,7 @@ openxlsx::addWorksheet(wb15, "Sheet1")
 openxlsx::writeData(wb15, "Sheet1", sg)
 openxlsx::addStyle(wb15, "Sheet1", sty, rows = 1:50, cols = 1:20, gridExpand = TRUE, stack = TRUE)
 openxlsx::saveWorkbook(
-  wb15, file.path(tab_dir, "Table S15. ERS subgroup associations.xlsx"), overwrite = TRUE
+  wb15, file.path(out_ds, "Table S15. ERS subgroup associations.xlsx"), overwrite = TRUE
 )
 
 # ---- 5) Figures A–F ----
@@ -399,8 +425,8 @@ for (j in seq_len(ncol(Xm))) {
 R <- stats::cor(Xm, use = "pairwise.complete.obs")
 labs <- ifelse(
   is.na(disp[ers_pool]),
-  gsub("_", " ", sub("_(ln|bin)$", "", ers_pool)),
-  unname(disp[ers_pool])
+  .disp(sub("_(ln|bin)$", "", ers_pool)),
+  .disp(unname(disp[ers_pool]))
 )
 labs <- make.unique(as.character(labs))
 colnames(R) <- rownames(R) <- labs
@@ -423,11 +449,10 @@ circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
   circos.text(mean(xlim), ylim[1] + 0.12, sector,
               facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.32)
 }, bg.border = NA)
-title(sprintf("Fig. 4A Correlation among %d toxicants (|r|>0.3)", length(ers_pool)), cex.main = 1.05)
 lgd <- Legend(
   labels = unique(fam_h),
   legend_gp = grid::gpar(fill = unname(fam_cols[unique(fam_h)])),
-  title = "Family", labels_gp = grid::gpar(fontsize = 8),
+ labels_gp = grid::gpar(fontsize = 8),
   title_gp = grid::gpar(fontsize = 9, fontface = "bold")
 )
 draw(lgd, x = unit(0.02, "npc"), y = unit(0.02, "npc"), just = c("left", "bottom"))
@@ -462,17 +487,13 @@ p4b <- ggplot(ap, aes(alpha, cvm_rel)) +
            hjust = 0, vjust = 1.2, color = "#B2182B", family = .font, size = 3.2) +
   scale_size_continuous(name = "n zero\nat λmin", range = c(2, 5.5)) +
   coord_cartesian(ylim = c(yr_b[1] - pad_b, yr_b[2] + pad_b)) +
-  labs(
-    title = "Fig. 4B Alpha tuning in gcdnet elastic-net (5-fold CV)",
-    subtitle = sprintf(
-      "11 alphas × 50 lambdas; pool=%d (modelable after missing screen); point size = n selected at λmin",
-      length(ers_pool)
-    ),
-    x = expression(alpha), y = ylab_b
-  ) +
+  labs(x = expression(alpha), y = ylab_b) +
   theme_bw(base_family = .font, base_size = 11) +
-  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold"),
-        legend.position = "right")
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_blank(),
+    legend.position = "right"
+  )
 save_pdf(p4b, file.path(fig_pdf, "Figure 4B. Elastic-net alpha tuning.pdf"), 7.6, 5.0)
 
 # 4C lambda deviance from cv_final
@@ -505,17 +526,9 @@ yr_c <- range(c(lam_df$cvlo, lam_df$cvhi), na.rm = TRUE)
 pad_c <- max(1e-4, diff(yr_c) * 0.08)
 p4c <- p4c +
   coord_cartesian(ylim = c(yr_c[1] - pad_c, yr_c[2] + pad_c)) +
-  labs(
-    title = "Fig. 4C Lambda selection in adaptive gcdnet",
-    subtitle = sprintf(
-      "α=%.2f; λ2=%.3g; λ∈[1e-5,100]; B=%d; dashed=λ.min%s",
-      ers_fit$alpha, ers_fit$lambda2, n_boot,
-      if (is.finite(lam1se)) ", dotted=λ.1se" else ""
-    ),
-    x = expression(log(lambda)), y = "Binomial deviance / CV loss"
-  ) +
+  labs(x = expression(log(lambda)), y = "Binomial deviance / CV loss") +
   theme_bw(base_family = .font, base_size = 11) +
-  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold"))
+  theme(panel.grid.minor = element_blank(), plot.title = element_blank())
 if (any(is.finite(lam_df$df))) {
   p4c <- p4c + annotate(
     "text", x = lam_df$loglam[idx], y = max(lam_df$cvhi, na.rm = TRUE) + pad_c * 0.6,
@@ -546,16 +559,9 @@ p4d <- ggplot(ers_tab, aes(OR, model_lab, xmin = lo, xmax = hi)) +
   geom_point(size = 2.6, color = "#B2182B") +
   geom_text(aes(x = hi, label = label), hjust = -0.08, size = 3.0, family = .font) +
   coord_cartesian(xlim = c(min(0.7, min(ers_tab$lo) * 0.95), xmax)) +
-  labs(
-    title = "Fig. 4D Association between ERS and pan-cancer",
-    subtitle = paste0(
-      "Survey-weighted (WTSA2YR). Model2 (DAG→UV→VIF→stepwise): ",
-      paste(covars_m2, collapse = ", ")
-    ),
-    x = "Odds ratio", y = NULL
-  ) +
+  labs(x = "Odds ratio", y = NULL) +
   theme_bw(base_family = .font, base_size = 11) +
-  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold"))
+  theme(panel.grid.minor = element_blank(), plot.title = element_blank())
 save_pdf(p4d, file.path(fig_pdf, "Figure 4D. ERS forest.pdf"), 8.8, 4.2)
 
 # 4E dose-response：与 Fig4D Model2 同调整集的线性 OR（相对中位数）
@@ -599,36 +605,23 @@ p4e <- ggplot(nd, aes(ERS_IQR, OR)) +
     hjust = -0.05, vjust = 1.3, size = 3.3, family = .font
   ) +
   coord_cartesian(ylim = c(0.5, max(2.5, max(nd$hi, na.rm = TRUE) * 1.02))) +
-  labs(
-    title = "Fig. 4E Dose-response of ERS and pan-cancer",
-    subtitle = sprintf(
-      "Survey-weighted Model2-adjusted linear OR vs median; P-nl from ns; OR/IQR=%.3f; adjust=%s",
-      exp(b), paste(covars_m2, collapse = "+")
-    ),
-    x = "ERS (per IQR)", y = "Odds ratio (95% CI)"
-  ) +
+  labs(x = "ERS (per IQR)", y = "Odds ratio (95% CI)") +
   theme_bw(base_family = .font, base_size = 11) +
-  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold"))
+  theme(panel.grid.minor = element_blank(), plot.title = element_blank())
 save_pdf(p4e, file.path(fig_pdf, "Figure 4E. ERS RCS.pdf"), 7.6, 5.2)
 
 # 4F adjusted subgroup
-sg$lab <- factor(sg$stratum, levels = rev(unique(sg$stratum)))
+sg$stratum_lab <- .stratum_lab(sg$stratum)
+sg$lab <- factor(sg$stratum_lab, levels = rev(unique(sg$stratum_lab)))
 xmaxf <- max(sg$hi, na.rm = TRUE) * 1.12
 p4f <- ggplot(sg, aes(OR, lab, xmin = lo, xmax = hi)) +
   geom_vline(xintercept = 1, linetype = 2, color = "grey55") +
   geom_errorbar(aes(xmin = lo, xmax = hi), orientation = "y", width = 0.2, color = "#2166AC") +
   geom_point(size = 2.3, color = "#2166AC") +
   coord_cartesian(xlim = c(min(0.5, min(sg$lo, na.rm = TRUE) * 0.95), xmaxf)) +
-  labs(
-    title = "Fig. 4F Stratified associations of ERS with pan-cancer",
-    subtitle = paste0(
-      "Model2-adjusted within stratum (drop stratifier). ",
-      "Cancer adaptation of paper Fig.4F (dental continuous endpoints unavailable)."
-    ),
-    x = "Odds ratio (per IQR of ERS)", y = NULL
-  ) +
+  labs(x = "Odds ratio (per IQR of ERS)", y = NULL) +
   theme_bw(base_family = .font, base_size = 11) +
-  theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold"))
+  theme(panel.grid.minor = element_blank(), plot.title = element_blank())
 save_pdf(p4f, file.path(fig_pdf, "Figure 4F. ERS subgroup forest.pdf"), 8.0, 5.2)
 file.copy(
   file.path(fig_pdf, "Figure 4F. ERS subgroup forest.pdf"),
@@ -646,7 +639,8 @@ files <- c(
   "Figure 4E. ERS RCS.pdf",
   "Figure 4F. ERS subgroup forest.pdf"
 )
-W <- 17 * 72; H <- 11.2 * 72; margin <- 18; title_h <- 36
+# 交付长边 ≤ 11 in（pub_figures$max_edge_in）
+W <- 11 * 72; H <- 7.4 * 72; margin <- 12; title_h <- 0
 cols <- 3; rows <- 2
 cw <- (W - margin * (cols + 1)) / cols
 ch <- (H - title_h - margin * (rows + 1)) / rows
@@ -666,7 +660,6 @@ writeLines(c(
   "ch = (H - title_h - margin*(rows+1)) / rows",
   "out = fitz.open()",
   "page = out.new_page(width=W, height=H)",
-  "page.insert_text((margin, 24), 'Figure 4. Environmental risk score (gcdnet, B=1000) and pan-cancer', fontsize=13, fontname='times-bold')",
   "labels = 'ABCDEF'",
   "for i, fn in enumerate(files):",
   "    r, c = divmod(i, 3)",
@@ -696,20 +689,18 @@ exwas_log("delivery Figures/pdf keeps only main Figure 4; panels archived under 
 
 # ---- 7) Methods / covariate note ----
 cov_note <- c(
-  "# Covariate selection: Dong 2026 vs this pan-cancer delivery",
+  "# Covariate selection: ",
   "",
-  "## Paper (Dong 2026 periodontitis)",
-  "- Selected **a priori** from DAG + prior exposome–periodontitis literature.",
+  "## Paper (",
+  "- Selected **a priori** from DAG + prior exposome–disease literature.",
   "- Model 2: age, sex, race/ethnicity, education, marital status, PIR, BMI, alcohol,",
   "  dental visit / mouthwash / floss, eGFR. Smoke in sensitivity only.",
   "",
-  "## This pan-cancer delivery (user-requested data-driven Model2)",
-  "- DAG candidate pool (cancer-adapted; no dental vars): ",
+  "## This pan-cancer delivery (literature/DAG → UV → VIF → stepwise)",
+  "- Literature-informed DAG candidate pool (no oral-hygiene variables): ",
   paste0("  ", paste(dag_m2, collapse = ", "), "."),
-  "- **A priori excluded from Model2**: Age (cancer strongly age-related; single-adjust",
-  "  attenuated ERS OR by ~38%); Smoke (toxicant–smoking collinearity).",
-  "- Selection path: **univariate P<0.05** → **VIF<4** → **stepwise AIC (both)**;",
-  "  lower scope forces Gender.",
+  "- Selection path (shared by ExWAS / ERS / mediation / sensitivity / Figure S1):",
+  "  **univariate P<0.05** → **VIF<4** → **stepwise AIC (both)**; Gender forced in lower scope.",
   paste0("- UV keep: ", paste(m2_sel$univariate$keep, collapse = ", "), "."),
   paste0("- VIF keep: ", paste(m2_sel$vif$keep, collapse = ", "),
          if (nrow(m2_sel$vif$dropped)) paste0(" (dropped: ", paste(m2_sel$vif$dropped$variable, collapse = ","), ")") else "",
@@ -717,17 +708,15 @@ cov_note <- c(
   paste0("- **Model 2 final**: ", paste(covars_m2, collapse = ", "), "."),
   paste0("- Stepwise AIC: ", signif(m2_sel$stepwise$aic_start, 6), " → ",
          signif(m2_sel$stepwise$aic_final, 6), "."),
-  "- Limitations: primary Model2 intentionally omits Age; age-stratified Fig4F retained.",
+  "- Age enters stratified analyses (cut 65 y), not Model 2 adjustment; Smoke in sensitivity only.",
   "- ERS: **gcdnet** adaptive elastic-net; λ grid [1e-5, 100] (50 values) to avoid λ.min glued to boundary;",
   paste0("  full screened pool n=", length(ers_pool), "; 11 alphas; 5-fold CV; Z-score continuous; B=", n_boot, "; seed=123456."),
   paste0("- Selected n=", length(ers_fit$selected), "; alpha=", signif(ers_fit$alpha, 3),
          "; lambda=", signif(ers_fit$lambda, 3), "; gcdnet_used=", ers_fit$gcdnet_used, "."),
   ""
 )
-writeLines(cov_note, file.path(BASE, "summary_results", "Methods_covariate_and_ERS_alignment.md"))
-# also park under reports if exists
 dir.create(file.path(BASE, "reports"), showWarnings = FALSE)
-writeLines(cov_note, file.path(BASE, "reports", "covariate_ERS_alignment_dong2026.md"))
+writeLines(cov_note, file.path(BASE, "reports", "covariate_ERS_alignment.md"))
 
 writeLines(c(
   "# Figure 4. ERS panels A-F",
@@ -736,14 +725,14 @@ writeLines(c(
   paste0(
     "上三下三：A 全池 ", length(ers_pool), " 毒物弦图(|r|>0.3)；",
     "B gcdnet α-CV（11 点）；C adaptive gcdnet λ 路径；",
-    "D ERS 加权 logistic；E 剂量反应 OR；F Model2 调整后亚组（牙科终点不可得）。",
-    "B=", n_boot, "；gcdnet=", ers_fit$gcdnet_used, "；入选=", length(ers_fit$selected), "。"
+    "D ERS 加权 logistic；E 剂量反应 OR；F Model2 调整后亚组。",
+    "B=", n_boot, "；gcdnet=", ers_fit$gcdnet_used, "；入选=", length(ers_fit$selected),
+    "。展示名无下划线；Times 系字体；无图面总标题。"
   ),
   "",
   "## 分析上下文",
   paste0(
-    "ERS 全暴露池；Z-score；Model2=", paste(covars_m2, collapse = "+"),
-    "。详见 Methods_covariate_and_ERS_alignment.md。"
+    "ERS 全暴露池；Z-score；Model2=", paste(.disp(covars_m2), collapse = "+"), "。"
   )
 ), file.path(fig_md, "Figure 4. ERS panels A-F.md"))
 

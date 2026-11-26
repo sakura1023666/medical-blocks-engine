@@ -140,7 +140,7 @@ n_ers <- if ("selected_in_ERS" %in% names(raw)) {
 
 title <- "Table S5. Bootstrap Inclusion Frequencies and Coefficient Distributions of Variables."
 footnotes <- c(
-  "Adaptive elastic-net (gcdnet) with toxicants and locked Model 2 covariates entered jointly; α fixed at 0.9 (aligned with Dong et al. Methods); B = 1000 bootstrap resamples.",
+  "Adaptive elastic-net (gcdnet) with toxicants and locked Model 2 covariates entered jointly; α fixed at 0.9; B = 1000 bootstrap resamples.",
   "Model 2 covariates entered with light penalty (penalty factor = 0.01): Gender, Race, PIR category, Alcohol drinking, eGFR (Age and dental variables not included, per pan-cancer protocol).",
   "Inclusion frequency = proportion of bootstrap fits with non-zero coefficient at the selected penalty; mean/sd of coefficients across bootstraps.",
   sprintf(

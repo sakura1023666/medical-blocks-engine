@@ -352,9 +352,21 @@ if (nrow(s11)) {
     ggplot2::coord_cartesian(ylim = c(0.5, 1)) +
     ggplot2::labs(x = "Horizon, years", y = "AUC", fill = NULL,
                   title = "Prediction AUC for all-cause mortality by horizon") +
-    ggplot2::theme_bw(base_size = 11)
+    ggplot2::theme_bw(
+      base_size = 11,
+      base_family = if (exists("resolve_plot_font_family", mode = "function")) {
+        resolve_plot_font_family("Times New Roman")
+      } else {
+        "Times"
+      }
+    )
+  .ff_s1 <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "Times"
+  }
   ggplot2::ggsave(file.path(fig_dir, "Figure S1. Prediction AUC at 2 5 and 10 years.pdf"),
-                  p, width = 7.2, height = 4.2, device = grDevices::cairo_pdf)
+                  p, width = 7.2, height = 4.2, device = grDevices::cairo_pdf, family = .ff_s1)
 }
 message("S11 done")
 

@@ -29,7 +29,7 @@
 |------|------|--------|
 | Methods（t0 / ICU mortality+RLoS / 表2≠表3 / Transfer） | `R/pub_dbpool_methods.R` | finalize |
 | 禁下划线 + **Times xlsx** | `python/pub_xlsx_scrub_display.py` ← `pub_delivery_scrub_display` | finalize / prune-only |
-| Allyn 小数位 | `Blocks/78_…/scripts/dbpool_pub_digits.py` + `.cursor/rules/dbpool_pub_digits.mdc`；EASL/ICUAKI finalize 共用 | 出表 |
+| 发表小数位 | `Blocks/78_…/scripts/dbpool_pub_digits.py` + `.cursor/rules/dbpool_pub_digits.mdc`；EASL/ICUAKI finalize 共用 | 出表 |
 | Times 薄 CLI（旧调用兼容） | `R/pub_xlsx_force_times.R` → 转调 scrub `--times-only`（路径一律 `shQuote`，兼容 `summary(new)`） | 可选 |
 | 字体 QC（括号文件名 OK） | `R/pub_qc_fonts.R` | pub-qc |
 | 软件版本（dbpool Python modules_only） | `R/pub_software_versions.R` | finalize |

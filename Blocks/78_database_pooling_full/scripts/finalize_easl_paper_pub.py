@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Finalize liver multi-DB paper pack into summary_results (Allyn Crit Care 2026 aligned).
+"""Finalize liver multi-DB paper pack into summary_results.
 
 Default cohort = EASL/DILI. Override via env for ACG / MARS / etc.:
   EASL_ROOT / LIVER_ROOT, LIVER_BLENDED_SUBDIR, LIVER_COHORT_*, LIVER_PUB_OUT,
   EASL_MAIN_OUT, EASL_EXTRA_OUT.
 
-Figures follow Allyn Fig.1 / Fig.2 visual language; tables follow manuscript +
+Figures follow the pool pack Fig.1 / Fig.2 visual language; tables follow manuscript +
 MOESM1/MOESM2 wide layouts (SCI three-line xlsx).
 """
 from __future__ import annotations
@@ -153,7 +153,7 @@ plt.rcParams.update(
 )
 
 
-# Engine digit policy (Allyn Crit Care 2026–aligned): dbpool_pub_digits.py
+# Engine digit policy: dbpool_pub_digits.py
 try:
     from dbpool_pub_digits import (  # type: ignore
         DIGITS as DBPOOL_DIGITS,
@@ -190,7 +190,7 @@ def _fmt_est(x, digits=3):
 
 
 def _fmt_ci(est, lo, hi, digits=3) -> str:
-    # Allyn tables use en-dash in CI; keep comma form only if caller expects legacy
+    # Tables use en-dash in CI; keep comma form only if caller expects legacy
     return _fmt_ci_policy(est, lo, hi, digits=digits, sep="–")
 
 
@@ -410,7 +410,7 @@ def _n_pct(num: int, den: int) -> str:
     return f"{num:,} ({100.0 * num / den:.1f}%)"
 
 
-# Allyn Table 1 continuous / drug rows (Critical Care 2026)
+# Table 1 continuous / drug rows (reference multi-DB ICU pack)
 _T1_VITALS = [
     ("heart_rate", "   Heart rate (/min)"),
     ("invasive_systolic_blood_pressure", "   Invasive Systolic Arterial pressure (mmHg)"),
@@ -530,7 +530,7 @@ def _table1_scan_timeseries(lab: pd.DataFrame) -> tuple[dict, dict]:
 
 
 def table1_wide() -> pd.DataFrame:
-    """Allyn Table 1 full layout: demographics + vitals + labs + unit + 8 drugs."""
+    """Table 1 full layout: demographics + vitals + labs + unit + 8 drugs."""
     lab = pd.read_parquet(BLENDED_ROOT / "preprocessed_labels.parquet")
     if "patient" not in lab.columns:
         lab = lab.reset_index()
@@ -571,7 +571,7 @@ def table1_wide() -> pd.DataFrame:
         n_female = int((sex == 0).sum())
         n_unk = max(0, n_stay - n_male - n_female)
 
-        # Allyn: Multi-centric = Yes (N = n hospitals); eICU care_site = hospitalid
+        # Multi-centric = Yes (N = n hospitals); eICU care_site = hospitalid
         if "care_site" in g.columns:
             n_sites = int(g["care_site"].dropna().astype(str).nunique())
         else:
@@ -676,7 +676,7 @@ def _fmt_var_pct(rel: float) -> str:
 
 
 def _fmt_ci_en(est, lo, hi, digits: int) -> str:
-    """Allyn-style point [lo–hi] with en-dash."""
+    """Point [lo–hi] with en-dash."""
     if est is None or (isinstance(est, float) and not np.isfinite(est)):
         return "–"
     if lo is None or hi is None or not (np.isfinite(lo) and np.isfinite(hi)):
@@ -747,7 +747,7 @@ def _table2_block_metrics(stay: pd.DataFrame, n_boot: int, ci_mod) -> dict:
 
 
 def table2_manuscript(extra_root: Path) -> pd.DataFrame:
-    """Allyn Table 2: Task|Internal|External|Variation with 95% CIs.
+    """Table 2: Task|Internal|External|Variation with 95% CIs.
 
     Internal = train DB; External = pooled other three DBs (one CI, not mean of three).
     AUROC CI: DeLong (stay). MAPE/AUPRC CI: patient-level bootstrap 10,000.
@@ -840,7 +840,7 @@ def table2_manuscript(extra_root: Path) -> pd.DataFrame:
 
 
 def _table3_col_header(arm: str, n_train) -> str:
-    """Allyn Table 3 column titles (with N)."""
+    """Table 3 column titles (with N)."""
     n = _fmt_n(n_train) if n_train is not None else "–"
     if arm == "Amsterdam only":
         return f"Training on AmsterdamUMC\nN = {n}"
@@ -895,7 +895,7 @@ def _table3_gen_pool_from_ci(
     base_auc: float,
     base_mape: float,
 ) -> dict:
-    """Generalization = mean of eICU + HiRID stay-level metrics (Allyn single Gen block)."""
+    """Generalization = mean of eICU + HiRID stay-level metrics (single Gen block)."""
     parts = [
         _table3_metric_from_ci(ci, unit, db, base_auc=base_auc, base_mape=base_mape)
         for db in ("eicu", "hirid")
@@ -921,7 +921,7 @@ def _table3_gen_pool_from_ci(
 
 
 def table3_wide_matrix(store: dict, ci: pd.DataFrame | None) -> pd.DataFrame:
-    """Allyn Table 3 layout: one metric column + four training-strategy columns.
+    """Table 3 layout: one metric column + four training-strategy columns.
 
     Sections: Specialization on AmsterdamUMC | Specialization on MIMIC-IV | Generalization.
     Metrics: Mortality AUROC, RLoS MAPE, Mcomposite (no AUPRC). Transfer blank except
@@ -947,7 +947,7 @@ def table3_wide_matrix(store: dict, ci: pd.DataFrame | None) -> pd.DataFrame:
         ("Specialization on MIMIC-IV", "mimic4", False),
         ("Generalization", "gen", True),
     ]
-    # Allyn Crit Care main Table 3 display: AUROC 2 dp, MAPE 2 dp, Mcomposite 2 dp.
+    # Main Table 3 display: AUROC 2 dp, MAPE 2 dp, Mcomposite 2 dp.
     # Table S2 equal-n bake-off uses AUROC 3 dp / MAPE 1 dp (see rebuild_table_s2).
     metric_specs = [
         ("Mortality, AUROC", "auc", 2),
@@ -961,7 +961,7 @@ def table3_wide_matrix(store: dict, ci: pd.DataFrame | None) -> pd.DataFrame:
         for mlab, mkey, digits in metric_specs:
             row = {col0: mlab}
             for arm in arms:
-                # Allyn: Transfer Learning only reported on Amsterdam specialization
+                # Transfer Learning only reported on Amsterdam specialization
                 if arm == "Transfer" and db_key != "amsterdam":
                     row[col_map[arm]] = "–"
                     continue
@@ -1139,7 +1139,7 @@ def _chip(ax, x, y, w, h, text, face):
 
 
 def make_fig1(out: Path, store: dict):
-    """Allyn Fig.1: seven-step pipeline + four strategies with N and eval notes.
+    """Fig.1: seven-step pipeline + four strategies with N and eval notes.
 
     No figure-level caption/footnote on the canvas (caption lives in manuscript / image_information).
     """
@@ -1241,7 +1241,7 @@ def make_fig1(out: Path, store: dict):
 
 
 def fig2_training_size(extra_root: Path, out: Path) -> pd.DataFrame:
-    """Allyn Fig.2 layout: left=Composite; right inner=RLoS MAPE; right outer=Mortality AUROC.
+    """Fig.2 layout: left=Composite; right inner=RLoS MAPE; right outer=Mortality AUROC.
 
     Metrics are **stay-level** eICU+HiRID means from test_predictions_* (same path as
     Table 2/3 Gen), not hour-level metrics_multitask.csv. The 100% training-size
@@ -1452,7 +1452,7 @@ def write_notes(out: Path, store: dict, size_tab: pd.DataFrame):
     lines = [
         "# 和原文的差别",
         "",
-        "原文：Allyn 等，Critical Care 2026，BlendedLoS（全体 ICU）。",
+        "原文：既有多数据库 ICU 池化 / BlendedLoS 文献包（全体 ICU）。",
         f"本包：{COHORT_NOTE_ZH}",
         "",
         "## 已对齐原文的分析内容",
@@ -1527,13 +1527,13 @@ def write_notes(out: Path, store: dict, size_tab: pd.DataFrame):
 
 
 def _purge_non_manuscript_tables(tables_dir: Path):
-    """Keep only Allyn main/supplement table xlsx; drop CSV twins and extras."""
+    """Keep only main/supplement table xlsx; drop CSV twins and extras."""
     keep = {
         "Table 1. Cohort characteristics.xlsx",
         "Table 2. Internal and external.xlsx",
         "Table 3. Four training strategies.xlsx",
         "Table 4. Literature comparison.xlsx",
-        # Allyn MOESM1 layout (physio clip + post-norm outliers); not the old q5/q95-only Scaling sheet
+        # MOESM1-style physio layout (physio clip + post-norm outliers); not the old q5/q95-only Scaling sheet
         "Table S1. Physio clip and outliers.xlsx",
         "Table S2. Model architectures.xlsx",
         "Table S9. Model feature inventory.xlsx",
@@ -1615,7 +1615,7 @@ def main():
                         "Fit sample": payload.get("n_sample"),
                     }
                 )
-        # q5/q95 sheet is audit-only; manuscript Table S1 is Allyn MOESM1 physio layout
+        # q5/q95 sheet is audit-only; manuscript Table S1 is MOESM1-style physio layout
         # (rebuild_table_s1_allyn.py). Do not write "Table S1. Scaling.xlsx" into Tables/.
         pd.DataFrame(rows).to_csv(internal / "Table_S1_train_q5q95_scaling.csv", index=False)
         s1_script = Path(__file__).resolve().parent / "rebuild_table_s1_allyn.py"

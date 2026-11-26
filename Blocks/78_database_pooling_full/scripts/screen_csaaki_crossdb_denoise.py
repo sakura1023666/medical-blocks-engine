@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-database denoise + UV→VIF→LASSO on Allyn pool (CSA-AKI).
+"""Cross-database denoise + UV→VIF→LASSO on literature feature pool (CSA-AKI).
 
 Goal: remove site/DB indicator noise before pooling/transfer.
 

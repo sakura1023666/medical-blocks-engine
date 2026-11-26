@@ -122,7 +122,13 @@ col_fun <- circlize::colorRamp2(
 
 # 顶部族标：加高 annotation + clip；底部留白带；字只向上长
 fam_lv <- levels(fam)
-lab_gp <- grid::gpar(fontsize = 6, fontfamily = "sans")
+if (file.exists(file.path(ROOT, "R/utils.R"))) source(file.path(ROOT, "R/utils.R"))
+.font <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Liberation Serif"
+}
+lab_gp <- grid::gpar(fontsize = 6, fontfamily = .font)
 # 最长族名 ~43mm；底部约 1mm 窄缝，贴近热图上沿
 anno_h <- grid::unit(50, "mm")
 bottom_pad_mm <- 1
@@ -168,7 +174,7 @@ ht <- ComplexHeatmap::Heatmap(
   show_row_names = TRUE,
   show_column_names = FALSE,
   row_names_side = "left",
-  row_names_gp = grid::gpar(fontsize = 5.5, fontfamily = "sans"),
+  row_names_gp = grid::gpar(fontsize = 5.5, fontfamily = .font),
   column_split = fam,
   column_gap = grid::unit(0.4, "mm"),
   column_title = NULL,
@@ -183,12 +189,16 @@ ht <- ComplexHeatmap::Heatmap(
     labels = as.character(seq(-1, 1, by = 0.2)),
     legend_height = grid::unit(5, "cm"),
     grid_width = grid::unit(3.5, "mm"),
-    labels_gp = grid::gpar(fontsize = 7, fontfamily = "sans")
+    labels_gp = grid::gpar(fontsize = 7, fontfamily = .font)
   )
 )
 
 out <- file.path(fig_pdf, "Figure S2. Toxicant correlation.pdf")
-grDevices::cairo_pdf(out, width = 10.5, height = 10.8, family = "sans")
+if (exists("pipeline_pdf_device", mode = "function")) {
+  pipeline_pdf_device(out, width = 10.5, height = 10.8, family = "Times New Roman")
+} else {
+  grDevices::cairo_pdf(out, width = 10.5, height = 10.8, family = .font)
+}
 ComplexHeatmap::draw(
   ht,
   padding = grid::unit(c(2, 3, 3, 3), "mm")
@@ -204,7 +214,7 @@ writeLines(c(
   "# Figure S2. Toxicant correlation",
   "",
   "## 图面说明",
-  "对齐 Dong Supplementary Figure 2：左侧分析物名；顶部化学族竖标；无底部列名。",
+  "左侧分析物名（无下划线）；顶部化学族竖标；无底部列名；Times 系字体。",
   "行列按化学族排序；Pearson 相关；负红正蓝；图例 -1 至 1（步长 0.2）。",
   paste0("暴露数=", length(cols), "；族=", paste(levels(fam), collapse = "; "), "。"),
   "本队列无 Heterocyclic / Iodine / Perchlorate 族（筛入池不可得）。",

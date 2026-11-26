@@ -1,4 +1,4 @@
-# 数据库池化 / BlendedLoS 发表小数位（全项目，对齐 Allyn Crit Care 2026）
+# 数据库池化 / BlendedLoS 发表小数位（全项目）
 
 凡 **dbpool / BlendedLoS / ICUAKI 四库池化** 发表表必须遵守。实现：`Blocks/78_database_pooling_full/scripts/dbpool_pub_digits.py`；EASL/ICUAKI finalize 共用。
 

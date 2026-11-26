@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train-only feature screen on Allyn BlendedLoS pool (CSA-AKI).
+"""Train-only feature screen on BlendedLoS literature feature pool (CSA-AKI).
 
 Leakage-safe: ONLY extraction/train_on_mimic4_sicdb/train (no val/test).
 Always drops inclusion features: creatinine, urine_output.
@@ -139,13 +139,13 @@ def main() -> None:
     (out / "csaaki_screened_keep_vars.txt").write_text("\n".join(keep) + "\n", encoding="utf-8")
 
     md = [
-        "# CSA-AKI Allyn-pool feature screen (train-only)",
+        "# CSA-AKI literature-pool feature screen (train-only)",
         "",
         f"- train stays: {n} (`train_on_mimic4_sicdb/train`)",
         f"- min_coverage: {args.min_coverage}",
         f"- top_k: {args.top_k}",
         f"- always drop: {sorted(DROP_ALWAYS - {'time','hour'})}",
-        f"- Allyn keep=1 candidates: {len(cand)}",
+        f"- Literature keep=1 candidates: {len(cand)}",
         f"- pass coverage: {int(rep['pass_coverage'].sum())}",
         f"- final keep: {len(keep)}",
         "",

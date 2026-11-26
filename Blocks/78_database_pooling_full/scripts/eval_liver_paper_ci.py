@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paper-grade CIs for BlendedLoS liver runs (Allyn Crit Care 2026 Methods).
+"""Paper-grade CIs for BlendedLoS / multi-DB ICU pool runs.
 
 - AUROC 95% CI: DeLong
 - Pairwise AUROC comparison: DeLong test (e.g. Pooling vs MIMIC-IV alone)

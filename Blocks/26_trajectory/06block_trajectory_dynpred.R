@@ -397,7 +397,8 @@ block_trajectory_dynpred <- function(ctx, ...) {
       tidyr::expand_grid(assessment_time = assessment_times) |>
         dplyr::mutate(class = cl, class_label = paste("Class", cl)) |>
         tidyr::crossing(traj) |>
-        dplyr::filter(time_day <= assessment_time) |>
+        # pad 的 time=0 仅解锁 early LM；图面从 Day1 起（对齐 fcimb）
+        dplyr::filter(time_day <= assessment_time, time_day >= 1) |>
         dplyr::mutate(plot_time = time_day)
     }) |>
       dplyr::bind_rows() |>
@@ -457,8 +458,8 @@ block_trajectory_dynpred <- function(ctx, ...) {
       ) +
       ggplot2::scale_x_continuous(
         name   = "Day",
-        limits = c(0, cycle),
-        breaks = seq(0, cycle, by = 3)
+        limits = c(1, cycle),
+        breaks = seq(1, cycle, by = 3)
       ) +
       ggplot2::scale_y_continuous(
         name = Index,

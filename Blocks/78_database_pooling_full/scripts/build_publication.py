@@ -230,7 +230,7 @@ def _chip(ax, x, y, w, h, text, face):
 
 
 def make_fig1(out: Path):
-    """Seven-step pipeline plus the four training strategies from Allyn 2026 Fig. 1."""
+    """Seven-step pipeline plus the four training strategies (pool-pack Fig. 1)."""
     fig, axes = plt.subplots(1, 2, figsize=(11.4, 6.4), gridspec_kw={"width_ratios": [1.05, 1.15]})
     ink = "#1b2430"
     db = {"AmsterdamUMC": "#d7e6f5", "MIMIC-IV": "#f6dfd4", "eICU": "#dceee4", "HiRID": "#efe6c9"}
@@ -550,7 +550,7 @@ def main():
     t4 = pd.DataFrame(
         [
             {
-                "Study": "Allyn 2026 Critical Care",
+                "Study": "Prior multi-DB ICU BlendedLoS study (2026)",
                 "Equal stays per database": PAPER["equal_n"],
                 "Model": "TPC, LSTM, Transformer",
                 "Epoch ceiling": 200,
@@ -600,7 +600,7 @@ def _difference_note(t1, t2, t3, fig2) -> str:
     lines = [
         "# 和原文的差别",
         "",
-        "原文是 Allyn 等，Critical Care 2026，BlendedLoS。下面只写已经核对过的差异。性能数字来自本次缩小样本的测试集，不是原文表里的数字。",
+        "原文是既有多数据库 ICU 池化 / BlendedLoS 文献包。下面只写已经核对过的差异。性能数字来自本次缩小样本的测试集，不是原文表里的数字。",
         "",
         "## 人数",
         "",

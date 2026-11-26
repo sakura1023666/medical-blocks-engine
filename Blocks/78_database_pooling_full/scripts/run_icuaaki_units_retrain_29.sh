@@ -85,7 +85,7 @@ run_unit() {
   return $ec
 }
 
-log "==== 3) Allyn main four arms ===="
+log "==== 3) Main four arms ===="
 run_unit liver_expA_amsterdam_solo "$MAIN_OUT/liver_expA_amsterdam_solo"
 run_unit liver_expB_mimic_solo "$MAIN_OUT/liver_expB_mimic_solo"
 run_unit liver_expC_mimic2amsterdam_transfer "$MAIN_OUT/liver_expC_mimic2amsterdam_transfer"

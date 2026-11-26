@@ -1,7 +1,9 @@
 #!/usr/bin/env Rscript
 # 睡眠×血脂异常×全因死亡（mainval）发表收口 — 引擎级入口
-# 每次本课题定稿后应跑本脚本：P0 修补（Fig4 P-linear、PH 表）→ Methods/软件版本
-# → Nature 结构 QC stub → 中期 PDF → 白名单 prune（summary_results 只留图/表/方法/软件/中期）
+# 每次本课题定稿后应跑本脚本：
+#   去掉切点包（S10/S12–S14 + 切点汇报 PDF）→ Fig4 P-linear → S15 PH
+#   → Methods/软件版本 → scrub（禁下划线 + Times）→ 结构 QC
+#   → 中期 PDF → 白名单 prune（summary_results 只留图/表/方法/软件/中期）
 #
 #   Rscript run/prognosis_v2/finalize_sleep_mainval_delivery.R
 #   Rscript run/prognosis_v2/finalize_sleep_mainval_delivery.R --skip-midterm
@@ -47,7 +49,42 @@ if (isTRUE(has_flag("--prune-only"))) {
   quit(save = "no", status = as.integer(status))
 }
 
-message("==== [1/6] Fix Fig4 RCS labels (P-linear + P-nonlinear) ====")
+message("==== [0/7] Drop RCS binary-cutoff package from delivery Tables/root ====")
+# 切点补充包不进交付面（用户 2026-11）：S10/S12–S14 + 切点汇报 PDF + 反馈草稿
+.arch <- file.path(paste0(sum_root, "_delivery_workspace"),
+                   paste0("retired_rcs_cutoff_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+dir.create(.arch, recursive = TRUE, showWarnings = FALSE)
+.retire <- function(paths) {
+  for (p in paths) {
+    if (!file.exists(p) && !dir.exists(p)) next
+    dest <- file.path(.arch, basename(p))
+    ok <- FALSE
+    tryCatch({
+      file.rename(p, dest)
+      ok <- TRUE
+    }, error = function(e) NULL)
+    if (!isTRUE(ok)) {
+      if (dir.exists(p)) {
+        file.copy(p, dest, recursive = TRUE, overwrite = TRUE)
+        unlink(p, recursive = TRUE, force = TRUE)
+      } else {
+        file.copy(p, dest, overwrite = TRUE)
+        unlink(p, force = TRUE)
+      }
+    }
+    message("retired ", basename(p))
+  }
+}
+.retire(list.files(tab_dir, pattern = "Table S1[024].*RCS cutoff", full.names = TRUE))
+.retire(list.files(tab_dir, pattern = "Table S13-.*RCS cutoff", full.names = TRUE))
+.retire(list.files(sum_root, pattern = "RCS切点|切点补充|启蒙老师切点", full.names = TRUE))
+.retire(list.files(tab_dir, pattern = "纳排字段对照|启蒙老师切点", full.names = TRUE))
+.fb <- file.path(tab_dir, "启蒙老师切点反馈")
+if (dir.exists(.fb)) .retire(.fb)
+.fbz <- file.path(tab_dir, "启蒙老师切点反馈.zip")
+if (file.exists(.fbz)) .retire(.fbz)
+
+message("==== [1/7] Fix Fig4 RCS labels (P-linear + P-nonlinear) ====")
 suppressPackageStartupMessages({
   library(data.table)
   library(survival)
@@ -70,7 +107,15 @@ p_rcs <- rcs_cox_models_panel_plot(
   vlines = c(7, 9)
 )
 fig4 <- file.path(fig_dir, "Figure 4. Restricted cubic spline of sleep duration and all-cause mortality.pdf")
-ggplot2::ggsave(fig4, p_rcs, width = 11.2, height = 4.2, device = grDevices::cairo_pdf)
+.ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Times"
+}
+ggplot2::ggsave(
+  fig4, p_rcs, width = 11.2, height = 4.2,
+  device = grDevices::cairo_pdf, family = .ff
+)
 data.table::fwrite(rcs_fit$rp, file.path(ckpt, "Figure4_rcs_p.csv"))
 message("Fig4 rewritten: ", fig4)
 
@@ -140,7 +185,7 @@ if (length(ph_rows)) {
   }
 }
 
-message("==== [3/6] Refresh figure formats (dpi>=600) ====")
+message("==== [3/7] Refresh figure formats (dpi>=600) ====")
 source(file.path(engine, "R/pub_figure_export.R"), local = FALSE)
 # only force-refresh Fig4 raster; ensure_formats will sync all stems from pdf
 unlink(list.files(file.path(sum_root, "Figures", "png"), pattern = "^Figure 4\\.", full.names = TRUE))
@@ -155,7 +200,7 @@ pub_figure_ensure_formats(
   )
 )
 
-message("==== [4/6] Methods + software versions (finalize_delivery_root) ====")
+message("==== [4/7] Methods + software versions (finalize_delivery_root) ====")
 Sys.setenv(
   PV2_PROFILE = "sleep_dyslipidemia",
   PV2_COHORT = "adults aged 45 years or older with dyslipidemia",
@@ -176,7 +221,7 @@ cmd_fin <- sprintf(
 status <- system(cmd_fin)
 if (!identical(as.integer(status), 0L)) stop("finalize_delivery_root failed")
 
-message("==== [5/6] Nature structure QC stub ====")
+message("==== [5/7] Nature structure QC stub ====")
 cmd_qc <- sprintf(
   "Rscript %s --project %s",
   shQuote(file.path(engine, "run/pub/run_pub_qc_after_project.R")),
@@ -186,12 +231,11 @@ cmd_qc <- sprintf(
 invisible(system(cmd_qc))
 
 if (!isTRUE(has_flag("--skip-midterm"))) {
-  message("==== [6/6] Midterm PDF + prune whitelist ====")
+  message("==== [6/7] Midterm PDF (strip cutoff chapters from content.json) ====")
   content <- file.path(sum_root, "content.json")
   .pv2_latest_workspace <- function(root) {
     ws <- paste0(root, "_delivery_workspace")
     if (!dir.exists(ws)) return(NA_character_)
-    # prefer newest timestamped stamp, else workspace root
     stamps <- list.dirs(ws, full.names = TRUE, recursive = FALSE)
     stamps <- stamps[order(file.info(stamps)$mtime, decreasing = TRUE)]
     cands <- c(stamps, ws)
@@ -210,8 +254,37 @@ if (!isTRUE(has_flag("--skip-midterm"))) {
       }
     }
   }
+  if (file.exists(content)) {
+    # 去掉中期 content 里切点/S10/S12–S14/465 叙事
+    py_strip <- paste0(
+      "import json,re\n",
+      "from pathlib import Path\n",
+      "p=Path(r'", content, "')\n",
+      "obj=json.loads(p.read_text(encoding='utf-8'))\n",
+      "bad=re.compile(r'465|S12|S13|S14|Table S10|RCS.?切点|最低风险切点|7\\.75', re.I)\n",
+      "def drop_node(o):\n",
+      "  if isinstance(o, dict):\n",
+      "    title=str(o.get('title') or '')+str(o.get('table') or '')+str(o.get('caption') or '')\n",
+      "    if bad.search(title): return None\n",
+      "    out={}\n",
+      "    for k,v in o.items():\n",
+      "      nv=drop_node(v)\n",
+      "      if nv is not None: out[k]=nv\n",
+      "    return out\n",
+      "  if isinstance(o, list):\n",
+      "    return [x for x in (drop_node(i) for i in o) if x is not None]\n",
+      "  if isinstance(o, str):\n",
+      "    if '465' in o: return o.replace('465分钟二分未显示稳定关联。','').replace('465-minute','')\n",
+      "    return o\n",
+      "  return o\n",
+      "obj=drop_node(obj)\n",
+      "p.write_text(json.dumps(obj, ensure_ascii=False, indent=2)+'\\n', encoding='utf-8')\n",
+      "print('content cutoff chapters stripped')\n"
+    )
+    writeLines(py_strip, "/tmp/strip_midterm_cutoff.py")
+    system("python3 /tmp/strip_midterm_cutoff.py")
+  }
   build_py <- file.path(engine, ".cursor/skills/Aiya-NB004-midterm-report/engine/build_report.py")
-  # 交付根只保留一份中期 PDF（课题描述文件名）；勿再双写「中期分析报告.pdf」
   out_pdf <- file.path(sum_root, "睡眠时间_全因死亡_Cox比例风险模型_中期分析结果.pdf")
   if (file.exists(build_py) && file.exists(content)) {
     cmd_m <- sprintf(
@@ -220,7 +293,6 @@ if (!isTRUE(has_flag("--skip-midterm"))) {
     )
     status_m <- system(cmd_m)
     if (identical(as.integer(status_m), 0L) && file.exists(out_pdf)) {
-      # 清理历史双写残留
       old_dup <- file.path(sum_root, "中期分析报告.pdf")
       if (file.exists(old_dup)) unlink(old_dup)
     } else {
@@ -230,6 +302,7 @@ if (!isTRUE(has_flag("--skip-midterm"))) {
     warning("content.json or build_report.py missing; skip midterm rebuild")
   }
 }
+message("==== [7/7] Whitelist prune ====")
 
 # final prune — delivery root whitelist only
 cmd_pr <- sprintf(

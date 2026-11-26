@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Allyn-pool feature screen: missingness gate → univariate → VIF → LASSO.
+"""Literature-pool feature screen: missingness gate → univariate → VIF → LASSO.
 
 Train-only (train_on_mimic4_sicdb/train). Always drops creatinine & urine_output.
 
@@ -282,7 +282,7 @@ def main() -> None:
     (out / "csaaki_uv_vif_lasso_keep_vars.txt").write_text("\n".join(keep_final) + "\n", encoding="utf-8")
 
     md = [
-        "# CSA-AKI Allyn-pool screen: missing → UV → VIF → LASSO",
+        "# CSA-AKI literature-pool screen: missing → UV → VIF → LASSO",
         "",
         f"- train stays: {n} (train_on_mimic4_sicdb/train only)",
         f"- max_missing (stay-level): **{args.max_missing}** (missing_rate = 1 - coverage)",

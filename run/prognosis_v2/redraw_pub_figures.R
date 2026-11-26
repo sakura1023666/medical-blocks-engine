@@ -198,10 +198,16 @@ if (!only_kmrcs) {
 if (only_kmrcs) message("跳过 Boruta，只重画 KM 与 RCS")
 
 theme_pub <- function() {
-  theme_bw(base_size = 11) +
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "Times"
+  }
+  theme_bw(base_size = 11, base_family = .ff) +
     theme(strip.background = element_rect(fill = "grey95"),
           strip.text = element_text(face = "bold"),
-          legend.position = "bottom")
+          legend.position = "bottom",
+          text = element_text(family = .ff))
 }
 # Boruta/SHAP 轴展示名：GenderMale → Gender: Male；Sleep_hours → Sleep hours（禁下划线）
 pv2_fig2_lab_disp <- function(x) {
@@ -502,8 +508,15 @@ for (i in seq_len(nblk)) {
 }
 grDevices::dev.off()
 }
-ggsave(file.path(fig_dir, "Figure 5. Receiver operating characteristic curves for 2-year all-cause mortality.pdf"), p_roc, width = 6.2, height = 5.6)
-ggsave(file.path(fig_dir, "Figure 7. Subgroup analyses of sleep duration and all-cause mortality.pdf"), p_sg, width = 11.5, height = 6.2)
+.ff_ggsave <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Times"
+}
+ggsave(file.path(fig_dir, "Figure 5. Receiver operating characteristic curves for 2-year all-cause mortality.pdf"),
+       p_roc, width = 6.2, height = 5.6, device = grDevices::cairo_pdf, family = .ff_ggsave)
+ggsave(file.path(fig_dir, "Figure 7. Subgroup analyses of sleep duration and all-cause mortality.pdf"),
+       p_sg, width = 11.5, height = 6.2, device = grDevices::cairo_pdf, family = .ff_ggsave)
 fig3 <- file.path(fig_dir, "Figure 3. Cumulative incidence of all-cause mortality by sleep duration.pdf")
 km_plots <- pv2_km_cuminc(dbs)
 km_page <- survminer::arrange_ggsurvplots(km_plots, print = FALSE, ncol = 1, nrow = 3, title = NA)
@@ -512,7 +525,8 @@ print(km_page)
 grDevices::dev.off()
 old_km <- list.files(fig_dir, pattern = "^Figure 3\\. Kaplan-Meier", full.names = TRUE)
 if (length(old_km)) unlink(old_km)
-ggsave(file.path(fig_dir, "Figure 4. Restricted cubic spline of sleep duration and all-cause mortality.pdf"), p_rcs, width = 11.2, height = 4.2)
+ggsave(file.path(fig_dir, "Figure 4. Restricted cubic spline of sleep duration and all-cause mortality.pdf"),
+       p_rcs, width = 11.2, height = 4.2, device = grDevices::cairo_pdf, family = .ff_ggsave)
 fwrite(kp, file.path(tab_dir, "Figure3_logrank.csv"))
 fwrite(rp, file.path(ckpt_dir, "Figure4_rcs_p.csv"))
 fwrite(unique(roc[, c("database", "AUC")]), file.path(tab_dir, "Figure5_auc.csv"))

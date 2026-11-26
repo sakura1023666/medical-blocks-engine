@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Allyn Crit Care 2026–aligned publication digit policy for dbpool / BlendedLoS packs.
+"""Publication digit policy for dbpool / BlendedLoS packs.
 
 Single source for rounding used by finalize_easl_paper_pub.py /
 finalize_icuaaki_paper_pub.py. Keep in sync with
 `.cursor/rules/dbpool_pub_digits.mdc` and Methods text in R/pub_dbpool_methods.R.
 
-Policy (reference: Allyn et al. Critical Care 2026 BlendedLoS tables)
+Policy (reference multi-database ICU mortality/RLoS TPC tables)
 ---------------------------------------------------------------------
 | Quantity                         | Digits | Where                         |
 |----------------------------------|--------|-------------------------------|
@@ -64,7 +64,7 @@ def fmt_est(x: Any, digits: int = 3) -> str:
 
 
 def fmt_ci(est: Any, lo: Any, hi: Any, digits: int = 3, sep: str = "–") -> str:
-    """Point [lo–hi] with en-dash (Allyn style) unless sep overridden."""
+    """Point [lo–hi] with en-dash unless sep overridden."""
     core = fmt_est(est, digits)
     if core == "–":
         return "–"

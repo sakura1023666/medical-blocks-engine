@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble ICU-AKI DN=1 cohort into BlendedLoS tree (Allyn 4 DBs).
+"""Assemble ICU-AKI DN=1 cohort into BlendedLoS tree (4 databases).
 
 Source IDs: /mnt/sda/BlendedICU/data/icuaaki_4db_20261106/cohort_source/dn1_ids_*.csv
 Timeseries/labels: blendedlos_ready, filtered to matched DN=1 stays.

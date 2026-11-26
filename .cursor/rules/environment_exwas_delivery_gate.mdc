@@ -1,0 +1,53 @@
+# 环境暴露 ExWAS 交付铁律（引擎级）
+
+凡 **环境暴露 / ExWAS / toxicant ExWAS**（含泛癌 NHANES 毒物课题）发表收口必须遵守。实现入口：`run/environment_exwas/finalize_pancancer_delivery.R`、`R/exwas_pub_digits.R`、`R/pub_exwas_methods.R`。
+
+## 交付根白名单（与全项目一致）
+
+`summary_results/` **只允许**：
+
+| 保留 | 说明 |
+|------|------|
+| `Figures/` | `pdf/` + `image_information/` |
+| `Tables/` | 发表 xlsx |
+| `Methods_statistical_analysis.md` | 统计分析方法 |
+| `Methods_software_versions.txt` | 软件版本 |
+| `*中期*.pdf` | 中期报告 |
+
+禁止：`reports/`、`code/`、`content.json`、`_report_dump.md`、`项目信息-中期.md`、Methods 附注、S12b/S13–S15 等中间表。多余项 `pub_prune_delivery_root` 到同级 `*_delivery_workspace/`。
+
+## 展示
+
+1. **禁下划线**：表/图/image_information/脚注展示层不得出现 `PIR_cat`、`Ethylene_Oxide` 等；走 `exwas_display_label` / `pub_delivery_scrub_display`。
+2. **字体 Times New Roman**：表 `fontName = Times New Roman`；图走 `resolve_plot_font_family` / `pipeline_pdf_device`（Linux 可 Liberation/DejaVu Serif）。禁止 Helvetica/Arial/NimbusSans 主文。
+3. **图面不加总标题/图注条**（无 ggplot `title`/`subtitle`/`caption`；拼图不加横幅字）。
+4. **禁止** Methods/脚注/图注写「迁移复现 / 对齐某文 / Dong / 牙周对照 / cancer-adapted」等。
+
+## 小数位（对标 ExWAS 文献表）
+
+见 `R/exwas_pub_digits.R`：
+
+| 统计量 | 位数 |
+|--------|------|
+| OR / 95% CI / E-value / 中介 β | **3** |
+| P / FDR q | **3**；&lt;0.001 写 `<0.001` |
+| median (IQR)、描述 | 最多 **3**，trim 尾随 0 |
+| WQS/权重 | **3** |
+| 人数 | 千分位逗号 |
+
+禁止课题私写 `sprintf` 分叉。
+
+## 收口顺序
+
+1. 定稿表图  
+2. `Rscript run/environment_exwas/finalize_pancancer_delivery.R --dir <summary_results>`  
+3. Nature 统计 + 图审计，清 P0  
+4. 中期 PDF（客户名写入项目信息；**默认封面不写分析日期**）  
+5. 再 prune 一次  
+
+## 反例
+
+- 交付根留 S13–S15 / Methods_covariate 附注 / reports  
+- 图面 Helvetica + 毒物名带 `_`  
+- 脚注写 aligned with Dong / 迁移复现  
+- OR 两位、P 四位混排  

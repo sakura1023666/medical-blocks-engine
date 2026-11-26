@@ -192,7 +192,7 @@ title <- sprintf(
 )
 footnotes <- c(
   sprintf(
-    "Adjusted logistic models within age strata (<%d / \u2265%d years); covariates match Table 2 Model 2.",
+    "Adjusted logistic models within age strata (<%d / \u2265%d years); covariates match Table 2 Model 2 (sex, race/ethnicity, poverty income ratio, alcohol use, eGFR).",
     age_cut, age_cut
   ),
   "OR per IQR for log (ln) exposures; 2 categories = detectable vs undetectable.",

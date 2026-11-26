@@ -205,7 +205,13 @@ rcs_cox_models_panel_plot <- function(
       inherit.aes = FALSE, hjust = -0.05, vjust = 1.2, size = 2.8
     ) +
     ggplot2::labs(x = xlab, y = ylab, title = title, subtitle = subtitle) +
-    ggplot2::theme_bw(base_size = 11) +
+    ggplot2::theme_bw(base_size = 11, base_family = {
+      if (exists("resolve_plot_font_family", mode = "function")) {
+        resolve_plot_font_family("Times New Roman")
+      } else {
+        "Times"
+      }
+    }) +
     ggplot2::theme(
       strip.background = ggplot2::element_rect(fill = "grey95"),
       strip.text = ggplot2::element_text(face = "bold")

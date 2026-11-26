@@ -1,5 +1,5 @@
 #!/bin/bash
-# CSA-AKI: Allyn full pool + equal-n per DB (cap = min train DB size).
+# CSA-AKI: full literature feature pool + equal-n per DB (cap = min train DB size).
 # Hypothesis: D≈B because SICdb is only ~13%; balancing gives SICdb equal voice.
 set -u
 PY=/home/ps/miniconda3/envs/blendedlos/bin/python
@@ -38,7 +38,7 @@ unset DBPOOL_MAX_N_BATCH || true
 {
   echo "ARM=csaaki_allyn_equaln"
   echo "DROP=$DBPOOL_DROP_TS"
-  echo "KEEP=Allyn keep=1 (no whitelist)"
+  echo "KEEP=literature keep=1 (no whitelist)"
   echo "DBPOOL_TRAIN_STAYS_PER_DB=$MIN_TRAIN"
   echo "note=cap each source_dataset in train/val/test splits to MIN_TRAIN (seed 974); D≈747 mimic+747 sicdb; B≈747 mimic"
 } > "$OUT/FEATURE_GATE.txt"

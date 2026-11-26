@@ -310,25 +310,58 @@ tj_km_pdf <- function(df, gv, ev, tm, out_pdf, title, fam, time_unit_lab = "Foll
 }
 
 #' HR 森林图（多 class × 多 model 行；log 刻度）
+#' 行数多时自动同页分列（单页长边 ≤ ~10.5 in，满足 pub_figure_three_formats 几何门控）
 tj_forest_pdf <- function(rows_df, out_pdf, title, fam, ref_lab = "Reference (T1)",
                           xlim = NULL) {
   rows_df <- rows_df[!is.na(rows_df$HR), , drop = FALSE]
   if (!nrow(rows_df)) return(invisible(FALSE))
-  rows_df$lab <- factor(rows_df$lab, levels = rev(rows_df$lab))
+  # 调用方已按展示序排好行（factor 反转后首行在顶部）；记录自顶向下顺序
+  top_order <- as.character(rows_df$lab)
+  if (is.factor(rows_df$lab)) top_order <- levels(rev(rows_df$lab))
   lim <- xlim %||% c(max(0.05, min(rows_df$lo) * 0.8), max(rows_df$hi) * 1.25)
-  gg <- ggplot2::ggplot(rows_df, ggplot2::aes(x = HR, y = lab)) +
-    ggplot2::geom_vline(xintercept = 1, linetype = 2, color = "grey40") +
-    ggplot2::geom_errorbarh(ggplot2::aes(xmin = lo, xmax = hi), height = 0.18,
-                            color = "#2C5F8A") +
-    ggplot2::geom_point(size = 2.6, color = "#C0392B") +
-    ggplot2::scale_x_log10(limits = lim) +
-    ggplot2::annotation_logticks(sides = "b", short = ggplot2::unit(0.8, "mm"),
-                                 mid = ggplot2::unit(1.2, "mm")) +
-    ggplot2::labs(title = title, x = "Hazard ratio (95% CI, log scale)", y = NULL) +
-    tj_theme(fam) +
-    ggplot2::theme(axis.text.x = ggplot2::element_text(family = fam))
-  ggplot2::ggsave(out_pdf, gg, width = 6.6, height = max(2.2, 0.34 * nrow(rows_df) + 1.3),
-                  device = grDevices::cairo_pdf)
+  one_panel <- function(sub, ord_levels, with_axes = TRUE) {
+    # ggplot y 因子首水平在底部 → 自顶向下显示顺序 = rev(ord_levels)
+    sub$lab <- factor(as.character(sub$lab), levels = rev(ord_levels))
+    gg <- ggplot2::ggplot(sub, ggplot2::aes(x = HR, y = lab)) +
+      ggplot2::geom_vline(xintercept = 1, linetype = 2, color = "grey40") +
+      ggplot2::geom_errorbarh(ggplot2::aes(xmin = lo, xmax = hi), height = 0.18,
+                              color = "#2C5F8A") +
+      ggplot2::geom_point(size = 2.6, color = "#C0392B") +
+      ggplot2::scale_x_log10(limits = lim) +
+      ggplot2::annotation_logticks(sides = "b", short = ggplot2::unit(0.8, "mm"),
+                                   mid = ggplot2::unit(1.2, "mm")) +
+      ggplot2::labs(x = if (with_axes) "Hazard ratio (95% CI, log scale)" else NULL,
+                    y = NULL) +
+      tj_theme(fam) +
+      ggplot2::theme(axis.text.x = ggplot2::element_text(family = fam),
+                     axis.ticks = ggplot2::element_line(),
+                     panel.background = ggplot2::element_rect(fill = "white", color = NA),
+                     plot.background = ggplot2::element_rect(fill = "white", color = NA))
+    gg
+  }
+  n <- nrow(rows_df)
+  row_h <- 0.3
+  max_h <- 10.4  # 单页高上限（max_edge_in 默认 11 内留边）
+  per_panel <- max(6L, floor((max_h - 1.9) / row_h))
+  ncols <- if (n <= per_panel) 1L else ceiling(n / per_panel)
+  if (ncols == 1L) {
+    ggplot2::ggsave(out_pdf,
+                    one_panel(rows_df, top_order) + ggplot2::labs(title = title),
+                    width = 6.6, height = max(2.2, row_h * n + 1.4),
+                    device = grDevices::cairo_pdf)
+  } else {
+    grp <- rep(seq_len(ncols), each = per_panel, length.out = n)
+    pans <- lapply(split(seq_len(n), grp),
+                   function(ii) one_panel(rows_df[ii, , drop = FALSE], top_order[ii], with_axes = TRUE))
+    comb <- patchwork::wrap_plots(pans, ncol = min(2L, ncols)) +
+      patchwork::plot_annotation(title = title,
+                                 theme = ggplot2::theme(plot.title = ggplot2::element_text(family = fam)))
+    nrow_panels <- ceiling(ncols / 2)
+    ggplot2::ggsave(out_pdf, comb,
+                    width = min(10.4, 5.2 * min(2L, ncols)),
+                    height = row_h * per_panel * nrow_panels + 2.2,
+                    device = grDevices::cairo_pdf)
+  }
   invisible(TRUE)
 }
 

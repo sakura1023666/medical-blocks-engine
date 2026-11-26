@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Finalize ICUAKI 4DB Allyn pack into summary_results (cirrhosis layout + extras).
+"""Finalize ICUAKI 4DB pack into summary_results (cirrhosis layout + extras).
 
 Base (aligned with 50_Cirrhosis/summary_results):
   Table 1–4, Table S1–S2, Figure 1–2, Methods_*
@@ -8,9 +8,12 @@ Extras (appended after base numbering):
   Table S3  DeLong / bootstrap CI + Pooling vs MIMIC-IV DeLong p
   Table S4  Stronger baseline (Age+Sex logistic) vs TPC B/D
   Table S5  Clinical risk strata / deployment thresholds
+  Table S6  CSA-AKI frozen-weight domain-shift (optional append)
+  Table S7  CSA-AKI eICU DeLong pooling vs MIMIC-IV
   Figure 3   Calibration (B vs D on eICU / HiRID)
   Figure 4   Decision curves (B vs D)
   Figure 5   Risk-strata mortality
+  Figure S1  CSA-AKI ROC (with S6)
 
 Env:
   ICUAKI_ROOT, ICUAKI_PUB_OUT, ICUAKI_N_BOOT (default 2000; match CI pack)
@@ -114,7 +117,7 @@ def _disp(s: str) -> str:
     return re.sub(r"_+", " ", str(s)).strip()
 
 
-# Allyn-aligned digit policy (engine): dbpool_pub_digits.py
+# Publication digit policy (engine): dbpool_pub_digits.py
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     from dbpool_pub_digits import (  # type: ignore
@@ -1320,7 +1323,7 @@ Deep-learning training used Python with PyTorch on NVIDIA GPUs. Publication tabl
 """
     (out / "Methods_statistical_analysis.md").write_text(md, encoding="utf-8")
     ver = (
-        "ICUAKI 4DB Allyn TPC finalize\n"
+        "ICUAKI 4DB TPC finalize\n"
         f"root={ROOT}\n"
         f"n_boot={N_BOOT}\n"
         f"python={sys.version.split()[0]}\n"
@@ -1393,7 +1396,7 @@ def main():
         pw.to_csv(internal / "Table_DeLong_Pooling_vs_MIMIC.csv", index=False)
 
     if not args.extras_only:
-        # Prefer full Allyn Table1 if already rebuilt; else labels fallback
+        # Prefer full Table1 if already rebuilt; else labels fallback
         t1_path = tables / "Table 1. Cohort characteristics.xlsx"
         if not t1_path.exists():
             _save_table(
@@ -1487,6 +1490,9 @@ def main():
     print("tables:", sorted(p.name for p in tables.glob("*.xlsx")))
     print("figs:", sorted(p.name for p in (PUB / "Figures" / "pdf").glob("*.pdf")))
 
+    # Optional CSA-AKI domain-shift supplementary (Table S6–S7 / Figure S1)
+    _maybe_append_csaaki_external()
+
     # Engine delivery: Methods (dbpool) + Times/underscore scrub + whitelist prune + QC
     skip_delivery = os.environ.get("LIVER_SKIP_DELIVERY", "").strip().lower() in (
         "1",
@@ -1497,6 +1503,42 @@ def main():
         print("[finalize] LIVER_SKIP_DELIVERY=1 — skip delivery root finalize", flush=True)
     else:
         _finalize_delivery_root_icuaaki(PUB)
+
+
+def _maybe_append_csaaki_external() -> None:
+    """Append CSA-AKI frozen-weight external tables/figs when labels exist.
+
+    Skip with ICUAKI_SKIP_CSA=1. Standalone: eval_icuaaki_csaaki_external.py.
+    """
+    if os.environ.get("ICUAKI_SKIP_CSA", "").strip().lower() in ("1", "true", "yes"):
+        print("[finalize] ICUAKI_SKIP_CSA=1 — skip CSA-AKI appendix", flush=True)
+        return
+    labels = Path(
+        os.environ.get(
+            "CSAAKI_LABELS",
+            "/mnt/sda/BlendedICU/data/csaaki_gongqian_42151996/blendedlos_csaaki/preprocessed_labels.parquet",
+        )
+    )
+    if not labels.is_file():
+        print(f"[finalize] CSA-AKI labels missing ({labels}) — skip append", flush=True)
+        return
+    script = ENGINE_SCRIPTS / "eval_icuaaki_csaaki_external.py"
+    if not script.is_file():
+        print(f"[finalize] WARN missing {script}", flush=True)
+        return
+    env = os.environ.copy()
+    env.setdefault("ICUAKI_ROOT", str(ROOT))
+    env.setdefault("ICUAKI_MAIN_OUT", str(MAIN_OUT))
+    env.setdefault("ICUAKI_PUB_OUT", str(PUB))
+    print("[finalize] appending CSA-AKI supplementary …", flush=True)
+    try:
+        subprocess.run(
+            [sys.executable, str(script)],
+            check=False,
+            env=env,
+        )
+    except Exception as e:
+        print(f"[finalize] WARN CSA-AKI append failed: {e}", flush=True)
 
 
 def _finalize_delivery_root_icuaaki(pub: Path) -> None:

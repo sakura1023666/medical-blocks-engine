@@ -1,9 +1,9 @@
 # Methods text for database-pooling / multi-DB ICU packs.
 # Used by run/pub/finalize_delivery_root.R when --study-type dbpool|database_pool|blendedlos
 #
-# Delivery wording rule (2026-11 ICUAKI): do NOT mention "Allyn", "版式", or
-# "BlendedLoS layout" in customer-facing Methods. Describe feature selection as
-# following prior published multi-database ICU mortality / LoS literature.
+# Delivery wording rule (2026-11 ICUAKI): do NOT mention prior-paper proper names,
+# "版式", or "BlendedLoS layout" in customer-facing Methods. Describe feature
+# selection as following prior published multi-database ICU mortality / LoS literature.
 
 pub_dbpool_methods_statistical_lines <- function(config = list()) {
   proj <- config$project %||% list()

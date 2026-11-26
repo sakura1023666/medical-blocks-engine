@@ -20,6 +20,7 @@ source(file.path(repo, "R/utils.R"))
 source(file.path(repo, "R/environment_exwas_core.R"))
 source(file.path(repo, "R/environment_exwas_aligned.R"))
 source(file.path(repo, "R/environment_exwas_toxicant.R"))
+source(file.path(repo, "run/environment_exwas/pancancer_model2_covars.R"))
 if (file.exists(file.path(repo, "R/pub_xlsx_surgical.R"))) {
   source(file.path(repo, "R/pub_xlsx_surgical.R"))
 }
@@ -79,11 +80,9 @@ person <- exwas_tox_drop_person_missing(
   raw_from_model = sub("_(ln|bin)$", "", scr$keep)
 )
 df <- person$data
-covars_full <- intersect(
-  c("Age", "Gender", "Race", "Education", "Marital_Status", "PIR_cat", "BMI_cat",
-    "Alcohol_drinking", "eGFR"),
-  names(df)
-)
+covars_m2 <- intersect(pancancer_model2_covars_from_path(root), names(df))
+if (!length(covars_m2)) covars_m2 <- intersect(pancancer_model2_final_default, names(df))
+covars_full <- covars_m2
 df <- exwas_aligned_as_model_frame(df, covars_full)
 df$DN <- as.integer(exwas_to_num(df$DN) == 1L)
 exposures <- scr$keep
@@ -205,7 +204,7 @@ title <- sprintf(
 footnotes <- c(
   "Same analysis as Table 2, except q-values are Benjamini–Hochberg FDR recomputed within each chemical family.",
   "Processing: log (ln) = natural-log continuous exposure (OR per IQR); 2 categories = detectable vs undetectable.",
-  "Model 1: unadjusted. Model 2: adjusted for Age, Gender, Race, Education, Marital status, PIR, BMI, Alcohol drinking, eGFR (MICE m=5, Rubin's rules).",
+  "Model 1: unadjusted. Model 2: adjusted for Gender, Race, PIR_cat, Alcohol_drinking, eGFR (DAG→UV→VIF→stepwise; MICE m=5, Rubin's rules).",
   "Bold Model 2 familywise q < 0.05."
 )
 

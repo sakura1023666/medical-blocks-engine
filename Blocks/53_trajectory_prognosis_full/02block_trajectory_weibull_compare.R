@@ -25,6 +25,9 @@
 #    boot_n                  = 2000L,
 #    perm_n                  = 2000L,
 #    min_unique_time_for_dynpred = 4L,
+#    # ns(df=2) 时 LM=1/2 历史唯一点过少 → dynpred 报 knot 失败；默认补 time=0 假点
+#    pad_early_landmark_history = TRUE,
+#    min_unique_time_pad_to  = 3L,
 #    min_n_landmark          = 30L,
 #    include_youden_metrics  = TRUE,     # 始终计算 Youden；主图是否采用由 class_metric 决定
 #    seed                    = 2025L,
@@ -95,12 +98,44 @@
   as.numeric(out["C Index"])
 }
 
+# JLCM 用 ns(time_day, df=2) 时，landmark=1/2 的历史唯一点 <3 → lcmm::dynpred
+# 报 "all interior knots match left boundary knot"。补 time=0 的首观测副本（不进结局窗），
+# 仅解锁样条求值，使 Days 1–14 与文献可对齐。
+.twc02_pad_early_landmark_history <- function(newdata, var.time = "time_day", min_unique = 3L) {
+  if (!is.data.frame(newdata) || !nrow(newdata) || !var.time %in% names(newdata))
+    return(newdata)
+  tvals <- newdata[[var.time]][is.finite(newdata[[var.time]])]
+  n_u <- length(unique(tvals))
+  if (n_u >= as.integer(min_unique)) return(newdata)
+  t_min <- min(tvals, na.rm = TRUE)
+  if (!is.finite(t_min)) return(newdata)
+  id_c <- intersect(c("subject_id_num", "subject_id", "id"), names(newdata))[1]
+  if (is.na(id_c)) return(newdata)
+  day1 <- newdata[is.finite(newdata[[var.time]]) & newdata[[var.time]] == t_min, , drop = FALSE]
+  if (!nrow(day1)) return(newdata)
+  need <- as.integer(min_unique) - n_u
+  extras <- vector("list", need)
+  for (k in seq_len(need)) {
+    ex <- day1
+    ex[[var.time]] <- t_min - k * 0.25
+    # 保持 time>=0：文献日窗从 1 起，用 0 / 负→夹到 0 再微移
+    if (k == need) ex[[var.time]] <- 0
+    extras[[k]] <- ex
+  }
+  out <- rbind(do.call(rbind, extras), newdata)
+  out <- out[order(out[[id_c]], out[[var.time]]), , drop = FALSE]
+  rownames(out) <- NULL
+  out
+}
+
 .twc02_boot_ci <- function(df, metric_fun, B = 2000, conf = 0.95) {
   n <- nrow(df)
   if (n < 30) return(c(est = NA_real_, low = NA_real_, high = NA_real_))
   vals <- replicate(B, metric_fun(df[sample.int(n, n, replace = TRUE), , drop = FALSE]))
   vals <- vals[is.finite(vals)]
-  if (length(vals) < 200) return(c(est = NA_real_, low = NA_real_, high = NA_real_))
+  # 门槛随 B 自适应（旧硬编码 200 会让 --boot-n 30 的 smoke 整列 AUC/C 变 NA）
+  min_ok <- max(10L, min(200L, as.integer(floor(B * 0.5))))
+  if (length(vals) < min_ok) return(c(est = NA_real_, low = NA_real_, high = NA_real_))
   alpha <- (1 - conf) / 2
   c(est = metric_fun(df), low = unname(stats::quantile(vals, alpha)), high = unname(stats::quantile(vals, 1 - alpha)))
 }
@@ -117,7 +152,8 @@
     metric_fn(time, event, a, b, tau)
   })
   diffs <- diffs[is.finite(diffs)]
-  if (length(diffs) < 200) return(NA_real_)
+  min_ok <- max(10L, min(200L, as.integer(floor(B * 0.5))))
+  if (length(diffs) < min_ok) return(NA_real_)
   mean(abs(diffs) >= abs(obs))
 }
 
@@ -243,6 +279,21 @@
   # 可选：额外纳入指标基线值
   if (include_baseline) cov_use_weib <- c(cov_use_weib, "index_baseline")
   cov_use_weib <- unique(cov_use_weib)
+  # 外验常见「发现集中位数整列填入」→ 零方差；flexsurv 会 names/收敛失败
+  if (length(cov_use_weib)) {
+    ok_var <- vapply(cov_use_weib, function(v) {
+      if (!v %in% names(base_all)) return(FALSE)
+      x <- suppressWarnings(as.numeric(base_all[[v]]))
+      s <- stats::sd(x, na.rm = TRUE)
+      is.finite(s) && s > 1e-8
+    }, logical(1))
+    if (any(!ok_var)) {
+      cli::cli_alert_warning(
+        "{Index}: 剔除零方差协变量 {paste(cov_use_weib[!ok_var], collapse=', ')}"
+      )
+      cov_use_weib <- cov_use_weib[ok_var]
+    }
+  }
   if (!length(cov_use_weib)) cov_use_weib <- "index_baseline"
   cli::cli_alert_info("{Index}: Weibull/增强协变量（流程 VIF 选出）= {paste(cov_use_weib, collapse=' + ')}")
 
@@ -300,6 +351,18 @@
     tvals <- newdata_model$time_day[is.finite(newdata_model$time_day)]
     if (length(unique(tvals)) < min_unique_time) {
       na_row$n_landmark <- nrow(df_eval); res_rows[[length(res_rows) + 1L]] <- na_row; next
+    }
+    # ns(df=2) 早 landmark：补假时间点，避免 dynpred knot 崩（Days 1–2）
+    if (isTRUE(bl$pad_early_landmark_history %||% TRUE)) {
+      pad_to <- as.integer(bl$min_unique_time_pad_to %||% 3L)
+      n_before <- length(unique(tvals))
+      newdata_model <- .twc02_pad_early_landmark_history(
+        newdata_model, var.time = "time_day", min_unique = pad_to
+      )
+      n_after <- length(unique(newdata_model$time_day[is.finite(newdata_model$time_day)]))
+      if (n_after > n_before) {
+        cli::cli_alert_info("{Index} day={t_LM}: 早 landmark 历史补点 unique_t {n_before}->{n_after}（解锁 ns df=2 dynpred）")
+      }
     }
 
     dp <- tryCatch(

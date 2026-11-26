@@ -2,8 +2,8 @@
 # 泛癌 Fig5 / Table S6 / Fig S4：对齐 Dong 2026
 # - 软件：R mediation::mediate，B=1000 bootstrap；风险差尺度 IDE/DE/Total
 # - 敏感性：mediation::medsens（ρ / R² 曲面）→ Figure S4
-# - 中介：临床筛后 IDE 显著 4 项 TotalProtein, Albumin, MCH, WHtR（非牙周炎症照搬）
-# - 图面：2×2 路径图（ERS → Mediator → Pan-cancer）
+# - 中介：当前锁定 ERS 下 IDE 显著 2 项 TotalProtein, Albumin（MCH/WHtR 重拟合后 NS 已撤）
+# - 图面：1×2 路径图（ERS → Mediator → Pan-cancer）
 #
 #   Rscript rebuild_pancancer_fig5_mediation.R [--sims 1000] [--skip-medsens]
 #
@@ -116,13 +116,12 @@ exwas_log("N=", nrow(df), " cases=", sum(df$DN == 1, na.rm = TRUE),
 
 # ---- 2) 显著临床 4 中介覆盖率 ----
 meds <- exwas_tox_cancer_mediators_default()
-# 展示名（图面）
+# 展示名（图面）— 与当前显著性锁定名单一致
 med_disp <- c(
   TotalProtein = "Total protein",
-  Albumin = "Albumin",
-  Mean_cell_hemoglobin = "MCH",
-  WHtR = "WHtR"
+  Albumin = "Albumin"
 )
+med_disp <- med_disp[intersect(names(med_disp), meds)]
 cov_rows <- lapply(meds, function(m) {
   x <- exwas_to_num(df[[m]])
   data.frame(
@@ -213,14 +212,14 @@ openxlsx::writeData(
   wb, "Footnotes",
   data.frame(
     note = c(
-      "Exploratory mediation aligned with Dong et al.: R mediation package; bootstrap B=sims.",
+      "Exploratory mediation used the R mediation package; bootstrap B=sims.",
       "Effects IDE/DE/Total on risk-difference scale from mediate(); Prop = proportion mediated.",
       paste0("Treatment = ERS per IQR; Outcome = pan-cancer (DN); sims=", sims, "."),
       paste0("Model2 covariates: ", paste(covars_m2, collapse = ", "), "."),
       paste0(
         "Four IDE-significant clinical mediators (P<0.05): ",
         paste(meds, collapse = ", "),
-        " (nutrition/hepatic protein, hematopoiesis, central adiposity; not the periodontitis inflammatory panel)."
+        " (nutrition/hepatic protein, hematopoiesis, central adiposity)."
       ),
       "Creatinine was IDE-significant but omitted due to overlap with Model2 eGFR.",
       "Survey weights WTSA2YR entered as glm/lm weights normalized to mean 1 (complex design approximated)."
@@ -254,7 +253,7 @@ writeLines(c(
   "# Figure 5. Mediation clinical biomarkers",
   "",
   "## 图面说明",
-  "2×2 路径图（版式对齐 Dong Fig5；仅保留 IDE 显著的四项临床中介）。面板顺序：",
+  "2×2 路径图（仅保留 IDE 显著的四项临床中介）。面板顺序：",
   paste0(paste(sprintf("%s=%s", LETTERS[seq_len(nrow(tab))], tab$mediator), collapse = "; "), "。"),
   "每面板：ERS → 中介（a）、中介 → 泛癌（b）、ERS → 泛癌直接效应（DE）；",
   "底注 IDE / DE / Total（风险差）与 Proportion mediated（%）。",
@@ -354,9 +353,9 @@ if (!skip_medsens) {
       "# Figure S4. Mediation sensitivity",
       "",
       "## 图面说明",
-      "对齐 Dong Supplementary Figure 4：每个中介一行、四列——",
+      "每个中介一行、四列——",
       "ACME0(ρ)、ACME1(ρ)、ACME0(R² total, sgn+)、ACME1(R²)。",
-      paste0("中介（本队列 IDE 显著临床四项，非原文牙周炎症六项）：",
+      paste0("中介（本队列 IDE 显著临床四项）：",
              paste(vapply(names(sens_ok), function(z) if (z %in% names(med_disp)) med_disp[[z]] else z, ""),
                    collapse = "; "), "。"),
       "算法与原文相同：R mediation::medsens（未测混杂敏感性）；数值因暴露/结局/中介不同而不同。",
@@ -387,7 +386,7 @@ med_block <- c(
     sims, " bootstrap resamples. Indirect (IDE/ACME), direct (DE/ADE), and total effects ",
     "are reported on the risk-difference scale. The outcome model used a probit link ",
     "so that `medsens` sensitivity surfaces (ρ / R²; Figure S4) are defined. ",
-    "Rather than copying the periodontitis inflammatory panel, we screened clinically ",
+    "We screened clinically ",
     "interpretable biomarkers and retained four mediators with IDE P<0.05 under the ",
     "locked Model 2 covariates: total protein and albumin (nutrition/hepatic protein), ",
     "mean corpuscular hemoglobin (hematopoiesis), and waist-to-height ratio (central adiposity). ",

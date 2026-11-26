@@ -1,0 +1,32 @@
+# 竞争风险（Lai 模板）单库交付铁律
+
+凡 **competing risk / Fine-Gray / `competing_pub_export`** 课题收口必须遵守。
+
+## 交付面
+
+1. 每个成功 unit 下写 `summary_results/`（引擎：`R/competing_risk_pub_finalize.R`）。
+2. **单库**文件名/表题 **不加** `-MIMIC`/`-eICU`（`pub_strip_db_tags_from_delivery`）。
+3. 根目录只留：`Figures/` `Tables/` `Methods_statistical_analysis.md` `Methods_software_versions.txt` `*中期*.pdf`（`pub_prune_delivery_root`）。
+4. 展示层 **禁下划线**；表/图字体 **Times New Roman**（`pub_delivery_scrub_display`）。
+
+## 小数位（对齐 Lai Cardiovasc Diabetol 2025）
+
+`competing_lai_pub_digits()` / `config$pub_digits`：
+
+| 量 | 保留 |
+|----|------|
+| HR / 95% CI | **2** 位（如 2.40 (1.35-3.28)） |
+| P | **3** 位；`<0.001`；禁裸 0 |
+| 连续描述 | 最多 **1** 位 + trim |
+| 百分比 | 通常 **1** 位 |
+| 人数 | 整数；≥4 位千分位 |
+
+## 中期
+
+- 默认客户名读 `config$pub$midterm_client` / `midterm$client`（本课题：**静**）
+- `midterm_no_date = TRUE` → 项目信息写 `分析日期: 无`（封面无日期）
+
+## 入口
+
+- 自动：`competing_pub_export` 末尾（`write_unit_summary_results`，单库默认开）
+- CLI：`Rscript run/competing_risk/finalize_unit_summary_results.R --unit-root … --config …`

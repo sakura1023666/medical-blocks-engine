@@ -176,7 +176,7 @@ footnotes <- c(
     paste(covars_m2, collapse = ", "), "."
   ),
   paste0(
-    "Mediator panel identical to Dong et al. Supplementary Table 6 (periodontitis); ",
+    "Mediator panel as reported in Table S6; ",
     "adapted only in outcome (pan-cancer). Indirect-effect P<0.05 for ",
     n_sig, "/", nrow(raw), " mediators."
   ),
@@ -246,7 +246,7 @@ writeLines(c(
   "",
   "## 分析上下文",
   paste0(
-    "暴露：ERS（per IQR）；结局：泛癌；中介：全身炎症六项（对齐 Dong）；Model2=",
+    "暴露：ERS（per IQR）；结局：泛癌；中介：全身炎症六项；Model2=",
     paste(covars_m2, collapse = "+"), "。"
   ),
   paste0("间接效应显著（P<0.05）：", n_sig, "/", nrow(raw), "。")

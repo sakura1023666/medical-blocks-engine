@@ -195,45 +195,81 @@ for (tv in as.character(nm$Tnames %||% character(0))) {
   }
 }
 
-pc_args <- names(formals(lcmm::predictClass))
-pc_call <- list(model = m3, newdata = newdata)
-if ("subject" %in% pc_args) pc_call$subject <- subj_col
-pred_c <- do.call(lcmm::predictClass, pc_call)
-# class 列
-cls_col <- intersect(c("class", "Class", "trajectory_class"), names(pred_c))[1L]
-# subject 映射回 id
-# pred_c 常有 subject = subject_id_num
-sid <- pred_c[["subject_id_num"]] %||% pred_c[["subject"]] %||% pred_c[[subj_col]]
-if (is.null(sid)) stop("predictClass 无 subject")
-# 按行：newdata 与 pred 若按人折叠
-if (length(sid) == length(id_levels) || length(unique(sid)) == length(id_levels)) {
-  # 个体级
-  assign_e <- data.frame(
-    subject_id = id_levels[as.integer(sid)],
-    trajectory_class = as.integer(pred_c[[cls_col]]),
-    stringsAsFactors = FALSE
-  )
-} else if (nrow(pred_c) == nrow(newdata)) {
-  assign_e <- data.frame(
-    subject_id = as.character(newdata[[id_col]]),
-    trajectory_class = as.integer(pred_c[[cls_col]]),
-    stringsAsFactors = FALSE
-  ) %>% distinct(subject_id, .keep_all = TRUE)
-} else {
-  # 尝试用 pred 的 subject 作为 id_levels 索引
-  assign_e <- data.frame(
-    subject_id = id_levels[as.integer(sid)],
-    trajectory_class = as.integer(pred_c[[cls_col]]),
-    stringsAsFactors = FALSE
-  ) %>% filter(!is.na(subject_id)) %>% distinct(subject_id, .keep_all = TRUE)
+# 外验类别：优先用 worker 已落盘 assignment（避免 predictClass 行映射把 n 撑爆）
+asg_csv_cands <- c(
+  file.path(ix_root, "eicu/step15_trajectory_lcmm_external_validate/Tables/LCMM",
+            paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
+  file.path(ix_root, "eicu/step14_trajectory_lcmm_external_validate/Tables/LCMM",
+            paste0("Table_LCMM_Assignment_External_", ix, ".csv"))
+)
+asg_csv <- asg_csv_cands[file.exists(asg_csv_cands)][1L]
+assign_e <- NULL
+if (!is.na(asg_csv) && nzchar(asg_csv)) {
+  assign_e <- utils::read.csv(asg_csv, stringsAsFactors = FALSE)
+  if (!all(c("subject_id", "trajectory_class") %in% names(assign_e))) assign_e <- NULL
 }
-assign_e <- assign_e %>% filter(is.finite(trajectory_class))
+if (is.null(assign_e)) {
+  ck_ext <- file.path(dirname(ix_root), "..", "checkpoints/by_index", ix, "eicu",
+                      "trajectory_lcmm_external_validate.rds")
+  ck_ext <- normalizePath(file.path(proj, "checkpoints/by_index", ix, "eicu",
+                                    "trajectory_lcmm_external_validate.rds"),
+                          winslash = "/", mustWork = FALSE)
+  if (file.exists(ck_ext)) {
+    .ext <- readRDS(ck_ext)
+    assign_e <- tryCatch(.ext$ctx$results$trajectory_jlcm_class[[ix]], error = function(e) NULL)
+  }
+}
+if (is.null(assign_e) || !nrow(assign_e)) {
+  pc_args <- names(formals(lcmm::predictClass))
+  pc_call <- list(model = m3, newdata = newdata)
+  if ("subject" %in% pc_args) pc_call$subject <- subj_col
+  pred_c <- do.call(lcmm::predictClass, pc_call)
+  cls_col <- intersect(c("class", "Class", "trajectory_class"), names(pred_c))[1L]
+  sid <- pred_c[["subject_id_num"]] %||% pred_c[["subject"]] %||% pred_c[[subj_col]]
+  if (is.null(sid)) stop("predictClass 无 subject")
+  if (length(sid) == length(id_levels) || length(unique(sid)) == length(id_levels)) {
+    assign_e <- data.frame(
+      subject_id = id_levels[as.integer(sid)],
+      trajectory_class = as.integer(pred_c[[cls_col]]),
+      stringsAsFactors = FALSE
+    )
+  } else if (nrow(pred_c) == nrow(newdata)) {
+    assign_e <- data.frame(
+      subject_id = as.character(newdata[[id_col]]),
+      trajectory_class = as.integer(pred_c[[cls_col]]),
+      stringsAsFactors = FALSE
+    ) %>% distinct(subject_id, .keep_all = TRUE)
+  } else {
+    assign_e <- data.frame(
+      subject_id = id_levels[as.integer(sid)],
+      trajectory_class = as.integer(pred_c[[cls_col]]),
+      stringsAsFactors = FALSE
+    ) %>% filter(!is.na(subject_id)) %>% distinct(subject_id, .keep_all = TRUE)
+  }
+}
+assign_e$subject_id <- as.character(assign_e$subject_id)
+assign_e$trajectory_class <- suppressWarnings(as.integer(assign_e$trajectory_class))
+# 只保留分析集 ID，且丢掉 NA class（与 Fig2/S8 同源）
+analytic_ids <- unique(as.character(index_df[[id_col]]))
+# 若有插补分析集，进一步收紧
+imp_ck <- file.path(proj, "checkpoints/by_index", ix, "eicu", "imputation.rds")
+if (file.exists(imp_ck)) {
+  analytic_ids <- as.character(readRDS(imp_ck)$ctx$data$imputed$subject_id)
+}
+assign_e <- assign_e %>%
+  filter(subject_id %in% analytic_ids, is.finite(trajectory_class)) %>%
+  distinct(subject_id, .keep_all = TRUE)
 n_e <- assign_e %>% count(trajectory_class, name = "n") %>%
   mutate(
     class_num = as.integer(trajectory_class),
     lab = sprintf("Class %d (n=%s)", class_num, format(n, big.mark = ","))
   )
-cli::cli_alert_info("eICU m3 分类: {paste(sprintf('C%d=%d', n_e$class_num, n_e$n), collapse=', ')}")
+cli::cli_alert_info(
+  "eICU 分类(n={nrow(assign_e)}): {paste(sprintf('C%d=%d', n_e$class_num, n_e$n), collapse=', ')}"
+)
+if (sum(n_e$n) > length(analytic_ids) + 1L) {
+  stop("Fig1b class n 总和超过分析集 N=", length(analytic_ids), "；停止以免再交错误图例", call. = FALSE)
+}
 
 long_e2 <- long_e %>%
   inner_join(assign_e, by = "subject_id") %>%
@@ -289,14 +325,15 @@ utils::write.csv(
     labs(x = "Days", y = ix) +
     theme_classic(base_size = 12, base_family = .font) +
     theme(
-      legend.position = c(0.98, 0.98),
-      legend.justification = c(1, 1),
+      # 图例外置右侧，避免挡住右端发散轨迹
+      legend.position = "right",
+      legend.justification = "center",
       legend.background = element_rect(fill = "white", color = NA),
-      legend.key.height = grid::unit(0.35, "cm"),
+      legend.key.height = grid::unit(0.42, "cm"),
       legend.text = element_text(size = 9),
       axis.title = element_text(size = 11),
       axis.text = element_text(size = 10, color = "black"),
-      plot.margin = margin(8, 10, 6, 8),
+      plot.margin = margin(8, 8, 6, 8),
       plot.tag = element_text(face = "bold", size = 14),
       plot.tag.position = c(0.02, 0.98)
     ) +
@@ -316,12 +353,12 @@ out_pdf <- file.path(
   sprintf("Figure 1. Trajectory of %s latent classes.pdf", ix)
 )
 dir.create(dirname(out_pdf), recursive = TRUE, showWarnings = FALSE)
-grDevices::cairo_pdf(out_pdf, width = 7.2, height = 8.2, family = .font)
+grDevices::cairo_pdf(out_pdf, width = 8.0, height = 8.2, family = .font)
 print(p)
 grDevices::dev.off()
 
 out_m <- file.path(ix_root, "mimic/Figures", sprintf("Figure Trajectory %s fcimb-style overlay.pdf", ix))
-grDevices::cairo_pdf(out_m, width = 7.2, height = 4.0, family = .font)
+grDevices::cairo_pdf(out_m, width = 8.0, height = 4.2, family = .font)
 print(p_a + labs(tag = NULL))
 grDevices::dev.off()
 

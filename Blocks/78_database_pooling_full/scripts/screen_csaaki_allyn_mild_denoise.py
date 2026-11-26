@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mild denoise of Allyn full pool (CSA-AKI).
+"""Mild denoise of full literature feature pool (CSA-AKI).
 
 Unlike aggressive crossdb (ext cov + SMD + LASSO → only ~9 vars, hurt AUROC),
 this keeps almost all physiological signal and only removes clear DB-fingerprint noise.
@@ -10,7 +10,7 @@ Train-only rules (outcomes unused except for report diagnostics):
      (default 0.05) — removes MIMIC-only drug shortcuts
   3) Drop ANY variable with asymmetric train presence:
        max(cov_mimic,cov_sicdb)>=0.50 and min<0.05
-  4) Keep all remaining Allyn keep=1 vars (vitals/lab/resp/meds that pass)
+  4) Keep all remaining keep=1 vars (vitals/lab/resp/meds that pass)
 
 No UV/VIF/LASSO, no external coverage hard gate, no SMD hard gate.
 """
@@ -132,9 +132,9 @@ def main() -> None:
     rep.to_csv(out / "FEATURE_MILD_DENOISE.csv", index=False)
     (out / "csaaki_allyn_mild_keep_vars.txt").write_text("\n".join(keep) + "\n", encoding="utf-8")
     md = [
-        "# Allyn mild denoise (CSA-AKI)",
+        "# Mild denoise of literature feature pool (CSA-AKI)",
         "",
-        "- Base: Allyn keep=1",
+        "- Base: literature keep=1",
         "- Always drop: creatinine, urine_output",
         f"- Drop medications unless cov>= {args.min_cov_med} in BOTH mimic4 & sicdb train",
         "- Drop asymmetric train presence (max>=0.50 & min<0.05)",

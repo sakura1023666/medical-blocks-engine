@@ -130,10 +130,14 @@ config <- list(
     survival_time_var = "survival_time_28d",
     survival_event_var = "survival_28d",
     max_followup = 28,
-    covariate_vars = character(0),
-    covariate_vars_from_vif = TRUE,
-    dual_db_harmonize_survival_covariates = FALSE,
-    survival_covariate_max = 5L,
+    # 协变量选型（Methods 写实）：发现集单因素筛 → VIF 共线筛 → 结合 COPD ICU 预后文献与双库可得性定稿。
+    # 外验铁律：eICU 套用 MIMIC 发现集 JLCM + 同一套 survival 协变量（禁止各库再另筛一套）。
+    # LymphocytePercent 在 eICU 不可得 → 从共享调整集剔除；S9/S10/S11 与 PAMM/JLCM 必须同此名单。
+    # 定稿锁定（禁止再从 VIF 自动扩/缩）：CHARLSON, Age, RDW, NeutrophilCount
+    covariate_vars = c("CHARLSON", "Age", "RDW", "NeutrophilCount"),
+    covariate_vars_from_vif = FALSE, # 已按 UV→VIF+文献锁定；勿再自动取 VIF 全池
+    dual_db_harmonize_survival_covariates = FALSE, # 不用两库 VIF 交集（会改掉发现集名单）
+    survival_covariate_max = 4L,
     survival_covariate_continuous_only = TRUE,
     spline_df = 2L,
     hazard = "Weibull", hazardtype = "Specific",
@@ -141,6 +145,7 @@ config <- list(
     adaptive_class_cap = TRUE,
     adaptive_class_cap_n_threshold = 1000L,
     adaptive_class_cap_ng_low = 4L, adaptive_class_cap_ng_high = 6L,
+    # 全指标默认 auto；WPR 现版 fcimb 五类由 rerun_wpr_force_ng5_fcimb.R 收口强制
     prefer_final_ng = NULL, assign_class_ng = NULL,
     auto_select_class_ng = TRUE,
     min_class_proportion_pct = 5, min_entropy_for_selection = 0.3,
@@ -166,7 +171,13 @@ config <- list(
   ),
   trajectory_dynpred_individual = list(index_vars = NULL, jlcm_ng = NULL),
   trajectory_piecewise_cox = list(index_vars = NULL, max_followup = 28L),
-  trajectory_weibull_compare = list(index_vars = NULL, landmarks = 4:14, jlcm_ng = NULL),
+  # 对齐文献 S2：Days 1–14；ns(df=2) 早 landmark 由引擎 pad_early_landmark_history 解锁 dynpred
+  trajectory_weibull_compare = list(
+    index_vars = NULL, landmarks = 1:14, jlcm_ng = NULL,
+    min_unique_time_for_dynpred = 1L,
+    pad_early_landmark_history = TRUE,
+    min_unique_time_pad_to = 3L
+  ),
   trajectory_subgroup_class = list(
     index_vars = NULL, age_var = "Age", age_cutoff = 65L,
     auto_scan_categorical = FALSE,

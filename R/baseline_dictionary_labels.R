@@ -52,7 +52,9 @@ baseline_dictionary_unit_is_measurable <- function(unit) {
   )
   if (u %in% skip) return(FALSE)
   # 纯水平说明（含 / 且无数字与常见计量符号）视作分类
-  if (grepl("^[A-Za-z]+/[A-Za-z]+$", u) && !grepl("(dL|mL|L|kg|mg|ug|μg|ng|pg|mm|cm|mEq|mmol|IU)", u)) {
+  # 保留呼吸频率等计量单位：insp/min、breaths/min
+  if (grepl("^[A-Za-z]+/[A-Za-z]+$", u) &&
+      !grepl("(dL|mL|L|kg|mg|ug|μg|ng|pg|mm|cm|mEq|mmol|IU|min|bpm|sec|hr)", u)) {
     return(FALSE)
   }
   TRUE

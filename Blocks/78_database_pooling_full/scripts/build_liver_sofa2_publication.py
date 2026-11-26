@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Summary tables and figures for the early liver-dysfunction pooling run.
 
-Main model keeps Allyn's feature list. A second arm drops total bilirubin only.
+Main model keeps the literature feature list. A second arm drops total bilirubin only.
 The seven-lab deletion is not included. Point estimates from the full test pass.
 """
 from __future__ import annotations
@@ -324,7 +324,7 @@ def write_notes(out: Path, fig2: pd.DataFrame):
     lines = [
         "# 和原文的差别",
         "",
-        "原文是 Allyn 等，Critical Care 2026，BlendedLoS。这一份是早期肝功能异常队列，不是原文的全体 ICU，也不是 2026-10-15 那个每库最多 640 次住院的缩小样本。",
+        "原文是既有多数据库 ICU 池化 / BlendedLoS 文献包。这一份是早期肝功能异常队列，不是原文的全体 ICU，也不是 2026-10-15 那个每库最多 640 次住院的缩小样本。",
         "",
         "## 队列",
         "",
@@ -391,7 +391,7 @@ def main():
     compare = pd.DataFrame(
         [
             {
-                "Study": "Allyn 2026, all-comer ICU",
+                "Study": "Prior multi-DB ICU BlendedLoS study (2026), all-comer ICU",
                 "Cohort": "About 19,573 stays in each database",
                 "External mortality": "Pooling AUROC about 0.82 versus MIMIC-IV alone about 0.80",
                 "External MAPE": "Pooling lower than MIMIC-IV alone",

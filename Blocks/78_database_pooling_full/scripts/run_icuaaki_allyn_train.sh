@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ICUAKI DN=1 Allyn 4-arm train on 34 (single GPU sequential).
+# ICUAKI DN=1 4-arm train on 34 (single GPU sequential).
 # Stage1+Stage2 QC must PASS before this.
 set -euo pipefail
 
@@ -36,7 +36,7 @@ run_unit() {
   return $ec
 }
 
-log "ICUAKI Allyn train begin DATA=$DATA"
+log "ICUAKI 4-arm train begin DATA=$DATA"
 run_unit liver_expA_amsterdam_solo
 run_unit liver_expB_mimic_solo
 run_unit liver_expC_mimic2amsterdam_transfer

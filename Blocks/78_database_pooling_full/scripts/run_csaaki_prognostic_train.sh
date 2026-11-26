@@ -1,5 +1,5 @@
 #!/bin/bash
-# CSA-AKI prognostic-feature arm (does NOT overwrite Allyn-pool Output_database_pooling).
+# CSA-AKI prognostic-feature arm (does NOT overwrite literature-pool Output_database_pooling).
 set -u
 export CUDA_VISIBLE_DEVICES=0
 export DBPOOL_FULL_EPOCHS=1
@@ -22,7 +22,7 @@ mkdir -p "$OUT" "$LOGDIR"
   echo "ARM=csaaki_prognostic_best"
   echo "DROP=$DBPOOL_DROP_TS"
   echo "KEEP=$DBPOOL_KEEP_TS"
-  echo "note: same BlendedLoS tree as Allyn arm; model inputs restricted by KEEP whitelist"
+  echo "note: same BlendedLoS tree as literature-pool arm; model inputs restricted by KEEP whitelist"
   echo "lit: reports/tst_feature_lit_csaaki_prognostic_2026-11-04.md"
 } > "$OUT/FEATURE_GATE.txt"
 

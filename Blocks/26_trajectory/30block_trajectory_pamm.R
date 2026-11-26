@@ -86,12 +86,16 @@
 
 .tpamm_burden_table <- function(long, base, id_col, thr, time_var, event_var, covs, max_followup,
                                 cfg = NULL) {
-  # person-level: prop time below lo / above hi; cumulative absolute deviation beyond thresholds
+  # person-level metrics aligned with fcimb S9/S10:
+  # continuous mean, ever beyond P5/P95, proportion of time, cumulative deviation
   agg <- stats::aggregate(
     expo ~ get(id_col), data = long,
     FUN = function(z) {
       n <- length(z)
       c(
+        mean_expo = mean(z),
+        ever_lo = as.integer(any(z <= thr$lo)),
+        ever_hi = as.integer(any(z >= thr$hi)),
         prop_lo = mean(z <= thr$lo),
         prop_hi = mean(z >= thr$hi),
         cum_lo = sum(pmax(0, thr$lo - z)),
@@ -105,6 +109,9 @@
   mat <- as.matrix(agg[[2L]])
   bur <- data.frame(
     id = idv,
+    mean_expo = as.numeric(mat[, "mean_expo"]),
+    ever_lo = as.numeric(mat[, "ever_lo"]),
+    ever_hi = as.numeric(mat[, "ever_hi"]),
     prop_lo = as.numeric(mat[, "prop_lo"]),
     prop_hi = as.numeric(mat[, "prop_hi"]),
     cum_lo = as.numeric(mat[, "cum_lo"]),
@@ -133,19 +140,31 @@
     }
     sm <- summary(m)$coefficients
     ci <- tryCatch(exp(stats::confint(m)["x", ]), error = function(e) c(NA_real_, NA_real_))
+    hr <- unname(exp(sm["x", "coef"]))
+    lo <- unname(ci[1L]); hi <- unname(ci[2L])
+    note <- ""
+    # sparse low-burden / separation → mark unstable for pub tables
+    if (is.finite(hr) && (hr < 0.01 || hr > 100 ||
+                          (is.finite(lo) && is.finite(hi) &&
+                           ((hi / pmax(lo, 1e-12)) > 1e4 || hi > 1e4)))) {
+      note <- "NE_unstable"
+    }
     data.frame(
       metric = term,
-      HR = unname(exp(sm["x", "coef"])),
-      lo = unname(ci[1L]),
-      hi = unname(ci[2L]),
+      HR = hr,
+      lo = lo,
+      hi = hi,
       p = unname(sm["x", "Pr(>|z|)"]),
       n = nrow(dd),
-      note = "",
+      note = note,
       stringsAsFactors = FALSE
     )
   }
 
   rbind(
+    fit_one("mean_expo", scale = 100), # per 0.01 on raw WPR mean
+    fit_one("ever_lo", scale = 1),
+    fit_one("ever_hi", scale = 1),
     fit_one("prop_lo", scale = 20),  # per 5% → scale 20 on proportion-in-[0,1]
     fit_one("prop_hi", scale = 20),
     fit_one("cum_lo", scale = 1),
@@ -230,11 +249,13 @@
 }
 
 .tpamm_draw_fcimb_panels <- function(fit, ped, covs, Index, thr, landmarks, expo_levels,
-                                     out_pdf, width = 10, height = 8) {
+                                     out_pdf, width = 10, height = 8,
+                                     hr_ylab = "HR for in-hospital mortality") {
   # 对齐 fcimb Fig5/6：(a) HR~expo (b) 分层 landmark (c) HR~day (d) 分层 expo
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("trajectory_pamm 作图需要 ggplot2", call. = FALSE)
   }
+  hr_ylab <- as.character(hr_ylab %||% "HR for in-hospital mortality")[1L]
   covs <- intersect(covs, names(ped))
   ref_expo <- as.numeric(stats::median(ped$expo, na.rm = TRUE))
   ref_day <- as.numeric(stats::median(ped$tend, na.rm = TRUE))
@@ -296,7 +317,7 @@
     ggplot2::geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
     ggplot2::labs(
       title = "(a) Adjusted relationship between time-varying exposure and mortality",
-      x = Index, y = "HR for in-hospital mortality"
+      x = Index, y = hr_ylab
     ) + theme_p
 
   p_b <- ggplot2::ggplot(df_b, ggplot2::aes(expo, hr, color = landmark, fill = landmark)) +
@@ -307,7 +328,7 @@
     ggplot2::scale_fill_manual(values = cols_lm[seq_along(unique(df_b$landmark))]) +
     ggplot2::labs(
       title = "(b) Stratified by landmark time points",
-      x = Index, y = "HR for in-hospital mortality", color = NULL, fill = NULL
+      x = Index, y = hr_ylab, color = NULL, fill = NULL
     ) + theme_p
 
   p_c <- ggplot2::ggplot(df_c, ggplot2::aes(tend, hr)) +
@@ -316,7 +337,7 @@
     ggplot2::geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
     ggplot2::labs(
       title = "(c) Time-varying effect of exposure on mortality",
-      x = "Days", y = "HR for in-hospital mortality"
+      x = "Days", y = hr_ylab
     ) + theme_p
 
   p_d <- ggplot2::ggplot(df_d, ggplot2::aes(tend, hr, color = expo_lab, fill = expo_lab)) +
@@ -327,7 +348,7 @@
     ggplot2::scale_fill_manual(values = cols_ex[seq_along(unique(df_d$expo_lab))]) +
     ggplot2::labs(
       title = "(d) Stratified by exposure levels",
-      x = "Days", y = "HR for in-hospital mortality", color = NULL, fill = NULL
+      x = "Days", y = hr_ylab, color = NULL, fill = NULL
     ) + theme_p
 
   if (requireNamespace("patchwork", quietly = TRUE)) {
@@ -340,6 +361,46 @@
     return(invisible(out_pdf))
   }
   ggplot2::ggsave(out_pdf, pp, width = width, height = height, device = grDevices::cairo_pdf)
+  invisible(out_pdf)
+}
+
+# 对齐 fcimb Supplementary Figure 3：Days × 暴露 Log(HR) 填色等高面（单库一页）
+.tpamm_draw_fcimb_loghr_contour <- function(fit, ped = NULL, Index = "Index",
+                                            out_pdf, width = 7.2, height = 4.6) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("trajectory_pamm contour 需要 ggplot2", call. = FALSE)
+  }
+  mf <- if (!is.null(ped) && is.data.frame(ped) && nrow(ped)) ped else fit$model
+  tend_rng <- range(mf$tend, na.rm = TRUE)
+  expo_q <- as.numeric(stats::quantile(mf$expo, c(0.02, 0.98), na.rm = TRUE))
+  days <- seq(0, 28, length.out = 57L)
+  days_pred <- pmin(pmax(days, tend_rng[1]), tend_rng[2])
+  expos <- seq(expo_q[1], expo_q[2], length.out = 80L)
+  grid <- expand.grid(tend = days_pred, expo = expos)
+  eta <- as.numeric(stats::predict(fit, newdata = grid, type = "link"))
+  loghr <- eta - min(eta, na.rm = TRUE)
+  loghr[!is.finite(loghr)] <- NA_real_
+  df <- data.frame(day = rep(days, times = length(expos)), expo = grid$expo, loghr = loghr)
+  vmax <- as.numeric(stats::quantile(df$loghr, 0.995, na.rm = TRUE))
+  if (!is.finite(vmax) || vmax <= 0) vmax <- max(df$loghr, na.rm = TRUE)
+  cols <- c("#2166AC", "#67A9CF", "#D1E5F0", "#F7F7F7", "#FDDBC7", "#EF8A62", "#B2182B")
+  p <- ggplot2::ggplot(df, ggplot2::aes(day, expo, z = loghr)) +
+    ggplot2::geom_contour_filled(bins = 16) +
+    ggplot2::geom_contour(color = "black", linewidth = 0.35, bins = 8) +
+    ggplot2::scale_fill_manual(
+      values = grDevices::colorRampPalette(cols)(16),
+      name = "Log(HR)",
+      guide = ggplot2::guide_colorsteps(barwidth = 0.6, barheight = 8)
+    ) +
+    ggplot2::coord_cartesian(xlim = c(0, 28), expand = FALSE) +
+    ggplot2::scale_x_continuous(breaks = c(0, 7, 14, 21, 28)) +
+    ggplot2::labs(x = "Days", y = Index) +
+    ggplot2::theme_classic(base_size = 11) +
+    ggplot2::theme(
+      legend.position = "right",
+      axis.title = ggplot2::element_text(face = "bold")
+    )
+  ggplot2::ggsave(out_pdf, p, width = width, height = height, device = grDevices::cairo_pdf)
   invisible(out_pdf)
 }
 
@@ -525,7 +586,8 @@ block_trajectory_pamm <- function(ctx, ...) {
       .tpamm_draw_fcimb_panels(
         fit = fit, ped = ped, covs = intersect(covs, names(ped)),
         Index = Index, thr = thr, landmarks = landmarks,
-        expo_levels = expo_levels, out_pdf = pdf_path
+        expo_levels = expo_levels, out_pdf = pdf_path,
+        hr_ylab = bl$hr_ylab %||% "HR for in-hospital mortality"
       )
       cli::cli_alert_success("trajectory_pamm 图已写: {.file {basename(pdf_path)}}")
     }, error = function(e) {

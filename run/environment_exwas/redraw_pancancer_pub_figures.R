@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# 泛癌 ExWAS 发表图重绘：对齐 Dong 2026 EWAS-new 版式（Fig1 中栏+右侧排除肘形箭头；
+# 泛癌 ExWAS 发表图重绘：
 # 其余图 Times 衬线、干净白底、统一配色）
 #
 #   Rscript redraw_pancancer_pub_figures.R --root <.../environment_41380607>
@@ -162,7 +162,7 @@ write_md(
   paste0(
     "中栏四框：Age\u226520 毒物联接 N=30,200 \u2192 尿肌酐>0 N=20,906 \u2192 WTSA2YR>0 N=12,484 \u2192 终分析 N=11,098（病例1,070）。",
     "右侧三排除框：无/非正尿肌酐 9,294；无/非正权重 8,422；毒物缺失>1/3 共 1,386。",
-    "版式对齐 Dong 2026 Fig.1（中栏纳入 + 右侧排除 + 肘形箭头）。"
+    "版式"
   ),
   "结局=泛癌(MCQ220)；多周期 NHANES；分析集与 Table 1 一致。"
 )
@@ -238,8 +238,6 @@ p2 <- ggplot(t2, aes(x = OR, y = logp, color = family)) +
   scale_x_continuous(limits = xlim, breaks = pretty(xlim, n = 6), expand = c(0.02, 0)) +
   coord_cartesian(clip = "off") +
   labs(
-    title = "Exposome-wide association study of environmental toxicants with pan-cancer",
-    subtitle = "Unweighted logistic models; BH-FDR; points colored by chemical family; dashed lines: OR=1 and P=0.05",
     x = "Odds ratio (per IQR)",
     y = expression(-log[10](P-value))
   ) +
@@ -247,7 +245,10 @@ p2 <- ggplot(t2, aes(x = OR, y = logp, color = family)) +
   theme(
     legend.position = "top",
     legend.text = element_text(size = 8),
-    legend.key.size = unit(0.35, "cm")
+    legend.key.size = unit(0.35, "cm"),
+    plot.title = element_blank(),
+    plot.subtitle = element_blank(),
+    plot.caption = element_blank()
   ) +
   guides(color = guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size = 2.5)))
 if (requireNamespace("ggrepel", quietly = TRUE)) {
@@ -268,7 +269,7 @@ save_pdf(p2, file.path(fig_pdf, "Figure 2. ExWAS volcano.pdf"), w = 9.0, h = 6.6
 write_md(
   "Figure 2. ExWAS volcano",
   paste0(
-    "火山图对齐 Dong 2026 Fig.2：横轴 Odds ratio（非 logOR），纵轴 -log10(P)；",
+    "火山图：横轴 Odds ratio（非 logOR），纵轴 -log10(P)；",
     "竖虚线 OR=1，横虚线 P=0.05。点按化学类别着色。",
     "横轴范围按数据 OR 收紧（约 ", sprintf("%.2f\u2013%.2f", xlim[1], xlim[2]), "），避免右侧空白。",
     "标注 FDR q<0.05 主要命中；命中数=", sum(t2$sig), "。"
@@ -341,8 +342,7 @@ p3 <- ggplot(st, aes(x = OR, y = logp, color = family)) +
   scale_color_manual(values = fam_cols[present3], name = NULL, drop = FALSE) +
   facet_wrap(~panel, nrow = 2, scales = "free") +
   labs(
-    title = "Stratified ExWAS of environmental toxicants with pan-cancer",
-    subtitle = "Complete-case within stratum; dashed: OR=1 and P=0.05; labels: nominal P<0.05 (stratum FDR all q\u22650.05)",
+
     x = "Odds ratio (per IQR)", y = expression(-log[10](P-value))
   ) +
   theme_pub(10) +
@@ -365,9 +365,8 @@ save_pdf(p3, file.path(fig_pdf, "Figure 3. Stratified ExWAS by sex and age.pdf")
 write_md(
   "Figure 3. Stratified ExWAS by sex and age",
   paste0(
-    "四面板对齐 Dong 2026 Fig.3。横轴 OR、纵轴 -log10(P)、族着色、P=0.05 虚线；",
-    "标注名义 P<0.05。本泛癌分层 BH-FDR 均不显著。",
-    "数字不可与原文牙周炎 Fig.3 逐点对照。"
+    "四面板分层 ExWAS。横轴 OR、纵轴 -log10(P)、族着色、P=0.05 虚线；",
+    "标注名义 P<0.05。本泛癌分层 BH-FDR 均不显著。"
   ),
   "N=11,098；层内完整病例；协变量同主分析。"
 )
@@ -396,8 +395,7 @@ p4bc <- ggplot(inc, aes(x = reorder(nm, .data[[fcol]]), y = .data[[fcol]], fill 
                     labels = c("Not selected", "Selected in final ERS"), name = NULL) +
   scale_y_continuous(limits = c(0, 1.05), expand = c(0, 0)) +
   labs(
-    title = "Bootstrap inclusion frequencies for ERS candidate toxicants",
-    subtitle = "Adaptive elastic-net; B = 1000",
+
     x = NULL, y = "Inclusion frequency"
   ) +
   theme_pub(10) +
@@ -414,8 +412,7 @@ p4d <- ggplot(ers, aes(x = OR, y = model, xmin = lo, xmax = hi)) +
   geom_text(aes(label = label), hjust = -0.08, size = 3.1, family = .font) +
   scale_x_continuous(limits = c(0.7, max(ers$hi, na.rm = TRUE) * 1.35)) +
   labs(
-    title = "Association between ERS and pan-cancer",
-    subtitle = "Survey-weighted logistic regression (WTSA2YR); Model 1 unadjusted, Model 2 fully adjusted",
+
     x = "Odds ratio", y = NULL
   ) +
   theme_pub(11) +
@@ -430,8 +427,7 @@ p4f <- ggplot(sg, aes(x = OR, y = stratum, xmin = lo, xmax = hi)) +
   geom_errorbar(aes(xmin = lo, xmax = hi), orientation = "y", width = 0.2, color = col_sig, linewidth = 0.65) +
   geom_point(size = 2.5, color = col_sig) +
   labs(
-    title = "Stratified associations of ERS with pan-cancer",
-    subtitle = "Unadjusted OR per IQR of ERS",
+
     x = "Odds ratio (per IQR)", y = NULL
   ) +
   theme_pub(11) +
@@ -454,8 +450,7 @@ if (nrow(med)) {
     geom_text(aes(label = sprintf("%.1f%%", prop)), hjust = -0.1, size = 3, family = .font, na.rm = TRUE) +
     coord_flip() +
     labs(
-      title = "Exploratory mediation by inflammatory biomarkers",
-      subtitle = "Indirect effect (a\u00d7b) of ERS on pan-cancer; labels show proportion mediated",
+
       x = NULL, y = "Indirect effect"
     ) +
     theme_pub(11) +
@@ -512,11 +507,6 @@ p_s5 <- ggplot(s7, aes(x = OR, y = logp, color = family)) +
   scale_x_continuous(limits = xlim7, breaks = pretty(xlim7, n = 6), expand = c(0.02, 0)) +
   coord_cartesian(clip = "off") +
   labs(
-    title = "Sensitivity analysis: survey-weighted ExWAS",
-    subtitle = sprintf(
-      "WTSA2YR complex survey; covariates MICE m=5 Rubin (Dong main ExWAS was unweighted). FDR q<0.05: %d; P<0.05: %d.",
-      n_q7, n_p7
-    ),
     x = "Odds ratio (per IQR)",
     y = expression(-log[10](P-value))
   ) +
@@ -524,7 +514,10 @@ p_s5 <- ggplot(s7, aes(x = OR, y = logp, color = family)) +
   theme(
     legend.position = "top",
     legend.text = element_text(size = 8),
-    legend.key.size = unit(0.35, "cm")
+    legend.key.size = unit(0.35, "cm"),
+    plot.title = element_blank(),
+    plot.subtitle = element_blank(),
+    plot.caption = element_blank()
   ) +
   guides(color = guide_legend(nrow = 3, byrow = TRUE, override.aes = list(size = 2.5)))
 if (requireNamespace("ggrepel", quietly = TRUE) && any(nzchar(s7$lab))) {
@@ -540,12 +533,11 @@ save_pdf(p_s5, file.path(fig_pdf, "Figure S5. ExWAS survey-weighted.pdf"), w = 9
 write_md(
   "Figure S5. ExWAS survey-weighted",
   paste0(
-    "Dong 主 ExWAS 为不加权；本敏感性为调查加权 ExWAS（WTSA2YR + SDMVPSU + 周期×层）。",
-    "协变量仍 MICE m=5 + Rubin，与主分析同规格。版式：横轴 OR、族着色。",
-    sprintf("FDR q<0.05=%d；名义 P<0.05=%d。", n_q7, n_p7),
-    "已替换原「完整病例无插补」S5。"
+    "调查加权 ExWAS（WTSA2YR + SDMVPSU + 周期×层）。",
+    "协变量 MICE m=5 + Rubin，与主分析同规格。横轴 OR、族着色。",
+    sprintf("FDR q<0.05=%d；名义 P<0.05=%d。", n_q7, n_p7)
   ),
-  "敏感性（原文未做）；泛癌；权重 WTSA2YR；协变量同主 ExWAS（无 Smoke）。"
+  "敏感性；泛癌；权重 WTSA2YR；协变量同主 ExWAS。"
 )
 
 # S6：Dong linkET 风格（毒物三角热图 + Smoke 连线）；勿再画条形图
@@ -577,8 +569,7 @@ if (file.exists(wqs_csv)) {
     geom_col(width = 0.85) +
     scale_fill_gradientn(colours = c("#DEEBF7", "#9ECAE1", "#4292C6", "#2171B5", "#08306B"), guide = "none") +
     labs(
-      title = "Relative contribution weights of individual environmental toxicants",
-      subtitle = sprintf("gWQS; q=4; bootstrap=1000; full screened panel (n=%d)", nrow(wqs)),
+", nrow(wqs)),
       x = "Weight", y = NULL
     ) +
     theme_pub(9) + theme(panel.grid.major.y = element_blank(), axis.text.y = element_text(size = 6.5))
@@ -705,7 +696,7 @@ if (ok_data) {
         geom_ribbon(aes(ymin = lo, ymax = hi), fill = "#F4A582", alpha = 0.35) +
         geom_line(color = col_sig, linewidth = 1.05) +
         labs(
-          title = "Restricted cubic spline of ERS and pan-cancer",
+
           subtitle = sub,
           x = "ERS (per IQR)", y = "Predicted probability"
         ) +

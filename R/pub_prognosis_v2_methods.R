@@ -120,7 +120,7 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
       cohort, dbs, primary, validation, outcome
     ),
     sprintf(
-      "The exposure was %s, analysed as a continuous variable (per 1 SD within each cohort) and as %s. Extreme short-sleep contrasts (<5 h and <6 h versus 7–<9 h) and binary contrasts at each cohort's own Model 3 RCS minimum-risk cutoff (Table S10) were reported as supplementary analyses and did not replace the pre-specified five-level grouping. An external 465-minute threshold was not used.",
+      "The exposure was %s, analysed as a continuous variable (per 1 SD within each cohort) and as %s. Extreme short-sleep contrasts (<5 h and <6 h versus 7–<9 h; Table S9) were reported as supplementary analyses and did not replace the pre-specified five-level grouping.",
       exposure, grouping
     ),
     "Candidate covariates were screened with Boruta and SHAP on the primary cohorts only; multicollinearity was assessed with variance inflation factors (VIF < 5 considered acceptable). The intersection of Boruta-confirmed covariates across primary cohorts with VIF < 5 defined Model 3.",
@@ -132,13 +132,13 @@ pub_prognosis_v2_methods_lines <- function(config = NULL) {
     ),
     "Person-time and crude mortality rates were summarised by sleep category (Table 2). A linear ordinal P for trend across sleep categories was not reported because sleep duration and mortality typically follow a U-shaped association; dose\u2013response shape was evaluated with restricted cubic splines reporting P-linear and P-nonlinear (Figure 4). Cumulative incidence used Kaplan\u2013Meier estimators with log-rank tests (Figure 3).",
     "Competing-risk Fine\u2013Gray models treated cardiovascular death as the event and other deaths as competing events (Table 4). CHARLS cardiovascular death used Harmonized End of Life ragcod = 2.",
-    "Subgroup analyses estimated category-specific contrasts versus 7-8 h within strata of age, sex, BMI, smoking, hypertension and diabetes (Figure 7).",
+    "Subgroup analyses estimated category-specific contrasts versus 7-<9 h within strata of age, sex, BMI, smoking, hypertension and diabetes (Figure 7).",
     sprintf(
       "Mediation analyses used %s as the mediator. In pre-specified screening, unadjusted path models (no covariates) had significant paths a, b and c in both primary cohorts; adding age removed joint significance. Path a was the linear coefficient of sleep duration on standardized DBP; path b and the direct effect were Cox log-hazard coefficients. The proportion mediated was (a\u00d7b)/total on the log-hazard scale with bootstrap confidence intervals (Table S8 / Figure 6). Path models were unweighted, including in NHANES, and are not the survey-weighted Cox models in Table 3.",
       mediator
     ),
     sprintf(
-      "Sensitivity analyses included %s. Cohort-specific RCS minimum-risk cutoffs (Table S10) were then used for Cox models with population attributable risk (Table S12), diagnostic yield (Table S13) and joint stratification with age and hypertension (Table S14); multi-horizon prediction is in Table S11 / Figure S1. Cutoffs are estimated within each cohort and are not borrowed from external studies.",
+      "Sensitivity analyses included %s. Multi-horizon prediction is in Table S11 / Figure S1. Binary RCS clinical-cutoff packages were not retained in the delivery set; dose–response shape remains Figure 4 (restricted cubic splines).",
       sens
     ),
     "Proportional hazards assumptions were assessed with Schoenfeld residuals (cox.zph; Table S15).",

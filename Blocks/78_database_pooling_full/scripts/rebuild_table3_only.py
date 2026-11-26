@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild only Table 3 (Allyn layout + stay-level CIs) into an existing summary_results pack."""
+"""Rebuild only Table 3 (four-strategy layout + stay-level CIs) into an existing summary_results pack."""
 from __future__ import annotations
 
 import os

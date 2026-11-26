@@ -303,7 +303,7 @@ def write_notes(out: Path, fig2: pd.DataFrame):
     lines = [
         "# 和原文的差别",
         "",
-        "原文是 Allyn 等，Critical Care 2026，BlendedLoS（全体 ICU 入组）。",
+        "原文是既有多数据库 ICU 池化 / BlendedLoS 文献包（全体 ICU 入组）。",
         "这一份交付目录现在放的是 **EASL/DILI 实验室门控** 的早期肝损伤队列（首测 ALT≥200 U/L 或 ALP≥230 U/L），",
         "不是原文全体 ICU，也不是此前 SOFA 肝脏项 / 胆红素≥33 的那一版汇总。",
         "",
@@ -405,7 +405,7 @@ def main():
     compare = pd.DataFrame(
         [
             {
-                "Study": "Allyn 2026, all-comer ICU",
+                "Study": "Prior multi-DB ICU BlendedLoS study (2026), all-comer ICU",
                 "Cohort": "About 19,573 stays in each database",
                 "External mortality": "Pooling AUROC about 0.82 versus MIMIC-IV alone about 0.80",
                 "External MAPE": "Pooling lower than MIMIC-IV alone",

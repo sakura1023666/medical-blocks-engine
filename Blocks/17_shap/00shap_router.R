@@ -1,11 +1,15 @@
 ###############################################################################
-#  00shap_router.R — 按模型引擎选择 SHAP 算法
+#  00shap_router.R — 按模型引擎选择 SHAP 算法 + 符号对齐（Blocks/17_shap）
 #
 #  tree_shapviz     : xgboost / lightgbm / rf / dt (+ adaboost 若底层为树)
 #  catboost_native  : catboost::get_feature_importance(type = ShapValues)
 #  linear_coef      : logistic / enet（系数 × 去均值，线性精确 SHAP）
 #  kernel_fastshap  : rsvm / mlp / realmlp / knn / 非树 adaboost
 #  kernel_tabpfn    : tabpfn*（无 workflow 时对 baked 矩阵 + workflow 代理预测）
+#
+#  符号对齐（本文件，勿挪到课题 scripts）：
+#    .shap_align_shapviz_to_analysis_group / .shap_flip_shapviz_signs
+#  展示折叠 / 发表拼图 → 见 00shap_display_common.R（勿写入本文件）
 ###############################################################################
 
 .shap_tabpfn_tags <- function() {

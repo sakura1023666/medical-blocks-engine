@@ -190,6 +190,9 @@ config <- list(
       delivery_root = NULL,             # NULL -> <Output>/summary_results
       table1_cont = NULL,               # NULL -> 自动探测
       table1_cat  = NULL,
+      # 展示层变量名字典（命名向量：原始列名 = "Display name"）；
+      # 禁止原始列名（hbp_d / SBPn / History.of.PE 等）直接上 Table 1
+      table1_labels = NULL,
       fig3_lock_note = TRUE             # A/B 面板标 "K locked per reference; see Table S4"
     )
   ),

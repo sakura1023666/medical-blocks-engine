@@ -11,6 +11,13 @@ dir.create(fig_pdf, recursive = TRUE, showWarnings = FALSE)
 dir.create(fig_md, recursive = TRUE, showWarnings = FALSE)
 
 suppressPackageStartupMessages(library(ggplot2))
+ROOT <- "/mnt/e/01block/01Block-new-Final"
+if (file.exists(file.path(ROOT, "R/utils.R"))) source(file.path(ROOT, "R/utils.R"))
+.font <- if (exists("resolve_plot_font_family", mode = "function")) {
+  resolve_plot_font_family("Times New Roman")
+} else {
+  "Liberation Serif"
+}
 
 # 布局：暴露偏上、结局居中偏右、协变量环绕（仿原文疏密）
 nodes <- data.frame(
@@ -84,15 +91,19 @@ p <- ggplot() +
   geom_text(
     data = nodes,
     aes(x = tx, y = ty, label = label),
-    size = 3.6, family = "sans", color = "black",
+    size = 3.6, family = .font, color = "black",
     hjust = 0.5, vjust = 0.5
   ) +
   coord_cartesian(xlim = c(0.00, 1.00), ylim = c(0.00, 1.00), expand = FALSE) +
-  theme_void() +
+  theme_void(base_family = .font) +
   theme(plot.margin = margin(8, 8, 8, 8), plot.background = element_rect(fill = "white", color = NA))
 
 out <- file.path(fig_pdf, "Figure S1. DAG covariates.pdf")
-grDevices::cairo_pdf(out, width = 9.5, height = 6.2, family = "sans")
+if (exists("pipeline_pdf_device", mode = "function")) {
+  pipeline_pdf_device(out, width = 9.5, height = 6.2, family = "Times New Roman")
+} else {
+  grDevices::cairo_pdf(out, width = 9.5, height = 6.2, family = .font)
+}
 print(p)
 grDevices::dev.off()
 message("wrote ", out)
@@ -101,12 +112,15 @@ writeLines(c(
   "# Figure S1. DAG covariates",
   "",
   "## 图面说明",
-  "画风对齐 Dong Supplementary Figure 1：实心黑圆节点、旁注标签、细黑箭头、白底。",
-  "节点仅为最终 Model 2：Gender, Race, Poverty(PIR), Alcohol use, eGFR,",
+  "实心黑圆节点、旁注标签、细黑箭头、白底；Times 系字体。",
+  "节点为最终 Model 2 调整集：Gender, Race, Poverty (PIR), Alcohol use, eGFR,",
   "Environmental Toxicants, Pan-cancer。",
   "",
   "## 分析上下文",
-  "Model2 stepwise 锁定集；无 Age/Smoke；无牙科节点。"
+  "协变量来自文献知情 DAG 候选池，经单因素 (P<0.05) → VIF<4 → 逐步 AIC 选定；",
+  "与 Table 2 / ERS / 中介 / 敏感性 Model 2 同一套：Gender, Race, PIR category, Alcohol drinking, eGFR。",
+  "无牙科节点（癌症结局不适用）。"
 ), file.path(fig_md, "Figure S1. DAG covariates.md"))
 
 message("DONE Fig S1 Dong-style")
+

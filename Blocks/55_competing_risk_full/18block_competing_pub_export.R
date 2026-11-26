@@ -159,7 +159,11 @@ block_competing_pub_export <- function(ctx, ...) {
   traj_info <- ctx$results$competing_trajectory_class %||% list()
   fig6 <- file.path(fig_dir, sprintf("Figure 6-%s. Trajectory of %s.pdf", db, index_var))
   tryCatch({
-    pdf(fig6, width = 7.5, height = 5.5)
+    if (exists(".competing_pdf_open", mode = "function")) {
+      .competing_pdf_open(fig6, width = 7.5, height = 5.5)
+    } else {
+      pdf(fig6, width = 7.5, height = 5.5)
+    }
     if (!is.null(long) && nrow(long) && traj_var %in% names(data)) {
       id_col <- ctx$results$competing_index_long$id_col %||% (cfg$data$id_column %||% "ID")
       val_col <- if ("value" %in% names(long)) "value" else index_var
@@ -371,6 +375,43 @@ block_competing_pub_export <- function(ctx, ...) {
   }
 
   cli::cli_alert_success("文献级导出完成: {length(figs)} figures / {length(tabs)} tables")
+
+  # 单库 unit 级 summary_results（去库名 + 禁下划线 + Times + Methods + prune）
+  # 双库拼图课题可设 competing$write_unit_summary_results = FALSE，改走双库收口
+  cr_cfg <- cfg$competing %||% list()
+  write_sum <- cr_cfg$write_unit_summary_results
+  if (is.null(write_sum)) write_sum <- !isTRUE((cfg$dual_db %||% list())$enable)
+  if (isTRUE(write_sum)) {
+    fin_src <- file.path(root, "R/competing_risk_pub_finalize.R")
+    if (file.exists(fin_src)) source(fin_src, local = FALSE)
+    if (exists("competing_finalize_unit_summary_results", mode = "function")) {
+      tryCatch(
+        {
+          sum_path <- competing_finalize_unit_summary_results(out_root, config = cfg)
+          pub_mt <- cfg$pub %||% list()
+          mt <- pub_mt$midterm %||% list()
+          if (exists("competing_write_midterm_project_info", mode = "function")) {
+            competing_write_midterm_project_info(
+              sum_path,
+              exposure = index_var,
+              client = as.character(mt$client %||% pub_mt$midterm_client %||% "静")[1L],
+              no_date = if (!is.null(mt$no_date)) isTRUE(mt$no_date) else isTRUE(pub_mt$midterm_no_date %||% TRUE),
+              database = db,
+              outcome_lab = sprintf(
+                "%s-day %s (competing with %s)",
+                as.character(horizon %||% 28L)[1L],
+                primary_lbl,
+                as.character(bl$competing_event_label %||% "death")[1L]
+              )
+            )
+          }
+          cli::cli_alert_success("unit summary_results: {sum_path}")
+        },
+        error = function(e) cli::cli_alert_warning("unit summary_results 跳过: {e$message}")
+      )
+    }
+  }
+
   ctx
 }
 

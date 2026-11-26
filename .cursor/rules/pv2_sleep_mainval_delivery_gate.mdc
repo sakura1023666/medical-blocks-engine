@@ -1,0 +1,32 @@
+---
+description: 睡眠×血脂异常 mainval 交付收口铁律（禁切点包；白名单五件套；Nature P0 后中期）
+alwaysApply: true
+---
+
+# 睡眠 dyslipidemia mainval 交付铁律
+
+课题：`prognosis_v2_mainval` / `PV2_PROFILE=sleep_dyslipidemia`。
+
+## 每次定稿必跑
+
+```bash
+Rscript run/prognosis_v2/finalize_sleep_mainval_delivery.R
+```
+
+然后按 `nature_pub_qc_after_project` + `pub-qc-after-project` 做 Nature 统计/图面审，**修清全部 P0**，再出中期（脚本已含中期；若 Agent 另审有新 P0，修完后重跑中期 + `--prune-only`）。
+
+## 交付面
+
+`summary_results` **只留**：`Figures/` `Tables/` `Methods_statistical_analysis.md` `Methods_software_versions.txt` `*中期*.pdf`。
+
+## 明确不进交付
+
+- Table S10 / S12 / S13 / S14（RCS 二分切点 / PAR / 诊断 / 联合分层）
+- 根级 `RCS切点*.pdf`、启蒙老师切点反馈、纳排对照草稿
+- `checkpoints/` `reports/` `content.json` 等（进 `*_delivery_workspace/`）
+
+连续 RCS **Figure 4**（P-linear + P-nonlinear）保留；五分组主分析保留。
+
+## 展示
+
+禁下划线、Times New Roman、小数位走 `pub_digits_consistency`（与全项目相同）。

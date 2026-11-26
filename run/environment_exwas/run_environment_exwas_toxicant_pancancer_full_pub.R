@@ -571,13 +571,13 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
                       arrow = ggplot2::arrow(length = grid::unit(0.15, "cm"))) +
     ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1) +
     ggplot2::theme_void() +
-    ggplot2::labs(title = "Figure S1. Directed acyclic graph (cancer-adapted covariates)")
+    ggplot2::labs(title = "Figure S1. Directed acyclic graph (covariates)")
   ggplot2::ggsave(file.path(fig_dir, "pdf", "Figure S1. DAG covariates.pdf"), p_dag, width = 9, height = 5)
   .write_md(
     file.path(fig_dir, "image_information", "Figure S1. DAG covariates.md"),
     "Figure S1. DAG covariates",
     "示意：人口学/社会经济/行为/eGFR → 毒物与结局；炎症为 ERS→癌 探索中介。癌症迁移去掉口腔三项；主 ExWAS 不含 Smoke。",
-    "对齐 Dong 2026 补充 Figure 1 逻辑，结局改为泛癌。"
+    "结局为泛癌。"
   )
 }
 
@@ -764,7 +764,7 @@ if (file.exists(medf) && requireNamespace("ggplot2", quietly = TRUE)) {
     )
     # S4 sensitivity note
     writeLines(c(
-      "Figure S4. Mediation sensitivity (cancer-adapted)",
+      "Figure S4. Mediation sensitivity",
       "Paper used formal mediation sensitivity (R2̃_M / R2̃_Y) for unmeasured confounding.",
       "This delivery reports exploratory product-method indirect effects in Table S6 / Figure 5.",
       "Cross-sectional NHANES: temporal order Exposure→Mediator→Outcome is assumed, not observed.",

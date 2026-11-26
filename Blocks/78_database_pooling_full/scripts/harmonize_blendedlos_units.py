@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Engine-level BlendedLoS / BlendedICU timeseries unit harmonization + gate.
 
-Target units match Allyn MOESM1 physio clip bounds used by `_run_one_template.py`:
+Target units match physio clip bounds used by `_run_one_template.py`:
   - blood_glucose → mmol/L  (clip ~2.8–12.4)
   - hemoglobin    → g/dL    (clip ~6.0–14.0)
 

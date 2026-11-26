@@ -91,6 +91,18 @@ block_tj_pub_export <- function(ctx, ...) {
   cox <- ctx$results$tj_cox
   if (!is.null(cox) && nrow(cox)) {
     m_lev <- unique(cox$model)
+    # 列名展示层：model1 → Model 1（禁编程名上图）；协变量链进脚注
+    m_disp <- sub("^model", "Model ", m_lev, ignore.case = TRUE)
+    names(m_disp) <- m_lev
+    # 可估性守卫：HR=0（准完全分离）、CI 含 Inf/NaN、或 HR 爆炸（>=1e6 / <=1e-6）一律 NE，
+    # 禁止 "0.000 (0.000, Inf)" 或 1e230 级伪 CI 上交付表（Nature P0：分离 CI 互串同款坑）
+    .tj_est_cell <- function(hr, lo, hi) {
+      bad <- is.na(hr) | is.na(lo) | is.na(hi) |
+        (!is.finite(hr) & !is.na(hr)) | !is.finite(lo) | !is.finite(hi) |
+        (!is.na(hr) & hr == 0) |
+        (!is.na(hr) & (hr >= 1e6 | hr <= 1e-6))
+      ifelse(bad, "Not estimable", sprintf("%.3f (%.3f, %.3f)", hr, lo, hi))
+    }
     t2 <- data.frame(Class = character(0), System = character(0), check.names = FALSE)
     for (sys_i in unique(cox$system)) {
       sub_s <- cox[cox$system == sys_i, , drop = FALSE]
@@ -100,25 +112,40 @@ block_tj_pub_export <- function(ctx, ...) {
         for (mn in m_lev) {
           r <- sub_s[sub_s$model == mn & sub_s$class == cl, , drop = FALSE]
           if (!nrow(r) || cl == "T1") { row1[[mn]] <- "1 (reference)"; next }
-          # 准完全分离（HR=0 且 CI 上限 Inf）→ NE，禁止 0.000 交差
-          if (isTRUE(r$HR[1] == 0) && is.infinite(r$hi[1])) { row1[[mn]] <- "NE"; next }
-          cell <- sprintf("%.3f (%.3f, %.3f)", r$HR[1], r$lo[1], r$hi[1])
+          # 准完全分离（HR=0 / CI=Inf / HR 爆炸）→ NE，禁止 0.000 或 1e230 级伪 CI 交差
+          cell <- .tj_est_cell(r$HR[1], r$lo[1], r$hi[1])
+          if (identical(cell, "Not estimable")) { row1[[mn]] <- "Not estimable"; next }
           row1[[mn]] <- if (r$p[1] < 0.001) paste0(cell, " <0.001") else
                         paste0(cell, sprintf(" %.3f", r$p[1]))
         }
         t2 <- rbind(t2, row1)
       }
     }
-    n_ne <- sum(vapply(m_lev, function(mn) sum(t2[[mn]] == "NE"), integer(1)))
+    n_ne <- sum(vapply(m_lev, function(mn) sum(t2[[mn]] == "Not estimable"), integer(1)))
     t2$System <- tdisp(t2$System)
-    fn2 <- c("Reference = T1 (lowest trajectory class) within each index system.",
-             "Models sequentially add covariates.",
+    names(t2) <- ifelse(names(t2) %in% m_lev, m_disp[names(t2)], names(t2))
+    # 协变量链脚注（禁编程列名；display 走 table1_labels）
+    mdl_covs <- bl$model_sets %||% ctx$config$joint_trajectory$model_sets %||%
+      ctx$config$covariates %||% list()
+    .vlab1 <- function(v) {
+      if (!is.null(pub$table1_labels) && v %in% names(pub$table1_labels))
+        return(as.character(pub$table1_labels[[v]]))
+      gsub("[_.]", " ", v)
+    }
+    chain_fn <- character(0)
+    for (mn in m_lev) {
+      cvs <- as.character(mdl_covs[[mn]] %||% character(0))
+      lab <- paste(vapply(cvs, .vlab1, character(1)), collapse = " + ")
+      chain_fn <- c(chain_fn, paste0(m_disp[[mn]], " = ", lab))
+    }
+    fn2 <- c("Reference class T1 = class with the lowest baseline level of the index, within each system.",
+             if (length(chain_fn)) paste0(chain_fn, collapse = "; "),
              "Cell format: HR (95% CI) P.",
              sprintf("Time scale = %s; see Methods.", pub$time_unit_lab %||% "months"))
     if (tryCatch(mi_rubin_enabled(ctx), error = function(e) FALSE))
       fn2 <- c(fn2, "Rubin-pooled across imputations.")
     else fn2 <- c(fn2, "Complete-case estimates (no imputation required).")
-    if (n_ne) fn2 <- c(fn2, "NE = not estimable (zero events in class; quasi-complete separation).")
+    if (n_ne) fn2 <- c(fn2, "Not estimable = quasi-complete separation (zero events in class); no CI reported.")
     export_sci_table(t2, file.path(TD, "Table 2 - Cox models by class and covariate set.xlsx"),
       title = paste0("Table 2. Hazard ratios (95% CI) for incident ", tolower(olabel),
                      " by trajectory class, sequential models"),
@@ -130,9 +157,9 @@ block_tj_pub_export <- function(ctx, ...) {
   sg <- ctx$results$tj_subgroup; pib <- ctx$results$tj_p_interaction
   if (!is.null(sg) && nrow(sg)) {
     disp <- sg
-    disp$est <- ifelse(is.na(disp$HR), "NE",
-      sprintf("%.3f (%.3f, %.3f)", disp$HR, disp$lo, disp$hi))
-    disp$pv <- ifelse(is.na(disp$p), NA,
+    disp$est <- .tj_est_cell(disp$HR, disp$lo, disp$hi)
+    # CI 与 P 同源：HR 不可估（NE）时禁止单独留分离 Wald/LR P（0.99x 假精确）
+    disp$pv <- ifelse(disp$est == "Not estimable" | is.na(disp$p), "-",
       ifelse(disp$p < 0.001, "<0.001", sprintf("%.3f", disp$p)))
     t3 <- data.frame(System = tdisp(disp$system), Subgroup = disp$subgroup, Level = disp$level,
                      N = disp$n, Events = disp$events, Class = disp$class,
@@ -140,23 +167,32 @@ block_tj_pub_export <- function(ctx, ...) {
     if (!is.null(pib) && nrow(pib)) {
       t3$P.int <- NA
       for (r in seq_len(nrow(pib))) {
+        # t3$Subgroup 仍为原始层名（Age_Group）；渲染层 scrub 才转 "Age Group"
         hit <- which(t3$System == tdisp(pib$system[r]) & t3$Subgroup == pib$subgroup[r])
         if (length(hit)) t3$P.int[hit[1]] <- sprintf("%.3f", pib$p_interaction[r])
       }
+      names(t3)[names(t3) == "P.int"] <- "P for interaction"
     }
+    .rubin_int <- tryCatch(exists("mi_rubin_enabled") && isTRUE(mi_rubin_enabled(ctx)),
+                           error = function(e) FALSE)
     export_sci_table(t3, file.path(TD, "Table 3 - subgroup hazard ratios and interaction P.xlsx"),
       title = "Table 3. Subgroup-specific hazard ratios by trajectory class with P for interaction",
-      table_footnotes = c("NE = not estimable (events below minimum).",
-                          "P for interaction from Rubin-pooled likelihood-ratio test."))
+      table_footnotes = c("Not estimable = quasi-complete separation (no events in stratum for the class contrast); no CI or P reported.",
+                          if (.rubin_int)
+                            "P for interaction from Rubin-pooled likelihood-ratio test (class x subgroup)."
+                          else
+                            "P for interaction from likelihood-ratio test (class x subgroup); single fit (no imputation needed)."))
   }
 
   # ── Sensitivity S1 ────────────────────────────────────────────────
-  sens <- ctx$results$tj_sensitivity
+    sens <- ctx$results$tj_sensitivity
   if (!is.null(sens) && nrow(sens)) {
-    sens$est <- sprintf("%.3f (%.3f, %.3f)", sens$HR, sens$lo, sens$hi)
-    sens$pv <- ifelse(sens$p < 0.001, "<0.001", sprintf("%.3f", sens$p))
+    sens$est <- .tj_est_cell(sens$HR, sens$lo, sens$hi)
+    # CI 与 P 同源：NE 行不留分离 Wald P
+    sens$pv <- ifelse(sens$est == "Not estimable", "-",
+      ifelse(sens$p < 0.001, "<0.001", sprintf("%.3f", sens$p)))
     has_bh <- "p_bh" %in% names(sens) && any(!is.na(sens$p_bh))
-    sens$pbh <- if (has_bh) ifelse(is.na(sens$p_bh), NA,
+    sens$pbh <- if (has_bh) ifelse(sens$est == "Not estimable" | is.na(sens$p_bh), "-",
       ifelse(sens$p_bh < 0.001, "<0.001", sprintf("%.3f", sens$p_bh))) else NA_character_
     ts <- sens[, c("system","analysis","class","est","pv","pbh","m")]
     ts$system <- tdisp(ts$system)
@@ -179,8 +215,10 @@ block_tj_pub_export <- function(ctx, ...) {
       !rubin_on,                                  # Model fits 脚注仅 MICE 关闭时出
       grepl("S7", have), grepl("S9", have), grepl("S8", have),
       grepl("S10", have), TRUE)
-    # 首条（Imputations）始终保留
-    fn <- c(fn_all[1L], fn_all[-1L][keep_fn])
+    # MICE 关闭：表头与脚注都是 Model fits，不再解释 Imputations
+    fn <- c(if (rubin_on) fn_all[1L] else NULL, fn_all[-1L][keep_fn])
+    if (any(sens$est == "Not estimable"))
+      fn <- c(fn, "Not estimable = quasi-complete separation (no events in class); P cells shown as -.")
     fn <- c(fn, sprintf("Analyses run: %s.", paste(sort(unique(sens$analysis)), collapse = ", ")))
     export_sci_table(ts, file.path(TD, "Table S1 - sensitivity analyses.xlsx"),
       title = paste0("Table S1. Sensitivity analyses of trajectory class and incident ",
@@ -241,8 +279,9 @@ block_tj_pub_export <- function(ctx, ...) {
   mn_disp0 <- sub("^model", "Model ", tolower(as.character(mn_last %||% "")), ignore.case = TRUE)
   if (!is.null(cox) && nrow(cox) && !is.null(mn_last)) {
     fr <- cox[cox$model == mn_last, , drop = FALSE]
-    # 零事件类（准完全分离 HR=0/CI=Inf）不可上图（假竖线）；Table 2 已标 NE
-    sep_bad <- !is.na(fr$HR) & fr$HR == 0 & is.infinite(fr$hi)
+    # 不可估类（0 事件分离 HR=0/CI=Inf/HR 爆炸）不可上图（假竖线）；Table 2 已标 NE
+    sep_bad <- suppressWarnings(vapply(seq_len(nrow(fr)), function(i)
+      identical(.tj_est_cell(fr$HR[i], fr$lo[i], fr$hi[i]), "Not estimable"), logical(1)))
     if (any(sep_bad)) {
       cli::cli_alert_info("Fig3: 剔除 {sum(sep_bad)} 个不可估类（0 事件分离）")
       fr <- fr[!sep_bad, , drop = FALSE]
@@ -470,7 +509,7 @@ block_tj_pub_export <- function(ctx, ...) {
           sprintf("- %s: HR %.3f (%.3f-%.3f), P %s", fr2$lab2, fr2$HR, fr2$lo, fr2$hi,
                   vapply(fr2$p, .tj_fmt_p, character(1))) else "- 各行 HR：未收获",
         "",
-        if (ne_n > 0L) sprintf("注：%d 个类别因 0 事件（准完全分离）不可估计，未上图，在 Table 2 中标 NE。", ne_n) else "")
+        if (ne_n > 0L) sprintf("注：%d 个类别因 0 事件（准完全分离）不可估计，未上图，在 Table 2 中标 Not estimable。", ne_n) else "")
     }
     if (is.null(body_i))
       body_i <- paste0("矢量 PDF 由 tj_pub_export 生成（", fam, " 字体）。")
@@ -500,8 +539,11 @@ block_tj_pub_export <- function(ctx, ...) {
     tryCatch(export_pub_figures(FD, meta = list(figures_dir = FD, tables_dir = TD),
       config = ctx$config, purge = TRUE), error = function(e) NULL)
   }
+  .sync_src <- file.path(root, "R/pub_xlsx_surgical.R")
+  if (file.exists(.sync_src)) suppressWarnings(source(.sync_src, local = FALSE))
   if (exists("pub_sync_xlsx_a1_titles_to_filenames", mode = "function")) {
-    tryCatch(pub_sync_xlsx_a1_titles_to_filenames(TD), error = function(e) NULL)
+    tryCatch(pub_sync_xlsx_a1_titles_to_filenames(TD),
+             error = function(e) cli::cli_alert_warning("A1 表题同步失败: {conditionMessage(e)}"))
   }
   # 三线表收口闸门：display scrub（含 pub_xlsx_enforce_three_line.py：顶线/栏目线/
   # 底线对齐最后数据行、无竖线、关网格线；值零改动、幂等）

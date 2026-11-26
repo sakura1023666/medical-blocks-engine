@@ -75,7 +75,7 @@ UNIT_CONFIG = {
                 "models": ["lstm", "transformer", "tpc"],
                 "runs": [
                     {
-                        # Allyn Table S2: one model, equal n per database, about 3,000 each.
+                        # Equal-n architecture benchmark: one model, equal n per database, about 3,000 each.
                         # 56% of the train split. On a ~5,314-stay folder that is ~2,975.
                         # With stays_per_db set, the same 56% applies to the cap.
                         "train_on": ["amsterdam", "hirid", "mimic4", "eicu"],
@@ -217,7 +217,7 @@ UNIT_CONFIG = {
             }
         },
     },
-    # Allyn Table S2 style: train on all four DBs with equal per-DB cap
+    # Equal-n style: train on all four DBs with equal per-DB cap
     # (set DBPOOL_TRAIN_STAYS_PER_DB, default handled in finalize watcher).
     "liver_model_benchmark_equaln": {
         "config_overrides": {"datasets": ["amsterdam", "mimic4", "eicu", "hirid"]},
@@ -233,7 +233,7 @@ UNIT_CONFIG = {
             }
         },
     },
-    # Allyn Table 2 style: TPC trained on each database alone.
+    # Single-DB style: TPC trained on each database alone.
     "liver_dataset_benchmark": {
         "config_overrides": {"datasets": ["amsterdam", "mimic4", "eicu", "hirid"]},
         "experiments": {
@@ -249,7 +249,7 @@ UNIT_CONFIG = {
         },
     },
     # Training-size sweep on MIMIC-IV (patient-level percentages of the train
-    # folder). Matches Allyn Figure 2 / training_size_study, inside this cohort.
+    # folder). Matches training_size_study layout inside this cohort.
     # Denser grid than 10/25/50/75/100 so Fig.2 has discrete points across the
     # available MIMIC train N (paper used ~1k–55k; here max is cohort train size).
     "liver_training_size_study": {

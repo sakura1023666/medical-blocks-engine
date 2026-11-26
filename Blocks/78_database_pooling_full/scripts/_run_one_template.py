@@ -50,7 +50,7 @@ def _load_with_patient_index(self, pth, verbose=True, **kwargs):
 _bicu.BlendedICU.load = _load_with_patient_index
 
 # ---------------------------------------------------------------------------
-# Literature preprocess (Allyn 2026 Methods + MOESM1):
+# Literature preprocess (multi-DB ICU TPC Methods + MOESM1-style physio):
 #   1) clip raw continuous values to MOESM1 physiological ranges
 #   2) q5/q95 fit on TRAIN only (vitals/lab/resp) *after* physio clip
 #   3) x_norm = 2 * (x - q5) / (q95 - q5) - 1
@@ -101,7 +101,7 @@ _PHYSIO_CLIP = {
 
 
 def _physio_clip_enabled() -> bool:
-    # Default ON (Allyn MOESM1). Set DBPOOL_PHYSIO_CLIP=0 to disable.
+    # Default ON (MOESM1-style physio clip). Set DBPOOL_PHYSIO_CLIP=0 to disable.
     raw = os.environ.get("DBPOOL_PHYSIO_CLIP", "1").strip().lower()
     return raw not in ("0", "false", "no", "off")
 
@@ -124,7 +124,7 @@ def _clip_physio_df(df):
 
 from database.datareader import DataReader as _DR
 
-# Sensitivity / disease feature gates. Empty by default = Allyn BlendedLoS list.
+# Sensitivity / disease feature gates. Empty by default = literature BlendedLoS keep-list.
 # DBPOOL_DROP_TS=bilirubine,alanine_aminotransferase,...
 # DBPOOL_KEEP_TS=heart_rate,lactate,...  (whitelist; always keeps "time"; DROP applied after)
 _DROP_TS = {
@@ -223,7 +223,7 @@ def _continuous_ts_cols(loadcols, ts_variables):
 
 
 def _fit_literature_scaler(train_dr, max_patients=2000, seed=974):
-    """Fit train-only q5/q95 (Allyn 2026). Val/test reuse the same quantiles."""
+    """Fit train-only q5/q95. Val/test reuse the same quantiles."""
     rng = np.random.default_rng(seed)
     patients = np.asarray(train_dr.patient_sample)
     if len(patients) == 0:
@@ -325,7 +325,7 @@ def _fit_literature_scaler(train_dr, max_patients=2000, seed=974):
 
 
 def _q5q95_scale(series, lo, hi):
-    """Allyn 2026: x_norm = 2*(x-q5)/(q95-q5)-1, then clip to [-4, 4]."""
+    """x_norm = 2*(x-q5)/(q95-q5)-1, then clip to [-4, 4]."""
     x = pd.to_numeric(series, errors="coerce")
     denom = float(hi) - float(lo)
     if not np.isfinite(denom) or abs(denom) < 1e-8:

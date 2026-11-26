@@ -132,8 +132,8 @@ wt$rank <- seq_len(nrow(wt))
 
 # 落盘
 utils::write.csv(wt, file.path(down, "Table_WQS_weights.csv"), row.names = FALSE)
-utils::write.csv(wt, file.path(tab_dir, "Table S14. WQS mixture weights.csv"), row.names = FALSE)
-# 兼容旧 xlsx 角色：写一份简易 xlsx
+# S14 不进交付 Tables；仅落盘 Output/_downstream 供 Fig S7
+utils::write.csv(wt, file.path(down, "Table S14. WQS mixture weights.csv"), row.names = FALSE)
 if (requireNamespace("openxlsx", quietly = TRUE)) {
   wb <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(wb, "Weights")
@@ -146,12 +146,12 @@ if (requireNamespace("openxlsx", quietly = TRUE)) {
     utils::write.csv(ct, file.path(down, "Table_WQS_coefficients.csv"))
   }
   openxlsx::saveWorkbook(
-    wb, file.path(tab_dir, "Table S14. WQS mixture weights and coefficients.xlsx"), overwrite = TRUE
+    wb, file.path(down, "Table S14. WQS mixture weights and coefficients.xlsx"), overwrite = TRUE
   )
 }
 writeLines(
   c(
-    "gWQS complementary mixture; aligned with Dong Fig7/S7 full screened panel.",
+    "gWQS complementary mixture; full screened toxicant panel.",
     paste0("q=4; b=", opt$wqs_boot, "; mix=full screened toxicants n=", length(mix_cols), "; seed=123456"),
     paste0("analytic n=", nrow(dw), "; sum(weights)=", signif(sum(wt$mean_weight), 6))
   ),
@@ -178,9 +178,7 @@ p <- ggplot2::ggplot(wt, ggplot2::aes(x = mean_weight, y = lab, fill = mean_weig
   ) +
   ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0, 0.05))) +
   ggplot2::labs(
-    title = "Relative contribution weights of individual environmental toxicants",
-    subtitle = sprintf(
-      "gWQS; q=4; bootstrap=%d; mixture = full screened panel (n=%d)",
+",
       opt$wqs_boot, n_show
     ),
     x = "Weight", y = NULL
@@ -214,7 +212,7 @@ writeLines(c(
   "",
   "## 图面说明",
   paste0(
-    "对齐 Dong Fig7/S7：筛后大面板进 gWQS（非仅 FDR 命中）。",
+    "筛后大面板进 gWQS（非仅 FDR 命中）。",
     sprintf("混合组分 n=%d；bootstrap=%d；q=4。", n_show, opt$wqs_boot),
     "条长=相对权重（和≈1）。顶权：",
     paste(sprintf("%s=%.3f", top5$exposure_name, top5$mean_weight), collapse = "; "),

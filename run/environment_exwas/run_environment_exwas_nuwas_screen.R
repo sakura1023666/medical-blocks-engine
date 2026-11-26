@@ -295,15 +295,11 @@ utils::write.csv(tab, file.path(out, "Table_2_NuWAS_nutrient_screen.csv"), row.n
 
 hit <- tab[is.finite(tab$q) & tab$q < 0.05, , drop = FALSE]
 utils::write.csv(hit, file.path(out, "Table_2_NuWAS_FDR_hits.csv"), row.names = FALSE)
-best_nm <- if (nrow(tab)) as.character(tab$exposure[1]) else NA_character_
 exwas_log("FDR<0.05 营养数=", nrow(hit), " / ", sum(is.finite(tab$p)),
           "；最小q=", suppressWarnings(min(tab$q, na.rm = TRUE)),
-          "；最佳=", best_nm)
+          "；最佳=", if (nrow(tab)) tab$exposure[1] else NA)
 
-if (nrow(hit) > 0L) {
-  print(hit[, c("exposure", "OR", "lo", "hi", "p", "q", "n", "n_events")])
-} else {
-  print(utils::head(tab[, c("exposure", "OR", "p", "q", "n", "n_events")], 10))
-}
+if (nrow(hit)) print(hit[, c("exposure", "OR", "lo", "hi", "p", "q", "n", "n_events")])
+else print(utils::head(tab[, c("exposure", "OR", "p", "q", "n", "n_events")], 10))
 
 exwas_log("写完 ", out)
