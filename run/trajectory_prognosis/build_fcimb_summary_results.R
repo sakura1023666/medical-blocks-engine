@@ -28,15 +28,33 @@ setwd(.root)
 proj_default <- "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
 ix_arg <- .get("--index", NULL)
 index_root <- .get("--index-root", NULL)
+proj_arg <- .get("--proj", NULL)
+figures_only <- "--figures-only" %in% args
+protect_tables <- "--protect-tables" %in% args || figures_only
 if (is.null(index_root) || !nzchar(index_root)) {
   if (is.null(ix_arg) || !nzchar(ix_arg)) ix_arg <- "GPR"
-  index_root <- file.path(proj_default, paste0("by_index/\u3010success\u3011", ix_arg))
+  proj_use <- if (!is.null(proj_arg) && nzchar(proj_arg)) proj_arg else proj_default
+  # Linux/WSL：G: 不可用时回退 /mnt/g
+  if (!dir.exists(proj_use) && grepl("^[Gg]:/", proj_use)) {
+    alt <- sub("^[Gg]:", "/mnt/g", proj_use)
+    if (dir.exists(alt)) proj_use <- alt
+  }
+  if (!dir.exists(proj_use) && identical(proj_use, proj_default) &&
+      dir.exists("/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")) {
+    proj_use <- "/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
+  }
+  index_root <- file.path(proj_use, paste0("by_index/\u3010success\u3011", ix_arg))
+}
+if (!dir.exists(index_root) && grepl("^[Gg]:/", index_root)) {
+  alt <- sub("^[Gg]:", "/mnt/g", index_root)
+  if (dir.exists(alt)) index_root <- alt
 }
 index_root <- normalizePath(index_root, winslash = "/", mustWork = TRUE)
 ix <- if (!is.null(ix_arg) && nzchar(ix_arg)) ix_arg else {
   bn <- basename(index_root)
   sub("^\u3010success\u3011", "", bn)
 }
+proj_for_redraw <- normalizePath(dirname(dirname(index_root)), winslash = "/", mustWork = FALSE)
 
 source(file.path(.root, "R/utils.R"))
 source(file.path(.root, "R/pub_figure_export.R"))
@@ -160,7 +178,11 @@ if (file.exists(redraw_script)) {
   cli::cli_alert_info("Fig1: 调用 redraw_fcimb_fig1_trajectory.R（{ix}）")
   rbin <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
   st <- tryCatch(
-    system2(rbin, args = c("--vanilla", shQuote(redraw_script), "--index", ix), stdout = TRUE, stderr = TRUE),
+    system2(
+      rbin,
+      args = c("--vanilla", redraw_script, "--index", ix, "--proj", proj_for_redraw),
+      stdout = TRUE, stderr = TRUE
+    ),
     error = function(e) conditionMessage(e)
   )
   fig1_ok <- file.exists(fig1_dest) && isTRUE(file.info(fig1_dest)$size > 5000)
@@ -179,7 +201,11 @@ if (file.exists(redraw_km)) {
   cli::cli_alert_info("Fig2: 调用 redraw_fcimb_fig2_landmark_km.R（{ix}）")
   rbin <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
   tryCatch(
-    system2(rbin, args = c("--vanilla", shQuote(redraw_km), "--index", ix), stdout = TRUE, stderr = TRUE),
+    system2(
+      rbin,
+      args = c("--vanilla", redraw_km, "--index", ix, "--proj", proj_for_redraw),
+      stdout = TRUE, stderr = TRUE
+    ),
     error = function(e) conditionMessage(e)
   )
   fig2_ok <- file.exists(fig2_dest) && isTRUE(file.info(fig2_dest)$size > 5000)
@@ -225,19 +251,12 @@ if (file.exists(root_flow) && file.info(root_flow)$size > 20000) {
 .safe_copy(src_spec, file.path(.pdf, "Figure S8. Weibull dynamic model comparison Specificity.pdf"))
 
 # ── 表：对齐文献 Table1 + data sheet S 角色（能映射的尽量同号）──────────────
-# 多数指标表只在 mimic/Tables + eicu/Tables；根 Tables 可能几乎为空 → 先汇集
+# --figures-only / --protect-tables：只补图，不冲掉 data-sheet 三线表（WPR 等）
+if (isTRUE(protect_tables)) {
+  cli::cli_alert_info("protect-tables：跳过引擎表汇集，保留 summary_results/Tables 现有 xlsx")
+}
 .root_tab <- file.path(index_root, "Tables")
 dir.create(.root_tab, recursive = TRUE, showWarnings = FALSE)
-for (db in c("mimic", "eicu")) {
-  src_dir <- file.path(index_root, db, "Tables")
-  if (!dir.exists(src_dir)) next
-  for (f in list.files(src_dir, pattern = "\\.xlsx$", full.names = TRUE)) {
-    if (grepl("^~\\$|_archive", basename(f))) next
-    dest <- file.path(.root_tab, basename(f))
-    if (!file.exists(dest) || file.info(f)$mtime > file.info(dest)$mtime)
-      file.copy(f, dest, overwrite = TRUE)
-  }
-}
 .tab_map <- list(
   # 文献 Table1 = 双库基线；本课题缺正式 Table1，用插补前后基线作主表代理并标 S1
   # 正式：Metrics→S3/S5；Posterior→S4/S6；HR→S7/S8；PAMM burden→S9/S10
@@ -277,35 +296,47 @@ for (db in c("mimic", "eicu")) {
     "Table S15-eICU. Baseline characteristics by trajectory class.xlsx")
 )
 
-# 保持引擎根 Tables 原名同步一份（便于对照），再按文献角色复制改名
-for (f in list.files(.root_tab, pattern = "\\.xlsx$", full.names = TRUE)) {
-  if (grepl("^~\\$|_archive", basename(f))) next
-  .safe_copy(f, file.path(.tab, basename(f)))
-}
-for (pair in .tab_map) {
-  src <- file.path(.root_tab, pair[[1]])
-  if (!file.exists(src)) src <- file.path(.tab, pair[[1]])
-  if (file.exists(src)) .safe_copy(src, file.path(.tab, pair[[2]]))
-}
+if (!isTRUE(protect_tables)) {
+  for (db in c("mimic", "eicu")) {
+    src_dir <- file.path(index_root, db, "Tables")
+    if (!dir.exists(src_dir)) next
+    for (f in list.files(src_dir, pattern = "\\.xlsx$", full.names = TRUE)) {
+      if (grepl("^~\\$|_archive", basename(f))) next
+      dest <- file.path(.root_tab, basename(f))
+      if (!file.exists(dest) || file.info(f)$mtime > file.info(dest)$mtime)
+        file.copy(f, dest, overwrite = TRUE)
+    }
+  }
+  # 保持引擎根 Tables 原名同步一份（便于对照），再按文献角色复制改名
+  for (f in list.files(.root_tab, pattern = "\\.xlsx$", full.names = TRUE)) {
+    if (grepl("^~\\$|_archive", basename(f))) next
+    .safe_copy(f, file.path(.tab, basename(f)))
+  }
+  for (pair in .tab_map) {
+    src <- file.path(.root_tab, pair[[1]])
+    if (!file.exists(src)) src <- file.path(.tab, pair[[1]])
+    if (file.exists(src)) .safe_copy(src, file.path(.tab, pair[[2]]))
+  }
 
-# PAMM burden → S9/S10
-pamm_m <- .find1(prefer = sprintf("Table_PAMM_burden_HR_%s\\.csv", ix))
-pamm_e <- list.files(file.path(index_root, "eicu"), pattern = sprintf("Table_PAMM_burden_HR_%s\\.csv$", ix),
-                     recursive = TRUE, full.names = TRUE)
-pamm_e <- pamm_e[1]
-if (!is.na(pamm_m) && file.exists(pamm_m) && requireNamespace("openxlsx", quietly = TRUE)) {
-  d <- utils::read.csv(pamm_m, stringsAsFactors = FALSE)
-  openxlsx::write.xlsx(d, file.path(.tab, "Table S9-MIMIC. PAMM exposure burden and mortality.xlsx"))
-}
-if (!is.na(pamm_e) && length(pamm_e) && file.exists(pamm_e) && requireNamespace("openxlsx", quietly = TRUE)) {
-  d <- utils::read.csv(pamm_e, stringsAsFactors = FALSE)
-  openxlsx::write.xlsx(d, file.path(.tab, "Table S10-eICU. PAMM exposure burden and mortality.xlsx"))
-}
+  # PAMM burden → S9/S10
+  pamm_m <- .find1(prefer = sprintf("Table_PAMM_burden_HR_%s\\.csv", ix))
+  pamm_e <- list.files(file.path(index_root, "eicu"), pattern = sprintf("Table_PAMM_burden_HR_%s\\.csv$", ix),
+                       recursive = TRUE, full.names = TRUE)
+  pamm_e <- pamm_e[1]
+  if (!is.na(pamm_m) && file.exists(pamm_m) && requireNamespace("openxlsx", quietly = TRUE)) {
+    d <- utils::read.csv(pamm_m, stringsAsFactors = FALSE)
+    openxlsx::write.xlsx(d, file.path(.tab, "Table S9-MIMIC. PAMM exposure burden and mortality.xlsx"))
+  }
+  if (!is.na(pamm_e) && length(pamm_e) && file.exists(pamm_e) && requireNamespace("openxlsx", quietly = TRUE)) {
+    d <- utils::read.csv(pamm_e, stringsAsFactors = FALSE)
+    openxlsx::write.xlsx(d, file.path(.tab, "Table S10-eICU. PAMM exposure burden and mortality.xlsx"))
+  }
 
-# eICU Table1 HR if present under wrong name
-eicu_hr <- .find1(file.path(index_root, "eicu/Tables/Table 1-eICU. Time-dependent HR for trajectory classes.xlsx"))
-if (!is.na(eicu_hr)) {
-  .safe_copy(eicu_hr, file.path(.tab, "Table S8-eICU. Time-dependent HR for trajectory classes.xlsx"))
+  # eICU Table1 HR if present under wrong name
+  eicu_hr <- .find1(file.path(index_root, "eicu/Tables/Table 1-eICU. Time-dependent HR for trajectory classes.xlsx"))
+  if (!is.na(eicu_hr)) {
+    .safe_copy(eicu_hr, file.path(.tab, "Table S8-eICU. Time-dependent HR for trajectory classes.xlsx"))
+  }
 }
 
 # ── image_information + MANIFEST ────────────────────────────────────────────
@@ -396,43 +427,87 @@ manifest <- c(
 .rep <- file.path(dirname(dirname(index_root)), "reports")
 dir.create(.rep, recursive = TRUE, showWarnings = FALSE)
 writeLines(manifest, file.path(.rep, sprintf("%s_FIGURE_TABLE_MANIFEST_fcimb.md", ix)))
-# 映射说明并入 Methods，避免交付根非白名单文件
-meth <- c(
-  sprintf("# Statistical analysis (%s trajectory — COPD)", ix),
-  "",
-  sprintf("Joint latent class mixed models (JLCM) identified longitudinal %s trajectories in the MIMIC-IV derivation cohort; class membership was applied to eICU with fixed parameters. Associations with 28-day in-hospital mortality used piecewise Cox models and dynamic prediction. Piece-wise exponential additive mixed models (PAMM) summarized continuous %s–mortality associations (burden tables).", ix, ix),
-  "",
-  "Figure/table order follows Frontiers CIMB fcimb-16-1871653 where counterparts exist:",
-  "",
-  "- Figure 1: trajectory classes (derivation)",
-  "- Figure 2: Kaplan–Meier by class (derivation + validation)",
-  "- Figure 3: dynamic prediction (MIMIC derivation; mortality secondary axis; landmarks 3/5/7/12 d)",
-  "- Figure 4: dynamic prediction (eICU external; same landmarks; discovery JLCM fixed)",
-  "- Figure 5–6: PAMM time-varying association panels (derivation / external)",
-  "- Figure S1: flowchart (literature Supplementary Figure 1)",
-  "- Figure S4: dynamic vs static AUC (supplement; not main-text Figure 4)",
-  "",
-  sprintf("Full mapping: reports/%s_FIGURE_TABLE_MANIFEST_fcimb.md", ix),
-  "",
-  "## Software",
-  paste0("- R ", R.version$version.string)
-)
-writeLines(meth, file.path(.sum, "Methods_statistical_analysis.md"))
-writeLines(c(R.version$version.string, paste("Date", Sys.Date())),
-           file.path(.sum, "Methods_software_versions.txt"))
-
-# 四目录 / 白名单
-if (exists("pub_figure_ensure_formats", mode = "function")) {
-  tryCatch(
-    pub_figure_ensure_formats(.fig, config = list(pub_figures = list(export_png = FALSE, export_tiff = FALSE))),
-    error = function(e) message("ensure_formats: ", conditionMessage(e))
+# 映射说明并入 Methods，避免交付根非白名单文件（protect 时不覆盖 data-sheet Methods）
+if (!isTRUE(protect_tables)) {
+  meth <- c(
+    sprintf("# Statistical analysis (%s trajectory — COPD)", ix),
+    "",
+    sprintf("Joint latent class mixed models (JLCM) identified longitudinal %s trajectories in the MIMIC-IV derivation cohort; class membership was applied to eICU with fixed parameters. Associations with 28-day in-hospital mortality used piecewise Cox models and dynamic prediction. Piece-wise exponential additive mixed models (PAMM) summarized continuous %s–mortality associations (burden tables).", ix, ix),
+    "",
+    "Figure/table order follows Frontiers CIMB fcimb-16-1871653 where counterparts exist:",
+    "",
+    "- Figure 1: trajectory classes (derivation)",
+    "- Figure 2: Kaplan–Meier by class (derivation + validation)",
+    "- Figure 3: dynamic prediction (MIMIC derivation; mortality secondary axis; landmarks 3/5/7/12 d)",
+    "- Figure 4: dynamic prediction (eICU external; same landmarks; discovery JLCM fixed)",
+    "- Figure 5–6: PAMM time-varying association panels (derivation / external)",
+    "- Figure S1: flowchart (literature Supplementary Figure 1)",
+    "- Figure S4: dynamic vs static AUC (supplement; not main-text Figure 4)",
+    "",
+    sprintf("Full mapping: reports/%s_FIGURE_TABLE_MANIFEST_fcimb.md", ix),
+    "",
+    "## Software",
+    paste0("- R ", R.version$version.string)
   )
+  writeLines(meth, file.path(.sum, "Methods_statistical_analysis.md"))
 }
-if (exists("pub_prune_delivery_root", mode = "function")) {
+if (!file.exists(file.path(.sum, "Methods_software_versions.txt"))) {
+  writeLines(c(R.version$version.string, paste("Date", Sys.Date())),
+             file.path(.sum, "Methods_software_versions.txt"))
+}
+
+# 四目录 / 白名单 + 引擎级交付收口（禁下划线/Times/Methods/软件版本/中期/prune）
+# 见 R/trajectory_fcimb_delivery_finalize.R；以后每次 build summary 都走同一口径
+.source_fcimb_finalize <- file.path(.root, "R/trajectory_fcimb_delivery_finalize.R")
+if (file.exists(.source_fcimb_finalize)) {
+  try(source(.source_fcimb_finalize, local = FALSE), silent = TRUE)
+}
+.fcimb_client <- Sys.getenv("MEDICAL_BLOCKS_MIDTERM_CLIENT", unset = "天涯")
+.fcimb_no_date <- !identical(Sys.getenv("MEDICAL_BLOCKS_MIDTERM_WRITE_DATE", unset = "0"), "1")
+.fcimb_ng <- {
+  v <- Sys.getenv("MEDICAL_BLOCKS_FCIMB_NG", unset = "")
+  if (nzchar(v)) as.integer(v) else 4L
+}
+.fcimb_skip_mid <- identical(Sys.getenv("MEDICAL_BLOCKS_SKIP_MIDTERM", unset = "0"), "1") ||
+  "--skip-midterm" %in% args
+if (exists("trajectory_fcimb_finalize_summary_delivery", mode = "function")) {
   tryCatch(
-    pub_prune_delivery_root(.sum),
-    error = function(e) message("prune: ", conditionMessage(e))
+    trajectory_fcimb_finalize_summary_delivery(
+      summary_root = .sum,
+      index_lab = ix,
+      ng = .fcimb_ng,
+      client = .fcimb_client,
+      no_date = .fcimb_no_date,
+      write_midterm = !.fcimb_skip_mid,
+      root = .root
+    ),
+    error = function(e) {
+      message("fcimb delivery finalize: ", conditionMessage(e))
+      # 回退：至少四目录 + prune
+      if (exists("pub_figure_ensure_formats", mode = "function")) {
+        tryCatch(
+          pub_figure_ensure_formats(.fig, config = list(pub_figures = list(export_png = FALSE, export_tiff = FALSE))),
+          error = function(e2) message("ensure_formats: ", conditionMessage(e2))
+        )
+      }
+      if (exists("pub_prune_delivery_root", mode = "function")) {
+        tryCatch(pub_prune_delivery_root(.sum), error = function(e2) message("prune: ", conditionMessage(e2)))
+      }
+    }
   )
+} else {
+  if (exists("pub_figure_ensure_formats", mode = "function")) {
+    tryCatch(
+      pub_figure_ensure_formats(.fig, config = list(pub_figures = list(export_png = FALSE, export_tiff = FALSE))),
+      error = function(e) message("ensure_formats: ", conditionMessage(e))
+    )
+  }
+  if (exists("pub_prune_delivery_root", mode = "function")) {
+    tryCatch(
+      pub_prune_delivery_root(.sum),
+      error = function(e) message("prune: ", conditionMessage(e))
+    )
+  }
 }
 
 cli::cli_alert_success("summary_results → {.path {(.sum)}}")

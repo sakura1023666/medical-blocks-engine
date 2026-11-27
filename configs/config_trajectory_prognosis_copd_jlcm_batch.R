@@ -212,7 +212,27 @@ config <- list(
     skip_class_swap = TRUE,
     shared_piecewise_cut = list(enable = TRUE, mode = "min_best", root_keep_db = "mimic"),
     export_formats = TRUE,
-    fix_tables = TRUE
+    fix_tables = TRUE,
+    # 交付收口（build_fcimb → trajectory_fcimb_finalize_summary_delivery）
+    # 禁下划线 + Times + Methods/软件版本 + 中期 + summary_results 白名单五件套
+    delivery_finalize = TRUE,
+    midterm_client = "天涯",
+    midterm_no_date = TRUE,
+    # 文献对齐小数位：HR/CI 2 位（fcimb Tables）；P 3 位；描述 ≤2；AUC 3
+    pub_digits = list(
+      est = 2L, p = 3L, desc = 2L, cutoff = 3L,
+      int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"
+    )
+  ),
+
+  # 全项目发表展示（与 trajectory_pub$pub_digits 同口径；finalize / scrub 读取）
+  pub_digits = list(
+    est = 2L, p = 3L, desc = 2L, cutoff = 3L,
+    int_big_mark = TRUE, desc_trim = TRUE, p_style = "nejm"
+  ),
+  pub = list(
+    auto_qc = TRUE,
+    write_index_summary_results = TRUE
   ),
 
   feishu = list(

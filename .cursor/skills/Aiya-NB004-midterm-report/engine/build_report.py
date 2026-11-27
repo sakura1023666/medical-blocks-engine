@@ -186,21 +186,58 @@ def split_caption(grid, merges):
     return caps, grid[i:]
 
 
+def _row_looks_like_data(row):
+    """次行若已是数据行(如基线 n(%) / OR / P),不得抬进 thead,否则跨页会重复 Age/<30 等。"""
+    import re
+    cells = [str(v).strip() for v in row if str(v).strip() != ""]
+    if not cells:
+        return False
+    n_pct = sum(1 for v in cells if re.search(r"\d+(?:\.\d+)?\s*\(\s*[\d.]+\s*\)", v))
+    if n_pct >= 2:
+        return True
+    # OR/HR/数值主导行
+    numish = sum(1 for v in cells if re.fullmatch(r"[-+]?\d+(?:\.\d+)?", v) or
+                 re.fullmatch(r"[-+]?\d+(?:\.\d+)?\s*[-–—]\s*[-+]?\d+(?:\.\d+)?", v) or
+                 re.fullmatch(r"<0\.001|>0\.999", v))
+    if numish >= 3:
+        return True
+    return False
+
+
 def header_rows(body, merges, off=0):
     """判断表头行数:首行必为表头;若其下方紧邻行与首行共同构成合并表头(如 Crude Model/Model1 双层),扩展。
-    merges 行坐标是 grid 空间,body 已剥掉标题行,须按偏移 off 对齐。"""
+    merges 行坐标是 grid 空间,body 已剥掉标题行,须按偏移 off 对齐。
+
+    注意: guan 式 Table1 表头常为 Category | (空) | All | C1…,次行是 Age | < 30 | n(%)…
+    空列被次行填值 ≠ 双层表头;若把 Age 行抬进 thead,Chrome 跨页会每页重复「Age / < 30」。
+    """
     if not body:
         return 1
     n = 1
     # 首行存在横向合并(跨≥2列)→ 视为分组表头,再吃下一行
     has_hmerge = any(r0 - off == 0 and c2 - c0 >= 1 and r2 == r0 for (r0, c0, r2, c2) in merges)
-    # 首行有多个空单元格而次行在这些位置有值 → 双层表头
+    # 首行有空单元格而次行在这些位置有值 → 可能是双层表头,但次行若像数据则否
     first, second = body[0], (body[1] if len(body) > 1 else [])
     gap_fill = any(v == "" and ci < len(second) and second[ci] != "" for ci, v in enumerate(first))
-    if (has_hmerge or gap_fill) and len(body) > 1:
+    # 次行是纵向合并变量 stub 的起点(如 Age 跨多水平)→ 数据行,不抬表头
+    second_is_vmerge_stub = any(
+        r0 - off == 1 and r2 > r0 and c0 == 0 for (r0, c0, r2, c2) in merges
+    )
+    expand = False
+    if len(body) > 1 and has_hmerge:
+        expand = True
+    elif len(body) > 1 and gap_fill and not _row_looks_like_data(second) and not second_is_vmerge_stub:
+        expand = True
+    if expand:
         n = 2
-        # 若第 2 行还有向下合并到第 3 行的(三层表头,罕见),继续吃
-        while any(r0 - off == n and r2 > r0 for (r0, c0, r2, c2) in merges) and len(body) > n:
+        # 若第 2 行还有向下合并到第 3 行的(三层表头,罕见),继续吃——但跳过「数据 stub」纵向合并
+        while len(body) > n:
+            # 仅当该行自身仍是表头层(横向合并分组),才继续
+            more_h = any(r0 - off == n - 1 and c2 - c0 >= 1 and r2 == r0 for (r0, c0, r2, c2) in merges)
+            if not more_h:
+                break
+            if _row_looks_like_data(body[n]):
+                break
             n += 1
     return n
 

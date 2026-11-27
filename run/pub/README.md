@@ -21,6 +21,15 @@
 ## 常用 CLI
 
 ```bash
+# 轨迹预后 fcimb summary_results 交付收口（禁下划线/Times/Methods/软件版本/中期天涯无日期/白名单）
+# 挂点：build_fcimb_summary_results.R 末尾；也可单独：
+Rscript run/trajectory_prognosis/finalize_fcimb_summary_delivery.R \
+  --dir ".../by_index/【success】INDEX/summary_results" \
+  --index WPR --client 天涯 --no-date --ng 4
+```
+
+
+```bash
 # 结构 QC + nature stub
 Rscript run/pub/run_pub_qc_after_project.R --project /mnt/g/02block_result/<课题>
 

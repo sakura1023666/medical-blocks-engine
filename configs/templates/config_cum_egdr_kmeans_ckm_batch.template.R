@@ -96,8 +96,10 @@ config <- list(
     exposure_sig_require_continuous = TRUE,  # 连续 Model1 必须显著
     model1_cascade_enable = TRUE,
     model1_cascade_fix_class_ne = TRUE,   # 类别 NE/参照0事件 → 优先 k=2
+    model1_cascade_fix_quantile_ns = TRUE, # 最高分位 Model1 NS → 试其它分位
     model1_cascade_k = c(2L, 3L, 4L),
-    model1_cascade_n_quantile = c(3L, 2L, 4L),
+    # 三分位 NS 时顺序：四分位 → 二分位 → 五分位（可改）
+    model1_cascade_n_quantile = c(3L, 4L, 2L, 5L),
     # 文献 Methods：Model1 未校正；Model2 年龄/性别/婚姻；Model3 +BMI/教育/吸烟饮酒/eGFR/血脂异常/糖尿病
     model2 = c("Age", "Gender", "Marital"),
     model3 = c("Age", "Gender", "Marital", "BMI", "Education", "Smoke", "Drink",

@@ -43,6 +43,7 @@ disable-model-invocation: false
 | tst（两阶段 Transformer） | `tst_stroke` / `tst_cohort` / `two_stage_transformer` | `run/two_stage_transformer_stroke/run_two_stage_transformer_stroke_task_parallel.R` |
 | ml（双库发病/预后 ML） | `ml_dual_batch_build` | `run/ml/run_ml_dual_batch.R`（**5006** `_template_ml`；可迁 **2202/user02**） |
 | ipw（用药Jin） | `ipw_diabetes` / `Diabetes_HbA1c` / `ipw_jin_composite_risk` | `run/ipw_diabetes_stroke/run_ipw_diabetes_stroke_batch.R`（**5003**；可迁 **2203/user03**） |
+| trajectory_copd（COPD JLCM+PAMM / Prognosis_Trajectory_v2） | `trajectory_prognosis_copd_jlcm` / `run_trajectory_prognosis_copd_jlcm_batch` | `run/trajectory_prognosis/run_trajectory_prognosis_copd_jlcm_batch.R`（**5003**；可迁 **2203/user03**；研究须带 `extensions.json` 挂 `trajectory_pamm`） |
 
 ## Agent 可自动做 vs 必须人工
 
@@ -166,7 +167,12 @@ rsync -avz -e 'ssh -p 2202' \
 ```bash
 # ~/medical-blocks/studies-iface/engine.env
 MEDICAL_BLOCKS_ROOT=/home/user02/medical-blocks/engine
+# user03 / 2203 示例：
+# MEDICAL_BLOCKS_ROOT=/home/user03/medical-blocks/engine
 ```
+
+> **`run_study.sh` Linux 原生路径**：`MEDICAL_BLOCKS_ROOT` 可为 `/home/.../engine`（非仅 `/mnt/` 或 `E:/`）。
+> 5003/2203 已支持 `elif [[ -d "$ENGINE" ]]` 分支；旧脚本只认 `/mnt/` 会误报「engine.env 未设置有效 MEDICAL_BLOCKS_ROOT」。
 
 ### B5. 依赖
 
@@ -184,7 +190,9 @@ MEDICAL_BLOCKS_ROOT=/home/user02/medical-blocks/engine
  用「闭包 download → `~/pkgs/*.tar.gz` → 多轮按依赖序 `R CMD INSTALL`」脚本
  （`34:~/install_pkgs_2202.sh`）。
 - trajectory 套路核心包：`lcmm mclust mice flexsurv survminer timeROC gbmt pROC emmeans rms openxlsx patchwork gtsummary data.table`
+- **trajectory_copd 额外**：`pammtools`（+ `scam`/`lazyeval`）；研究目录必须有 `extensions.json`（可从引擎 `configs/extensions_copd_trajectory.json` 拷）
 - competing 套路核心包：`cmprsk coxme lme4 riskRegression prodlim mice mclust openxlsx tableone dcurves Hmisc survey`
+- Python（发表 scrub，可选）：`openpyxl`；缺包只警告，不挡 R 主链
 
 ### B6. 冒烟
 

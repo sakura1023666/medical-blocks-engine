@@ -36,7 +36,8 @@ config$feishu$enable <- FALSE
 
 ix <- "WPR"
 ng <- 5L
-proj <- "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
+proj <- "/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
+if (!dir.exists(proj)) proj <- "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
 out_root <- file.path(proj, paste0("by_index/\u3010success\u3011", ix))
 ck_root <- file.path(proj, "checkpoints/by_index", ix)
 disc_model_dir <- file.path(out_root, "mimic/step14_trajectory_jlcm/Data")

@@ -1,6 +1,8 @@
 ###############################################################################
 # model1_scheme_cascade — Model1 暴露不显著时换分位/换 k；仍 NS 则 failed
 # 铁律：success_require_exposure_sig + exposure_sig_crude_model1
+# 分位：三分位最高档 Model1 NS 时（连续+类别已过门）自动试
+#       四分位 → 二分位 → 五分位（config$model1_cascade_n_quantile）
 ###############################################################################
 
 block_model1_scheme_cascade <- function(ctx, ...) {

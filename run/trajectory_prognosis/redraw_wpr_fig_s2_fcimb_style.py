@@ -18,16 +18,18 @@ import pandas as pd
 
 PROJ = Path("/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
 IX_ROOT = PROJ / "by_index/【success】WPR"
+# 优先库级 Tables（完整 1–14）；summary CSV 可被 prune，勿排第一
 MIMIC_CSV = [
-    IX_ROOT / "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_MIMIC.csv",
-    IX_ROOT / "mimic/Tables/_archive/Table_Weibull_Dynamic_Compare_WPR.csv",
     IX_ROOT / "mimic/Tables/Table_Weibull_Dynamic_Compare_WPR.csv",
+    IX_ROOT / "mimic/Tables/_archive/Table_Weibull_Dynamic_Compare_WPR.csv",
+    IX_ROOT / "mimic/step21_trajectory_weibull_compare/Tables/Table_Weibull_Dynamic_Compare_WPR.csv",
+    IX_ROOT / "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_MIMIC.csv",
 ]
 EICU_CSV = [
-    IX_ROOT / "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_eICU.csv",
     IX_ROOT / "eicu/Tables/Table_Weibull_Dynamic_Compare_WPR.csv",
     IX_ROOT / "eicu/Tables/_archive/Table_Weibull_Dynamic_Compare_WPR.csv",
     IX_ROOT / "eicu/step21_trajectory_weibull_compare/Tables/Table_Weibull_Dynamic_Compare_WPR.csv",
+    IX_ROOT / "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_eICU.csv",
 ]
 OUT_PDF = (
     IX_ROOT
@@ -222,10 +224,10 @@ def main() -> None:
             "",
             "## 分析上下文",
             "",
-            "- 暴露：WPR 轨迹（JLCM ng=5；外验固定发现集参数与 MIMIC 协变量）",
+            "- 暴露：WPR 轨迹（JLCM ng=4；外验固定发现集参数与 MIMIC 协变量）",
             "- 结局：28 天院内死亡",
-            f"- 样本量：面板 a n_landmark Day1={int(df_m.loc[df_m['landmark']==1,'n_landmark'].iloc[0])}；"
-            f"面板 b Day1={int(df_e.loc[df_e['landmark']==1,'n_landmark'].iloc[0])}",
+            f"- 样本量：面板 a 首个可估 landmark n={int(df_m.loc[df_m['auc_dyn'].notna(), 'n_landmark'].iloc[0])}；"
+            f"面板 b 首个可估 landmark n={int(df_e.loc[df_e['auc_dyn'].notna(), 'n_landmark'].iloc[0])}",
             f"- 数据：a←{path_m.name}；b←{path_e.name}",
             "- 数据库：MIMIC-IV（derivation）+ eICU-CRD（external validation）",
             "- 是否拼图：否（上下双面板）",

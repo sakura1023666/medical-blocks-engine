@@ -360,10 +360,20 @@ rcs <- do.call(rbind, rcs_df)
 rp <- do.call(rbind, rcs_p)
 rp$lab <- paste0("P-overall ", fmt_p(rp$p_overall), "\nP-nonlinear ", fmt_p(rp$p_nonlinear))
 roc <- do.call(rbind, roc_df)
-auc_lab <- tapply(roc$AUC, roc$database, function(z) sprintf("%s (AUC %.3f)", unique(z)[1], unique(z)[1]))
-# fix label
-auc_map <- tapply(roc$AUC, roc$database, function(z) round(z[1], 3))
-roc$curve <- paste0(roc$database, " (AUC ", sprintf("%.3f", auc_map[roc$database]), ")")
+# 图面 AUC 与 Table S4 同口径：三位小数；标签用 AUC= 避免图-表分叉
+auc_map <- tapply(roc$AUC, roc$database, function(z) as.numeric(sprintf("%.3f", round(z[1], 3))))
+# 若 Tables 已有 S4，强制跟表
+for (nm in unique(as.character(roc$database))) {
+  s4f <- file.path(tab_dir, sprintf("Table S4-%s. Predictive performance for 2-year all-cause mortality.xlsx", nm))
+  if (!file.exists(s4f)) next
+  raw <- tryCatch(openxlsx::read.xlsx(s4f, colNames = TRUE), error = function(e) NULL)
+  if (is.null(raw)) next
+  cn <- names(raw)[grepl("AUC", names(raw), ignore.case = TRUE)][1]
+  if (!length(cn) || is.na(cn)) next
+  v <- suppressWarnings(as.numeric(raw[[cn]][1]))
+  if (is.finite(v)) auc_map[nm] <- as.numeric(sprintf("%.3f", round(v, 3)))
+}
+roc$curve <- paste0(roc$database, " (AUC=", sprintf("%.3f", auc_map[roc$database]), ")")
 
 pv2_km_cuminc <- function(dbs) {
   # 分组名不用 < 或 >，否则 survminer 的 gridtext 会把它们当成标记。

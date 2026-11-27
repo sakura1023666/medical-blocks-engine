@@ -53,6 +53,7 @@ alwaysApply: true
 2. **年龄门控写 config**：`data_clean$age_filter = "Age >= 50"`（或课题界值）；本流水线无 `data_clean` block，靠 ingest 落实。
 2a. **Model1 暴露显著性门控（默认开）**：**连续 Model1 必须 P&lt;α**（`exposure_sig_require_continuous=TRUE`）；仅类别/分位显著不算过门。连续 NS → 直接 `MODEL1_EXPOSURE_NS` → `【failed】`。  
 2b. **类别 Table2 全 NE（参照类 0 事件 / 分离）**：连续已显著时，引擎自动换 k（**优先 k=2**，再 3/4）并重锚定类别，直到类别 OR 可估；`model1_cascade_fix_class_ne=TRUE`（默认）。pipeline_unit 须含 `model1_scheme_cascade`。
+2c. **分位最高档 Model1 NS**：连续+类别已过门但三分位（或当前 `n_quantile`）最高 vs 最低仍 NS 时，固定 k，按 `model1_cascade_n_quantile`（默认 **3→4→2→5**）自动重切分位并锁定首个 Model1 显著方案；全试仍 NS 则**保留基线分位**（不因分位 NS 把指标打成 failed）。`model1_cascade_fix_quantile_ns=TRUE`（默认）。
 3. **发表定稿走 rebuild**：workers 产出是草稿；定稿 Tables/Figures/Methods/软件版本以 rebuild / redraw 末尾 `ckm_stroke_finalize_summary_delivery` 为准。
 4. **Fig3 默认口径**：RCS 3 knots；面板 Overall \| BMI&lt;30 \| Age≥60；S1 可用访视月 futime。
 5. **tmp / 课题 scripts 热修用完归档**；可复用逻辑必须回写 `R/` / `Blocks/76/` / `run/cum_egdr_kmeans_ckm/`。

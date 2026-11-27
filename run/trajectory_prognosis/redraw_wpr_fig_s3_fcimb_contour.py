@@ -84,6 +84,17 @@ days_pred <- pmin(pmax(days, tend_rng[1]), tend_rng[2])
 expos <- seq(expo_q[1], expo_q[2], length.out = {n_expo})
 # expand.grid 先 tend 后 expo → 列优先填充与 matrix(nrow=n_day) 一致
 grid <- expand.grid(tend = days_pred, expo = expos)
+# 线性协变量用拟合样本均值填齐（否则 predict 报 CHARLSON not found）
+covs <- character(0)
+if (is.list(obj) && !is.null(obj$covs)) covs <- as.character(obj$covs)
+need <- setdiff(all.vars(stats::formula(fit)), c("ped_status", "tend", "expo", "(offset)"))
+covs <- unique(c(covs, need))
+for (cv in covs) {{
+  if (!cv %in% names(mf)) next
+  fill <- suppressWarnings(mean(as.numeric(mf[[cv]]), na.rm = TRUE))
+  if (!is.finite(fill)) fill <- 0
+  grid[[cv]] <- fill
+}}
 eta <- as.numeric(stats::predict(fit, newdata = grid, type = "link"))
 loghr <- eta - min(eta, na.rm = TRUE)
 loghr[!is.finite(loghr)] <- NA_real_

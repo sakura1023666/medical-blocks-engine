@@ -641,14 +641,25 @@ cli::cli_h1("Table S3–S6 (data-sheet layout)")
 .mim <- .jlcm_models_load(
   file.path(ix_root, "mimic/step14_trajectory_jlcm/Data/D01_jlcm_WPR_models.RData")
 )
-s3 <- .jlcm_sheet_s3(.mim$models, 5L)
+.opt_ng_paths <- c(
+  file.path(ix_root, "mimic/step14_trajectory_jlcm/Tables/Summary/optimal_ng_WPR.txt"),
+  file.path(ix_root, "mimic/Tables/Summary/optimal_ng_WPR.txt")
+)
+.opt_ng <- suppressWarnings(as.integer(trimws(readLines(
+  .opt_ng_paths[file.exists(.opt_ng_paths)][1L], warn = FALSE
+)[1L])))
+if (!is.finite(.opt_ng) || .opt_ng < 2L) .opt_ng <- 4L
+s3 <- .jlcm_sheet_s3(.mim$models, max(5L, .opt_ng))
 .write_one(
   s3,
   file.path(tab_out, "Table S3. Model fit metrics for determining the optimal number of classes in the derivation cohort.xlsx"),
   "Table S3. Model fit metrics for determining the optimal number of classes in the derivation cohort",
   footnotes = c(
-    "Layout aligned with fcimb data sheet Table S3 (No. of classes | Log likelihood | BIC | Entropy | Class 1–5).",
-    "Class columns = proportion of people (%). Primary solution: ng = 5."
+    "Layout aligned with fcimb data sheet Table S3 (No. of classes | Log likelihood | BIC | Entropy | Class proportions).",
+    sprintf(
+      "Class columns = proportion of people (%%). Primary solution: ng = %s (selected by BIC among high-entropy solutions after dual-database covariate lock; min-class <5%% disclosed).",
+      .opt_ng
+    )
   )
 )
 
@@ -844,10 +855,17 @@ unlink(c(old_s5, old_s6))
 # S7 / S8 时依 HR
 # ═══════════════════════════════════════════════════════════════════════════
 cli::cli_h1("Table S7/S8")
-hr_m <- utils::read.csv(
-  file.path(ix_root, "mimic/Tables/Table_Piecewise_Cox_By_Class.csv"),
-  stringsAsFactors = FALSE, check.names = FALSE
-)
+.pw_csv <- function(db) {
+  cands <- c(
+    file.path(ix_root, db, "Tables/Table_Piecewise_Cox_By_Class.csv"),
+    file.path(ix_root, db, "Tables/_archive/Table_Piecewise_Cox_By_Class.csv"),
+    file.path(ix_root, db, "step20_trajectory_piecewise_cox/Tables/Table_Piecewise_Cox_By_Class.csv")
+  )
+  hit <- cands[file.exists(cands)]
+  if (!length(hit)) stop("缺少 Piecewise Cox By Class CSV: ", db)
+  hit[[1L]]
+}
+hr_m <- utils::read.csv(.pw_csv("mimic"), stringsAsFactors = FALSE, check.names = FALSE)
 cut_v <- as.integer(hr_m$cut[1])
 ref_v <- as.integer(hr_m$ref_class[1])
 lab_early <- sprintf("(0,%s]", cut_v)
@@ -882,10 +900,25 @@ cli::cli_alert_success("Table S7")
 
 # S8 rebuild eICU（assignment CSV 为唯一外验类别来源；禁止未定义 asg）
 .asg_cands <- c(
+  file.path(ix_root, "eicu/step16_trajectory_lcmm_external_validate/Tables/LCMM/Table_LCMM_Assignment_External_WPR.csv"),
   file.path(ix_root, "eicu/step15_trajectory_lcmm_external_validate/Tables/LCMM/Table_LCMM_Assignment_External_WPR.csv"),
   file.path(ix_root, "eicu/step14_trajectory_lcmm_external_validate/Tables/LCMM/Table_LCMM_Assignment_External_WPR.csv")
 )
-.asg_path <- .asg_cands[file.exists(.asg_cands)][1L]
+.asg_cands <- .asg_cands[file.exists(.asg_cands)]
+.asg_path <- if (!length(.asg_cands)) {
+  NA_character_
+} else if (is.finite(.opt_ng)) {
+  .sc <- vapply(.asg_cands, function(f) {
+    a <- tryCatch(utils::read.csv(f, stringsAsFactors = FALSE), error = function(e) NULL)
+    if (is.null(a) || !"trajectory_class" %in% names(a)) return(-Inf)
+    mx <- suppressWarnings(max(as.integer(a$trajectory_class), na.rm = TRUE))
+    base <- as.numeric(file.mtime(f))
+    if (is.finite(mx) && identical(as.integer(mx), as.integer(.opt_ng))) base + 1e12 else base
+  }, numeric(1))
+  .asg_cands[[which.max(.sc)]]
+} else {
+  .asg_cands[[1L]]
+}
 if (is.na(.asg_path) || !nzchar(.asg_path))
   stop("S8: 缺少 eICU LCMM assignment CSV", call. = FALSE)
 asg <- utils::read.csv(.asg_path, stringsAsFactors = FALSE)
@@ -1117,12 +1150,15 @@ if (!file.exists(.thr_e)) .thr_e <- .thr_mimic
 # ═══════════════════════════════════════════════════════════════════════════
 cli::cli_h1("Table S11")
 suppressPackageStartupMessages(library(cmprsk))
-pp5 <- as.data.frame(trajectory_unwrap_jointlcmm(.mim$models$m5)$pprob)
+.m_s11 <- .mim$models[[paste0("m", .opt_ng)]]
+if (is.null(.m_s11))
+  stop("S11 找不到 primary JLCM m", .opt_ng, call. = FALSE)
+pp_s11 <- as.data.frame(trajectory_unwrap_jointlcmm(.m_s11)$pprob)
 md <- .mim$model_data
 id_map <- unique(md[, c("subject_id", "subject_id_num")])
 id_map$subject_id <- as.character(id_map$subject_id)
 map_m <- merge(
-  data.frame(subject_id_num = pp5$subject_id_num, trajectory_class = pp5$class),
+  data.frame(subject_id_num = pp_s11$subject_id_num, trajectory_class = pp_s11$class),
   id_map, by = "subject_id_num"
 )
 .surv_csv <- file.path(proj, "data/mimic/MIMIC_ICU_survival_1023 (1).csv")
@@ -1235,7 +1271,15 @@ writeLines(
   c(
     "# Statistical analysis (WPR trajectory — COPD)",
     "",
-    "Joint latent class mixed models (JLCM) identified longitudinal WPR trajectories in the MIMIC-IV derivation cohort; class membership was applied to eICU with fixed parameters. Associations with 28-day in-hospital mortality used piecewise Cox models and dynamic prediction. Piece-wise exponential additive mixed models (PAMM) summarized continuous WPR–mortality associations (burden tables).",
+    paste0(
+      "Joint latent class mixed models (JLCM) identified longitudinal WPR trajectories in the ",
+      "MIMIC-IV derivation cohort; the primary solution used ", .opt_ng,
+      " latent classes (selected by BIC among high-entropy candidates after dual-database ",
+      "covariate lock; solutions with a class <5% of the cohort are disclosed). Class membership ",
+      "was applied to eICU with fixed discovery parameters. Associations with 28-day in-hospital ",
+      "mortality used piecewise Cox models and dynamic prediction. Piece-wise exponential additive ",
+      "mixed models (PAMM) summarized continuous WPR–mortality associations (burden tables)."
+    ),
     "",
     paste0(
       "Covariate selection for adjusted JLCM, PAMM burden models, and class–mortality models ",

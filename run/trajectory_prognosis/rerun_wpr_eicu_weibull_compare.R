@@ -38,7 +38,7 @@ source("configs/config_trajectory_prognosis_copd_jlcm_batch.R")
 config$feishu$enable <- FALSE
 
 ix <- "WPR"
-ng <- 5L
+ng <- as.integer(.get("--ng", "4"))
 boot_n <- as.integer(.get("--boot-n", "2000"))
 perm_n <- as.integer(.get("--perm-n", "2000"))
 proj <- .get("--proj", "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
@@ -148,7 +148,13 @@ config$trajectory_jlcm$covariate_vars <- cov_used
 config$trajectory_jlcm$covariate_vars_from_vif <- FALSE
 config$trajectory_weibull_compare$index_vars <- ix
 config$trajectory_weibull_compare$jlcm_ng <- ng
-config$trajectory_weibull_compare$landmarks <- 4:14
+# 默认 1:14（与文献 S2 Days 轴一致）；早 landmark 靠 pad_early_landmark_history 解锁
+config$trajectory_weibull_compare$landmarks <- as.integer(
+  strsplit(.get("--landmarks", paste(1:14, collapse = ",")), ",")[[1]]
+)
+config$trajectory_weibull_compare$min_unique_time_for_dynpred <- 1L
+config$trajectory_weibull_compare$min_unique_time_pad_to <- 3L
+config$trajectory_weibull_compare$pad_early_landmark_history <- TRUE
 config$trajectory_weibull_compare$boot_n <- boot_n
 config$trajectory_weibull_compare$perm_n <- perm_n
 config$trajectory_weibull_compare$covariate_vars <- cov_used

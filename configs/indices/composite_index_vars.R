@@ -89,6 +89,7 @@
   "Glucose_first", "Glucose_mean",
   "WBC_first", "WBC_CV",
   "Sodium_mean", "Sodium_CV",
+  "Sodium", "eGFR",  # 住院日级原值轨迹（AHF 等；非复合公式）
   "Hemoglobin_CV", "Albumin_CV", "Lactate_CV",
   "UA_CR",        # UA/CR = Uric_Acid(mg/dL) / Creatinine(mg/dL)
   "BUN_Cr",       # BUN / Creatinine

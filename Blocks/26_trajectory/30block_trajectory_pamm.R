@@ -236,8 +236,16 @@
   }
   if (!"offset" %in% names(nd)) nd$offset <- 0
   if (!"offset" %in% names(nd_ref)) nd_ref$offset <- 0
-  pr <- stats::predict(fit, newdata = nd, type = "link", se.fit = TRUE)
-  pr0 <- as.numeric(stats::predict(fit, newdata = nd_ref, type = "link"))
+  # 强制 mgcv::predict.gam：部分落盘 gam 缺 qr 时 stats::predict.glm 会失败
+  .pred <- function(object, newdata, se.fit = FALSE) {
+    if (inherits(object, "gam") && requireNamespace("mgcv", quietly = TRUE)) {
+      mgcv::predict.gam(object, newdata = newdata, type = "link", se.fit = se.fit)
+    } else {
+      stats::predict(object, newdata = newdata, type = "link", se.fit = se.fit)
+    }
+  }
+  pr <- .pred(fit, nd, se.fit = TRUE)
+  pr0 <- as.numeric(.pred(fit, nd_ref, se.fit = FALSE))
   data.frame(
     fit = as.numeric(pr$fit),
     se = as.numeric(pr$se.fit),
@@ -304,11 +312,19 @@
 
   cols_lm <- c("#009E73", "#E69F00", "#CC79A7", "#56B4E9", "#0072B2")
   cols_ex <- cols_lm
-  theme_p <- ggplot2::theme_classic(base_size = 11) +
+  # 发表字体 Times 系（cairo 优先 Liberation/DejaVu Serif；禁 NimbusSans/Helvetica）
+  .font <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family()
+  } else {
+    "Liberation Serif"
+  }
+  theme_p <- ggplot2::theme_classic(base_size = 11, base_family = .font) +
     ggplot2::theme(
       legend.position = "top",
-      plot.title = ggplot2::element_text(face = "bold", size = 10),
-      axis.title = ggplot2::element_text(size = 10)
+      plot.title = ggplot2::element_text(face = "bold", size = 10, family = .font),
+      axis.title = ggplot2::element_text(size = 10, family = .font),
+      axis.text = ggplot2::element_text(family = .font),
+      legend.text = ggplot2::element_text(family = .font)
     )
 
   p_a <- ggplot2::ggplot(df_a, ggplot2::aes(expo, hr)) +
@@ -354,13 +370,16 @@
   if (requireNamespace("patchwork", quietly = TRUE)) {
     pp <- (p_a | p_b) / (p_c | p_d)
   } else {
-    # fallback: save 4-page pdf
-    grDevices::pdf(out_pdf, width = width, height = height / 2)
+    # fallback: save 4-page pdf（Times 系）
+    grDevices::cairo_pdf(out_pdf, width = width, height = height / 2, family = .font)
     print(p_a); print(p_b); print(p_c); print(p_d)
     grDevices::dev.off()
     return(invisible(out_pdf))
   }
-  ggplot2::ggsave(out_pdf, pp, width = width, height = height, device = grDevices::cairo_pdf)
+  ggplot2::ggsave(
+    out_pdf, pp, width = width, height = height,
+    device = function(...) grDevices::cairo_pdf(..., family = .font)
+  )
   invisible(out_pdf)
 }
 
@@ -384,6 +403,11 @@
   vmax <- as.numeric(stats::quantile(df$loghr, 0.995, na.rm = TRUE))
   if (!is.finite(vmax) || vmax <= 0) vmax <- max(df$loghr, na.rm = TRUE)
   cols <- c("#2166AC", "#67A9CF", "#D1E5F0", "#F7F7F7", "#FDDBC7", "#EF8A62", "#B2182B")
+  .font <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family()
+  } else {
+    "Liberation Serif"
+  }
   p <- ggplot2::ggplot(df, ggplot2::aes(day, expo, z = loghr)) +
     ggplot2::geom_contour_filled(bins = 16) +
     ggplot2::geom_contour(color = "black", linewidth = 0.35, bins = 8) +
@@ -395,12 +419,17 @@
     ggplot2::coord_cartesian(xlim = c(0, 28), expand = FALSE) +
     ggplot2::scale_x_continuous(breaks = c(0, 7, 14, 21, 28)) +
     ggplot2::labs(x = "Days", y = Index) +
-    ggplot2::theme_classic(base_size = 11) +
+    ggplot2::theme_classic(base_size = 11, base_family = .font) +
     ggplot2::theme(
       legend.position = "right",
-      axis.title = ggplot2::element_text(face = "bold")
+      axis.title = ggplot2::element_text(face = "bold", family = .font),
+      axis.text = ggplot2::element_text(family = .font),
+      legend.text = ggplot2::element_text(family = .font)
     )
-  ggplot2::ggsave(out_pdf, p, width = width, height = height, device = grDevices::cairo_pdf)
+  ggplot2::ggsave(
+    out_pdf, p, width = width, height = height,
+    device = function(...) grDevices::cairo_pdf(..., family = .font)
+  )
   invisible(out_pdf)
 }
 

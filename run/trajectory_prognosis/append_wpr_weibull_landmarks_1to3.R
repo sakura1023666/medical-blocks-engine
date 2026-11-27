@@ -35,7 +35,7 @@ config$feishu$enable <- FALSE
 }
 
 ix <- "WPR"
-ng <- 5L
+ng <- as.integer(.get("--ng", "4"))
 boot_n <- as.integer(.get("--boot-n", "2000"))
 perm_n <- as.integer(.get("--perm-n", "2000"))
 new_lms <- as.integer(strsplit(.get("--landmarks", "1,2,3"), ",")[[1]])
@@ -103,7 +103,10 @@ cov_lock <- as.character(config$trajectory_jlcm$covariate_vars)
   cfg$trajectory_weibull_compare$index_vars <- ix
   cfg$trajectory_weibull_compare$jlcm_ng <- ng
   cfg$trajectory_weibull_compare$landmarks <- new_lms
+  # 解锁 Day1–2：允许 unique_t=1 进入，再 pad 到 3 个时间点给 ns(df=2)
   cfg$trajectory_weibull_compare$min_unique_time_for_dynpred <- 1L
+  cfg$trajectory_weibull_compare$min_unique_time_pad_to <- 3L
+  cfg$trajectory_weibull_compare$pad_early_landmark_history <- TRUE
   cfg$trajectory_weibull_compare$boot_n <- boot_n
   cfg$trajectory_weibull_compare$perm_n <- perm_n
   cfg$trajectory_weibull_compare$covariate_vars <- cov_lock
@@ -124,16 +127,31 @@ cov_lock <- as.character(config$trajectory_jlcm$covariate_vars)
   new_df <- ctx$results$trajectory_weibull_compare[[ix]]
   if (is.null(new_df) || !nrow(new_df)) stop(db, ": 无新结果")
 
-  old_csv <- if (identical(db, "mimic")) {
-    file.path(db_out, "Tables/_archive/Table_Weibull_Dynamic_Compare_WPR.csv")
+  # 取「landmark 最多」的旧 CSV 做底稿，避免 summary 被删后只剩 1:3 把 4:14 冲掉
+  old_cands <- c(
+    file.path(db_out, "Tables/Table_Weibull_Dynamic_Compare_WPR.csv"),
+    file.path(db_out, "Tables/_archive/Table_Weibull_Dynamic_Compare_WPR.csv"),
+    file.path(step_out, "Tables/Table_Weibull_Dynamic_Compare_WPR.csv"),
+    if (identical(db, "eicu"))
+      file.path(out_root, "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_eICU.csv")
+    else
+      file.path(out_root, "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_MIMIC.csv")
+  )
+  old_cands <- old_cands[file.exists(old_cands)]
+  old_csv <- if (!length(old_cands)) {
+    NA_character_
   } else {
-    file.path(out_root, "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_eICU.csv")
+    sc <- vapply(old_cands, function(f) {
+      d <- tryCatch(utils::read.csv(f, stringsAsFactors = FALSE), error = function(e) NULL)
+      if (is.null(d) || !"landmark" %in% names(d)) return(-Inf)
+      length(unique(d$landmark))
+    }, numeric(1))
+    old_cands[[which.max(sc)]]
   }
-  if (!file.exists(old_csv))
+  if (is.na(old_csv) || !nzchar(old_csv))
     old_csv <- file.path(db_out, "Tables/Table_Weibull_Dynamic_Compare_WPR.csv")
 
   outs <- unique(c(
-    old_csv,
     file.path(step_out, "Tables/Table_Weibull_Dynamic_Compare_WPR.csv"),
     file.path(db_out, "Tables/Table_Weibull_Dynamic_Compare_WPR.csv"),
     file.path(db_out, "Tables/_archive/Table_Weibull_Dynamic_Compare_WPR.csv"),
@@ -142,6 +160,7 @@ cov_lock <- as.character(config$trajectory_jlcm$covariate_vars)
     else
       file.path(out_root, "summary_results/Tables/Table_Weibull_Dynamic_Compare_WPR_MIMIC.csv")
   ))
+  # 若当前 db Tables 已是被冲掉的短表，先别用它当 outs 唯一源；.merge_write 以 old_csv 为底
   merged <- .merge_write(old_csv, new_df, outs)
   print(merged[, c("landmark", "n_landmark", "auc_dyn", "auc_weib", "p_auc")])
 

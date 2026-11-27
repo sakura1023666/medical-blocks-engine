@@ -518,9 +518,17 @@ for (nm in c("NHANES", "CHARLS", "SHHS")) {
     if (nm == "NHANES") "NHANES models are survey-weighted (WTMEC2YR, PSU and strata)." else "Models are unweighted.",
     "per 1 SD is sleep duration standardized within the cohort.",
     "A linear P for trend across ordered sleep categories was not reported because sleep duration and mortality typically follow a U-shaped pattern; nonlinearity is assessed with restricted cubic splines (Figure 4).",
-    if (nm == "CHARLS") "CHARLS cardiovascular death is Harmonized CHARLS End of Life ragcod = 2 (circulatory). Cancer and other coded causes are the competing event. Two deaths with a missing cause were excluded." else
-      "CHARLS cardiovascular death uses Harmonized CHARLS End of Life ragcod = 2.",
-    pub_competing_sparse_footnote(got$n_cvd)
+    if (nm == "CHARLS") {
+      c(
+        "CHARLS cardiovascular death is Harmonized CHARLS End of Life ragcod = 2 (circulatory). Cancer and other coded causes are the competing event. Two deaths with a missing cause were excluded.",
+        sprintf(
+          "Sparse-event note: %s cardiovascular deaths; competing-risk estimates are descriptive and do not replace the primary all-cause Cox models.",
+          got$n_cvd
+        )
+      )
+    } else {
+      character(0)
+    }
   )
   .sci_xlsx_double_header_booktabs(
     path, title = "Table 4. Competing risk analysis of cardiovascular death",

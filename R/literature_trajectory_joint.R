@@ -353,13 +353,16 @@ tj_forest_pdf <- function(rows_df, out_pdf, title, fam, ref_lab = "Reference (T1
     grp <- rep(seq_len(ncols), each = per_panel, length.out = n)
     pans <- lapply(split(seq_len(n), grp),
                    function(ii) one_panel(rows_df[ii, , drop = FALSE], top_order[ii], with_axes = TRUE))
-    comb <- patchwork::wrap_plots(pans, ncol = min(2L, ncols)) +
-      patchwork::plot_annotation(title = title,
-                                 theme = ggplot2::theme(plot.title = ggplot2::element_text(family = fam)))
-    nrow_panels <- ceiling(ncols / 2)
-    ggplot2::ggsave(out_pdf, comb,
-                    width = min(10.4, 5.2 * min(2L, ncols)),
-                    height = row_h * per_panel * nrow_panels + 2.2,
+    # patchwork 先 attach 再用 +（避免 plot_annotation 泄 sans → Layer A4 P0）；
+    # 整图标题放入第一面板 plot.title
+    pans[[1]] <- pans[[1]] + ggplot2::labs(title = title)
+    suppressMessages(requireNamespace("patchwork", quietly = TRUE))
+    if (!("package:patchwork" %in% search())) attachNamespace("patchwork")
+    comb <- Reduce(function(a, b) a + b, pans) +
+      patchwork::plot_layout(ncol = min(2L, ncols))
+    W <- min(10.4, 5.2 * min(2L, ncols))
+    H <- row_h * per_panel * ceiling(ncols / 2) + 2.4
+    ggplot2::ggsave(out_pdf, comb, width = W, height = H,
                     device = grDevices::cairo_pdf)
   }
   invisible(TRUE)

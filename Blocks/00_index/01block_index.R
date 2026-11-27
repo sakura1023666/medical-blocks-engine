@@ -328,6 +328,9 @@
     list(name = "WBC_CV",    expr = "WBC_CV",    digits = 4),
     list(name = "Sodium_mean", expr = "Sodium_mean", digits = 4),
     list(name = "Sodium_CV",   expr = "Sodium_CV",   digits = 4),
+    # 住院日级血钠 / eGFR 原值（AHF 轨迹；identity，日列来自 labsodium / labegfr）
+    list(name = "Sodium", expr = "Sodium", digits = 4),
+    list(name = "eGFR",   expr = "eGFR",   digits = 4),
     list(name = "Hemoglobin_CV", expr = "Hemoglobin_CV", digits = 4),
     list(name = "Albumin_CV",    expr = "Albumin_CV",    digits = 4),
     list(name = "Lactate_CV",    expr = "Lactate_CV",    digits = 4),

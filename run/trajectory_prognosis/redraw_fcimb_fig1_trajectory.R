@@ -27,7 +27,8 @@ suppressPackageStartupMessages({
 setwd(.root)
 source(file.path(.root, "R/utils.R"))
 
-proj <- .get("--proj", "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
+proj <- .get("--proj", "/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
+if (!dir.exists(proj)) proj <- .get("--proj", "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
 ix <- .get("--index", "GPR")
 ix_root <- file.path(proj, paste0("by_index/\u3010success\u3011", ix))
 if (!dir.exists(ix_root)) stop("缺少指标根: ", ix_root)
@@ -37,6 +38,7 @@ if (!file.exists(opt_ng))
 ng <- if (file.exists(opt_ng)) {
   suppressWarnings(as.integer(trimws(readLines(opt_ng, warn = FALSE)[1L])))
 } else 3L
+ng <- as.integer(ng)[1L]
 if (!is.finite(ng) || ng < 2L) ng <- 3L
 cycle <- 28L
 id_col <- "subject_id"
@@ -196,17 +198,43 @@ for (tv in as.character(nm$Tnames %||% character(0))) {
 }
 
 # 外验类别：优先用 worker 已落盘 assignment（避免 predictClass 行映射把 n 撑爆）
+# 必须与 optimal_ng 一致（ng=4 时勿误用旧 step14/15 的五类 CSV）
 asg_csv_cands <- c(
+  file.path(ix_root, "eicu/step16_trajectory_lcmm_external_validate/Tables/LCMM",
+            paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
   file.path(ix_root, "eicu/step15_trajectory_lcmm_external_validate/Tables/LCMM",
             paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
   file.path(ix_root, "eicu/step14_trajectory_lcmm_external_validate/Tables/LCMM",
             paste0("Table_LCMM_Assignment_External_", ix, ".csv"))
 )
-asg_csv <- asg_csv_cands[file.exists(asg_csv_cands)][1L]
+.pick_asg_matching_ng <- function(cands, ng_need) {
+  cands <- cands[file.exists(cands)]
+  if (!length(cands)) return(NA_character_)
+  score <- vapply(cands, function(f) {
+    a <- tryCatch(utils::read.csv(f, stringsAsFactors = FALSE), error = function(e) NULL)
+    if (is.null(a) || !"trajectory_class" %in% names(a)) return(-Inf)
+    mx <- suppressWarnings(max(as.integer(a$trajectory_class), na.rm = TRUE))
+    if (!is.finite(mx)) return(-Inf)
+    # 精确匹配 ng 优先；同分取较新
+    base <- as.numeric(file.mtime(f))
+    if (identical(as.integer(mx), as.integer(ng_need))) base + 1e12 else base
+  }, numeric(1))
+  cands[[which.max(score)]]
+}
+asg_csv <- .pick_asg_matching_ng(asg_csv_cands, ng)
 assign_e <- NULL
 if (!is.na(asg_csv) && nzchar(asg_csv)) {
   assign_e <- utils::read.csv(asg_csv, stringsAsFactors = FALSE)
   if (!all(c("subject_id", "trajectory_class") %in% names(assign_e))) assign_e <- NULL
+  if (!is.null(assign_e)) {
+    mx <- suppressWarnings(max(as.integer(assign_e$trajectory_class), na.rm = TRUE))
+    if (is.finite(mx) && mx != ng) {
+      cli::cli_alert_warning("eICU assignment max class={mx} ≠ ng={ng}（{basename(dirname(dirname(asg_csv)))}），改走 predictClass")
+      assign_e <- NULL
+    } else {
+      cli::cli_alert_info("eICU assignment ← {asg_csv}")
+    }
+  }
 }
 if (is.null(assign_e)) {
   ck_ext <- file.path(dirname(ix_root), "..", "checkpoints/by_index", ix, "eicu",
@@ -249,15 +277,20 @@ if (is.null(assign_e) || !nrow(assign_e)) {
 }
 assign_e$subject_id <- as.character(assign_e$subject_id)
 assign_e$trajectory_class <- suppressWarnings(as.integer(assign_e$trajectory_class))
-# 只保留分析集 ID，且丢掉 NA class（与 Fig2/S8 同源）
+# 只保留分析集 ID，且丢掉 NA class（与 Fig2/S8 同源）；硬裁到 optimal_ng
 analytic_ids <- unique(as.character(index_df[[id_col]]))
 # 若有插补分析集，进一步收紧
 imp_ck <- file.path(proj, "checkpoints/by_index", ix, "eicu", "imputation.rds")
 if (file.exists(imp_ck)) {
   analytic_ids <- as.character(readRDS(imp_ck)$ctx$data$imputed$subject_id)
 }
+.ng_keep <- seq_len(as.integer(ng)[1L])
 assign_e <- assign_e %>%
-  filter(subject_id %in% analytic_ids, is.finite(trajectory_class)) %>%
+  filter(
+    subject_id %in% analytic_ids,
+    is.finite(trajectory_class),
+    trajectory_class %in% .ng_keep
+  ) %>%
   distinct(subject_id, .keep_all = TRUE)
 n_e <- assign_e %>% count(trajectory_class, name = "n") %>%
   mutate(
@@ -273,7 +306,7 @@ if (sum(n_e$n) > length(analytic_ids) + 1L) {
 
 long_e2 <- long_e %>%
   inner_join(assign_e, by = "subject_id") %>%
-  filter(trajectory_class %in% seq_len(ng))
+  filter(trajectory_class %in% .ng_keep)
 
 # 观测日均值再 LOESS 平滑（对齐文献 Fig1b 光滑曲线，避免日均锯齿）
 curve_e_raw <- long_e2 %>%
@@ -295,14 +328,21 @@ curve_e <- curve_e_raw %>%
   left_join(n_e %>% select(class_num, lab, n), by = "class_num") %>%
   mutate(cohort = "b", class_lab = lab)
 
-# 落盘外验 ng=3 分配（覆盖错误的 ng=6）
-asg_dir <- file.path(ix_root, "eicu/step14_trajectory_lcmm_external_validate/Tables/LCMM")
-dir.create(asg_dir, recursive = TRUE, showWarnings = FALSE)
-utils::write.csv(
-  assign_e %>% mutate(cohort = "eICU", ng = ng, discovery_model = basename(mod_path)),
-  file.path(asg_dir, paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
-  row.names = FALSE
-)
+# 同步外验分配到 step14/15/16（与 optimal_ng 一致，避免下游误读旧五类）
+.asg_out <- assign_e %>% mutate(cohort = "eICU", ng = as.integer(ng)[1L], discovery_model = basename(mod_path))
+for (.step in c(
+  "step14_trajectory_lcmm_external_validate",
+  "step15_trajectory_lcmm_external_validate",
+  "step16_trajectory_lcmm_external_validate"
+)) {
+  asg_dir <- file.path(ix_root, "eicu", .step, "Tables/LCMM")
+  dir.create(asg_dir, recursive = TRUE, showWarnings = FALSE)
+  utils::write.csv(
+    .asg_out,
+    file.path(asg_dir, paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
+    row.names = FALSE
+  )
+}
 
 # ── 作图 ────────────────────────────────────────────────────────────────────
 .font <- tryCatch(resolve_plot_font_family(), error = function(e) "sans")

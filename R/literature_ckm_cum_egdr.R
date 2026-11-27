@@ -366,12 +366,38 @@ ckm_stroke_model1_exposure_screen <- function(
   cont_rows <- if (nrow(det)) det[det$block == "Continuous", , drop = FALSE] else det
   cont_p <- if (nrow(cont_rows)) min(cont_rows$P, na.rm = TRUE) else NA_real_
   cont_ok <- isTRUE(is.finite(cont_p) && cont_p < alpha)
+  # 最高分位 vs 参照（T3/Q4/Q5/High）：取 Quantile 块中水平序号最大的一行
+  q_rows <- if (nrow(det)) det[det$block == "Quantile", , drop = FALSE] else det
+  q_p <- NA_real_
+  q_term <- NA_character_
+  if (nrow(q_rows)) {
+    .qnum <- function(term) {
+      m <- regmatches(as.character(term), regexpr("[0-9]+$", as.character(term)))
+      if (!length(m) || !nzchar(m)) return(NA_integer_)
+      as.integer(m)
+    }
+    nums <- vapply(q_rows$term, .qnum, integer(1L))
+    # binary High 等无尾数：取该块最小 P 作为代表（通常只有 1 行）
+    if (all(!is.finite(nums))) {
+      ii <- which.min(q_rows$P)
+      q_p <- as.numeric(q_rows$P[[ii]])
+      q_term <- as.character(q_rows$term[[ii]])
+    } else {
+      ii <- which.max(replace(nums, !is.finite(nums), -Inf))
+      q_p <- as.numeric(q_rows$P[[ii]])
+      q_term <- as.character(q_rows$term[[ii]])
+    }
+  }
+  q_ok <- isTRUE(is.finite(q_p) && q_p < alpha)
   any_ok <- isTRUE(nrow(det) > 0L && any(det$P < alpha, na.rm = TRUE))
   min_p <- if (nrow(det)) min(det$P, na.rm = TRUE) else NA_real_
   list(
     ok = any_ok,
     cont_ok = cont_ok,
     cont_p = cont_p,
+    q_ok = q_ok,
+    q_p = q_p,
+    q_term = q_term,
     class_estimable = isTRUE(class_info$estimable),
     class_ref_events = class_info$ref_events,
     class_n = class_info$n_class,
@@ -395,7 +421,8 @@ ckm_stroke_model1_gate_pass <- function(screen, bl = list()) {
 }
 
 #' 方案是否「可用」：连续门控 +（默认）类别可估；类别分离时触发换 k
-ckm_stroke_model1_scheme_acceptable <- function(screen, bl = list()) {
+#' 可选：要求最高分位 vs 参照 Model1 显著（`require_quantile=TRUE`，用于分位级联锁定）
+ckm_stroke_model1_scheme_acceptable <- function(screen, bl = list(), require_quantile = FALSE) {
   bl <- bl %||% list()
   require_cont <- isTRUE(bl$exposure_sig_require_continuous %||% TRUE)
   # 默认：有类别列时要求可估（避免 Table2 类别全 NE）；显式 FALSE 可关
@@ -405,6 +432,9 @@ ckm_stroke_model1_scheme_acceptable <- function(screen, bl = list()) {
   if (prefer_class && !is.na(screen$class_estimable)) {
     # 仅当检测过类别时要求可估
     ok <- ok && isTRUE(screen$class_estimable)
+  }
+  if (isTRUE(require_quantile)) {
+    ok <- ok && isTRUE(screen$q_ok)
   }
   ok
 }
@@ -480,17 +510,21 @@ ckm_stroke_model1_scheme_cascade <- function(
 
   k_cand <- as.integer(bl$model1_cascade_k %||% c(2L, 3L, 4L))
   k_cand <- k_cand[is.finite(k_cand) & k_cand >= 2L]
-  nq_cand <- as.integer(bl$model1_cascade_n_quantile %||% c(3L, 2L, 4L))
+  # 默认：三分位 NS → 四分位 → 二分位 → 五分位
+  nq_cand <- as.integer(bl$model1_cascade_n_quantile %||% c(3L, 4L, 2L, 5L))
   nq_cand <- unique(c(current_n_q, nq_cand[is.finite(nq_cand) & nq_cand >= 2L]))
+  fix_q_ns <- !isFALSE(bl$model1_cascade_fix_quantile_ns %||% TRUE)
 
   # 先筛当前方案
   trials <- list()
-  .trial <- function(k, n_q, data_i, screen, note = "") {
+  .trial <- function(k, n_q, data_i, screen, note = "", require_q = FALSE) {
     trials[[length(trials) + 1L]] <<- data.frame(
       k = as.integer(k), n_quantile = as.integer(n_q),
-      ok = isTRUE(ckm_stroke_model1_scheme_acceptable(screen, bl)),
+      ok = isTRUE(ckm_stroke_model1_scheme_acceptable(screen, bl, require_quantile = require_q)),
       cont_ok = isTRUE(screen$cont_ok),
       cont_p = screen$cont_p %||% NA_real_,
+      q_ok = isTRUE(screen$q_ok),
+      q_p = screen$q_p %||% NA_real_,
       class_estimable = isTRUE(screen$class_estimable),
       class_ref_events = screen$class_ref_events %||% NA_integer_,
       min_p = screen$min_p,
@@ -503,7 +537,7 @@ ckm_stroke_model1_scheme_cascade <- function(
     data, outcome,
     alpha = alpha, class_ref = class_ref
   )
-  .trial(current_k, current_n_q, data, screen0, "baseline")
+  .trial(current_k, current_n_q, data, screen0, "baseline", require_q = FALSE)
   # 连续 Model1 不显著：换 k/分位无法改变连续项 → 直接 failed（默认）
   if (isTRUE(bl$exposure_sig_require_continuous %||% TRUE) && !isTRUE(screen0$cont_ok)) {
     return(list(
@@ -513,8 +547,9 @@ ckm_stroke_model1_scheme_cascade <- function(
       lock_reason = "continuous_model1_ns"
     ))
   }
-  # 连续 OK 且类别可估 → 基线过门
-  if (isTRUE(ckm_stroke_model1_scheme_acceptable(screen0, bl))) {
+  baseline_gate_ok <- isTRUE(ckm_stroke_model1_scheme_acceptable(screen0, bl, require_quantile = FALSE))
+  # 连续 OK 且类别可估，且（分位已显著 或 关闭分位级联）→ 基线过门
+  if (baseline_gate_ok && (!fix_q_ns || isTRUE(screen0$q_ok))) {
     return(list(
       ok = TRUE, changed = FALSE, k = current_k, n_quantile = current_n_q,
       data = data, screen = screen0,
@@ -522,6 +557,8 @@ ckm_stroke_model1_scheme_cascade <- function(
       lock_reason = "baseline_model1_sig"
     ))
   }
+  # 门控已过但最高分位 Model1 NS：优先只换分位（不改 k），顺序见 nq_cand
+  quantile_only_cascade <- isTRUE(baseline_gate_ok) && isTRUE(fix_q_ns) && !isTRUE(screen0$q_ok)
 
   # 类别 NE / 参照 0 事件：优先试 k=2（引擎级）
   class_ne <- !isTRUE(screen0$class_estimable)
@@ -548,32 +585,56 @@ ckm_stroke_model1_scheme_cascade <- function(
   seed <- as.integer(bl$seed %||% seed)[1L]
   nstart <- as.integer(bl$nstart %||% nstart)[1L]
 
-  # 顺序：类别 NE 时先扫各 k（固定当前分位）→ 再 k×其它分位
+  # 顺序：
+  # A) 仅分位 NS（连续+类别已过门）→ 固定当前 k，按 nq_cand 试 4/2/5…
+  # B) 类别 NE 时先扫各 k（固定当前分位）→ 再换分位 → 再 k×分位
+  # C) 其它 Model1 未过门 → 换分位 / 换 k
   combos <- list()
-  if (class_ne) {
-    for (k in k_cand) {
-      if (identical(as.integer(k), current_k)) next
-      combos[[length(combos) + 1L]] <- list(k = as.integer(k), n_q = current_n_q)
-    }
-  }
-  for (nq in nq_cand) {
-    if (identical(as.integer(nq), current_n_q) && !class_ne) next
-    if (identical(as.integer(nq), current_n_q)) next
-    combos[[length(combos) + 1L]] <- list(k = current_k, n_q = as.integer(nq))
-  }
-  for (k in k_cand) {
+  if (isTRUE(quantile_only_cascade)) {
     for (nq in nq_cand) {
-      if (identical(as.integer(k), current_k) && identical(as.integer(nq), current_n_q)) next
-      # 已在 class_ne 首轮试过「换 k + 当前 n_q」
-      if (class_ne && identical(as.integer(nq), current_n_q)) next
-      combos[[length(combos) + 1L]] <- list(k = as.integer(k), n_q = as.integer(nq))
+      if (identical(as.integer(nq), as.integer(current_n_q))) next
+      combos[[length(combos) + 1L]] <- list(
+        k = as.integer(current_k), n_q = as.integer(nq),
+        note = "cascade_fix_quantile_ns", require_q = TRUE
+      )
+    }
+  } else {
+    if (class_ne) {
+      for (k in k_cand) {
+        if (identical(as.integer(k), current_k)) next
+        combos[[length(combos) + 1L]] <- list(
+          k = as.integer(k), n_q = current_n_q,
+          note = "cascade_fix_class_ne", require_q = FALSE
+        )
+      }
+    }
+    for (nq in nq_cand) {
+      if (identical(as.integer(nq), current_n_q)) next
+      combos[[length(combos) + 1L]] <- list(
+        k = as.integer(current_k), n_q = as.integer(nq),
+        note = "cascade", require_q = isTRUE(fix_q_ns)
+      )
+    }
+    for (k in k_cand) {
+      for (nq in nq_cand) {
+        if (identical(as.integer(k), current_k) && identical(as.integer(nq), current_n_q)) next
+        if (class_ne && identical(as.integer(nq), current_n_q)) next
+        if (identical(as.integer(k), current_k)) next # 已在上一轮试过固定 k 换分位
+        combos[[length(combos) + 1L]] <- list(
+          k = as.integer(k), n_q = as.integer(nq),
+          note = "cascade", require_q = isTRUE(fix_q_ns)
+        )
+      }
     }
   }
 
   best_fallback <- NULL
+  best_q_hit <- NULL
   for (cm in combos) {
     k <- cm$k
     n_q <- cm$n_q
+    require_q <- isTRUE(cm$require_q)
+    note <- as.character(cm$note %||% "cascade")[1L]
     data_i <- data
     if (!identical(as.integer(k), as.integer(current_k)) || is.null(data_i$eGDR_Class) ||
         nlevels(factor(data_i$eGDR_Class)) != as.integer(k)) {
@@ -586,9 +647,10 @@ ckm_stroke_model1_scheme_cascade <- function(
       if (nlevels(cls) < 2L) {
         .trial(k, n_q, data_i,
                list(ok = FALSE, cont_ok = FALSE, cont_p = NA_real_,
+                    q_ok = FALSE, q_p = NA_real_,
                     class_estimable = FALSE, class_ref_events = NA_integer_,
                     min_p = NA_real_, details = data.frame()),
-               "class_levels<2")
+               "class_levels<2", require_q = require_q)
         next
       }
       data_i$eGDR_Class <- cls
@@ -600,14 +662,23 @@ ckm_stroke_model1_scheme_cascade <- function(
     sc <- ckm_stroke_model1_exposure_screen(
       data_i, outcome, alpha = alpha, class_ref = class_ref
     )
-    .trial(k, n_q, data_i, sc, if (class_ne) "cascade_fix_class_ne" else "cascade")
-    if (isTRUE(ckm_stroke_model1_scheme_acceptable(sc, bl))) {
+    .trial(k, n_q, data_i, sc, note, require_q = require_q)
+    if (isTRUE(ckm_stroke_model1_scheme_acceptable(sc, bl, require_quantile = require_q))) {
       return(list(
         ok = TRUE, changed = TRUE, k = k, n_quantile = n_q,
         data = data_i, screen = sc,
         trials = do.call(rbind, trials),
         lock_reason = sprintf("cascade_k=%s_nq=%s", k, n_q)
       ))
+    }
+    # 分位级联：记下第一个 q_ok 且门控过的方案（require_q 时上面已 return）
+    if (is.null(best_q_hit) && isTRUE(sc$q_ok) &&
+        isTRUE(ckm_stroke_model1_scheme_acceptable(sc, bl, require_quantile = FALSE))) {
+      best_q_hit <- list(
+        ok = TRUE, changed = TRUE, k = k, n_quantile = n_q,
+        data = data_i, screen = sc,
+        lock_reason = sprintf("cascade_quantile_sig_nq=%s", n_q)
+      )
     }
     # 连续仍显著的 k=2 作为次优回退（类别仍可能 NE）
     if (isTRUE(sc$cont_ok) && identical(as.integer(k), 2L) && is.null(best_fallback)) {
@@ -617,6 +688,21 @@ ckm_stroke_model1_scheme_cascade <- function(
         lock_reason = "cascade_k=2_cont_ok_class_may_ne"
       )
     }
+  }
+
+  if (!is.null(best_q_hit)) {
+    best_q_hit$trials <- do.call(rbind, trials)
+    return(best_q_hit)
+  }
+
+  # 仅分位 NS：换完仍无显著分位 → 保留基线（连续+类别已过门，不因分位 NS failed）
+  if (isTRUE(quantile_only_cascade) && isTRUE(baseline_gate_ok)) {
+    return(list(
+      ok = TRUE, changed = FALSE, k = current_k, n_quantile = current_n_q,
+      data = data, screen = screen0,
+      trials = do.call(rbind, trials),
+      lock_reason = "quantile_ns_unresolved_keep_baseline"
+    ))
   }
 
   if (!is.null(best_fallback) && isTRUE(ckm_stroke_model1_gate_pass(best_fallback$screen, bl))) {

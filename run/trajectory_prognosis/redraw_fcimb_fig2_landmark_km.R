@@ -30,7 +30,8 @@ source(file.path(.root, "R/utils.R"))
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
-proj <- .get("--proj", "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
+proj <- .get("--proj", "/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
+if (!dir.exists(proj)) proj <- .get("--proj", "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
 ix <- .get("--index", "GPR")
 ix_root <- file.path(proj, paste0("by_index/\u3010success\u3011", ix))
 ck_base <- file.path(proj, "checkpoints/by_index", ix)
@@ -78,12 +79,49 @@ cols <- c(
   d <- ctx$data$imputed %||% ctx$data$cleaned
   if (!is.data.frame(d)) stop(db, ": 无 imputed/cleaned")
   cls <- if (paste0("trajectory_class_", ix) %in% names(d)) d[[paste0("trajectory_class_", ix)]] else d$trajectory_class
-  # 外验优先 assignment CSV
-  asg <- file.path(
-    ix_root, "eicu/step14_trajectory_lcmm_external_validate/Tables/LCMM",
-    paste0("Table_LCMM_Assignment_External_", ix, ".csv")
+  # 优先 assignment CSV（MIMIC jlcm / eICU predictClass），避免 checkpoint 残留旧类数
+  opt_ng_f <- c(
+    file.path(ix_root, "mimic/step14_trajectory_jlcm/Tables/Summary", paste0("optimal_ng_", ix, ".txt")),
+    file.path(ix_root, "mimic/Tables/Summary", paste0("optimal_ng_", ix, ".txt"))
   )
-  if (identical(db, "eicu") && file.exists(asg) && "subject_id" %in% names(d)) {
+  opt_ng_f <- opt_ng_f[file.exists(opt_ng_f)][1L]
+  ng_lock <- if (!is.na(opt_ng_f) && nzchar(opt_ng_f)) {
+    suppressWarnings(as.integer(trimws(readLines(opt_ng_f, warn = FALSE)[1L])))
+  } else NA_integer_
+  if (!is.finite(ng_lock) || ng_lock < 2L) ng_lock <- NA_integer_
+
+  asg_cands <- if (identical(db, "eicu")) {
+    c(
+      file.path(ix_root, "eicu/step16_trajectory_lcmm_external_validate/Tables/LCMM",
+                paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
+      file.path(ix_root, "eicu/step15_trajectory_lcmm_external_validate/Tables/LCMM",
+                paste0("Table_LCMM_Assignment_External_", ix, ".csv")),
+      file.path(ix_root, "eicu/step14_trajectory_lcmm_external_validate/Tables/LCMM",
+                paste0("Table_LCMM_Assignment_External_", ix, ".csv"))
+    )
+  } else {
+    c(
+      file.path(ix_root, "mimic/Tables", paste0("Table_JLCM_Assignment_", ix, ".csv")),
+      file.path(ix_root, "mimic/step14_trajectory_jlcm/Tables", paste0("Table_JLCM_Assignment_", ix, ".csv"))
+    )
+  }
+  asg_cands <- asg_cands[file.exists(asg_cands)]
+  asg <- NA_character_
+  if (length(asg_cands)) {
+    if (is.finite(ng_lock)) {
+      sc <- vapply(asg_cands, function(f) {
+        a <- tryCatch(utils::read.csv(f, stringsAsFactors = FALSE), error = function(e) NULL)
+        if (is.null(a) || !"trajectory_class" %in% names(a)) return(-Inf)
+        mx <- suppressWarnings(max(as.integer(a$trajectory_class), na.rm = TRUE))
+        base <- as.numeric(file.mtime(f))
+        if (is.finite(mx) && identical(as.integer(mx), as.integer(ng_lock))) base + 1e12 else base
+      }, numeric(1))
+      asg <- asg_cands[[which.max(sc)]]
+    } else {
+      asg <- asg_cands[[1L]]
+    }
+  }
+  if (!is.na(asg) && nzchar(asg) && "subject_id" %in% names(d)) {
     a <- utils::read.csv(asg, stringsAsFactors = FALSE)
     if (all(c("subject_id", "trajectory_class") %in% names(a))) {
       d$subject_id <- as.character(d$subject_id)
@@ -106,11 +144,11 @@ cols <- c(
     stringsAsFactors = FALSE
   )
   out <- out[is.finite(out$class_num) & is.finite(out$time) & out$time > 0 & !is.na(out$event), , drop = FALSE]
-  out$class <- factor(
-    out$class_num,
-    levels = sort(unique(out$class_num)),
-    labels = paste("Class", sort(unique(out$class_num)))
-  )
+  if (is.finite(ng_lock)) {
+    out <- out[out$class_num %in% seq_len(as.integer(ng_lock)[1L]), , drop = FALSE]
+  }
+  lev <- sort(unique(out$class_num))
+  out$class <- factor(out$class_num, levels = lev, labels = paste("Class", lev))
   out
 }
 

@@ -43,7 +43,7 @@ source("R/utils.R")
 proj <- .get("--proj", "/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
 if (!dir.exists(proj)) proj <- "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
 ix <- .get("--index", "WPR")
-ng <- as.integer(.get("--ng", "5"))
+ng <- as.integer(.get("--ng", "4"))
 mode <- tolower(.get("--mode", "allcause28"))
 lm_days <- as.integer(.get("--landmark", "14"))
 cycle_plot <- 28L

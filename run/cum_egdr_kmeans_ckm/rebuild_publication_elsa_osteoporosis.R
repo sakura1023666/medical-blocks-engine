@@ -1036,6 +1036,9 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
     } else {
       sprintf("k = %d (elbow with visual cap of 4, or index-specific force_k).", as.integer(.k_use))
     },
+    formula_expr = ckm_stroke_index_formula_expr(index),
+    forest_s2_rows = file.path(.internal, "Figure_S2_forest_rows.csv"),
+    forest_s3_rows = file.path(.internal, "Figure_S3_forest_rows.csv"),
     software_extra = c(
       class_disp$footnote,
       sprintf("Reference class: %s (%s).", cmap$ref_class, cmap$ref_reason),
@@ -1050,21 +1053,9 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
   # 引擎级中期（客户默认故墙，可读 config$cum_egdr_kmeans$midterm_client；不写日期）→ 再 prune
   message("  midterm PDF...")
   .formula_lines <- {
-    .known <- c(
-      HbA1c_HDL_C = "HbA1c / HDL",
-      CRI_II = "LDL / HDL",
-      CHG = "ln[TC × Glucose / (2 × HDL)]",
-      LCI = "((TC/38.67)×(TG/88.57)×(LDL/38.67))/(HDL/38.67)",
-      TCBI = "TG × TC × Weight / 1000",
-      HGI = "HbA1c − (0.01×Glucose + 5.04)",
-      sdLDL_C = "LDL − lbLDL；lbLDL = 1.43×LDL − 0.14×ln(TG)×LDL − 8.99",
-      METS_VF = "4.466 + 0.011×[ln(METSIR)]³ + 3.239×[ln(WC/Height)]³ + 0.319×Gender + 0.594×ln(Age)",
-      ePWV = "Greve CVD-risk ePWV (Age, MBP)",
-      ABSI = "WC / (BMI^(2/3) × Height^(1/2))"
-    )
-    expr <- unname(.known[[index]])
+    expr <- ckm_stroke_index_formula_expr(index)
     out <- character(0)
-    if (!is.null(expr) && nzchar(expr)) out <- c(out, sprintf("%s = %s", ix_lab, expr))
+    if (!is.na(expr) && nzchar(expr)) out <- c(out, sprintf("%s = %s", ix_lab, expr))
     c(out, sprintf("累计 %s = ((%s W4 + %s W6)/2) × 4", ix_lab, ix_lab, ix_lab))
   }
   .mid_client <- "故墙"

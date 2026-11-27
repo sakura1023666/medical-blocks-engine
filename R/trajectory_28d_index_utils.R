@@ -47,6 +47,7 @@ trajectory_28d_load_index_definitions <- function(root = getwd()) {
     Uric_Acid        = c("laburicacid"),
     Fibrinogen       = c("labfibrinogen"),
     Sodium           = c("labsodium"),
+    eGFR             = c("labegfr", "labegfr_ckdepi"),
     AnionGap         = c("labaniongap"),
     HbA1c            = c("laba1c"),
     Lactate          = c("lablactate"),

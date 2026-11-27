@@ -1121,9 +1121,10 @@ source(file.path(root, "R/cum_egdr_kmeans_pub.R"))
       TyG_WWI = "TyG × WWI",
       TyG_ABSI = "TyG × ABSI"
     )
-    expr <- unname(.known[[index]])
+    # 原子 named vector 对缺失名用 [[ 会 subscript out of bounds；须先 %in% names
+    expr <- if (as.character(index)[1L] %in% names(.known)) unname(.known[[as.character(index)[1L]]]) else NA_character_
     out <- character(0)
-    if (!is.null(expr) && nzchar(expr)) out <- c(out, sprintf("%s = %s", ix_lab, expr))
+    if (!is.na(expr) && nzchar(expr)) out <- c(out, sprintf("%s = %s", ix_lab, expr))
     c(out, sprintf("累计 %s = ((%s Wave 2 + %s Wave 4)/2) × 4", ix_lab, ix_lab, ix_lab))
   }
   .mid_client <- "vivili"

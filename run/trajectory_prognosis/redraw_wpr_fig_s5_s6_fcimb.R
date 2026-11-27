@@ -40,7 +40,7 @@ config$feishu$enable <- FALSE
 ix <- .get("--index", "WPR")
 proj <- .get("--proj", "/mnt/g/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177")
 if (!dir.exists(proj)) proj <- "G:/02block_result/55_COPD/Prognosis_Trajectory_v2_42558177"
-ng <- as.integer(.get("--ng", "5"))
+ng <- as.integer(.get("--ng", "4"))
 
 ix_root <- file.path(proj, paste0("by_index/\u3010success\u3011", ix))
 ck_root <- file.path(proj, "checkpoints/by_index", ix)

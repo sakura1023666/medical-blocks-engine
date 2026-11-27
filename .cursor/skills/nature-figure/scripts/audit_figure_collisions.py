@@ -289,7 +289,25 @@ def extract_pdf_geometry(path: Path) -> list[PageGeometry]:
                         if trace.index not in used_trace_indexes
                         and rect_overlap_ratio(trace.bbox, loose_bbox) >= 0.3
                     ]
-                    bbox = union_rects(trace.bbox for trace in matched_traces) or loose_bbox
+                    # forest/table PDFs often emit one wide get_texttrace() run for an
+                    # entire baseline (many cells). Prefer the span's own bbox when the
+                    # trace union is much larger — otherwise every cell collides.
+                    union_bb = union_rects(trace.bbox for trace in matched_traces)
+                    if union_bb is None:
+                        bbox = loose_bbox
+                    else:
+                        span_w = rect_width(loose_bbox)
+                        span_h = rect_height(loose_bbox)
+                        span_a = rect_area(loose_bbox)
+                        uni_w = rect_width(union_bb)
+                        uni_h = rect_height(union_bb)
+                        uni_a = rect_area(union_bb)
+                        inflated = (
+                            (span_a > 0 and uni_a > 3.0 * span_a)
+                            or (span_w > 0 and uni_w > 2.5 * span_w)
+                            or (span_h > 0 and uni_h > 2.5 * span_h)
+                        )
+                        bbox = loose_bbox if inflated else union_bb
                     used_trace_indexes.update(trace.index for trace in matched_traces)
                     text = "".join(span.get("text", "") for span in spans).strip()
                     geometry.texts.append(TextBox(index=text_index, text=text, bbox=bbox))
@@ -299,6 +317,12 @@ def extract_pdf_geometry(path: Path) -> list[PageGeometry]:
                 if trace.index in used_trace_indexes:
                     continue
                 if rect_intersection(trace.bbox, geometry.bbox) is None:
+                    continue
+                # Drop leftover baseline-concat traces from forest/table layouts
+                # (wide thin runs that were not tied to a single span).
+                tw = rect_width(trace.bbox)
+                th = rect_height(trace.bbox)
+                if th > 0 and tw / th >= 12.0 and len(trace.text) >= 24:
                     continue
                 geometry.texts.append(
                     TextBox(index=text_index, text=trace.text, bbox=trace.bbox)

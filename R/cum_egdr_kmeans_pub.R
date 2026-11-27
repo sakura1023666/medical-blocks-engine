@@ -358,10 +358,118 @@ ckm_stroke_class_display_labels <- function(
 # Formatting（对标 Wang 2026 CVD 25:78；OR 三位为引擎铁律）
 # -----------------------------------------------------------------------------
 # 发表位数（引擎级，对标既往轨迹/关联文献 + 全项目 pub_digits 铁律）：
-#   OR/HR/CI = 3 位（含尾随 0；两位易把相邻模型收成同一字符串）
-#   P = 3 位或 <0.001
+#   OR/HR/CI = 3 位（含尾随 0；Wang 2026 正文常用 2 位，但两位会把相邻模型收成同一字符串 → 引擎强制 3）
+#   P = 3 位或 <0.001（禁止裸 0 / 0.000）
 #   Table1 mean(SD) = 2 位；分类 % = 1 位；人数千分位逗号
+#   切点 / RCS ref = 3 位（或 2 位展示 ref 点，见 image_information）
 # 可被 options(pipeline.pub_digits) / config$pub_digits 覆盖 est/p；desc/pct 本套默认保持上表。
+# 展示层：禁止编程下划线；字体 Times New Roman / Liberation Serif（见 pub_no_underscore_display / pub_times_new_roman）。
+# 交付根白名单：Figures/ Tables/ Methods_statistical_analysis.md / Methods_software_versions.txt / *中期*.pdf。
+
+#' 指标公式展示句（Methods / 中期封面；原子 named vector 须先 %in% names）
+ckm_stroke_index_formula_expr <- function(index_name) {
+  idx <- as.character(index_name %||% "")[1L]
+  .known <- c(
+    HbA1c_HDL_C = "HbA1c / HDL",
+    CRI_II = "LDL / HDL",
+    CHG = "ln[TC \u00d7 Glucose / (2 \u00d7 HDL)]",
+    LCI = "((TC/38.67)\u00d7(TG/88.57)\u00d7(LDL/38.67))/(HDL/38.67)",
+    TCBI = "TG \u00d7 TC \u00d7 Weight / 1000",
+    HGI = "HbA1c \u2212 (0.01\u00d7Glucose + 5.04)",
+    sdLDL_C = "LDL \u2212 lbLDL; lbLDL = 1.43\u00d7LDL \u2212 0.14\u00d7ln(TG)\u00d7LDL \u2212 8.99",
+    METS_VF = "4.466 + 0.011\u00d7[ln(METSIR)]\u00b3 + 3.239\u00d7[ln(WC/Height)]\u00b3 + 0.319\u00d7Gender + 0.594\u00d7ln(Age)",
+    ePWV = "Greve CVD-risk ePWV from Age and mean blood pressure",
+    ABSI = "WC / (BMI^(2/3) \u00d7 Height^(1/2))",
+    WWI = "WC / \u221aWeight",
+    BRI = "364.2 \u2212 365.5 \u00d7 \u221a(1 \u2212 (WC/(2\u03c0))^2 / (0.5\u00d7Height)^2)",
+    # Woolcott 2016 Sci Rep：男 64\u221220\u00d7(H/WC)，女 76\u221220\u00d7(H/WC)；H 与 WC 同单位
+    RFM = "Male: 64 \u2212 20\u00d7(Height/Waist); Female: 76 \u2212 20\u00d7(Height/Waist) (Woolcott 2016)",
+    Conicity = "WC(m) / (0.109 \u00d7 \u221a(Weight/Height(m)))",
+    Ponderal = "Weight / Height(m)\u00b3"
+  )
+  if (!nzchar(idx) || !(idx %in% names(.known))) return(NA_character_)
+  unname(.known[[idx]])
+}
+
+#' 从森林行 CSV/DF 写 Figure S2/S3 image_information（禁止「未收获」交差）
+ckm_stroke_write_forest_image_md <- function(
+    rows,
+    md_path,
+    stem,
+    index_lab,
+    effect_lab = c("HR", "OR"),
+    model3_covars = character(0),
+    n_analytic = NA_integer_,
+    database = "ELSA",
+    scale_lab = "per 1-unit",
+    outcome_lab = "incident osteoporosis") {
+  effect_lab <- match.arg(effect_lab)
+  if (is.character(rows) && length(rows) == 1L && file.exists(rows)) {
+    rows <- utils::read.csv(rows, stringsAsFactors = FALSE, check.names = FALSE)
+  }
+  stopifnot(is.data.frame(rows), nrow(rows) > 0L)
+  ix <- as.character(index_lab %||% "index")[1L]
+  dir.create(dirname(md_path), recursive = TRUE, showWarnings = FALSE)
+  eff_col <- intersect(c(paste0(effect_lab, " (95%CI)"), paste0(effect_lab, "(95%CI)"),
+                         "HR (95%CI)", "OR (95%CI)"), names(rows))[1L]
+  if (is.na(eff_col) || !nzchar(eff_col)) {
+    eff_col <- names(rows)[grepl("95%\\s*CI", names(rows), ignore.case = TRUE)][1L]
+  }
+  sg <- if ("Subgroup" %in% names(rows)) as.character(rows$Subgroup) else as.character(rows[[1L]])
+  tot <- if ("Total" %in% names(rows)) as.character(rows$Total) else ""
+  ev <- if ("Event (%)" %in% names(rows)) as.character(rows[["Event (%)"]]) else ""
+  eff <- if (!is.na(eff_col) && nzchar(eff_col)) as.character(rows[[eff_col]]) else ""
+  pint <- if ("P for interaction" %in% names(rows)) as.character(rows[["P for interaction"]]) else ""
+  bullets <- character(0)
+  for (i in seq_len(nrow(rows))) {
+    lab <- trimws(sg[i])
+    if (!nzchar(lab)) next
+    is_hdr <- isTRUE(as.logical(rows$is_header[i] %||% FALSE)) ||
+      (!nzchar(trimws(eff[i] %||% "")) && nzchar(trimws(pint[i] %||% "")))
+    if (is_hdr) {
+      bullets <- c(bullets, sprintf("- %s：P for interaction = %s", lab, trimws(pint[i])))
+    } else {
+      bullets <- c(
+        bullets,
+        sprintf(
+          "- %s：N=%s；Events=%s；%s=%s",
+          lab,
+          if (nzchar(trimws(tot[i]))) trimws(tot[i]) else "—",
+          if (nzchar(trimws(ev[i]))) trimws(ev[i]) else "—",
+          effect_lab,
+          if (nzchar(trimws(eff[i]))) trimws(eff[i]) else "—"
+        )
+      )
+    }
+  }
+  n_txt <- if (is.finite(as.numeric(n_analytic)[1L])) {
+    format(as.integer(n_analytic)[1L], big.mark = ",")
+  } else {
+    "见 Overall 行"
+  }
+  m3 <- paste(as.character(model3_covars %||% character(0)), collapse = ", ")
+  lines <- c(
+    sprintf("# %s", as.character(stem %||% basename(md_path))[1L]),
+    "",
+    "## \u56fe\u9762\u8bf4\u660e",
+    sprintf(
+      "\u4e9a\u7ec4\u68ee\u6797\u56fe\uff08%s\uff09\uff1a\u5168\u5206\u6790\u96c6\u5185\u5404\u5c42\u4f30\u8ba1\u7d2f\u8ba1 %s %s\uff1b\u5c42\u5185\u8c03\u6574 Model 3\uff08\u5206\u5c42\u53d8\u91cf\u81ea\u8eab\u4e0d\u8fdb\u6a21\uff09\u3002",
+      effect_lab, scale_lab, ix
+    ),
+    "",
+    "### \u56fe\u4e0a\u6807\u6ce8",
+    bullets,
+    "",
+    "## \u5206\u6790\u4e0a\u4e0b\u6587",
+    sprintf("\u66b4\u9732\uff1a\u7d2f\u8ba1 %s\uff08%s\uff09\u3002\u7ed3\u5c40\uff1a%s\u3002", ix, scale_lab, outcome_lab),
+    sprintf("\u6837\u672c\u91cf N=%s\uff08%s\uff09\u3002Model 3 = %s\u3002", n_txt, database, if (nzchar(m3)) m3 else "\uff08\u672a\u8bb0\u5f55\uff09"),
+    "Grouping\uff1a\u4e9a\u7ec4\u5206\u5c42\uff1b\u66b4\u9732\u4e3a\u8fde\u7eed\u6bcf 1 \u5355\u4f4d\uff08\u975e\u5206\u4f4d\u5bf9\u6bd4\uff09\u3002",
+    sprintf("\u6570\u636e\u5e93\uff1a%s\u3002\u662f\u5426\u62fc\u56fe\uff1a\u5426\u3002", database)
+  )
+  writeLines(lines, md_path, useBytes = TRUE)
+  invisible(md_path)
+}
+
 ckm_stroke_pub_digits <- function() {
   base <- list(est = 3L, p = 3L, desc = 2L, pct = 1L, cutoff = 3L, int_big_mark = TRUE)
   ov <- getOption("pipeline.pub_digits", default = NULL)
@@ -2169,7 +2277,7 @@ ckm_stroke_forest_free_stats <- function(
     mice_maxit = 5L,
     mice_seed = 2026L) {
   .ckm_pub_ensure_literature()
-  if (!requireNamespace("forestploter", quietly = TRUE)) stop("need forestploter")
+  # 绘图改为逐格 grid（ckm_stroke_forest_draw_grid_pdf）；不再依赖 forestploter 出 PDF
   stopifnot(expo_raw %in% names(data))
   # 与 Table3 同口径：Age "< 60"/"≥ 60"；Smoke/Drink Never/Ever
   data <- ckm_stroke_prepare_forest_groups(data, age_labels_compact = FALSE, drop_extreme_bmi = TRUE)
@@ -2250,7 +2358,7 @@ ckm_stroke_forest_free_stats <- function(
   sub_specs <- list(
     list(var = "Age_Group", label = "Age, years", drop = "Age"),
     list(var = "Gender", label = "Gender", drop = "Gender"),
-    list(var = "BMI_Group", label = "BMI, kg/m\u00b2", drop = "BMI"),
+    list(var = "BMI_Group", label = "BMI, kg/m2", drop = "BMI"),
     list(var = "Education", label = "Education", drop = "Education"),
     list(var = "Smoke_ne", label = "Smoke", drop = "Smoke"),
     list(var = "Drink_ne", label = "Drink", drop = "Drink"),
@@ -2398,37 +2506,29 @@ ckm_stroke_forest_free_stats <- function(
   rownames(plot_df) <- NULL
   if (!nrow(plot_df)) stop("empty forest rows")
 
-  disp_cols <- c("Subgroup", "Total", "Event (%)", effect_lab, " ", "P for interaction")
-  disp <- plot_df[, disp_cols, drop = FALSE]
-  pint_col <- "P for interaction"
-  disp[[pint_col]] <- ifelse(
-    nzchar(as.character(disp[[pint_col]])),
-    paste0(as.character(disp[[pint_col]]), "   "),
-    paste(rep(" ", 12L), collapse = "")
-  )
-  teal <- "#008B8B"
-  .ff_forest <- if (exists("resolve_plot_font_family", mode = "function")) {
-    resolve_plot_font_family("Times New Roman")
-  } else {
-    "serif"
+  # 展示层：去掉易触发 CID / texttrace 合并的 Unicode（碰撞审计假阳性根因）
+  .ckm_forest_ascii <- function(x) {
+    x <- as.character(x %||% "")
+    x <- gsub("\u2265", ">=", x, fixed = TRUE)
+    x <- gsub("\u2264", "<=", x, fixed = TRUE)
+    x <- gsub("\u00b2", "2", x, fixed = TRUE)
+    x <- gsub("\u2013", "-", x, fixed = TRUE)
+    x <- gsub("\u2014", "-", x, fixed = TRUE)
+    x <- gsub("\u00d7", "x", x, fixed = TRUE)
+    x
   }
-  tm <- forestploter::forest_theme(
-    base_size = 9,
-    refline_gp = grid::gpar(lty = 1, col = "grey60", lwd = 1),
-    ci_pch = 16, ci_col = teal, ci_fill = teal, ci_alpha = 1,
-    ci_lty = 1, ci_lwd = 1.6, ci_Theight = 0,
-    xaxis_gp = grid::gpar(fontsize = 7.5, col = "grey20", fontfamily = .ff_forest),
-    core = list(fg_params = list(hjust = 0, x = 0.01, fontfamily = .ff_forest),
-                bg_params = list(fill = "white")),
-    colhead = list(fg_params = list(hjust = 0, x = 0.01, fontface = "bold", fontfamily = .ff_forest))
-  )
+  for (cn in names(plot_df)) {
+    if (is.character(plot_df[[cn]]) || is.factor(plot_df[[cn]])) {
+      plot_df[[cn]] <- .ckm_forest_ascii(plot_df[[cn]])
+    }
+  }
+  effect_lab <- .ckm_forest_ascii(effect_lab)
+
   est <- as.numeric(plot_df$`Point Estimate`)
   lo <- as.numeric(plot_df$Lower)
   hi <- as.numeric(plot_df$Upper)
   bad <- !(is.finite(est) & is.finite(lo) & is.finite(hi) & est > 0 & lo > 0 & hi > 0)
   est[bad] <- lo[bad] <- hi[bad] <- NA_real_
-  # 自适应 log 轴：WWI 等 per-unit ~1 时仍落在窄轴；ABSI 等小量纲指数
-  # per-unit OR/HR 常为 5–30+，旧硬封顶 xlim=4 会使全部 CI 落在轴外→全是箭头。
   xlim <- c(0.15, 1.8)
   finite_lo <- lo[is.finite(lo) & lo > 0]
   finite_hi <- hi[is.finite(hi) & hi > 0]
@@ -2444,18 +2544,15 @@ ckm_stroke_forest_free_stats <- function(
     }
     est_cap <- if (length(finite_est)) max(finite_est) * 1.4 else 1.3
     xlim[2] <- max(1.3, hi_q, est_cap)
-    # 软顶：极端稀疏层（如 Diabetes Yes 上界上千）仍可出箭头，主效应须可见
     xlim[2] <- min(xlim[2], 100)
   }
-  if (!(is.finite(xlim[1]) && xlim[1] > 0 && is.finite(xlim[2]) && xlim[2] > xlim[1])) xlim <- c(0.2, 2)
-  lo_draw <- pmax(lo, xlim[1] * 0.999); hi_draw <- pmin(hi, xlim[2] * 1.001)
-  lo_draw[!is.finite(lo)] <- NA_real_; hi_draw[!is.finite(hi)] <- NA_real_
-  # 稀疏刻度；宽轴时补 5/10/20/50/100，避免只剩 0.25–4
+  if (!(is.finite(xlim[1]) && xlim[1] > 0 && is.finite(xlim[2]) && xlim[2] > xlim[1])) {
+    xlim <- c(0.2, 2)
+  }
   ticks_cand <- c(0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100)
   ticks <- ticks_cand[ticks_cand >= xlim[1] * 0.98 & ticks_cand <= xlim[2] * 1.02]
   if (!any(abs(ticks - 1) < 1e-8)) ticks <- sort(unique(c(ticks, 1)))
   if (length(ticks) < 2L) ticks <- sort(unique(c(xlim[1], 1, xlim[2])))
-  # 若仍偏密（相邻比 <1.6），再抽稀
   if (length(ticks) >= 4L) {
     keep <- rep(TRUE, length(ticks))
     last <- ticks[1]
@@ -2469,89 +2566,41 @@ ckm_stroke_forest_free_stats <- function(
     ticks <- ticks[keep]
   }
 
-  p <- forestploter::forest(
-    disp, est = est, lower = lo_draw, upper = hi_draw, sizes = 0.4,
-    ci_column = which(disp_cols == " ")[1L], ref_line = 1,
-    xlim = xlim, ticks_at = ticks, x_trans = "log", theme = tm
-  )
-  p <- forestploter::edit_plot(p, part = "header", gp = grid::gpar(fontface = "bold"))
-  hdr <- which(isTRUE(plot_df$is_header) | plot_df$is_header %in% TRUE)
-  if (length(hdr)) p <- forestploter::edit_plot(p, row = hdr, gp = grid::gpar(fontface = "bold"))
-  pint_idx <- which(disp_cols == pint_col)[1L]
-  if (!is.null(p$widths) && is.finite(pint_idx)) {
-    g_pint <- as.integer(pint_idx) + 1L
-    if (g_pint >= 1L && g_pint <= length(p$widths)) {
-      cur <- tryCatch(as.numeric(grid::convertWidth(p$widths[[g_pint]], "in", valueOnly = TRUE)),
-                      error = function(e) NA_real_)
-      if (!is.finite(cur) || cur < 0.55) cur <- 0.7
-      p$widths[[g_pint]] <- grid::unit(max(cur, 0.95), "in")
-    }
-  }
-  # 加宽 CI 列，减轻刻度拥挤
-  ci_idx <- which(disp_cols == " ")[1L]
-  if (!is.null(p$widths) && is.finite(ci_idx)) {
-    g_ci <- as.integer(ci_idx) + 1L
-    if (g_ci >= 1L && g_ci <= length(p$widths)) {
-      cur_ci <- tryCatch(as.numeric(grid::convertWidth(p$widths[[g_ci]], "in", valueOnly = TRUE)),
-                         error = function(e) NA_real_)
-      if (!is.finite(cur_ci)) cur_ci <- 1.6
-      p$widths[[g_ci]] <- grid::unit(max(cur_ci, 2.2), "in")
-    }
-  }
-  if (!is.null(p$layout) && "clip" %in% names(p$layout)) p$layout$clip[] <- "off"
-
   ud_lab <- ckm_stroke_unit_delta_label(unit_delta)
   if (!is.null(imp)) {
     sd_note <- c(
       sprintf(
-        "Per %s increase in %s, the same scale as Tables 2 and S1. Overall n = %s (%s events) is the analytic cohort.",
+        "Per %s increase in %s, same scale as Tables 2/S1. Overall n=%s (%s events).",
         ud_lab, as.character(expo_lab)[1L], format(n_tot, big.mark = ","), format(n_evt, big.mark = ",")
       ),
       sprintf(
-        "Missing Model 3 covariates (%s) are imputed (mice, m=%d, seed=%d). Interaction P is the pooled Wald test. Observed stratum levels can sum to less than Overall.",
+        "Missing Model 3 covariates (%s) imputed (mice m=%d, seed=%d); interaction P = pooled Wald.",
         paste(imp_labs, collapse = ", "), as.integer(mice_m), as.integer(mice_seed)
       )
     )
   } else if (identical(scale, "unit")) {
     sd_note <- sprintf(
-      "Per %s increase in %s, the same scale as the regression tables. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
+      "Per %s increase in %s; Model 3 covariates (stratum var dropped). P for interaction: LRT.",
       ud_lab, as.character(expo_lab)[1L]
     )
   } else {
     sd_note <- sprintf(
-      "Exposure: per 1-SD increase in %s (SD = %.3f). Continuous OR/HR in tables uses unit_delta=%s. Model 3 covariates (stratification variable dropped). P for interaction: LRT.",
-      as.character(expo_lab)[1L], sd_x, format(unit_delta, trim = TRUE)
+      "Per 1-SD increase in %s (SD=%.3f). Model 3 covariates (stratum var dropped). P for interaction: LRT.",
+      as.character(expo_lab)[1L], sd_x
     )
   }
-  fig_w <- 10.2
-  fig_h <- max(5.4, min(7.6, 0.245 * nrow(plot_df) + 1.35))
-  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
-    resolve_plot_font_family("Times New Roman")
-  } else {
-    "Times"
-  }
-  if (exists("pipeline_pdf_device", mode = "function")) {
-    pipeline_pdf_device(outfile, width = fig_w, height = fig_h)
-  } else {
-    grDevices::pdf(outfile, width = fig_w, height = fig_h, useDingbats = FALSE, family = .ff)
-  }
-  grid::grid.newpage()
-  # 上下留白：避免标题压 Subgroup 表头、脚注压横轴刻度
-  grid::pushViewport(grid::viewport(x = 0.5, y = 0.50, width = 0.98, height = 0.78))
-  grid::grid.draw(p)
-  grid::popViewport()
-  if (!is.null(title) && nzchar(title)) {
-    grid::grid.text(title, x = 0.02, y = 0.975, just = c("left", "top"),
-                    gp = grid::gpar(fontsize = 9, fontface = "bold", col = "grey15", fontfamily = .ff))
-  }
-  sd_note <- as.character(sd_note)
-  y0 <- 0.012 + 0.018 * (seq_along(sd_note) - 1L)
-  y0 <- rev(y0)
-  for (i in seq_along(sd_note)) {
-    grid::grid.text(sd_note[i], x = 0.02, y = y0[i], just = c("left", "bottom"),
-                    gp = grid::gpar(fontsize = 6.5, col = "grey25", fontfamily = .ff))
-  }
-  grDevices::dev.off()
+  sd_note <- .ckm_forest_ascii(as.character(sd_note))
+
+  # 逐格 grid 绘制（禁止 forestploter 整列 texttrace 膨胀 → collision FAIL）
+  ckm_stroke_forest_draw_grid_pdf(
+    outfile = outfile,
+    plot_df = plot_df,
+    effect_lab = effect_lab,
+    est = est, lo = lo, hi = hi,
+    xlim = xlim, ticks = ticks,
+    title = title,
+    footnotes = sd_note
+  )
   attr(plot_df, "sd") <- sd_x
   attr(plot_df, "unit_delta") <- unit_delta
   attr(plot_df, "exposure_scale") <- if (identical(scale, "sd")) {
@@ -2562,6 +2611,160 @@ ckm_stroke_forest_free_stats <- function(
     paste0("per_", format(unit_delta, trim = TRUE), "_unit")
   }
   invisible(plot_df)
+}
+
+#' 亚组森林 PDF：逐格 grid.text（Times 系），避免 forestploter CID/texttrace 假碰撞
+ckm_stroke_forest_draw_grid_pdf <- function(
+    outfile, plot_df, effect_lab, est, lo, hi, xlim, ticks,
+    title = NULL, footnotes = character(0)) {
+  stopifnot(is.data.frame(plot_df), nrow(plot_df) > 0L)
+  .ff <- if (exists("resolve_plot_font_family", mode = "function")) {
+    resolve_plot_font_family("Times New Roman")
+  } else {
+    "serif"
+  }
+  n <- nrow(plot_df)
+  is_hdr <- isTRUE(plot_df$is_header) | plot_df$is_header %in% TRUE
+  if (length(is_hdr) != n) is_hdr <- rep(FALSE, n)
+  sg <- as.character(plot_df$Subgroup)
+  tot <- as.character(plot_df$Total)
+  ev <- as.character(plot_df[["Event (%)"]])
+  eff <- as.character(plot_df[[effect_lab]])
+  if (length(eff) != n) {
+    hit <- names(plot_df)[grepl("95%\\s*CI", names(plot_df), ignore.case = TRUE)][1L]
+    eff <- if (!is.na(hit)) as.character(plot_df[[hit]]) else rep("", n)
+  }
+  pint <- as.character(plot_df[["P for interaction"]])
+  headers <- c("Subgroup", "Total", "Event (%)", effect_lab, " ", "P for interaction")
+  # 列相对宽度（NPC，左表 + 右森林）
+  col_w <- c(0.22, 0.08, 0.10, 0.18, 0.28, 0.12)
+  col_w <- col_w / sum(col_w)
+  col_x0 <- c(0, cumsum(col_w)[-length(col_w)])
+  col_xc <- col_x0 + col_w / 2
+  fig_w <- 10.4
+  fig_h <- max(5.8, min(9.2, 0.28 * n + 2.0))
+  if (exists("pipeline_pdf_device", mode = "function")) {
+    pipeline_pdf_device(outfile, width = fig_w, height = fig_h)
+  } else {
+    grDevices::pdf(outfile, width = fig_w, height = fig_h, useDingbats = FALSE, family = .ff)
+  }
+  on.exit(grDevices::dev.off(), add = TRUE)
+  grid::grid.newpage()
+  # 布局：顶标题 / 中表体 / 底脚注（拉开脚注行距，消 text-text FAIL）
+  if (!is.null(title) && nzchar(as.character(title)[1L])) {
+    grid::grid.text(
+      as.character(title)[1L], x = 0.02, y = 0.975, just = c("left", "top"),
+      gp = grid::gpar(fontsize = 9, fontface = "bold", col = "grey15", fontfamily = .ff)
+    )
+  }
+  grid::pushViewport(grid::viewport(x = 0.5, y = 0.54, width = 0.96, height = 0.78))
+  # 表头 + 数据行（含表头共 n+1 行）
+  n_row <- n + 1L
+  y_top <- 0.98
+  y_bot <- 0.08
+  row_h <- (y_top - y_bot) / n_row
+  y_at <- function(i) y_top - (i - 0.5) * row_h  # i=1 header
+  # 表头
+  for (j in seq_along(headers)) {
+    lab <- headers[[j]]
+    if (!nzchar(trimws(lab))) next
+    grid::grid.text(
+      lab, x = col_x0[j] + 0.01, y = y_at(1L), just = c("left", "center"),
+      gp = grid::gpar(fontsize = 8, fontface = "bold", fontfamily = .ff, col = "grey10")
+    )
+  }
+  grid::grid.lines(
+    x = c(0.01, 0.99), y = y_at(1L) - row_h * 0.45,
+    gp = grid::gpar(col = "grey30", lwd = 0.8)
+  )
+  # 数据
+  teal <- "#008B8B"
+  log_x <- function(v) {
+    (log(v) - log(xlim[1])) / (log(xlim[2]) - log(xlim[1]))
+  }
+  ci_x0 <- col_x0[5]
+  ci_w <- col_w[5]
+  # 参考线 x=1
+  x_ref <- ci_x0 + ci_w * log_x(1)
+  grid::grid.lines(
+    x = c(x_ref, x_ref), y = c(y_bot + 0.01, y_top - row_h),
+    gp = grid::gpar(col = "grey55", lwd = 1)
+  )
+  for (i in seq_len(n)) {
+    yi <- y_at(i + 1L)
+    face <- if (isTRUE(is_hdr[i])) "bold" else "plain"
+    vals <- c(sg[i], tot[i], ev[i], eff[i], "", pint[i])
+    for (j in seq_along(vals)) {
+      lab <- trimws(vals[[j]])
+      if (!nzchar(lab) || j == 5L) next
+      grid::grid.text(
+        lab, x = col_x0[j] + 0.01, y = yi, just = c("left", "center"),
+        gp = grid::gpar(fontsize = 7.5, fontface = face, fontfamily = .ff, col = "grey10")
+      )
+    }
+    if (is.finite(est[i]) && is.finite(lo[i]) && is.finite(hi[i])) {
+      lo_c <- max(lo[i], xlim[1])
+      hi_c <- min(hi[i], xlim[2])
+      x0 <- ci_x0 + ci_w * log_x(lo_c)
+      x1 <- ci_x0 + ci_w * log_x(hi_c)
+      xm <- ci_x0 + ci_w * log_x(min(max(est[i], xlim[1]), xlim[2]))
+      grid::grid.lines(
+        x = c(x0, x1), y = c(yi, yi),
+        gp = grid::gpar(col = teal, lwd = 1.5)
+      )
+      # 轴外箭头
+      if (lo[i] < xlim[1]) {
+        grid::grid.lines(
+          x = c(ci_x0 + 0.01, ci_x0 + ci_w * log_x(xlim[1])), y = c(yi, yi),
+          arrow = grid::arrow(length = grid::unit(0.08, "inches"), ends = "first", type = "open"),
+          gp = grid::gpar(col = teal, lwd = 1.2)
+        )
+      }
+      if (hi[i] > xlim[2]) {
+        grid::grid.lines(
+          x = c(ci_x0 + ci_w * log_x(xlim[2]), ci_x0 + ci_w - 0.01), y = c(yi, yi),
+          arrow = grid::arrow(length = grid::unit(0.08, "inches"), ends = "last", type = "open"),
+          gp = grid::gpar(col = teal, lwd = 1.2)
+        )
+      }
+      grid::grid.points(
+        x = xm, y = yi, pch = 16, size = grid::unit(0.08, "inches"),
+        gp = grid::gpar(col = teal)
+      )
+    }
+  }
+  # x 轴刻度
+  for (tk in ticks) {
+    if (!(is.finite(tk) && tk > 0 && tk >= xlim[1] && tk <= xlim[2])) next
+    xx <- ci_x0 + ci_w * log_x(tk)
+    grid::grid.lines(
+      x = c(xx, xx), y = c(y_bot, y_bot + 0.012),
+      gp = grid::gpar(col = "grey30", lwd = 0.7)
+    )
+    grid::grid.text(
+      format(tk, trim = TRUE), x = xx, y = y_bot - 0.01, just = c("center", "top"),
+      gp = grid::gpar(fontsize = 7, fontfamily = .ff, col = "grey20")
+    )
+  }
+  grid::grid.lines(
+    x = c(ci_x0, ci_x0 + ci_w), y = c(y_bot, y_bot),
+    gp = grid::gpar(col = "grey30", lwd = 0.8)
+  )
+  grid::popViewport()
+  # 脚注：行距拉开，禁止两行 bbox 叠在一起
+  fn <- as.character(footnotes %||% character(0))
+  fn <- fn[nzchar(trimws(fn))]
+  if (length(fn)) {
+    for (i in seq_along(fn)) {
+      yy <- 0.055 - (i - 1L) * 0.028
+      if (yy < 0.008) break
+      grid::grid.text(
+        fn[[i]], x = 0.02, y = yy, just = c("left", "bottom"),
+        gp = grid::gpar(fontsize = 6.5, col = "grey25", fontfamily = .ff)
+      )
+    }
+  }
+  invisible(outfile)
 }
 
 # -----------------------------------------------------------------------------
@@ -2643,10 +2846,18 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
     sensitivity_note = NULL,
     limitations_note = NULL,
     # osteoporosis: 暴露 W4+W6、结局 W8；masld: 暴露 W2+W4、结局 W6
-    elsa_wave_scheme = c("osteoporosis", "masld")) {
+    elsa_wave_scheme = c("osteoporosis", "masld"),
+    formula_expr = NULL) {
   covariate_scheme <- match.arg(covariate_scheme)
   elsa_wave_scheme <- match.arg(elsa_wave_scheme)
   ix <- as.character(index_lab %||% "index")[1L]
+  .fx <- as.character(formula_expr %||% NA_character_)[1L]
+  if (!nzchar(.fx) || is.na(.fx)) .fx <- ckm_stroke_index_formula_expr(ix)
+  .fx_sentence <- if (!is.na(.fx) && nzchar(.fx)) {
+    sprintf("%s was calculated as %s. ", ix, .fx)
+  } else {
+    ""
+  }
   ud <- if (is.null(unit_delta)) ckm_stroke_cont_unit_delta(ix) else as.numeric(unit_delta)[1L]
   if (!is.finite(ud) || ud <= 0) ud <- 1
   ud_lab <- ckm_stroke_unit_delta_label(ud)
@@ -2699,8 +2910,9 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
   }
   exposure_para <- if (is_elsa && is_masld) {
     paste0(
+      .fx_sentence,
       sprintf(
-        "Wave-specific %s used the standard anthropometric definition available in the harmonised files. Cumulative exposure was ((%s Wave 2 + %s Wave 4)/2) \u00d7 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 2 and Wave 4 values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 2 mean range. ",
+        "Wave-specific %s used the formula above (or the study anthropometric definition when no closed form is listed). Cumulative exposure was ((%s Wave 2 + %s Wave 4)/2) \u00d7 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 2 and Wave 4 values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 2 mean range. ",
         ix, ix, ix, ud_lab, .k_sentence
       ),
       "The regression reference class was re-selected for each index (not hard-coded to Class 2): higher-worse indices use the lowest Wave-2 mean class; higher-better indices (eGDR) use the highest Wave-2 mean class.",
@@ -2712,8 +2924,9 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
     )
   } else if (is_elsa) {
     paste0(
+      .fx_sentence,
       sprintf(
-        "Wave-specific %s used the standard anthropometric definition available in the harmonised files. Cumulative exposure was ((%s Wave 4 + %s Wave 6)/2) \u00d7 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 4 and Wave 6 values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 4 mean range. ",
+        "Wave-specific %s used the formula above (or the study anthropometric definition when no closed form is listed). Cumulative exposure was ((%s Wave 4 + %s Wave 6)/2) \u00d7 4 (ELSA wave span). Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized Wave 4 and Wave 6 values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class Wave 4 mean range. ",
         ix, ix, ix, ud_lab, .k_sentence
       ),
       "The regression reference class was re-selected for each index (not hard-coded to Class 2): higher-worse indices use the lowest Wave-4 mean class; higher-better indices (eGDR) use the highest Wave-4 mean class.",
@@ -2724,14 +2937,12 @@ ckm_stroke_elsa_methods_statistical_lines <- function(
       }
     )
   } else {
-    .absi_formula <- if (identical(toupper(ix), "ABSI")) {
-      " ABSI followed Krakauer (metres): (WC/100) / (BMI^(2/3) \u00d7 (Height/100)^(1/2)), with WC and Height stored in centimetres. "
-    } else {
-      " "
-    }
-    sprintf(
-      "Wave-specific %s used the study anthropometric definition.%sCumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
-      ix, .absi_formula, ud_lab, .k_sentence
+    paste0(
+      .fx_sentence,
+      sprintf(
+        "Wave-specific %s used the formula above (or the study anthropometric definition when no closed form is listed). Cumulative exposure pooled the two analysis waves as defined in the project config. Continuous association estimates are reported per %s increase. Trajectory classes used k-means on unstandardized two-wave values (nstart = 25, seed = 2026, iter.max = 100); %s Class display names follow the observed mean trajectory; a decline is labelled rapid only when the absolute mean change is at least 25%% of the between-class first-wave mean range.",
+        ix, ud_lab, .k_sentence
+      )
     )
   }
   outcome_para <- if (is_elsa && is_masld) {
@@ -2864,7 +3075,10 @@ ckm_stroke_finalize_summary_delivery <- function(
     covariate_note = NULL,
     sensitivity_note = NULL,
     limitations_note = NULL,
-    elsa_wave_scheme = c("osteoporosis", "masld")) {
+    elsa_wave_scheme = c("osteoporosis", "masld"),
+    formula_expr = NULL,
+    forest_s2_rows = NULL,
+    forest_s3_rows = NULL) {
   covariate_scheme <- match.arg(covariate_scheme)
   elsa_wave_scheme <- match.arg(elsa_wave_scheme)
   sr <- as.character(summary_root %||% "")[1L]
@@ -2922,7 +3136,8 @@ ckm_stroke_finalize_summary_delivery <- function(
     covariate_note = covariate_note,
     sensitivity_note = sensitivity_note,
     limitations_note = limitations_note,
-    elsa_wave_scheme = elsa_wave_scheme
+    elsa_wave_scheme = elsa_wave_scheme,
+    formula_expr = formula_expr
   )
   lines <- lines[!vapply(lines, is.null, logical(1))]
   md_path <- file.path(sr, "Methods_statistical_analysis.md")
@@ -2998,6 +3213,45 @@ ckm_stroke_finalize_summary_delivery <- function(
         }
         file.rename(.ff, file.path(.arch, basename(.ff)))
       }
+    }
+    # 森林图 md：覆盖 ensure_formats 的「未收获」壳（有行表才写）
+    .imd <- file.path(fig_dir, "image_information")
+    .ix_disp <- if (exists("pipeline_display_label", mode = "function")) {
+      pipeline_display_label(index_lab)
+    } else {
+      gsub("_", " ", as.character(index_lab)[1L], fixed = TRUE)
+    }
+    if (!is.null(forest_s2_rows)) {
+      try(
+        ckm_stroke_write_forest_image_md(
+          forest_s2_rows,
+          file.path(.imd, sprintf("Figure S2. Cumulative %s subgroup HR.md", .ix_disp)),
+          stem = sprintf("Figure S2. Cumulative %s subgroup HR", .ix_disp),
+          index_lab = .ix_disp,
+          effect_lab = "HR",
+          model3_covars = model3_covars,
+          n_analytic = n_analytic,
+          database = database,
+          outcome_lab = outcome_lab
+        ),
+        silent = TRUE
+      )
+    }
+    if (!is.null(forest_s3_rows)) {
+      try(
+        ckm_stroke_write_forest_image_md(
+          forest_s3_rows,
+          file.path(.imd, sprintf("Figure S3. Cumulative %s subgroup OR.md", .ix_disp)),
+          stem = sprintf("Figure S3. Cumulative %s subgroup OR", .ix_disp),
+          index_lab = .ix_disp,
+          effect_lab = "OR",
+          model3_covars = model3_covars,
+          n_analytic = n_analytic,
+          database = database,
+          outcome_lab = outcome_lab
+        ),
+        silent = TRUE
+      )
     }
   }
   # 图文件名禁下划线（展示层）
