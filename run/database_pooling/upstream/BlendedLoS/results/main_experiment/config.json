@@ -1,0 +1,102 @@
+{
+  "Experiment_name": "main_experiment",
+  "config": {
+    "datasets": [
+      "mimic4",
+      "eicu",
+      "amsterdam",
+      "hirid"
+    ],
+    "exp_name": "TPC",
+    "dataset": "blended",
+    "disable_cuda": false,
+    "external_validation": null,
+    "equal_samples": true,
+    "batch_size_test": 32,
+    "batch_size_val": 32,
+    "batch_size_train": 32,
+    "patience": 10,
+    "n_epochs": 200,
+    "min_los": 0.0208,
+    "max_los": 10,
+    "shuffle_train": false,
+    "percentage_trainval": 75,
+    "percentage_test": 50,
+    "percentage_trainval_dic": {
+      "mimic4": 75
+    },
+    "percentage_test_dic": {
+      "mimic4": 50,
+      "eicu": 50,
+      "amsterdam": 50,
+      "hirid": 50
+    },
+    "task": "multitask",
+    "loss": "msle",
+    "sum_losses": false,
+    "ignore_los_dc": true,
+    "alpha": 20,
+    "max_n_batch": Infinity,
+    "no_exp": true,
+    "main_dropout_rate": 0.45,
+    "L2_regularisation": 0,
+    "last_linear_size": 17,
+    "batchnorm": false,
+    "train_on": [
+      "mimic4"
+    ],
+    "use_flat": true,
+    "use_med": true,
+    "use_vitals": true,
+    "use_resp": false,
+    "use_lab": true,
+    "use_US_indicator": false,
+    "time_before_pred": 5,
+    "time_start": "26-10-10_171836",
+    "results_dir": "results/",
+    "test_at_each_epoch": false,
+    "from_pretrained": false,
+    "use_as_pretrained": true,
+    "pretrained_model_pth": null,
+    "retrain_last_layer_only": true,
+    "n_layers": 9,
+    "kernel_size": 4,
+    "n_temp_kernels": 12,
+    "point_size": 13,
+    "learning_rate": 0.0001,
+    "temp_dropout_rate": 0.05,
+    "share_weights": false,
+    "temp_kernels": [
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12
+    ],
+    "point_sizes": [
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13
+    ],
+    "los_task": true,
+    "mort_task": true,
+    "jobname": "mimic4_75",
+    "basedir": "results//main_experiment/mimic4_75/multitask/TPC",
+    "savedir": "results//main_experiment/mimic4_75/multitask/TPC/26-10-10_171836",
+    "tag": "mimic4",
+    "datareader_pth": "extraction/train_on_mimic4/"
+  },
+  "runs": [
+    {}
+  ]
+}
